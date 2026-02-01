@@ -70,8 +70,8 @@ namespace GUZ.Core.Creator
                 {
                     // For each edge, create two entries: one for each direction of the edge.
                     // 'a' is the source waypoint, 'b' is the destination waypoint.
-                    new { a = wayPoints[edge.A], b = wayPoints[edge.B] },
-                    new { a = wayPoints[edge.B], b = wayPoints[edge.A] }
+                    new { a = edge.A, b = edge.B },
+                    new { a = edge.B, b = edge.A }
                 })
                 .GroupBy(x => x.a.Name) // Group the entries by the name of the source waypoint.
                 .ToDictionary(g => g.Key, g =>
@@ -149,8 +149,8 @@ namespace GUZ.Core.Creator
 
             foreach (var edge in world.WayNet.Edges)
             {
-                var startPos = world.WayNet.Points[edge.A].Position.ToUnityVector();
-                var endPos = world.WayNet.Points[edge.B].Position.ToUnityVector();
+                var startPos = edge.A.Position.ToUnityVector();
+                var endPos = edge.B.Position.ToUnityVector();
                 var lineObj = new GameObject();
 
                 lineObj.AddComponent<LineRenderer>();
@@ -161,7 +161,7 @@ namespace GUZ.Core.Creator
                 lr.SetPosition(0, startPos);
                 lr.SetPosition(1, endPos);
 
-                lineObj.name = $"{edge.A}->{edge.B}";
+                lineObj.name = $"{edge.A.Name}->{edge.B.Name}";
                 lineObj.transform.position = startPos;
                 lineObj.transform.parent = waypointEdgesObj.transform;
             }

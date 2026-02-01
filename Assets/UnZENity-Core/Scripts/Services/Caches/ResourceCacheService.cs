@@ -46,6 +46,9 @@ namespace GUZ.Core.Services.Caches
             var diskPaths = FindDiskPaths(root);
 
             diskPaths.ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.Older));
+            
+            // FIXME - As some mods tend to load thousands of additional files from local file system, we can also dynamically check when these files are
+            //         requested and load them at that time. Saving multiple minutes of potential loading time.
             Vfs.Mount(Path.GetFullPath(workPath), "/_work", VfsOverwriteBehavior.Older);
 
             _dmLoader.AddResolver(name =>
