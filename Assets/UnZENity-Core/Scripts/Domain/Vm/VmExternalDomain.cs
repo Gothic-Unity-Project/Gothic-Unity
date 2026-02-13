@@ -165,6 +165,7 @@ namespace GUZ.Core.Domain.Vm
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int>("EquipItem", EquipItem);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetDistToNpc", Npc_GetDistToNpc);
+            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedArmor", Npc_HasEquippedArmor);
             vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetEquippedMeleeWeapon", Npc_GetEquippedMeleeWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedMeleeWeapon", Npc_HasEquippedMeleeWeapon);
@@ -842,6 +843,12 @@ namespace GUZ.Core.Domain.Vm
         {
             var dist = _npcAiService.ExtNpcGetDistToNpc(npc1, npc2);
             return LogInstantExternal(nameof(Npc_GetDistToNpc), dist, npc1, npc2);
+        }
+
+        public int Npc_GetHeightToNpc(NpcInstance npc1, NpcInstance npc2)
+        {
+            var height = _npcAiService.ExtNpcGetHeightToNpc(npc1, npc2);
+            return LogInstantExternal(nameof(Npc_GetHeightToNpc), height, npc1, npc2);
         }
 
         public int Npc_HasEquippedArmor(NpcInstance npc)
