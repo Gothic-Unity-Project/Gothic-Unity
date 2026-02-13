@@ -46,7 +46,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
             {
                 if (nodeObject.name == "BIP01 L HAND" || nodeObject.name == "BIP01 R HAND")
                 {
-                    var capsuleCollider = nodeObject.AddComponent<FistFightAdapter>();
+                    // var capsuleCollider = nodeObject.AddComponent<FistFightAdapter>();
                 }
             }
         }
