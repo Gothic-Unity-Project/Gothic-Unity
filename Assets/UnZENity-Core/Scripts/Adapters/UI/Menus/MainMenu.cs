@@ -34,7 +34,7 @@ namespace GUZ.Core.Adapters.UI.Menus
             MenuHandler.ToggleVisibility();
             if (commandName == "NEW_GAME")
             {
-                _bootstrapService.LoadWorld(ConfigService.GothicGame.World, 0, SceneManager.GetActiveScene().name);
+                _bootstrapService.LoadWorld(ConfigService.GothicMod.World, 0, SceneManager.GetActiveScene().name);
             }
         }
 

@@ -62,7 +62,7 @@ namespace GUZ.Core.Adapters.Scenes
             var world = _configService.Dev.PreselectWorldToSpawn;
 
             if (world == DeveloperConfigEnums.WorldToSpawn.None)
-                return _configService.GothicGame.World;
+                return _configService.GothicMod.World;
             else
                 return DeveloperConfigEnums.WorldMappings[world];
         }

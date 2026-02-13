@@ -1,6 +1,8 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using GUZ.Core.Domain.Config;
 using GUZ.Core.Models.Config;
+using MyBox;
 using ZenKit;
 
 namespace GUZ.Core.Services.Config
@@ -16,7 +18,7 @@ namespace GUZ.Core.Services.Config
         public JsonRootConfig Root { get; private set; }
         public DeveloperConfig Dev { get; private set; }
         public GothicIniConfig Gothic { get; private set; }
-        public GothicGameIniConfig GothicGame { get; private set; }
+        public GothicModIniConfig GothicMod { get; private set; }
 
 
         /// <summary>
@@ -45,10 +47,16 @@ namespace GUZ.Core.Services.Config
         {
             var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
             var gothicIniPath = Path.Combine(rootPath, "system/Gothic.ini");
-            var gothicGameIniPath = Path.Combine(rootPath, "system/GothicGame.ini");
+            
+            var gothicModIniPath = Path.Combine(rootPath, "system");
+            gothicModIniPath =
+                Path.Combine(gothicModIniPath, Dev.ModIni.IsNullOrEmpty() ? "GothicGame.ini" : Dev.ModIni);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
-            GothicGame = new GothicGameIniConfig(IniLoader.LoadFile(gothicGameIniPath), gothicGameIniPath);
+            GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
+            
+            if (!GothicMod.IsLoaded)
+                throw new ArgumentException($"GothicMod Ini file not found: {gothicModIniPath}");
             
             GlobalEventDispatcher.GothicInisInitialized.Invoke();
         }
