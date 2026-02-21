@@ -3,12 +3,15 @@ using System.Linq;
 using GUZ.Core.Domain.Vm;
 using GUZ.Core.Extensions;
 using Reflex.Attributes;
+using ZenKit;
 
 namespace GUZ.Core.Services.Vm
 {
     public class VmService
     {
         [Inject] private readonly GameStateService _gameStateService;
+        
+        public DaedalusVm Vm => _gameStateService.GothicVm;
         
         //
         // Daedalus

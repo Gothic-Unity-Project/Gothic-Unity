@@ -42,6 +42,7 @@ namespace GUZ.Core.Models.Caches
         VobLight,
         VobMover,
         VobTriggerChangeLevel,
+        VobTriggerScript,
 
         VobItem,
         VobItemLockPick,

@@ -72,6 +72,7 @@ namespace GUZ.Core.Services.Vobs
             VirtualObjectType.zCMover,
             VirtualObjectType.zCPFXController,
             VirtualObjectType.zCTriggerList,
+            VirtualObjectType.oCTriggerScript,
             VirtualObjectType.zCVobLevelCompo
         };
 

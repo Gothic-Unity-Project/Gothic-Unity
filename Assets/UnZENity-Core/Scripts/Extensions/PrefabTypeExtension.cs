@@ -46,6 +46,7 @@ namespace GUZ.Core.Extensions
                 PrefabType.VobLight => "Prefabs/Vobs/zCVobLight",
                 PrefabType.VobMover => "Prefabs/Vobs/zCMover",
                 PrefabType.VobTriggerChangeLevel => "Prefabs/Vobs/oCTriggerChangeLevel",
+                PrefabType.VobTriggerScript => "Prefabs/Vobs/oCTriggerScript",
                 
                 PrefabType.VobItem => "Prefabs/Vobs/oCItem",
                 PrefabType.VobItemLockPick => "Prefabs/Vobs/oCItem/LockPick",

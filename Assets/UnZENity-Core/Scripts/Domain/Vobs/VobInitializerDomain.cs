@@ -178,10 +178,12 @@ namespace GUZ.Core.Domain.Vobs
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
                     return;
+                case VirtualObjectType.oCTriggerScript:
+                    go = CreateTriggerScript((ITriggerScript)vob, parent);
+                    return;
                 case VirtualObjectType.zCVobScreenFX:
                 case VirtualObjectType.zCTriggerWorldStart:
                 case VirtualObjectType.oCCSTrigger:
-                case VirtualObjectType.oCTriggerScript:
                 case VirtualObjectType.zCVobLensFlare:
                 case VirtualObjectType.zCMoverController:
                 case VirtualObjectType.zCZoneZFog:
@@ -305,6 +307,9 @@ namespace GUZ.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.oCTriggerChangeLevel:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTriggerChangeLevel, name: name, parent: parent);
+                    break;
+                case VirtualObjectType.oCTriggerScript:
+                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTriggerScript, name: name, parent: parent);
                     break;
                 default:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.Vob, name: name, parent: parent);
@@ -652,6 +657,21 @@ namespace GUZ.Core.Domain.Vobs
             var triggerHandler = vobObj.GetComponent<ChangeLevelTriggerHandler>();
             triggerHandler.LevelName = vob.LevelName;
             triggerHandler.StartVob = vob.StartVob;
+            return vobObj;
+        }
+
+        private GameObject CreateTriggerScript(ITriggerScript vob, GameObject parent)
+        {
+            var vobObj = GetPrefab(vob, parent);
+
+            var min = vob.BoundingBox.Min.ToUnityVector();
+            var max = vob.BoundingBox.Max.ToUnityVector();
+            vobObj.transform.position = (min + max) / 2f;
+
+            vobObj.transform.localScale = max - min;
+            
+            vobObj.GetComponent<TriggerScriptHandler>().Init(vob);
+
             return vobObj;
         }
 
