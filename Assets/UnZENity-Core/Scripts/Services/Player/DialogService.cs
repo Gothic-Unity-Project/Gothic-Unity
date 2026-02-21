@@ -376,22 +376,25 @@ namespace GUZ.Core.Manager
         private void AddNpcInfoTold(int informationIndex)
         {
             var infoInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(informationIndex)!.Name;
-            var state = _saveGameService.Save.State;
-            
-            for (var i = 0; i < state.InfoStateCount; i++)
+            var allStates = _saveGameService.Save.State;
+
+            var infoState = new SaveInfoState
             {
-                if (state.GetInfoState(i).Name == infoInstanceName)
+                Name = infoInstanceName,
+                Told = true
+            };
+            
+            for (var i = 0; i < allStates.InfoStateCount; i++)
+            {
+                if (allStates.GetInfoState(i).Name == infoInstanceName)
                 {
-                    state.SetInfoState(i, new SaveInfoState
-                    {
-                        Name = infoInstanceName,
-                        Told = true
-                    });
+                    allStates.SetInfoState(i, infoState);
                     return;
                 }
             }
             
-            Logger.LogWarning($"Couldn't find NpcInfoTold entry for {infoInstanceName}", LogCat.Dialog);
+            // If not yet existing, then create it.
+            allStates.AddInfoState(infoState);
         }
 
         private GameObject GetGo(NpcInstance npc)
