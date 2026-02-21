@@ -1,8 +1,10 @@
 using GUZ.Core.Const;
+using GUZ.Core.Logging;
 using GUZ.Core.Services.Vm;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
+using Logger = GUZ.Core.Logging.Logger;
 
 namespace GUZ.Core.Adapters.Vob
 {
@@ -10,12 +12,12 @@ namespace GUZ.Core.Adapters.Vob
     {
         [Inject] private VmService _vmService;
         
-        private ITriggerScript _triggerScript;
+        private TriggerScript _triggerScript;
         
         
         public void Init(ITriggerScript triggerScript)
         {
-            _triggerScript = triggerScript;
+            _triggerScript = (TriggerScript)triggerScript;
         }
         
         private void OnTriggerEnter(Collider other)
@@ -24,7 +26,21 @@ namespace GUZ.Core.Adapters.Vob
             {
                 return;
             }
+
+            if (!_triggerScript.ReactToOnTouch)
+            {
+                Logger.LogWarning($"oCTriggerScript {other.gameObject.name} is triggering {_triggerScript.Function} but not for ReactOnTrigger." +
+                                  $"But any other trigger types aren't implemented yet.", LogCat.Vob);
+                return;
+            }
             
+            // If -1, then it can be triggered infinite. Only decrease if >0
+            if (_triggerScript.CountCanBeActivated > 0)
+                _triggerScript.CountCanBeActivated--;
+
+            if (_triggerScript.CountCanBeActivated == 0)
+                return;
+
             _vmService.Vm.Call(_triggerScript.Function);
         }
     }
