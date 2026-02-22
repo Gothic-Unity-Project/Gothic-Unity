@@ -5,10 +5,17 @@ namespace GUZ.Core.Services.Vm
     public class VmExternalService
     {
         private VmExternalDomain _domain = new();
+        private VmIkarusLeGoDomain _ikarusLeGoDomain = new();
+
         
         public void RegisterExternals()
         {
             _domain.RegisterExternals();
+        }
+
+        public void RegisterIkarusLeGo()
+        {
+            _ikarusLeGoDomain.Init();
         }
 
         /// <summary>

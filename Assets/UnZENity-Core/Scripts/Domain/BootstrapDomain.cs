@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using GUZ.Core.Const;
+using GUZ.Core.Logging;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Context;
@@ -13,6 +14,7 @@ using GUZ.Services.UI;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
+using Logger = GUZ.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain
 {
@@ -102,7 +104,27 @@ namespace GUZ.Core.Domain
             _gameStateService.GothicVm = _resourceCacheService.TryGetDaedalusVm("GOTHIC");
 
             _vmExternalService.RegisterExternals();
+            LoadIkarusLeGo();
+
             _npcHelperService.Init();
+        }
+
+        private void LoadIkarusLeGo()
+        {
+            var ikarusVersionSymbol = _gameStateService.GothicVm.GetSymbolByName("IKARUS_VERSION");
+
+            // No Ikarus in scripts, nothing to do.
+            if (ikarusVersionSymbol == null)
+                return;
+
+            var version = ikarusVersionSymbol.GetInt(0);
+
+            if (version != 10202)
+            {
+                Logger.LogWarning("Ikarus handling tested with version 10202 only. Expect anything and nothing.", LogCat.ZenKit);
+            }
+            
+            _vmExternalService.RegisterIkarusLeGo();
         }
         
         private void LoadMiscVMs()

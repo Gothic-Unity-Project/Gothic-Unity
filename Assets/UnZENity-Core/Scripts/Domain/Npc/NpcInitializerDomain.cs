@@ -138,10 +138,18 @@ namespace GUZ.Core.Domain.Npc
         {
             // We need to set self=... --> Otherwise we get an NPE C_NPC.id/.name is not in NULL object
             Vm.GlobalSelf = Vm.GlobalHero;
-
+            
+            if(Vm.GetSymbolByName("STARTUP_GLOBAL") != null)
+                _gameStateService.GothicVm.Call("STARTUP_GLOBAL");
+            
             // Inside Startup.d, it's always STARTUP_{MAPNAME} and INIT_{MAPNAME}
             // FIXME - Inside Startup.d some Startup_*() functions also call Init_*() some not. How to handle properly? (Force calling it here? Even if done twice?)
             _gameStateService.GothicVm.Call($"STARTUP_{_saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN")}");
+            
+            
+            if(Vm.GetSymbolByName("INIT_GLOBAL") != null)
+                Vm.Call("INIT_GLOBAL");
+
             _gameStateService.GothicVm.Call($"INIT_{_saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN")}"); // call init as well, as per opengothic
         }
 
