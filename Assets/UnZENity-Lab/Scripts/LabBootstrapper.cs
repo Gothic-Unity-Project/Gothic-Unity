@@ -109,14 +109,15 @@ namespace GUZ.Lab
         private void InitManager()
         {
             _configService.LoadRootJson();
-            _configService.LoadGothicInis(GameVersion.Gothic1);
+            _configService.LoadGothicInis(DeveloperConfig.GameVersion);
 
             _skyService.InitWorld(); // Add lighting to world. (otherwise VOBs/NPCs are black).
 
             ZenKit.Logger.Set(_configService.Dev.ZenKitLogLevel, Logger.OnZenKitLogMessage);
             DirectMusic.Logger.Set(_configService.Dev.DirectMusicLogLevel, Logger.OnDirectMusicLogMessage);
 
-            _resourceCacheService.Init(_configService.Root.Gothic1Path);
+            _resourceCacheService.Init(DeveloperConfig.GameVersion == GameVersion.Gothic1
+                ? _configService.Root.Gothic1Path : _configService.Root.Gothic2Path);
 
             _audioService.InitMusic();
             _staticCacheService.Init();
