@@ -204,8 +204,11 @@ namespace GUZ.Core.Services.Caches
         {
             // NOTE(lmichaelis): These are not cached, since they contain internal state
             //                   which should not be shared.
+            // AllowNullInstanceAccess - Ikarus fix.
             // IgnoreConstSpecifier - Ikarus fix. It is overwriting const entries multiple times.
-            return new DaedalusVm(Vfs, $"{GetPreparedKey(key)}.dat", DaedalusExecutionFlags.IgnoreConstSpecifier);
+            // TODO - both flags could be removed for non-Ikarus mods.
+            return new DaedalusVm(Vfs, $"{GetPreparedKey(key)}.dat",
+                DaedalusExecutionFlags.AllowNullInstanceAccess | DaedalusExecutionFlags.IgnoreConstSpecifier);
         }
 
         // FIXME - Should it be used without Gothic game version? Or better always call with it?
