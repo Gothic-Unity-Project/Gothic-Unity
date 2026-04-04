@@ -69,8 +69,6 @@ namespace GUZ.Core.Domain.Vm
 
             vm.OverrideFunction("MEMINT_SetupExceptionHandler", () => { });
             vm.OverrideFunction("MEMINT_ReplaceSlowFunctions", () => { });
-            vm.OverrideFunction<int, string>("MEMINT_HandleError", (errorType, text) =>
-                Logger.LogError($"[Ikarus] MEMINT_HandleError({errorType}): {text}", LogCat.ZenKit));
 
             vm.OverrideFunction("MEM_InitStatArrs", () => { });
             vm.OverrideFunction("MEM_InitRepeat", () => { });
