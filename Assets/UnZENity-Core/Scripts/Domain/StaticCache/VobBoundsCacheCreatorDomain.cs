@@ -76,6 +76,8 @@ namespace GUZ.Core.Domain.StaticCache
                 // Already cached
                 if (Bounds.ContainsKey(visualName))
                 {
+                    // Check children
+                    await CalculateVobBounds(vob.Children);
                     continue;
                 }
 
