@@ -418,8 +418,7 @@ namespace GUZ.Core.Domain.Culling
             {
                 // We can carefully disable this log as some elements aren't cached.
                 // e.g., when there is no texture like for OC_DECORATE_V4.3DS
-                Logger.LogError($"Couldn't find mesh bounds information from StaticCache for >{meshName}<.",
-                    LogCat.Mesh);
+                Logger.LogError($"Couldn't find mesh bounds information from StaticCache for >{meshName}<.", LogCat.Mesh);
                 return default;
             }
         }
