@@ -131,6 +131,7 @@ namespace GUZ.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string, int, int, string, int, int, int>("Mdl_SetVisualBody", Mdl_SetVisualBody);
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
+            vm.RegisterExternal<NpcInstance, string>("Mdl_RemoveOverlayMDS", Mdl_RemoveOverlayMDS);
 
             // Mission
 
@@ -614,6 +615,14 @@ namespace GUZ.Core.Domain.Vm
         public void Mdl_SetModelFatness(NpcInstance npc, float fatness)
         {
             _npcService.ExtSetModelFatness(npc, fatness);
+        }
+
+        private bool _isLoggedOnceRemoveOverlayMds;
+        public void Mdl_RemoveOverlayMDS(NpcInstance npc, string overlayName)
+        {
+            if (!_isLoggedOnceRemoveOverlayMds)
+                Logger.LogWarning("Method >Mdl_RemoveOverlayMDS< not yet implemented in DaedalusVM. Logging once only!", LogCat.ZenKit);
+            _isLoggedOnceRemoveOverlayMds = true;
         }
 
         #endregion
