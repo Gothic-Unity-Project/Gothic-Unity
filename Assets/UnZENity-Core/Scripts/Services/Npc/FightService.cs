@@ -17,15 +17,16 @@ namespace GUZ.Core.Services.Npc
         [Inject] private VmService _vmService;
         [Inject] private AnimationService _animationService;
         [Inject] private PhysicsService _physicsService;
+        [Inject] private NpcHelperService _npcHelperService;
 
         public void Init()
         {
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
         }
-        
-        private void OnHit(NpcContainer target, VobContainer weapon, Vector3 __)
+
+        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __)
         {
-            if (OnHitUpdateHealth(target, weapon))
+            if (OnHitUpdateHealth(attacker, target))
             {
                 target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                 OnDyingChangeAnimation(target);
@@ -41,25 +42,31 @@ namespace GUZ.Core.Services.Npc
         /// Handles health changes.
         /// Returns true if Npc/Monster is dead.
         /// </summary>
-        private bool OnHitUpdateHealth(NpcContainer target, VobContainer weapon)
+        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target)
         {
             // FIXME - We need to handle this via power and skill level of attacker, not weapon alone.
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
-            hitPoints -= weapon.GetItemInstance()!.DamageTotal;
-            
+
+            var equippedWeapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
+            // FIXME - Instead of 0, use fist value
+            // FIXME - Instead of DamageTotal, use calculated NPC/Hero value
+            var damage = equippedWeapon?.DamageTotal ?? 0;
+
+            hitPoints -= damage;
+
             target.Vob.SetAttribute((int)NpcAttribute.HitPoints, hitPoints);
 
             target.Go.GetComponentInChildren<StatusBarAdapter>(true)?.SetFillAmount(hitPoints, target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax));
 
             return hitPoints <= 0;
         }
-        
+
         private void OnDyingChangeAnimation(NpcContainer target)
         {
             // Stop current (attack) animation.
             target.Props.CurrentAction.StopImmediately();
             _physicsService.DisablePhysicsForNpc(target.PrefabProps);
-            
+
             var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, target);
             target.Props.AnimationQueue.Enqueue(new PlayAni(new(animName), target));
         }

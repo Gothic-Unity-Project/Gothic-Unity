@@ -1,5 +1,6 @@
 #if GUZ_HVR_INSTALLED
 using GUZ.Core;
+using GUZ.Core.Models.Container;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 
@@ -16,6 +17,7 @@ namespace GUZ.VR.Services
         }
 
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRWeaponService _vrWeaponService;
 
         private readonly HapticData[] _vibrationData =
         {
@@ -35,10 +37,10 @@ namespace GUZ.VR.Services
         public VrHapticsService()
         {
             // Fight
-            GlobalEventDispatcher.FightWindowAttack.AddListener((_, handSide) => AttackVibration(handSide, VibrationType.Success)); // Attack can happen now
-            GlobalEventDispatcher.FightWindowCombo.AddListener((_, handSide) => AttackVibration(handSide, VibrationType.Info)); // Now you can start another attack
-            GlobalEventDispatcher.FightWindowComboFailed.AddListener((_, handSide) => AttackVibration(handSide, VibrationType.Error)); // Attack window passed
-            
+            GlobalEventDispatcher.FightWindowAttack.AddListener(combatant => AttackVibration(combatant, VibrationType.Success)); // Attack can happen now
+            GlobalEventDispatcher.FightWindowCombo.AddListener(combatant => AttackVibration(combatant, VibrationType.Info)); // Now you can start another attack
+            GlobalEventDispatcher.FightWindowComboFailed.AddListener(combatant => AttackVibration(combatant, VibrationType.Error)); // Attack window passed
+
             // Lock picking
             GlobalEventDispatcher.LockPickComboWrong.AddListener((_, _, handSide) => Vibrate((HVRHandSide)handSide, VibrationType.Warning));
             GlobalEventDispatcher.LockPickComboBroken.AddListener((_, _, handSide) => Vibrate((HVRHandSide)handSide, VibrationType.Error));
@@ -46,8 +48,12 @@ namespace GUZ.VR.Services
             GlobalEventDispatcher.LockPickComboFinished.AddListener((_, _, handSide) => Vibrate((HVRHandSide)handSide, VibrationType.Success));
         }
 
-        private void AttackVibration(GlobalEventDispatcher.HandSide handSide, VibrationType vibrationType)
+        private void AttackVibration(NpcContainer combatant, VibrationType vibrationType)
         {
+            // Resolve which hand holds the weapon for this combatant.
+            // For NPCs attacking the player, we don't vibrate — only when it's the player's own attack.
+            var handSide = _vrWeaponService.GetHandSideForCombatant(combatant);
+
             switch (handSide)
             {
                 case GlobalEventDispatcher.HandSide.Both:

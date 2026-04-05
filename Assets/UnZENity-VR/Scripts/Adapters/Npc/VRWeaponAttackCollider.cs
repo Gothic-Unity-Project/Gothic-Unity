@@ -17,7 +17,7 @@ namespace GUZ.VR.Adapters.Npc
         [Inject] private readonly AnimationService _animationService;
 
         private NpcContainer _npcContainer;
-        
+
         private void Start()
         {
             _npcContainer = GetComponentInParent<NpcLoader>().Container;
@@ -39,8 +39,12 @@ namespace GUZ.VR.Adapters.Npc
             if (!_vrWeaponService.IsWeaponInAttackWindow(vobContainer))
                 return;
 
+            var attacker = _vrWeaponService.GetWeaponOwner(vobContainer);
+            if (attacker == null)
+                return;
+
             var hitPosition = other.ClosestPoint(transform.position);
-            GlobalEventDispatcher.FightHit.Invoke(_npcContainer, vobContainer, hitPosition);
+            GlobalEventDispatcher.FightHit.Invoke(attacker, _npcContainer, hitPosition);
         }
     }
 }

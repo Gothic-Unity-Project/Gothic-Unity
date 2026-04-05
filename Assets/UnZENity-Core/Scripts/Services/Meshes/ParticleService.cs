@@ -1,4 +1,3 @@
-using GUZ.Core.Adapters.Vob.Item;
 using GUZ.Core.Models.Container;
 using MyBox;
 using Reflex.Attributes;
@@ -13,27 +12,16 @@ namespace GUZ.Core.Services.Meshes
 
         public void Init()
         {
-            GlobalEventDispatcher.FightWindowInitial.AddListener((vobContainer, _) => ChangeTrail(vobContainer, false));
-            GlobalEventDispatcher.FightWindowAttack.AddListener((vobContainer, _) => ChangeTrail(vobContainer, true));
-            
             GlobalEventDispatcher.FightHit.AddListener(EmitBlood);
         }
 
-        private void ChangeTrail(VobContainer vobContainer, bool enable)
+        private void EmitBlood(NpcContainer _, NpcContainer target, Vector3 position)
         {
-            if (enable)
-                vobContainer.Go.GetComponentInChildren<WeaponAdapter>()?.StartTrail();
-            else
-                vobContainer.Go.GetComponentInChildren<WeaponAdapter>()?.EndTrail();
-        }
-        
-        private void EmitBlood(NpcContainer npcContainer, VobContainer _, Vector3 position)
-        {
-            if (npcContainer == null || npcContainer.Instance == null)
+            if (target == null || target.Instance == null)
                 return;
 
             // Resolve guild-specific blood data
-            var guild = npcContainer.Instance.Guild;
+            var guild = target.Instance.Guild;
 
             // Emitter string used by MeshBuilder/PFX setup
             var emitter = _gameStateService?.GuildValues?.GetBloodEmitter(guild);
@@ -41,7 +29,7 @@ namespace GUZ.Core.Services.Meshes
                 return;
 
             // Create particle effect at the hit position
-            _meshService.CreateVobPfx(emitter, position, Quaternion.identity, parent: npcContainer.Go, destroyAfterPlay: true);
+            _meshService.CreateVobPfx(emitter, position, Quaternion.identity, parent: target.Go, destroyAfterPlay: true);
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GUZ.Core;
 using GUZ.Core.Const;
+using GUZ.Core.Domain.Npc;
 using GUZ.Core.Extensions;
 using GUZ.Core.Logging;
 using GUZ.Core.Manager;
@@ -34,20 +35,6 @@ namespace GUZ.VR.Domain.Player
 
         private const int _twoHandedFlags = (int)VmGothicEnums.ItemFlags.Item2HdAxe | (int)VmGothicEnums.ItemFlags.Item2HdSwd;
 
-
-        /**
-         * Fight windows from animations:
-         * eventTag(0 "DEF_HIT_LIMB"   "ZS_RIGHTHAND") --> This animation will check the named limbs (colliders) for attacks later.
-         * eventTag(0 "DEF_OPT_FRAME"  "4          ...") --> START_FRAME...DEF_OPT_FRAME is range when an attack is recognized and collider checked each frame.
-         * eventTag(0 "DEF_WINDOW"     "   10   33 ...") --> Attack window for combo. In this case: DEF_WINDOW1...DEF_HIT_END (10-31), 33 would be window for combo, we ignore for now.
-         * eventTag(0 "DEF_HIT_END"    "      31   ...") --> End of attack itself.
-         * eventSFX(5 "WHOOSH" EMPTY_SLOT)
-         *
-         * Used animations:
-         * - s_1hAttack
-         * - s_2hAttack
-         */
-
         private bool _soundPlayed;
         private SfxModel _swingSwordSound;
         private float _soundPlayTime;
@@ -72,47 +59,23 @@ namespace GUZ.VR.Domain.Player
 
         private float _attackVelocityThreshold;
         private float _velocityDropPercentage;
-        
-        private float _attackWindowTime;
-        private float _comboWindowStart;
-        private float _comboWindowTime;
 
         // Velocity sampling properties
         private float _velocityCheckDuration;
         private int _velocitySampleCount;
         private readonly Queue<float> _velocityHistory = new();
         private float _velocityCheckTimer;
-        private List<Collider> _alreadyHitCollidersForThisAttack = new();
-        
+
         // Current state properties
         private float _currentWeaponVelocity => GetAverageVelocity();
-        private float _overallFlowTime;
-        private TimeWindow _currentWindow;
-        
+
         // Internal tracking variables
         private bool _hasDroppedBelowThreshold;
         private bool _hasReturnedToThreshold;
         private float _velocityDropThreshold;
 
-        /// <summary>
-        /// Assumptions:
-        /// 1. Attack window (collider hit check) always ends before the combo window starts.
-        /// --attack---|--
-        /// --------------|--combo---|
-        ///
-        /// 2. If we fail the combo window by doing e.g., "left-right" within the attack window, the combo is failed, and we need to wait.
-        /// --attack---|--
-        /// ------|fail--------------|
-        /// </summary>
-        private enum TimeWindow
-        {
-            Initial,
-            ComboFailed,
-            Attack,
-            WaitingForCombo,
-            Combo
-        }
-        
+        private AttackWindowStateMachine _stateMachine;
+
         /// <summary>
         /// TRUE, when:
         ///   1. No weapon used by this handler so far
@@ -120,11 +83,10 @@ namespace GUZ.VR.Domain.Player
         /// FALSE, when:
         ///   1. Already handling one weapon, but another one is provided.
         /// </summary>
-        public bool TryHandle(VobContainer vobContainer, WeaponPhysicsConfig weaponConfig, HVRHandSide handSide)
+        public bool TryHandle(VobContainer vobContainer, WeaponPhysicsConfig weaponConfig, HVRHandSide handSide, NpcContainer playerNpcContainer)
         {
             if (!CanHandle(vobContainer))
                 return false;
-
 
             // First time grabbing this weapon.
             if (WeaponVobContainer == null)
@@ -132,16 +94,18 @@ namespace GUZ.VR.Domain.Player
                 WeaponVobContainer = vobContainer;
                 _weaponRigidbody = vobContainer.Go.GetComponentInChildren<Rigidbody>();
 
-                _attackVelocityThreshold =  weaponConfig.WeaponVelocityThreshold;
+                _attackVelocityThreshold = weaponConfig.WeaponVelocityThreshold;
                 _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
                 var attackAnimation = GetAttackAnimation();
-                CalculateWindowTimes(attackAnimation);
+                var (attackWindowTime, comboWindowStart, comboWindowTime) = CalculateWindowTimes(attackAnimation);
                 CalculateAttackSound(attackAnimation);
 
                 _velocityCheckDuration = weaponConfig.VelocityCheckDuration;
                 _velocitySampleCount = weaponConfig.VelocitySampleCount;
 
                 _velocityDropThreshold = _attackVelocityThreshold * (1f - _velocityDropPercentage);
+
+                _stateMachine = new AttackWindowStateMachine(playerNpcContainer, attackWindowTime, comboWindowStart, comboWindowTime);
             }
 
             if (handSide == HVRHandSide.Left)
@@ -173,7 +137,6 @@ namespace GUZ.VR.Domain.Player
             if (!CanUnHandle(handSide))
                 return false;
 
-
             if (handSide == HVRHandSide.Left)
                 _handlesLeftHand = false;
             else if (handSide == HVRHandSide.Right)
@@ -203,13 +166,13 @@ namespace GUZ.VR.Domain.Player
         private void FullStopHandling()
         {
             // We need to execute it before we clear values.
-            GlobalEventDispatcher.FightWindowInitial.Invoke(WeaponVobContainer, _handValue);
+            _stateMachine?.Reset();
 
             WeaponVobContainer = null;
             _weaponRigidbody = null;
             _handlesLeftHand = false;
             _handlesRightHand = false;
-            _currentWindow = TimeWindow.Initial;
+            _stateMachine = null;
         }
 
         /// <summary>
@@ -249,7 +212,6 @@ namespace GUZ.VR.Domain.Player
             // FIXME - Combo settings for hero with more skills are in overlay mds (e.g., HUMANS_1HST2.mds) Use for improved weapon handling.
             var mds = _resourceCacheService.TryGetModelScript("Humans")!;
             return mds.Animations.First(i => i.Name.EqualsIgnoreCase(attackAnimationName));
-
         }
 
         private bool Is2HD()
@@ -263,7 +225,7 @@ namespace GUZ.VR.Domain.Player
         /// 2. DEF_OPT_FRAME is always from 1...x frame
         /// 3. DEF_WINDOW is for combo window and always goes between "x...y" frame.
         /// </summary>
-        private void CalculateWindowTimes(IAnimation attackAnim)
+        private (float attackWindowTime, float comboWindowStart, float comboWindowTime) CalculateWindowTimes(IAnimation attackAnim)
         {
             var eventLimb = attackAnim.EventTags.FirstOrDefault(i => i.Type == EventType.HitLimb);
             var eventLastHitFrame = attackAnim.EventTags.FirstOrDefault(i => i.Type == EventType.OptimalFrame);
@@ -274,7 +236,7 @@ namespace GUZ.VR.Domain.Player
                 Logger.LogError(
                     $"Attack animation >{attackAnim.Name}< has missing at least one of the required events. Skipping fight for it.",
                     LogCat.VR);
-                return;
+                return (0f, 0f, 0f);
             }
 
             // Limb --> Check if collider is ZS_RIGHTHAND. If not --> Error log
@@ -282,22 +244,24 @@ namespace GUZ.VR.Domain.Player
                 Logger.LogError(
                     $"Collider check for weapon attack is not ZS_RIGHTHAND. Others aren't handled so far. Current: {eventLimb.Slots.Item1}",
                     LogCat.VR);
-            
-            // LastHitFrame --> Define _attackWindowTime
-            _attackWindowTime = eventLastHitFrame.Frames.First() / attackAnim.Fps;
 
-            // HitWindow --> Define _comboWindowTime
+            // LastHitFrame --> Define attackWindowTime
+            var attackWindowTime = eventLastHitFrame.Frames.First() / attackAnim.Fps;
+
+            // HitWindow --> Define comboWindowTime
             var hitWindows = eventHitWindow.Frames;
             if (hitWindows.Count < 2)
             {
                 Logger.LogError(
                     $"Animation >{attackAnim.Name}< need to provide at least two windows (start-end). Skipping...",
                     LogCat.VR);
-                return;
+                return (0f, 0f, 0f);
             }
 
-            _comboWindowStart = hitWindows[0] / attackAnim.Fps;
-            _comboWindowTime = (hitWindows[1] - hitWindows[0]) / attackAnim.Fps;
+            var comboWindowStart = hitWindows[0] / attackAnim.Fps;
+            var comboWindowTime = (hitWindows[1] - hitWindows[0]) / attackAnim.Fps;
+
+            return (attackWindowTime, comboWindowStart, comboWindowTime);
         }
 
         private void CalculateAttackSound(IAnimation attackAnim)
@@ -305,10 +269,8 @@ namespace GUZ.VR.Domain.Player
             var soundAttack = attackAnim.SoundEffects.FirstOrDefault();
 
             if (soundAttack == null)
-            {
                 return;
-            }
-            
+
             _swingSwordSound = _vmCacheService.TryGetSfxData(soundAttack.Name);
             _soundPlayTime = soundAttack.Frame / attackAnim.Fps;
         }
@@ -319,7 +281,7 @@ namespace GUZ.VR.Domain.Player
                 return;
 
             UpdateVelocityHistory();
-            UpdateStateMachine();
+            UpdateVrAttackLogic();
         }
 
         public void AddLeftHand()
@@ -358,16 +320,14 @@ namespace GUZ.VR.Domain.Player
             // TODO - Maybe we should subtract the V3 velocity instead of magnitude to countermeasure player movement?
             var currentVelocity = _weaponRigidbody.linearVelocity.magnitude - _characterController.velocity.magnitude;
             _velocityHistory.Enqueue(currentVelocity);
-            
+
             // Keep only the required number of samples
             if (_velocityHistory.Count > _velocitySampleCount)
-            {
                 _velocityHistory.Dequeue();
-            }
-            
+
             _velocityCheckTimer = 0f;
         }
-        
+
         private float GetAverageVelocity()
         {
             if (_velocityHistory.Count == 0)
@@ -376,31 +336,37 @@ namespace GUZ.VR.Domain.Player
             var sum = _velocityHistory.Sum();
             return sum / _velocityHistory.Count;
         }
-        
-        private void UpdateStateMachine()
-        {
-            _overallFlowTime += Time.fixedDeltaTime;
 
-            switch (_currentWindow)
+        /// <summary>
+        /// VR-specific layer on top of the shared state machine.
+        /// Handles velocity-driven transitions: initial->attack, combo detection via velocity drop/return, combo failure.
+        /// </summary>
+        private void UpdateVrAttackLogic()
+        {
+            if (_stateMachine == null)
+                return;
+
+            switch (_stateMachine.CurrentState)
             {
-                case TimeWindow.Initial:
+                case AttackWindowStateMachine.State.Initial:
                     HandleInitialWindow();
                     break;
-                case TimeWindow.Attack:
-                    HandleAttackWindow();
+                case AttackWindowStateMachine.State.Attack:
+                    HandleSound();
+                    if (!CheckIfComboWindowFailed())
+                        _stateMachine.Tick(Time.fixedDeltaTime);
                     break;
-                case TimeWindow.ComboFailed:
+                case AttackWindowStateMachine.State.ComboFailed:
                     // Simply wait until the whole "animation" is over and then start again.
-                    if (_overallFlowTime >= _comboWindowTime)
-                    {
-                        _currentWindow = TimeWindow.Initial;
-                        GlobalEventDispatcher.FightWindowInitial.Invoke(WeaponVobContainer, _handValue);
-                    }
+                    _stateMachine.Tick(Time.fixedDeltaTime);
                     break;
-                case TimeWindow.WaitingForCombo:
-                    HandleWaitingForComboWindow();
+                case AttackWindowStateMachine.State.WaitingForCombo:
+                    HandleSound();
+                    if (!CheckIfComboWindowFailed())
+                        _stateMachine.Tick(Time.fixedDeltaTime);
                     break;
-                case TimeWindow.Combo:
+                case AttackWindowStateMachine.State.Combo:
+                    HandleSound();
                     HandleComboWindow();
                     break;
             }
@@ -408,36 +374,124 @@ namespace GUZ.VR.Domain.Player
 
         private void HandleSound()
         {
-            if (_soundPlayed || _overallFlowTime <= _soundPlayTime)
+            if (_soundPlayed || _stateMachine.ElapsedTime <= _soundPlayTime)
                 return;
 
             _soundPlayed = true;
             SFXPlayer.Instance.PlaySFX(_audioService.CreateAudioClip(_swingSwordSound.GetRandomSound()), _weaponRigidbody.position);
         }
-        
+
         private void HandleInitialWindow()
         {
             if (_currentWeaponVelocity >= _attackVelocityThreshold)
-                StartAttackWindow();
+                StartAttack();
         }
-        
-        private void HandleAttackWindow()
+
+        private void StartAttack()
         {
-            HandleSound();
+            _hasDroppedBelowThreshold = false;
+            _hasReturnedToThreshold = false;
 
-            if (CheckIfComboWindowFailed())
-                return;
+            // If no sound is set, ignore playing it and mark it as "played".
+            _soundPlayed = _swingSwordSound == null;
 
-            if (_overallFlowTime >= _attackWindowTime)
+            _stateMachine.StartAttack();
+        }
+
+        private bool CheckIfComboWindowFailed()
+        {
+            // Track velocity drops and returns
+            if (_currentWeaponVelocity < _velocityDropThreshold && !_hasDroppedBelowThreshold)
+                _hasDroppedBelowThreshold = true;
+
+            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold && !_hasReturnedToThreshold)
             {
-                _currentWindow = TimeWindow.WaitingForCombo;
-                GlobalEventDispatcher.FightWindowWaitingForCombo.Invoke(WeaponVobContainer, _handValue);
+                _hasReturnedToThreshold = true;
+                // Combo failed - velocity dropped and returned during attack window
+                _stateMachine.FailCombo();
+                return true;
             }
+
+            return false;
         }
 
-        private Collider[] CheckBoxColliderOverlap(BoxCollider boxCollider)
+        private void HandleComboWindow()
         {
-            CalculateBoxColliderOverlap(boxCollider, out var center, out var size, out var rotation);;
+            // Check for combo conditions
+
+            // Check #1 - When we enter the ComboWindow or we're inside already, we need to have the sword at least dropping below threshold once.
+            // Basically fighter changes velocity direction to do a left-right swing.
+            if (!_hasDroppedBelowThreshold && _currentWeaponVelocity < _velocityDropThreshold)
+                _hasDroppedBelowThreshold = true;
+
+            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold)
+                _hasReturnedToThreshold = true;
+
+            // It means e.g., we changed directions and got up to speed within combo window time. Now let's start the combo immediately.
+            if (_hasReturnedToThreshold)
+            {
+                StartAttack();
+                return;
+            }
+
+            // Let state machine check if combo window time is up
+            _stateMachine.Tick(Time.fixedDeltaTime);
+        }
+
+        // Public methods for external systems
+        public bool IsInAttackState()
+        {
+            return _stateMachine?.IsInAttackWindow ?? false;
+        }
+
+        public bool IsInComboState()
+        {
+            return _stateMachine?.IsInComboWindow ?? false;
+        }
+
+        public bool IsFailedComboState()
+        {
+            return _stateMachine?.IsComboFailed ?? false;
+        }
+
+        public float GetRemainingStateTime()
+        {
+            return _stateMachine?.ElapsedTime ?? 0f;
+        }
+
+        public float GetVelocityThreshold()
+        {
+            return _attackVelocityThreshold;
+        }
+
+        public float GetVelocityDropThreshold()
+        {
+            return _velocityDropThreshold;
+        }
+
+        public void AdvanceStateAfterAttack()
+        {
+            _stateMachine?.AdvanceToWaitingForCombo();
+        }
+
+        public NpcContainer GetOwner()
+        {
+            return _stateMachine?.Owner;
+        }
+
+        public GlobalEventDispatcher.HandSide GetHandSide()
+        {
+            return _handValue;
+        }
+
+        // FIXME - DEBUG values. Need to be adjustable via MarvinMode Inspector...
+        private float _amplitude = 0.2f;
+        private float _duration = 0.5f;
+        private float _frequency = 50f;
+
+        public Collider[] CheckBoxColliderOverlap(BoxCollider boxCollider)
+        {
+            CalculateBoxColliderOverlap(boxCollider, out var center, out var size, out var rotation);
 
             var colliders = Physics.OverlapBox(center, size / 2, rotation, 1 << Constants.VobNpcOrMonsterLayer);
 
@@ -453,7 +507,7 @@ namespace GUZ.VR.Domain.Player
             rotation = boxCollider.transform.rotation;
         }
 
-        private Collider[] CheckCapsuleColliderOverlap(CapsuleCollider capsuleCollider)
+        public Collider[] CheckCapsuleColliderOverlap(CapsuleCollider capsuleCollider)
         {
             CalculateCapsuleOverlap(capsuleCollider, out var point0, out var point1, out var radius);
 
@@ -483,138 +537,6 @@ namespace GUZ.VR.Domain.Player
             var halfHeight = (height / 2) - radius;
             point0 = center + direction * halfHeight;
             point1 = center - direction * halfHeight;
-        }
-
-        private void HandleWaitingForComboWindow()
-        {
-            HandleSound();
-
-            if (CheckIfComboWindowFailed())
-                return;
-            
-            if (_overallFlowTime >= _comboWindowStart)
-                StartComboWindow();
-        }
-
-        private bool CheckIfComboWindowFailed()
-        {
-            // Track velocity drops and returns
-            if (_currentWeaponVelocity < _velocityDropThreshold && !_hasDroppedBelowThreshold)
-            {
-                _hasDroppedBelowThreshold = true;
-            }
-
-            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold && !_hasReturnedToThreshold)
-            {
-                _hasReturnedToThreshold = true;
-                // Combo failed - velocity dropped and returned during attack window
-                _currentWindow = TimeWindow.ComboFailed;
-                GlobalEventDispatcher.FightWindowComboFailed.Invoke(WeaponVobContainer, _handValue);
-                
-                return true;
-            }
-
-            return false;
-        }
-        
-        private void HandleComboWindow()
-        {
-            HandleSound();
-            
-            // Check for combo conditions
-
-            // Check #1 - When we enter the ComboWindow or we're inside already, we need to have the sword at least dropping below threshold once.
-            // Basically fighter changes velocity direction to do a left-right swing.
-            if (!_hasDroppedBelowThreshold && _currentWeaponVelocity < _velocityDropThreshold)
-                _hasDroppedBelowThreshold = true;
-
-            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold)
-                _hasReturnedToThreshold = true;
-
-            // It means e.g., we changed directions and got up to speed within combo window time. Now let's start the combo immediately.
-            if (_hasReturnedToThreshold)
-            {
-                StartAttackWindow();
-                return;
-            }
-            
-            // Check if combo window time is up
-            if (_overallFlowTime >= _comboWindowTime)
-            {
-                // Missed combo window
-                _currentWindow = TimeWindow.Initial;
-                GlobalEventDispatcher.FightWindowInitial.Invoke(WeaponVobContainer, _handValue);
-            }
-        }
-        
-        private void StartAttackWindow()
-        {
-            _currentWindow = TimeWindow.Attack;
-            _overallFlowTime = 0f; // Restart timer
-            
-            // Restart failure checks.
-            _hasDroppedBelowThreshold = false;
-            _hasReturnedToThreshold = false;
-            _alreadyHitCollidersForThisAttack.Clear();
-
-            // If no sound is set, ignore playing it and mark it as "played".
-            _soundPlayed = _swingSwordSound == null;
-            
-            GlobalEventDispatcher.FightWindowAttack.Invoke(WeaponVobContainer, _handValue);
-        }
-        
-        // FIXME - DEBUG values. Need to be adjustable via MarvinMode Inspector...
-        private float _amplitude = 0.2f;
-        private float _duration = 0.5f;
-        private float _frequency = 50f;
-
-        private void StartComboWindow()
-        {
-            _currentWindow = TimeWindow.Combo;
-            
-            // We restart velocity check now. It's expected, that the player changes velocity within this time window now!
-            _hasDroppedBelowThreshold = false;
-            _hasReturnedToThreshold = false;
-            
-            GlobalEventDispatcher.FightWindowCombo.Invoke(WeaponVobContainer, _handValue);
-        }
-        
-        // Public methods for external systems
-        public bool IsInAttackState()
-        {
-            return _currentWindow == TimeWindow.Attack;
-        }
-        
-        public bool IsInComboState()
-        {
-            return _currentWindow == TimeWindow.Combo;
-        }
-        
-        public bool IsFailedComboState()
-        {
-            return _currentWindow == TimeWindow.ComboFailed;
-        }
-        
-        public float GetRemainingStateTime()
-        {
-            return _overallFlowTime;
-        }
-        
-        public float GetVelocityThreshold()
-        {
-            return _attackVelocityThreshold;
-        }
-        
-        public float GetVelocityDropThreshold()
-        {
-            return _velocityDropThreshold;
-        }
-
-        public void AdvanceStateAfterAttack()
-        {
-            _currentWindow = TimeWindow.WaitingForCombo;
-            
-            GlobalEventDispatcher.FightWindowWaitingForCombo.Invoke(WeaponVobContainer, _handValue);
         }
     }
 }
