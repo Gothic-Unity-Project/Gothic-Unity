@@ -131,6 +131,7 @@ namespace GUZ.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string, int, int, string, int, int, int>("Mdl_SetVisualBody", Mdl_SetVisualBody);
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
+            vm.RegisterExternal<NpcInstance, string>("Mdl_RemoveOverlayMDS", Mdl_RemoveOverlayMDS);
 
             // Mission
 
@@ -195,6 +196,12 @@ namespace GUZ.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetRefuseTalk", Npc_SetRefuseTalk);
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
+
+            // G2 externals only.
+            if (_configService.Dev.GameVersion == GameVersion.Gothic2)
+            {
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
+            }
 
 
             // Print
@@ -615,6 +622,14 @@ namespace GUZ.Core.Domain.Vm
             _npcService.ExtSetModelFatness(npc, fatness);
         }
 
+        private bool _isLoggedOnceRemoveOverlayMds;
+        public void Mdl_RemoveOverlayMDS(NpcInstance npc, string overlayName)
+        {
+            if (!_isLoggedOnceRemoveOverlayMds)
+                Logger.LogWarning("Method >Mdl_RemoveOverlayMDS< not yet implemented in DaedalusVM. Logging once only!", LogCat.ZenKit);
+            _isLoggedOnceRemoveOverlayMds = true;
+        }
+
         #endregion
 
         #region Print
@@ -842,6 +857,12 @@ namespace GUZ.Core.Domain.Vm
         {
             var dist = _npcAiService.ExtNpcGetDistToNpc(npc1, npc2);
             return LogInstantExternal(nameof(Npc_GetDistToNpc), dist, npc1, npc2);
+        }
+
+        public int Npc_GetHeightToNpc(NpcInstance npc1, NpcInstance npc2)
+        {
+            var height = _npcAiService.ExtNpcGetHeightToNpc(npc1, npc2);
+            return LogInstantExternal(nameof(Npc_GetHeightToNpc), height, npc1, npc2);
         }
 
         public int Npc_HasEquippedArmor(NpcInstance npc)

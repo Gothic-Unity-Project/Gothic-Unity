@@ -279,8 +279,8 @@ namespace GUZ.Core.Services.Npc
                 playerGo = GameObject.FindWithTag(Constants.MainCameraTag);
             }
 
-            var heroInstance = _gameStateService.GothicVm.AllocInstance<NpcInstance>(_configService.GothicGame.Player);
-            var heroDaedalusInstance = _gameStateService.GothicVm.GetSymbolByName(_configService.GothicGame.Player)!;
+            var heroInstance = _gameStateService.GothicVm.AllocInstance<NpcInstance>(_configService.GothicMod.Player);
+            var heroDaedalusInstance = _gameStateService.GothicVm.GetSymbolByName(_configService.GothicMod.Player)!;
 
             var vobNpc = new NpcProxy(heroDaedalusInstance.Index)
             {

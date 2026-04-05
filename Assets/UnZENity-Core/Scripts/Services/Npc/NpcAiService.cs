@@ -361,6 +361,26 @@ namespace GUZ.Core.Services.Npc
             return (int)(Vector3.Distance(npc1Pos, npc2Pos) * 100);
         }
 
+        /// <summary>
+        /// Return height difference in cm.
+        /// </summary>
+        public int ExtNpcGetHeightToNpc(NpcInstance npc1, NpcInstance npc2)
+        {
+            if (npc1 == null || npc2 == null)
+                return 0;
+
+            var npc1Pos = npc1.GetUserData().Go.transform.position;
+
+            Vector3 npc2Pos;
+            // If hero
+            if (npc2.Id == 0)
+                npc2Pos = Camera.main!.transform.position;
+            else
+                npc2Pos = npc2.GetUserData().Go.transform.position;
+
+            return (int)((npc2Pos.y - npc1Pos.y) * 100);
+        }
+
         public void ExtAiDrawWeapon(NpcInstance npc)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(), npc.GetUserData()));

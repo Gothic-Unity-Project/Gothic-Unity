@@ -215,7 +215,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
             SetPosAndRot(RootGo, RootPosition, RootRotation);
         }
 
-        protected void BuildViaMdmAndMdh()
+        protected virtual GameObject[] BuildViaMdmAndMdh()
         {
             CheckPreconditions();
             
@@ -333,6 +333,8 @@ namespace GUZ.Core.Domain.Meshes.Builder
             // We need to reset the rootBones position to zero. Otherwise Vobs won't be placed right.
             // Due to Unity's parent-child transformation magic, we need to do it at the end. ╰(*°▽°*)╯
             nodeObjects[0].transform.localPosition = Vector3.zero;
+
+            return nodeObjects;
         }
 
         protected GameObject BuildViaMmb()

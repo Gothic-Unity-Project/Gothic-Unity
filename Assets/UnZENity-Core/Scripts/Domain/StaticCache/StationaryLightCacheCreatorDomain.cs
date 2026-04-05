@@ -56,6 +56,7 @@ namespace GUZ.Core.Domain.StaticCache
             return count;
         }
 
+        private bool _isFireTreeG2LoggedOnce = false;
         private async Task CalculateStationaryLights(List<IVirtualObject> vobs, Vector3 parentWorldPosition = default)
         {
             foreach (var vob in vobs)
@@ -101,7 +102,9 @@ namespace GUZ.Core.Domain.StaticCache
                     // FIXME - For some reason, FIRETREE_LARGE.ZEN is broken in G2. Let's fix it properly later.)
                     if (_contextGameVersionService.Version == GameVersion.Gothic2 && fire.VobTree == "FIRETREE_LARGE.ZEN")
                     {
-                        Logger.LogError("For some reason, FIRETREE_LARGE.ZEN is broken in G2. Let's fix it properly for caching.", LogCat.PreCaching);
+                        if (!_isFireTreeG2LoggedOnce)
+                            Logger.LogError("For some reason, FIRETREE_LARGE.ZEN is broken in G2. Let's fix it properly for caching.", LogCat.PreCaching);
+                        _isFireTreeG2LoggedOnce = true;
                         continue;
                     }
 

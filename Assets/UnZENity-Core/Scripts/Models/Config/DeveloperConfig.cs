@@ -46,6 +46,9 @@ namespace GUZ.Core.Models.Config
         public bool PreselectGameVersion = true;
         [ConditionalField(fieldToCheck: nameof(PreselectGameVersion), compareValues: true)]
         public GameVersion GameVersion = GameVersion.Gothic1;
+
+        [Tooltip("Select a specific installed mod ini. Default if empty: GothicGame.ini")]
+        public string ModIni = string.Empty;
         
         public Controls GameControls = Controls.VR;
 
@@ -106,7 +109,7 @@ namespace GUZ.Core.Models.Config
         public int SaveSlotToLoad;
 
         private bool SaveSlotFieldCondition() => !EnableMainMenu && LoadFromSaveSlot;
-
+        
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]
         public WorldToSpawn PreselectWorldToSpawn;
 

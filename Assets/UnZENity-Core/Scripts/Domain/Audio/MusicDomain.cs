@@ -144,6 +144,15 @@ namespace GUZ.Core.Domain.Audio
             {
                 return;
             }
+            
+            // DMusic crashes for some unfinished small themes (<3kB). Therefore, skipping them now with a warning until fixed.
+            // Issue report: https://github.com/GothicKit/dmusic-cs/issues/1
+
+            if (_resourceCacheService.Vfs.Find(theme.File)?.Buffer.Bytes.Length < 3000)
+            {
+                Logger.LogWarning($"Music theme >{theme.File}< might be broken with less than 3kB size. Safety skip", LogCat.Audio);
+                return;
+            }
 
             var segment = _resourceCacheService.TryGetSegment(theme.File);
 

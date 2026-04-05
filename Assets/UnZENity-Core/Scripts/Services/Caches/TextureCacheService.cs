@@ -119,39 +119,34 @@ namespace GUZ.Core.Services.Caches
             }
 
             Texture2D texture;
+            var preparedKey = GetPreparedKey(key);
+            var format = zkTexture.Format.AsUnityTextureFormat();
 
-            string preparedKey = GetPreparedKey(key);
-
-            // Workaround for Unity and DXT1 Mipmaps.
-            if (zkTexture.Format == ZenKit.TextureFormat.Dxt1 && zkTexture.MipmapCount == 1)
+            // TODO: DXT1 textures won't get MipMaps created. Unity limitation (even for v6.x). But normally all files do have MipMaps.
+            //  if (zkTexture.Format == ZenKit.TextureFormat.Dxt1 && zkTexture.MipmapCount == 1)
+            //  {
+            //    Logger.LogWarning($"Texture {zkTexture.Name} has no Mips and won't get one this way.", LogCat.Mesh);
+            //  }
+            // Let Unity generate Mipmaps if they aren't provided by Gothic texture itself.
+            var updateMipmaps = zkTexture.MipmapCount == 1;
+            
+            // Use Gothic's mips if provided.
+            texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, zkTexture.MipmapCount, false);
+            for (var i = 0; i < zkTexture.MipmapCount; i++)
             {
-                texture = GenerateDxt1Mipmaps(zkTexture);
-            }
-            else
-            {
-                TextureFormat format = zkTexture.Format.AsUnityTextureFormat();
-
-                // Let Unity generate Mipmaps if they aren't provided by Gothic texture itself.
-                bool updateMipmaps = zkTexture.MipmapCount == 1;
-
-                // Use Gothic's mips if provided.
-                texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, zkTexture.MipmapCount, false);
-                for (var i = 0; i < zkTexture.MipmapCount; i++)
+                if (format == TextureFormat.RGBA32)
                 {
-                    if (format == TextureFormat.RGBA32)
-                    {
-                        // RGBA is uncompressed format.
-                        texture.SetPixelData(zkTexture.AllMipmapsRgba[i], i);
-                    }
-                    else
-                    {
-                        // Raw means "compressed data provided by Gothic texture"
-                        texture.SetPixelData(zkTexture.AllMipmapsRaw[i], i);
-                    }
+                    // RGBA is uncompressed format.
+                    texture.SetPixelData(zkTexture.AllMipmapsRgba[i], i);
                 }
-
-                texture.Apply(updateMipmaps, true);
+                else
+                {
+                    // Raw means "compressed data provided by Gothic texture"
+                    texture.SetPixelData(zkTexture.AllMipmapsRaw[i], i);
+                }
             }
+
+            texture.Apply(updateMipmaps, true);
 
             texture.filterMode = FilterMode.Trilinear;
             texture.name = key;
@@ -251,7 +246,13 @@ namespace GUZ.Core.Services.Caches
             foreach (var texInfo in textureInfos)
             {
                 ++i;
+
+                if (texInfo.Key.EqualsIgnoreCase("obj_city_boulderbig_03.tga"))
+                {
+                    int a = 2;
+                }
                 var sourceTex = TryGetTexture(texInfo.Key, false);
+
 
                 if (sourceTex == null)
                 {
@@ -363,23 +364,6 @@ namespace GUZ.Core.Services.Caches
         public Texture GetTextureArrayEntry(TextureArrayTypes textureArrayType)
         {
             return TextureArrays[textureArrayType];
-        }
-
-        /// <summary>
-        /// Unity doesn't want to create mips for DXT1 textures. Recreate them as RGB24.
-        /// </summary>
-        private Texture2D GenerateDxt1Mipmaps(ITexture zkTexture)
-        {
-            var dxtTexture = new Texture2D(zkTexture.Width, zkTexture.Height, TextureFormat.DXT1, false);
-            dxtTexture.SetPixelData(zkTexture.AllMipmapsRaw[0], 0);
-            dxtTexture.Apply(false);
-
-            var texture = new Texture2D(zkTexture.Width, zkTexture.Height, TextureFormat.RGB24, true);
-            texture.SetPixels(dxtTexture.GetPixels());
-            texture.Apply(true, true);
-            Object.Destroy(dxtTexture);
-
-            return texture;
         }
 
         private string GetPreparedKey(string key)

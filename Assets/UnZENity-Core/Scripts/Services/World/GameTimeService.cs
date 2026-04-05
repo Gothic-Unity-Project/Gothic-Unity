@@ -128,7 +128,14 @@ namespace GUZ.Core.Services.World
 
         public void SetTime(int hour, int minute)
         {
-            _time = new DateTime(_time.Year, _time.Month, _time.Day, hour, minute, 0);
+            // From G2: Setzt die Uhrzeit auf hour:min. hour kann größer als 23 sein, um zum nächsten Tag zu springen.
+            var daysToAdd = hour / 24;
+            var normalizedHour = hour % 24;
+
+            _time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0);
+            
+            if (daysToAdd > 0)
+                _time = _time.AddDays(daysToAdd);
         }
 
         public float GetSkyTime()
