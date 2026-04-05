@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using GUZ.Core.Adapters.Npc;
 using GUZ.Core.Logging;
 using GUZ.Core.Models.Vm;
 using GUZ.Core.Services.Caches;
@@ -8,6 +7,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using Logger = GUZ.Core.Logging.Logger;
+using Mesh = UnityEngine.Mesh;
 using Vector3 = System.Numerics.Vector3;
 
 namespace GUZ.Core.Domain.Meshes.Builder
@@ -27,6 +27,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
         public override GameObject Build()
         {
             BuildViaMdmAndMdh();
+            CreateBoneColliders();
 
             return RootGo;
         }
@@ -86,6 +87,75 @@ namespace GUZ.Core.Domain.Meshes.Builder
         protected override List<Vector3> GetSoftSkinMeshPositions(ISoftSkinMesh softSkinMesh)
         {
             return _npcArmorCacheService.TryGetPositions(softSkinMesh, Mdh);
+        }
+        
+        /// <summary>
+        /// During fight situations, the bones are checked for physical collision via e.g. *eventTag(0 "DEF_HIT_LIMB" "BIP01 R HAND")
+        /// We therefore calculate a box collider for all of the limbs/bones and disable it until its needed at fight time.
+        ///
+        /// Hint: We assume that the bounding boxes of the bones will stay stable and no long stretches will happen
+        ///       (which would force a recalculation).
+        /// </summary>
+        private void CreateBoneColliders()
+        {
+            var renderers = RootGo.GetComponentsInChildren<SkinnedMeshRenderer>();
+            var boneBoundsMap = new Dictionary<Transform, Bounds>();
+
+            foreach (var renderer in renderers)
+            {
+                var mesh = renderer.sharedMesh;
+                if (mesh == null)
+                    continue;
+
+                var vertices = mesh.vertices;
+                var weights = mesh.boneWeights;
+                var smrBones = renderer.bones;
+                var bindPoses = mesh.bindposes;
+
+                for (var i = 0; i < vertices.Length; i++)
+                {
+                    var weight = weights[i];
+                    var boneIdx = weight.boneIndex0;
+
+                    // Use vertices with more than 10% weight.
+                    if (weight.weight0 > 0.1f)
+                    {
+                        var boneTransform = smrBones[boneIdx];
+                
+                        // DIRECT CALCULATION:
+                        // Multiply the vertex by the bind pose matrix to get the 
+                        // position relative to the bone at the time of rigging.
+                        var localPt = bindPoses[boneIdx].MultiplyPoint3x4(vertices[i]);
+
+                        if (!boneBoundsMap.ContainsKey(boneTransform))
+                        {
+                            boneBoundsMap[boneTransform] = new Bounds(localPt, UnityEngine.Vector3.zero);
+                        }
+                        else
+                        {
+                            var bounds = boneBoundsMap[boneTransform];
+                            bounds.Encapsulate(localPt);
+                            boneBoundsMap[boneTransform] = bounds;
+                        }
+                    }
+                }
+            }
+
+            // Apply to Colliders
+            foreach (var boneBound in boneBoundsMap)
+            {
+                var boneTransform = boneBound.Key;
+                var finalBounds = boneBound.Value;
+
+                if (finalBounds.size.sqrMagnitude < 0.0001f)
+                    continue;
+
+                var col = boneTransform.gameObject.AddComponent<BoxCollider>();
+                col.center = finalBounds.center;
+                col.size = finalBounds.size;
+                col.isTrigger = true; // We want to calculate Triggering only, not pushing/colliding.
+                col.enabled = false; // Will be enabled at runtime during fights when DEF_HIT_LIMB is set.
+            }
         }
     }
 }

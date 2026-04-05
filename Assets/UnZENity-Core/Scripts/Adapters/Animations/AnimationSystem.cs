@@ -43,7 +43,6 @@ namespace GUZ.Core.Adapters.Adnimations
         [Inject] private readonly NpcService _npcService;
 
 
-
         public Transform RootBone;
 
         // Caching bone Transforms makes it faster to apply them to animations later.
@@ -55,7 +54,16 @@ namespace GUZ.Core.Adapters.Adnimations
         private bool _isSittingInverted;
 
         // Some sitting animations are rotated wrong. They need to be inverted in y-axis.
-        private string[] _animationsToInvertYAxis = new[] { "S_BENCH_S1", "S_THRONE_S1" };
+        private string[] _animationsToInvertYAxis = { "S_BENCH_S1", "S_THRONE_S1" };
+
+
+        // Attack information
+        private bool IsAttack => AttackAnimation.NotNullOrEmpty();
+        private string AttackAnimation;
+        private string AttackHitLimb;
+        private List<int> AttackOptFrame;
+        private List<int> AttackHitEnd;
+        private List<int> AttackWindowFrames;
 
 
         protected override void Awake()
@@ -93,6 +101,7 @@ namespace GUZ.Core.Adapters.Adnimations
                 _bones[i].SetLocalPositionAndRotation(_initialMeshBonePos[i], _initialMeshBoneRot[i]);
             }
 
+            DisableAttack();
             _trackInstances.Clear();
         }
 
@@ -220,8 +229,7 @@ namespace GUZ.Core.Adapters.Adnimations
             }
 #endif
 
-            var newTrack = _animationService.GetTrack(animationName, Properties.MdsNameBase, Properties.MdsNameOverlay);
-            
+            var trackToStop = _animationService.GetTrack(animationName, Properties.MdsNameBase, Properties.MdsNameOverlay);
             
             Logger.LogEditor($"Stopping animation: {animationName}", LogCat.Animation);
             AnimationTrackInstance instanceToStop = null;
@@ -231,10 +239,13 @@ namespace GUZ.Core.Adapters.Adnimations
             {
                 var instance = _trackInstances[i];
                 // If animation is found, then mark it as "BlendOut"
-                if (instance.Track.Name.EqualsIgnoreCase(newTrack.Name))
+                if (instance.Track.Name.EqualsIgnoreCase(trackToStop.Name))
                 {
                     instanceToStop = instance;
                     instance.BlendOutTrack(instance.Track.BlendOut);
+
+                    if (AttackAnimation == trackToStop.Name)
+                        AttackAnimation = null;
                     // Do not break. We could potentially need to stop multiple instances of the same animation.
                 }
             }
@@ -400,6 +411,23 @@ namespace GUZ.Core.Adapters.Adnimations
         {
             if (_animationsToInvertYAxis.Contains(instance.Track.Name.ToUpper()))
                 _isSittingInverted = false;
+
+            if (AttackAnimation.EqualsIgnoreCase(instance.AnimationName))
+                DisableAttack();
+        }
+
+        private void DisableAttack()
+        {
+            if (AttackAnimation == null)
+                return;
+
+            AttackAnimation = null;
+            AttackHitLimb = null;
+            AttackOptFrame = null;
+            AttackHitEnd = null;
+            AttackWindowFrames = null;
+
+            // FIXME - We need to disable all limbs, if they are still active from current attack window.
         }
 
         private void ApplyFinalPose()
@@ -531,6 +559,22 @@ namespace GUZ.Core.Adapters.Adnimations
                         break;
                     case EventType.TorchInventory:
                         // TODO - I assume this means: if torch is in inventory, then put it out. But not really sure. Need a NPC with real usage of it to predict right.
+                        break;
+                    case EventType.HitLimb:
+                        AttackHitLimb = eventTag.Slots.Item1;
+                        AttackAnimation = trackInstance.AnimationName;
+                        break;
+                    case EventType.OptimalFrame:
+                        AttackOptFrame = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        break;
+                    case EventType.HitEnd:
+                        AttackHitEnd = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        break;
+                    case EventType.ComboWindow:
+                        AttackWindowFrames = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        break;
+                    // Unused. @see: https://gothic-modding-community.github.io/gmc/zengin/anims/events/#def_dir
+                    case EventType.HitDirection:
                         break;
                     default:
                         Logger.LogWarning($"EventType.type {eventTag.Type} not yet supported.", LogCat.Animation);
