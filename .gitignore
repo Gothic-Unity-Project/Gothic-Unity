@@ -113,3 +113,6 @@ Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/*
 !Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/.gitkeep
 
 ZenKitCS
+
+# Ignore local AI settings (like pre-approved MCP usage)
+.claude/*
