@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#beta",
     "com.domybest.mybox": "https://github.com/Deadcows/MyBox.git",
     "com.gustavopsantos.reflex": "https://github.com/gustavopsantos/reflex.git?path=/Assets/Reflex/#12.0.1",
     "com.hurricanevrextensions.simulator": "https://github.com/Gothic-UnZENity-Project/hvr-simulator.git",
