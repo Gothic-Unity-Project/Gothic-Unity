@@ -154,7 +154,8 @@ namespace GUZ.Core.Domain.Meshes.Builder
                 col.center = finalBounds.center;
                 col.size = finalBounds.size;
                 col.isTrigger = true; // We want to calculate Triggering only, not pushing/colliding.
-                col.enabled = false; // Will be enabled at runtime during fights when DEF_HIT_LIMB is set.
+                // FIXME - Activate colliders dynamically when DEF_HIT_LIMB is active. Then we save compute power when no one is fighting...!
+                col.enabled = true; // Will be enabled at runtime during fights when DEF_HIT_LIMB is set.
             }
         }
     }

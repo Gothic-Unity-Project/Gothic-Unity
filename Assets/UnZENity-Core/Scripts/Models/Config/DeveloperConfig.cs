@@ -198,6 +198,10 @@ namespace GUZ.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public bool EnableNpcEyeBlinking;
 
+        [Separator("Debug")]
+        [Tooltip("Draw wireframe boxes for all NPC bone colliders. Green = active (attack window), White = inactive. Works in all builds including release.")]
+        public bool ShowNpcColliders;
+
 
         /**
          * ##########
