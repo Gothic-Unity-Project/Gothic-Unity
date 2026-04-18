@@ -6,12 +6,13 @@ using UnityEngine;
 namespace GUZ.Core.Debugging
 {
     /// <summary>
-    /// Visualizes all NPC bone BoxColliders as transparent cube meshes.
+    /// Visualizes NPC BoxColliders as transparent cube meshes.
+    /// Shows the single root AABB (Gothic-style) plus any active DEF_HIT_LIMB bone colliders.
     /// Works in all builds including release.
     ///
     /// Color coding:
-    ///   Grey  (30% alpha) = collider inactive
-    ///   Green (30% alpha) = collider enabled (e.g. attack window active)
+    ///   Grey  (15% alpha) = collider disabled (combat inactive)
+    ///   Green (30% alpha) = collider enabled (combat active / attack window open)
     ///   Red   (60% alpha) = another collider is currently overlapping this one
     ///
     /// Toggle via DeveloperConfig.ShowNpcColliders.
@@ -44,7 +45,7 @@ namespace GUZ.Core.Debugging
                 return;
             }
 
-            // Bone colliders are added by NpcMeshBuilder after Start() runs.
+            // Colliders are added by NpcMeshBuilder after Start() runs.
             _colliders = GetComponentsInChildren<BoxCollider>(includeInactive: true);
 
             if (_colliders.Length > 0)
