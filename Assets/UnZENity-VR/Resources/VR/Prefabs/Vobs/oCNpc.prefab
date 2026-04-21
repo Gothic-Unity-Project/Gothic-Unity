@@ -17,7 +17,6 @@ GameObject:
   - component: {fileID: 3792221975768868209}
   - component: {fileID: 7657019000195239257}
   - component: {fileID: 6519483080425844375}
-  - component: {fileID: 3282429369312024637}
   m_Layer: 0
   m_Name: oCNpc
   m_TagString: GUZVob
@@ -151,18 +150,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _injectionStrategy: 2
---- !u!114 &3282429369312024637
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2202926895728732233}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca8f6c19be44c3c4abe537a5aa2c5e86, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &2815092147823170342
 GameObject:
   m_ObjectHideFlags: 0
@@ -394,8 +381,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e31e900fff574068b5e83a20a4f2df42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _capsuleCollider: {fileID: 8720130747125307888}
-  _weaponAttackTriggerCollider: {fileID: 5278470615718556174}
+  _walkCollider: {fileID: 8720130747125307888}
 --- !u!114 &8095166574519349901
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -585,9 +571,10 @@ GameObject:
   m_Component:
   - component: {fileID: 4260445167894292062}
   - component: {fileID: 8558063707387388901}
-  - component: {fileID: 5278470615718556174}
+  - component: {fileID: 5203953309379182771}
+  - component: {fileID: 2417559412954515193}
   m_Layer: 0
-  m_Name: WeaponAttackTrigger
+  m_Name: WeaponAttackCollider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -620,8 +607,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1b230f0c1634c07a1420c481072cf1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!136 &5278470615718556174
-CapsuleCollider:
+  HitCollider: {fileID: 5203953309379182771}
+--- !u!65 &5203953309379182771
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -638,11 +626,21 @@ CapsuleCollider:
   m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2417559412954515193
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3748409399599174953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca8f6c19be44c3c4abe537a5aa2c5e86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &4184637483184217433
 GameObject:
   m_ObjectHideFlags: 0

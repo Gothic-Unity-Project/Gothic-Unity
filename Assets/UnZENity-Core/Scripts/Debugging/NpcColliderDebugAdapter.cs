@@ -6,7 +6,7 @@ using UnityEngine;
 namespace GUZ.Core.Debugging
 {
     /// <summary>
-    /// Visualizes NPC BoxColliders as transparent cube meshes.
+    /// Visualizes NPC BoxCollider as transparent cube mesh.
     /// Shows the single root AABB (Gothic-style) plus any active DEF_HIT_LIMB bone colliders.
     /// Works in all builds including release.
     ///
@@ -21,7 +21,7 @@ namespace GUZ.Core.Debugging
     {
         [Inject] private readonly ConfigService _configService;
 
-        private BoxCollider[] _colliders;
+        private BoxCollider _collider;
         private readonly List<GameObject> _debugObjects = new();
         private readonly List<MeshRenderer> _debugRenderers = new();
         private readonly List<ColliderHitTracker> _hitTrackers = new();
@@ -46,40 +46,37 @@ namespace GUZ.Core.Debugging
             }
 
             // Colliders are added by NpcMeshBuilder after Start() runs.
-            _colliders = GetComponentsInChildren<BoxCollider>(includeInactive: true);
+            _collider = GetComponent<BoxCollider>();
 
-            if (_colliders.Length > 0)
-                CreateDebugObjects();
+            if (_collider != null)
+                CreateDebugObject();
         }
 
-        private void CreateDebugObjects()
+        private void CreateDebugObject()
         {
             var cubeMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
             var baseMaterial = Resources.Load<Material>("Materials/NpcColliderDebug");
 
-            foreach (var col in _colliders)
-            {
-                var debugGo = new GameObject("_ColliderDebug");
-                debugGo.transform.SetParent(col.transform, false);
-                debugGo.transform.localPosition = col.center;
-                debugGo.transform.localScale = col.size;
+            var debugGo = new GameObject("_ColliderDebug");
+            debugGo.transform.SetParent(_collider.transform, false);
+            debugGo.transform.localPosition = _collider.center;
+            debugGo.transform.localScale = _collider.size;
 
-                var filter = debugGo.AddComponent<MeshFilter>();
-                filter.mesh = cubeMesh;
+            var filter = debugGo.AddComponent<MeshFilter>();
+            filter.mesh = cubeMesh;
 
-                // Use renderer.material (not sharedMaterial) to get a unique instance per
-                // collider so we can set individual colors without MaterialPropertyBlock.
-                var meshRenderer = debugGo.AddComponent<MeshRenderer>();
-                meshRenderer.material = baseMaterial;
+            // Use renderer.material (not sharedMaterial) to get a unique instance per
+            // collider so we can set individual colors without MaterialPropertyBlock.
+            var meshRenderer = debugGo.AddComponent<MeshRenderer>();
+            meshRenderer.material = baseMaterial;
 
-                _debugObjects.Add(debugGo);
-                _debugRenderers.Add(meshRenderer);
+            _debugObjects.Add(debugGo);
+            _debugRenderers.Add(meshRenderer);
 
-                // Track trigger events on the bone GO itself to detect hits.
-                var tracker = col.gameObject.GetComponent<ColliderHitTracker>()
-                              ?? col.gameObject.AddComponent<ColliderHitTracker>();
-                _hitTrackers.Add(tracker);
-            }
+            // Track trigger events on the bone GO itself to detect hits.
+            var tracker = _collider.gameObject.GetComponent<ColliderHitTracker>()
+                          ?? _collider.gameObject.AddComponent<ColliderHitTracker>();
+            _hitTrackers.Add(tracker);
         }
 
         private void UpdateColors()
@@ -89,7 +86,7 @@ namespace GUZ.Core.Debugging
                 Color color;
                 if (_hitTrackers[i].IsBeingHit)
                     color = _colorHit;
-                else if (_colliders[i].enabled)
+                else if (_collider.enabled)
                      color = _colorActive;
                 else
                     color = _colorInactive;

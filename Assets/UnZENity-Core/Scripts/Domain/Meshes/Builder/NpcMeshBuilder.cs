@@ -4,6 +4,7 @@ using GUZ.Core.Extensions;
 using GUZ.Core.Logging;
 using GUZ.Core.Models.Vm;
 using GUZ.Core.Services.Caches;
+using GUZ.VR.Adapters.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -94,24 +95,15 @@ namespace GUZ.Core.Domain.Meshes.Builder
         /// Gothic stores a pre-baked collision AABB in the MDH file.
         /// A single BoxCollider on the root GO matches Gothic's approach: the box is
         /// static relative to the NPC's feet and is never deformed by animations.
-        ///
-        /// For attack hit detection (DEF_HIT_LIMB) the AnimationSystem must enable
-        /// a separate trigger on the specific limb bone when the attack window opens.
-        ///
-        /// The collider starts disabled; enable it when the NPC enters combat.
         /// </summary>
         private void CreateBodyAabbCollider()
         {
             if (Mdh == null)
                 return;
 
+            // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
             var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
-
-            var col = RootGo.AddComponent<BoxCollider>();
-            col.center = bounds.center;
-            col.size = bounds.size;
-            col.isTrigger = true;
-            col.enabled = false;
+            RootGo.GetComponentInChildren<WeaponAttackCollider>().SetDimension(bounds);
         }
     }
 }
