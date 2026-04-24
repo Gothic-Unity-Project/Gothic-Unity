@@ -26,7 +26,10 @@ namespace GUZ.VR.Adapters.Player
                 return;
 
             // In Gothic, Items have no physics when lying around. We need to activate physics for HVR to properly move items into our hands.
-            grabbable.GetComponent<Rigidbody>().isKinematic = false;
+            if (grabbable.TryGetComponent<Rigidbody>(out var rb))
+            {
+                rb.isKinematic = false;
+            }
         }
 
     }
