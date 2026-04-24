@@ -53,10 +53,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   shortRayLength: 0.1
-  ledgeDetectionLength: 0.1
+  ledgeDetectionLength: 0.025
   minimumLedgeHeight: 0.5
   palmDownThreshold: 0.6
-  surfaceCheckSize: 0.1
+  surfaceCheckSize: 0.025
   maxSurfaceHeightDifference: 0.05
   maxSurfaceNormalAngle: 10
   climbPointPrefab: {fileID: 6154497277630473896, guid: cfdc5bb14577bab42bd5f31e66174699, type: 3}
