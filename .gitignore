@@ -28,6 +28,9 @@ Assets/RiderFlow.UserData/
 # Visual Studio cache directory
 .vs/
 
+# Visual Studio Code
+.vsconfig
+
 # Rider
 .idea/
 
@@ -40,6 +43,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
