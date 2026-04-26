@@ -1,31 +1,16 @@
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Npc;
-using Reflex.Attributes;
+using GUZ.Core.Const;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Npc
+namespace GUZ.Core.Adapters.Vob.Item
 {
-    [RequireComponent(typeof(BoxCollider))]
-    public class WeaponAttackCollider : MonoBehaviour
+    /// <summary>
+    /// The validity check for a hit requires answering: "Is this attack currently active?"
+    /// That state lives on the attacker (DEF_OPT_FRAME window, DEF_HIT_LIMB, "already connected" flag).
+    /// If we put the logic on the receiver, we must reach across to the attacker's component to get that state
+    /// every time any contact happens. If we put it on the attacker, all required state is already local.
+    /// </summary>
+    public class WeaponAttackAdapter : MonoBehaviour
     {
-        // [Inject] private readonly VRWeaponService _vrWeaponService;
-        [Inject] private readonly AnimationService _animationService;
-        [SerializeField] BoxCollider HitCollider;
-
-        private NpcContainer _npcContainer;
-
-        private void Start()
-        {
-            _npcContainer = GetComponentInParent<NpcLoader>().Container;
-        }
-
-        public void SetDimension(Bounds unityBounds)
-        {
-            HitCollider.center = unityBounds.center;
-            HitCollider.size = unityBounds.size;
-        }
-
         /// <summary>
         /// TODO - Need to be updated to support fist collider from monsters and player as well
         /// Is the other who's hitting me?:
@@ -34,6 +19,10 @@ namespace GUZ.VR.Adapters.Npc
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            if (other.gameObject.layer != Constants.VobHitbox)
+                return;
+
+            Debug.Log("OnTriggerEnter - VobHitbox");
             // if (other.gameObject.layer != Constants.VobItemLayer)
             //     return;
             //
@@ -48,6 +37,14 @@ namespace GUZ.VR.Adapters.Npc
             //
             // var hitPosition = other.ClosestPoint(transform.position);
             // GlobalEventDispatcher.FightHit.Invoke(attacker, _npcContainer, hitPosition);
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            if (other.gameObject.layer != Constants.VobHitbox)
+                return;
+
+            Debug.Log("OnTriggerExit - VobHitbox");
         }
     }
 }

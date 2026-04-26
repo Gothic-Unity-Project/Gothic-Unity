@@ -103,7 +103,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
 
             // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
             var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
-            RootGo.GetComponentInChildren<WeaponAttackCollider>().SetDimension(bounds);
+            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>().SetDimension(bounds);
         }
     }
 }

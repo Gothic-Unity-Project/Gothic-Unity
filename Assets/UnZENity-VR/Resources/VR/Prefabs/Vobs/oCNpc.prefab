@@ -181,6 +181,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6115383017936816660}
+  - {fileID: 4260445167894292062}
   - {fileID: 4224993087751750351}
   - {fileID: 1729239900852249070}
   - {fileID: 8661861277319438176}
@@ -315,8 +316,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 4260445167894292062}
+  m_Children: []
   m_Father: {fileID: 8679908380237941234}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &3620496381512049433
@@ -574,7 +574,7 @@ GameObject:
   - component: {fileID: 5203953309379182771}
   - component: {fileID: 2417559412954515193}
   m_Layer: 12
-  m_Name: WeaponAttackCollider
+  m_Name: WeaponHitboxCollider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -588,12 +588,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3748409399599174953}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6115383017936816660}
+  m_Father: {fileID: 8679908380237941234}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8558063707387388901
 MonoBehaviour:
