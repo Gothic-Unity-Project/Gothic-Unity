@@ -31,7 +31,7 @@ namespace GUZ.Core.Editor
         [MenuItem("UnZENity/Unity/Package Manager", priority = 900)]
         public static void ShowPackageManagerWindow()
         {
-            EditorApplication.ExecuteMenuItem("Window/Package Manager");
+            EditorApplication.ExecuteMenuItem("Window/Package Management/Package Manager");
         }
         [MenuItem("UnZENity/Unity/Localization Tables", priority = 910)]
         public static void ShowLocalizationTablesWindow()
