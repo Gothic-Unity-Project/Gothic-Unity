@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Debugging
+namespace GUZ.Core.Debugging.Fighting
 {
     /// <summary>
     /// Added to NPC bone GameObjects by NpcColliderDebugAdapter.
@@ -12,19 +12,19 @@ namespace GUZ.Core.Debugging
 
         private int _overlapCount;
 
-        private void OnTriggerEnter(Collider other)
+        protected virtual void OnTriggerEnter(Collider other)
         {
             _overlapCount++;
             IsBeingHit = true;
         }
 
-        private void OnTriggerExit(Collider other)
+        protected virtual void OnTriggerExit(Collider other)
         {
             _overlapCount = Mathf.Max(0, _overlapCount - 1);
             IsBeingHit = _overlapCount > 0;
         }
 
-        private void OnDisable()
+        protected virtual void OnDisable()
         {
             _overlapCount = 0;
             IsBeingHit = false;

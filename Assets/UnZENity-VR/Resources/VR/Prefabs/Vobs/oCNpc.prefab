@@ -326,10 +326,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3647559741746323219}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 80
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -572,7 +572,7 @@ GameObject:
   - component: {fileID: 4260445167894292062}
   - component: {fileID: 8558063707387388901}
   - component: {fileID: 5203953309379182771}
-  - component: {fileID: 2417559412954515193}
+  - component: {fileID: 2424343932301655194}
   m_Layer: 12
   m_Name: WeaponHitboxCollider
   m_TagString: Untagged
@@ -629,7 +629,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &2417559412954515193
+--- !u!114 &2424343932301655194
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -638,9 +638,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 3748409399599174953}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca8f6c19be44c3c4abe537a5aa2c5e86, type: 3}
+  m_Script: {fileID: 11500000, guid: cb1eb27bc45f4eaea1fba0f09265f5f1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: UnZENity.VR::GUZ.Core.Debugging.Fighting.VrNpcColliderDebugAdapter
 --- !u!1 &4184637483184217433
 GameObject:
   m_ObjectHideFlags: 0
