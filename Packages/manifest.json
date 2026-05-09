@@ -1,12 +1,13 @@
 {
   "dependencies": {
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#beta",
     "com.domybest.mybox": "https://github.com/Deadcows/MyBox.git",
     "com.gustavopsantos.reflex": "https://github.com/gustavopsantos/reflex.git?path=/Assets/Reflex/#12.0.1",
     "com.hurricanevrextensions.simulator": "https://github.com/Gothic-UnZENity-Project/hvr-simulator.git",
     "com.unity.ai.inference": "2.6.0",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.development": "1.0.2",
-    "com.unity.ide.rider": "3.0.39",
+    "com.unity.ide.rider": "3.0.40",
     "com.unity.localization": "1.5.8",
     "com.unity.memoryprofiler": "1.1.12",
     "com.unity.mobile.android-logcat": "1.4.7",

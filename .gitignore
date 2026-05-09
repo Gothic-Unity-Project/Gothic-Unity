@@ -113,6 +113,10 @@ Assets/StreamingAssets/SpeechToText/*.sentis.meta
 Assets/StreamingAssets/SpeechToText/*.json
 Assets/StreamingAssets/SpeechToText/*.json.meta
 
-
 Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/*
 !Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/.gitkeep
+
+ZenKitCS
+
+# Ignore local AI settings (like pre-approved MCP usage)
+.claude/*

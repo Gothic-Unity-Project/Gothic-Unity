@@ -14,12 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PreselectGameVersion: 1
   GameVersion: 0
+  ModIni: 
   GameControls: 0
   EnableVRDeviceSimulator: 1
   ActivateMarvinMode: 1
-  ZenKitLogLevel: 1
   EnableZSpyLogs: 0
-  ZSpyChannel: 9
+  AllDebugChannels: 0
+  ZSpyChannels:
+    Value: 
+  EnableZSpyInstantLogs: 0
+  IgnoreSpammyZSpyLogs: 1
+  ZenKitLogLevel: 1
   DirectMusicLogLevel: 30
   EnableMainMenu: 0
   LoadFromSaveSlot: 0
@@ -53,6 +58,7 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 
   EnableNpcEyeBlinking: 0
+  ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0
   ShowWayEdges: 0

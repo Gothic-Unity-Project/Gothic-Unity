@@ -45,11 +45,11 @@ namespace GUZ.VR.Adapters
         {
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
-                // GlobalEventDispatcher.FightWindowInitial.AddListener((_, __) => OnHoverEnter(1f));
-                // GlobalEventDispatcher.FightWindowAttack.AddListener((_, __) => OnHoverEnter(10f));
-                // GlobalEventDispatcher.FightWindowWaitingForCombo.AddListener((_, __) => OnHoverEnter(50f));
-                // GlobalEventDispatcher.FightWindowCombo.AddListener((_, __) => OnHoverEnter(100f));
-                // GlobalEventDispatcher.FightWindowComboFailed.AddListener((_, __) => OnHoverEnter(0.5f));
+                // GlobalEventDispatcher.FightWindowInitial.AddListener(_ => OnHoverEnter(1f));
+                // GlobalEventDispatcher.FightWindowAttack.AddListener(_ => OnHoverEnter(10f));
+                // GlobalEventDispatcher.FightWindowWaitingForCombo.AddListener(_ => OnHoverEnter(50f));
+                // GlobalEventDispatcher.FightWindowCombo.AddListener(_ => OnHoverEnter(100f));
+                // GlobalEventDispatcher.FightWindowComboFailed.AddListener(_ => OnHoverEnter(0.5f));
             }
         }
 

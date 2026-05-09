@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using GUZ.Core.Extensions;
 using GUZ.Core.Logging;
 using GUZ.Core.Models.Vm;
 using GUZ.Core.Services.Caches;
+using GUZ.VR.Adapters.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -27,7 +29,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
         public override GameObject Build()
         {
             BuildViaMdmAndMdh();
-            CreateBoneColliders();
+            CreateBodyAabbCollider();
 
             return RootGo;
         }
@@ -90,72 +92,18 @@ namespace GUZ.Core.Domain.Meshes.Builder
         }
         
         /// <summary>
-        /// During fight situations, the bones are checked for physical collision via e.g. *eventTag(0 "DEF_HIT_LIMB" "BIP01 R HAND")
-        /// We therefore calculate a box collider for all of the limbs/bones and disable it until its needed at fight time.
-        ///
-        /// Hint: We assume that the bounding boxes of the bones will stay stable and no long stretches will happen
-        ///       (which would force a recalculation).
+        /// Gothic stores a pre-baked collision AABB in the MDH file.
+        /// A single BoxCollider on the root GO matches Gothic's approach: the box is
+        /// static relative to the NPC's feet and is never deformed by animations.
         /// </summary>
-        private void CreateBoneColliders()
+        private void CreateBodyAabbCollider()
         {
-            var renderers = RootGo.GetComponentsInChildren<SkinnedMeshRenderer>();
-            var boneBoundsMap = new Dictionary<Transform, Bounds>();
+            if (Mdh == null)
+                return;
 
-            foreach (var renderer in renderers)
-            {
-                var mesh = renderer.sharedMesh;
-                if (mesh == null)
-                    continue;
-
-                var vertices = mesh.vertices;
-                var weights = mesh.boneWeights;
-                var smrBones = renderer.bones;
-                var bindPoses = mesh.bindposes;
-
-                for (var i = 0; i < vertices.Length; i++)
-                {
-                    var weight = weights[i];
-                    var boneIdx = weight.boneIndex0;
-
-                    // Use vertices with more than 10% weight.
-                    if (weight.weight0 > 0.1f)
-                    {
-                        var boneTransform = smrBones[boneIdx];
-                
-                        // DIRECT CALCULATION:
-                        // Multiply the vertex by the bind pose matrix to get the 
-                        // position relative to the bone at the time of rigging.
-                        var localPt = bindPoses[boneIdx].MultiplyPoint3x4(vertices[i]);
-
-                        if (!boneBoundsMap.ContainsKey(boneTransform))
-                        {
-                            boneBoundsMap[boneTransform] = new Bounds(localPt, UnityEngine.Vector3.zero);
-                        }
-                        else
-                        {
-                            var bounds = boneBoundsMap[boneTransform];
-                            bounds.Encapsulate(localPt);
-                            boneBoundsMap[boneTransform] = bounds;
-                        }
-                    }
-                }
-            }
-
-            // Apply to Colliders
-            foreach (var boneBound in boneBoundsMap)
-            {
-                var boneTransform = boneBound.Key;
-                var finalBounds = boneBound.Value;
-
-                if (finalBounds.size.sqrMagnitude < 0.0001f)
-                    continue;
-
-                var col = boneTransform.gameObject.AddComponent<BoxCollider>();
-                col.center = finalBounds.center;
-                col.size = finalBounds.size;
-                col.isTrigger = true; // We want to calculate Triggering only, not pushing/colliding.
-                col.enabled = false; // Will be enabled at runtime during fights when DEF_HIT_LIMB is set.
-            }
+            // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
+            var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
+            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>().SetDimension(bounds);
         }
     }
 }

@@ -55,31 +55,25 @@ namespace GUZ.Core
             Right = 2,
             Both  = 3
         }
-        
+
         /// <summary>
-        /// Assumptions:
-        /// 1. Attack window (collider hit check) always ends before the combo window starts.
-        /// --attack---|--
-        /// --------------|--combo---|
-        ///
-        /// 2. If we fail the combo window by doing e.g., "left-right" within the attack window, the combo is failed, and we need to wait.
-        /// --attack---|--
-        /// ------|fail--------------|
+        /// Attack window state transitions. Fired by AttackWindowStateMachine.
+        /// NpcContainer is the combatant whose attack window changed (player or NPC/Monster).
         /// </summary>
-        public static readonly UnityEvent<VobContainer, HandSide> FightWindowInitial = new();
-        public static readonly UnityEvent<VobContainer, HandSide> FightWindowComboFailed = new();
-        public static readonly UnityEvent<VobContainer, HandSide> FightWindowAttack = new();
-        public static readonly UnityEvent<VobContainer, HandSide> FightWindowWaitingForCombo = new();
-        public static readonly UnityEvent<VobContainer, HandSide> FightWindowCombo = new();
+        public static readonly UnityEvent<NpcContainer> FightWindowInitial = new();
+        public static readonly UnityEvent<NpcContainer> FightWindowComboFailed = new();
+        public static readonly UnityEvent<NpcContainer> FightWindowAttack = new();
+        public static readonly UnityEvent<NpcContainer> FightWindowWaitingForCombo = new();
+        public static readonly UnityEvent<NpcContainer> FightWindowCombo = new();
 
         public static readonly UnityEvent<NpcContainer, NpcContainer> SetHeroAsTarget = new();
-        
+
         /// <summary>
+        /// NpcContainer - who attacks
         /// NpcContainer - who got hit
-        /// VobContainer - with which weapon
         /// Vector3      - at which position
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, VobContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
         
 
         // LockPicking events

@@ -118,6 +118,7 @@ namespace GUZ.Core.Const
         public static LayerMask VobItemNoWorldCollision = LayerMask.NameToLayer("VobItemNoWorldCollision"); // No collision with world (e.g. while item is in our hands)
         public static LayerMask VobNpcOrMonsterLayer = LayerMask.NameToLayer("VobNpcOrMonster");
         public static LayerMask VobMovableLayer = LayerMask.NameToLayer("VobMovable"); // No collision with world (e.g. for chest lid and door)
+        public static LayerMask VobHitbox = LayerMask.NameToLayer("VobHitbox");
 
         
         /*

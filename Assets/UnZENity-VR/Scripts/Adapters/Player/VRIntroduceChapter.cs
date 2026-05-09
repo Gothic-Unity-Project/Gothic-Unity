@@ -1,5 +1,5 @@
+#if GUZ_HVR_INSTALLED
 using System.Collections;
-using GUZ.Core;
 using GUZ.Core.Extensions;
 using GUZ.Core.Manager;
 using GUZ.Core.Services.Meshes;
@@ -87,3 +87,4 @@ namespace GUZ.VR.Adapters.Player
         }
     }
 }
+#endif

@@ -14,12 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PreselectGameVersion: 1
   GameVersion: 0
+  ModIni: 
   GameControls: 0
   EnableVRDeviceSimulator: 0
   ActivateMarvinMode: 0
-  ZenKitLogLevel: 1
   EnableZSpyLogs: 0
-  ZSpyChannel: 9
+  AllDebugChannels: 0
+  ZSpyChannels:
+    Value: 
+  EnableZSpyInstantLogs: 0
+  IgnoreSpammyZSpyLogs: 1
+  ZenKitLogLevel: 1
   DirectMusicLogLevel: 30
   EnableMainMenu: 1
   LoadFromSaveSlot: 0
@@ -42,6 +47,7 @@ MonoBehaviour:
     CullingDistance: 200
   BrightenUpHoveredVOBs: 1
   ShowNamesOnHoveredVOBs: 1
+  PlayerInventoryAddition: 
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
   EnableNpcs: 1
@@ -52,6 +58,7 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 00000000
   EnableNpcEyeBlinking: 0
+  ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0
   ShowWayEdges: 0
@@ -67,5 +74,6 @@ MonoBehaviour:
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
   AlwaysRecreateCache: 0
+  OnlyCreateCacheForWorld: 
   EnableDecalVisuals: 0
   EnableParticleEffects: 0
