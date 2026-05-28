@@ -78,3 +78,14 @@ A: ZenKit is a full Gothic asset parser. It is feature complete and works with G
 
 **Q: What an interesting project name...**  
 A: We're glad you asked! _Gothic-UnZENity_ is a combination of Gothic, Unity, Zen (original 3D engine for Gothic I/II Classic), unleash, and a grain of insanity. ;-)
+
+## Star History
+
+<a href="https://star-history.com/#open-webui/open-webui&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date" />
+  </picture>
+</a>
+
