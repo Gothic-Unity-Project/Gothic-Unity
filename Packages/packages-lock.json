@@ -19,6 +19,13 @@
       },
       "hash": "b3cbe94fbc353815106b8286b99fff93043bf78a"
     },
+    "com.gothic.core.binaries": {
+      "version": "https://github.com/Gothic-Unity-Project/binary-dependencies.git?path=/Core",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "99a365d54db86897994421e96fbfc9c2255ce7b4"
+    },
     "com.gustavopsantos.reflex": {
       "version": "https://github.com/gustavopsantos/reflex.git?path=/Assets/Reflex/#12.0.1",
       "depth": 0,
@@ -27,7 +34,7 @@
       "hash": "312131b3c5c8e9b2450b07a03f249bb3e21dcbcf"
     },
     "com.hurricanevrextensions.simulator": {
-      "version": "https://github.com/Gothic-UnZENity-Project/hvr-simulator.git",
+      "version": "https://github.com/Gothic-Unity-Project/hvr-simulator.git",
       "depth": 0,
       "source": "git",
       "dependencies": {},
@@ -384,7 +391,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.openxr.picoxr": {
-      "version": "https://github.com/Gothic-UnZENity-Project/pico-openxr-sdk.git",
+      "version": "https://github.com/Gothic-Unity-Project/pico-openxr-sdk.git",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -392,13 +399,6 @@
         "com.unity.xr.openxr": "1.8.2"
       },
       "hash": "14aca194de7ecd85573ef143f77a34a4b014d8cb"
-    },
-    "com.unzenity.core.binaries": {
-      "version": "https://github.com/Gothic-UnZENity-Project/binary-dependencies.git?path=/UnZENity-Core",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "aa7e7c162540a681ea0b0549fde6db8f919e15d6"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
