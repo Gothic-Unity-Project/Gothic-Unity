@@ -1,16 +1,16 @@
-# Gothic-UnZENity (VR)
+# Gothic Unity (VR)
 
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/nvnaWwEu5Y)
-[![YouTube](https://img.shields.io/badge/YouTube-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@Gothic-UnZENity)
+[![YouTube](https://img.shields.io/badge/YouTube-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@Gothic-Unity)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Platforms](https://img.shields.io/static/v1?label=Platforms&message=PCVR%20|%20Pico4%20|%20Quest2%2b%20(Q2/Q3/...)&color=darkgreen)
-[![Release](https://img.shields.io/github/release-pre/Gothic-UnZENity-Project/Gothic-UnZENity)](https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/releases/latest)
+[![Release](https://img.shields.io/github/release-pre/Gothic-Unity-Project/Gothic-Unity)](https://github.com/Gothic-Unity-Project/Gothic-Unity/releases/latest)
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./Docs/Gothic-UnZENity-logo-inverse-transparent.png" width="300">
-    <img alt="May the sleeper protect you!" src="./Docs/Gothic-UnZENity-logo-transparent.png" width="300">
+    <source media="(prefers-color-scheme: dark)" srcset="./Docs/Gothic-Unity-logo-inverse-transparent.png" width="300">
+    <img alt="May the sleeper protect you!" src="./Docs/Gothic-Unity-logo-transparent.png" width="300">
   </picture>
 </p>
 Community rebuild of classical Gothic 1 and 2 in Unity engine. Currently focusing on a native VR implementation.
@@ -18,18 +18,18 @@ Community rebuild of classical Gothic 1 and 2 in Unity engine. Currently focusin
 
 ## Usage
 > [!NOTE]
-> For instructions on playing the game, check our [Wiki](https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/wiki).  
+> For instructions on playing the game, check our [Wiki](https://github.com/Gothic-Unity-Project/Gothic-Unity/wiki).  
 > Hints on contributing as a developer are highlighted at [Contributing.md](./CONTRIBUTING.md)
 
 > [!TIP]
-> 🤫 Shortcut to the installation instructions is [here](https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/wiki/Player%27s-Guide#setup). You can thank me later. 😉
+> 🤫 Shortcut to the installation instructions is [here](https://github.com/Gothic-Unity-Project/Gothic-Unity/wiki/Player%27s-Guide#setup). You can thank me later. 😉
 
 
 ## Roadmap
 
-![Gothic-UnZENity - Roadmap](./Docs/Gothic-UnZENity-roadmap.png)
+![Gothic Unity - Roadmap](./Docs/Gothic-Unity-roadmap.png)
 
-(You'll find our current feature development status at the [Projects](https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/projects?query=is%3Aopen) page.)
+(You'll find our current feature development status at the [Projects](https://github.com/Gothic-Unity-Project/Gothic-Unity/projects?query=is%3Aopen) page.)
 
 ## Our Tenets (until you know better ones)
 1. We preserve native Gothic experience -  To achieve it we will import original Gothic assets from local installations. Dynamically and during runtime. Do you still remember Bloodwyn forcing you to pay your protection money? You'll experience it again. And you'll pay... We promise!
@@ -46,14 +46,14 @@ If you're interested in Core Unity development, C# coding, or you're seasoned wi
 ![data flow](Docs/data-flow.drawio.png)
 
 
-1. Gothic-UnZENity requests data from ZenKit.dll (.net standard 2.1 shared library which is cross-OS compatibel).
+1. Gothic Unity requests data from ZenKit.dll (.net standard 2.1 shared library which is cross-OS compatibel).
 2. The dll itself forwards request to libzenkitcapi.dll/.so as it includes the original ZenKit parser library.
 3. ZenKitCAPI loads the file system data.
 4. The data is then returned to Unity to build Unity C# objects like Meshes.
 
 
 ## Dependencies
-Gothic-UnZENity is using the following projects:
+Gothic Unity is using the following projects:
 * [GothicKit/ZenKit](https://github.com/GothicKit/ZenKit) - Gothic asset parser
 * [GothicKit/dmusic](https://github.com/GothicKit/dmusic) - Open Source reimplementation of DirectMusic.
 
@@ -65,7 +65,7 @@ Big shoutout towards
 
 ## FAQ
 
-**Q: There are already a few recreations of Gothic in other game engines. What are Gothic-UnZENity's USPs?**  
+**Q: There are already a few recreations of Gothic in other game engines. What are Gothic Unity's USPs?**  
 A: In a nutshell:
 1. We provide a native VR experience for Gothic (Unity Engine and its great VR support helps us a lot)
 2. Game data is loaded 100% from local Gothic installation(s),
@@ -76,16 +76,14 @@ A: In a nutshell:
 **Q: Why do you use an external framework to parse Gothic assets?**  
 A: ZenKit is a full Gothic asset parser. It is feature complete and works with Gothic1, Gothic2, and Gothic2 the Night of the Raven assets. Last but not least, it's already used by OpenGothic as another reimplementation of Gothic Classic. Why reinventing the wheel? ¯\_(ツ)_/¯
 
-**Q: What an interesting project name...**  
-A: We're glad you asked! _Gothic-UnZENity_ is a combination of Gothic, Unity, Zen (original 3D engine for Gothic I/II Classic), unleash, and a grain of insanity. ;-)
 
 ## Star History
 
-<a href="https://star-history.com/#open-webui/open-webui&Date">
+<a href="https://star-history.com/#Gothic-Unity-Project/Gothic-Unity&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Gothic-UnZENity-Project/Gothic-UnZENity&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Gothic-Unity-Project/Gothic-Unity&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Gothic-Unity-Project/Gothic-Unity&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Gothic-Unity-Project/Gothic-Unity&type=Date" />
   </picture>
 </a>
 
