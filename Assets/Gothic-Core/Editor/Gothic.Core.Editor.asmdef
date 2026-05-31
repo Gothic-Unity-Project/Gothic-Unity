@@ -1,6 +1,6 @@
 {
-    "name": "UnZENity.Core.Editor",
-    "rootNamespace": "GUZ.Core.Editor",
+    "name": "Gothic.Core.Editor",
+    "rootNamespace": "Gothic.Core.Editor",
     "references": [
         "GUID:3c55a630855939f438e03e553f37a68f",
         "GUID:e3583e3ee6a3ff549be16e75f54b3d90",

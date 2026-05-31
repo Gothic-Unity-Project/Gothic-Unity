@@ -405,7 +405,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 else
                 {
                     texture = GetTexture(materialData.Texture);
-                    textureType = this.TextureCacheService.TextureArrayTypes.Unknown;
+                    textureType = TextureCacheService.TextureArrayTypes.Unknown;
                 }
 
                 // TODO - G1: Skeleton warrior's second texture doesn't exist. No alternatives needed/given.
@@ -483,7 +483,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var textureArrayIndex = 0;
                 var maxMipLevel = 0;
                 var textureScale = Vector2.one;
-                var textureArrayType = this.TextureCacheService.TextureArrayTypes.Opaque;
+                var textureArrayType = TextureCacheService.TextureArrayTypes.Opaque;
                 if (UseTextureArray)
                 {
                     TextureCacheService.GetTextureArrayIndex(subMesh.Material, out textureArrayType, out textureArrayIndex, out textureScale, out maxMipLevel, out _);
@@ -739,10 +739,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 Shader shader;
                 switch (textureType)
                 {
-                    case this.TextureCacheService.TextureArrayTypes.Opaque:
+                    case TextureCacheService.TextureArrayTypes.Opaque:
                         shader = Constants.ShaderWorldLit;
                         break;
-                    case this.TextureCacheService.TextureArrayTypes.Transparent:
+                    case TextureCacheService.TextureArrayTypes.Transparent:
                         // Cutout for e.g. bushes.
                         shader = Constants.ShaderLitAlphaToCoverage;
                         break;
