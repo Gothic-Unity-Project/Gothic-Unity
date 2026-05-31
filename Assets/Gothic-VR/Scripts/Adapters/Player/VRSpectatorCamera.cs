@@ -1,14 +1,14 @@
 #if GUZ_HVR_INSTALLED
 using System;
 using GUZ.Core;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Config;
 using GUZ.Core.Services.Config;
 using GUZ.Core.Services.Context;
 using GUZ.VR.Adapters.HVROverrides;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Player
 {

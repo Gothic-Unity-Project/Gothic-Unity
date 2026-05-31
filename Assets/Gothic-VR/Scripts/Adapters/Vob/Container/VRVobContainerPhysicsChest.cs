@@ -6,8 +6,8 @@ using System.Linq;
 using GUZ.Core;
 using GUZ.Core.Adapters.Vob;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Meshes;
@@ -20,7 +20,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Vob.Container
 {

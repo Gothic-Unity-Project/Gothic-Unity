@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using GUZ.Core.Adapters.Scenes;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Domain;
 using GUZ.Core.Extensions;
 using GUZ.Core.Manager;
@@ -21,7 +21,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine.SceneManagement;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services
 {

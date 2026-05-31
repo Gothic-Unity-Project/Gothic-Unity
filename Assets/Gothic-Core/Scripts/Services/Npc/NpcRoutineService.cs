@@ -1,13 +1,13 @@
 using System.Linq;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Npc;
 using GUZ.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services.Npc
 {

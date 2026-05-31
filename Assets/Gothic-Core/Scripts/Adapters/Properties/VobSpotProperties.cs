@@ -1,4 +1,4 @@
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using UnityEngine;
 
 namespace GUZ.Core.Adapters.Properties

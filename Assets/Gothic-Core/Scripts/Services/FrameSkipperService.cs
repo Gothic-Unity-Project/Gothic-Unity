@@ -1,10 +1,10 @@
 ﻿using System.Collections;
 using System.Threading.Tasks;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services
 {

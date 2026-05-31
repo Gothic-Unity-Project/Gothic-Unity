@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Numerics;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Models.Vm;
@@ -16,7 +16,7 @@ using MyBox;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
 
 namespace GUZ.Core.Domain.Vm

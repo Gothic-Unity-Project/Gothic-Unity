@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using GUZ.Core.Adapters.UI.LoadingBars;
 using GUZ.Core.Const;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
@@ -17,7 +17,7 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using ZenKit;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
 namespace GUZ.Core.Domain.StaticCache

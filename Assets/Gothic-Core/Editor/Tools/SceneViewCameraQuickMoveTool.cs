@@ -1,8 +1,8 @@
 using System;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using UnityEditor;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Editor.Tools
 {

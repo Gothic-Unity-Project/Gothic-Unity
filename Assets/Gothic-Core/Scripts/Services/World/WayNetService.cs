@@ -4,10 +4,10 @@ using System.Linq;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Extensions;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Models.Config;
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using GUZ.Core.Models.WayNet;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
@@ -15,10 +15,10 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Material = UnityEngine.Material;
 using Mesh = UnityEngine.Mesh;
-using WayPoint = GUZ.Core.Models.Vob.WayNet.WayPoint;
+using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
 namespace GUZ.Core.Creator
 {

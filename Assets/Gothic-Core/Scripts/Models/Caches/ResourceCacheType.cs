@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using JetBrains.Annotations;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Models.Caches
+namespace Gothic.Core.Models.Caches
 {
     /// <summary>
     /// <b>Represents a cached resource of a given type <see cref="T"/>.</b>

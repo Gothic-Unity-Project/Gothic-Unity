@@ -1,5 +1,5 @@
 using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using UnityEngine;
 
 namespace GUZ.Core.Domain.Npc.Actions.AnimationActions

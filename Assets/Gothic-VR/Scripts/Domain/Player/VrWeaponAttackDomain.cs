@@ -6,7 +6,7 @@ using GUZ.Core;
 using GUZ.Core.Const;
 using GUZ.Core.Domain.Npc;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Audio;
 using GUZ.Core.Models.Container;
@@ -20,7 +20,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using EventType = ZenKit.EventType;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Domain.Player
 {

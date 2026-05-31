@@ -9,7 +9,7 @@ using ILogger = UberLogger.ILogger;
 using Object = UnityEngine.Object;
 #endif
 
-namespace GUZ.Core.Logging
+namespace Gothic.Core.Logging
 {
     public class FileLoggingHandler
     {

@@ -2,9 +2,9 @@ using System;
 using System.Threading.Tasks;
 using GUZ.Core.Domain.Audio;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services.Player
 {

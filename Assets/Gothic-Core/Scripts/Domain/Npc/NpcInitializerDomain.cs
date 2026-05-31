@@ -3,15 +3,15 @@ using System.Threading.Tasks;
 using GUZ.Core.Adapters.Npc;
 using GUZ.Core.Adapters.Properties;
 using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Creator;
 using GUZ.Core.Extensions;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Models.Vm;
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Culling;
@@ -25,9 +25,9 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
-using WayPoint = GUZ.Core.Models.Vob.WayNet.WayPoint;
+using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
 namespace GUZ.Core.Domain.Npc
 {

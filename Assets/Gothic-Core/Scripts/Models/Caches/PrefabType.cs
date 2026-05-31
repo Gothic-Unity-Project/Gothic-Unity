@@ -1,7 +1,7 @@
 using System;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 
-namespace GUZ.Core.Models.Caches
+namespace Gothic.Core.Models.Caches
 {
     public enum PrefabType
     {

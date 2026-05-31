@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services;
 using MyBox;
 using Newtonsoft.Json;
@@ -12,7 +12,7 @@ using Reflex.Attributes;
 using Unity.Collections;
 using Unity.InferenceEngine;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain.Audio
 {

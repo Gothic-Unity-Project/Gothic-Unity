@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using GUZ.Core.Adapters.UI.LoadingBars;
 using GUZ.Core.Adapters.Vob;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Creator;
 using GUZ.Core.Domain.Vobs;
 using GUZ.Core.Extensions;
@@ -24,7 +24,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
 namespace GUZ.Core.Services.Vobs

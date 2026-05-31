@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
@@ -10,7 +10,7 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Util;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Vector3 = System.Numerics.Vector3;
 
 namespace GUZ.Core.Debugging

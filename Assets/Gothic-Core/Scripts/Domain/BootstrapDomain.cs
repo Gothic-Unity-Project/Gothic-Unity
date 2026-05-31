@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Context;
@@ -14,7 +14,7 @@ using GUZ.Services.UI;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain
 {

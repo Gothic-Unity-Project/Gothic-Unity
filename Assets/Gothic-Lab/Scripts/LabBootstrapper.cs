@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using GUZ.Core;
 using GUZ.Core.Domain;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Config;
 using GUZ.Core.Services;
@@ -22,7 +22,7 @@ using GUZ.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Lab
 {

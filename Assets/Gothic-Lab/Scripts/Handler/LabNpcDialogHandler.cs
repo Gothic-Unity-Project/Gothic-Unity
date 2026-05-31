@@ -1,5 +1,5 @@
 using System.Collections;
-using GUZ.Core.Adapters.Adnimations;
+using Gothic.Core.Adapters.Animations;
 using GUZ.Core.Adapters.Npc;
 using GUZ.Core.Animations;
 using GUZ.Core.Extensions;

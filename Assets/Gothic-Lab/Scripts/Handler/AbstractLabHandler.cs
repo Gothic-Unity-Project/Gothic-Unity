@@ -1,13 +1,13 @@
 ﻿using GUZ.Core;
-using GUZ.Core.Logging;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Meshes;
 using GUZ.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Lab.Handler
 {

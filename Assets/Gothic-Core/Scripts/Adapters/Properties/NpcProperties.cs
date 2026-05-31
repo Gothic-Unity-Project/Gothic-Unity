@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using GUZ.Core.Models.Npc;
 using GUZ.Core.Models.Vm;
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using GUZ.Core.Domain.Npc.Actions.AnimationActions;
 using ZenKit.Daedalus;
 

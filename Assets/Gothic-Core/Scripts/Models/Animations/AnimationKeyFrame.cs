@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Models.Animations
+namespace Gothic.Core.Models.Animations
 {
     public struct AnimationKeyFrame
     {

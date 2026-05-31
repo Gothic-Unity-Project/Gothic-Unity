@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using JetBrains.Annotations;
 using Reflex.Injectors;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Extensions
 {

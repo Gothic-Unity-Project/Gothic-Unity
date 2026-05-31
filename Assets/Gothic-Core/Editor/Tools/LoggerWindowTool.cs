@@ -1,5 +1,5 @@
 using System;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services;
 using UnityEditor;
 using Logger = UberLogger.Logger;
@@ -34,7 +34,7 @@ namespace GUZ.Core.Editor.Tools
             var gothicVm = ReflexProjectInstaller.DIContainer.Resolve<GameStateService>()?.GothicVm;
             
             if (gothicVm == null)
-                Logging.Logger.LogErrorEditor("No Gothic VM initialized. Please start the game first.", LogCat.Debug);
+                Gothic.Core.Logging.Logger.LogErrorEditor("No Gothic VM initialized. Please start the game first.", LogCat.Debug);
             
             gothicVm?.PrintStackTrace();
         }

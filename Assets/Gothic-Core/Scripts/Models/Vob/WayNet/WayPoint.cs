@@ -1,4 +1,4 @@
-namespace GUZ.Core.Models.Vob.WayNet
+namespace Gothic.Core.Models.Vob.WayNet
 {
     public class WayPoint : WayNetPoint
     {

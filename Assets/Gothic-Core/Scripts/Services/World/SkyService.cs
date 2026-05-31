@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Extensions;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Sky;
@@ -11,7 +11,7 @@ using GUZ.Core.Services.Meshes;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 

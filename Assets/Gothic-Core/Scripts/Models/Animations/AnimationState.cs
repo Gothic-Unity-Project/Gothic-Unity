@@ -1,4 +1,4 @@
-namespace GUZ.Core.Models.Animations
+namespace Gothic.Core.Models.Animations
 {
     public enum AnimationState
     {

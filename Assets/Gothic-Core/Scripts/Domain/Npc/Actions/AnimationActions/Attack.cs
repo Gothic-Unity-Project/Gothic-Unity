@@ -2,7 +2,7 @@ using System;
 using System.Numerics;
 using GUZ.Core.Const;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Models.Vm;
 using GUZ.Core.Services.Npc;

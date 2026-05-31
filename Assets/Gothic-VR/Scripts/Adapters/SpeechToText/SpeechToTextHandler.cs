@@ -1,6 +1,6 @@
 #if GUZ_HVR_INSTALLED
 using GUZ.Core;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Services.Config;
 using GUZ.Core.Services.Context;
@@ -10,7 +10,7 @@ using GUZ.VR.Adapters.UI;
 using GUZ.VR.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.SpeechToText
 {

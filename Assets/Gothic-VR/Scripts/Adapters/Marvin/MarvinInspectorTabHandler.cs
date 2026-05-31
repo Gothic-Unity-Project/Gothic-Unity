@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using GUZ.Core;
 using GUZ.Core.Adapters.UI;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Models.Marvin;
 using GUZ.Core.Services.Caches;
 using GUZ.VR.Services;
@@ -13,7 +13,7 @@ using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Marvin
 {

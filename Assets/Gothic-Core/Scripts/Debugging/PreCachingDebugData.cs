@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.StaticCache;
 using GUZ.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Debugging
 {

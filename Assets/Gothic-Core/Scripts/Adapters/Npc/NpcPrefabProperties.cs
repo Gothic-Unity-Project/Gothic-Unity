@@ -1,5 +1,5 @@
 using System;
-using GUZ.Core.Adapters.Adnimations;
+using Gothic.Core.Adapters.Animations;
 using GUZ.Core.Adapters.Animations.Morph;
 using GUZ.Core.Animations;
 using GUZ.Core.Models.Container;

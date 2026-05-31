@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using GUZ.Core.Const;
 using GUZ.Core.Creator;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
-using GUZ.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.Vob.WayNet;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Config;
@@ -23,7 +23,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Adapters.Scenes
 {

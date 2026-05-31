@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Model.UI.Menu;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Context;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Adapters.UI.Menus
 {

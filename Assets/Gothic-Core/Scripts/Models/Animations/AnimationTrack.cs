@@ -3,7 +3,7 @@ using GUZ.Core.Extensions;
 using UnityEngine;
 using ZenKit;
 
-namespace GUZ.Core.Models.Animations
+namespace Gothic.Core.Models.Animations
 {
     public class AnimationTrack
     {

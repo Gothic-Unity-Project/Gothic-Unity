@@ -1,4 +1,4 @@
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Container;
 
 namespace GUZ.Core.Domain.Npc.Actions.AnimationActions

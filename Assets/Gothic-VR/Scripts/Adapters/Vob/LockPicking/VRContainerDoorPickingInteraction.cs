@@ -2,7 +2,7 @@
 using System.Collections;
 using GUZ.Core;
 using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Services.Vm;
@@ -13,7 +13,7 @@ using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Vob.LockPicking
 {

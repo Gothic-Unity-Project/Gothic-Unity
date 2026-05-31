@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Animations.Morph;
 using GUZ.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
 using Random = UnityEngine.Random;
 

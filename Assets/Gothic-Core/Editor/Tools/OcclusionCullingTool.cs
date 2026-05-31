@@ -2,18 +2,16 @@ using System;
 using System.Threading.Tasks;
 using GUZ.Core.Domain.StaticCache;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Config;
 using GUZ.Core.Services.Meshes;
 using GUZ.Core.Services.StaticCache;
-using GUZ.G1;
-using GUZ.G2.Services.Context;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Editor.Tools
 {

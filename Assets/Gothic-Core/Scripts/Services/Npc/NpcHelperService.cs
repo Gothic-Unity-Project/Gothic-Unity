@@ -4,7 +4,7 @@ using System.Linq;
 using GUZ.Core.Adapters.Properties;
 using GUZ.Core.Adapters.Properties.Vobs;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Creator;
 using GUZ.Core.Extensions;
 using GUZ.Core.Models.Container;
@@ -15,7 +15,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services.Npc
 {

@@ -4,7 +4,7 @@ using System.Linq;
 using GUZ.Core;
 using GUZ.Core.Adapters.UI;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Config;
 using MyBox;
@@ -16,7 +16,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using ILogger = UberLogger.ILogger;
 using Logger = UberLogger.Logger;
-using PrefabType = GUZ.Core.Models.Caches.PrefabType;
+using PrefabType = Gothic.Core.Models.Caches.PrefabType;
 
 namespace GUZ.VR.Adapters.Marvin
 {

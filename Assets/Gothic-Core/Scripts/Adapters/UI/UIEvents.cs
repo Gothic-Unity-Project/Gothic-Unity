@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Extensions;
 using GUZ.Core.Manager;
 using GUZ.Core.Services.UI;
@@ -8,7 +8,7 @@ using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Adapters.UI
 {

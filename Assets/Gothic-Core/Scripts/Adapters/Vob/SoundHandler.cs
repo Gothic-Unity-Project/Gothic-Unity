@@ -1,8 +1,8 @@
 using System.Collections;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using UnityEngine;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
 
 namespace GUZ.Core.Adapters.Vob

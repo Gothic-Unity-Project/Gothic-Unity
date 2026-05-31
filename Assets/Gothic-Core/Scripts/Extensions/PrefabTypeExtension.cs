@@ -1,5 +1,5 @@
 using System;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 
 namespace GUZ.Core.Extensions
 {

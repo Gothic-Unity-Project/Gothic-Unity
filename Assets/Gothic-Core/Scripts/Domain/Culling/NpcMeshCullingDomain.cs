@@ -1,14 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Creator;
 using GUZ.Core.Extensions;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain.Culling
 {

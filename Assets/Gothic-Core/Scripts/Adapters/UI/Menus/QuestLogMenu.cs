@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Model.UI.Menu;
 using GUZ.Core.Model.UI.MenuItem;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.World;
@@ -15,7 +15,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using ZenKit;
 using ZenKit.Daedalus;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Adapters.UI.Menus
 {

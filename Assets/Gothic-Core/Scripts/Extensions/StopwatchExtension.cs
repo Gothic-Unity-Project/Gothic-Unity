@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 
 namespace GUZ.Core.Extensions
 {

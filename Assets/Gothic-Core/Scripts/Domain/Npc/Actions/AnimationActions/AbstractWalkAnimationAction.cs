@@ -1,10 +1,10 @@
 using System;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Models.Vm;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
 {

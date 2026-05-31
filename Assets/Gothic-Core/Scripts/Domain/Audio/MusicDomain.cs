@@ -4,7 +4,7 @@ using System.Linq;
 using DirectMusic;
 using GUZ.Core.Adapters.Vob;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Config;
 using Reflex.Attributes;
@@ -12,7 +12,7 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain.Audio
 {

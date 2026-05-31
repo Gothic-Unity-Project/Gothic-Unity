@@ -1,5 +1,5 @@
 using GUZ.Core;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Services;
 using GUZ.Core.Services.Caches;
 using UnityEngine;

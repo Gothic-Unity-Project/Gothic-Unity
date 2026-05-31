@@ -1,11 +1,11 @@
 using System.Text;
 using GUZ.Core.Const;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Services;
 using Reflex.Attributes;
 using UnityEngine.Localization.Settings;
 using ZenKit;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Services.UI
 {

@@ -1,7 +1,7 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Vob.LockPicking
 {

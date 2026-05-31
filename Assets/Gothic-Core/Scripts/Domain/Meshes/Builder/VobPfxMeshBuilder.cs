@@ -2,15 +2,15 @@
 using GUZ.Core.Adapters.Properties.Vob;
 using GUZ.Core.Const;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Services.Caches;
 using GUZ.Core.Services.Meshes;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = System.Object;
 
 namespace GUZ.Core.Domain.Meshes.Builder

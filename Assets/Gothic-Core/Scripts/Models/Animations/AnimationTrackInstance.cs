@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 using UnityEngine;
 using ZenKit;
 
-namespace GUZ.Core.Models.Animations
+namespace Gothic.Core.Models.Animations
 {
     /// <summary>
     /// Currently playing instance of a Track on a NPC.

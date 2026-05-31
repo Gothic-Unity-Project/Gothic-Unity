@@ -1,9 +1,9 @@
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services.UI
 {

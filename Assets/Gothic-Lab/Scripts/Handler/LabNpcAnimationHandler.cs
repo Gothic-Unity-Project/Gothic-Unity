@@ -6,7 +6,7 @@ using GUZ.Core.Adapters.Properties;
 using GUZ.Core.Domain.Npc.Actions;
 using GUZ.Core.Domain.Npc.Actions.AnimationActions;
 using GUZ.Core.Extensions;
-using GUZ.Core.Models.Caches;
+using Gothic.Core.Models.Caches;
 using GUZ.Core.Models.Container;
 using GUZ.Core.Models.Vm;
 using GUZ.Core.Services.Caches;

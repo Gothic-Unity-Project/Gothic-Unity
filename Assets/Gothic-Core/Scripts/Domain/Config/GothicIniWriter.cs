@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
-using GUZ.Core.Logging;
-using Logger = GUZ.Core.Logging.Logger;
+using Gothic.Core.Logging;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Domain.Config
 {

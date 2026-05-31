@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Extensions;
 using GUZ.Core.Services.Context;
 using Reflex.Attributes;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.Core.Services.Player
 {

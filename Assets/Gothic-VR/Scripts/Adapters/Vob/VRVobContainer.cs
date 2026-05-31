@@ -5,7 +5,7 @@ using GUZ.Core;
 using GUZ.Core.Adapters.Vob;
 using GUZ.Core.Const;
 using GUZ.Core.Extensions;
-using GUZ.Core.Logging;
+using Gothic.Core.Logging;
 using GUZ.Core.Manager;
 using GUZ.Core.Services.Caches;
 using HurricaneVR.Framework.Components;
@@ -13,7 +13,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using ZenKit.Vobs;
-using Logger = GUZ.Core.Logging.Logger;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace GUZ.VR.Adapters.Vob
 {
