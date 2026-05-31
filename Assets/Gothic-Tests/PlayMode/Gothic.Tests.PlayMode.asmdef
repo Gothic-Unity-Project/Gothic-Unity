@@ -1,6 +1,6 @@
 {
-    "name": "UnZENity.Tests.PlayMode",
-    "rootNamespace": "GUZ.Tests.PlayMode",
+    "name": "Gothic.Tests.PlayMode",
+    "rootNamespace": "Gothic.Tests.PlayMode",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",

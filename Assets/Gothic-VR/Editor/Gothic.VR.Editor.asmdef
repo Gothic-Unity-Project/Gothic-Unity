@@ -1,6 +1,6 @@
 {
-    "name": "UnZENity.VR.Editor",
-    "rootNamespace": "GUZ.VR.Editor",
+    "name": "Gothic.VR.Editor",
+    "rootNamespace": "Gothic.VR.Editor",
     "references": [
         "GUID:4847341ff46394e83bb78fbd0652937e",
         "GUID:c579267770062bf448e75eb160330b7f",

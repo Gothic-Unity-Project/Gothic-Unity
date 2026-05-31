@@ -1,6 +1,6 @@
 {
-    "name": "UnZENity.Gothic2",
-    "rootNamespace": "GUZ.G2",
+    "name": "Gothic1",
+    "rootNamespace": "Gothic.G1",
     "references": [
         "GUID:3c55a630855939f438e03e553f37a68f",
         "GUID:48c9f6afdac61634db0e0f241c7d4d51",
