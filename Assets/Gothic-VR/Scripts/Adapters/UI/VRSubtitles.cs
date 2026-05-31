@@ -1,14 +1,14 @@
 ﻿#if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.UI;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.UI;
+using Gothic.Core;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Adapters.UI
+namespace Gothic.VR.Adapters.UI
 {
     /// <summary>
     /// Multiple subtitles can be shown at once.

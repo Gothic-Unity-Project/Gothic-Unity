@@ -3,7 +3,7 @@ using Gothic.Core.Logging;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Vob.LockPicking
+namespace Gothic.VR.Adapters.Vob.LockPicking
 {
     public class VRLockPickInteraction : MonoBehaviour
     {

@@ -1,4 +1,4 @@
-﻿namespace GUZ.Core.Models.Config
+﻿namespace Gothic.Core.Models.Config
 {
     public class JsonRootConfig
     {

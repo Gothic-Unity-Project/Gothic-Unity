@@ -3,15 +3,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Vobs;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using HurricaneVR.Framework.Components;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Sockets;
@@ -22,7 +22,7 @@ using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Vob.Container
+namespace Gothic.VR.Adapters.Vob.Container
 {
     public class VRVobContainerPhysicsChest : HVRPhysicsDoor
     {

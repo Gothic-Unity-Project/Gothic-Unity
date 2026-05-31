@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.UI;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.UI;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.UI
+namespace Gothic.Core.Adapters.UI
 {
     /// <summary>
     /// Alter font of Text based on G1 default/highlight fonts.

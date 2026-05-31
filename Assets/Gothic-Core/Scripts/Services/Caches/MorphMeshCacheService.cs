@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     /// <summary>
     /// We need to store various mappings and vertex data for MorphMeshes to work properly.

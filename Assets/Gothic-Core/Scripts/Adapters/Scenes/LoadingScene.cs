@@ -1,13 +1,13 @@
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.World;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.World;
+using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     public class LoadingScene : MonoBehaviour, IScene
     {

@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     [RequireComponent(typeof(Light))]
     public class StationaryLight : MonoBehaviour

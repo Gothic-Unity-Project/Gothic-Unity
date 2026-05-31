@@ -1,9 +1,9 @@
-using GUZ.Core.Const;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
+using Gothic.Core.Const;
 using Reflex.Attributes;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Adapters.Properties.Vobs
+namespace Gothic.Core.Adapters.Properties.Vobs
 {
     public class MovableProperties : VobProperties2
     {

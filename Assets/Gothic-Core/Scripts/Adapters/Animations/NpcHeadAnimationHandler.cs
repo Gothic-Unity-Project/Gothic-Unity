@@ -1,7 +1,7 @@
-﻿using GUZ.Core.Adapters.Npc;
+﻿using Gothic.Core.Adapters.Npc;
 using UnityEngine;
 
-namespace GUZ.Core.Animations
+namespace Gothic.Core.Animations
 {
     public class NpcHeadAnimationHandler : BasePlayerBehaviour
     {

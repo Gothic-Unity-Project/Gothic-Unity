@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace GUZ.VR.Adapters.SpeechToText
+namespace Gothic.VR.Adapters.SpeechToText
 {
     public class TextMatcher
     {

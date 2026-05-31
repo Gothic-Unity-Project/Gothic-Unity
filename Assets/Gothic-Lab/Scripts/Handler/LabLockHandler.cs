@@ -1,11 +1,11 @@
 ﻿using System.Collections;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabLockHandler : AbstractLabHandler
     {

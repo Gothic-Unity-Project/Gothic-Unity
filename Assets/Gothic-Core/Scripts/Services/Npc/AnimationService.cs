@@ -2,20 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class AnimationService
     {

@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using JetBrains.Annotations;
 
-namespace GUZ.Core.Domain.Audio
+namespace Gothic.Core.Domain.Audio
 {
     public class ImaadpcmDecoderDomain
     {

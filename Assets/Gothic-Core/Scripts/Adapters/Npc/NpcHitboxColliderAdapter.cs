@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Npc
+namespace Gothic.VR.Adapters.Npc
 {
     // TODO - Could be subsummarized and filled in NpcMeshBuilder .center/.size instead of a Component.
     /// <summary>

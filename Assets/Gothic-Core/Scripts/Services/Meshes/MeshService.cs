@@ -1,16 +1,16 @@
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Domain.Meshes.Builder;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Domain.Meshes.Builder;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Services.Meshes
+namespace Gothic.Core.Services.Meshes
 {
     public class MeshService
     {

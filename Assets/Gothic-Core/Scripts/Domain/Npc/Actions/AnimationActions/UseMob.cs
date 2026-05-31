@@ -1,14 +1,14 @@
 using System.Linq;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using MyBox;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class UseMob : AbstractWalkAnimationAction2
     {

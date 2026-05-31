@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit;
 

@@ -1,18 +1,18 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
+using Gothic.Core;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Player;
-using GUZ.VR.Adapters.HVROverrides;
-using GUZ.VR.Adapters.UI;
-using GUZ.VR.Services.Context;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.UI;
+using Gothic.VR.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.SpeechToText
+namespace Gothic.VR.Adapters.SpeechToText
 {
     public class SpeechToTextHandler : MonoBehaviour
     {

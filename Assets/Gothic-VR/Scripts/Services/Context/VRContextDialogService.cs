@@ -1,15 +1,15 @@
 ﻿#if GUZ_HVR_INSTALLED
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Models.Dialog;
-using GUZ.Core.Services.Context;
-using GUZ.VR.Adapters.UI;
+using Gothic.Core.Const;
+using Gothic.Core.Models.Dialog;
+using Gothic.Core.Services.Context;
+using Gothic.VR.Adapters.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Services.Context
+namespace Gothic.VR.Services.Context
 {
     public class VRContextDialogService : IContextDialogService
     {

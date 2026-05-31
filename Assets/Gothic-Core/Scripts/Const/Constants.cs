@@ -1,10 +1,10 @@
-using GUZ.Core.Extensions;
-using GUZ.Core.Services;
+using Gothic.Core.Extensions;
+using Gothic.Core.Services;
 using UnityEngine;
 using ZenKit.Vobs;
 using Material = UnityEngine.Material;
 
-namespace GUZ.Core.Const
+namespace Gothic.Core.Const
 {
     public static class Constants
     {

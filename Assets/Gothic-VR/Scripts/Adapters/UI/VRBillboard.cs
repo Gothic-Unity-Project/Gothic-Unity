@@ -1,7 +1,7 @@
 #if GUZ_HVR_INSTALLED
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.UI
+namespace Gothic.VR.Adapters.UI
 {
     public class VRBillboard : MonoBehaviour
     {

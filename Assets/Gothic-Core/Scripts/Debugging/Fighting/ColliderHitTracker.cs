@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Debugging.Fighting
+namespace Gothic.Core.Debugging.Fighting
 {
     /// <summary>
     /// Added to NPC bone GameObjects by NpcColliderDebugAdapter.

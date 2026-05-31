@@ -1,10 +1,10 @@
 ﻿using System;
-using GUZ.Core;
-using GUZ.Core.Adapters.Context;
-using GUZ.Core.Models.Context;
+using Gothic.Core.Adapters.Context;
+using Gothic.Core.Models.Context;
+using Gothic.Core;
 using ZenKit;
 
-namespace GUZ.Flat.Adapters.Context
+namespace Gothic.Flat.Adapters.Context
 {
     /// <summary>
     /// Bootstrap class which will register listener to set this module as Active if GameSettings.Controls match.

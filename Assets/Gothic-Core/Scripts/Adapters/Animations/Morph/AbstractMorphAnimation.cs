@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Animations.Morph;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Models.Animations.Morph;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -13,7 +13,7 @@ using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Adapters.Animations.Morph
+namespace Gothic.Core.Adapters.Animations.Morph
 {
     /// <summary>
     ///

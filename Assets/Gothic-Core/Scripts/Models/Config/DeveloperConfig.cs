@@ -1,14 +1,14 @@
 using System;
-using GUZ.Core.Models.Context;
-using GUZ.Core.Services.World;
+using Gothic.Core.Models.Context;
+using Gothic.Core.Services.World;
 using MyBox;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Vobs;
-using static GUZ.Core.Models.Config.DeveloperConfigEnums;
+using static Gothic.Core.Models.Config.DeveloperConfigEnums;
 
 
-namespace GUZ.Core.Models.Config
+namespace Gothic.Core.Models.Config
 {
     [CreateAssetMenu(fileName = "NewDeveloperConfiguration", menuName = "UnZENity/ScriptableObjects/DeveloperConfiguration", order = 1)]
     public class DeveloperConfig : ScriptableObject
@@ -29,10 +29,10 @@ namespace GUZ.Core.Models.Config
         public class VOBTypesCollection : CollectionWrapper<VirtualObjectType> { }
 
         [Serializable]
-        public class MonsterTypesCollection : CollectionWrapper<MonsterId> { }
+        public class MonsterTypesCollection : CollectionWrapper<DeveloperConfigEnums.MonsterId> { }
 
         [Serializable]
-        public class DebugChannelTypesCollection : CollectionWrapper<DebugChannel> { }
+        public class DebugChannelTypesCollection : CollectionWrapper<DeveloperConfigEnums.DebugChannel> { }
 
 
         /**
@@ -111,7 +111,7 @@ namespace GUZ.Core.Models.Config
         private bool SaveSlotFieldCondition() => !EnableMainMenu && LoadFromSaveSlot;
         
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]
-        public WorldToSpawn PreselectWorldToSpawn;
+        public DeveloperConfigEnums.WorldToSpawn PreselectWorldToSpawn;
 
         [Tooltip("Covers Free Points and Way Points.")]
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]

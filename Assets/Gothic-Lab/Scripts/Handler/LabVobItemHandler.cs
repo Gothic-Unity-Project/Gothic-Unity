@@ -3,12 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Vm;
 using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabVobItemHandler : AbstractLabHandler
     {

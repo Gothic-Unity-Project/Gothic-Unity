@@ -1,11 +1,11 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Services.Context;
-using GUZ.VR.Adapters.HVROverrides;
+using Gothic.Core.Services.Context;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.Core;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.UI
+namespace Gothic.VR.Adapters.UI
 {
     public class VRMenuBillboard : MonoBehaviour
     {

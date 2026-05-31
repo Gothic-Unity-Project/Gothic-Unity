@@ -1,12 +1,12 @@
 ﻿using System.Collections;
 using System.Threading.Tasks;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services
+namespace Gothic.Core.Services
 {
     /// <summary>
     /// Leverage this class to check if an Async operation can continue or should wait until next frame.

@@ -1,8 +1,8 @@
 using System.Linq;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Adapters.Properties.Vobs
+namespace Gothic.Core.Adapters.Properties.Vobs
 {
     public class VobProperties2
     {

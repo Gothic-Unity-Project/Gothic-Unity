@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     /// <summary>
     /// Add it to an object where you want to draw some information.

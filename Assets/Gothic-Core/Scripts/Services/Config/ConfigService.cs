@@ -1,11 +1,11 @@
 ﻿using System;
 using System.IO;
-using GUZ.Core.Domain.Config;
-using GUZ.Core.Models.Config;
+using Gothic.Core.Domain.Config;
+using Gothic.Core.Models.Config;
 using MyBox;
 using ZenKit;
 
-namespace GUZ.Core.Services.Config
+namespace Gothic.Core.Services.Config
 {
     /// <summary>
     /// Combines three sources of configuration:

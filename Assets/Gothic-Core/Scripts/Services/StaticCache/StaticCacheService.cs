@@ -5,21 +5,21 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Const;
-using GUZ.Core.Domain.Config;
-using GUZ.Core.Domain.StaticCache;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Config;
+using Gothic.Core.Domain.StaticCache;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.StaticCache
+namespace Gothic.Core.Services.StaticCache
 {
     public class StaticCacheService
     {

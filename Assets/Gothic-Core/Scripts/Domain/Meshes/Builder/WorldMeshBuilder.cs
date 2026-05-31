@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Domain.StaticCache;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.StaticCache;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEditor;
@@ -19,7 +19,7 @@ using ZenKit;
 using Mesh = UnityEngine.Mesh;
 using Material = UnityEngine.Material;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class WorldMeshBuilder : AbstractMeshBuilder
     {
@@ -61,9 +61,9 @@ namespace GUZ.Core.Domain.Meshes.Builder
             
             loading?.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.WorldMesh), chunksCount);
 
-            await BuildChunkType(_worldChunks.OpaqueChunks, TextureCacheService.TextureArrayTypes.Opaque, loading);
-            await BuildChunkType(_worldChunks.TransparentChunks, TextureCacheService.TextureArrayTypes.Transparent, loading);
-            await BuildChunkType(_worldChunks.WaterChunks, TextureCacheService.TextureArrayTypes.Water, loading);
+            await BuildChunkType(_worldChunks.OpaqueChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Opaque, loading);
+            await BuildChunkType(_worldChunks.TransparentChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Transparent, loading);
+            await BuildChunkType(_worldChunks.WaterChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Water, loading);
         }
 
         private async Task BuildChunkType(List<WorldChunkCacheCreatorDomain.WorldChunk> chunks, TextureCacheService.TextureArrayTypes type, [CanBeNull] LoadingService loading)
@@ -82,7 +82,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
                 {
                     name = $"{type}-Entry-{loopIndex++}",
                     isStatic = true,
-                    layer = type == TextureCacheService.TextureArrayTypes.Water ? Constants.WaterLayer : Constants.DefaultLayer,
+                    layer = type == Services.Caches.TextureCacheService.TextureArrayTypes.Water ? Constants.WaterLayer : Constants.DefaultLayer,
                 };
                 chunkGo.SetParent(chunkTypeRoot);
 
@@ -192,7 +192,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
             mesh.SetNormals(chunk.Normals);
             mesh.SetColors(chunk.BakedLightColors);
 
-            if (textureArrayType == TextureCacheService.TextureArrayTypes.Water)
+            if (textureArrayType == Services.Caches.TextureCacheService.TextureArrayTypes.Water)
             {
                 mesh.SetUVs(1, chunk.TextureAnimations);
             }
@@ -222,14 +222,14 @@ namespace GUZ.Core.Domain.Meshes.Builder
         {
             var shader = textureArrayType switch
             {
-                TextureCacheService.TextureArrayTypes.Opaque => Constants.ShaderWorldLit,
-                TextureCacheService.TextureArrayTypes.Transparent => Constants.ShaderLitAlphaToCoverage,
-                TextureCacheService.TextureArrayTypes.Water => Constants.ShaderWater,
+                Services.Caches.TextureCacheService.TextureArrayTypes.Opaque => Constants.ShaderWorldLit,
+                Services.Caches.TextureCacheService.TextureArrayTypes.Transparent => Constants.ShaderLitAlphaToCoverage,
+                Services.Caches.TextureCacheService.TextureArrayTypes.Water => Constants.ShaderWater,
                 _ => throw new ArgumentOutOfRangeException(nameof(textureArrayType), textureArrayType, null)
             };
             var material = new Material(shader);
 
-            if (textureArrayType == TextureCacheService.TextureArrayTypes.Water)
+            if (textureArrayType == Services.Caches.TextureCacheService.TextureArrayTypes.Water)
             {
                 // Manually correct the render queue for alpha test, as Unity doesn't want to do it from the shader's render queue tag.
                 // If we don't set it, the water will sometimes "flicker" above ground or becomes invisible.
@@ -241,7 +241,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
 
         private bool IsTransparentShader(TextureCacheService.TextureArrayTypes textureArrayType)
         {
-            return textureArrayType != TextureCacheService.TextureArrayTypes.Opaque;
+            return textureArrayType != Services.Caches.TextureCacheService.TextureArrayTypes.Opaque;
         }
     }
 }

@@ -1,6 +1,6 @@
-using GUZ.Core.Services;
+using Gothic.Core.Services;
 
-namespace GUZ.Core.Const
+namespace Gothic.Core.Const
 {
     public static class FightConst
     {

@@ -1,8 +1,8 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class LookAtNpc : AbstractAnimationAction
     {

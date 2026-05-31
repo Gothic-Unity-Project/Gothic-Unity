@@ -1,10 +1,10 @@
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Vob.Item
+namespace Gothic.Core.Adapters.Vob.Item
 {
     public class WeaponAdapter : MonoBehaviour
     {

@@ -1,6 +1,6 @@
 using ZenKit;
 
-namespace GUZ.Core.Services.Context
+namespace Gothic.Core.Services.Context
 {
     public class ContextGameVersionService : IContextGameVersionService
     {

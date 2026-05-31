@@ -1,30 +1,30 @@
 using System;
 using System.Globalization;
 using System.Threading.Tasks;
-using GUZ.Core;
-using GUZ.Core.Domain;
-using GUZ.Core.Extensions;
+using Gothic.Core;
+using Gothic.Core.Domain;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.StaticCache;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
-using GUZ.Lab.Handler;
-using GUZ.VR.Services;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.Lab.Handler;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Lab
+namespace Gothic.Lab
 {
     public class LabBootstrapper : MonoBehaviour
     {

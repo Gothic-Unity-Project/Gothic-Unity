@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using GUZ.Core.Adapters;
-using GUZ.Core.Domain.Config;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Adapters;
+using Gothic.Core.Domain.Config;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Extensions;
 using UnityEditor;
 using UnityEngine;
 using ZenKit;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Editor.Tools
+namespace Gothic.Core.Editor.Tools
 {
     public class AssessGothicDataTool : EditorWindow
     {

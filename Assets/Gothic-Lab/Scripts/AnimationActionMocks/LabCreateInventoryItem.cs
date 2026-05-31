@@ -1,10 +1,10 @@
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 
-namespace GUZ.Lab.AnimationActionMocks
+namespace Gothic.Lab.AnimationActionMocks
 {
     public class LabCreateInventoryItem : AbstractLabAnimationAction
     {

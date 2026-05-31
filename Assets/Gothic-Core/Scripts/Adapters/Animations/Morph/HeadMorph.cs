@@ -1,11 +1,11 @@
 using System;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Animations.Morph
+namespace Gothic.Core.Adapters.Animations.Morph
 {
     public class HeadMorph : AbstractMorphAnimation
     {

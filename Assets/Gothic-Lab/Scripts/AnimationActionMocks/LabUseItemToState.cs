@@ -1,10 +1,10 @@
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services;
 using Reflex.Attributes;
 
-namespace GUZ.Lab.AnimationActionMocks
+namespace Gothic.Lab.AnimationActionMocks
 {
     public class LabUseItemToState : UseItemToState
     {

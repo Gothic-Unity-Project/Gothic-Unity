@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace GUZ.Core.Services.Meshes
+namespace Gothic.Core.Services.Meshes
 {
     /// <summary>
     /// Objects like items and interactables can alter their materials based on shader needs.

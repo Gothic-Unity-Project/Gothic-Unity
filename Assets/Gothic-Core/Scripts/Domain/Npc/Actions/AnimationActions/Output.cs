@@ -1,19 +1,19 @@
 using System.Linq;
-using GUZ.Core.Adapters.Animations.Morph;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Extensions;
+using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class Output : AbstractAnimationAction
     {

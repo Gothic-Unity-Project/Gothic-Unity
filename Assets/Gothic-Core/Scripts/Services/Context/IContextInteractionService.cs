@@ -1,7 +1,7 @@
-using GUZ.Core.Models.Config;
+using Gothic.Core.Models.Config;
 using UnityEngine;
 
-namespace GUZ.Core.Services.Context
+namespace Gothic.Core.Services.Context
 {
     public interface IContextInteractionService
     {

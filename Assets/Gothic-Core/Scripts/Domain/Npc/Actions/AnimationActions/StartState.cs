@@ -1,9 +1,9 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Const;
-using GUZ.Core.Services;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Const;
+using Gothic.Core.Services;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class StartState : AbstractAnimationAction
     {

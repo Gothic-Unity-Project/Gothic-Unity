@@ -1,20 +1,20 @@
 ﻿#if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Npc;
+using Gothic.Core;
+using Gothic.Core.Extensions;
+using Gothic.Core.Const;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Adapters
+namespace Gothic.VR.Adapters
 {
     public class VRNpc : MonoBehaviour
     {

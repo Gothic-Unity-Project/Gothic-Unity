@@ -2,7 +2,7 @@
 using UnityEngine;
 using ZenKit;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class NumericsExtension
     {

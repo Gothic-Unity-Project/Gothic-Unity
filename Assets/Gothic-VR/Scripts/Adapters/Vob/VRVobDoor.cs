@@ -1,17 +1,17 @@
 ﻿#if GUZ_HVR_INSTALLED
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Caches;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.VR.Adapters.Vob
+namespace Gothic.VR.Adapters.Vob
 {
     public class VRVobDoor : MonoBehaviour
     {

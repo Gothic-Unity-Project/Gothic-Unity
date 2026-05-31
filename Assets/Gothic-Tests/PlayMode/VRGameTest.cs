@@ -1,16 +1,16 @@
 using System;
 using System.Collections;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters;
+using Gothic.Core.Const;
+using Gothic.Core;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
-namespace GUZ.Tests.PlayMode
+namespace Gothic.Tests.PlayMode
 {
     /// <summary>
     /// As loading our game takes about 30 seconds, we will leverage this class like this:

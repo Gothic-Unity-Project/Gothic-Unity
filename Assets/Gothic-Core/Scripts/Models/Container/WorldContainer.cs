@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Services.Caches;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Vobs;
 using Mesh = ZenKit.Mesh;
 
-namespace GUZ.Core.Models.Container
+namespace Gothic.Core.Models.Container
 {
     /// <summary>
     /// Parsed ZenKit World data is arranged in a way to easily be usable by Unity objects.

@@ -1,4 +1,4 @@
-namespace GUZ.VR.Models.Vob
+namespace Gothic.VR.Models.Vob
 {
     /// <summary>
     /// Share data between Adapter and Service/Domain layer.

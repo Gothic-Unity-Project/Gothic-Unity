@@ -1,6 +1,6 @@
-using GUZ.Core.Domain.Vm;
+using Gothic.Core.Domain.Vm;
 
-namespace GUZ.Core.Services.Vm
+namespace Gothic.Core.Services.Vm
 {
     public class VmExternalService
     {

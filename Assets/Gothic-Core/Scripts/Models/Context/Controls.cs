@@ -1,7 +1,7 @@
 using System;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
 
-namespace GUZ.Core.Models.Context
+namespace Gothic.Core.Models.Context
 {
     public enum Controls
     {

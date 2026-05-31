@@ -1,7 +1,7 @@
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     [RequireComponent(typeof(CapsuleCollider))]
     public class RootCollisionHandler : BasePlayerBehaviour

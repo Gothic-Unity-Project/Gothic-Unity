@@ -1,7 +1,7 @@
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Domain.Culling
+namespace Gothic.Core.Domain.Culling
 {
     public class VobSoundCullingDomain : AbstractCullingDomain
     {

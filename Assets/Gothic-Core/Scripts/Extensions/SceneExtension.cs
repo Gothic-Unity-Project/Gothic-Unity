@@ -3,7 +3,7 @@ using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class SceneExtension
     {

@@ -1,8 +1,8 @@
 using System;
 using System.Reflection;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using TMPro;
@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.TextCore;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.UI
+namespace Gothic.Core.Services.UI
 {
     public class FontService
     {

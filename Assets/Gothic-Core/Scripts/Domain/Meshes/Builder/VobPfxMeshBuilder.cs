@@ -1,11 +1,11 @@
 ﻿using System;
-using GUZ.Core.Adapters.Properties.Vob;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties.Vob;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Meshes;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -13,7 +13,7 @@ using UnityEngine.Rendering;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = System.Object;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     /// <summary>
     /// Please check description at worldofgothic for more details:

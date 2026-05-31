@@ -1,6 +1,6 @@
 using System;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public class SettingsMenu : AbstractMenu
     {

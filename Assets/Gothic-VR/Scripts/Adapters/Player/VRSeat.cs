@@ -2,9 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Player;
@@ -12,7 +12,7 @@ using HurricaneVR.Framework.Core.Utils;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     public class VRSeat : MonoBehaviour
     {

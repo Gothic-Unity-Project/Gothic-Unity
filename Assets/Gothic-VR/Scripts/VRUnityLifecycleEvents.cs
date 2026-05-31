@@ -1,9 +1,9 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.VR.Services;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR
+namespace Gothic.VR
 {
     /// <summary>
     /// Each Service can be added to leverage Unity lifecycle events.

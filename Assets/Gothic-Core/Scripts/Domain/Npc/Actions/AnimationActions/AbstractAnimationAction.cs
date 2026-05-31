@@ -1,24 +1,24 @@
 using System;
 using System.Linq;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Creator;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Vm;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Creator;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
+using Gothic.Core.Manager;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public abstract class AbstractAnimationAction
     {

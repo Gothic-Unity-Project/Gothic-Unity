@@ -1,6 +1,6 @@
-using GUZ.Core.Model.UI.Menu;
+using Gothic.Core.Model.UI.Menu;
 
-namespace GUZ.Core.Services.Context
+namespace Gothic.Core.Services.Context
 {
     public interface IContextMenuService
     {

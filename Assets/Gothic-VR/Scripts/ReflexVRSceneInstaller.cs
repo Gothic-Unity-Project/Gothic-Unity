@@ -1,10 +1,10 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.VR.Services;
+using Gothic.Core;
+using Gothic.VR.Services;
 using Reflex.Core;
 using UnityEngine;
 
-namespace GUZ.VR
+namespace Gothic.VR
 {
     /// <summary>
     /// Will be automatically called by Reflex when scene is loaded and SceneScope.component is added to the scene.

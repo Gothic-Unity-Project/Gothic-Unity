@@ -1,4 +1,4 @@
-namespace GUZ.Core.Const
+namespace Gothic.Core.Const
 {
     public class ZenGineConst
     {

@@ -1,4 +1,4 @@
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     public interface IScene
     {

@@ -1,12 +1,12 @@
 using System.Text.RegularExpressions;
-using GUZ.Core.Adapters.Animations.Morph;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class NpcHeadMeshBuilder : NpcMeshBuilder
     {

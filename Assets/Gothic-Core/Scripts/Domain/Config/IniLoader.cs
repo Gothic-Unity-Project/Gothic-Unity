@@ -4,7 +4,7 @@ using System.IO;
 using Gothic.Core.Logging;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Config
+namespace Gothic.Core.Domain.Config
 {
     public static class IniLoader
     {

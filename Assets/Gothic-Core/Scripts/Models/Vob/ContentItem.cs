@@ -1,4 +1,4 @@
-namespace GUZ.Core.Models.Vob
+namespace Gothic.Core.Models.Vob
 {
     public class ContentItem
     {

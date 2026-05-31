@@ -1,19 +1,19 @@
 using System;
 using System.Threading.Tasks;
-using GUZ.Core.Domain.StaticCache;
-using GUZ.Core.Extensions;
+using Gothic.Core.Domain.StaticCache;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.StaticCache;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Editor.Tools
+namespace Gothic.Core.Editor.Tools
 {
     /// How to use:
     /// 1. Load the scene for which you want the Occlusion Culling being baked

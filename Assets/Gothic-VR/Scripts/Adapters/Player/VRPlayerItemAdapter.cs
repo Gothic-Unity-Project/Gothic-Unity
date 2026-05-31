@@ -1,11 +1,11 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     public class VRPlayerItemAdapter : MonoBehaviour
     {

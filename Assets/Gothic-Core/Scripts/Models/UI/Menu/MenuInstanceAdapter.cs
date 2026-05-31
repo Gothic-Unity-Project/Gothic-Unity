@@ -1,13 +1,13 @@
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Model.UI.MenuItem;
-using GUZ.Core.Services;
+using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services;
+using Gothic.Core.Const;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Model.UI.Menu
+namespace Gothic.Core.Model.UI.Menu
 {
     public class MenuInstanceAdapter : AbstractMenuInstance
     {

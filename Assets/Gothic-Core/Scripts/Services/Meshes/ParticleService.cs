@@ -1,9 +1,9 @@
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Services.Meshes
+namespace Gothic.Core.Services.Meshes
 {
     public class ParticleService
     {

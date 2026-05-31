@@ -3,23 +3,23 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Const;
-using GUZ.Core.Creator;
-using GUZ.Core.Domain.Npc;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Npc;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.Vm;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
+using Gothic.Core.Creator;
+using Gothic.Core.Domain.Npc;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -28,7 +28,7 @@ using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     /// <summary>
     /// Manage all NPC related calls a(Ext* engine calls and e.g. load Npcs at WorldSceneManager time)

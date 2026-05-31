@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DirectMusic;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -17,7 +17,7 @@ using Mesh = ZenKit.Mesh;
 using Object = UnityEngine.Object;
 using Texture = ZenKit.Texture;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     public class ResourceCacheService
     {

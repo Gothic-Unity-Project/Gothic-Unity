@@ -1,4 +1,4 @@
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public interface INpcSubtitles
     {

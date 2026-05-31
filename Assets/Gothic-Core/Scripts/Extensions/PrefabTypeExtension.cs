@@ -1,7 +1,7 @@
 using System;
 using Gothic.Core.Models.Caches;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class PrefabTypeExtension
     {

@@ -1,9 +1,9 @@
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
+using Gothic.Core.Services.Caches;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class PolyStripMeshBuilder : AbstractMeshBuilder
     {

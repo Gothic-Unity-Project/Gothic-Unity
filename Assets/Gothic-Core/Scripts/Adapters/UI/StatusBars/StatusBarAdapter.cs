@@ -1,12 +1,12 @@
 using System;
 using System.Collections;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Player;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GUZ.Core.Adapters.UI.StatusBars
+namespace Gothic.Core.Adapters.UI.StatusBars
 {
     public class StatusBarAdapter : MonoBehaviour
     {

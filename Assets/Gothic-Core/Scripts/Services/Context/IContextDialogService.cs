@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
-using GUZ.Core.Models.Dialog;
+using Gothic.Core.Models.Dialog;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Services.Context
+namespace Gothic.Core.Services.Context
 {
     public interface IContextDialogService
     {

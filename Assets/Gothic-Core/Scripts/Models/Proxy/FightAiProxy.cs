@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Models.Proxy
+namespace Gothic.Core.Models.Proxy
 {
     /// <summary>
     /// Pre-Cache FightAiMoves for better debug capabilities. Otherwise, it needs to be fetched at each AI_Attack() call.

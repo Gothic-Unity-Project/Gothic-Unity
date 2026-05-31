@@ -1,8 +1,8 @@
-﻿using GUZ.Core.Models.Context;
+﻿using Gothic.Core.Models.Context;
 using UnityEngine;
 using ZenKit;
 
-namespace GUZ.Core.Adapters.Context
+namespace Gothic.Core.Adapters.Context
 {
     /// <summary>
     /// We need to find a way to properly instantiate every module which wants to listen to GUZContext.Register() event.

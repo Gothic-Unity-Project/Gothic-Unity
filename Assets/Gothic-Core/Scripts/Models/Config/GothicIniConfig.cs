@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using GUZ.Core.Domain.Config;
+using Gothic.Core.Domain.Config;
 
-namespace GUZ.Core.Models.Config
+namespace Gothic.Core.Models.Config
 {
     public class GothicIniConfig
     {

@@ -1,15 +1,15 @@
 using System.Linq;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Npc;
-using GUZ.Core.Services.World;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class NpcRoutineService
     {

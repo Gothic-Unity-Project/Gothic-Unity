@@ -1,17 +1,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Models.Vob;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Services.Player
+namespace Gothic.Core.Services.Player
 {
     public class PlayerService
     {

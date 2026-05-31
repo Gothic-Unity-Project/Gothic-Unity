@@ -1,10 +1,10 @@
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters
+namespace Gothic.Core.Adapters
 {
     public class BootstrapAdapter : MonoBehaviour
     {

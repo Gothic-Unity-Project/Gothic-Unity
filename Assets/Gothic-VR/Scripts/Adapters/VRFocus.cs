@@ -1,20 +1,20 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core;
+using Gothic.Core.Extensions;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters
+namespace Gothic.VR.Adapters
 {
     /// <summary>
     /// Handles focus brightness and name visibility for VOBs and NPCs.

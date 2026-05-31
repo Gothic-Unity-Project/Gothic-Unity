@@ -1,20 +1,20 @@
 #if GUZ_HVR_INSTALLED
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Model.UI.Menu;
-using GUZ.Core.Model.UI.MenuItem;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Vm;
-using GUZ.Services.UI;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Vm;
+using Gothic.Services.UI;
+using Gothic.Core;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core.Player;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Services.Context
+namespace Gothic.VR.Services.Context
 {
     public class VRContextMenuService : IContextMenuService
     {

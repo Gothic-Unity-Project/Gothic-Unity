@@ -1,23 +1,23 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Creator;
 using Gothic.Core.Logging;
-using GUZ.Core.Creator;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Proxy;
+using Gothic.Core.Manager;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -29,7 +29,7 @@ using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
-namespace GUZ.Core.Domain.Npc
+namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
     /// Wrapper for Initialization topics from NpcManager

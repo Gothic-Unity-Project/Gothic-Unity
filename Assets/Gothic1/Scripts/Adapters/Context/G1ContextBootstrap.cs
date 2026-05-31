@@ -1,12 +1,12 @@
-﻿using GUZ.Core;
-using GUZ.Core.Adapters.Context;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Context;
-using GUZ.Core.Services.Context;
+﻿using Gothic.Core.Adapters.Context;
+using Gothic.Core.Models.Context;
+using Gothic.Core.Services.Context;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using ZenKit;
 
-namespace GUZ.G1.Adapters.Context
+namespace Gothic.G1.Adapters.Context
 {
     /// <summary>
     /// Bootstrap class which will register listener to set this module as Active if GameSettings.Controls match.

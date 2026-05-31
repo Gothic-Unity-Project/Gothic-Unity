@@ -1,14 +1,15 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Vob;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Vobs;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
-using static GUZ.Core.Models.Vm.VmGothicEnums;
+using static Gothic.Core.Models.Vm.VmGothicEnums;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class NpcInventoryService
     {
@@ -43,7 +44,7 @@ namespace GUZ.Core.Services.Npc
             var vob = npc.GetUserData()!.Vob;
 
             
-            var mainFlag = (ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
@@ -76,7 +77,7 @@ namespace GUZ.Core.Services.Npc
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
             
-            var mainFlag = (ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
@@ -104,7 +105,7 @@ namespace GUZ.Core.Services.Npc
             vob.SetPacked((int)inventoryCat, _vobService.PackItems(items));
         }
 
-        public List<ContentItem> GetInventoryItems(NpcInstance npc, InvCats category)
+        public List<ContentItem> GetInventoryItems(NpcInstance npc, VmGothicEnums.InvCats category)
         {
             var npcVob = npc.GetUserData()!.Vob;
             return _vobService.UnpackItems(npcVob.GetPacked((int)category));

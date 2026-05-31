@@ -1,10 +1,10 @@
 using System;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Adapters.Properties.Vobs
+namespace Gothic.Core.Adapters.Properties.Vobs
 {
     public class VobItemProperties2 : VobProperties2
     {

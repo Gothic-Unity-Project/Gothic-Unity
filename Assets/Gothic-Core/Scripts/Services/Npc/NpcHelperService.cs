@@ -1,23 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Adapters.Properties.Vobs;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Creator;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Creator;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Vobs;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class NpcHelperService
     {

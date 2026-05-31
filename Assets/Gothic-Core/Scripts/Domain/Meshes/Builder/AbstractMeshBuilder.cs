@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using GUZ.Core.Const;
-using GUZ.Core.Domain.StaticCache;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.StaticCache;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -20,7 +20,7 @@ using Matrix4x4 = System.Numerics.Matrix4x4;
 using Mesh = UnityEngine.Mesh;
 using Texture = UnityEngine.Texture;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public abstract class AbstractMeshBuilder
     {
@@ -405,7 +405,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
                 else
                 {
                     texture = GetTexture(materialData.Texture);
-                    textureType = TextureCacheService.TextureArrayTypes.Unknown;
+                    textureType = this.TextureCacheService.TextureArrayTypes.Unknown;
                 }
 
                 // TODO - G1: Skeleton warrior's second texture doesn't exist. No alternatives needed/given.
@@ -483,7 +483,7 @@ namespace GUZ.Core.Domain.Meshes.Builder
                 var textureArrayIndex = 0;
                 var maxMipLevel = 0;
                 var textureScale = Vector2.one;
-                var textureArrayType = TextureCacheService.TextureArrayTypes.Opaque;
+                var textureArrayType = this.TextureCacheService.TextureArrayTypes.Opaque;
                 if (UseTextureArray)
                 {
                     TextureCacheService.GetTextureArrayIndex(subMesh.Material, out textureArrayType, out textureArrayIndex, out textureScale, out maxMipLevel, out _);
@@ -739,10 +739,10 @@ namespace GUZ.Core.Domain.Meshes.Builder
                 Shader shader;
                 switch (textureType)
                 {
-                    case TextureCacheService.TextureArrayTypes.Opaque:
+                    case this.TextureCacheService.TextureArrayTypes.Opaque:
                         shader = Constants.ShaderWorldLit;
                         break;
-                    case TextureCacheService.TextureArrayTypes.Transparent:
+                    case this.TextureCacheService.TextureArrayTypes.Transparent:
                         // Cutout for e.g. bushes.
                         shader = Constants.ShaderLitAlphaToCoverage;
                         break;

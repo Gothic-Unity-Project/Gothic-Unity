@@ -2,12 +2,12 @@
 using System.IO;
 using System.Linq;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.Player
+namespace Gothic.Core.Services.Player
 {
     public class VideoService
     {

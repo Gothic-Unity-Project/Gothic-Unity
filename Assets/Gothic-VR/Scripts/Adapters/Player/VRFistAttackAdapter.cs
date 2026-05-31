@@ -1,8 +1,8 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Vob.Item
+namespace Gothic.Core.Adapters.Vob.Item
 {
     /// <summary>
     /// Basically a WeaponAttackAdapter for HVR Hands. But some tweaks are needed to fake the object into being an oCVobItem to fight.

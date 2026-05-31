@@ -3,18 +3,18 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Assets.HurricaneVR.Framework.Shared.Utilities;
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Models.Vob;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.Vm;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
-using GUZ.VR.Adapters.HVROverrides;
-using GUZ.VR.Services;
+using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Sockets;
@@ -24,7 +24,7 @@ using TMPro;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     [RequireComponent(typeof(HVRSocketable))]
     public class VRBackpack : MonoBehaviour

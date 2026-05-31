@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Creator;
 using Gothic.Core.Logging;
-using GUZ.Core.Creator;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Culling
+namespace Gothic.Core.Domain.Culling
 {
     public class NpcMeshCullingDomain : AbstractCullingDomain
     {

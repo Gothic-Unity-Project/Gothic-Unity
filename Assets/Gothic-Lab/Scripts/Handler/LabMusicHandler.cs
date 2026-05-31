@@ -1,9 +1,9 @@
 using System.Linq;
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
 using Reflex.Attributes;
 using TMPro;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabMusicHandler : AbstractLabHandler
     {

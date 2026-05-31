@@ -1,20 +1,20 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob.Item;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Player;
-using GUZ.VR.Domain.Player;
-using GUZ.VR.Models.Vob;
+using Gothic.Core;
+using Gothic.Core.Adapters.Vob.Item;
+using Gothic.Core.Const;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Player;
+using Gothic.VR.Domain.Player;
+using Gothic.VR.Models.Vob;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core.Utils;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Services
+namespace Gothic.VR.Services
 {
     /// <summary>
     /// Logic goes like this:

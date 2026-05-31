@@ -1,15 +1,15 @@
-using GUZ.Core;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Player;
+using Gothic.Core;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Adapters.Marvin
+namespace Gothic.VR.Adapters.Marvin
 {
     // FIXME - Can be used for proper Marvin mode feature: "kill"
     public class VRNpcMarvinAdapter : MonoBehaviour

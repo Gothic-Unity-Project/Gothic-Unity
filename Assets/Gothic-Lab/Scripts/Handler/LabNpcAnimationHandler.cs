@@ -1,22 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.Lab.AnimationActionMocks;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Lab.AnimationActionMocks;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabNpcAnimationHandler : AbstractLabHandler
     {

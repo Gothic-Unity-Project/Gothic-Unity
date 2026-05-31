@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
+using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine.SceneManagement;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public class MainMenu : AbstractMenu
     {

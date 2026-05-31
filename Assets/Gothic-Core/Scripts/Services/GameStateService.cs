@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Text;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Dialog;
-using GUZ.Core.Models.Npc;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Models.Dialog;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Models.WayNet;
+using Gothic.Core.Models.WayNet;
 using ZenKit;
 using ZenKit.Daedalus;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
-namespace GUZ.Core.Services
+namespace Gothic.Core.Services
 {
     public class GameStateService
     {

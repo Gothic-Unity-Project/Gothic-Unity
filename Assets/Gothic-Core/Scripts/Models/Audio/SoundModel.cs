@@ -1,4 +1,4 @@
-﻿namespace GUZ.Core.Models.Audio
+﻿namespace Gothic.Core.Models.Audio
 {
     public class SoundModel
     {

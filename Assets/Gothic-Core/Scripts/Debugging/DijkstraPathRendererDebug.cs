@@ -1,17 +1,17 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using GUZ.Core.Const;
+using Gothic.Core.Creator;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Creator;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     public class DijkstraPathRendererDebug : MonoBehaviour
     {

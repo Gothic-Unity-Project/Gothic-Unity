@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Logging;
-using GUZ.Core.Model.UI.Menu;
-using GUZ.Core.Model.UI.MenuItem;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.World;
+using Gothic.Core.Services;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
@@ -17,7 +17,7 @@ using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     /// <summary>
     /// The quest log contains of three major areas:

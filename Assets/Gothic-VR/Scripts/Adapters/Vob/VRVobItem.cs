@@ -1,20 +1,20 @@
 ﻿#if GUZ_HVR_INSTALLED
 using System.Collections;
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Meshes;
-using GUZ.VR.Services;
+using Gothic.Core.Const;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Meshes;
+using Gothic.VR.Services;
+using Gothic.Core;
+using Gothic.Core.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
 
-namespace GUZ.VR.Adapters.Vob
+namespace Gothic.VR.Adapters.Vob
 {
     public class VRVobItem : MonoBehaviour
     {

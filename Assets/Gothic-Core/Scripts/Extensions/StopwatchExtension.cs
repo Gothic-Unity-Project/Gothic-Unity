@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Gothic.Core.Logging;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class StopwatchExtension
     {

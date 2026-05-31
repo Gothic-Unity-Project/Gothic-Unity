@@ -1,14 +1,14 @@
 #if GUZ_HVR_INSTALLED
 using System.Collections;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Extensions;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
     /// UI logic handler for Daedalus call of IntroduceChapter()

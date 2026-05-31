@@ -2,15 +2,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.Vob;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Debugging;
 using Gothic.Core.Logging;
-using GUZ.Core.Debugging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -18,7 +18,7 @@ using ZenKit;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Culling
+namespace Gothic.Core.Domain.Culling
 {
     public class VobMeshCullingDomain : AbstractCullingDomain
     {

@@ -1,29 +1,29 @@
 using System.Diagnostics;
 using System.Globalization;
-using GUZ.Core.Adapters.Scenes;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters.Scenes;
+using Gothic.Core.Const;
+using Gothic.Core.Domain;
 using Gothic.Core.Logging;
-using GUZ.Core.Domain;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.StaticCache;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine.SceneManagement;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services
+namespace Gothic.Core.Services
 {
     public class BootstrapService
     {

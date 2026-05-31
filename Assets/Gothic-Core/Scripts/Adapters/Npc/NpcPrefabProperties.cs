@@ -1,13 +1,13 @@
 using System;
 using Gothic.Core.Adapters.Animations;
-using GUZ.Core.Adapters.Animations.Morph;
-using GUZ.Core.Animations;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Animations;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public class NpcPrefabProperties : MonoBehaviour
     {

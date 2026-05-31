@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 
-namespace GUZ.Core.Adapters.UI.LoadingBars
+namespace Gothic.Core.Adapters.UI.LoadingBars
 {
     public class WorldLoadingBarHandler : AbstractLoadingBarHandler
     {

@@ -1,10 +1,10 @@
 using System;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class AlignToWp : AbstractRotateAnimationAction
     {

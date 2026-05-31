@@ -1,13 +1,13 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vm;
+using Gothic.Core;
+using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GUZ.VR.Adapters.UI.Menus
+namespace Gothic.VR.Adapters.UI.Menus
 {
     public class TutorialHandler : MonoBehaviour
     {

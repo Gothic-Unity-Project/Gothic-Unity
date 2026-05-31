@@ -1,7 +1,7 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core.Debugging.Fighting;
+using Gothic.Core.Debugging.Fighting;
 
-namespace GUZ.VR.Debugging.Fighting
+namespace Gothic.VR.Debugging.Fighting
 {
     public class VrNpcColliderDebugAdapter : NpcColliderDebugAdapter
     {

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Npc
+namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
     /// Pure state machine for melee attack window timing.

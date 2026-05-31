@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Extensions;
 
-namespace GUZ.Core.Manager
+namespace Gothic.Core.Manager
 {
     public class LoadingService
     {

@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
-using GUZ.Core.Models.Npc;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.Properties
+namespace Gothic.Core.Adapters.Properties
 {
     public class NpcProperties
     {

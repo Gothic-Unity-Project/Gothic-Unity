@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters.UI;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.UI;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
@@ -18,7 +17,7 @@ using ILogger = UberLogger.ILogger;
 using Logger = UberLogger.Logger;
 using PrefabType = Gothic.Core.Models.Caches.PrefabType;
 
-namespace GUZ.VR.Adapters.Marvin
+namespace Gothic.VR.Adapters.Marvin
 {
     public class MarvinLogsTabHandler : MonoBehaviour, ILogger
     {

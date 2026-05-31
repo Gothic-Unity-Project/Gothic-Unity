@@ -1,15 +1,15 @@
-using GUZ.Core.Adapters.UI.StatusBars;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Vm;
-using GUZ.Core.Services.World;
+using Gothic.Core.Adapters.UI.StatusBars;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class FightService
     {

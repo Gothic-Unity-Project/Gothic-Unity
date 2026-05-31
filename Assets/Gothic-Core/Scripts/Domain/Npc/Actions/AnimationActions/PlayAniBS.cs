@@ -1,7 +1,7 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class PlayAniBs : PlayAni
     {

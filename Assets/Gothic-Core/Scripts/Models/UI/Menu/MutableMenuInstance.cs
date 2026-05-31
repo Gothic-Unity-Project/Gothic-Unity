@@ -1,12 +1,12 @@
 using System;
-using GUZ.Core.Const;
-using GUZ.Core.Model.UI.MenuItem;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Const;
+using Gothic.Core.Services;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 
-namespace GUZ.Core.Model.UI.Menu
+namespace Gothic.Core.Model.UI.Menu
 {
     public class MutableMenuInstance : AbstractMenuInstance
     {

@@ -1,11 +1,11 @@
 ﻿#if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Player;
-using GUZ.VR.Adapters.HVROverrides;
-using GUZ.VR.Services.Context;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Services.Context;
+using Gothic.Core;
+using Gothic.Core.Services.Config;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Shared;
@@ -13,7 +13,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.VR.Services
+namespace Gothic.VR.Services
 {
     /// <summary>
     /// Contains global states about Hurricane VR player.

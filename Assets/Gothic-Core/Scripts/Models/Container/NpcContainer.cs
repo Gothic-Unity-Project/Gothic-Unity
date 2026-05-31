@@ -1,10 +1,10 @@
-﻿using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Models.Proxy;
+﻿using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Models.Proxy;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Models.Container
+namespace Gothic.Core.Models.Container
 {
     /// <summary>
     /// Data object containing references to information needed on ZenKit and Unity side.

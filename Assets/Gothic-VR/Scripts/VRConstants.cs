@@ -1,4 +1,4 @@
-namespace GUZ.VR
+namespace Gothic.VR
 {
     public static class VRConstants
     {

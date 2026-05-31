@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Culling;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -21,7 +21,7 @@ using Mesh = ZenKit.Mesh;
 using Texture = ZenKit.Texture;
 using TextureFormat = ZenKit.TextureFormat;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     /// <summary>
     /// Usage:

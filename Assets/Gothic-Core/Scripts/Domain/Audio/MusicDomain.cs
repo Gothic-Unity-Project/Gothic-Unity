@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DirectMusic;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -14,7 +14,7 @@ using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Audio
+namespace Gothic.Core.Domain.Audio
 {
     public class MusicDomain
     {

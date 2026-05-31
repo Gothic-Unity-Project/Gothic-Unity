@@ -1,11 +1,11 @@
 ﻿using System;
 using System.IO;
-using GUZ.Core.Models.Config;
+using Gothic.Core.Models.Config;
 using UnityEngine;
 using UnityEngine.Networking;
 using ZenKit;
 
-namespace GUZ.Core.Domain.Config
+namespace Gothic.Core.Domain.Config
 {
     public static class JsonRootLoader
     {

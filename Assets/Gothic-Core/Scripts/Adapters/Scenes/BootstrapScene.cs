@@ -1,13 +1,13 @@
 using System.Collections;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Const;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Manager;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     /// <summary>
     /// Specific manager for Bootstrap.unity scene tasks only.

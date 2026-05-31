@@ -1,15 +1,15 @@
 using System;
 using System.Collections;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.World;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class SoundDaytimeHandler : MonoBehaviour
     {

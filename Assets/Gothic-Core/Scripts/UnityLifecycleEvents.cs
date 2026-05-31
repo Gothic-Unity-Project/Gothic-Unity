@@ -1,13 +1,13 @@
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.World;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR
+namespace Gothic.VR
 {
     /// <summary>
     /// Each Service can be added to leverage Unity lifecycle events.

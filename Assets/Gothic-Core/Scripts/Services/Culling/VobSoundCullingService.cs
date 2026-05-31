@@ -1,10 +1,10 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Domain.Culling;
-using GUZ.Core.Extensions;
+using Gothic.Core.Domain.Culling;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Services.Culling
+namespace Gothic.Core.Services.Culling
 {
     public class VobSoundCullingService : AbstractCullingService
     {

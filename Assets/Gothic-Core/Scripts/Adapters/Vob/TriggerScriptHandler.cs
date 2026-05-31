@@ -1,12 +1,12 @@
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Services.Vm;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class TriggerScriptHandler : MonoBehaviour
     {

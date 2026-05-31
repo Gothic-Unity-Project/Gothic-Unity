@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class MaterialExtension
     {

@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using TMPro;
 using UnityEngine;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     /// <summary>
     /// Contains lookup caches for GameObjects, AudioClips and other Unity objects for faster use.

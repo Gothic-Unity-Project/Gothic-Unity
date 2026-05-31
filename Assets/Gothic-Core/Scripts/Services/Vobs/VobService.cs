@@ -3,22 +3,22 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Creator;
+using Gothic.Core.Domain.Vobs;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Creator;
-using GUZ.Core.Domain.Vobs;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vob;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.World;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
+using Gothic.Core.Services.Npc;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -27,7 +27,7 @@ using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Services.Vobs
+namespace Gothic.Core.Services.Vobs
 {
     public class VobService
     {

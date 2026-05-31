@@ -1,14 +1,14 @@
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using GUZ.Core.Model.UI.Menu;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public class MenuHandler : MonoBehaviour
     {

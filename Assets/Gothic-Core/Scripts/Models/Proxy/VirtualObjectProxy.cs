@@ -5,7 +5,7 @@ using ZenKit;
 using ZenKit.Util;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Models.Proxy
+namespace Gothic.Core.Models.Proxy
 {
     public class VirtualObjectProxy : IVirtualObject
     {

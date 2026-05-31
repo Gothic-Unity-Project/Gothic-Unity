@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class ChangeLevelTriggerHandler : MonoBehaviour
     {

@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Const;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Models.Proxy
+namespace Gothic.Core.Models.Proxy
 {
     public class NpcProxy : VirtualObjectProxy, INpc
     {

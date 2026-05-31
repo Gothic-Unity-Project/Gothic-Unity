@@ -1,12 +1,12 @@
 using System;
 using System.Threading.Tasks;
-using GUZ.Core.Domain.Audio;
-using GUZ.Core.Extensions;
+using Gothic.Core.Domain.Audio;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.Player
+namespace Gothic.Core.Services.Player
 {
     public class SpeechToTextService : IDisposable
     {

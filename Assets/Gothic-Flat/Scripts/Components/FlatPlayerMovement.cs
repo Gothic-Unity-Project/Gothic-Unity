@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace GUZ.Flat.Components
+namespace Gothic.Flat.Components
 {
     public class FlatPlayerMovement : MonoBehaviour
     {

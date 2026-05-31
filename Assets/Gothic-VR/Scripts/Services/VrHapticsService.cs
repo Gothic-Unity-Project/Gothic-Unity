@@ -1,10 +1,10 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Models.Container;
+using Gothic.Core;
+using Gothic.Core.Models.Container;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 
-namespace GUZ.VR.Services
+namespace Gothic.VR.Services
 {
     public class VrHapticsService
     {

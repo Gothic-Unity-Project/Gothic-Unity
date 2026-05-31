@@ -1,12 +1,12 @@
 ﻿using System;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public abstract class BasePlayerBehaviour : MonoBehaviour
     {

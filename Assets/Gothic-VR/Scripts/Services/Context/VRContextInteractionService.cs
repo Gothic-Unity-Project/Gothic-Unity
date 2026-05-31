@@ -1,16 +1,16 @@
 #if GUZ_HVR_INSTALLED
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.VR.Adapters.HVROverrides;
-using GUZ.VR.Adapters.Marvin;
-using GUZ.VR.Adapters.Player;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.Marvin;
+using Gothic.VR.Adapters.Player;
 using HurricaneVR.Framework.Core.UI;
 using HurricaneVRExtensions.Simulator;
 using Reflex.Attributes;
@@ -19,7 +19,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
 
-namespace GUZ.VR.Services.Context
+namespace Gothic.VR.Services.Context
 {
     public class VRContextInteractionService : IContextInteractionService
     {

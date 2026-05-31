@@ -4,7 +4,7 @@ using HurricaneVR.Framework.Shared;
 using MyBox;
 using UnityEngine.InputSystem;
 
-namespace GUZ.VR.Adapters.HVROverrides
+namespace Gothic.VR.Adapters.HVROverrides
 {
     public class VRPlayerInputs : HVRPlayerInputs
     {

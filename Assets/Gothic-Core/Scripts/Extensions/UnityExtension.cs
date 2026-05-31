@@ -1,7 +1,7 @@
 using UnityEngine;
 using ZenKit.Util;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class UnityExtension
     {

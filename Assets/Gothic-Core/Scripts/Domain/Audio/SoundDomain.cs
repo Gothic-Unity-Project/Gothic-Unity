@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using GUZ.Core.Models.Audio;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Models.Audio;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Audio
+namespace Gothic.Core.Domain.Audio
 {
     public class SoundDomain
     {

@@ -1,13 +1,13 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core.Adapters.Context;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Context;
-using GUZ.Core.Services.Context;
-using GUZ.VR.Services.Context;
+using Gothic.Core.Adapters.Context;
+using Gothic.Core.Models.Context;
+using Gothic.Core.Services.Context;
+using Gothic.VR.Services.Context;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using ZenKit;
 
-namespace GUZ.VR.Adapters.Context
+namespace Gothic.VR.Adapters.Context
 {
     /// <summary>
     /// Bootstrap class which will register listener to set this module as Active if GameSettings.Controls match.

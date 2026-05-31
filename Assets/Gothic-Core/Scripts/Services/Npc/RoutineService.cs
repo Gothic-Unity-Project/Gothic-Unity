@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Models.Npc;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 
-namespace GUZ.Core.Manager
+namespace Gothic.Core.Manager
 {
     /// <summary>
     /// Manages the Routines in a central spot. Routines Subscribe here. Calls the Routines when they are due.

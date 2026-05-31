@@ -1,24 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Dialog;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.World;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Dialog;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Manager
+namespace Gothic.Core.Manager
 {
     public class DialogService
     {

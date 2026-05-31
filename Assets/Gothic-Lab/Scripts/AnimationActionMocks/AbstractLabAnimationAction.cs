@@ -1,8 +1,8 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Container;
 
-namespace GUZ.Lab.AnimationActionMocks
+namespace Gothic.Lab.AnimationActionMocks
 {
     /// <summary>
     /// Gothic has two types of External calls:

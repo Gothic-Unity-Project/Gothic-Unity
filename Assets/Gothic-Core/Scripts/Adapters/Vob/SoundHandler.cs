@@ -5,7 +5,7 @@ using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class SoundHandler : MonoBehaviour
     {

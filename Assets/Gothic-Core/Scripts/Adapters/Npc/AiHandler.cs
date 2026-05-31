@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Creator;
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Creator;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -17,7 +17,7 @@ using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public class AiHandler : BasePlayerBehaviour
     {

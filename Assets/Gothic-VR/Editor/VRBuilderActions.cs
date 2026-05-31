@@ -7,7 +7,7 @@ using UnityEngine.XR.OpenXR;
 using UnityEngine.XR.OpenXR.Features.Interactions;
 using UnityEngine.XR.OpenXR.Features.MetaQuestSupport;
 
-namespace GUZ.VR.Editor
+namespace Gothic.VR.Editor
 {
     public class VRBuilderActions
     {

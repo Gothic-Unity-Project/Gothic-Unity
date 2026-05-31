@@ -1,6 +1,6 @@
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Models.Vm
+namespace Gothic.Core.Models.Vm
 {
     public struct ExtSetVisualBodyData
     {

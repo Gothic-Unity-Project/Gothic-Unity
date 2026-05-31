@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GUZ.Core.Adapters.UI
+namespace Gothic.Core.Adapters.UI
 {
     public class UnZenityLogoHandler : MonoBehaviour
     {

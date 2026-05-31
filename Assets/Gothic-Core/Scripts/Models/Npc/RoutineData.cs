@@ -1,4 +1,4 @@
-﻿namespace GUZ.Core.Models.Npc
+﻿namespace Gothic.Core.Models.Npc
 {
     public class RoutineData
     {

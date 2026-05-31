@@ -1,6 +1,6 @@
-using GUZ.Core.Domain.Culling;
+using Gothic.Core.Domain.Culling;
 
-namespace GUZ.Core.Services.Culling
+namespace Gothic.Core.Services.Culling
 {
     public abstract class AbstractCullingService
     {

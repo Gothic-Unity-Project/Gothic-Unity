@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     public class VobCullingGizmo : MonoBehaviour
     {

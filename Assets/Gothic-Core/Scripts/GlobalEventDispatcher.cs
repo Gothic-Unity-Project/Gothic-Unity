@@ -1,13 +1,13 @@
 ﻿using System;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Context;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using UnityEngine;
 using UnityEngine.Events;
 using ZenKit;
 using ZenKit.Vobs;
 
-namespace GUZ.Core
+namespace Gothic.Core
 {
     /// <summary>
     /// Loading/Unloading order of scenes:

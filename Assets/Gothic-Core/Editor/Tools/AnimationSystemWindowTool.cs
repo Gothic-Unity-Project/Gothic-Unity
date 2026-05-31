@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters;
+using Gothic.Core.Adapters;
 using Gothic.Core.Adapters.Animations;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Const;
-using GUZ.Core.Domain.Npc.Actions;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc.Actions;
 using UnityEditor;
 using UnityEngine;
 using AnimationState = Gothic.Core.Models.Animations.AnimationState;
 
-namespace GUZ.Core.Editor.Tools
+namespace Gothic.Core.Editor.Tools
 {
     public class AnimationSystemWindowTool : EditorWindow
     {

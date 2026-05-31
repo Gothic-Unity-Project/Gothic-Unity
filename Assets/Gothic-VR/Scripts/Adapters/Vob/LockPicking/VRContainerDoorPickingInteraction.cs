@@ -1,13 +1,13 @@
 ﻿#if GUZ_HVR_INSTALLED
 using System.Collections;
-using GUZ.Core;
-using GUZ.Core.Adapters.Vob;
+using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Vm;
-using GUZ.VR.Adapters.Vob.VobItem;
-using GUZ.VR.Services;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Vm;
+using Gothic.VR.Services;
+using Gothic.VR.Adapters.Vob.VobItem;
 using HurricaneVR.Framework.Components;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
@@ -15,7 +15,7 @@ using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Vob.LockPicking
+namespace Gothic.VR.Adapters.Vob.LockPicking
 {
     public class VRContainerDoorPickingInteraction : MonoBehaviour
     {

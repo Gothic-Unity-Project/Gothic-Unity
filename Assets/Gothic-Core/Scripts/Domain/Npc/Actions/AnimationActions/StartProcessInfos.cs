@@ -1,10 +1,10 @@
 using System.Linq;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services;
 using Reflex.Attributes;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
     /// Hint: This is no Daedalus external. We execute this element whenever the Dialog UI needs to be opened.

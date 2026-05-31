@@ -3,7 +3,7 @@ using UnityEngine.Audio;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-namespace GUZ.Core.Adapters.UI
+namespace Gothic.Core.Adapters.UI
 {
     public class AudioMixerHandler : MonoBehaviour
     {

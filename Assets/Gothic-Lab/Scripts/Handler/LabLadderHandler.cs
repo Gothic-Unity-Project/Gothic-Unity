@@ -1,10 +1,10 @@
-using GUZ.Core;
+using Gothic.Core;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using UnityEngine;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabLadderLabHandler : AbstractLabHandler
     {

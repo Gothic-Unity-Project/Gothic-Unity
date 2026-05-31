@@ -1,17 +1,17 @@
 #if GUZ_HVR_INSTALLED
 using System.Collections.Generic;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Models.Marvin;
-using GUZ.Core.Models.Vm;
-using GUZ.VR.Models.Vob;
-using GUZ.VR.Services;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Models.Marvin;
+using Gothic.Core.Models.Vm;
+using Gothic.VR.Models.Vob;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     public class VRPlayerWeaponInteraction : MonoBehaviour, IMarvinPropertyCollector
     {

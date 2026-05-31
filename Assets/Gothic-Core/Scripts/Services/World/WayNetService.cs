@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Config;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Models.WayNet;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Models.WayNet;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,7 +20,7 @@ using Material = UnityEngine.Material;
 using Mesh = UnityEngine.Mesh;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
-namespace GUZ.Core.Creator
+namespace Gothic.Core.Creator
 {
     public class WayNetService
     {

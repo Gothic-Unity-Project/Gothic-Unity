@@ -1,9 +1,9 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public class NpcLoader : MonoBehaviour
     {

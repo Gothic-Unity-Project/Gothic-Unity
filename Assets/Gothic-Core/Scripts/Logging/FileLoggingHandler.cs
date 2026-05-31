@@ -1,4 +1,4 @@
-using GUZ.Core.Models.Config;
+using Gothic.Core.Models.Config;
 #if !UNITY_EDITOR
 using System;
 using System.IO;

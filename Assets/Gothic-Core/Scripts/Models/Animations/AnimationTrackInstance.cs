@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using UnityEngine;
 using ZenKit;

@@ -1,11 +1,11 @@
-﻿using GUZ.Core.Const;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
+﻿using Gothic.Core.Const;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     public class PlayerScene : MonoBehaviour, IScene
     {

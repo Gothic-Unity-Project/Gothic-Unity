@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Sky;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Sky;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,7 +15,7 @@ using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class SkyService
     {

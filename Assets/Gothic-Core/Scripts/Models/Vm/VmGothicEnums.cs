@@ -1,6 +1,6 @@
 using System;
 
-namespace GUZ.Core.Models.Vm
+namespace Gothic.Core.Models.Vm
 {
     public static class VmGothicEnums
     {

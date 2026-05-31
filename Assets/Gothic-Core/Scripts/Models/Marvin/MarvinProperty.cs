@@ -1,6 +1,6 @@
 using System;
 
-namespace GUZ.Core.Models.Marvin
+namespace Gothic.Core.Models.Marvin
 {
     public class MarvinProperty<T>
     {

@@ -1,8 +1,8 @@
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Audio
+namespace Gothic.Core.Adapters.Audio
 {
     public class BackgroundMusic : MonoBehaviour
     {

@@ -1,10 +1,10 @@
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class VobMeshBuilder : AbstractMeshBuilder
     {

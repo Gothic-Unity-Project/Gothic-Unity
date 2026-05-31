@@ -3,11 +3,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Adapters.UI;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Dialog;
+using Gothic.Core.Adapters.UI;
+using Gothic.Core.Const;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Dialog;
+using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
@@ -16,7 +16,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Adapters.UI
+namespace Gothic.VR.Adapters.UI
 {
     public class VRDialog : MonoBehaviour
     {

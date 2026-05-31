@@ -1,7 +1,7 @@
 using System.Linq;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Adapters.Properties
+namespace Gothic.Core.Adapters.Properties
 {
     public class VobProperties : AbstractProperties
     {

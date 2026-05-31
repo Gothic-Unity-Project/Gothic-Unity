@@ -1,14 +1,14 @@
-using GUZ.Core.Const;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.World;
+using Gothic.Core.Const;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     /// <summary>
     /// Specific manager for MainMenu.unity scene tasks only.

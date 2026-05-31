@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
-using GUZ.Core.Model.UI.MenuItem;
+using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Model.UI.Menu
+namespace Gothic.Core.Model.UI.Menu
 {
     public abstract class AbstractMenuInstance
     {

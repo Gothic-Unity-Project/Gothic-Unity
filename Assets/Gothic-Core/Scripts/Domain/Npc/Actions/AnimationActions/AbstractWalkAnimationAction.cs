@@ -1,12 +1,12 @@
 using System;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     [Obsolete("Successor is AbstractWalkAnimationAction2, but it needs to be tested with (1)GoToFp, (2)GoToNpc, (3)GoToNextFp first.")]
     public abstract class AbstractWalkAnimationAction : AbstractAnimationAction

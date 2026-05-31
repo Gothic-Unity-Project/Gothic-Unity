@@ -1,6 +1,6 @@
 using UnityEditor;
 
-namespace GUZ.Core.Editor
+namespace Gothic.Core.Editor
 {
     public class UnityShortcuts
     {

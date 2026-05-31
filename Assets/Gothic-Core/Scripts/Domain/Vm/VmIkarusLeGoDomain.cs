@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Vm
+namespace Gothic.Core.Domain.Vm
 {
     /// <summary>
     /// Handles Ikarus and LeGo modding framework compatibility.

@@ -1,18 +1,18 @@
 using System.Collections;
 using Gothic.Core.Adapters.Animations;
-using GUZ.Core.Adapters.Npc;
-using GUZ.Core.Animations;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Npc;
-using GUZ.Lab.Mocks;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Animations;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
+using Gothic.Lab.Mocks;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabNpcDialogHandler : AbstractLabHandler
     {

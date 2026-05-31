@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace GUZ.VR.Adapters.Vob
+namespace Gothic.VR.Adapters.Vob
 {
     public class VRVobItemProperties : MonoBehaviour
     {

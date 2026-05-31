@@ -1,7 +1,7 @@
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class MusicCollisionHandler : MonoBehaviour
     {

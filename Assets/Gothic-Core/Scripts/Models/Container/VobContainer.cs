@@ -1,14 +1,14 @@
 using System;
-using GUZ.Core.Adapters.Properties.Vobs;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Models.Container
+namespace Gothic.Core.Models.Container
 {
     public class VobContainer
     {

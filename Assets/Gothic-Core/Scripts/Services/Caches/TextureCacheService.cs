@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -15,7 +15,7 @@ using Object = UnityEngine.Object;
 using Texture = UnityEngine.Texture;
 using TextureFormat = UnityEngine.TextureFormat;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     /// <summary>
     /// Texture Array is used for the following improvements:

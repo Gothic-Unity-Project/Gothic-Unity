@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public class LeaveGameMenu : AbstractMenu
     {

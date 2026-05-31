@@ -1,7 +1,7 @@
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Vob.Item
+namespace Gothic.Core.Adapters.Vob.Item
 {
     /// <summary>
     /// The validity check for a hit requires answering: "Is this attack currently active?"

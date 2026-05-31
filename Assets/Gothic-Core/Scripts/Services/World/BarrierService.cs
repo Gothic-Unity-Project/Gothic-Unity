@@ -1,16 +1,16 @@
-using GUZ.Core.Domain.Npc;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Vobs;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Domain.Npc;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class BarrierService
     {

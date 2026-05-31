@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit;
 using Vector3 = System.Numerics.Vector3;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     public class NpcArmorPositionCacheService
     {

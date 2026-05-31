@@ -1,12 +1,12 @@
 ﻿#if GUZ_HVR_INSTALLED
-using GUZ.Core.Adapters.Vob;
-using GUZ.VR.Services;
+using Gothic.Core.Adapters.Vob;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Vob.Container
+namespace Gothic.VR.Adapters.Vob.Container
 {
     /// <summary>
     /// Handle Socket-events for a whole Container (e.g., chest) and its corresponding sockets (rings where we put items into).

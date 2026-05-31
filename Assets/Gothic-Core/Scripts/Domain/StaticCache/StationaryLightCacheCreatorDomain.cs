@@ -1,14 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.StaticCache;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -17,7 +17,7 @@ using ZenKit.Vobs;
 using Light = ZenKit.Vobs.Light;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.StaticCache
+namespace Gothic.Core.Domain.StaticCache
 {
     public class StationaryLightCacheCreatorDomain
     {

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Model.UI.Menu;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Const;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public class StatusMenu : AbstractMenu
     {

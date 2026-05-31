@@ -2,18 +2,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Domain.Npc;
-using GUZ.Core.Extensions;
+using Gothic.Core;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Audio;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.VR.Models.Vob;
-using GUZ.VR.Services;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Audio;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.VR.Models.Vob;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core.Utils;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
@@ -22,7 +22,7 @@ using ZenKit;
 using EventType = ZenKit.EventType;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Domain.Player
+namespace Gothic.VR.Domain.Player
 {
     public class VrWeaponAttackDomain
     {

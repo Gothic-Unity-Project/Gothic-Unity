@@ -1,10 +1,10 @@
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
     /// Basically PlayAni with special Attack handling.

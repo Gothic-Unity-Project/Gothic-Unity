@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Models.Audio
+namespace Gothic.Core.Models.Audio
 {
     /// <summary>
     /// As there is a potential for multiple instances per key (e.g., BreathBubbles, BreathBubbles_A1, BreathBubbles_A2),

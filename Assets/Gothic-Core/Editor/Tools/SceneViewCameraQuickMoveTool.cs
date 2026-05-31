@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Editor.Tools
+namespace Gothic.Core.Editor.Tools
 {
     public class SceneViewCameraQuickMoveTool : EditorWindow
     {

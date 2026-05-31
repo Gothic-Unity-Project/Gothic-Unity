@@ -1,13 +1,13 @@
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Player;
+using Gothic.Core.Services.Player;
+using Gothic.Core;
+using Gothic.Core.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Video;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabVideoHandler : AbstractLabHandler
     {

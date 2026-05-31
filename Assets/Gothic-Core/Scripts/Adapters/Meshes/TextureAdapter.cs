@@ -1,8 +1,8 @@
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Meshes
+namespace Gothic.Core.Adapters.Meshes
 {
     public class TextureAdapter : MonoBehaviour
     {

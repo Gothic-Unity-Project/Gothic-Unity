@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Manager
+namespace Gothic.Core.Manager
 {
     public class MarvinService
     {

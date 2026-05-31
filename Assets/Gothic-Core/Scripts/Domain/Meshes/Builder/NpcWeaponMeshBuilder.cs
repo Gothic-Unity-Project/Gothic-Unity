@@ -1,11 +1,11 @@
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Vm;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class NpcWeaponMeshBuilder : AbstractMeshBuilder
     {

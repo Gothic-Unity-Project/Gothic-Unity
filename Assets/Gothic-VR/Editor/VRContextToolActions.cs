@@ -1,12 +1,12 @@
 using System.IO;
 using System.Linq;
-using GUZ.Core.Adapters;
-using GUZ.Core.Models.Context;
+using Gothic.Core.Adapters;
+using Gothic.Core.Models.Context;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
-namespace GUZ.VR.Editor
+namespace Gothic.VR.Editor
 {
     public class VRContextToolActions
     {

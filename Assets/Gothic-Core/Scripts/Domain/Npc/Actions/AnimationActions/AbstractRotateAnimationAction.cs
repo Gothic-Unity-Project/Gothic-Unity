@@ -1,11 +1,11 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Npc;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public abstract class AbstractRotateAnimationAction : AbstractAnimationAction
     {

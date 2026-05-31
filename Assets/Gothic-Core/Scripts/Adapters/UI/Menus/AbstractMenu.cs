@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Model.UI.Menu;
-using GUZ.Core.Model.UI.MenuItem;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.UI;
-using GUZ.Core.Services.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.UI;
+using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
@@ -21,7 +21,7 @@ using UnityEngine.UI;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.UI.Menus
+namespace Gothic.Core.Adapters.UI.Menus
 {
     public abstract class AbstractMenu : MonoBehaviour
     {

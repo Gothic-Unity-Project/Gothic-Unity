@@ -1,10 +1,10 @@
 using System;
 using Gothic.Core.Logging;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
 using UnityEditor;
 using Logger = UberLogger.Logger;
 
-namespace GUZ.Core.Editor.Tools
+namespace Gothic.Core.Editor.Tools
 {
     // GUZ - Provide UnZENity an event to fetch when UberLogger-Channels should be added.
     [InitializeOnLoad]

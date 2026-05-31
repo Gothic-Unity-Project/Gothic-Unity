@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace GUZ.Core.Models.Marvin
+namespace Gothic.Core.Models.Marvin
 {
     public interface IMarvinPropertyCollector
     {

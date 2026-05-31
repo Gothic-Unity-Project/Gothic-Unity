@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Debugging.Fighting
+namespace Gothic.Core.Debugging.Fighting
 {
     /// <summary>
     /// Visualizes NPC BoxCollider as transparent cube mesh.

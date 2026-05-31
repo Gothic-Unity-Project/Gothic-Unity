@@ -1,22 +1,22 @@
 using System;
 using System.Globalization;
 using System.Linq;
-using GUZ.Core.Const;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.UI;
-using GUZ.Core.Services.Vm;
-using GUZ.Services.UI;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.UI;
+using Gothic.Core.Services.Vm;
+using Gothic.Services.UI;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain
+namespace Gothic.Core.Domain
 {
     public class BootstrapDomain
     {

@@ -1,16 +1,16 @@
 #if GUZ_HVR_INSTALLED
 using System;
-using GUZ.Core;
+using Gothic.Core;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Config;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.VR.Adapters.HVROverrides;
+using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.VR.Adapters.HVROverrides;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     public class VRSpectatorCamera : MonoBehaviour
     {

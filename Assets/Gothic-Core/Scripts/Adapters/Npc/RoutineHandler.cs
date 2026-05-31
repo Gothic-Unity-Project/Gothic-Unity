@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Npc;
-using GUZ.Core.Services.World;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Npc
+namespace Gothic.Core.Adapters.Npc
 {
     public class RoutineHandler : MonoBehaviour
     {

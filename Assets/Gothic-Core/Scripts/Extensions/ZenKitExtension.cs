@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using JetBrains.Annotations;
 using MyBox;
 using UnityEngine;
@@ -13,7 +13,7 @@ using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using TextureFormat = UnityEngine.TextureFormat;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class ZenKitExtension
     {

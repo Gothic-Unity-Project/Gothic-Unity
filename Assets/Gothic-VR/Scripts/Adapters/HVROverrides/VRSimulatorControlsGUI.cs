@@ -2,7 +2,7 @@
 using HurricaneVRExtensions.Simulator;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.HVROverrides
+namespace Gothic.VR.Adapters.HVROverrides
 {
     /// <summary>
     /// Overwritten to update some GUI elements.

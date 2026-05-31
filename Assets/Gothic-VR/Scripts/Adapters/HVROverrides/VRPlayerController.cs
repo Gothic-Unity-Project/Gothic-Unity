@@ -1,16 +1,16 @@
 #if GUZ_HVR_INSTALLED
-using GUZ.Core;
-using GUZ.Core.Adapters.UI.Menus;
-using GUZ.Core.Const;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
+using Gothic.Core;
+using Gothic.Core.Adapters.UI.Menus;
+using Gothic.Core.Const;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using HurricaneVR.Framework.Core.Player;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GUZ.VR.Adapters.HVROverrides
+namespace Gothic.VR.Adapters.HVROverrides
 {
     public class VRPlayerController : HVRPlayerController
     {

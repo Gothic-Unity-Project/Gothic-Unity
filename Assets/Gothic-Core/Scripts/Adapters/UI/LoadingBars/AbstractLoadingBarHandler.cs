@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GUZ.Core.Adapters.UI.LoadingBars
+namespace Gothic.Core.Adapters.UI.LoadingBars
 {
     public abstract class AbstractLoadingBarHandler : MonoBehaviour
     {

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace GUZ.Lab.Mocks
+namespace Gothic.Lab.Mocks
 {
     public class LabAiHandler : MonoBehaviour
     {

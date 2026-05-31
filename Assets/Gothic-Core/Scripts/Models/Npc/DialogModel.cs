@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using GUZ.Core.Models.Dialog;
+using Gothic.Core.Models.Dialog;
 using ZenKit;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Models.Npc
+namespace Gothic.Core.Models.Npc
 {
     public class DialogModel
     {

@@ -1,6 +1,6 @@
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Adapters.Properties.Vob
+namespace Gothic.Core.Adapters.Properties.Vob
 {
     public class VobPfxProperties : VobProperties
     {

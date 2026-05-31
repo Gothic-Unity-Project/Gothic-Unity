@@ -1,17 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Player;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Player;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Video;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     public class LogoScene : MonoBehaviour , IScene
     {

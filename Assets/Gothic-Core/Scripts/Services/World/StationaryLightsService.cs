@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class StationaryLightsService
     {

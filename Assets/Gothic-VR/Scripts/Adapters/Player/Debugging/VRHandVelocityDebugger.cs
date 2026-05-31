@@ -1,10 +1,10 @@
 using System;
-using GUZ.Core.Extensions;
-using GUZ.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core.Player;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Player.Debugging
+namespace Gothic.VR.Adapters.Player.Debugging
 {
     public class VRHandVelocityDebugger : MonoBehaviour
     {

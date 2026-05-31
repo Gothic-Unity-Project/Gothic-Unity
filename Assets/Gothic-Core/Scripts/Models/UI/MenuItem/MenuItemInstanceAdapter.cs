@@ -1,8 +1,8 @@
-using GUZ.Core.Extensions;
-using GUZ.Core.Model.UI.Menu;
+using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Extensions;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Model.UI.MenuItem
+namespace Gothic.Core.Model.UI.MenuItem
 {
     public class MenuItemInstanceAdapter : AbstractMenuItemInstance
     {

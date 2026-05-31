@@ -1,10 +1,10 @@
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
+using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Services.Meshes
+namespace Gothic.Core.Services.Meshes
 {
     public class TextureService
     {

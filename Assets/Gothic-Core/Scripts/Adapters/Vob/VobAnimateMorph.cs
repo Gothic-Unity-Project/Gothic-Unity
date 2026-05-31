@@ -1,6 +1,6 @@
-﻿using GUZ.Core.Adapters.Animations.Morph;
+﻿using Gothic.Core.Adapters.Animations.Morph;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     // Currently no difference from AbstractMorphAnimation. But you never know. ;-)
     public class VobAnimateMorph : AbstractMorphAnimation

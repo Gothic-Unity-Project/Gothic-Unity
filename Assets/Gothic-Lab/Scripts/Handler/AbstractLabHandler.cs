@@ -1,15 +1,15 @@
-﻿using GUZ.Core;
+﻿using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Vobs;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public abstract class AbstractLabHandler : MonoBehaviour
     {

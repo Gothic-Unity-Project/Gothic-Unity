@@ -1,8 +1,8 @@
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToFp : AbstractWalkAnimationAction2
     {

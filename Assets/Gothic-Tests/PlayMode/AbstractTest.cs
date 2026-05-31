@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections;
-using GUZ.Core.Const;
-using GUZ.Core.Models.Config;
+using Gothic.Core.Const;
+using Gothic.Core.Models.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.SceneManagement;
 
-namespace GUZ.Tests.PlayMode
+namespace Gothic.Tests.PlayMode
 {
     public abstract class AbstractTest
     {

@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Culling
+namespace Gothic.Core.Domain.Culling
 {
     public abstract class AbstractCullingDomain
     {

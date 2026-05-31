@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -11,7 +11,7 @@ using Material = UnityEngine.Material;
 using Mesh = UnityEngine.Mesh;
 using Vector3 = System.Numerics.Vector3;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class BarrierMeshBuilder : AbstractMeshBuilder
     {

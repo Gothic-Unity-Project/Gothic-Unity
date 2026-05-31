@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -13,7 +13,7 @@ using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Vector3 = System.Numerics.Vector3;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     public class SaveGameDebugger : MonoBehaviour
     {

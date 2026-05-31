@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace GUZ.Core.Models.Config
+namespace Gothic.Core.Models.Config
 {
     [Serializable]
     public class MeshCullingGroup

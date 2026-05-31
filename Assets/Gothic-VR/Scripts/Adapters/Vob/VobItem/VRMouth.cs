@@ -1,14 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Adapters.Properties.Vobs;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -16,7 +16,7 @@ using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Vob.VobItem
+namespace Gothic.VR.Adapters.Vob.VobItem
 {
     [RequireComponent(typeof(AudioSource))]
     public class VRMouth : MonoBehaviour

@@ -1,14 +1,14 @@
-using GUZ.Core.Domain.Audio;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Domain.Audio;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Manager
+namespace Gothic.Core.Manager
 {
     public class AudioService
     {

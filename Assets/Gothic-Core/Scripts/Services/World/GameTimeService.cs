@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class GameTimeService
     {

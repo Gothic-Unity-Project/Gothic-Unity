@@ -3,21 +3,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Audio;
-using GUZ.Core.Models.Marvin;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.Vm;
-using GUZ.VR.Adapters.HVROverrides;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Audio;
+using Gothic.Core.Models.Marvin;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.Core.Services.Vm;
 using HurricaneVR.Framework.Core.Utils;
 using Reflex.Attributes;
 using UnityEngine;
@@ -25,7 +25,7 @@ using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Player
+namespace Gothic.VR.Adapters.Player
 {
     [RequireComponent(typeof(VRPlayerController), typeof(VRPlayerInputs))]
     public class VRSwimDive : MonoBehaviour, IMarvinPropertyCollector

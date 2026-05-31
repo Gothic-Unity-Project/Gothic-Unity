@@ -1,6 +1,6 @@
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Domain.Npc.Actions
+namespace Gothic.Core.Domain.Npc.Actions
 {
     public class AnimationAction
     {

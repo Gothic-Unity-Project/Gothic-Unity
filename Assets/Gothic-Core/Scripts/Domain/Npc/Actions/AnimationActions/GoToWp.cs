@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using GUZ.Core.Models.Container;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Models.WayNet;
+using Gothic.Core.Models.WayNet;
 using UnityEngine;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToWp : AbstractWalkAnimationAction2
     {

@@ -1,9 +1,9 @@
-using GUZ.Core.Models.Container;
-using GUZ.Core.Manager;
-using GUZ.Core.Services.World;
+using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 
-namespace GUZ.Core.Domain.Npc.Actions.AnimationActions
+namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
     /// Dialog is done. (e.g. END clicked)

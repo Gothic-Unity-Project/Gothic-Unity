@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Services.Caches;
-using GUZ.VR.Adapters.Npc;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.VR.Adapters.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -12,7 +12,7 @@ using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
 using Vector3 = System.Numerics.Vector3;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class NpcMeshBuilder : AbstractMeshBuilder
     {

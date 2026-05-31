@@ -6,7 +6,7 @@ using Reflex.Injectors;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class GameObjectExtension
     {

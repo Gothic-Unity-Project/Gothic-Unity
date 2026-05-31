@@ -3,29 +3,29 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Const;
-using GUZ.Core.Creator;
-using GUZ.Core.Extensions;
+using Gothic.Core.Const;
+using Gothic.Core.Creator;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.StaticCache;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Adapters.Scenes
+namespace Gothic.Core.Adapters.Scenes
 {
     public class WorldScene : MonoBehaviour, IScene
     {

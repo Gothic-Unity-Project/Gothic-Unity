@@ -1,14 +1,14 @@
 #if GUZ_HVR_INSTALLED
 using System;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace GUZ.VR.Adapters.HVROverrides
+namespace Gothic.VR.Adapters.HVROverrides
 {
     /// <summary>
     /// Our VobItems have the following structure:

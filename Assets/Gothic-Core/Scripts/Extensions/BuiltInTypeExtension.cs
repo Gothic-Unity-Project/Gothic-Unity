@@ -6,7 +6,7 @@ using Gothic.Core.Logging;
 using Reflex.Injectors;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Extensions
+namespace Gothic.Core.Extensions
 {
     public static class BuiltInTypeExtension
     {

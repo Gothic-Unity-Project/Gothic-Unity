@@ -1,10 +1,10 @@
-using GUZ.Core;
-using GUZ.Core.Adapters.UI;
-using GUZ.Core.Services.Config;
+using Gothic.Core.Adapters.UI;
+using Gothic.Core.Services.Config;
+using Gothic.Core;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Marvin
+namespace Gothic.VR.Adapters.Marvin
 {
     public class MarvinRootHandler : MonoBehaviour
     {

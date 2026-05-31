@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Domain.Vm;
-using GUZ.Core.Extensions;
+using Gothic.Core.Domain.Vm;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using ZenKit;
 
-namespace GUZ.Core.Services.Vm
+namespace Gothic.Core.Services.Vm
 {
     public class VmService
     {

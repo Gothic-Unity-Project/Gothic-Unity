@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using GUZ.Core.Services.StaticCache;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     /// <summary>
     /// Use whatever pre-caching data got saved at StaticCacheManager.SaveDebugCache().

@@ -1,11 +1,11 @@
-using GUZ.Core.Const;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Const;
+using Gothic.Core.Services.Caches;
 using MyBox;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using ZenKit.Vobs;
 
-namespace GUZ.Core.Domain.Meshes.Builder
+namespace Gothic.Core.Domain.Meshes.Builder
 {
     public class VobDecalMeshBuilder : AbstractMeshBuilder
     {

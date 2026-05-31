@@ -1,7 +1,7 @@
-using GUZ.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Npc;
 using UnityEngine;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class PhysicsService
     {

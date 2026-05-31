@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using GUZ.Core.Models.Proxy;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
-using GUZ.Core.Models.Audio;
+using Gothic.Core.Models.Audio;
+using Gothic.Core.Models.Proxy;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 
-namespace GUZ.Core.Services.Caches
+namespace Gothic.Core.Services.Caches
 {
     public class VmCacheService
     {

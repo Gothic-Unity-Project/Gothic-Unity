@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Services.UI
+namespace Gothic.Core.Services.UI
 {
     public class UIEventsService
     {

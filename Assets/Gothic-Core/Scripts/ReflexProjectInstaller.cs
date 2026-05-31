@@ -1,26 +1,26 @@
-using GUZ.Core.Creator;
-using GUZ.Core.Domain.Vobs;
-using GUZ.Core.Manager;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.Npc;
-using GUZ.Core.Services.Player;
-using GUZ.Core.Services.StaticCache;
-using GUZ.Core.Services.UI;
-using GUZ.Core.Services.Vm;
-using GUZ.Core.Services.Vobs;
-using GUZ.Core.Services.World;
-using GUZ.Services.UI;
+using Gothic.Core.Creator;
+using Gothic.Core.Domain.Vobs;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.UI;
+using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.Services.UI;
+using Gothic.Core.Models.Container;
 using Reflex.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GUZ.Core
+namespace Gothic.Core
 {
     public class ReflexProjectInstaller : MonoBehaviour, IInstaller
     {

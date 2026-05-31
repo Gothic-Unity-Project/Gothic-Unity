@@ -1,10 +1,10 @@
-﻿using GUZ.Core;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
+﻿using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core;
 using Reflex.Attributes;
 using ZenKit;
 
-namespace GUZ.G2.Services.Context
+namespace Gothic.G2.Services.Context
 {
     public class G2ContextService : IContextGameVersionService
     {

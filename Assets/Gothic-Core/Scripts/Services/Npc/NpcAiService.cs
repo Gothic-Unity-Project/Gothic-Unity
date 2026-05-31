@@ -1,18 +1,18 @@
 using System.Linq;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Models.Container;
-using GUZ.Core.Extensions;
-using GUZ.Core.Const;
-using GUZ.Core.Models.Vm;
-using GUZ.Core.Domain.Npc.Actions;
-using GUZ.Core.Domain.Npc.Actions.AnimationActions;
-using GUZ.Core.Services.Caches;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Vector3 = UnityEngine.Vector3;
 
-namespace GUZ.Core.Services.Npc
+namespace Gothic.Core.Services.Npc
 {
     public class NpcAiService
     {

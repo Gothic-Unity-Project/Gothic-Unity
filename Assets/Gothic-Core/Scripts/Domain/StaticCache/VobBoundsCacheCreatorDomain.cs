@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Adapters.UI.LoadingBars;
-using GUZ.Core.Const;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Meshes;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,7 +20,7 @@ using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Domain.StaticCache
+namespace Gothic.Core.Domain.StaticCache
 {
     public class VobBoundsCacheCreatorDomain
     {

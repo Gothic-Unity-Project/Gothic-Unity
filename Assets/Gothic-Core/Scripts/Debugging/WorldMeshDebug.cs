@@ -1,9 +1,9 @@
-using GUZ.Core.Extensions;
-using GUZ.Core.Services.World;
+using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace GUZ.Core.Debugging
+namespace Gothic.Core.Debugging
 {
     public class WorldMeshDebug : MonoBehaviour
     {

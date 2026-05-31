@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
-using GUZ.Core.Services.Context;
+using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using ZenKit;
 
-namespace GUZ.Core.Services.World
+namespace Gothic.Core.Services.World
 {
     public class StoryService
     {

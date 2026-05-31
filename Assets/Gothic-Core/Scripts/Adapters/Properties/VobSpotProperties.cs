@@ -1,7 +1,7 @@
 using Gothic.Core.Models.Vob.WayNet;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Properties
+namespace Gothic.Core.Adapters.Properties
 {
     public class VobSpotProperties : VobProperties
     {

@@ -1,7 +1,7 @@
-﻿using GUZ.Core.Models.Container;
+﻿using Gothic.Core.Models.Container;
 using UnityEngine;
 
-namespace GUZ.Core.Adapters.Vob
+namespace Gothic.Core.Adapters.Vob
 {
     public class VobLoader : MonoBehaviour
     {

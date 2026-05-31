@@ -8,7 +8,7 @@ using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Editor
+namespace Gothic.Core.Editor
 {
     /// <summary>
     ///

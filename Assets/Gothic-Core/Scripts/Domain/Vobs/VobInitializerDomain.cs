@@ -1,21 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using GUZ.Core.Adapters.Properties;
-using GUZ.Core.Adapters.Vob;
-using GUZ.Core.Const;
+using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using GUZ.Core.Extensions;
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
-using GUZ.Core.Services;
-using GUZ.Core.Services.Caches;
-using GUZ.Core.Services.Config;
-using GUZ.Core.Services.Context;
-using GUZ.Core.Services.Culling;
-using GUZ.Core.Services.Meshes;
-using GUZ.Core.Services.StaticCache;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -28,7 +28,7 @@ using LightType = ZenKit.Vobs.LightType;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
-namespace GUZ.Core.Domain.Vobs
+namespace Gothic.Core.Domain.Vobs
 {
     /// <summary>
     /// Outsourced logic to create actual VOB GO structures.

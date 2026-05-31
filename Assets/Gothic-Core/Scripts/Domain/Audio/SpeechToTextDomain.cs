@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Services;
+using Gothic.Core.Services;
 using MyBox;
 using Newtonsoft.Json;
 using Reflex.Attributes;
@@ -14,7 +14,7 @@ using Unity.InferenceEngine;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.Core.Domain.Audio
+namespace Gothic.Core.Domain.Audio
 {
     /// <summary>
     /// Implementation used from: https://huggingface.co/unity/inference-engine-whisper-tiny

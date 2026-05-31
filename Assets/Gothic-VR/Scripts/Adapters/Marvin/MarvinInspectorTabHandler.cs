@@ -1,21 +1,21 @@
 #if GUZ_HVR_INSTALLED
 using System.Collections.Generic;
-using GUZ.Core;
-using GUZ.Core.Adapters.UI;
-using GUZ.Core.Extensions;
+using Gothic.Core.Adapters.UI;
+using Gothic.Core;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using GUZ.Core.Manager;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Marvin;
-using GUZ.Core.Services.Caches;
-using GUZ.VR.Services;
+using Gothic.Core.Models.Marvin;
+using Gothic.Core.Services.Caches;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace GUZ.VR.Adapters.Marvin
+namespace Gothic.VR.Adapters.Marvin
 {
     public class MarvinInspectorTabHandler : MonoBehaviour
     {

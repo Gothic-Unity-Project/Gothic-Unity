@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.VR.Adapters.Marvin
+namespace Gothic.VR.Adapters.Marvin
 {
     public class MarvinMode : MonoBehaviour
     {

@@ -2,14 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using GUZ.Core.Extensions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
-using GUZ.Core.Models.Vm;
+using Gothic.Core.Models.Vm;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
-namespace GUZ.Lab.Handler
+namespace Gothic.Lab.Handler
 {
     public class LabInteractableHandler : AbstractLabHandler
     {

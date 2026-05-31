@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GUZ.Core.Models.Sky
+namespace Gothic.Core.Models.Sky
 {
     /// <summary>
     /// This class is mostly a copy of the data from the original game, but with some changes as to make transitions cleaner.
