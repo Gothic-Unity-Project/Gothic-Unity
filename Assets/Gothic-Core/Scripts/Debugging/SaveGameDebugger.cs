@@ -52,7 +52,7 @@ namespace Gothic.Core.Debugging
         {
             yield return new WaitForEndOfFrame();
 
-            _saveGameService.SaveCurrentGame((SaveGameService.SlotId)SaveSlot, $"UnZENity-DEBUG - {DateTime.Now}");
+            _saveGameService.SaveCurrentGame((SaveGameService.SlotId)SaveSlot, $"Gothic-Unity-DEBUG - {DateTime.Now}");
 
             Logger.LogEditor("DONE", LogCat.Debug);
         }
@@ -193,9 +193,9 @@ namespace Gothic.Core.Debugging
             {
                 typeof(VirtualObject).FullName!, new()
                 {
-                    nameof(VirtualObject.Id), // Includes the Index of current VM. Different for G1 and UnZENity
+                    nameof(VirtualObject.Id), // Includes the Index of current VM. Different for G1 and Gothic Unity
                     // TODO - It defines recurring events like heat damage over time (every x-milliseconds).
-                    // TODO - Currently not handled within UnZENity, but could be useful in the future.
+                    // TODO - Currently not handled within Gothic Unity, but could be useful in the future.
                     nameof(VirtualObject.NextOnTimer)
                 }
             },
@@ -203,7 +203,7 @@ namespace Gothic.Core.Debugging
                 typeof(ZoneMusic).FullName!, new()
                 {
                     //  Both *Done properties handle some initial loading of music files in G1, but the actual .sgt file
-                    // isn't store in save file, therefore we ignore set/get it in UnZENity.
+                    // isn't store in save file, therefore we ignore set/get it in Gothic Unity.
                     nameof(ZoneMusic.DayEntranceDone),
                     nameof(ZoneMusic.NightEntranceDone)
                 }
@@ -211,7 +211,7 @@ namespace Gothic.Core.Debugging
             {
                 typeof(Mover).FullName!, new()
                 {
-                    // Seems like a physics topic for G1. We handle the speed of animations and their colliders differently in UnZENity.
+                    // Seems like a physics topic for G1. We handle the speed of animations and their colliders differently in Gothic Unity.
                     nameof(Mover.MoveSpeedUnit),
 
                     // Only FREEMINEGATE has wrong values, ignoring for now

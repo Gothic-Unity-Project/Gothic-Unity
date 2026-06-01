@@ -214,7 +214,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
                 rend.material = material;
                 // No TextureArray is only needed for Occlusion Culling in Editor mode and other dev tools. A dev texture is sufficient.
-                material.mainTexture = Constants.TextureUnZENityLogoInverse;
+                material.mainTexture = Constants.TextureGothicUnityLogoInverse;
             }
         }
 

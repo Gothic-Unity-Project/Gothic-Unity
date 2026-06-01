@@ -251,7 +251,7 @@ GameObject:
   - component: {fileID: 4541480854365842519}
   - component: {fileID: 4638076632599814358}
   m_Layer: 0
-  m_Name: MENU_UNZENITY_OPT_VR_IMMERSION
+  m_Name: MENU_GOTHIC_OPT_VR_IMMERSION
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

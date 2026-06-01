@@ -1756,7 +1756,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.Backpack.VRBackpack, UnZENity.VR
+      value: GUZ.VR.Adapters.Player.Backpack.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -2106,7 +2106,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, UnZENity.VR
+      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -3277,11 +3277,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3711332657821201227, guid: 8301813fbd70d3b47b2ab9ec26c3615e, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, UnZENity.VR
+      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3711332657821201227, guid: 8301813fbd70d3b47b2ab9ec26c3615e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, UnZENity.VR
+      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 4434190707277561806, guid: 8301813fbd70d3b47b2ab9ec26c3615e, type: 3}
       propertyPath: Target
@@ -3372,7 +3372,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, UnZENity.VR
+      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -3542,7 +3542,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.Backpack.VRBackpack, UnZENity.VR
+      value: GUZ.VR.Adapters.Player.Backpack.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 2383527804101288528, guid: 479500187278a88468300cf6a4e3c90a, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName

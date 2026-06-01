@@ -16,9 +16,8 @@ namespace Gothic.VR
             public const string Microphone = "microphone";
         }
         
-        public const string IniSectionAccessibility = "UNZENITY_VR_ACCESSIBILITY"; // [UNZENITY_VR_ACCESSIBILITY]
-        public const string IniSectionImmersion = "UNZENITY_VR_IMMERSION"; // [UNZENITY_VR_IMMERSION]
-
+        public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
+        public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
         // 0...10 Ini values
         public const int SmoothRotationSettingAmount = 10;
         // e.g. Ini value of 3 == SmoothTurnSpeedPerSetting * 3

@@ -35,7 +35,7 @@ namespace Gothic.Tests.PlayMode
             Keyboard = InputSystem.AddDevice<Keyboard>();
             Mouse = InputSystem.AddDevice<Mouse>();
             
-            SceneManager.LoadScene($"Assets/UnZENity-Core/Scenes/{Constants.SceneBootstrap}.unity");
+            SceneManager.LoadScene($"Assets/Gothic-Core/Scenes/{Constants.SceneBootstrap}.unity");
 
             // Wait for 1 frame to successfully load Bootstrap scene.
             yield return null;

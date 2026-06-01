@@ -10,7 +10,7 @@ namespace Gothic.Core.Services.Config
     /// <summary>
     /// Combines three sources of configuration:
     /// 1. Gothic.ini and GothicGame.ini from Gothic installation directory containing original Gothic settings
-    /// 2. GameSettings.json from Gothic-UnZENity/StreamingAssets path for root configuration (e.g. log level)
+    /// 2. GameSettings.json from Gothic-Unity/StreamingAssets path for root configuration (e.g. log level)
     /// 3. DeveloperConfig ScriptableObject for developer settings
     /// </summary>
     public class ConfigService
@@ -23,7 +23,7 @@ namespace Gothic.Core.Services.Config
 
         /// <summary>
         /// First one to load.
-        /// Root, as it contains only a few UnZENity specific bootstrap data like
+        /// Root, as it contains only a few Gothic specific bootstrap data like
         /// installation directory of Gothic1/2 and LogLevel.
         /// </summary>
         public void LoadRootJson()

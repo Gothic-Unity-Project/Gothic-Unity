@@ -17,36 +17,36 @@ namespace Gothic.Core.Editor.Tools
 {
     /// How to use:
     /// 1. Load the scene for which you want the Occlusion Culling being baked
-    /// 2. Run "UnZENity/Occlusion Culling/Load world mesh for G1/G2" in editor
+    /// 2. Run "Gothic/Occlusion Culling/Load world mesh for G1/G2" in editor
     /// 3. Open "Window/Rendering/Occlusion Culling"
     /// 4. Bake OC data
     /// 5. Save the scene
-    /// 6. Put the data you have into the binary repository at https://github.com/Gothic-UnZENity-Project/binary-dependencies/tree/main/UnZENity-Core/Scenes/Worlds
-    /// 7. Update your Gothic-UnZENity version (Package Manager --> Update binary-dependencies package)
+    /// 6. Put the data you have into the binary repository at https://github.com/Gothic-Unity-Project/binary-dependencies/tree/main/Gothic-Core/Scenes/Worlds
+    /// 7. Update your Gothic version (Package Manager --> Update binary-dependencies package)
     /// 8. Test if OC data is used in a normal game
     public class OcclusionCullingTool : EditorWindow
     {
-        [MenuItem("UnZENity/Build/Occlusion Culling/Load world mesh for G1", true)]
+        [MenuItem("Gothic/Build/Occlusion Culling/Load world mesh for G1", true)]
         private static bool ValidateG1OCLoading()
         {
             // If game is in playmode, disable button.
             return !EditorApplication.isPlaying;
         }
 
-        [MenuItem("UnZENity/Build/Occlusion Culling/Load world mesh for G2", true)]
+        [MenuItem("Gothic/Build/Occlusion Culling/Load world mesh for G2", true)]
         private static bool ValidateG2OCLoading()
         {
             // If game is in playmode, disable button.
             return !EditorApplication.isPlaying;
         }
 
-        [MenuItem("UnZENity/Build/Occlusion Culling/Load world mesh for G1", priority = 1000)]
+        [MenuItem("Gothic/Build/Occlusion Culling/Load world mesh for G1", priority = 1000)]
         public static async Task LoadWorldMeshG1()
         {
             await LoadWorldMesh(GameVersion.Gothic1);
         }
 
-        [MenuItem("UnZENity/Build/Occlusion Culling/Load world mesh for G2", priority = 1001)]
+        [MenuItem("Gothic/Build/Occlusion Culling/Load world mesh for G2", priority = 1001)]
         public static async Task LoadWorldMeshG2()
         {
             await LoadWorldMesh(GameVersion.Gothic2);

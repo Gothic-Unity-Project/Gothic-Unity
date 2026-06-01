@@ -45,7 +45,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
     }
 
 
-    // GUZ - Provide UnZENity an event to fetch when Channels should be added.
+    // GUZ - Provide Gothic an event to fetch when Channels should be added.
     public static UnityEvent OnEnableWindow = new();
 
     void OnEnable()
@@ -65,7 +65,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
         UberLogger.Logger.AddLogger(EditorLogger);
         EditorLogger.AddWindow(this);
 
-        // GUZ - Provide UnZENity an event to fetch when Channels should be added.
+        // GUZ - Provide Gothic an event to fetch when Channels should be added.
         OnEnableWindow.Invoke();
 
 // _OR_NEWER only became available from 5.3

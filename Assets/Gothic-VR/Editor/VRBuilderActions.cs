@@ -13,11 +13,11 @@ namespace Gothic.VR.Editor
     {
         private static readonly string[] _scenes = FindEnabledEditorScenes();
 
-        private const string _appName = "Gothic-UnZENity";
+        private const string _appName = "Gothic-Unity";
         private const string _targetDir = "Builds";
 
 
-        [MenuItem("UnZENity/Build/PCVR", priority = 20)]
+        [MenuItem("Gothic/Build/PCVR", priority = 20)]
         private static void PerformWindows64Build()
         {
             var targetPath = _targetDir + "/Windows64/" + _appName + ".exe";
@@ -27,7 +27,7 @@ namespace Gothic.VR.Editor
             GenericBuild(_scenes, targetPath, BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64, BuildOptions.None);
         }
 
-        [MenuItem("UnZENity/Build/Pico", priority = 21)]
+        [MenuItem("Gothic/Build/Pico", priority = 21)]
         private static void PerformPicoBuild()
         {
             var targetPath = _targetDir + "/Pico/" + _appName + ".apk";
@@ -35,7 +35,7 @@ namespace Gothic.VR.Editor
             GenericBuild(_scenes, targetPath, BuildTargetGroup.Android, BuildTarget.Android, BuildOptions.None);
         }
 
-        [MenuItem("UnZENity/Build/Quest", priority = 22)]
+        [MenuItem("Gothic/Build/Quest", priority = 22)]
         private static void PerformQuestBuild()
         {
             var targetPath = _targetDir + "/Quest/" + _appName + ".apk";

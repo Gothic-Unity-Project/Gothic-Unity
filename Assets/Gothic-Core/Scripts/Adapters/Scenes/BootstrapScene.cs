@@ -40,7 +40,7 @@ namespace Gothic.Core.Adapters.Scenes
             var playerContextName = _configService.Dev.GameControls.ToString();
 
             // Load Player scene by its full path name. Otherwise, it will not be found as Flat and VR module have same Player.unity scene name in use.
-            _bootstrapService.LoadScene($"UnZENity-{playerContextName}/Scenes/{playerContextName}/{Constants.ScenePlayer}");
+            _bootstrapService.LoadScene($"Gothic-{playerContextName}/Scenes/{playerContextName}/{Constants.ScenePlayer}");
         }
     }
 }

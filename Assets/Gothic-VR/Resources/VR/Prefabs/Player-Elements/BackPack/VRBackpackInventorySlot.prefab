@@ -69,7 +69,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, UnZENity.VR
+        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutOutOfBackpack
         m_Mode: 0
         m_Arguments:
@@ -97,7 +97,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
       - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, UnZENity.VR
+        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutIntoBackpack
         m_Mode: 0
         m_Arguments:

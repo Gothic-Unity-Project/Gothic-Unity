@@ -235,7 +235,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             }
             else
             {
-                _saveGameService.SaveCurrentGame((SaveGameService.SlotId)id, $"UnZENity - {DateTime.Now}");
+                _saveGameService.SaveCurrentGame((SaveGameService.SlotId)id, $"Gothic-Unity - {DateTime.Now}");
                 FillSaveGameEntries();
             }
         }

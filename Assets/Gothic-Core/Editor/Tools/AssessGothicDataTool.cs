@@ -21,13 +21,13 @@ namespace Gothic.Core.Editor.Tools
         private static DeveloperConfig _developerConfig;
         private static string _logString;
         
-        [MenuItem("UnZENity/Debug/Collect Gothic Information", true)]
+        [MenuItem("Gothic/Debug/Collect Gothic Information", true)]
         private static bool ValidateShowInformation()
         {
             return !Application.isPlaying;
         }
 
-        [MenuItem("UnZENity/Debug/Collect Gothic Information", false, priority = 110)]
+        [MenuItem("Gothic/Debug/Collect Gothic Information", false, priority = 110)]
         public static void ShowInformation()
         {
             _logString = "";

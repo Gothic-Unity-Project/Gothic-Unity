@@ -18,7 +18,7 @@ namespace Gothic.Core.Models.Config
         // GRAPHICS
         public const string IniKeyVisualRange = "sightValue";
         // G1 default: 20 (aka 20m...300m)
-        // UnZENity (example): 40...600
+        // Gothic Unity (example): 40...600
         public const int IniVisualRangeFactor = 40;
         public int IniVisualRange => Convert.ToInt32(_config.GetValueOrDefault(IniKeyVisualRange, "4"));
         

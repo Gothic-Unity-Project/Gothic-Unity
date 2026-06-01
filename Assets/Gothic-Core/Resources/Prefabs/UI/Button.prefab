@@ -228,7 +228,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 7311225937487776568}
-        m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, UnZENity.Core
+        m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Gothic.Core
         m_MethodName: OnButtonClicked
         m_Mode: 1
         m_Arguments:
@@ -271,7 +271,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 7311225937487776568}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, UnZENity.Core
+          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Gothic.Core
           m_MethodName: OnPointerEnter
           m_Mode: 0
           m_Arguments:
@@ -287,7 +287,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 7311225937487776568}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, UnZENity.Core
+          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Gothic.Core
           m_MethodName: OnPointerExit
           m_Mode: 0
           m_Arguments:

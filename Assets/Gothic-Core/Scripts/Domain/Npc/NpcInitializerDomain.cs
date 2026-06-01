@@ -122,7 +122,7 @@ namespace Gothic.Core.Domain.Npc
             };
             
             // We reference our object as user data to retrieve it whenever a Daedalus External provides an NpcInstance as input.
-            // With this, we can always switch between our UnZENity data and ZenKit data.
+            // With this, we can always switch between our Gothic data and ZenKit data.
             npcInstance.UserData = userDataObject;
 
             // IMPORTANT!: NpcInstance.UserData stores a weak pointer. i.e., if we do not store the local variable, it would get removed.

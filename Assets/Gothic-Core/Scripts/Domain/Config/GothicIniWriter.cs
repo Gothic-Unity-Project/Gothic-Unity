@@ -19,27 +19,27 @@ namespace Gothic.Core.Domain.Config
         {
             TryCreateIniBackup();
 
-            if (IsUnZENitySetting(section))
+            if (IsGothicUnitySetting(section))
                 WriteSetting(section, key, value, true);
             else
                 WriteSetting(section, key, value, false);
         }
 
         /// <summary>
-        /// Check if an UnZENity backup file already exists before saving Gothic.ini for the first time.
+        /// Check if an Gothic Unity backup file already exists before saving Gothic.ini for the first time.
         /// If not, create backup now.
         /// </summary>
         private void TryCreateIniBackup()
         {
-            // aka $GOTHICPATH\system\Gothic.ini.UnZENity.bak
-            var backupPath = Path.Combine(Path.GetDirectoryName(_iniFilePath)!, _iniFilePath + ".UnZENity.bak");
+            // aka $GOTHICPATH\system\Gothic.ini.Gothic.Unity.bak
+            var backupPath = Path.Combine(Path.GetDirectoryName(_iniFilePath)!, _iniFilePath + ".Gothic.Unity.bak");
             if (!File.Exists(backupPath))
                 File.Copy(_iniFilePath!, backupPath);
         }
 
-        private bool IsUnZENitySetting(string section)
+        private bool IsGothicUnitySetting(string section)
         {
-            return section.Contains("UNZENITY");
+            return section.Contains("Unity");
         }
         
         /// <summary>

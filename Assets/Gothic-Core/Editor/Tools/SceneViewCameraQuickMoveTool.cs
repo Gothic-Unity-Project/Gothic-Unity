@@ -19,7 +19,7 @@ namespace Gothic.Core.Editor.Tools
         private int _selectedPositionIndex;
 
 
-        [MenuItem("UnZENity/Debug/SceneView/Move to Position", priority = 200)]
+        [MenuItem("Gothic/Debug/SceneView/Move to Position", priority = 200)]
         private static void SetSceneCameraPosition()
         {
             var window = CreateInstance<SceneViewCameraQuickMoveTool>();
@@ -27,7 +27,7 @@ namespace Gothic.Core.Editor.Tools
             window.ShowPopup();
         }
 
-        [MenuItem("UnZENity/Debug/SceneView/Capture Camera Position", priority = 201)]
+        [MenuItem("Gothic/Debug/SceneView/Capture Camera Position", priority = 201)]
         private static void CaptureSceneCameraPosition()
         {
             var sceneView = SceneView.lastActiveSceneView;

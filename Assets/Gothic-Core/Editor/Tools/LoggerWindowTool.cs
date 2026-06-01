@@ -6,7 +6,7 @@ using Logger = UberLogger.Logger;
 
 namespace Gothic.Core.Editor.Tools
 {
-    // GUZ - Provide UnZENity an event to fetch when UberLogger-Channels should be added.
+    // Provide an event to fetch when UberLogger-Channels should be added.
     [InitializeOnLoad]
     public static class LoggerWindowTool
     {
@@ -22,13 +22,13 @@ namespace Gothic.Core.Editor.Tools
             });
         }
 
-        [MenuItem(itemName: "UnZENity/Debug/Uber Console", priority = 1)]
+        [MenuItem(itemName: "Gothic/Debug/Uber Console", priority = 1)]
         public static void ShowUberLoggerWindow()
         {
             UberLoggerEditorWindow.Init();
         }
 
-        [MenuItem(itemName: "UnZENity/Debug/Daedalus StackTrace", priority = 2)]
+        [MenuItem(itemName: "Gothic/Debug/Daedalus StackTrace", priority = 2)]
         public static void PrintStackTrace()
         {
             var gothicVm = ReflexProjectInstaller.DIContainer.Resolve<GameStateService>()?.GothicVm;

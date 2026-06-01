@@ -16,7 +16,7 @@ namespace Gothic.Core.Domain.Vm
     /// Handles Ikarus and LeGo modding framework compatibility.
     ///
     /// Ikarus/LeGo are Daedalus scripting libraries that treat Gothic's memory as directly
-    /// addressable. Since UnZENity has no real Gothic executable memory, we maintain a
+    /// addressable. Since Gothic Unity has no real Gothic executable memory, we maintain a
     /// virtual heap and map Daedalus symbols to fake addresses so that the most
     /// common Ikarus patterns (alloc → ptr-to-inst → field access, math, string ops,
     /// config reads, dynamic calls) work without modification.
@@ -487,7 +487,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupHookEngineFunctions()
         {
-            // HookEngineI — patches a native code address; not applicable in UnZENity
+            // HookEngineI — patches a native code address; not applicable in Gothic Unity
             SafeOverride<int, int, int>("HookEngineI", (address, _, funcSymId) =>
             {
                 var sym = _gameStateService.GothicVm.GetSymbolByIndex(funcSymId);

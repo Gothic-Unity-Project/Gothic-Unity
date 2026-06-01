@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace Gothic.Core.Adapters.UI
 {
-    public class UnZenityLogoHandler : MonoBehaviour
+    public class GothicLogoHandler : MonoBehaviour
     {
         [SerializeField]
         private GameObject _tutorialHandler;

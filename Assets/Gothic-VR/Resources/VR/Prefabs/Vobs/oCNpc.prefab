@@ -490,7 +490,7 @@ MonoBehaviour:
         m_CallState: 2
       - m_Target: {fileID: 3776598624381708510}
         m_TargetAssemblyTypeName: GUZ.Core.Adapters.UI.StatusBars.StatusBarAdapter,
-          UnZENity.Core
+          Gothic.Core
         m_MethodName: EnableBar
         m_Mode: 1
         m_Arguments:
@@ -518,7 +518,7 @@ MonoBehaviour:
         m_CallState: 2
       - m_Target: {fileID: 3776598624381708510}
         m_TargetAssemblyTypeName: GUZ.Core.Adapters.UI.StatusBars.StatusBarAdapter,
-          UnZENity.Core
+          Gothic.Core
         m_MethodName: DisableBar
         m_Mode: 1
         m_Arguments:
@@ -640,7 +640,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb1eb27bc45f4eaea1fba0f09265f5f1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnZENity.VR::GUZ.Core.Debugging.Fighting.VrNpcColliderDebugAdapter
+  m_EditorClassIdentifier: Gothic.VR::GUZ.Core.Debugging.Fighting.VrNpcColliderDebugAdapter
 --- !u!1 &4184637483184217433
 GameObject:
   m_ObjectHideFlags: 0

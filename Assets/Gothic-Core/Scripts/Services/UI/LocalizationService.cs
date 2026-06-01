@@ -13,7 +13,7 @@ namespace Gothic.Services.UI
     {
         [Inject] private readonly GameStateService _gameStateService;
         
-        private const string _localizationStringTable = "UnZENity-UI";
+        private const string _localizationStringTable = "Gothic-UI";
         
         public void SetLanguage(string language, StringEncoding encoding)
         {

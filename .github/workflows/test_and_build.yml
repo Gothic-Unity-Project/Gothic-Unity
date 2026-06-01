@@ -1,4 +1,4 @@
-name: Gothic-UnZENity Build Jobs
+name: Gothic Build Jobs
 
 on:
   pull_request:
@@ -43,7 +43,7 @@ jobs:
   #########
   buildForAllPlatforms:
     if: ${{ github.event.label.name == 'pipeline-test-build' }}
-    name: Build Gothic-UnZENity
+    name: Build Gothic
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -78,7 +78,7 @@ jobs:
       - name: Check out HVR .unitypackage from private repository
         uses: actions/checkout@v4
         with:
-          repository: Gothic-UnZENity-Project/asset-dependencies
+          repository: Gothic-Unity-Project/asset-dependencies
           ref: main
           path: Checkout/AssetRepo
           token: ${{ secrets.PAT_ASSET_REPO_CHECKOUT }}
@@ -112,6 +112,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Gothic-UnZENity-${{ matrix.targetDevice }}
+          name: Gothic-Unity-${{ matrix.targetDevice }}
           path: Builds/${{ matrix.targetDevice }}
           retention-days: 7

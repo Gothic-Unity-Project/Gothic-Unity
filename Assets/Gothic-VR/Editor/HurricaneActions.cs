@@ -16,7 +16,7 @@ namespace Gothic.VR.Editor
         /// @see documentation: https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/manual/features/rp-converter.html
         /// @see source code (for more MaterialUpgraders if needed): UnityEditor.Rendering.Universal.UniversalRenderPipelineMaterialUpgrader:GetUpgraders()
         /// </summary>
-        [MenuItem("UnZENity/Build/HVR - Convert Materials to URP", priority = 100)]
+        [MenuItem("Gothic/Build/HVR - Convert Materials to URP", priority = 100)]
         private static void ConvertHVRMaterialToURP()
         {
             var upgrader = new StandardUpgrader("Standard");

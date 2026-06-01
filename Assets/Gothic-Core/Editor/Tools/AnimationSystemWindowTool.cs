@@ -34,10 +34,10 @@ namespace Gothic.Core.Editor.Tools
 
 
 
-        [MenuItem("UnZENity/Debug/Animation System Window", priority = 100)]
+        [MenuItem("Gothic/Debug/Animation System Window", priority = 100)]
         public static void ShowWindow()
         {
-            var titleContent = new GUIContent("Animation System", Constants.TextureUnZENityLogoInverseTransparent);
+            var titleContent = new GUIContent("Animation System", Constants.TextureGothicUnityLogoInverseTransparent);
 
             var window = GetWindow<AnimationSystemWindowTool>();
             window.titleContent = titleContent;

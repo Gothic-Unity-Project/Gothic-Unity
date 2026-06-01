@@ -148,7 +148,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 408930496762790985}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VRSeat, UnZENity.VR
+        m_TargetAssemblyTypeName: GUZ.VR.Components.VRSeat, Gothic.VR
         m_MethodName: OnGrabbed
         m_Mode: 0
         m_Arguments:

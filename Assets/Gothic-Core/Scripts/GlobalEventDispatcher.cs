@@ -11,7 +11,7 @@ namespace Gothic.Core
 {
     /// <summary>
     /// Loading/Unloading order of scenes:
-    /// https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/blob/main/Docs/development/diagrams/SceneLoading.drawio.png
+    /// https://github.com/Gothic-Unity-Project/Gothic-Unity/blob/main/Docs/development/diagrams/SceneLoading.drawio.png
     /// </summary>
     public static class GlobalEventDispatcher
     {

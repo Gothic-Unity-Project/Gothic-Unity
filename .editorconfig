@@ -5,7 +5,7 @@ insert_final_newline = true
 indent_style = space
 indent_size = 4
 
-# For more details on C# code formatting, please visit our style-guide example: https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/blob/main/Docs/development/style-guide.md
+# For more details on C# code formatting, please visit our style-guide example: https://github.com/Gothic-Unity-Project/Gothic-Unity/blob/main/Docs/development/style-guide.md
 # Rider - Auto-apply of settings during save: https://www.jetbrains.com/help/resharper/Enforcing_Code_Formatting_Rules.html#run-code-cleanup-automatically-on-save
 # VS22  - Auto-apply of settings during save: https://devblogs.microsoft.com/visualstudio/bringing-code-cleanup-on-save-to-visual-studio-2022-17-1-preview-2/
 

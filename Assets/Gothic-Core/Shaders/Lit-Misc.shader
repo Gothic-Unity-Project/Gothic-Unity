@@ -1,4 +1,4 @@
-Shader "Gothic-UnZENity/Lit/Misc"
+Shader "Gothic/Lit/Misc"
 {
     Properties
     {

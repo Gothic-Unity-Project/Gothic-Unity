@@ -90,7 +90,7 @@ ProjectSettings/ShaderGraphSettings.asset
 ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json
 
 # Large/Binary files which will be fetched from
-# https://github.com/Gothic-UnZENity-Project/binary-dependencies instead of LFS
+# https://github.com/Gothic-Unity-Project/binary-dependencies instead of LFS
 *.dll
 *.dll.meta
 *.so
@@ -113,8 +113,8 @@ Assets/StreamingAssets/SpeechToText/*.sentis.meta
 Assets/StreamingAssets/SpeechToText/*.json
 Assets/StreamingAssets/SpeechToText/*.json.meta
 
-Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/*
-!Assets/UnZENity-Core/Resources/DeveloperConfigs/Local/.gitkeep
+Assets/Unity-Core/Resources/DeveloperConfigs/Local/*
+!Assets/Unity-Core/Resources/DeveloperConfigs/Local/.gitkeep
 
 ZenKitCS
 

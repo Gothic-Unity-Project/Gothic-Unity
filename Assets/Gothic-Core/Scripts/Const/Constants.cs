@@ -40,10 +40,10 @@ namespace Gothic.Core.Const
         public static readonly Shader ShaderBarrier = Shader.Find("Unlit/Barrier");
         public static readonly Shader ShaderThunder = Shader.Find("Unlit/ThunderShader");
 
-        public static readonly Texture2D TextureUnZENityLogo = Resources.Load<Texture2D>("Gothic-UnZENity-logo");
-        public static readonly Texture2D TextureUnZENityLogoTransparent = Resources.Load<Texture2D>("Gothic-UnZENity-logo-transparent");
-        public static readonly Texture2D TextureUnZENityLogoInverse = Resources.Load<Texture2D>("Gothic-UnZENity-logo-inverse");
-        public static readonly Texture2D TextureUnZENityLogoInverseTransparent = Resources.Load<Texture2D>("Gothic-UnZENity-logo-inverse-transparent");
+        public static readonly Texture2D TextureGothicUnityLogo = Resources.Load<Texture2D>("Gothic-Unity-logo");
+        public static readonly Texture2D TextureGothicUnityLogoTransparent = Resources.Load<Texture2D>("Gothic-Unity-logo-transparent");
+        public static readonly Texture2D TextureGothicUnityLogoInverse = Resources.Load<Texture2D>("Gothic-Unity-logo-inverse");
+        public static readonly Texture2D TextureGothicUnityLogoInverseTransparent = Resources.Load<Texture2D>("Gothic-Unity-logo-inverse-transparent");
 
 
         /*

@@ -57,7 +57,7 @@ namespace Gothic.Core.Domain.Config
         /// HINT: With Android 10+, there is no easy way to use data from a different folder. i.e. we can create files and folders wherever we want,
         /// but if we upload or alter them from another app (like SideQuest), we loose access (Androids new Scoped Storage/Shared Storage feature).
         /// Therefore, let's stick with the installation folder as it's the official place where other apps (SideQuest etc.) can update/upload our files
-        /// and Gothic-UnZENity can still read the data later on.
+        /// and Gothic Unity can still read the data later on.
         /// </summary>
         private static void PrepareAndroidFolders()
         {
@@ -136,14 +136,14 @@ namespace Gothic.Core.Domain.Config
             // https://docs.unity3d.com/ScriptReference/Application-streamingAssetsPath.html
             // Will be:
             // 1. Editor: Assets\StreamingAssets\
-            // 2. Standalone: Build\Gothic-UnZENity_Data\StreamingAssets\
+            // 2. Standalone: Build\Gothic-Unity_Data\StreamingAssets\
             return Application.streamingAssetsPath;
         }
 
         /// <summary>
         /// Check if the specified path inside GameSettings is a valid Gothic installation. If not, use a platform specific fallback:
         /// Standalone: C:\Program Files (x86)\Steam\steamapps\common\Gothic\
-        /// Android: /storage/emulated/0/Android/data/com.GothicUnZENity/files/Gothic1/
+        /// Android: /storage/emulated/0/Android/data/com.Gothic.Unity/files/Gothic1/
         /// </summary>
         private static string AlterGothicInstallationPath(string gothicInstallationPath, GameVersion version)
         {

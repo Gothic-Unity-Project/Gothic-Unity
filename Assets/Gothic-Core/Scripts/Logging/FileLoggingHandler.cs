@@ -26,7 +26,7 @@ namespace Gothic.Core.Logging
 #else
         private FileLoggingLogger _logger;
 
-        private const string _logFileName = "Gothic-UnZENity.log.txt";
+        private const string _logFileName = "Gothic-Unity.log.txt";
         
         public FileLoggingHandler()
         {
@@ -54,7 +54,7 @@ namespace Gothic.Core.Logging
             _logger.WriteLine("OperatingSystem: " + SystemInfo.operatingSystem);
             _logger.WriteLine("OperatingSystemFamily: " + SystemInfo.operatingSystemFamily);
             _logger.WriteLine("MemorySize: " + SystemInfo.systemMemorySize);
-            _logger.WriteLine("Gothic-UnZENity Version: " + Application.version);
+            _logger.WriteLine("Gothic Unity Version: " + Application.version);
             _logger.WriteLine(string.Empty);
         }
 

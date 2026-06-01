@@ -246,7 +246,7 @@ namespace Gothic.Core.Domain.Audio
             // https://docs.unity3d.com/ScriptReference/Application-streamingAssetsPath.html
             // Will be:
             // 1. Editor: Assets\StreamingAssets\
-            // 2. Standalone: Build\Gothic-UnZENity_Data\StreamingAssets\
+            // 2. Standalone: Build\Gothic-Unity_Data\StreamingAssets\
             return Application.streamingAssetsPath + "/SpeechToText";
         }
 

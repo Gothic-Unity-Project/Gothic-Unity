@@ -10,7 +10,7 @@ using static Gothic.Core.Models.Config.DeveloperConfigEnums;
 
 namespace Gothic.Core.Models.Config
 {
-    [CreateAssetMenu(fileName = "NewDeveloperConfiguration", menuName = "UnZENity/ScriptableObjects/DeveloperConfiguration", order = 1)]
+    [CreateAssetMenu(fileName = "NewDeveloperConfiguration", menuName = "Gothic/ScriptableObjects/DeveloperConfiguration", order = 1)]
     public class DeveloperConfig : ScriptableObject
     {
         /**
