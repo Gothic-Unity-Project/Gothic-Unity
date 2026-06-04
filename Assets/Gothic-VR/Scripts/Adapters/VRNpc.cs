@@ -1,4 +1,4 @@
-﻿#if GUZ_HVR_INSTALLED
+﻿#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;

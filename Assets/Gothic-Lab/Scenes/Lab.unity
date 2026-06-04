@@ -162,7 +162,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -618,7 +618,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -2599,7 +2599,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -3622,7 +3622,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -5111,7 +5111,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -6081,7 +6081,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabMonsterHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabMonsterHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -6965,7 +6965,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -7217,7 +7217,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -11046,7 +11046,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -11808,7 +11808,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -13208,7 +13208,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabVideoHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabVideoHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -14785,7 +14785,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -16112,7 +16112,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabLockHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabLockHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -17969,7 +17969,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabSoundHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabSoundHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 3462299961317466252, guid: fcac0c3f142ea3742a0565751dec41de, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -18816,7 +18816,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
@@ -19395,7 +19395,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.Lab.Handler.LabFightHandler, Gothic.Lab
+      value: Gothic.Lab.Handler.LabFightHandler, Gothic.Lab
       objectReference: {fileID: 0}
     - target: {fileID: 607899402752333741, guid: 40c7a7079034239458b89d55479faad9, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument

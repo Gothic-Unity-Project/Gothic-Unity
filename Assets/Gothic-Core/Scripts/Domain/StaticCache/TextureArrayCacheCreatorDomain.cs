@@ -146,7 +146,7 @@ namespace Gothic.Core.Domain.StaticCache
         }
 
         /// <summary>
-        /// Get mesh information from various sources of Vob. Similar to logic used in GUZ.Core.Domain.Vobs.VobInitializerDomain.CreateDefaultMesh()
+        /// Get mesh information from various sources of Vob. Similar to logic used in Gothic.Core.Domain.Vobs.VobInitializerDomain.CreateDefaultMesh()
         /// </summary>
         private void AddTexInfoForSingleVob(IVirtualObject vob)
         {

@@ -169,12 +169,12 @@ Shader "Gothic/Lit/Misc"
             #pragma instancing_options renderinglayer
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            // GUZ - Add ApplyWaterEffect()
+            // Gothic - Add ApplyWaterEffect()
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "GothicIncludes.hlsl"
             #define MixFog(color, fogFactor) ApplyUnderWaterEffect(lerp(unity_FogColor.rgb, color, fogFactor))
-            // GUZ END
+            // Gothic END
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitForwardPass.hlsl"

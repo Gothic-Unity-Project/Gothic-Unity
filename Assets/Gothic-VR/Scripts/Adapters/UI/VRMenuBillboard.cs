@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Services.Context;
 using Gothic.VR.Adapters.HVROverrides;
 using Gothic.Core;

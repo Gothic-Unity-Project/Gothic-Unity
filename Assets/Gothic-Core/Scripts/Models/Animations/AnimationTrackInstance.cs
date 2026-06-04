@@ -259,7 +259,7 @@ namespace Gothic.Core.Models.Animations
         /// This method solves multiple circumstances:
         /// (1). Gothic animations won't always start from frame 0. e.g. t_Potion_Random_1 expects to work from frame 45+.
         ///      --> This might be, as the animations are "behind" another and could be one single animation in Gothic.
-        ///      --> But in GUZ, we create every transition animation separately and therefore normalize to start from frame 0.
+        ///      --> But in Gothic, we create every transition animation separately and therefore normalize to start from frame 0.
         /// (2). G1 animation key frames are optimized and not always aligned with 25fps (e.g. t_Potion_* leverages 10 frames only).
         ///      But the animation event frame numbers are matching 25fps.
         ///      --> In Unity we only store the key frames and fps value provided (e.g. 10fps), as Unity will interpolate on it's own.

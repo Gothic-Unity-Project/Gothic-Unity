@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 2695374316263995920}
   m_Layer: 0
   m_Name: oCNpc
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

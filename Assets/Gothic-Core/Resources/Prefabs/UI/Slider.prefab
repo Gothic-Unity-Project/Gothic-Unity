@@ -90,7 +90,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: GUZ.Core.UI.MainMenu.MovementMenuHandler, Assembly-CSharp
+        m_TargetAssemblyTypeName: Gothic.Core.UI.MainMenu.MovementMenuHandler, Assembly-CSharp
         m_MethodName: OnSnapTurnAngleChanged
         m_Mode: 0
         m_Arguments:

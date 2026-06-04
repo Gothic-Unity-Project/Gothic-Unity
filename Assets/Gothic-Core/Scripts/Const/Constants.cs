@@ -130,7 +130,7 @@ namespace Gothic.Core.Const
         public const string MainCameraTag = "MainCamera";
 
         // Custom Tags
-        public const string VobTag = "GUZVob";
+        public const string VobTag = "GothicVob";
 
         
         // We need to set the scale so that collision and NPC animation is starting at the right spot.

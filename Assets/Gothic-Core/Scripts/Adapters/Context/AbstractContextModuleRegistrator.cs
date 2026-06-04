@@ -5,7 +5,7 @@ using ZenKit;
 namespace Gothic.Core.Adapters.Context
 {
     /// <summary>
-    /// We need to find a way to properly instantiate every module which wants to listen to GUZContext.Register() event.
+    /// We need to find a way to properly instantiate every module which wants to listen to Context.Register() event.
     /// Therefore, each of them will inherit this class and be put inside Bootstrap.unity scene.
     /// </summary>
     public abstract class AbstractContextBootstrap : MonoBehaviour

@@ -24,7 +24,7 @@ jobs:
         with:
           clean: true
       - name: Remove PlayerSetting HVR symbol temporarily
-        run: sed -i 's/GUZ_HVR_INSTALLED/GUZ_PLACEHOLDER/g' ProjectSettings/ProjectSettings.asset
+        run: sed -i 's/GOTHIC_HVR_INSTALLED/GOTHIC_PLACEHOLDER/g' ProjectSettings/ProjectSettings.asset
       - name: Build project
         uses: game-ci/unity-builder@v4
         env:
@@ -34,7 +34,7 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.PerformWindows64Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.PerformWindows64Build
 
 
 
@@ -100,12 +100,12 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
           # Android Keystore settings
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystoreName: GUZ.keystore
+          androidKeystoreName: GGothice
           customParameters: >
-            -keystoreName "GUZ.keystore"
+            -keystoreName "Gothic.keystore"
             -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
             -keyaliasName "${{ secrets.ANDROID_KEYALIAS_NAME }}"
             -keyaliasPass "${{ secrets.ANDROID_KEYALIAS_PASS }}"

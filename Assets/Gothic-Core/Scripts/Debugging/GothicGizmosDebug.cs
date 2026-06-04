@@ -5,7 +5,7 @@ namespace Gothic.Core.Debugging
     /// <summary>
     /// Add it to an object where you want to draw some information.
     /// </summary>
-    public class GuzGizmosDebug : MonoBehaviour
+    public class GothicGizmosDebug : MonoBehaviour
     {
         private void OnDrawGizmos()
         {

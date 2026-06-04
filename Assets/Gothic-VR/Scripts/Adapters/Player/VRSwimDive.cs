@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections;
 using System.Collections.Generic;

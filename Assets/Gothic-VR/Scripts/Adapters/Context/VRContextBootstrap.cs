@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Adapters.Context;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
@@ -24,7 +24,7 @@ namespace Gothic.VR.Adapters.Context
                 return;
 
 // We register VR only if we have HVR installed.
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
             // We need to set our VR service now, as the Player.scene loading time (basically this Awake() call) is the first time,
             // when we can set our VR service. But the [Inject] resolves are done already at frame 0 at Bootstrap.scene.
             // Therefore, we need to set the VR service via new() and as proxy implementation.
@@ -33,7 +33,7 @@ namespace Gothic.VR.Adapters.Context
             _contextDialogService.SetImpl(new VRContextDialogService().Inject());
 #else
             throw new System.ArgumentException(
-                "VR context is set, but compiler directive >GUZ_HVR_INSTALLED< isn't set. Did you set up Hurricane VR properly?");
+                "VR context is set, but compiler directive >GOTHIC_HVR_INSTALLED< isn't set. Did you set up Hurricane VR properly?");
 #endif
         }
 

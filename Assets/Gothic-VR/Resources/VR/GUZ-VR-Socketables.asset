@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 97ec8575e5e09a146a23021088dea0bd, type: 3}
-  m_Name: GUZ-VR-Socketables
+  m_Name: Gothic-VR-Socketables
   m_EditorClassIdentifier: 
   _socketables:
   - Items General

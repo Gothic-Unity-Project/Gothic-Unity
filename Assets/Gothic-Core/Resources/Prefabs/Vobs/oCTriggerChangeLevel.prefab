@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 5297653662120620224}
   m_Layer: 2
   m_Name: oCTriggerChangeLevel
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

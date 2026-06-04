@@ -159,7 +159,7 @@ namespace Gothic.Core.Models.Config
         [Separator("Debug")]
         [Tooltip("Array like this: C_ITEM_NAME:AMOUNT;... e.g., ItMi_Stuff_OldCoin_01:10;ItFo_Potion_Mana_01:1")]
         public string PlayerInventoryAddition;
-        [Tooltip("When activated, add >GUZ.Core.Debugging.VobCullingGizmo< to the GameObject containing >VobLoader<.")]
+        [Tooltip("When activated, add >Gothic.Core.Debugging.VobCullingGizmo< to the GameObject containing >VobLoader<.")]
         public bool ShowVOBMeshCullingGizmos;
         public bool ShowCapsuleOverlapGizmos;
 

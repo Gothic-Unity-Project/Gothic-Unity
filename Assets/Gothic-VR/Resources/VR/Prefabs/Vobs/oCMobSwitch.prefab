@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 7503177052031669685}
   m_Layer: 0
   m_Name: oCMobSwitch
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

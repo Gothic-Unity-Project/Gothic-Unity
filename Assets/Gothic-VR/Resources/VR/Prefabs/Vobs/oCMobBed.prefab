@@ -223,7 +223,7 @@ GameObject:
   - component: {fileID: 73628500688023460}
   m_Layer: 0
   m_Name: oCMobBed
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

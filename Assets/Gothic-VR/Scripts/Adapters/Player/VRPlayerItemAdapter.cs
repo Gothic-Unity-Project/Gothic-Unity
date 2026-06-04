@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Manager;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;

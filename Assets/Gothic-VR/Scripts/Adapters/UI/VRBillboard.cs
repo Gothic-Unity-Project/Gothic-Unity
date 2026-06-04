@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using UnityEngine;
 
 namespace Gothic.VR.Adapters.UI

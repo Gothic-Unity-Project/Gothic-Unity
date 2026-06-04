@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using Gothic.Core;
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
@@ -19,7 +19,7 @@ namespace Gothic.VR.Adapters.HVROverrides
 
         public VRPlayerInputs VrInputs => (VRPlayerInputs)Inputs;
 
-        [Separator("GUZ - Settings")]
+        [Separator("Gothic - Settings")]
         public MenuHandler MenuHandler;
 
         [SerializeField] private float _characterControllerSwimDiveStepHeight = 1f; // 1m means walking out of water in Xardas' old tower in G1.

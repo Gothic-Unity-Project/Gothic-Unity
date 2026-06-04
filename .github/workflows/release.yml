@@ -81,12 +81,12 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
           # Android Keystore settings
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystoreName: GUZ.keystore
+          androidKeystoreName: Gothic.keystore
           customParameters: >
-            -keystoreName "GUZ.keystore"
+            -keystoreName "Gothic.keystore"
             -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
             -keyaliasName "${{ secrets.ANDROID_KEYALIAS_NAME }}"
             -keyaliasPass "${{ secrets.ANDROID_KEYALIAS_PASS }}"

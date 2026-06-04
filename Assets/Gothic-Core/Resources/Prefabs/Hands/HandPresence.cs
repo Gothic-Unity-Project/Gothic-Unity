@@ -46,7 +46,7 @@ public class HandPresence : MonoBehaviour
 
         //foreach(var item in devices)
         //{
-        //    GUZLogger.Log(item.name + item.characteristics);
+        //    Logger.Log(item.name + item.characteristics);
         //}
 
         if (devices.Count > 0)

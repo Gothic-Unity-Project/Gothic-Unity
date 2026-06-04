@@ -148,7 +148,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 408930496762790985}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VRSeat, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VRSeat, Gothic.VR
         m_MethodName: OnGrabbed
         m_Mode: 0
         m_Arguments:
@@ -264,7 +264,7 @@ GameObject:
   - component: {fileID: 3166133578734800441}
   m_Layer: 0
   m_Name: oCMobInterSeat
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

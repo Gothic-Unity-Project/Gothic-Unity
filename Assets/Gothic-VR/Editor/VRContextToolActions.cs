@@ -10,7 +10,7 @@ namespace Gothic.VR.Editor
 {
     public class VRContextToolActions
     {
-        private const string HVR_COMPILER_FLAG = "GUZ_HVR_INSTALLED";
+        private const string HVR_COMPILER_FLAG = "GOTHIC_HVR_INSTALLED";
 
         [MenuItem("Gothic/Build/Context/Check HVR status", priority = 1)]
         private static void CheckHVRPluginStatus()

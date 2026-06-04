@@ -747,7 +747,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1617092714476345731}
-        m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Assembly-CSharp
+        m_TargetAssemblyTypeName: Gothic.Core.UI.UIEvents, Assembly-CSharp
         m_MethodName: OnButtonClicked
         m_Mode: 1
         m_Arguments:
@@ -776,7 +776,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 1617092714476345731}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.HoverEvent, Assembly-CSharp
+          m_TargetAssemblyTypeName: Gothic.Core.UI.HoverEvent, Assembly-CSharp
           m_MethodName: OnPointerEnter
           m_Mode: 0
           m_Arguments:
@@ -792,7 +792,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 1617092714476345731}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.HoverEvent, Assembly-CSharp
+          m_TargetAssemblyTypeName: Gothic.Core.UI.HoverEvent, Assembly-CSharp
           m_MethodName: OnPointerExit
           m_Mode: 0
           m_Arguments:

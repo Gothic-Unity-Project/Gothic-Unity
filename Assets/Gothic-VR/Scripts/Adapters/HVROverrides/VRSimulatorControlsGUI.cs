@@ -1,4 +1,4 @@
-﻿#if GUZ_HVR_INSTALLED
+﻿#if GOTHIC_HVR_INSTALLED
 using HurricaneVRExtensions.Simulator;
 using UnityEngine;
 

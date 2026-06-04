@@ -1,4 +1,4 @@
-﻿#if GUZ_HVR_INSTALLED
+﻿#if GOTHIC_HVR_INSTALLED
 using HurricaneVR.Framework.ControllerInput;
 using HurricaneVR.Framework.Shared;
 using MyBox;
@@ -8,7 +8,7 @@ namespace Gothic.VR.Adapters.HVROverrides
 {
     public class VRPlayerInputs : HVRPlayerInputs
     {
-        [Separator("GUZ - Settings")]
+        [Separator("Gothic - Settings")]
         public bool IsMenuActivated;
         public HVRButtonState MenuState;
         public bool IsMenuButtonEnabled = true;

@@ -1,4 +1,4 @@
-﻿#if GUZ_HVR_INSTALLED
+﻿#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;

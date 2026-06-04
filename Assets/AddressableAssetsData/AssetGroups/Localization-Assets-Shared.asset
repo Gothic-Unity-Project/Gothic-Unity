@@ -16,7 +16,7 @@ MonoBehaviour:
   m_GUID: a7c37433381c2644898ec1ae58468548
   m_SerializeEntries:
   - m_GUID: 688e24f0a7340a649aca39be8009e223
-    m_Address: Assets/UnZENity-Core/Localizations/UnZENity-UI Shared Data.asset
+    m_Address: Assets/Gothic-Core/Localizations/Gothic-UI Shared Data.asset
     m_ReadOnly: 1
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

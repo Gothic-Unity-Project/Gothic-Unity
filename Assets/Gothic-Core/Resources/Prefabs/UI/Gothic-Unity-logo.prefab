@@ -261,7 +261,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 6793405629452684711}
-        m_TargetAssemblyTypeName: GUZ.Core.UI.Menus.GothicLogoHandler, Gothic.Core
+        m_TargetAssemblyTypeName: Gothic.Core.UI.Menus.GothicLogoHandler, Gothic.Core
         m_MethodName: OnClick
         m_Mode: 1
         m_Arguments:
@@ -321,7 +321,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 5358313885012217312}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Gothic.Core
+          m_TargetAssemblyTypeName: Gothic.Core.UI.UIEvents, Gothic.Core
           m_MethodName: OnPointerEnter
           m_Mode: 0
           m_Arguments:
@@ -337,7 +337,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls:
         - m_Target: {fileID: 5358313885012217312}
-          m_TargetAssemblyTypeName: GUZ.Core.UI.UIEvents, Gothic.Core
+          m_TargetAssemblyTypeName: Gothic.Core.UI.UIEvents, Gothic.Core
           m_MethodName: OnPointerExit
           m_Mode: 0
           m_Arguments:

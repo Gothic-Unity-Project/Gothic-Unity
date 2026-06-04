@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 516758555828712060}
   m_Layer: 0
   m_Name: zCVobLight
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

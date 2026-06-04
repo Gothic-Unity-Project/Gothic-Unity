@@ -701,15 +701,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
+      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
+      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -857,7 +857,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -957,19 +957,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
+      value: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
+      value: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -1045,7 +1045,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -1197,15 +1197,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
+      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
+      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -1555,7 +1555,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -1571,7 +1571,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutIntoHolster
         m_Mode: 0
         m_Arguments:
@@ -1586,7 +1586,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -1599,7 +1599,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutOutOfHolster
         m_Mode: 0
         m_Arguments:
@@ -2144,7 +2144,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -2160,7 +2160,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutIntoHolster
         m_Mode: 0
         m_Arguments:
@@ -2175,7 +2175,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -2188,7 +2188,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutOutOfHolster
         m_Mode: 0
         m_Arguments:
@@ -2274,7 +2274,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -2290,7 +2290,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutIntoHolster
         m_Mode: 0
         m_Arguments:
@@ -2305,7 +2305,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -2318,7 +2318,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
       - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
         m_MethodName: OnItemPutOutOfHolster
         m_Mode: 0
         m_Arguments:
@@ -3385,11 +3385,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
       propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: GUZ.VR.Adapters.Player.VRBackpack, Gothic.VR
+      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
       objectReference: {fileID: 0}
     - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
       propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5681108792341746749}
   m_Layer: 2
   m_Name: zCVobSpot
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

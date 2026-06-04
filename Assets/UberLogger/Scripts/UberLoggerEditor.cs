@@ -91,7 +91,7 @@ public class UberLoggerEditor : ScriptableObject, UberLogger.ILogger
         }
     }
 
-    // GUZ - Pre-initialize channels to be visible as buttons on top.
+    // Gothic - Pre-initialize channels to be visible as buttons on top.
     public void InitializeChannels(string[] channels)
     {
         Channels = new HashSet<string>(channels);
@@ -139,7 +139,7 @@ public class UberLoggerEditor : ScriptableObject, UberLogger.ILogger
         {
             LogInfo.Clear();
 
-            // GUZ - Channels are fixed. Do not clear them.
+            // Gothic - Channels are fixed. Do not clear them.
             // Channels.Clear();
             NoWarnings = 0;
             NoErrors = 0;

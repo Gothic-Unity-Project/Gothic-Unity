@@ -1,4 +1,4 @@
-#if GUZ_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;

@@ -160,7 +160,7 @@ namespace Gothic.Core.Domain.StaticCache
                 if (boundingBox == default)
                 {
                     // Re-enable if you want to check which meshes couldn't be found.
-                    // GUZLogger.LogError($"ItemVisual {item.Visual} is neither .mrm, .zen, nor .mmb.");
+                    // Logger.LogError($"ItemVisual {item.Visual} is neither .mrm, .zen, nor .mmb.");
                     continue;
                 }
 
@@ -171,7 +171,7 @@ namespace Gothic.Core.Domain.StaticCache
         }
 
         /// <summary>
-        /// Get mesh information from various sources of Vob. Similar to logic used in GUZ.Core.Domain.Vobs.VobInitializerDomain.CreateDefaultMesh()
+        /// Get mesh information from various sources of Vob. Similar to logic used in Gothic.Core.Domain.Vobs.VobInitializerDomain.CreateDefaultMesh()
         /// </summary>
         private Bounds CalculateBoundingBox(VisualType visualType, string visualName)
         {

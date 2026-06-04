@@ -53,7 +53,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -72,7 +72,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -248,7 +248,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -267,7 +267,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -443,7 +443,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -462,7 +462,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -1082,7 +1082,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -1101,7 +1101,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -1277,7 +1277,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -1296,7 +1296,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -1859,7 +1859,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -1878,7 +1878,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -2590,7 +2590,7 @@ GameObject:
   - component: {fileID: 7775892214903187319}
   m_Layer: 0
   m_Name: oCMobContainer
-  m_TagString: GUZVob
+  m_TagString: GothicVob
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2777,7 +2777,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -2796,7 +2796,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -2972,7 +2972,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -2991,7 +2991,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -3253,7 +3253,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -3272,7 +3272,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -3448,7 +3448,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -3467,7 +3467,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -3643,7 +3643,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -3662,7 +3662,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0
@@ -3953,7 +3953,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnBeforeGrabbed
         m_Mode: 0
@@ -3972,7 +3972,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: GUZ.VR.Components.VobContainer.VRVobContainerSocketInventory,
+        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
           Gothic.VR
         m_MethodName: OnReleased
         m_Mode: 0

@@ -1,4 +1,4 @@
-﻿#if GUZ_HVR_INSTALLED
+﻿#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ namespace Gothic.VR.Adapters.Vob.Container
         private const float _socketRadius = 0.1f;
         private const float _socketCollectionMargin = _socketRadius / 2;
 
-        [Separator("GUZ - Settings")]
+        [Separator("Gothic - Settings")]
         [SerializeField] private GameObject _rootGo;
         [SerializeField] private HVRSocketContainer _socketContainer;
         [SerializeField] private BoxCollider _collectorCollider;
@@ -53,7 +53,7 @@ namespace Gothic.VR.Adapters.Vob.Container
         
         
         [Serializable]
-        [Obsolete("Moved to GUZ.Core.Data.Vobs.ContentItem")]
+        [Obsolete("Moved to Gothic.Core.Data.Vobs.ContentItem")]
         public struct ContentItem
         {
             public string Name;
