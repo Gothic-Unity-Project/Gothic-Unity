@@ -16,7 +16,7 @@ MonoBehaviour:
   m_GUID: 9c304cb56cc556c4f9625b9654995dbd
   m_SerializeEntries:
   - m_GUID: 6255153704c291245883d8902a90fdcd
-    m_Address: UnZENity-UI_es
+    m_Address: Gothic-UI_es
     m_ReadOnly: 1
     m_SerializedLabels:
     - Locale-es

@@ -9,191 +9,196 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
-  m_Name: UnZENity-UI_pl
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: Gothic-UI Shared Data
   m_EditorClassIdentifier: 
-  m_LocaleId:
-    m_Code: pl
-  m_SharedData: {fileID: 11400000, guid: 688e24f0a7340a649aca39be8009e223, type: 2}
-  m_Metadata:
-    m_Items: []
-  m_TableData:
+  m_TableCollectionName: Gothic-UI
+  m_TableCollectionNameGuidString: 688e24f0a7340a649aca39be8009e223
+  m_Entries:
   - m_Id: 431630484627456
-    m_Localized: '-'
+    m_Key: menuitem.moveDirection.description
     m_Metadata:
       m_Items: []
   - m_Id: 431629377331200
-    m_Localized: Kierunek Ruchu
+    m_Key: menuitem.moveDirection.label
     m_Metadata:
       m_Items: []
   - m_Id: 431631105384448
-    m_Localized: Kamera|Lewy Kontroler|Prawy Kontroler
+    m_Key: menuitem.moveDirection.value
     m_Metadata:
       m_Items: []
   - m_Id: 431632300761088
-    m_Localized: '-'
+    m_Key: menuitem.rotationType.description
     m_Metadata:
       m_Items: []
   - m_Id: 431631675809792
-    m_Localized: Typ Rotacji
+    m_Key: menuitem.rotationType.label
     m_Metadata:
       m_Items: []
   - m_Id: 431632934100992
-    m_Localized: smooth|snap
+    m_Key: menuitem.rotationType.value
     m_Metadata:
       m_Items: []
   - m_Id: 431627489894400
-    m_Localized: "-Wysoko\u015B\u0107 Gracza- oznacza brak skalowania"
+    m_Key: menuitem.sitStand.description
     m_Metadata:
       m_Items: []
   - m_Id: 431625069780992
-    m_Localized: "Tryb siedz\u0105cy"
+    m_Key: menuitem.sitStand.label
     m_Metadata:
       m_Items: []
   - m_Id: 431628714631168
-    m_Localized: "siedz\u0105cy|stoj\u0105cy|wysoko\u015B\u0107 gracza"
+    m_Key: menuitem.sitStand.value
     m_Metadata:
       m_Items: []
   - m_Id: 431907841368064
-    m_Localized: "Ustaw wyg\u0142adzanie kamery widza (Tylko PCVR)"
+    m_Key: menuitem.smooth.description
     m_Metadata:
       m_Items: []
   - m_Id: 431907228999680
-    m_Localized: "Wyg\u0142adzanie kamery widza"
+    m_Key: menuitem.smooth.label
     m_Metadata:
       m_Items: []
   - m_Id: 432028503105536
-    m_Localized: "wy\u0142\u0105czone|niskie|\u015Brednie|wysokie"
+    m_Key: menuitem.smooth.value
     m_Metadata:
       m_Items: []
   - m_Id: 431904846635008
-    m_Localized: "Pr\u0119dko\u015B\u0107 rotacji"
+    m_Key: menuitem.smoothRotation.description
     m_Metadata:
       m_Items: []
   - m_Id: 431903147941888
-    m_Localized: "G\u0142adka rotacja"
+    m_Key: menuitem.smoothRotation.label
     m_Metadata:
       m_Items: []
   - m_Id: 431906042011648
-    m_Localized: "Ilo\u015B\u0107 obotu na klikni\u0119cie"
+    m_Key: menuitem.snapRotation.description
     m_Metadata:
       m_Items: []
   - m_Id: 431905500946432
-    m_Localized: Snap Rotacja
+    m_Key: menuitem.snapRotation.label
     m_Metadata:
       m_Items: []
   - m_Id: 431906666962944
-    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Key: menuitem.snapRotation.value
     m_Metadata:
       m_Items: []
   - m_Id: 431600692486144
-    m_Localized: "Przyst\u0119pno\u015B\u0107 VR"
+    m_Key: menuitem.vr_accessibility
     m_Metadata:
       m_Items: []
   - m_Id: 431605876645888
-    m_Localized: "USTAWIENIA PRZYST\u0118PNO\u015ACI VR"
+    m_Key: menuitem.vr_accessibility.headline
     m_Metadata:
       m_Items: []
   - m_Id: 790913176952832
-    m_Localized: Sloty Bohatera VR
+    m_Key: vr.controls.slots.headline
     m_Metadata:
       m_Items: []
   - m_Id: 791239070179328
-    m_Localized: Menu Select
+    m_Key: vr.controls.quest2.left.trigger
     m_Metadata:
       m_Items: []
   - m_Id: 791238533308416
-    m_Localized: "Przyci\u0105gnij/Dialog"
+    m_Key: vr.controls.quest2.left.hand_trigger
     m_Metadata:
       m_Items: []
   - m_Id: 791234976538624
-    m_Localized: _
+    m_Key: vr.controls.quest2.left.menu
     m_Metadata:
       m_Items: []
   - m_Id: 791233751801856
-    m_Localized: Chodzenie
+    m_Key: vr.controls.quest2.left.thumbstick
     m_Metadata:
       m_Items: []
   - m_Id: 791236171915264
-    m_Localized: _
+    m_Key: vr.controls.quest2.left.x
     m_Metadata:
       m_Items: []
   - m_Id: 791236801060864
-    m_Localized: Menu
+    m_Key: vr.controls.quest2.left.y
     m_Metadata:
       m_Items: []
   - m_Id: 791237371486208
-    m_Localized: Skok
+    m_Key: vr.controls.quest2.right.a
     m_Metadata:
       m_Items: []
   - m_Id: 791237967077376
-    m_Localized: Kucnij
+    m_Key: vr.controls.quest2.right.b
     m_Metadata:
       m_Items: []
   - m_Id: 791240353636352
-    m_Localized: Menu Select
+    m_Key: vr.controls.quest2.right.trigger
     m_Metadata:
       m_Items: []
   - m_Id: 791239724490752
-    m_Localized: "Przyci\u0105gnij/Dialog"
+    m_Key: vr.controls.quest2.right.hand_trigger
     m_Metadata:
       m_Items: []
   - m_Id: 791235605684224
-    m_Localized: _
+    m_Key: vr.controls.quest2.right.menu
     m_Metadata:
       m_Items: []
   - m_Id: 791234347393024
-    m_Localized: Rotacja/Teleport
+    m_Key: vr.controls.quest2.right.thumbstick
     m_Metadata:
       m_Items: []
   - m_Id: 410458179100672
-    m_Localized: _
+    m_Key: vr.controls.slots.left_chest
     m_Metadata:
       m_Items: []
   - m_Id: 411567790612480
-    m_Localized: _
+    m_Key: vr.controls.slots.left_hip
     m_Metadata:
       m_Items: []
   - m_Id: 62335082496
-    m_Localized: Ekwipunek
+    m_Key: vr.controls.slots.left_shoulder
     m_Metadata:
       m_Items: []
   - m_Id: 411327083700224
-    m_Localized: _
+    m_Key: vr.controls.slots.right_chest
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080
-    m_Localized: _
+    m_Key: vr.controls.slots.right_hip
     m_Metadata:
       m_Items: []
   - m_Id: 3119672320000
-    m_Localized: _
+    m_Key: vr.controls.slots.right_shoulder
     m_Metadata:
       m_Items: []
   - m_Id: 792354008457216
-    m_Localized: Sterowanie VR
+    m_Key: vr.controls.quest2.headline
     m_Metadata:
       m_Items: []
   - m_Id: 2692152860991488
-    m_Localized: Imersja VR
+    m_Key: menuitem.vr_immersion
     m_Metadata:
       m_Items: []
   - m_Id: 2692199996579840
-    m_Localized: Ustawienia Imersji VR
+    m_Key: menuitem.vr_immersion.headline
     m_Metadata:
       m_Items: []
   - m_Id: 2692428107997184
-    m_Localized: Mikrofon
+    m_Key: menuitem.microphone.label
     m_Metadata:
       m_Items: []
   - m_Id: 2692483179208704
-    m_Localized: "U\u017Cywane do SpeechToText podczas dialog\xF3w (je\u015Bli zaznaczone)"
+    m_Key: menuitem.microphone.description
     m_Metadata:
       m_Items: []
   - m_Id: 2692692542087168
-    m_Localized: Brak
+    m_Key: menuitem.microphone.none_value
     m_Metadata:
       m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 4729178296981651480
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 4729178296981651480
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1748508554144

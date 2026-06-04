@@ -113,8 +113,8 @@ Assets/StreamingAssets/SpeechToText/*.sentis.meta
 Assets/StreamingAssets/SpeechToText/*.json
 Assets/StreamingAssets/SpeechToText/*.json.meta
 
-Assets/Unity-Core/Resources/DeveloperConfigs/Local/*
-!Assets/Unity-Core/Resources/DeveloperConfigs/Local/.gitkeep
+Assets/Gothic-Core/Resources/DeveloperConfigs/Local/*
+!Assets/Gothic-Core/Resources/DeveloperConfigs/Local/.gitkeep
 
 ZenKitCS
 

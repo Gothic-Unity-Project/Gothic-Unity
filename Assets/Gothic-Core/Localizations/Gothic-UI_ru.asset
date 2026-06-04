@@ -10,18 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
-  m_Name: UnZENity-UI_it
+  m_Name: Gothic-UI_ru
   m_EditorClassIdentifier: 
   m_LocaleId:
-    m_Code: it
+    m_Code: ru
   m_SharedData: {fileID: 11400000, guid: 688e24f0a7340a649aca39be8009e223, type: 2}
   m_Metadata:
     m_Items: []
-  m_TableData:
-  - m_Id: 431630484627456
-    m_Localized: 
-    m_Metadata:
-      m_Items: []
+  m_TableData: []
   references:
     version: 2
     RefIds: []
