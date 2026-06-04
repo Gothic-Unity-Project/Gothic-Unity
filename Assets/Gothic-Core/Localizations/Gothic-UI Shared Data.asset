@@ -1,0 +1,204 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: Gothic-UI Shared Data
+  m_EditorClassIdentifier: 
+  m_TableCollectionName: Gothic-UI
+  m_TableCollectionNameGuidString: 688e24f0a7340a649aca39be8009e223
+  m_Entries:
+  - m_Id: 431630484627456
+    m_Key: menuitem.moveDirection.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Key: menuitem.moveDirection.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Key: menuitem.moveDirection.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Key: menuitem.rotationType.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Key: menuitem.rotationType.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Key: menuitem.rotationType.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Key: menuitem.sitStand.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Key: menuitem.sitStand.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Key: menuitem.sitStand.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Key: menuitem.smooth.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Key: menuitem.smooth.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Key: menuitem.smooth.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Key: menuitem.smoothRotation.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Key: menuitem.smoothRotation.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Key: menuitem.snapRotation.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Key: menuitem.snapRotation.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Key: menuitem.snapRotation.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Key: menuitem.vr_accessibility
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Key: menuitem.vr_accessibility.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Key: vr.controls.slots.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239070179328
+    m_Key: vr.controls.quest2.left.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791238533308416
+    m_Key: vr.controls.quest2.left.hand_trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234976538624
+    m_Key: vr.controls.quest2.left.menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791233751801856
+    m_Key: vr.controls.quest2.left.thumbstick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236171915264
+    m_Key: vr.controls.quest2.left.x
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236801060864
+    m_Key: vr.controls.quest2.left.y
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237371486208
+    m_Key: vr.controls.quest2.right.a
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237967077376
+    m_Key: vr.controls.quest2.right.b
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791240353636352
+    m_Key: vr.controls.quest2.right.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239724490752
+    m_Key: vr.controls.quest2.right.hand_trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791235605684224
+    m_Key: vr.controls.quest2.right.menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234347393024
+    m_Key: vr.controls.quest2.right.thumbstick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 410458179100672
+    m_Key: vr.controls.slots.left_chest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Key: vr.controls.slots.left_hip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 62335082496
+    m_Key: vr.controls.slots.left_shoulder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411327083700224
+    m_Key: vr.controls.slots.right_chest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Key: vr.controls.slots.right_hip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Key: vr.controls.slots.right_shoulder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Key: vr.controls.quest2.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Key: menuitem.vr_immersion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Key: menuitem.vr_immersion.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Key: menuitem.microphone.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Key: menuitem.microphone.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Key: menuitem.microphone.none_value
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 4729178296981651480
+  references:
+    version: 2
+    RefIds:
+    - rid: 4729178296981651480
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1748508554144

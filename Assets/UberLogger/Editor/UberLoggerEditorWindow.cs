@@ -45,7 +45,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
     }
 
 
-    // GUZ - Provide UnZENity an event to fetch when Channels should be added.
+    // Gothic - Provide Gothic an event to fetch when Channels should be added.
     public static UnityEvent OnEnableWindow = new();
 
     void OnEnable()
@@ -65,7 +65,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
         UberLogger.Logger.AddLogger(EditorLogger);
         EditorLogger.AddWindow(this);
 
-        // GUZ - Provide UnZENity an event to fetch when Channels should be added.
+        // Gothic - Provide Gothic an event to fetch when Channels should be added.
         OnEnableWindow.Invoke();
 
 // _OR_NEWER only became available from 5.3
@@ -226,7 +226,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
         unityLogLineOdd = new GUIStyle("CN EntryBackOdd");
         unitySmallLogLine = new GUIStyle("CN StatusInfo");
 
-        // GUZ - Dark mode colors. For light theme ones, please consult https://www.foundations.unity.com/fundamentals/color-palette
+        // Gothic - Dark mode colors. For light theme ones, please consult https://www.foundations.unity.com/fundamentals/color-palette
         unityLogLineEven.normal.background = CreateBackgroundTexture(new Color(0.22f, 0.22f, 0.22f, 1));
         unityLogLineOdd.normal.background = CreateBackgroundTexture(new Color(0.247f, 0.247f, 0.247f, 1));
         // unitySmallLogLine.normal.background = CreateBackgroundTexture(new Color(35,74,108,255));
@@ -251,7 +251,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
         SizerLineColour = new Color(defaultLineColor.r * 0.5f, defaultLineColor.g * 0.5f, defaultLineColor.b * 0.5f);
     }
 
-    // GUZ - BackgroundColors aren't working by fetching styles from Unity CN* entries in our Unity version.
+    // Gothic - BackgroundColors aren't working by fetching styles from Unity CN* entries in our Unity version.
     private Texture2D CreateBackgroundTexture(Color color)
     {
         Texture2D texture = new Texture2D(1, 1);
@@ -373,7 +373,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
 
     /// <summary>
     /// Draws the channel selector
-    /// GUZ - full rewrite
+    /// Gothic - full rewrite
     /// </summary>
     void DrawChannels()
     {
@@ -910,7 +910,7 @@ public class UberLoggerEditorWindow : EditorWindow, UberLoggerEditor.ILoggerWind
         var categories = CurrentChannels;
 
         var channelList = new List<string>();
-        // GUZ - No need for it as we use a MaskField now.
+        // Gothic - No need for it as we use a MaskField now.
         // channelList.Add("All");
         channelList.Add("-No Channel-");
         channelList.AddRange(categories);

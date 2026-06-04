@@ -4,10 +4,10 @@
 
 ## Enable SpeechToText:
 
--> For latest instructions to activate it in game, please check the UnZENity wiki at: https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/wiki
+-> For latest instructions to activate it in game, please check the Gothic Unity wiki at: https://github.com/Gothic-Unity-Project/Gothic-Unity/wiki
 
 In general:
-1. Go to UnZENity release page and select the one with .sentis files stored: https://github.com/Gothic-UnZENity-Project/Gothic-UnZENity/releases
+1. Go to Gothic Unity release page and select the one with .sentis files stored: https://github.com/Gothic-Unity-Project/Gothic-Unity/releases
 2. Download SpeechToText.zip with the following files:
   1. vocab.json
   2. decoder_model.sentis

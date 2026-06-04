@@ -1,0 +1,22 @@
+{
+    "name": "Gothic.Lab",
+    "rootNamespace": "Gothic.Lab",
+    "references": [
+        "GUID:3c55a630855939f438e03e553f37a68f",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:d55e7dbb51eb1824ba366c6c892d969e",
+        "GUID:1530a967b84cfb44dbdd5e8a1989764f",
+        "GUID:1291cdc6fafe31348ac35890a75f79e4"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

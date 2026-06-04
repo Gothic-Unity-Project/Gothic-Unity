@@ -1,0 +1,18 @@
+{
+    "name": "Gothic2",
+    "rootNamespace": "Gothic.G2",
+    "references": [
+        "GUID:3c55a630855939f438e03e553f37a68f",
+        "GUID:48c9f6afdac61634db0e0f241c7d4d51",
+        "GUID:1530a967b84cfb44dbdd5e8a1989764f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

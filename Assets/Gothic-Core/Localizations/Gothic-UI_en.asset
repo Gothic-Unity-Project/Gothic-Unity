@@ -1,0 +1,219 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: Gothic-UI_en
+  m_EditorClassIdentifier: 
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 688e24f0a7340a649aca39be8009e223, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 62335082496
+    m_Localized: Backpack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 410458179100672
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411327083700224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Localized: VR Accessibility
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Localized: VR ACCESSIBILITY SETTINGS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Localized: Seated Mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Localized: -PlayerHeight- means no scale
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Localized: sitting|standing|player height
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Localized: Move Direction
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431630484627456
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Localized: camera|left controller|right controller
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Localized: Rotation Type
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Localized: smooth|snap
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Localized: Smooth Rotation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Localized: Snap Rotation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Localized: Amount of Snap Rotation per click
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Localized: Spectator Smoothing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Localized: Set smoothing of spectator camera (PCVR only)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Localized: off|low|medium|high
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Localized: Speed of Smooth Rotation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Localized: VR Hero Slots
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Localized: VR Controls
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237371486208
+    m_Localized: Jump
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791235605684224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237967077376
+    m_Localized: Crouch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239724490752
+    m_Localized: Pull/Dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791240353636352
+    m_Localized: Menu Select
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234347393024
+    m_Localized: Rotate/Teleport
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791233751801856
+    m_Localized: Walk
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234976538624
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236801060864
+    m_Localized: Menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236171915264
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791238533308416
+    m_Localized: Pull/Dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239070179328
+    m_Localized: Menu Select
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2500022788022272
+    m_Localized: VR Immersion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2500025845669888
+    m_Localized: Microphone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2500027921850368
+    m_Localized: none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2500691980836864
+    m_Localized: Microphone to use for SpeechToText dialog feature
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2500997217116160
+    m_Localized: VR Immersion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Localized: VR Immersion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Localized: VR IMMERSION SETTINGS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Localized: Microphone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Localized: Used for SpeechToText during dialogs if selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Localized: None
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

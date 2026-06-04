@@ -1,4 +1,4 @@
-name: Gothic-UnZENity Release Job
+name: Gothic Release Job
 
 on:
   release:
@@ -14,7 +14,7 @@ jobs:
   #########
 
   buildForAllPlatforms:
-    name: Build Gothic-UnZENity for ${{ matrix.targetDevice }}
+    name: Build Gothic for ${{ matrix.targetDevice }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -62,7 +62,7 @@ jobs:
       - name: Check out HVR .unitypackage from private repository
         uses: actions/checkout@v4
         with:
-          repository: Gothic-UnZENity-Project/asset-dependencies
+          repository: Gothic-Unity-Project/asset-dependencies
           ref: main
           path: Checkout/AssetRepo
           token: ${{ secrets.PAT_ASSET_REPO_CHECKOUT }}
@@ -81,12 +81,12 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
           # Android Keystore settings
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystoreName: GUZ.keystore
+          androidKeystoreName: Gothic.keystore
           customParameters: >
-            -keystoreName "GUZ.keystore"
+            -keystoreName "Gothic.keystore"
             -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
             -keyaliasName "${{ secrets.ANDROID_KEYALIAS_NAME }}"
             -keyaliasPass "${{ secrets.ANDROID_KEYALIAS_PASS }}"
@@ -106,5 +106,5 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ${{ matrix.targetDevice }}.zip
-          asset_name: Gothic-UnZENity-${{ matrix.targetDevice }}.zip
+          asset_name: Gothic-Unity-${{ matrix.targetDevice }}.zip
           asset_content_type: application/zip

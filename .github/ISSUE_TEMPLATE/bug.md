@@ -28,7 +28,7 @@ But what happened instead?
 - **Is this a fresh install or an update?** Fresh/Update from v...
 
 ### Logs/Screenshots/Videos
-Please attach at least logs (Gothic-UnZENity.log) and screenshots or videos that give us more insights.
+Please attach at least logs (Gothic-Unity.log) and screenshots or videos that give us more insights.
 - [ ] Logs attached
 - [ ] Screenshot attached
 - [ ] Video attached

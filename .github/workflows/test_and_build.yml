@@ -1,4 +1,4 @@
-name: Gothic-UnZENity Build Jobs
+name: Gothic Build Jobs
 
 on:
   pull_request:
@@ -24,7 +24,7 @@ jobs:
         with:
           clean: true
       - name: Remove PlayerSetting HVR symbol temporarily
-        run: sed -i 's/GUZ_HVR_INSTALLED/GUZ_PLACEHOLDER/g' ProjectSettings/ProjectSettings.asset
+        run: sed -i 's/GOTHIC_HVR_INSTALLED/GOTHIC_PLACEHOLDER/g' ProjectSettings/ProjectSettings.asset
       - name: Build project
         uses: game-ci/unity-builder@v4
         env:
@@ -34,7 +34,7 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.PerformWindows64Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.PerformWindows64Build
 
 
 
@@ -43,7 +43,7 @@ jobs:
   #########
   buildForAllPlatforms:
     if: ${{ github.event.label.name == 'pipeline-test-build' }}
-    name: Build Gothic-UnZENity
+    name: Build Gothic
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -78,7 +78,7 @@ jobs:
       - name: Check out HVR .unitypackage from private repository
         uses: actions/checkout@v4
         with:
-          repository: Gothic-UnZENity-Project/asset-dependencies
+          repository: Gothic-Unity-Project/asset-dependencies
           ref: main
           path: Checkout/AssetRepo
           token: ${{ secrets.PAT_ASSET_REPO_CHECKOUT }}
@@ -100,18 +100,18 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
           allowDirtyBuild: true
-          buildMethod: GUZ.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
           # Android Keystore settings
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystoreName: GUZ.keystore
+          androidKeystoreName: Gothic.keystore
           customParameters: >
-            -keystoreName "GUZ.keystore"
+            -keystoreName "Gothic.keystore"
             -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
             -keyaliasName "${{ secrets.ANDROID_KEYALIAS_NAME }}"
             -keyaliasPass "${{ secrets.ANDROID_KEYALIAS_PASS }}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Gothic-UnZENity-${{ matrix.targetDevice }}
+          name: Gothic-Unity-${{ matrix.targetDevice }}
           path: Builds/${{ matrix.targetDevice }}
           retention-days: 7

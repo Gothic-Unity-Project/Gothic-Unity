@@ -6,58 +6,58 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/Bootstrap.unity
+    path: Assets/Gothic-Core/Scenes/Bootstrap.unity
     guid: 9fc0d4010bbf28b4594072e72b8655ab
   - enabled: 1
-    path: Assets/UnZENity-VR/Scenes/VR/Player.unity
+    path: Assets/Gothic-VR/Scenes/VR/Player.unity
     guid: 0f1f0b96208eb0244b0a4a3c95752195
   - enabled: 1
-    path: Assets/UnZENity-Flat/Scenes/Flat/Player.unity
+    path: Assets/Gothic-Flat/Scenes/Flat/Player.unity
     guid: 716b378fb4a24824981c259811f737ca
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/GameVersion.unity
+    path: Assets/Gothic-Core/Scenes/GameVersion.unity
     guid: 1535f2639ebe98e4fb89e286ff0e5da1
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/PreCaching.unity
+    path: Assets/Gothic-Core/Scenes/PreCaching.unity
     guid: a25f39d55de54055894a1fa428140488
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/Logo.unity
+    path: Assets/Gothic-Core/Scenes/Logo.unity
     guid: 1115c2e9a64d55d4590acb2de3e58a61
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/MainMenu.unity
+    path: Assets/Gothic-Core/Scenes/MainMenu.unity
     guid: 6e747099bda99cc43bf32dda1d9360e1
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/Loading.unity
+    path: Assets/Gothic-Core/Scenes/Loading.unity
     guid: 4aeb2cb64559fae4aaff124c2e25ca03
   - enabled: 1
-    path: Assets/UnZENity-Core/Scenes/DefaultWorld.unity
+    path: Assets/Gothic-Core/Scenes/DefaultWorld.unity
     guid: 6025897fdd52a4848a0699d25def131a
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic1/world.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic1/world.zen.unity
     guid: 0fe2ff4c941e7e7498ba4cf8c563338d
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic1/oldmine.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic1/oldmine.zen.unity
     guid: 537096dc28f78d8498238aadb1891078
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic1/freemine.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic1/freemine.zen.unity
     guid: 73e071db0b192434eb8ae34bd7f9a457
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic1/orcgraveyard.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic1/orcgraveyard.zen.unity
     guid: 50c5068d37210f841880449595d88775
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic1/orctempel.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic1/orctempel.zen.unity
     guid: da94ca4a10a02944caa45fdd93d3bb09
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic2-NotR/addonworld.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic2-NotR/addonworld.zen.unity
     guid: 99a4bc785623c0442bc0f112d724b7d2
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic2-NotR/dragonisland.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic2-NotR/dragonisland.zen.unity
     guid: 1eaa34c9912354f4b9fcd47adcda7bc6
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic2-NotR/newworld.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic2-NotR/newworld.zen.unity
     guid: 42e32e33e780ff94bbe68b9a7999c13d
   - enabled: 1
-    path: Packages/com.unzenity.core.binaries/Scenes/Worlds/Gothic2-NotR/oldworld.zen.unity
+    path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic2-NotR/oldworld.zen.unity
     guid: 6a11964fa8f1b314c9f2ee6c546edf3f
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: ff52f86ad39b84b41887ae7cd9a949f4, type: 2}
