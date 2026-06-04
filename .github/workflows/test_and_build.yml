@@ -103,7 +103,7 @@ jobs:
           buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
           # Android Keystore settings
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystoreName: GGothice
+          androidKeystoreName: Gothic.keystore
           customParameters: >
             -keystoreName "Gothic.keystore"
             -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
