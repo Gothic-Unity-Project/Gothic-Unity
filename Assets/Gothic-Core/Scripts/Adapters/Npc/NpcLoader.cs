@@ -10,5 +10,15 @@ namespace Gothic.Core.Adapters.Npc
         public NpcInstance Npc;
         public NpcContainer Container => Npc.GetUserData();
         public bool IsLoaded;
+
+        private void Start()
+        {
+            // Ensure NPC has an attack adapter for melee combat
+            if (GetComponent<NpcAttackAdapter>() == null)
+            {
+                gameObject.AddComponent<NpcAttackAdapter>();
+            }
+        }
     }
 }
+
