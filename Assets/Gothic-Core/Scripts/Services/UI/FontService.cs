@@ -58,8 +58,6 @@ namespace Gothic.Core.Services.UI
                 var y = font.Glyphs[i].topLeft.Y * fontTexture.height;
                 var w = font.Glyphs[i].width;
                 var h = font.Height;
-                var newSprite = Sprite.Create(fontTexture, new Rect(x, y, w, h),
-                    new Vector2(font.Glyphs[i].topLeft.X, font.Glyphs[i].bottomRight.Y));
 
                 var spriteGlyph = new TMP_SpriteGlyph
                 {
@@ -79,11 +77,10 @@ namespace Gothic.Core.Services.UI
                         horizontalAdvance = w
                     },
                     index = (uint)i,
-                    sprite = newSprite,
+                    sprite = null,
                     scale = -1
                 };
 
-                
                 // Convert the glyph index (treated as a codepage-byte) to its Unicode equivalent
                 var unicodeChars = _gameStateService.Encoding.GetChars(new[]{(byte)i});
                 var unicodeValue = (uint)unicodeChars[0];  // Return the Unicode character's code point
