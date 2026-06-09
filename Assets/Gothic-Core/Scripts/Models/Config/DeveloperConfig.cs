@@ -283,6 +283,8 @@ namespace Gothic.Core.Models.Config
         [Separator("WIP - Not production ready", true)]
         public bool EnableDecalVisuals;
         public bool EnableParticleEffects;
+        [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
+        public bool EnableCombatSystem;
 
     }
 }
