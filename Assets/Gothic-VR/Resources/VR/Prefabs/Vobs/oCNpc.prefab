@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 3792221975768868209}
   - component: {fileID: 7657019000195239257}
   - component: {fileID: 6519483080425844375}
+  - component: {fileID: 1346089012454031838}
   m_Layer: 0
   m_Name: oCNpc
   m_TagString: GothicVob
@@ -150,6 +151,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _injectionStrategy: 2
+--- !u!114 &1346089012454031838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2202926895728732233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9fe78d5279a6924e9ab8671790275d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.Core::Gothic.Core.Adapters.Npc.NpcAttackAdapter
 --- !u!1 &2815092147823170342
 GameObject:
   m_ObjectHideFlags: 0
