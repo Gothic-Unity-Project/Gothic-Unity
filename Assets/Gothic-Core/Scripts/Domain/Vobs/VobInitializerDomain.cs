@@ -466,7 +466,7 @@ namespace Gothic.Core.Domain.Vobs
 
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true);
+                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true, useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb

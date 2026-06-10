@@ -56,10 +56,21 @@ namespace Gothic.VR.Adapters.HVROverrides
         protected override void OnReleased(HVRGrabbable grabbable)
         {
             var tmpPreviousParent = _previousParent;
-            var itemRoot = grabbable.GetComponentInParent<VobLoader>(true).transform;
+            var vobLoader = grabbable.GetComponentInParent<VobLoader>(true);
+            if (vobLoader == null)
+            {
+                base.OnReleased(grabbable);
+                return;
+            }
 
+            var itemRoot = vobLoader.transform;
             base.OnReleased(grabbable);
-            
+
+            // Skip re-parenting when the VobLoader was already deactivated (being destroyed via ClearSocketContents).
+            // OnGrabbableDestroyed can fire during Destroy() after SetActive(false) — re-parenting a destroying GO throws.
+            if (!vobLoader.gameObject.activeSelf)
+                return;
+
             grabbable.transform.parent = itemRoot;
             itemRoot.parent = tmpPreviousParent;
         }
