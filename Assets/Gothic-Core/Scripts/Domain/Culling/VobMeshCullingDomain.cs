@@ -489,8 +489,11 @@ namespace Gothic.Core.Domain.Culling
             }
 
             if (index == -1)
+            {
                 Logger.LogError($"Couldn't find object in Culling list {rootGo.name}. Culling updates will break.",
                     LogCat.Vob);
+                return;
+            }
 
             _pausedVobs.Add(rootGo, new Tuple<VobList, int>(vobType, index));
         }

@@ -228,9 +228,16 @@ namespace Gothic.Core.Creator
 
         public DijkstraWaypoint[] FindFastestPath(string startWaypoint, string endWaypoint)
         {
-            // Get the start and end waypoints from the DijkstraWaypoints dictionary
-            var startDijkstraWaypoint = _gameStateService.DijkstraWaypoints[startWaypoint];
-            var endDijkstraWaypoint = _gameStateService.DijkstraWaypoints[endWaypoint];
+            if (!_gameStateService.DijkstraWaypoints.ContainsKey(startWaypoint))
+            {
+                Logger.LogWarning($"FindFastestPath: start waypoint '{startWaypoint}' not found in WayNet.", LogCat.Npc);
+                return null;
+            }
+            if (!_gameStateService.DijkstraWaypoints.TryGetValue(endWaypoint, out var endDijkstraWaypoint))
+            {
+                Logger.LogWarning($"FindFastestPath: end waypoint '{endWaypoint}' not found in WayNet.", LogCat.Npc);
+                return null;
+            }
 
             // Initialize the previousNodes dictionary to keep track of the path
             var previousNodes = new Dictionary<string, DijkstraWaypoint>();
