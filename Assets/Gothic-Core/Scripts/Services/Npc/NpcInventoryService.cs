@@ -111,6 +111,30 @@ namespace Gothic.Core.Services.Npc
             return _vobService.UnpackItems(npcVob.GetPacked((int)category));
         }
 
+        /// <summary>
+        /// Returns all items across every category. Each InvCats slot only exists in ZenKit if
+        /// SetPacked was previously called for it — accessing a missing slot throws from native code.
+        /// This method silently skips slots that were never initialized.
+        /// </summary>
+        public List<ContentItem> GetAllInventoryItems(NpcInstance npc)
+        {
+            var items = new List<ContentItem>();
+            foreach (VmGothicEnums.InvCats cat in System.Enum.GetValues(typeof(VmGothicEnums.InvCats)))
+            {
+                if (cat == VmGothicEnums.InvCats.InvCatMax)
+                    continue;
+                try
+                {
+                    items.AddRange(GetInventoryItems(npc, cat));
+                }
+                catch
+                {
+                    // Slot was never initialized for this NPC — expected when a category has no items
+                }
+            }
+            return items;
+        }
+
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
             var npcVob = npc.GetUserData()!.Vob;

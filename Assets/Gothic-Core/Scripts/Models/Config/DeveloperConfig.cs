@@ -285,6 +285,8 @@ namespace Gothic.Core.Models.Config
         public bool EnableParticleEffects;
         [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
         public bool EnableCombatSystem;
+        [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
+        public bool EnableNpcLooting;
 
     }
 }
