@@ -1,5 +1,6 @@
 using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -9,6 +10,7 @@ using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
 {
@@ -31,16 +33,16 @@ namespace Gothic.Core.Services.Npc
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __)
         {
-            Debug.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}");
+            Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             if (OnHitUpdateHealth(attacker, target))
             {
-                Debug.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD");
+                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
                 target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                 OnDyingChangeAnimation(target);
             }
             else
             {
-                Debug.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation");
+                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
                 OnHitChangeAnimation(target);
                 OnHitPlaySound(target);
             }
@@ -57,30 +59,30 @@ namespace Gothic.Core.Services.Npc
             var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
 
             var equippedWeapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            Debug.Log($"[FightService.OnHitUpdateHealth] Attacker: {attacker.Instance.GetName(NpcNameSlot.Slot0)}, WeaponName: {(equippedWeapon != null ? equippedWeapon.Name : "None")}, Damage: {(equippedWeapon != null ? equippedWeapon.DamageTotal.ToString() : "N/A")}");
+            Logger.Log($"[FightService.OnHitUpdateHealth] Attacker: {attacker.Instance.GetName(NpcNameSlot.Slot0)}, WeaponName: {(equippedWeapon != null ? equippedWeapon.Name : "None")}, Damage: {(equippedWeapon != null ? equippedWeapon.DamageTotal.ToString() : "N/A")}", LogCat.Npc);
             // FIXME - Instead of 0, use fist value
             // FIXME - Instead of DamageTotal, use calculated NPC/Hero value
             var damage = equippedWeapon?.DamageTotal ?? 0;
             if (damage <= 0)
                 damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
 
-            Debug.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)}: {hitPoints} - {damage} dmg");
+            Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)}: {hitPoints} - {damage} dmg", LogCat.Npc);
 
             hitPoints -= damage;
 
-            Debug.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)} HP after: {hitPoints}/{maxHP}");
+            Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)} HP after: {hitPoints}/{maxHP}", LogCat.Npc);
 
             target.Vob.SetAttribute((int)NpcAttribute.HitPoints, hitPoints);
 
             var statusBar = target.Go.GetComponentInChildren<StatusBarAdapter>(true);
             if (statusBar != null)
             {
-                Debug.Log($"[FightService.OnHitUpdateHealth] Updating HP bar for {target.Instance.GetName(NpcNameSlot.Slot0)}");
+                Logger.Log($"[FightService.OnHitUpdateHealth] Updating HP bar for {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                 statusBar.SetFillAmount(hitPoints, maxHP);
             }
             else
             {
-                Debug.LogWarning($"[FightService.OnHitUpdateHealth] No StatusBar found for {target.Instance.GetName(NpcNameSlot.Slot0)}");
+                Logger.LogWarning($"[FightService.OnHitUpdateHealth] No StatusBar found for {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             }
 
             return hitPoints <= 0;

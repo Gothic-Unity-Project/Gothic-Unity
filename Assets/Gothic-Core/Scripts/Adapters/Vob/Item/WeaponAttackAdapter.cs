@@ -1,9 +1,11 @@
 using System;
-using Gothic.Core.Const;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Vob.Item
 {
@@ -39,37 +41,37 @@ namespace Gothic.Core.Adapters.Vob.Item
         {
             if (other.gameObject.layer != Constants.VobHitbox)
             {
-                Debug.LogWarning($"[WeaponAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}");
+                Logger.LogWarning($"[WeaponAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}", LogCat.Npc);
                 return;
             }
 
-            Debug.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}");
+            Logger.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Npc);
 
             // Try to get the target NPC/Monster from the hitbox
             var targetNpcLoader = other.GetComponentInParent<NpcLoader>();
             if (targetNpcLoader == null)
             {
-                Debug.LogWarning($"[WeaponAttackAdapter] No NpcLoader found");
+                Logger.LogWarning($"[WeaponAttackAdapter] No NpcLoader found", LogCat.Npc);
                 return;
             }
 
             var targetNpcContainer = targetNpcLoader.Container;
             if (targetNpcContainer == null)
             {
-                Debug.LogWarning($"[WeaponAttackAdapter] No NpcContainer found");
+                Logger.LogWarning($"[WeaponAttackAdapter] No NpcContainer found", LogCat.Npc);
                 return;
             }
 
-            Debug.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}");
+            Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
 
             // Try to fire the hit through VR weapon service if available
             if (TryFireHitViaVRWeaponService(targetNpcContainer))
             {
-                Debug.Log($"[WeaponAttackAdapter] *** HIT FIRED (VR)");
+                Logger.Log($"[WeaponAttackAdapter] *** HIT FIRED (VR)", LogCat.Npc);
                 return;
             }
 
-            Debug.LogWarning($"[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)");
+            Logger.LogWarning($"[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)", LogCat.Npc);
             // TODO - Add support for flat-screen weapon hits and NPC-to-NPC hits here
         }
 
@@ -92,14 +94,14 @@ namespace Gothic.Core.Adapters.Vob.Item
                 var vrWeaponServiceType = Type.GetType("Gothic.VR.Services.VRWeaponService, Gothic.VR");
                 if (vrWeaponServiceType == null)
                 {
-                    Debug.LogWarning($"[WeaponAttackAdapter] VRWeaponService not found (flat-screen mode?)");
+                    Logger.LogWarning($"[WeaponAttackAdapter] VRWeaponService not found (flat-screen mode?)", LogCat.Npc);
                     return false;
                 }
 
                 var vrWeaponService = ReflexProjectInstaller.DIContainer.Resolve(vrWeaponServiceType);
                 if (vrWeaponService == null)
                 {
-                    Debug.LogWarning($"[WeaponAttackAdapter] VRWeaponService could not be resolved");
+                    Logger.LogWarning($"[WeaponAttackAdapter] VRWeaponService could not be resolved", LogCat.Npc);
                     return false;
                 }
 
@@ -109,16 +111,16 @@ namespace Gothic.Core.Adapters.Vob.Item
 
                 if (isInAttackWindowMethod == null || getWeaponOwnerMethod == null)
                 {
-                    Debug.LogWarning($"[WeaponAttackAdapter] Required methods not found on VRWeaponService");
+                    Logger.LogWarning($"[WeaponAttackAdapter] Required methods not found on VRWeaponService", LogCat.Npc);
                     return false;
                 }
 
                 // Check if this weapon is currently in an active attack window
                 var isInAttackWindow = (bool)isInAttackWindowMethod.Invoke(vrWeaponService, new object[] { _weaponVobContainer });
-                Debug.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}");
+                Logger.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Npc);
                 if (!isInAttackWindow)
                 {
-                    Debug.LogWarning($"[WeaponAttackAdapter] Weapon not in attack window");
+                    Logger.LogWarning($"[WeaponAttackAdapter] Weapon not in attack window", LogCat.Npc);
                     return false;
                 }
 
@@ -126,7 +128,7 @@ namespace Gothic.Core.Adapters.Vob.Item
                 var attacker = (NpcContainer)getWeaponOwnerMethod.Invoke(vrWeaponService, new object[] { _weaponVobContainer });
                 if (attacker == null)
                 {
-                    Debug.LogWarning($"[WeaponAttackAdapter] No attacker found for weapon");
+                    Logger.LogWarning($"[WeaponAttackAdapter] No attacker found for weapon", LogCat.Npc);
                     return false;
                 }
 
@@ -134,14 +136,14 @@ namespace Gothic.Core.Adapters.Vob.Item
                 var hitPosition = transform.position;
 
                 // Fire the combat event
-                Debug.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}");
+                Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                 GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, hitPosition);
                 return true;
             }
             catch (Exception ex)
             {
                 // VRWeaponService not available or DI resolution failed
-                Debug.LogError($"[WeaponAttackAdapter] Exception in TryFireHitViaVRWeaponService: {ex.Message}");
+                Logger.LogError($"[WeaponAttackAdapter] Exception in TryFireHitViaVRWeaponService: {ex.Message}", LogCat.Npc);
                 return false;
             }
         }

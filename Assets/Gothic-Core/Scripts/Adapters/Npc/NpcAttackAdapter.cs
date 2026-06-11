@@ -1,10 +1,12 @@
 using System.Linq;
 using Gothic.Core.Const;
-using Gothic.Core.Models.Container;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using MyBox;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Npc
 {
@@ -47,62 +49,62 @@ namespace Gothic.Core.Adapters.Npc
             // Can't hit without a valid container
             if (_npcContainer == null)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] No NPC container");
+                Logger.LogWarning($"[NpcAttackAdapter] No NPC container", LogCat.Npc);
                 return;
             }
 
             // Check if this is within attack hit cooldown to prevent multiple hits per attack
             if (_attackHitCooldown > 0)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] Hit in cooldown (remaining: {_attackHitCooldown:F2}s)");
+                Logger.LogWarning($"[NpcAttackAdapter] Hit in cooldown (remaining: {_attackHitCooldown:F2}s)", LogCat.Npc);
                 return;
             }
 
             // The target must have a hitbox layer
             if (other.gameObject.layer != Constants.VobHitbox)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}");
+                Logger.LogWarning($"[NpcAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}", LogCat.Npc);
                 return;
             }
 
-            Debug.Log($"[NpcAttackAdapter] Collision with hitbox layer: {other.gameObject.name}");
+            Logger.Log($"[NpcAttackAdapter] Collision with hitbox layer: {other.gameObject.name}", LogCat.Npc);
 
             // Try to get the target NPC/Player
             var targetNpcLoader = other.GetComponentInParent<NpcLoader>();
             if (targetNpcLoader == null)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] No target NpcLoader found");
+                Logger.LogWarning($"[NpcAttackAdapter] No target NpcLoader found", LogCat.Npc);
                 return;
             }
 
             var targetNpcContainer = targetNpcLoader.Container;
             if (targetNpcContainer == null)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] No target NpcContainer found");
+                Logger.LogWarning($"[NpcAttackAdapter] No target NpcContainer found", LogCat.Npc);
                 return;
             }
 
-            Debug.Log($"[NpcAttackAdapter] Target NPC: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}");
+            Logger.Log($"[NpcAttackAdapter] Target NPC: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
 
             // Don't let NPCs hit themselves
             if (targetNpcContainer == _npcContainer)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] Target is self, ignoring");
+                Logger.LogWarning($"[NpcAttackAdapter] Target is self, ignoring", LogCat.Npc);
                 return;
             }
 
-            Debug.Log($"[NpcAttackAdapter] Checking if {_npcContainer.Instance.GetName(NpcNameSlot.Slot0)} is attacking...");
+            Logger.Log($"[NpcAttackAdapter] Checking if {_npcContainer.Instance.GetName(NpcNameSlot.Slot0)} is attacking...", LogCat.Npc);
 
             // Check if the NPC is currently attacking
             if (!IsNpcCurrentlyAttacking())
             {
-                Debug.LogWarning($"[NpcAttackAdapter] Not in attack state");
+                Logger.LogWarning($"[NpcAttackAdapter] Not in attack state", LogCat.Npc);
                 return;
             }
 
             // Fire the hit event
             var hitPosition = transform.position;
-            Debug.Log($"[NpcAttackAdapter] *** HIT FIRED! {_npcContainer.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)} at {hitPosition}");
+            Logger.Log($"[NpcAttackAdapter] *** HIT FIRED! {_npcContainer.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)} at {hitPosition}", LogCat.Npc);
             GlobalEventDispatcher.FightHit.Invoke(_npcContainer, targetNpcContainer, hitPosition);
 
             // Set cooldown to prevent multiple hits in rapid succession (0.5 seconds)
@@ -117,7 +119,7 @@ namespace Gothic.Core.Adapters.Npc
         {
             if (_npcContainer?.Props?.CurrentAction == null)
             {
-                Debug.LogWarning($"[NpcAttackAdapter] No CurrentAction");
+                Logger.LogWarning($"[NpcAttackAdapter] No CurrentAction", LogCat.Npc);
                 return false;
             }
 
@@ -126,12 +128,12 @@ namespace Gothic.Core.Adapters.Npc
             var currentAction = _npcContainer.Props.CurrentAction;
             var actionTypeName = currentAction.GetType().Name;
 
-            Debug.Log($"[NpcAttackAdapter] CurrentAction type: {actionTypeName}");
+            Logger.Log($"[NpcAttackAdapter] CurrentAction type: {actionTypeName}", LogCat.Npc);
 
             // Direct check for AttackPlayAni type (preferred, most reliable)
             if (actionTypeName == "AttackPlayAni")
             {
-                Debug.Log($"[NpcAttackAdapter] IsAttacking=TRUE (AttackPlayAni)");
+                Logger.Log($"[NpcAttackAdapter] IsAttacking=TRUE (AttackPlayAni)", LogCat.Npc);
                 return true;
             }
 
@@ -143,18 +145,18 @@ namespace Gothic.Core.Adapters.Npc
                 if (currentAction.Action?.String0 != null)
                 {
                     var aniName = currentAction.Action.String0.ToLower();
-                    Debug.Log($"[NpcAttackAdapter] PlayAni animation: {aniName}");
+                    Logger.Log($"[NpcAttackAdapter] PlayAni animation: {aniName}", LogCat.Npc);
                     var isAttack = aniName.Contains("attack");
-                    Debug.Log($"[NpcAttackAdapter] IsAttacking={isAttack}");
+                    Logger.Log($"[NpcAttackAdapter] IsAttacking={isAttack}", LogCat.Npc);
                     return isAttack;
                 }
                 else
                 {
-                    Debug.LogWarning($"[NpcAttackAdapter] PlayAni but no animation name");
+                    Logger.LogWarning($"[NpcAttackAdapter] PlayAni but no animation name", LogCat.Npc);
                 }
             }
 
-            Debug.LogWarning($"[NpcAttackAdapter] IsAttacking=FALSE (type: {actionTypeName})");
+            Logger.LogWarning($"[NpcAttackAdapter] IsAttacking=FALSE (type: {actionTypeName})", LogCat.Npc);
             return false;
         }
     }
