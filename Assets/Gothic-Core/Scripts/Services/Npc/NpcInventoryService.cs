@@ -137,15 +137,26 @@ namespace Gothic.Core.Services.Npc
 
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
-            var npcVob = npc.GetUserData()!.Vob;
             var itemInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(itemId)!.Name;
-            
-            for (var i = 0; i < npcVob.ItemCount; i++)
+
+            foreach (InvCats cat in System.Enum.GetValues(typeof(InvCats)))
             {
-                if (npcVob.GetItem(i).Name == itemInstanceName)
-                    return npcVob.GetItem(i).Amount;
+                if (cat == InvCats.InvCatMax)
+                    continue;
+                try
+                {
+                    foreach (var item in GetInventoryItems(npc, cat))
+                    {
+                        if (string.Equals(item.Name, itemInstanceName, System.StringComparison.OrdinalIgnoreCase))
+                            return item.Amount;
+                    }
+                }
+                catch
+                {
+                    // Category slot was never initialized for this NPC
+                }
             }
-            
+
             return 0;
         }
         
