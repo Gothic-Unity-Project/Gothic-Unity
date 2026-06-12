@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -8,6 +10,7 @@ using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.TextCore;
+using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.UI
@@ -30,6 +33,30 @@ namespace Gothic.Core.Services.UI
 
             TMP_Settings.defaultSpriteAsset = DefaultSpriteAsset;
             TMP_Settings.defaultFontAsset = DefaultFont;
+
+            WarmAtlasFromVm();
+        }
+
+        private void WarmAtlasFromVm()
+        {
+            if (DefaultFont == null || _gameStateService.GothicVm == null)
+                return;
+
+            var uniqueChars = new HashSet<char>();
+            foreach (var symbol in _gameStateService.GothicVm.Symbols)
+            {
+                if (symbol.Type != DaedalusDataType.String || symbol.Size == 0) continue;
+                for (ushort i = 0; i < symbol.Size; i++)
+                {
+                    var str = symbol.GetString(i);
+                    if (string.IsNullOrEmpty(str)) continue;
+                    foreach (var c in str)
+                        uniqueChars.Add(c);
+                }
+            }
+
+            DefaultFont.TryAddCharacters(new string(uniqueChars.ToArray()));
+            Logger.Log($"Font atlas pre-warmed with {uniqueChars.Count} unique chars", LogCat.Misc);
         }
 
         [CanBeNull]
@@ -109,13 +136,13 @@ namespace Gothic.Core.Services.UI
             return spriteAsset;
         }
 
-        private Material GetDefaultSpriteMaterial(Texture2D spriteSheet = null)
+        private UnityEngine.Material GetDefaultSpriteMaterial(Texture2D spriteSheet = null)
         {
             ShaderUtilities.GetShaderPropertyIDs();
 
             // Add a new material
             var shader = Constants.ShaderTMPSprite;
-            var tempMaterial = new Material(shader);
+            var tempMaterial = new UnityEngine.Material(shader);
             tempMaterial.SetTexture(ShaderUtilities.ID_MainTex, spriteSheet);
 
             return tempMaterial;
