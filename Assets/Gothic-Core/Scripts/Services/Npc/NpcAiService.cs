@@ -50,12 +50,12 @@ namespace Gothic.Core.Services.Npc
             }
 
             var oldSelf = _gameStateService.GothicVm.GlobalSelf;
+            var oldOther = _gameStateService.GothicVm.GlobalOther;
             var oldVictim = _gameStateService.GothicVm.GlobalVictim;
-            var oldOther = _gameStateService.GothicVm.GlobalVictim;
 
             _gameStateService.GothicVm.GlobalSelf = self;
-            
-            if(other != null)
+
+            if(other != null) 
             {
                 _gameStateService.GothicVm.GlobalOther = other;
             }
@@ -66,10 +66,10 @@ namespace Gothic.Core.Services.Npc
             }
 
             _gameStateService.GothicVm.Call(perceptionFunction);
-            
+
             _gameStateService.GothicVm.GlobalSelf = oldSelf;
+            _gameStateService.GothicVm.GlobalOther = oldOther;
             _gameStateService.GothicVm.GlobalVictim = oldVictim;
-            _gameStateService.GothicVm.GlobalVictim = oldOther;
         }
 
         public void ExtNpcSetPerceptionTime(NpcInstance npc, float time)
@@ -341,8 +341,8 @@ namespace Gothic.Core.Services.Npc
             var npc1Pos = npc1.GetUserData().Go.transform.position;
 
             Vector3 npc2Pos;
-            // If hero
-            if (npc2.Id == 0)
+            // If hero: use camera position (VR head position is most accurate)
+            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index)
             {
                 npc2Pos = Camera.main!.transform.position;
             }
@@ -395,7 +395,7 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)
         {
-            return npc.GetUserData().Vob.CurrentStateIndex == state;
+            return npc.GetUserData()?.Vob.CurrentStateIndex == state;
         }
 
         public bool ExtNpcIsPlayer(NpcInstance npc)
