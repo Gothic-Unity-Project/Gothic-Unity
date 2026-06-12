@@ -254,14 +254,6 @@ namespace Gothic.Core.Adapters.Npc
 
         public void StartRoutine(int action)
         {
-            // End original loop first
-            // TODO - Calling ClearState(false) was buggy when e.g. Diego dialog "END" was clicked. Then the dialog lines were skipped.
-            // if (Properties.CurrentLoopState == NpcProperties.LoopState.Loop)
-            // {
-            //     // We reuse this function as it is doing what we need.
-            //     ClearState(false);
-            // }
-
             var didRoutineChange = Vob.CurrentStateIndex != action;
 
             Vob.LastAiState = Vob.CurrentStateIndex;
@@ -295,6 +287,11 @@ namespace Gothic.Core.Adapters.Npc
             // When we reached end of ZS_*_END, we also call this method. Check if we really altered the routine action or just restarted it.
             if (didRoutineChange)
             {
+                if (Properties.CurrentFreePoint != null)
+                {
+                    Properties.CurrentFreePoint.IsLocked = false;
+                    Properties.CurrentFreePoint = null;
+                }
                 Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 Properties.StateTime = 0;
             }
