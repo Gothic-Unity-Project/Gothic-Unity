@@ -114,6 +114,8 @@ namespace Gothic.VR.Adapters.Player
         public void OnItemPutOutOfHolster(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
+            if (vobLoader == null)
+                return;
             var vobContainer = vobLoader.Container;
 
             _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
