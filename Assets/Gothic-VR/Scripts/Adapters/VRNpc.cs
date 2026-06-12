@@ -6,6 +6,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using HurricaneVR.Framework.Core;
@@ -22,6 +23,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly PhysicsService _physicsService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -39,6 +41,9 @@ namespace Gothic.VR.Adapters
             if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
+                // HVR sets isKinematic=false during grab; release immediately and freeze the corpse
+                grabber.ForceRelease();
+                _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
                 return;
             }
 
