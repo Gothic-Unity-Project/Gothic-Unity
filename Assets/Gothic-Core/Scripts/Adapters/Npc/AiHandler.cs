@@ -338,7 +338,7 @@ namespace Gothic.Core.Adapters.Npc
                 if (wp != null)
                     gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
                 else
-                    Logger.LogWarning($"ReEnableNpc: waypoint '{currentRoutine.Waypoint}' not found for {gameObject.name} — NPC will re-enable at current position.", LogCat.NPC);
+                    Logger.LogWarning($"ReEnableNpc: waypoint '{currentRoutine.Waypoint}' not found for {gameObject.name} — NPC will re-enable at current position.", LogCat.Npc);
             }
 
             // Animation state handling
