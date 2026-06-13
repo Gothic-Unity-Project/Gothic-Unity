@@ -2,42 +2,102 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
-using Gothic.Core.Const;
 using Gothic.Core.Domain.StaticCache;
+using Gothic.Core.Extensions;
+using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.StaticCache;
-using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using ZenKit;
 using Mesh = UnityEngine.Mesh;
 using Material = UnityEngine.Material;
 
 namespace Gothic.Core.Domain.Meshes.Builder
 {
+    /// <summary>
+    /// Builds all world chunk meshes via the writable MeshData API:
+    /// 1. Gather per-material texture array data on the main thread (requires DI services).
+    /// 2. Extract and deduplicate all chunk vertices from the cached ZenKit mesh on a background thread.
+    /// 3. One Burst job writes the vertex/index buffers of all chunks in parallel.
+    /// 4. Apply all meshes at once, then create GameObjects and colliders spread over frames.
+    /// </summary>
     public class WorldMeshBuilder : AbstractMeshBuilder
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly FrameSkipperService _frameSkipperService;
 
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
-        private bool _debugSpeedUpLoading;
 
-        public class ChunkData
+        private static readonly VertexAttributeDescriptor[] _worldVertexLayout =
         {
-            public readonly List<Vector3> Vertices = new();
-            public readonly List<int> Triangles = new();
-            public readonly List<Vector4> Uvs = new();
-            public readonly List<Vector3> Normals = new();
-            public readonly List<Color32> BakedLightColors = new();
-            public readonly List<Vector4> TextureAnimations = new();
+            new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
+            new(VertexAttribute.Normal, VertexAttributeFormat.SNorm16, 4),
+            new(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
+            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4)
+        };
+
+        private static readonly VertexAttributeDescriptor[] _waterVertexLayout =
+        {
+            new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
+            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
+            new(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4)
+        };
+
+        /// <summary>
+        /// Per-material data baked into the vertices. Gathered once on the main thread.
+        /// </summary>
+        private struct MaterialEntry
+        {
+            public int TextureArrayIndex;
+            public float2 TextureScale;
+            public int MaxMipLevel;
+            public float4 TexAnim;
+        }
+
+        private class ChunkBuildData
+        {
+            public TextureCacheService.TextureArrayTypes Type;
+            public WorldChunkCacheCreatorDomain.WorldChunk Chunk;
+
+            // Expanded (pre-deduplication, worst-case) vertex count, cached during the GetPolygon sweep in
+            // GatherMaterialEntries so ExtractChunks can size its buffers without a second native sweep.
+            public int ExpandedVertexCount;
+        }
+
+        private struct ExtractionBuffers : IDisposable
+        {
+            public NativeArray<WorldChunkMeshRange> Ranges;
+            public NativeArray<WorldChunkVertex> Vertices;
+            public NativeArray<WorldWaterVertex> WaterVertices;
+            public NativeArray<int> Indices;
+
+            public void Dispose()
+            {
+                if (Ranges.IsCreated)
+                {
+                    Ranges.Dispose();
+                }
+                if (Vertices.IsCreated)
+                {
+                    Vertices.Dispose();
+                }
+                if (WaterVertices.IsCreated)
+                {
+                    WaterVertices.Dispose();
+                }
+                if (Indices.IsCreated)
+                {
+                    Indices.Dispose();
+                }
+            }
         }
 
         public void SetWorldData(StaticCacheService.WorldChunkContainer worldChunks, IMesh mesh)
@@ -53,50 +113,91 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         public async Task BuildAsync([CanBeNull] LoadingService loading)
         {
-            _debugSpeedUpLoading = _configService.Dev.SpeedUpLoading;
-
             RootGo.isStatic = true;
 
-            var chunksCount = _worldChunks.OpaqueChunks.Count + _worldChunks.TransparentChunks.Count + _worldChunks.WaterChunks.Count;
-            
-            loading?.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.WorldMesh), chunksCount);
+            var chunks = CollectChunks(out var emptyChunkCount);
 
-            await BuildChunkType(_worldChunks.OpaqueChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Opaque, loading);
-            await BuildChunkType(_worldChunks.TransparentChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Transparent, loading);
-            await BuildChunkType(_worldChunks.WaterChunks, Services.Caches.TextureCacheService.TextureArrayTypes.Water, loading);
+            loading?.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.WorldMesh), chunks.Count + emptyChunkCount);
+            for (var i = 0; i < emptyChunkCount; i++)
+            {
+                loading?.Tick();
+            }
+
+            if (chunks.Count == 0)
+            {
+                return;
+            }
+
+            var materials = GatherMaterialEntries(chunks);
+
+            // Heavy ZenKit data extraction incl. vertex deduplication runs on a background thread.
+            // The cached world mesh is only read here, which is thread-safe.
+            var buffers = await Task.Run(() => ExtractChunks(chunks, materials));
+            try
+            {
+                var meshes = await BuildChunkMeshes(chunks.Count, buffers);
+                await CreateChunkGameObjects(chunks, buffers, meshes, loading);
+            }
+            finally
+            {
+                buffers.Dispose();
+            }
         }
 
-        private async Task BuildChunkType(List<WorldChunkCacheCreatorDomain.WorldChunk> chunks, TextureCacheService.TextureArrayTypes type, [CanBeNull] LoadingService loading)
+        private List<ChunkBuildData> CollectChunks(out int emptyChunkCount)
         {
-            var chunkTypeRoot = new GameObject
-            {
-                name = type.ToString(),
-                isStatic = true
-            };
-            chunkTypeRoot.SetParent(RootGo);
+            var chunks = new List<ChunkBuildData>();
+            var emptyCount = 0;
 
-            var loopIndex = 0;
-            foreach (var chunk in chunks)
+            void Collect(List<WorldChunkCacheCreatorDomain.WorldChunk> typeChunks, TextureCacheService.TextureArrayTypes type)
             {
-                var chunkGo = new GameObject
+                foreach (var chunk in typeChunks)
                 {
-                    name = $"{type}-Entry-{loopIndex++}",
-                    isStatic = true,
-                    layer = type == Services.Caches.TextureCacheService.TextureArrayTypes.Water ? Constants.WaterLayer : Constants.DefaultLayer,
-                };
-                chunkGo.SetParent(chunkTypeRoot);
+                    if (chunk.PolygonIds.Count == 0)
+                    {
+                        emptyCount++;
+                    }
+                    else
+                    {
+                        chunks.Add(new ChunkBuildData { Type = type, Chunk = chunk });
+                    }
+                }
+            }
 
-                var chunkData = new ChunkData();
-                foreach (var polygonId in chunk.PolygonIds)
+            Collect(_worldChunks.OpaqueChunks, TextureCacheService.TextureArrayTypes.Opaque);
+            Collect(_worldChunks.TransparentChunks, TextureCacheService.TextureArrayTypes.Transparent);
+            Collect(_worldChunks.WaterChunks, TextureCacheService.TextureArrayTypes.Water);
+
+            emptyChunkCount = emptyCount;
+            return chunks;
+        }
+
+        private MaterialEntry[] GatherMaterialEntries(List<ChunkBuildData> chunks)
+        {
+            var entries = new MaterialEntry[_mesh.MaterialCount];
+            var gathered = new bool[_mesh.MaterialCount];
+
+            foreach (var data in chunks)
+            {
+                var expandedVertexCount = 0;
+                foreach (var polygonId in data.Chunk.PolygonIds)
                 {
                     var polygon = _mesh.GetPolygon(polygonId);
-                    var material = _mesh.GetMaterial(polygon.MaterialIndex);
+                    expandedVertexCount += Math.Max(0, (polygon.PositionIndices.Count - 2) * 3);
 
-                    // Defaults which will be used, if we don't use TextureArray (e.g. for OC baking and with debug textures only)
-                    int textureArrayIndex = -1;
-                    Vector2 textureScale = Vector2.one;
-                    int maxMipLevel = 0;
-                    int animFrameCount = -1;
+                    var materialIndex = polygon.MaterialIndex;
+                    if (gathered[materialIndex])
+                    {
+                        continue;
+                    }
+                    gathered[materialIndex] = true;
+
+                    var material = _mesh.GetMaterial(materialIndex);
+
+                    var textureArrayIndex = -1;
+                    var textureScale = Vector2.one;
+                    var maxMipLevel = 0;
+                    var animFrameCount = 0;
 
                     if (UseTextureArray)
                     {
@@ -104,144 +205,321 @@ namespace Gothic.Core.Domain.Meshes.Builder
                             out textureScale, out maxMipLevel, out animFrameCount);
                     }
 
-                    // As we always use element 0 and i+1, we skip it in the loop.
-                    // Positions are a triangle fan. i.e. every position after 0 leads back to position 0.
-                    for (var p = 1; p < polygon.PositionIndices.Count - 1; p++)
+                    var animDirection = material.TextureAnimationMapping == AnimationMapping.Linear
+                        ? material.TextureAnimationMappingDirection.ToUnityVector()
+                        : Vector2.zero;
+
+                    entries[materialIndex] = new MaterialEntry
                     {
-                        AddPolygonChunkEntry(polygon, chunkData, material, 0, textureArrayIndex, textureScale, maxMipLevel, animFrameCount);
-                        AddPolygonChunkEntry(polygon, chunkData, material, p, textureArrayIndex, textureScale, maxMipLevel, animFrameCount);
-                        AddPolygonChunkEntry(polygon, chunkData, material, p+1, textureArrayIndex, textureScale, maxMipLevel, animFrameCount);
+                        TextureArrayIndex = textureArrayIndex,
+                        TextureScale = new float2(textureScale.x, textureScale.y),
+                        MaxMipLevel = maxMipLevel,
+                        TexAnim = new float4(animDirection.x, animDirection.y, animFrameCount + 1,
+                            material.TextureAnimationFps)
+                    };
+                }
+
+                data.ExpandedVertexCount = expandedVertexCount;
+            }
+
+            return entries;
+        }
+
+        private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials)
+        {
+            // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
+            // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
+            var worldVertexCapacity = 0;
+            var waterVertexCapacity = 0;
+            var indexCapacity = 0;
+            foreach (var data in chunks)
+            {
+                var expanded = data.ExpandedVertexCount;
+
+                if (data.Type == TextureCacheService.TextureArrayTypes.Water)
+                {
+                    waterVertexCapacity += expanded;
+                }
+                else
+                {
+                    worldVertexCapacity += expanded;
+                }
+                indexCapacity += expanded;
+            }
+
+            var buffers = new ExtractionBuffers
+            {
+                Ranges = new NativeArray<WorldChunkMeshRange>(chunks.Count, Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory),
+                Vertices = new NativeArray<WorldChunkVertex>(Math.Max(1, worldVertexCapacity), Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory),
+                WaterVertices = new NativeArray<WorldWaterVertex>(Math.Max(1, waterVertexCapacity), Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory),
+                Indices = new NativeArray<int>(Math.Max(1, indexCapacity), Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory)
+            };
+
+            // Pass 2 - flatten the polygons into per-chunk vertex/index ranges with deduplication.
+            // Vertices are unique per position + feature + material combination.
+            var worldVertexCursor = 0;
+            var waterVertexCursor = 0;
+            var indexCursor = 0;
+            var deduplication = new Dictionary<(int Position, int Feature, int Material), int>();
+
+            for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
+            {
+                var data = chunks[chunkIndex];
+                var isWater = data.Type == TextureCacheService.TextureArrayTypes.Water;
+                var vertexStart = isWater ? waterVertexCursor : worldVertexCursor;
+                var indexStart = indexCursor;
+                var vertexCount = 0;
+                var boundsMin = new float3(float.MaxValue);
+                var boundsMax = new float3(float.MinValue);
+                deduplication.Clear();
+
+                foreach (var polygonId in data.Chunk.PolygonIds)
+                {
+                    var polygon = _mesh.GetPolygon(polygonId);
+                    var positionIndices = polygon.PositionIndices;
+                    var featureIndices = polygon.FeatureIndices;
+                    var materialIndex = polygon.MaterialIndex;
+                    var material = materials[materialIndex];
+
+                    void AddCorner(int fanIndex)
+                    {
+                        var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex);
+                        if (!deduplication.TryGetValue(key, out var localIndex))
+                        {
+                            localIndex = vertexCount++;
+                            deduplication[key] = localIndex;
+
+                            var position = _mesh.GetPosition(key.Item1);
+                            var feature = _mesh.GetFeature(key.Item2);
+                            var unityPosition = new float3(position.X, position.Y, position.Z) / 100f;
+                            boundsMin = math.min(boundsMin, unityPosition);
+                            boundsMax = math.max(boundsMax, unityPosition);
+
+                            var uv = new float4(
+                                feature.Texture.X * material.TextureScale.x,
+                                feature.Texture.Y * material.TextureScale.y,
+                                material.TextureArrayIndex,
+                                material.MaxMipLevel);
+
+                            if (isWater)
+                            {
+                                buffers.WaterVertices[vertexStart + localIndex] = new WorldWaterVertex
+                                {
+                                    Position = unityPosition,
+                                    Uv = uv,
+                                    TexAnim = material.TexAnim
+                                };
+                            }
+                            else
+                            {
+                                var light = (uint)feature.Light;
+                                buffers.Vertices[vertexStart + localIndex] = new WorldChunkVertex
+                                {
+                                    Position = unityPosition,
+                                    NormalX = ToSnorm16(feature.Normal.X),
+                                    NormalY = ToSnorm16(feature.Normal.Y),
+                                    NormalZ = ToSnorm16(feature.Normal.Z),
+                                    NormalW = 0,
+                                    // Gothic's baked vertex light, kept untouched: ARGB int -> RGBA byte order.
+                                    Color = ((light >> 16) & 0xFF) | (((light >> 8) & 0xFF) << 8) |
+                                            ((light & 0xFF) << 16) | (((light >> 24) & 0xFF) << 24),
+                                    Uv = uv
+                                };
+                            }
+                        }
+
+                        buffers.Indices[indexCursor++] = localIndex;
                     }
 
-                    if (!_debugSpeedUpLoading)
+                    for (var p = 1; p < positionIndices.Count - 1; p++)
                     {
-                        // If we have the skips here, we have a smoother loading screen for 20 seconds on loading world. Putting it at the end of each chunk, we have stutter, but save about 40%.
-                        await _frameSkipperService.TrySkipToNextFrame();
+                        // Fan triangulation. Second and third corner are swapped to flip the
+                        // triangle winding for Unity's coordinate system (Gothic -> Unity fix).
+                        AddCorner(0);
+                        AddCorner(p + 1);
+                        AddCorner(p);
                     }
                 }
+
+                if (isWater)
+                {
+                    waterVertexCursor += vertexCount;
+                }
+                else
+                {
+                    worldVertexCursor += vertexCount;
+                }
+
+                buffers.Ranges[chunkIndex] = new WorldChunkMeshRange
+                {
+                    VertexStart = vertexStart,
+                    VertexCount = vertexCount,
+                    IndexStart = indexStart,
+                    IndexCount = indexCursor - indexStart,
+                    IsWater = isWater,
+                    Use16BitIndices = vertexCount <= ushort.MaxValue,
+                    BoundsMin = boundsMin,
+                    BoundsMax = boundsMax
+                };
+            }
+
+            return buffers;
+        }
+
+        private async Task<Mesh[]> BuildChunkMeshes(int chunkCount, ExtractionBuffers buffers)
+        {
+            var meshDataArray = Mesh.AllocateWritableMeshData(chunkCount);
+            var jobHandle = default(JobHandle);
+            try
+            {
+                for (var i = 0; i < chunkCount; i++)
+                {
+                    var range = buffers.Ranges[i];
+                    var meshData = meshDataArray[i];
+                    meshData.SetVertexBufferParams(range.VertexCount, range.IsWater ? _waterVertexLayout : _worldVertexLayout);
+                    meshData.SetIndexBufferParams(range.IndexCount, range.Use16BitIndices ? IndexFormat.UInt16 : IndexFormat.UInt32);
+                }
+
+                var writeJob = new WorldMeshWriteJob
+                {
+                    Ranges = buffers.Ranges,
+                    Vertices = buffers.Vertices,
+                    WaterVertices = buffers.WaterVertices,
+                    Indices = buffers.Indices,
+                    MeshData = meshDataArray
+                };
+                jobHandle = writeJob.Schedule(chunkCount, 1);
+                JobHandle.ScheduleBatchedJobs();
+
+                // Let the Burst workers fill the mesh buffers without blocking the main thread.
+                while (!jobHandle.IsCompleted)
+                {
+                    await Task.Yield();
+                }
+                jobHandle.Complete();
+            }
+            catch
+            {
+                // The scheduled job still owns meshDataArray; finish it before disposing the native memory,
+                // otherwise (e.g. on a cancellation thrown inside the await loop) we'd dispose buffers in use.
+                jobHandle.Complete();
+                meshDataArray.Dispose();
+                throw;
+            }
+
+            var meshes = new Mesh[chunkCount];
+            for (var i = 0; i < chunkCount; i++)
+            {
+                meshes[i] = new Mesh();
+            }
+
+            Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, meshes,
+                MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontNotifyMeshUsers);
+
+            return meshes;
+        }
+
+        private async Task CreateChunkGameObjects(List<ChunkBuildData> chunks, ExtractionBuffers buffers, Mesh[] meshes,
+            [CanBeNull] LoadingService loading)
+        {
+            var typeRoots = new Dictionary<TextureCacheService.TextureArrayTypes, GameObject>();
+            var typeCounters = new Dictionary<TextureCacheService.TextureArrayTypes, int>();
+            foreach (var type in new[]
+                     {
+                         TextureCacheService.TextureArrayTypes.Opaque,
+                         TextureCacheService.TextureArrayTypes.Transparent,
+                         TextureCacheService.TextureArrayTypes.Water
+                     })
+            {
+                var typeRoot = new GameObject
+                {
+                    name = type.ToString(),
+                    isStatic = true
+                };
+                typeRoot.SetParent(RootGo);
+                typeRoots[type] = typeRoot;
+                typeCounters[type] = 0;
+            }
+
+            for (var i = 0; i < chunks.Count; i++)
+            {
+                await _frameSkipperService.TrySkipToNextFrame();
+
+                var data = chunks[i];
+                var range = buffers.Ranges[i];
+                var mesh = meshes[i];
+
+                var chunkGo = new GameObject
+                {
+                    name = $"{data.Type}-Entry-{typeCounters[data.Type]++}",
+                    isStatic = true,
+                    layer = data.Type == TextureCacheService.TextureArrayTypes.Water
+                        ? Constants.WaterLayer
+                        : Constants.DefaultLayer
+                };
+                chunkGo.SetParent(typeRoots[data.Type]);
+
+                mesh.name = chunkGo.name;
+                var bounds = new Bounds();
+                bounds.SetMinMax(range.BoundsMin, range.BoundsMax);
+                mesh.bounds = bounds;
 
                 var meshFilter = chunkGo.AddComponent<MeshFilter>();
                 var meshRenderer = chunkGo.AddComponent<MeshRenderer>();
+                meshFilter.sharedMesh = mesh;
 
-                PrepareMeshFilter(meshFilter, chunkData, type);
-                PrepareMeshRenderer(meshRenderer, type);
-                PrepareMeshCollider(chunkGo, meshFilter.sharedMesh);
-
+                PrepareMeshRenderer(meshRenderer, data.Type);
+                PrepareMeshCollider(chunkGo, mesh);
 
 #if UNITY_EDITOR
-                // Only needed for Occlusion Culling baking
-                // Don't set transparent meshes as occluders.
-                if (IsTransparentShader(type))
+                if (data.Type != TextureCacheService.TextureArrayTypes.Opaque)
                 {
-                    GameObjectUtility.SetStaticEditorFlags(chunkGo,
-                        (StaticEditorFlags)(int.MaxValue & ~(int)StaticEditorFlags.OccluderStatic));
+                    UnityEditor.GameObjectUtility.SetStaticEditorFlags(chunkGo,
+                        (UnityEditor.StaticEditorFlags)(int.MaxValue & ~(int)UnityEditor.StaticEditorFlags.OccluderStatic));
                 }
 #endif
-
 
                 loading?.Tick();
             }
         }
 
-        private void AddPolygonChunkEntry(IPolygon polygon, ChunkData chunkData, IMaterial material, int index,
-            int textureArrayIndex, Vector2 scaleInTextureArray, int maxMipLevel = 16, int animFrameCount = 0)
-        {
-            // For every vertexIndex we store a new vertex. (i.e. no reuse of Vector3-vertices for later texture/uv attachment)
-            var positionIndex = polygon.PositionIndices[index];
-            chunkData.Vertices.Add(_mesh.GetPosition(positionIndex).ToUnityVector());
-
-            // This triangle (index where Vector 3 lies inside vertices, points to the newly added vertex (Vector3) as we don't reuse vertices.
-            chunkData.Triangles.Add(chunkData.Vertices.Count - 1);
-
-            var featureIndex = polygon.FeatureIndices[index];
-            var feature = _mesh.GetFeature(featureIndex);
-            var uv = Vector2.Scale(scaleInTextureArray, feature.Texture.ToUnityVector());
-            chunkData.Uvs.Add(new Vector4(uv.x, uv.y, textureArrayIndex, maxMipLevel));
-            chunkData.Normals.Add(feature.Normal.ToUnityVector());
-            chunkData.BakedLightColors.Add(new Color32((byte)(feature.Light >> 16), (byte)(feature.Light >> 8), (byte)feature.Light, (byte)(feature.Light >> 24)));
-
-            // HINT: We set animFrameCount + 1 as internally, Water.shader is leveraging a % animFrameCountValue.
-            // No animation -> % 1 is always 0, which means there is always texture 0 used.
-            // 1 Animation -> % 2 (animFrameCount(1) + 1 = 2) - is switching between both values.
-            if (material.TextureAnimationMapping == AnimationMapping.Linear)
-            {
-                var uvAnimation = material.TextureAnimationMappingDirection.ToUnityVector();
-                chunkData.TextureAnimations.Add(new Vector4(uvAnimation.x, uvAnimation.y, animFrameCount + 1, material.TextureAnimationFps));
-            }
-            else
-            {
-                chunkData.TextureAnimations.Add(new Vector4(0, 0, animFrameCount + 1, material.TextureAnimationFps));
-            }
-        }
-
-        private void PrepareMeshFilter(MeshFilter meshFilter, ChunkData chunk, TextureCacheService.TextureArrayTypes textureArrayType)
-        {
-            // We need to reverse all data. Otherwise, meshes are visible upside down. It's a difference from rendering ZenGine data in Unity.
-            // Hint: No, Triangles mustn't be reversed. Only applied data on it.
-            chunk.BakedLightColors.Reverse();
-            chunk.Normals.Reverse();
-            chunk.TextureAnimations.Reverse();
-            chunk.Uvs.Reverse();
-            chunk.Vertices.Reverse();
-
-            var mesh = new Mesh();
-            meshFilter.sharedMesh = mesh;
-            mesh.SetVertices(chunk.Vertices);
-            mesh.SetTriangles(chunk.Triangles, 0);
-            mesh.SetUVs(0, chunk.Uvs);
-            mesh.SetNormals(chunk.Normals);
-            mesh.SetColors(chunk.BakedLightColors);
-
-            if (textureArrayType == Services.Caches.TextureCacheService.TextureArrayTypes.Water)
-            {
-                mesh.SetUVs(1, chunk.TextureAnimations);
-            }
-        }
-
         private void PrepareMeshRenderer(Renderer rend, TextureCacheService.TextureArrayTypes textureArrayType)
         {
-
-
             if (UseTextureArray)
             {
                 var material = GetDefaultMaterial(textureArrayType);
                 rend.material = material;
-                var texture = TextureCacheService.GetTextureArrayEntry(textureArrayType);
-                material.mainTexture = texture;
+                material.mainTexture = TextureCacheService.GetTextureArrayEntry(textureArrayType);
             }
             else
             {
                 var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
                 rend.material = material;
-                // No TextureArray is only needed for Occlusion Culling in Editor mode and other dev tools. A dev texture is sufficient.
                 material.mainTexture = Constants.TextureGothicUnityLogoInverse;
             }
         }
 
-        private Material GetDefaultMaterial(TextureCacheService.TextureArrayTypes textureArrayType)
+        private static Material GetDefaultMaterial(TextureCacheService.TextureArrayTypes textureArrayType)
         {
             var shader = textureArrayType switch
             {
-                Services.Caches.TextureCacheService.TextureArrayTypes.Opaque => Constants.ShaderWorldLit,
-                Services.Caches.TextureCacheService.TextureArrayTypes.Transparent => Constants.ShaderLitAlphaToCoverage,
-                Services.Caches.TextureCacheService.TextureArrayTypes.Water => Constants.ShaderWater,
+                TextureCacheService.TextureArrayTypes.Opaque => Constants.ShaderWorldLit,
+                TextureCacheService.TextureArrayTypes.Transparent => Constants.ShaderLitAlphaToCoverage,
+                TextureCacheService.TextureArrayTypes.Water => Constants.ShaderWater,
                 _ => throw new ArgumentOutOfRangeException(nameof(textureArrayType), textureArrayType, null)
             };
-            var material = new Material(shader);
 
-            if (textureArrayType == Services.Caches.TextureCacheService.TextureArrayTypes.Water)
-            {
-                // Manually correct the render queue for alpha test, as Unity doesn't want to do it from the shader's render queue tag.
-                // If we don't set it, the water will sometimes "flicker" above ground or becomes invisible.
-                material.renderQueue = (int)RenderQueue.Transparent;
-            }
-
-            return material;
+            // Render queues are defined by the shaders' "Queue" tags.
+            return new Material(shader);
         }
 
-        private bool IsTransparentShader(TextureCacheService.TextureArrayTypes textureArrayType)
+        private static short ToSnorm16(float value)
         {
-            return textureArrayType != Services.Caches.TextureCacheService.TextureArrayTypes.Opaque;
+            return (short)math.round(math.clamp(value, -1f, 1f) * short.MaxValue);
         }
     }
 }

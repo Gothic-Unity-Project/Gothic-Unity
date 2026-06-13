@@ -12,7 +12,6 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
-using UnityEngine.Rendering;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 using Material = UnityEngine.Material;
@@ -117,7 +116,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             if (Mdm == null)
             {
-                Logger.LogError($"MDH from name >{mdmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
+                Logger.LogError($"MDM from name >{mdmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
             }
         }
 
@@ -142,7 +141,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             if (Mrm == null)
             {
-                Logger.LogError($"MDH from name >{mrmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
+                Logger.LogError($"MRM from name >{mrmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
             }
         }
 
@@ -392,7 +391,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (materialData.Texture.IsEmpty()) // No texture to add.
                 {
                     Logger.LogWarning("No texture was set for: " + materialData.Name, LogCat.Mesh);
-                    return;
+                    continue;
                 }
 
                 Texture texture;
@@ -498,33 +497,32 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     preparedTriangles.Add(new List<int>());
                 }
 
-                for (var i = 0; i < subMesh.Triangles.Count; i++)
+                // Determine which triangle list to use
+                var triangleList = UseTextureArray
+                    ? preparedTriangles[subMeshPerTextureFormat[textureArrayType]]
+                    : preparedTriangles[^1];
+
+                void AddWedgeVertex(MeshWedge wedge)
                 {
-                    // One triangle is made of 3 elements for Unity. We therefore need to prepare 3 elements within one loop.
-                    MeshWedge[] wedges =
-                    {
-                        subMesh.Wedges[subMesh.Triangles[i].Wedge2], subMesh.Wedges[subMesh.Triangles[i].Wedge1],
-                        subMesh.Wedges[subMesh.Triangles[i].Wedge0]
-                    };
+                    var position = calculatedVertices[wedge.Index];
+                    preparedVertices.Add(new Vector3(position.X / 100f, position.Y / 100f, position.Z / 100f));
+                    normals.Add(new Vector3(wedge.Normal.X, wedge.Normal.Y, wedge.Normal.Z));
+                    preparedUVs.Add(new Vector4(wedge.Texture.X * textureScale.x, wedge.Texture.Y * textureScale.y,
+                        textureArrayIndex, maxMipLevel));
+                    triangleList.Add(index++);
 
-                    for (var w = 0; w < wedges.Length; w++)
-                    {
-                        preparedVertices.Add(calculatedVertices[wedges[w].Index].ToUnityVector());
-                        if (UseTextureArray)
-                        {
-                            preparedTriangles[subMeshPerTextureFormat[textureArrayType]].Add(index++);
-                        }
-                        else
-                        {
-                            preparedTriangles[preparedTriangles.Count - 1].Add(index++);
-                        }
+                    CreateMorphMeshEntry(wedge.Index, preparedVertices.Count);
+                }
 
-                        normals.Add(wedges[w].Normal.ToUnityVector());
-                        var uv = Vector2.Scale(textureScale, wedges[w].Texture.ToUnityVector());
-                        preparedUVs.Add(new Vector4(uv.x, uv.y, textureArrayIndex, maxMipLevel));
-
-                        CreateMorphMeshEntry(wedges[w].Index, preparedVertices.Count);
-                    }
+                var wedges = subMesh.Wedges;
+                var triangles = subMesh.Triangles;
+                for (var ti = 0; ti < triangles.Count; ti++)
+                {
+                    var triangle = triangles[ti];
+                    // The wedge order is reversed to flip the triangle winding for Unity's coordinate system.
+                    AddWedgeVertex(wedges[triangle.Wedge2]);
+                    AddWedgeVertex(wedges[triangle.Wedge1]);
+                    AddWedgeVertex(wedges[triangle.Wedge0]);
                 }
             }
 
@@ -736,22 +734,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             if (UseTextureArray)
             {
-                Shader shader;
                 switch (textureType)
                 {
                     case TextureCacheService.TextureArrayTypes.Opaque:
-                        shader = Constants.ShaderWorldLit;
-                        break;
+                        return new Material(Constants.ShaderWorldLit);
                     case TextureCacheService.TextureArrayTypes.Transparent:
                         // Cutout for e.g. bushes.
-                        shader = Constants.ShaderLitAlphaToCoverage;
-                        break;
+                        return new Material(Constants.ShaderLitAlphaToCoverage);
+                    case TextureCacheService.TextureArrayTypes.Water:
+                        return GetWaterMaterial();
                     default:
                         throw new ArgumentOutOfRangeException(nameof(textureType), textureType, null);
                 }
-
-                var material = new Material(shader);
-                return material;
             }
             else
             {
@@ -761,10 +755,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         protected Material GetWaterMaterial()
         {
-            var material = new Material(Constants.ShaderWater);
-            // Manually correct the render queue for alpha test, as Unity doesn't want to do it from the shader's render queue tag.
-            material.renderQueue = (int)RenderQueue.Transparent;
-            return material;
+            // The render queue is defined by the water shader's "Queue" tag.
+            return new Material(Constants.ShaderWater);
         }
 
         protected void SetPosAndRot(GameObject obj, Matrix4x4 matrix)
