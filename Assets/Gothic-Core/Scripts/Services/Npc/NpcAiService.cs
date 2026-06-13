@@ -388,9 +388,9 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsDead(NpcInstance npcInstance)
         {
-            // FIXME - We need to implement it properly. Just fixing NPEs for now!
-            // FIXME - e.g. used for PC_Thief_AFTERTROLL_Condition() from Daedalus.
-            return false;
+            // FIXME - BodyState is runtime-only and lost on NPC reload (e.g. world reload respawns the NPC alive).
+            // A permanent death flag needs to be persisted in SaveGame state and checked here instead.
+            return npcInstance.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
         }
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)
