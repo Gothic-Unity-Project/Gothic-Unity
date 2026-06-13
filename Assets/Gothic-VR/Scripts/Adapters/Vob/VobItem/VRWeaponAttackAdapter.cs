@@ -1,5 +1,8 @@
+#if GOTHIC_HVR_INSTALLED
 using System;
+using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -7,7 +10,7 @@ using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace Gothic.Core.Adapters.Vob.Item
+namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
     /// The validity check for a hit requires answering: "Is this attack currently active?"
@@ -15,7 +18,7 @@ namespace Gothic.Core.Adapters.Vob.Item
     /// If we put the logic on the receiver, we must reach across to the attacker's component to get that state
     /// every time any contact happens. If we put it on the attacker, all required state is already local.
     /// </summary>
-    public class WeaponAttackAdapter : MonoBehaviour
+    public class VRWeaponAttackAdapter : MonoBehaviour
     {
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
@@ -149,3 +152,4 @@ namespace Gothic.Core.Adapters.Vob.Item
         }
     }
 }
+#endif

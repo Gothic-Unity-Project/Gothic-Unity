@@ -175,6 +175,9 @@ namespace Gothic.Core.Models.Config
         [OverrideLabel("Enable NPCs & Monsters")]
         public bool EnableNpcs;
 
+        [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
+        public bool EnableCombatSystem;
+        
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public bool EnableNpcMeshCulling = true;
 
@@ -199,8 +202,6 @@ namespace Gothic.Core.Models.Config
         public bool EnableNpcEyeBlinking;
         
         [Separator("WIP")]
-        [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
-        public bool EnableCombatSystem;
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;
         
