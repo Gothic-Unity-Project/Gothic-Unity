@@ -165,6 +165,9 @@ namespace Gothic.Core.Adapters.Scenes
                     Logger.LogError(e.ToString(), LogCat.Loading);
                 }
 
+                // The culling sweep inside WorldSceneLoaded only _enqueued_ all VOBs around the spawn point for
+                // lazy initialization. InitVobCoroutine() drains the queue in the background while the player is
+                // already in the world - a brief pop-in is preferred over holding the loading screen any longer.
                 _loadingService.StopLoading();
                 SceneManager.UnloadSceneAsync(Constants.SceneLoading);
             }

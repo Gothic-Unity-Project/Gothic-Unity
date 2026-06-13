@@ -55,6 +55,8 @@ namespace Gothic.Core.Services.Vobs
         private readonly char[] _itemCountSeparators = { ':', '.' };
 
 
+        private const int VobInitBatchSize = 10;
+
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
         private Queue<VobLoader> _objectsToInitQueue = new();
 
@@ -138,16 +140,14 @@ namespace Gothic.Core.Services.Vobs
         {
             go.TryGetComponent(out VobLoader loaderComp);
 
-            if (loaderComp == null || loaderComp.IsLoaded)
+            // IsQueued ensures we do not add elements to be loaded twice (without an O(n) Queue.Contains() check).
+            if (loaderComp == null || loaderComp.IsLoaded || loaderComp.IsQueued)
             {
                 return;
             }
-            
-            // Do not add elements to be loaded twice.
-            if (_objectsToInitQueue.Contains(loaderComp))
-                return;
 
-            _objectsToInitQueue.Enqueue(go.GetComponent<VobLoader>());
+            loaderComp.IsQueued = true;
+            _objectsToInitQueue.Enqueue(loaderComp);
         }
 
         // DEBUG - Check how many frames it took to initialize all the objects
@@ -175,19 +175,27 @@ namespace Gothic.Core.Services.Vobs
                     //     firstFrameQueueFilledUp = Time.frameCount;
                     // }
 
-                    var item = _objectsToInitQueue.Dequeue();
-
-                    item.IsLoaded = true;
-
-                    // We assume that each loaded VOB is centered at parent=0,0,0.
-                    // Should work smoothly until we start lazy loading sub-vobs ;-)
-                    try
+                    for (var i = 0; i < VobInitBatchSize && !_objectsToInitQueue.IsEmpty(); i++)
                     {
-                        _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
+                        var item = _objectsToInitQueue.Dequeue();
+
+                        // Destroyed in the meantime (e.g. world change).
+                        if (item == null)
+                            continue;
+
+                        item.IsLoaded = true;
+
+                        // We assume that each loaded VOB is centered at parent=0,0,0.
+                        // Should work smoothly until we start lazy loading sub-vobs ;-)
+                        try
+                        {
+                            _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
+                        }
+                        
                     }
 
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
@@ -241,6 +249,9 @@ namespace Gothic.Core.Services.Vobs
 
             // We reset the GO dictionary.
             _vobTypeParentGOs = new();
+
+            // Drop pending lazy-init entries from a previous world. Their VobLoader GOs are destroyed by now.
+            _objectsToInitQueue.Clear();
 
             ObjectRoutines.ClearAndReleaseMemory();
             ObjectRoutines = new();
