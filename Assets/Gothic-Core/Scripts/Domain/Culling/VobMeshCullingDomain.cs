@@ -489,8 +489,13 @@ namespace Gothic.Core.Domain.Culling
             }
 
             if (index == -1)
-                Logger.LogError($"Couldn't find object in Culling list {rootGo.name}. Culling updates will break.",
+            {
+                // Dynamically spawned items (loot panel, backpack fill) are not registered in the culling lists.
+                // This is expected — just skip tracking for them.
+                Logger.LogWarning($"VOB {rootGo.name} not in culling list — skipping position tracking (dynamically spawned).",
                     LogCat.Vob);
+                return;
+            }
 
             _pausedVobs.Add(rootGo, new Tuple<VobList, int>(vobType, index));
         }
@@ -542,6 +547,11 @@ namespace Gothic.Core.Domain.Culling
         {
             yield return new WaitForSeconds(1f);
             _pausedVobsToReenableCoroutine.Remove(rootGo);
+
+            // GO may have been destroyed (e.g., loot panel closed) during the 1-second delay.
+            if (rootGo == null)
+                yield break;
+
             if (!_pausedVobsToReenable.ContainsKey(rootGo))
             {
                 _pausedVobsToReenable.Add(rootGo, rootGo.GetComponentInChildren<Rigidbody>());
@@ -567,9 +577,11 @@ namespace Gothic.Core.Domain.Culling
                         continue;
                     }
 
-                    UpdateSpherePosition(key);
-                    rigidBody.isKinematic = true;
+                    // Item may not be in _pausedVobs if it was dynamically spawned and never registered in culling lists.
+                    if (_pausedVobs.ContainsKey(key))
+                        UpdateSpherePosition(key);
 
+                    rigidBody.isKinematic = true;
                     _pausedVobs.Remove(key);
                     _pausedVobsToReenable.Remove(key);
                 }
@@ -592,6 +604,10 @@ namespace Gothic.Core.Domain.Culling
                 VobList.Large => _spheresLarge,
                 _ => throw new ArgumentOutOfRangeException()
             };
+
+            // Index may be stale if other VOBs were removed from the list after this item was grabbed.
+            if (index >= sphereList.Count)
+                return;
 
             sphereList[index] = new BoundingSphere(go.transform.position, sphereList[index].radius);
         }

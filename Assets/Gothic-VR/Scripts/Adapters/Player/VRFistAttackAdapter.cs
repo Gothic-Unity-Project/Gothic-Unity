@@ -1,13 +1,13 @@
 #if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Const;
-using UnityEngine;
+using Gothic.VR.Adapters.Vob.VobItem;
 
 namespace Gothic.Core.Adapters.Vob.Item
 {
     /// <summary>
     /// Basically a WeaponAttackAdapter for HVR Hands. But some tweaks are needed to fake the object into being an oCVobItem to fight.
     /// </summary>
-    public class VRFistAttackAdapter : WeaponAttackAdapter
+    public class VRFistAttackAdapter : VRWeaponAttackAdapter
     {
         private void Awake()
         {

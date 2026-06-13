@@ -267,7 +267,14 @@ namespace Gothic.VR.Adapters.Player
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)
         {
-            var item = handItem?.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
+            if (handItem == null)
+                return;
+
+            var vobLoader = handItem.GetComponentInParent<VobLoader>();
+            if (vobLoader == null)
+                return;
+
+            var item = vobLoader.Container?.VobAs<IItem>();
 
             if (item == null)
                 return;

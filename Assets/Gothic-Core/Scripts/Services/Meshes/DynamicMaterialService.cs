@@ -50,7 +50,7 @@ namespace Gothic.Core.Services.Meshes
             ActivateDynamicRenderers(entry);
 
             // Finally set the new values.
-            entry.Renderers.ForEach(i => i.sharedMaterial.SetFloat(shaderProperty, shaderValue));
+            entry.Renderers.ForEach(i => { if (i != null) i.sharedMaterial.SetFloat(shaderProperty, shaderValue); });
 
             // And we add the property to the list of "changed" properties.
             entry.AlteredShaderProperties.Add(shaderProperty);
@@ -70,7 +70,7 @@ namespace Gothic.Core.Services.Meshes
             }
 
             // Reset values
-            entry.Renderers.ForEach(i => i.sharedMaterial.SetFloat(shaderProperty, shaderValue));
+            entry.Renderers.ForEach(i => { if (i != null) i.sharedMaterial.SetFloat(shaderProperty, shaderValue); });
             entry.AlteredShaderProperties.Remove(shaderProperty);
 
             if (entry.AlteredShaderProperties.IsEmpty())
@@ -144,6 +144,9 @@ namespace Gothic.Core.Services.Meshes
 
             for (var i = 0; i < entry.Renderers.Count; i++)
             {
+                if (entry.Renderers[i] == null)
+                    continue;
+
                 var dynamicMaterial = entry.DynamicMaterials[i];
 
                 // It's a shader we didn't touch.
@@ -165,12 +168,15 @@ namespace Gothic.Core.Services.Meshes
 
             for (var i = 0; i < entry.Renderers.Count; i++)
             {
+                if (entry.Renderers[i] == null)
+                    continue;
+
                 var defaultMaterial = entry.DefaultMaterials[i];
 
                 // It's a shader we didn't touch.
                 if (defaultMaterial == null)
                     continue;
-                
+
                 entry.Renderers[i].sharedMaterial = defaultMaterial;
             }
 
