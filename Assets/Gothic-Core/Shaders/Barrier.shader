@@ -26,6 +26,7 @@ Shader "Unlit/Barrier"
             #pragma fragment frag
 
             #include "UnityCG.cginc"
+            #pragma multi_compile_instancing
 
             struct appdata
             {
@@ -81,7 +82,7 @@ Shader "Unlit/Barrier"
             fixed4 frag(v2f i) : SV_Target
             {
                 fixed4 texColor = tex2D(_MainTex, i.uv);
-                return lerp((0, 0, 0, 0), texColor * i.color.a, _Blend);
+                return lerp(fixed4(0, 0, 0, 0), texColor * i.color.a, _Blend);
             }
             ENDCG
         }

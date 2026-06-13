@@ -12,7 +12,7 @@ Shader "Lit/AlphaToCoverage"
     {
         Tags
         {
-            "RenderType" = "TransparentCutout" "RenderPipeline" = "UniversalPipeline" "RenderQueue" = "AlphaTest"
+            "RenderType" = "TransparentCutout" "RenderPipeline" = "UniversalPipeline" "Queue" = "AlphaTest"
         }
         AlphaToMask On
 
@@ -22,6 +22,7 @@ Shader "Lit/AlphaToCoverage"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -39,7 +40,6 @@ Shader "Lit/AlphaToCoverage"
             struct v2f
             {
                 float4 vertex : SV_POSITION;
-                float3 normal : NORMAL;
                 float4 uv : TEXCOORD0;
                 float distance : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
@@ -74,7 +74,7 @@ Shader "Lit/AlphaToCoverage"
                 //    diffuse += AdditionalUnityLightDiffuse(light, i.normal);
                 //}
 
-                for (int k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
+                for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
                     diffuse += AdditionalStationaryDiffuse(_StationaryLightIndices[k / 4][k % 4], worldPos, normal);
                 }
@@ -89,11 +89,11 @@ Shader "Lit/AlphaToCoverage"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-                float3 toCamera = TransformObjectToWorld(v.vertex) - _WorldSpaceCameraPos;
+                float3 toCamera = TransformObjectToWorld(v.vertex.xyz) - _WorldSpaceCameraPos;
                 o.distance = length(toCamera);
-                o.vertex = TransformObjectToHClip(v.vertex);
+                o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
-                o.worldPos = TransformObjectToWorld(v.vertex);
+                o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
 
                 return o;
@@ -105,7 +105,7 @@ Shader "Lit/AlphaToCoverage"
                 half4 albedo = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainTex, sampler_MainTex, i.uv.xy, i.uv.z,
                                         clamp(mipLevel, 0, i.uv.w));
                 // Rescale alpha by mip level since preserved coverage mip maps can't be generated at runtime.
-                albedo.a *= 1 + max(0, CalcMipLevel(i.uv * _MainTex_TexelSize.zw)) * _MipScale;
+                albedo.a *= 1 + max(0, CalcMipLevel(i.uv.xy * _MainTex_TexelSize.zw)) * _MipScale;
                 // Rescale alpha by partial derivative, faded by distance. This way, at a distance, the wide coverage is kept to reduce aliasing further.
                 albedo.a = lerp((albedo.a - _Cutoff) / max(fwidth(albedo.a), 0.0001) + 0.5, albedo.a,
                                                       saturate(max(i.distance, 0.0001) / _DistanceFade));

@@ -10,7 +10,7 @@ Shader "Lit/SingleMesh"
         {
             "RenderType" = "Opaque"
             "RenderPipeline" = "UniversalPipeline"
-            "RenderQueue" = "Geometry"
+            "Queue" = "Geometry"
         }
 
         Pass
@@ -19,6 +19,7 @@ Shader "Lit/SingleMesh"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -70,8 +71,8 @@ Shader "Lit/SingleMesh"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-                o.worldPos = TransformObjectToWorld(v.vertex);
-                o.vertex = TransformObjectToHClip(v.vertex);
+                o.worldPos = TransformObjectToWorld(v.vertex.xyz);
+                o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = v.uv;
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
                 return o;
@@ -80,7 +81,7 @@ Shader "Lit/SingleMesh"
             half4 frag(v2f i) : SV_Target
             {
                 half4 albedo = tex2D(_MainTex, i.uv);
-                half3 diffuse = albedo * i.diffuse;
+                half3 diffuse = albedo.rgb * i.diffuse;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
 
