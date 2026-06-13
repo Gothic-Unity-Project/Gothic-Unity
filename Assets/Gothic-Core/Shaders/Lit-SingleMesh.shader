@@ -44,8 +44,13 @@ Shader "Lit/SingleMesh"
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
+            // Texture/sampler live outside the CBUFFER (a sampler inside UnityPerMaterial makes the shader
+            // SRP-Batcher-incompatible). Only the _ST stays as the per-material constant.
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+
             CBUFFER_START(UnityPerMaterial)
-                sampler2D _MainTex;
+                float4 _MainTex_ST;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
@@ -73,14 +78,14 @@ Shader "Lit/SingleMesh"
 
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
-                o.uv = v.uv;
+                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
                 return o;
             }
 
             half4 frag(v2f i) : SV_Target
             {
-                half4 albedo = tex2D(_MainTex, i.uv);
+                half4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
                 half3 diffuse = albedo.rgb * i.diffuse;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
