@@ -446,6 +446,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         protected void PrepareMeshFilter(MeshFilter meshFilter, IMultiResolutionMesh mrmData, Renderer meshRenderer, int meshIndex, List<System.Numerics.Vector3> calculatedVertices = null)
         {
             // ISoftSkinMeshes will be prepared before reaching this method. This is due to NPC armors having dedicated offsets per item.
+            // A non-null calculatedVertices is also our soft-skin signal: only that overload passes it, and its bone
+            // weights are filled afterwards in the un-welded 3-per-triangle order (see the ISoftSkinMesh overload).
+            var isSoftSkin = calculatedVertices != null;
             calculatedVertices ??= mrmData.Positions;
 
             var subMeshPerTextureFormat = new Dictionary<TextureCacheService.TextureArrayTypes, int>();
@@ -470,11 +473,21 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             int triangleCount = mrmData.SubMeshes.Sum(i => i.Triangles.Count);
             int vertexCount = triangleCount * 3;
-            int index = 0;
             var preparedVertices = new List<Vector3>(vertexCount);
             var preparedUVs = new List<Vector4>(vertexCount);
             var normals = new List<Vector3>(vertexCount);
             var preparedTriangles = new List<List<int>>();
+
+            // Weld identical corners to a single Unity vertex instead of emitting 3 fresh vertices per triangle.
+            // This removes the ~3x vertex bloat (and the vertex-shader + bandwidth cost it carries; on Quest the
+            // stationary lighting is computed per-vertex). Keying on the full (position, normal, uv) tuple is
+            // visually lossless: hard edges and UV seams keep their own vertices, only true duplicates collapse.
+            // Disabled for soft-skin (bone weights rely on the expanded order) and morph meshes (morph animation
+            // maps source positions to specific Unity vertices).
+            var weldVertices = !isSoftSkin && Mmb == null;
+            var weldMap = weldVertices
+                ? new Dictionary<(Vector3 pos, Vector3 normal, Vector4 uv), int>(vertexCount)
+                : null;
 
             foreach (var subMesh in mrmData.SubMeshes)
             {
@@ -504,14 +517,28 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
                 void AddWedgeVertex(MeshWedge wedge)
                 {
-                    var position = calculatedVertices[wedge.Index];
-                    preparedVertices.Add(new Vector3(position.X / 100f, position.Y / 100f, position.Z / 100f));
-                    normals.Add(new Vector3(wedge.Normal.X, wedge.Normal.Y, wedge.Normal.Z));
-                    preparedUVs.Add(new Vector4(wedge.Texture.X * textureScale.x, wedge.Texture.Y * textureScale.y,
-                        textureArrayIndex, maxMipLevel));
-                    triangleList.Add(index++);
+                    var rawPosition = calculatedVertices[wedge.Index];
+                    var position = new Vector3(rawPosition.X / 100f, rawPosition.Y / 100f, rawPosition.Z / 100f);
+                    var normal = new Vector3(wedge.Normal.X, wedge.Normal.Y, wedge.Normal.Z);
+                    var uv = new Vector4(wedge.Texture.X * textureScale.x, wedge.Texture.Y * textureScale.y,
+                        textureArrayIndex, maxMipLevel);
 
-                    CreateMorphMeshEntry(wedge.Index, preparedVertices.Count);
+                    if (weldVertices && weldMap.TryGetValue((position, normal, uv), out var existingIndex))
+                    {
+                        triangleList.Add(existingIndex);
+                        return;
+                    }
+
+                    var vertexIndex = preparedVertices.Count;
+                    preparedVertices.Add(position);
+                    normals.Add(normal);
+                    preparedUVs.Add(uv);
+                    triangleList.Add(vertexIndex);
+
+                    if (weldVertices)
+                        weldMap[(position, normal, uv)] = vertexIndex;
+                    else
+                        CreateMorphMeshEntry(wedge.Index, preparedVertices.Count);
                 }
 
                 var wedges = subMesh.Wedges;
@@ -540,6 +567,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             CreateMorphMeshEnd(preparedVertices);
+
+            // Reorder the (now welded) index/vertex buffers for post-transform vertex-cache locality. Only useful
+            // once vertices are shared, and it reorders the vertex buffer - so it is strictly gated to welded meshes
+            // (never morph: their external positionIndex->vertex mapping would be invalidated; never soft-skin).
+            // Built once per unique mesh (cached by name), so the cost amortizes across all instances.
+            if (weldVertices)
+                mesh.Optimize();
 
             _multiTypeCacheService.Meshes.Add($"{MeshName}_{meshIndex}", mesh);
         }
