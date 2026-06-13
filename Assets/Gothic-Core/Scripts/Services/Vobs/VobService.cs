@@ -197,6 +197,7 @@ namespace Gothic.Core.Services.Vobs
                         }
                         
                     }
+                }
 
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
                 }
