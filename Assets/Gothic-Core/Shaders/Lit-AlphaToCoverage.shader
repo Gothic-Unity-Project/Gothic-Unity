@@ -105,7 +105,8 @@ Shader "Lit/AlphaToCoverage"
                 half4 albedo = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainTex, sampler_MainTex, i.uv.xy, i.uv.z,
                                         clamp(mipLevel, 0, i.uv.w));
                 // Rescale alpha by mip level since preserved coverage mip maps can't be generated at runtime.
-                albedo.a *= 1 + max(0, CalcMipLevel(i.uv.xy * _MainTex_TexelSize.zw)) * _MipScale;
+                // Reuse mipLevel from above (CalcMipLevel already returns >= 0) instead of recomputing ddx/ddy + log2.
+                albedo.a *= 1 + mipLevel * _MipScale;
                 // Rescale alpha by partial derivative, faded by distance. This way, at a distance, the wide coverage is kept to reduce aliasing further.
                 albedo.a = lerp((albedo.a - _Cutoff) / max(fwidth(albedo.a), 0.0001) + 0.5, albedo.a,
                                                       saturate(max(i.distance, 0.0001) / _DistanceFade));
