@@ -291,7 +291,12 @@ namespace Gothic.Core.Domain.Vobs
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobSwitch, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobDoor:
-                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
+                    var visualName = vob.Visual?.Name;
+                    var isBed = !visualName.IsNullOrEmpty()
+                                && visualName.Split('_')[0].EqualsIgnoreCase("BED");
+                    go = isBed
+                        ? _resourceCacheService.TryGetPrefabObject(PrefabType.VobBed, name: name, parent: parent)
+                        : _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobContainer:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobContainer, name: name, parent: parent);
