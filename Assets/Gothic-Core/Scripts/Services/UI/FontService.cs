@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;

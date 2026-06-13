@@ -176,12 +176,19 @@ namespace Gothic.Core.Services.Vobs
                     // }
 
                     var item = _objectsToInitQueue.Dequeue();
-                    
+
                     item.IsLoaded = true;
 
                     // We assume that each loaded VOB is centered at parent=0,0,0.
                     // Should work smoothly until we start lazy loading sub-vobs ;-)
-                    _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                    try
+                    {
+                        _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
+                    }
 
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
                 }

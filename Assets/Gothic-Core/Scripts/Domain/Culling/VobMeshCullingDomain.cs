@@ -572,6 +572,11 @@ namespace Gothic.Core.Domain.Culling
                 {
                     var key = _pausedVobsToReenable.Keys.ElementAt(i);
                     var rigidBody = _pausedVobsToReenable[key];
+                    if (rigidBody == null)
+                    {
+                        _pausedVobsToReenable.Remove(key);
+                        continue;
+                    }
                     if (rigidBody.linearVelocity != Vector3.zero)
                     {
                         continue;

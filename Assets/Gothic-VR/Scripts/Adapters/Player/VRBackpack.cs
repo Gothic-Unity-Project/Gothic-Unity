@@ -87,7 +87,7 @@ namespace Gothic.VR.Adapters.Player
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
             var vobContainer = vobLoader.Container;
 
-            _playerService.AddItem(vobContainer.Vob.Name, vobContainer.VobAs<IItem>().Amount);
+            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
         }
 
 
@@ -102,8 +102,8 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
 
-            _playerService.AddItem(vobContainer.Vob.Name, vobContainer.VobAs<IItem>().Amount);
-            
+            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+
             UpdateInventoryView();
         }
 
@@ -114,23 +114,25 @@ namespace Gothic.VR.Adapters.Player
         public void OnItemPutOutOfHolster(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
+            if (vobLoader == null)
+                return;
             var vobContainer = vobLoader.Container;
 
-            _playerService.RemoveItem(vobContainer.Vob.Name, vobContainer.VobAs<IItem>().Amount);
+            _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
         }
 
         public void OnItemPutOutOfBackpack(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
             if (_tempIgnoreSocketing)
                 return;
-            
+
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
             var vobContainer = vobLoader.Container;
 
             _vobMeshCullingService.AddCullingEntry(vobContainer);
             _saveGameService.CurrentWorldData.Vobs.Add(vobContainer.Vob);
 
-            _playerService.RemoveItem(vobContainer.Vob.Name, vobContainer.VobAs<IItem>().Amount);
+            _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
             UpdateInventoryView();
         }
