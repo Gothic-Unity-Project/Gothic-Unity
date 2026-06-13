@@ -13,7 +13,7 @@ namespace Gothic.G2.Services.Context
 
         public GameVersion Version => GameVersion.Gothic2;
         string IContextGameVersionService.RootPath => _configService.Root.Gothic2Path;
-        public string CutsceneFileSuffix => "CSL";
+        public string CutsceneFileSuffix => "LSC";
 
         // FIXME - Load from GothicGame.ini
         public string InitialWorld => "newworld.zen";
