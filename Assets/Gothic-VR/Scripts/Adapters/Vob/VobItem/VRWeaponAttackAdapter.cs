@@ -1,11 +1,12 @@
 #if GOTHIC_HVR_INSTALLED
-using System;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.VR.Services;
+using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
@@ -20,6 +21,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// </summary>
     public class VRWeaponAttackAdapter : MonoBehaviour
     {
+        [Inject] private readonly VRWeaponService _vrWeaponService; 
+        
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
 
@@ -84,71 +87,32 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
         }
 
-        /// <summary>
-        /// Attempts to validate and fire a hit using VRWeaponService (VR mode only).
-        /// Returns true if the hit was processed, false otherwise.
-        /// </summary>
         private bool TryFireHitViaVRWeaponService(NpcContainer targetNpcContainer)
         {
-            try
+            if (_vrWeaponService == null)
             {
-                // Try to dynamically get the VRWeaponService through the Reflex DI container
-                // Using reflection to avoid direct assembly dependency on Gothic.VR
-                var vrWeaponServiceType = Type.GetType("Gothic.VR.Services.VRWeaponService, Gothic.VR");
-                if (vrWeaponServiceType == null)
-                {
-                    Logger.LogWarning("[WeaponAttackAdapter] VRWeaponService not found (flat-screen mode?)", LogCat.Fight);
-                    return false;
-                }
-
-                var vrWeaponService = ReflexProjectInstaller.DIContainer.Resolve(vrWeaponServiceType);
-                if (vrWeaponService == null)
-                {
-                    Logger.LogWarning("[WeaponAttackAdapter] VRWeaponService could not be resolved", LogCat.Fight);
-                    return false;
-                }
-
-                // Use reflection to call the methods
-                var isInAttackWindowMethod = vrWeaponServiceType.GetMethod("IsWeaponInAttackWindow");
-                var getWeaponOwnerMethod = vrWeaponServiceType.GetMethod("GetWeaponOwner");
-
-                if (isInAttackWindowMethod == null || getWeaponOwnerMethod == null)
-                {
-                    Logger.LogWarning("[WeaponAttackAdapter] Required methods not found on VRWeaponService", LogCat.Fight);
-                    return false;
-                }
-
-                // Check if this weapon is currently in an active attack window
-                var isInAttackWindow = (bool)isInAttackWindowMethod.Invoke(vrWeaponService, new object[] { _weaponVobContainer });
-                Logger.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
-                if (!isInAttackWindow)
-                {
-                    Logger.LogWarning("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
-                    return false;
-                }
-
-                // Get who is attacking with this weapon
-                var attacker = (NpcContainer)getWeaponOwnerMethod.Invoke(vrWeaponService, new object[] { _weaponVobContainer });
-                if (attacker == null)
-                {
-                    Logger.LogWarning("[WeaponAttackAdapter] No attacker found for weapon", LogCat.Fight);
-                    return false;
-                }
-
-                // Get the hit position for effects/knockback later
-                var hitPosition = transform.position;
-
-                // Fire the combat event
-                Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, hitPosition);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                // VRWeaponService not available or DI resolution failed
-                Logger.LogError($"[WeaponAttackAdapter] Exception in TryFireHitViaVRWeaponService: {ex.Message}", LogCat.Fight);
+                Logger.LogWarning("[WeaponAttackAdapter] VRWeaponService not injected (flat-screen mode?)", LogCat.Fight);
                 return false;
             }
+
+            var isInAttackWindow = _vrWeaponService.IsWeaponInAttackWindow(_weaponVobContainer);
+            Logger.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
+            if (!isInAttackWindow)
+            {
+                Logger.LogWarning("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
+                return false;
+            }
+
+            var attacker = _vrWeaponService.GetWeaponOwner(_weaponVobContainer);
+            if (attacker == null)
+            {
+                Logger.LogWarning("[WeaponAttackAdapter] No attacker found for weapon", LogCat.Fight);
+                return false;
+            }
+
+            Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
+            return true;
         }
     }
 }
