@@ -6,11 +6,11 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
-using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
-using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -50,6 +50,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             var audioClip = _audioService.CreateAudioClip(OutputName);
+
+            if (audioClip == null)
+            {
+                Logger.LogWarning($"AudioClip >{OutputName}< not found. Skipping speech output.", LogCat.Dialog);
+                IsFinishedFlag = true;
+                return;
+            }
+
             _audioPlaySeconds = audioClip.length;
 
             // Hero
