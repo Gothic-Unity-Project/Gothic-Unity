@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 3792221975768868209}
   - component: {fileID: 7657019000195239257}
   - component: {fileID: 6519483080425844375}
+  - component: {fileID: 8467261965850404422}
   m_Layer: 0
   m_Name: oCNpc
   m_TagString: GothicVob
@@ -150,6 +151,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _injectionStrategy: 2
+--- !u!114 &8467261965850404422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2202926895728732233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c814ba80f440864495cb75d4515235f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.VRNpcLoot
+  _socketPrefab: {fileID: 5861164055357080340, guid: 2dd29fe4a7e819740af535267b7cc113, type: 3}
 --- !u!1 &2815092147823170342
 GameObject:
   m_ObjectHideFlags: 0
@@ -749,6 +763,10 @@ PrefabInstance:
     - target: {fileID: 2805224566998289421, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}
       propertyPath: m_SizeDelta.y
       value: 2.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 2805224566998289421, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.02
       objectReference: {fileID: 0}
     - target: {fileID: 8230739814078363531, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}
       propertyPath: m_Pivot.x

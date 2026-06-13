@@ -67,7 +67,10 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             // Stop this handler if the object is already unlocked.
             if (!_isLocked)
+            {
                 gameObject.SetActive(false);
+                return;
+            }
 
             StartCoroutine(StartDelayed());
         }

@@ -37,6 +37,25 @@ MonoBehaviour:
     m_TabWidth: 29
   m_Material: {fileID: 5152873236376385906}
   m_SourceFontFileGUID: e3265ab4bf004d28a9537516768c1c75
+  m_CreationSettings:
+    sourceFontFileName: 
+    sourceFontFileGUID: e3265ab4bf004d28a9537516768c1c75
+    faceIndex: 0
+    pointSizeSamplingMode: 0
+    pointSize: 104
+    padding: 8
+    paddingMode: 1
+    packingMode: 0
+    atlasWidth: 512
+    atlasHeight: 256
+    characterSetSelectionMode: 5
+    characterSequence: 
+    referencedFontAssetGUID: 
+    referencedTextAssetGUID: 
+    fontStyle: 0
+    fontStyleModifier: 0
+    renderMode: 4165
+    includeFontFeatures: 0
   m_SourceFontFile: {fileID: 0}
   m_SourceFontFilePath: 
   m_AtlasPopulationMode: 0
@@ -67,25 +86,6 @@ MonoBehaviour:
     m_MarkToMarkAdjustmentRecords: []
   m_ShouldReimportFontFeatures: 0
   m_FallbackFontAssetTable: []
-  m_CreationSettings:
-    sourceFontFileName: 
-    sourceFontFileGUID: e3265ab4bf004d28a9537516768c1c75
-    faceIndex: 0
-    pointSizeSamplingMode: 0
-    pointSize: 104
-    padding: 8
-    paddingMode: 1
-    packingMode: 0
-    atlasWidth: 512
-    atlasHeight: 256
-    characterSetSelectionMode: 5
-    characterSequence: 
-    referencedFontAssetGUID: 
-    referencedTextAssetGUID: 
-    fontStyle: 0
-    fontStyleModifier: 0
-    renderMode: 4165
-    includeFontFeatures: 0
   m_FontWeightTable:
   - regularTypeface: {fileID: 0}
     italicTypeface: {fileID: 0}
@@ -151,17 +151,15 @@ Texture2D:
   m_ImageContentsHash:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
-  m_ForcedFallbackFormat: 4
-  m_DownscaleFallback: 0
   m_IsAlphaChannelOptional: 0
-  serializedVersion: 2
+  serializedVersion: 4
   m_Width: 512
   m_Height: 256
   m_CompleteImageSize: 131072
   m_MipsStripped: 0
   m_TextureFormat: 1
   m_MipCount: 1
-  m_IsReadable: 0
+  m_IsReadable: 1
   m_IsPreProcessed: 0
   m_IgnoreMipmapLimit: 0
   m_MipmapLimitGroupName: 
@@ -297,3 +295,4 @@ Material:
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
     - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_BuildTextureStacks: []
+  m_AllowLocking: 1

@@ -33,8 +33,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             // We need to set the route now to ensure base.Start() can check if NPC is already _on_ the final destination.
-            _route = new Stack<DijkstraWaypoint>(WayNetService.FindFastestPath(currentWaypoint.Name,
-                destinationWaypoint.Name));
+            var path = WayNetService.FindFastestPath(currentWaypoint.Name, destinationWaypoint.Name);
+            if (path == null)
+            {
+                IsFinishedFlag = true;
+                return;
+            }
+
+            _route = new Stack<DijkstraWaypoint>(path);
 
             base.Start();
         }

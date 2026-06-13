@@ -51,6 +51,7 @@ MonoBehaviour:
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
   EnableNpcs: 1
+  EnableCombatSystem: 1
   EnableNpcMeshCulling: 1
   NpcCullingDistance: 50
   SpawnNpcInstances:
@@ -58,6 +59,7 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 00000000
   EnableNpcEyeBlinking: 0
+  EnableNpcLooting: 1
   ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0

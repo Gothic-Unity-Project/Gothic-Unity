@@ -565,13 +565,13 @@ namespace Gothic.Core.Adapters.Animations
                         AttackAnimation = trackInstance.AnimationName;
                         break;
                     case EventType.OptimalFrame:
-                        AttackOptFrame = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        AttackOptFrame = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
                         break;
                     case EventType.HitEnd:
-                        AttackHitEnd = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        AttackHitEnd = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
                         break;
                     case EventType.ComboWindow:
-                        AttackWindowFrames = eventTag.Slots.Item1.Split(' ').Select(i => Convert.ToInt32(i)).ToList();
+                        AttackWindowFrames = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
                         break;
                     // Unused. @see: https://gothic-modding-community.github.io/gmc/zengin/anims/events/#def_dir
                     case EventType.HitDirection:
