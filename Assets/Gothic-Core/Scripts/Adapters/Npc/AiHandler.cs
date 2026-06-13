@@ -79,9 +79,12 @@ namespace Gothic.Core.Adapters.Npc
             if (Properties.AnimationQueue.Count == 0)
             {
                 // We always need to set "self" before executing any Daedalus function.
+                // "other" defaults to hero here so routine states (ZS_*_Loop) have a sensible fallback.
+                // Perception calls (ExecutePerception) override GlobalOther themselves with their own save/restore.
                 if (NpcInstance != null)
                 {
                     Vm.GlobalSelf = NpcInstance;
+                    Vm.GlobalOther = Vm.GlobalHero;
                 }
 
                 DaedalusSymbol loopSymbol;

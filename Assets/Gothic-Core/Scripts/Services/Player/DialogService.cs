@@ -99,9 +99,12 @@ namespace Gothic.Core.Manager
                     
                     // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
                     var oldSelf = _gameStateService.GothicVm.GlobalSelf;
+                    var oldOther = _gameStateService.GothicVm.GlobalOther;
                     _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
+                    _gameStateService.GothicVm.GlobalOther = _gameStateService.GothicVm.GlobalHero;
                     var conditionResult = _gameStateService.GothicVm.Call<int>(dialog.Condition);
                     _gameStateService.GothicVm.GlobalSelf = oldSelf;
+                    _gameStateService.GothicVm.GlobalOther = oldOther;
 
                     // Dialog condition is false
                     if (conditionResult == 0)
@@ -146,9 +149,12 @@ namespace Gothic.Core.Manager
                 
                 // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
                 var oldSelf = _gameStateService.GothicVm.GlobalSelf;
+                var oldOther = _gameStateService.GothicVm.GlobalOther;
                 _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
+                _gameStateService.GothicVm.GlobalOther = _gameStateService.GothicVm.GlobalHero;
                 var conditionResult = _gameStateService.GothicVm.Call<int>(dialog.Condition);
                 _gameStateService.GothicVm.GlobalSelf = oldSelf;
+                _gameStateService.GothicVm.GlobalOther = oldOther;
 
                 if (conditionResult == 0)
                 {
