@@ -180,45 +180,24 @@ namespace Gothic.VR.Adapters
 
         private IEnumerator FillSockets()
         {
-            _tempIgnoreSocketing = true;
-            _vrWeaponService.DrawSoundsActive = false;
-
-            foreach (var entry in BuildLootList().Take(MaxVisibleSlots))
-            {
-                var vobContainer = _vobService.CreateItem(new Item
-                {
-                    Name = entry.Item.Name,
-                    Visual = new VisualMesh(),
-                    Instance = entry.Item.Name,
-                    Amount = entry.Item.Amount
-                });
-
-                vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
-
-                yield return null;
-
-                var grabbable = vobContainer.Go.GetComponentInChildren<HVRGrabbable>(true);
-                var freeSocket = _sockets.FirstOrDefault(s => !s.IsGrabbing);
-                if (freeSocket != null)
-                {
-                    freeSocket.TryGrab(grabbable, true, true);
-                    if (entry.IsEquipped)
-                        AddEquippedLabel(GetSocketRoot(freeSocket));
-                }
-            }
-
-            yield return null;
-            _tempIgnoreSocketing = false;
-            _vrWeaponService.DrawSoundsActive = true;
+            yield return PopulateSockets(clearFirst: false);
         }
 
         private IEnumerator ClearAndRefill()
         {
+            yield return PopulateSockets(clearFirst: true);
+        }
+
+        private IEnumerator PopulateSockets(bool clearFirst)
+        {
             _tempIgnoreSocketing = true;
             _vrWeaponService.DrawSoundsActive = false;
 
-            ClearSocketContents();
-            yield return null;
+            if (clearFirst)
+            {
+                ClearSocketContents();
+                yield return null;
+            }
 
             foreach (var entry in BuildLootList().Take(MaxVisibleSlots))
             {
