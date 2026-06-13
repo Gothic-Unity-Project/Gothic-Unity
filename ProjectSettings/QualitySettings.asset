@@ -157,7 +157,7 @@ QualitySettings:
     - Android
   m_TextureMipmapLimitGroupNames: []
   m_PerPlatformDefaultQuality:
-    Android: 1
+    Android: 0
     Lumin: 2
     Nintendo 3DS: 2
     Nintendo Switch: 2
