@@ -48,9 +48,20 @@ namespace Gothic.Core.Services.Config
             var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
             var gothicIniPath = Path.Combine(rootPath, "system/Gothic.ini");
             
-            var gothicModIniPath = Path.Combine(rootPath, "system");
-            gothicModIniPath =
-                Path.Combine(gothicModIniPath, Dev.ModIni.IsNullOrEmpty() ? "GothicGame.ini" : Dev.ModIni);
+#if UNITY_EDITOR
+            var effectiveModPath = Dev.EnableMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
+            var effectiveModIni = Dev.EnableMod && !Dev.ModIni.IsNullOrEmpty() ? Dev.ModIni : null;
+#else
+            var effectiveModPath = Root.ModPath;
+            var effectiveModIni = Root.ModIni;
+#endif
+            var modIniFileName = effectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : effectiveModIni;
+            var modSystemPath = !effectiveModPath.IsNullOrEmpty()
+                ? Path.Combine(effectiveModPath, "system", modIniFileName)
+                : null;
+            var gothicModIniPath = modSystemPath != null && File.Exists(modSystemPath)
+                ? modSystemPath
+                : Path.Combine(rootPath, "system", modIniFileName);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
             GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
