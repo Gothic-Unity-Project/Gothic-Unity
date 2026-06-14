@@ -57,7 +57,7 @@ MonoBehaviour:
   SpawnNpcInstances:
     Value: 
   SpawnMonsterInstances:
-    Value: 00000000
+    Value: 
   EnableNpcEyeBlinking: 0
   EnableNpcLooting: 1
   ShowNpcColliders: 0
