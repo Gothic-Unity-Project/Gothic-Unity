@@ -44,6 +44,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
             pfxGo.name = _visualName;
 
             var pfx = VmCacheService.TryGetPfxData(_visualName);
+            if (pfx == null)
+            {
+                Logger.LogWarning($"PFX '{_visualName}' not found in VM — skipping particle build.", LogCat.Mesh);
+                UnityEngine.Object.Destroy(pfxGo);
+                return null;
+            }
+
             var particleSystem = pfxGo.GetComponent<ParticleSystem>();
 
             pfxGo.GetComponent<VobPfxProperties>().PfxData = pfx;
