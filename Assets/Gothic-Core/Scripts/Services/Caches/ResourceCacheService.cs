@@ -24,7 +24,6 @@ namespace Gothic.Core.Services.Caches
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         
         public readonly Vfs Vfs = new();
-        public string ModPath { get; private set; }
 
         private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default | LoaderOptions.Download);
 
@@ -41,22 +40,22 @@ namespace Gothic.Core.Services.Caches
         private ResourceCacheType<ITexture> _texture;
         private ResourceCacheType<GameObject> _prefab;
 
-        public void Init(string root, string modPath = null, string modIniPath = null)
+        public void Init(string root)
         {
             var workPath = FindWorkPath(root);
             var diskPaths = FindDiskPaths(root);
 
-            diskPaths.ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.Older));
+            // Mount base VDFs first. Gothic's own VDFs use Older so newest content in the stack wins.
+            diskPaths.Where(p => !p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
+                .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.Older));
 
             // FIXME - As some mods tend to load thousands of additional files from local file system, we can also dynamically check when these files are
             //         requested and load them at that time. Saving multiple minutes of potential loading time.
             Vfs.Mount(Path.GetFullPath(workPath), "/_work", VfsOverwriteBehavior.Older);
 
-            if (!string.IsNullOrEmpty(modPath))
-            {
-                ModPath = modPath;
-                MountMod(modPath, modIniPath);
-            }
+            // Mod VDFs (.mod extension) always override base game content, regardless of timestamps.
+            diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
+                .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
 
             _dmLoader.AddResolver(name =>
             {
@@ -322,94 +321,6 @@ namespace Gothic.Core.Services.Caches
             return Path.GetFullPath(path, root);
         }
 
-        private void MountMod(string modPath, string modIniPath)
-        {
-            if (File.Exists(modPath))
-            {
-                Vfs.MountDisk(modPath, VfsOverwriteBehavior.All);
-                Logger.Log($"Mounted mod file: {modPath}", LogCat.Loading);
-                return;
-            }
-
-            if (!Directory.Exists(modPath))
-            {
-                Logger.LogWarning($"Mod path does not exist: {modPath}", LogCat.Loading);
-                return;
-            }
-
-            // If we have the mod INI, read the [FILES] vdf= line to mount only the mod's own .mod files.
-            // This mirrors how Gothic's VDFS works and avoids accidentally overwriting base-game VDFs
-            // with vanilla copies that may be bundled inside standalone mod distributions.
-            var explicitVdfs = ParseVdfListFromIni(modIniPath);
-            if (explicitVdfs.Count > 0)
-            {
-                var allFilesInMod = Directory.GetFiles(modPath, "*.*", new EnumerationOptions
-                    { MatchCasing = MatchCasing.CaseInsensitive, RecurseSubdirectories = true, IgnoreInaccessible = true });
-
-                foreach (var vdfName in explicitVdfs)
-                {
-                    var match = allFilesInMod.FirstOrDefault(f =>
-                        string.Equals(Path.GetFileName(f), vdfName, StringComparison.OrdinalIgnoreCase));
-
-                    if (match != null)
-                    {
-                        Vfs.MountDisk(match, VfsOverwriteBehavior.All);
-                        Logger.Log($"Mounted mod VDF: {match}", LogCat.Loading);
-                    }
-                    else
-                    {
-                        Logger.LogWarning($"MountMod: VDF '{vdfName}' listed in INI not found in {modPath}", LogCat.Loading);
-                    }
-                }
-            }
-            else
-            {
-                // Fallback: no INI — mount all .mod files only (skip .vdf to avoid base-game conflicts)
-                var mods = Directory.GetFiles(modPath, "*.mod", new EnumerationOptions
-                    { MatchCasing = MatchCasing.CaseInsensitive, RecurseSubdirectories = true, IgnoreInaccessible = true });
-
-                foreach (var mod in mods)
-                {
-                    Vfs.MountDisk(mod, VfsOverwriteBehavior.All);
-                    Logger.Log($"Mounted mod VDF: {mod}", LogCat.Loading);
-                }
-            }
-
-            // Mount loose _work from modPath root, then from modPath/VDFS/ (extracted VDF content).
-            // VDFS/ is mounted last so it wins on conflicts (e.g. mod's Gothic.dat beats vanilla).
-            foreach (var candidate in new[] { modPath, Path.Combine(modPath, "VDFS") })
-            {
-                if (!Directory.Exists(candidate)) continue;
-                var workDir = FindWorkPath(candidate);
-                if (Directory.Exists(workDir))
-                {
-                    Vfs.Mount(workDir, "/_work", VfsOverwriteBehavior.All);
-                    Logger.Log($"Mounted mod _work: {workDir}", LogCat.Loading);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Parses the [FILES] vdf= line from a Gothic mod INI to get the explicit list of VDF/MOD files.
-        /// </summary>
-        private List<string> ParseVdfListFromIni(string iniPath)
-        {
-            if (string.IsNullOrEmpty(iniPath) || !File.Exists(iniPath))
-                return new List<string>();
-
-            foreach (var line in File.ReadAllLines(iniPath))
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.StartsWith("vdf=", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var value = trimmed.Substring("vdf=".Length).Trim();
-                return value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-            }
-
-            return new List<string>();
-        }
-
         /// <summary>
         /// Finds all <c>.vdf</c> files in a Gothic installation's <c>data</c> directory given the installation's
         /// root directory. It does the lookup case-insensitively.
@@ -425,12 +336,19 @@ namespace Gothic.Core.Services.Caches
             }).First();
 
             var data = Path.GetFullPath(path, root);
-            var files = Directory.GetFiles(data, "*.vdf", new EnumerationOptions
+            var vdfs = Directory.GetFiles(data, "*.vdf", new EnumerationOptions
             {
                 MatchCasing = MatchCasing.CaseInsensitive,
                 RecurseSubdirectories = true,
                 IgnoreInaccessible = true
             });
+            var mods = Directory.GetFiles(data, "*.mod", new EnumerationOptions
+            {
+                MatchCasing = MatchCasing.CaseInsensitive,
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true
+            });
+            var files = vdfs.Concat(mods);
 
             return files.Select(v => Path.GetFullPath(v, data)).ToList();
         }

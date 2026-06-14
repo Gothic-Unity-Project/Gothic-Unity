@@ -20,6 +20,30 @@ namespace Gothic.Core.Services.Config
         public GothicIniConfig Gothic { get; private set; }
         public GothicModIniConfig GothicMod { get; private set; }
 
+        public string EffectiveModPath
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
+#else
+                return Root.ModPath;
+#endif
+            }
+        }
+
+        public string EffectiveModIni
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMod && !Dev.ModIni.IsNullOrEmpty() ? Dev.ModIni : null;
+#else
+                return Root.ModIni;
+#endif
+            }
+        }
+
 
         /// <summary>
         /// First one to load.
@@ -45,23 +69,12 @@ namespace Gothic.Core.Services.Config
         /// </summary>
         public void LoadGothicInis(GameVersion version)
         {
-            var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-            var gothicIniPath = Path.Combine(rootPath, "system/Gothic.ini");
-            
-#if UNITY_EDITOR
-            var effectiveModPath = Dev.EnableMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
-            var effectiveModIni = Dev.EnableMod && !Dev.ModIni.IsNullOrEmpty() ? Dev.ModIni : null;
-#else
-            var effectiveModPath = Root.ModPath;
-            var effectiveModIni = Root.ModIni;
-#endif
-            var modIniFileName = effectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : effectiveModIni;
-            var modSystemPath = !effectiveModPath.IsNullOrEmpty()
-                ? Path.Combine(effectiveModPath, "system", modIniFileName)
-                : null;
-            var gothicModIniPath = modSystemPath != null && File.Exists(modSystemPath)
-                ? modSystemPath
-                : Path.Combine(rootPath, "system", modIniFileName);
+            var baseRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            var rootPath = EffectiveModPath ?? baseRootPath;
+            var gothicIniPath = Path.Combine(baseRootPath, "system/Gothic.ini");
+
+            var modIniFileName = EffectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : EffectiveModIni;
+            var gothicModIniPath = Path.Combine(rootPath, "system", modIniFileName);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
             GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
@@ -74,12 +87,8 @@ namespace Gothic.Core.Services.Config
 
         public bool CheckIfGothicInstallationExists(GameVersion version)
         {
-            var gothicRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-
-            var gothicDataPath = $"{gothicRootPath}/Data";
-            var gothicWorkPath = $"{gothicRootPath}/_work";
-
-            return Directory.Exists(gothicWorkPath) && Directory.Exists(gothicDataPath);
+            var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            return Directory.Exists($"{rootPath}/_work") && Directory.Exists($"{rootPath}/Data");
         }
     }
 }

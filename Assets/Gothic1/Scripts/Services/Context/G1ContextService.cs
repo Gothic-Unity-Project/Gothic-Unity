@@ -12,7 +12,7 @@ namespace Gothic.G1
 
 
         public GameVersion Version => GameVersion.Gothic1;
-        string IContextGameVersionService.RootPath => _configService.Root.Gothic1Path;
+        string IContextGameVersionService.RootPath => _configService.EffectiveModPath ?? _configService.Root.Gothic1Path;
         public string CutsceneFileSuffix => "CSL";
 
         // FIXME - Load from GothicGame.ini

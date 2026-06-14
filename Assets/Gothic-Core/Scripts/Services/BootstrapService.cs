@@ -120,27 +120,8 @@ namespace Gothic.Core.Services
 
             var gothicRootPath = _contextGameVersionService.RootPath;
 
-            // Otherwise, continue loading Gothic.
             Logger.Log($"Initializing Gothic installation at: {gothicRootPath}", LogCat.Loading);
-            string modPath = null, modIniPath = null;
-#if UNITY_EDITOR
-            // In editor, DeveloperConfig is authoritative: EnableMod=false means no mod, period.
-            if (_configService.Dev.EnableMod && !string.IsNullOrEmpty(_configService.Dev.ModPath))
-            {
-                modPath = _configService.Dev.ModPath;
-                if (!string.IsNullOrEmpty(_configService.Dev.ModIni))
-                    modIniPath = Path.Combine(modPath, "system", _configService.Dev.ModIni);
-            }
-#else
-            // In builds, JSON is the authority.
-            if (!string.IsNullOrEmpty(_configService.Root.ModPath))
-            {
-                modPath = _configService.Root.ModPath;
-                if (!string.IsNullOrEmpty(_configService.Root.ModIni))
-                    modIniPath = Path.Combine(modPath, "system", _configService.Root.ModIni);
-            }
-#endif
-            _resourceCacheService.Init(gothicRootPath, modPath, modIniPath);
+            _resourceCacheService.Init(gothicRootPath);
 
             _audioService.InitMusic();
             _staticCacheService.Init();

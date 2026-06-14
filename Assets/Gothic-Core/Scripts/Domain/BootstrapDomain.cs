@@ -150,21 +150,22 @@ namespace Gothic.Core.Domain
 
         private void LoadSubtitles()
         {
-            var cutsceneSuffix = _contextGameVersionService.CutsceneFileSuffix;
-            var cutscenePath = $"{_contextGameVersionService.RootPath}/_work/DATA/scripts/content/CUTSCENE/OU.{cutsceneSuffix}";
+            var rootPath = _contextGameVersionService.RootPath;
+            var suffixes = new[] { _contextGameVersionService.CutsceneFileSuffix, "BIN", "CSL" };
 
-            if (_resourceCacheService.ModPath != null)
+            // VDFS/ is checked first — it holds the mod's OU.BIN extracted from DM_Speech.mod.
+            // ZenKit's CutsceneLibrary has no VFS support, so this is the only way to load mod subtitles.
+            var cutscenePath = new[] { "VDFS/_WORK", "_work" }
+                .SelectMany(folder => suffixes.Select(s => Path.Combine(rootPath, folder, "DATA", "scripts", "content", "CUTSCENE", $"OU.{s}")))
+                .FirstOrDefault(File.Exists);
+
+            if (cutscenePath == null)
             {
-                foreach (var suffix in new[] { cutsceneSuffix, "BIN", "CSL" })
-                {
-                    var modOuPath = Path.Combine(_resourceCacheService.ModPath, "VDFS", "_WORK", "DATA", "SCRIPTS", "CONTENT", "CUTSCENE", $"OU.{suffix}");
-                    if (!File.Exists(modOuPath)) continue;
-                    cutscenePath = modOuPath;
-                    Logger.Log($"Loading CutsceneLibrary from mod: {modOuPath}", LogCat.Loading);
-                    break;
-                }
+                Logger.LogWarning("OU.BIN/CSL not found — dialog subtitles disabled.", LogCat.Dialog);
+                return;
             }
 
+            Logger.Log($"Loading CutsceneLibrary from: {cutscenePath}", LogCat.Dialog);
             _gameStateService.Dialogs.CutsceneLibrary = new(cutscenePath);
         }
 
