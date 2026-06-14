@@ -244,6 +244,8 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiContinueRoutine(NpcInstance npc)
         {
+            if (npc == null || npc.GetUserData() == null)
+                return;
             npc.GetUserData().Props.AnimationQueue.Enqueue(new ContinueRoutine(new AnimationAction(), npc.GetUserData()));
         }
 

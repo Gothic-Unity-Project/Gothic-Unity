@@ -20,6 +20,12 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcExchangeRoutine(NpcInstance npcInstance, string routineName)
         {
+            if (npcInstance == null)
+            {
+                Logger.LogWarning($"Npc_ExchangeRoutine called with null npcInstance for routine '{routineName}'.", LogCat.Npc);
+                return;
+            }
+
             var formattedRoutineName = $"Rtn_{routineName}_{npcInstance.Id}";
             var newRoutine = _vm.GetSymbolByName(formattedRoutineName);
 
@@ -52,13 +58,20 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            npc.GetUserData().Props.Routines.Clear();
+            var npcContainer = npc.GetUserData();
+            if (npcContainer == null)
+            {
+                Logger.LogWarning($"Npc_ExchangeRoutine: NPC {npc.Id} has no Unity data (not spawned?) — skipping routine exchange.", LogCat.Npc);
+                return;
+            }
+
+            npcContainer.Props.Routines.Clear();
 
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npc;
             _gameStateService.GothicVm.Call(routineIndex);
 
-            npc.GetUserData().Vob.HasRoutine = npc.GetUserData().Props.Routines.NotNullOrEmpty();
+            npcContainer.Vob.HasRoutine = npcContainer.Props.Routines.NotNullOrEmpty();
 
             CalculateCurrentRoutine(npc);
         }
