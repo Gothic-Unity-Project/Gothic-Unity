@@ -35,19 +35,23 @@ namespace Gothic.Core.Domain.Config
             var settingsJson = File.ReadAllText(settingsFilePath);
             var loadedSettings = JsonUtility.FromJson<JsonRootConfig>(settingsJson);
 
-#if UNITY_EDITOR
-            // Overwrite data with GameSettings.dev.json if it exists. Editor-only — never loaded in builds.
+            // Overwrite data with GameSettings.dev.json if it exists (git-ignored local override).
             var settingsDevFilePath = $"{rootPath}/{_settingsFileNameDev}";
             if (File.Exists(settingsDevFilePath))
             {
                 var devJson = File.ReadAllText(settingsDevFilePath);
                 JsonUtility.FromJsonOverwrite(devJson, loadedSettings);
             }
-#endif
 
             // We need to do a final check for Gothic installation path and which one to ultimately use.
             loadedSettings.Gothic1Path = AlterGothicInstallationPath(loadedSettings.Gothic1Path, GameVersion.Gothic1);
             loadedSettings.Gothic2Path = AlterGothicInstallationPath(loadedSettings.Gothic2Path, GameVersion.Gothic2);
+
+            // Sanitize optional mod fields — placeholder strings from the template start with "---" and must be ignored.
+            if (string.IsNullOrEmpty(loadedSettings.ModPath) || loadedSettings.ModPath.StartsWith("---") || !Directory.Exists(loadedSettings.ModPath))
+                loadedSettings.ModPath = null;
+            if (string.IsNullOrEmpty(loadedSettings.ModIni) || loadedSettings.ModIni.StartsWith("---"))
+                loadedSettings.ModIni = null;
 
             return loadedSettings;
         }
