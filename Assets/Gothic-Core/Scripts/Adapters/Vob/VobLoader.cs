@@ -7,5 +7,6 @@ namespace Gothic.Core.Adapters.Vob
     {
         public VobContainer Container;
         public bool IsLoaded;
+        public bool IsQueued;
     }
 }
