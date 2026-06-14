@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -150,8 +151,20 @@ namespace Gothic.Core.Domain
         private void LoadSubtitles()
         {
             var cutsceneSuffix = _contextGameVersionService.CutsceneFileSuffix;
-            var cutscenePath =
-                $"{_contextGameVersionService.RootPath}/_work/DATA/scripts/content/CUTSCENE/OU.{cutsceneSuffix}";
+            var cutscenePath = $"{_contextGameVersionService.RootPath}/_work/DATA/scripts/content/CUTSCENE/OU.{cutsceneSuffix}";
+
+            if (_resourceCacheService.ModPath != null)
+            {
+                foreach (var suffix in new[] { cutsceneSuffix, "BIN", "CSL" })
+                {
+                    var modOuPath = Path.Combine(_resourceCacheService.ModPath, "VDFS", "_WORK", "DATA", "SCRIPTS", "CONTENT", "CUTSCENE", $"OU.{suffix}");
+                    if (!File.Exists(modOuPath)) continue;
+                    cutscenePath = modOuPath;
+                    Logger.Log($"Loading CutsceneLibrary from mod: {modOuPath}", LogCat.Loading);
+                    break;
+                }
+            }
+
             _gameStateService.Dialogs.CutsceneLibrary = new(cutscenePath);
         }
 
