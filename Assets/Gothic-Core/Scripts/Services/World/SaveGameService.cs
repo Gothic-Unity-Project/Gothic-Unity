@@ -139,7 +139,8 @@ namespace Gothic.Core.Services.World
         public void ChangeWorld(string worldName)
         {
             // G2 has for example: AddonWorld\NewWorld.zen --> NewWorld.zen
-            CurrentWorldName = Path.GetFileName(worldName);
+            // Linux doesn't see \ as a directory separator, Windows sees both \ and /
+            CurrentWorldName = Path.GetFileName(worldName.Replace("\\","/"));
 
             // 1. World was already loaded.
             if (_worlds.ContainsKey(CurrentWorldName))
