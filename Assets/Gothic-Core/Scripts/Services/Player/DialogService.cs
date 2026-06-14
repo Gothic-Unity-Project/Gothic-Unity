@@ -315,8 +315,14 @@ namespace Gothic.Core.Manager
             _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
             _gameStateService.GothicVm.GlobalOther = _gameStateService.GothicVm.GlobalHero;
 
-            _gameStateService.GothicVm.Call(information);
-
+            try
+            {
+                _gameStateService.GothicVm.Call(information);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Dialog function threw an exception — dialog may be incomplete: {ex.Message}", LogCat.Dialog);
+            }
 
             var animationQueue = npcContainer.Props.AnimationQueue;
 

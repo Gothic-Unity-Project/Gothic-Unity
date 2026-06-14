@@ -1,5 +1,6 @@
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
@@ -12,6 +13,7 @@ using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -50,12 +52,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             var audioClip = _audioService.CreateAudioClip(OutputName);
-            _audioPlaySeconds = audioClip.length;
+            if (audioClip == null)
+            {
+                Logger.LogWarning($"Audio clip not found for dialog output '{OutputName}' — skipping audio.", LogCat.Dialog);
+                _audioPlaySeconds = 2f;
+            }
+            else
+            {
+                _audioPlaySeconds = audioClip.length;
+            }
 
             // Hero
             if (_isHeroSpeaking)
             {
-                _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
+                if (audioClip != null)
+                    _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
 
                 PrintDialog();
             }
@@ -69,7 +80,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
                 PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
 
-                PrefabProps.NpcSound.PlayOneShot(audioClip);
+                if (audioClip != null)
+                    PrefabProps.NpcSound.PlayOneShot(audioClip);
 
                 PrintDialog();
             }
@@ -78,16 +90,18 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private void PrintDialog()
         {
             // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var currentMessage = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName).Message;
+            var block = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+            if (block == null)
+            {
+                Logger.LogWarning($"Dialog block '{OutputName}' not found in CutsceneLibrary.", LogCat.Dialog);
+                return;
+            }
 
+            var text = block.Message.Text;
             if (_isHeroSpeaking)
-            {
-                _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
+                _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(text);
             else
-            {
-                PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
+                PrefabProps.NpcSubtitles.ShowSubtitles(text);
         }
 
         /// <summary>
