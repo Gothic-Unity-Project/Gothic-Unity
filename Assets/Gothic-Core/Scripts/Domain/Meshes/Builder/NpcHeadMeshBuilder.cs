@@ -20,9 +20,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 return RootGo;
             }
 
-            var npcContainer = RootGo.GetComponentInParent<NpcLoader>().Npc.GetUserData();
+            var npcContainer = RootGo.GetComponentInParent<NpcLoader>()?.Npc?.GetUserData();
+            if (npcContainer == null)
+            {
+                Logger.LogWarning($"NpcContainer not available during head build for {RootGo.name} — skipping head component setup.", LogCat.Mesh);
+                return RootGo;
+            }
 
-            // Cache it f1or faster use during runtime
+            // Cache it for faster use during runtime
             npcContainer.PrefabProps.Head = headGo.transform;
             npcContainer.PrefabProps.HeadMorph = headGo.AddComponent<HeadMorph>().Inject();
             npcContainer.PrefabProps.HeadMorph.HeadName = npcContainer.Props.BodyData.Head;

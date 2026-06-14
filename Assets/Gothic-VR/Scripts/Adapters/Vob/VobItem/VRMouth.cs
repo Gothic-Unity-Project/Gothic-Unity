@@ -14,6 +14,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -60,8 +61,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             GameObject rootGo = go;
             var vobLoaderComp = go.GetComponentInParent<VobLoader>();
 
-            // LAB - Fallback as objects aren't LazyLoaded in here.
-            if (vobLoaderComp != null)
+            // Only use the VobLoader root if it belongs to this specific item (not a parent chest/container).
+            if (vobLoaderComp != null && vobLoaderComp.Container.Vob.Type == VirtualObjectType.oCItem)
                 rootGo = vobLoaderComp.gameObject;
 
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));

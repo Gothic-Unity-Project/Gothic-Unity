@@ -32,6 +32,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            if (Vob.GuildTrue < (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM)
+            {
+                Logger.Log($"AI_Attack() on human NPC (guild={Vob.GuildTrue}) — not yet implemented, skipping.", LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
+
             var aiFunctionTemplate = FindAiFunctionTemplate();
             _move = VmCacheService.TryGetFightAiData(aiFunctionTemplate, Vob.FightTactic).GetRandomMove();
             StartAttackAction();

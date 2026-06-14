@@ -466,7 +466,7 @@ namespace Gothic.Core.Domain.Vobs
 
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true);
+                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true, useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
@@ -581,14 +581,18 @@ namespace Gothic.Core.Domain.Vobs
                 if (sfxContainer == null)
                     return null;
 
+                var firstSound = sfxContainer.GetFirstSound();
+                if (firstSound == null)
+                    return null;
+
                 // Instead of decoding nosound.wav which might be decoded incorrectly, just return null.
-                if (sfxContainer.GetFirstSound().File.EqualsIgnoreCase(AudioService.NoSoundName))
+                if (firstSound.File.EqualsIgnoreCase(AudioService.NoSoundName))
                     return null;
 
                 if (sfxContainer.Count > 1)
-                    Logger.LogWarning($"Multiple random elements exist for >{sfxContainer.GetFirstSound().File}< but only first is selected.", LogCat.Audio);
+                    Logger.LogWarning($"Multiple random elements exist for >{firstSound.File}< but only first is selected.", LogCat.Audio);
 
-                clip = _audioService.CreateAudioClip(sfxContainer.GetFirstSound().File);
+                clip = _audioService.CreateAudioClip(firstSound.File);
             }
 
             return clip;

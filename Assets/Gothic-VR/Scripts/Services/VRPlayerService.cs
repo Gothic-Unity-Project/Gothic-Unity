@@ -45,6 +45,9 @@ namespace Gothic.VR.Services
             else
                 handGrabber = grabber as HVRHandGrabber;
 
+            if (handGrabber == null)
+                return;
+
             if (handGrabber.IsLeftHand)
             {
                 // If we did remote grabbing, this function is called twice (remote grabber+hand grabber).
@@ -70,7 +73,8 @@ namespace Gothic.VR.Services
 
             // Otherwise alter inventory count
             var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            _playerService.AddItem(vobItem.Instance, vobItem.Amount);
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            _playerService.AddItem(instanceName, vobItem.Amount);
         }
         
         public void UnsetGrab(HVRGrabberBase grabber, HVRGrabbable grabbable)
@@ -82,6 +86,9 @@ namespace Gothic.VR.Services
                 handGrabber = forceGrabber.HandGrabber;
             else
                 handGrabber = grabber as HVRHandGrabber;
+
+            if (handGrabber == null)
+                return;
 
             if (handGrabber.IsLeftHand)
             {
@@ -108,7 +115,8 @@ namespace Gothic.VR.Services
 
             // Otherwise alter inventory count
             var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            _playerService.RemoveItem(vobItem.Instance, vobItem.Amount);
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            _playerService.RemoveItem(instanceName, vobItem.Amount);
         }
 
         public HVRController GetHand(HVRHandSide side)

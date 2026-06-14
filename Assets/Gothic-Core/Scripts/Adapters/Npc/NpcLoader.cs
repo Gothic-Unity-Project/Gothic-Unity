@@ -12,3 +12,4 @@ namespace Gothic.Core.Adapters.Npc
         public bool IsLoaded;
     }
 }
+

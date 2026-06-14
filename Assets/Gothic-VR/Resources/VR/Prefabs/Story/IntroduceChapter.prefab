@@ -103,6 +103,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -239,6 +240,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -444,6 +446,7 @@ GameObject:
   - component: {fileID: 7369722077890996068}
   - component: {fileID: 390066666418957288}
   - component: {fileID: 5615940322375626677}
+  - component: {fileID: 1602513700271543697}
   m_Layer: 5
   m_Name: IntroduceChapter
   m_TagString: Untagged
@@ -495,6 +498,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
@@ -580,3 +584,16 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1602513700271543697
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7339275886835513150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20620ae30fdd0164c9bb5bdc717d3ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Reflex::Reflex.Components.GameObjectSelfInjector
+  _injectionStrategy: 2

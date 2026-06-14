@@ -79,9 +79,12 @@ namespace Gothic.Core.Adapters.Npc
             if (Properties.AnimationQueue.Count == 0)
             {
                 // We always need to set "self" before executing any Daedalus function.
+                // "other" defaults to hero here so routine states (ZS_*_Loop) have a sensible fallback.
+                // Perception calls (ExecutePerception) override GlobalOther themselves with their own save/restore.
                 if (NpcInstance != null)
                 {
                     Vm.GlobalSelf = NpcInstance;
+                    Vm.GlobalOther = Vm.GlobalHero;
                 }
 
                 DaedalusSymbol loopSymbol;
@@ -254,14 +257,6 @@ namespace Gothic.Core.Adapters.Npc
 
         public void StartRoutine(int action)
         {
-            // End original loop first
-            // TODO - Calling ClearState(false) was buggy when e.g. Diego dialog "END" was clicked. Then the dialog lines were skipped.
-            // if (Properties.CurrentLoopState == NpcProperties.LoopState.Loop)
-            // {
-            //     // We reuse this function as it is doing what we need.
-            //     ClearState(false);
-            // }
-
             var didRoutineChange = Vob.CurrentStateIndex != action;
 
             Vob.LastAiState = Vob.CurrentStateIndex;
@@ -295,6 +290,11 @@ namespace Gothic.Core.Adapters.Npc
             // When we reached end of ZS_*_END, we also call this method. Check if we really altered the routine action or just restarted it.
             if (didRoutineChange)
             {
+                if (Properties.CurrentFreePoint != null)
+                {
+                    Properties.CurrentFreePoint.IsLocked = false;
+                    Properties.CurrentFreePoint = null;
+                }
                 Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 Properties.StateTime = 0;
             }
@@ -337,8 +337,11 @@ namespace Gothic.Core.Adapters.Npc
             var currentRoutine = Properties.RoutineCurrent;
             if (currentRoutine != null)
             {
-                var wpPos = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint).Position;
-                gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wpPos);
+                var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
+                if (wp != null)
+                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                else
+                    Logger.LogWarning($"ReEnableNpc: waypoint '{currentRoutine.Waypoint}' not found for {gameObject.name} — NPC will re-enable at current position.", LogCat.Npc);
             }
 
             // Animation state handling

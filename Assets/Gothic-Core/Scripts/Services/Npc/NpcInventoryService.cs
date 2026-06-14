@@ -111,17 +111,52 @@ namespace Gothic.Core.Services.Npc
             return _vobService.UnpackItems(npcVob.GetPacked((int)category));
         }
 
+        /// <summary>
+        /// Returns all items across every category. Each InvCats slot only exists in ZenKit if
+        /// SetPacked was previously called for it — accessing a missing slot throws from native code.
+        /// This method silently skips slots that were never initialized.
+        /// </summary>
+        public List<ContentItem> GetAllInventoryItems(NpcInstance npc)
+        {
+            var items = new List<ContentItem>();
+            foreach (VmGothicEnums.InvCats cat in System.Enum.GetValues(typeof(VmGothicEnums.InvCats)))
+            {
+                if (cat == VmGothicEnums.InvCats.InvCatMax)
+                    continue;
+                try
+                {
+                    items.AddRange(GetInventoryItems(npc, cat));
+                }
+                catch
+                {
+                    // Slot was never initialized for this NPC — expected when a category has no items
+                }
+            }
+            return items;
+        }
+
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
-            var npcVob = npc.GetUserData()!.Vob;
             var itemInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(itemId)!.Name;
-            
-            for (var i = 0; i < npcVob.ItemCount; i++)
+
+            foreach (InvCats cat in System.Enum.GetValues(typeof(InvCats)))
             {
-                if (npcVob.GetItem(i).Name == itemInstanceName)
-                    return npcVob.GetItem(i).Amount;
+                if (cat == InvCats.InvCatMax)
+                    continue;
+                try
+                {
+                    foreach (var item in GetInventoryItems(npc, cat))
+                    {
+                        if (string.Equals(item.Name, itemInstanceName, System.StringComparison.OrdinalIgnoreCase))
+                            return item.Amount;
+                    }
+                }
+                catch
+                {
+                    // Category slot was never initialized for this NPC
+                }
             }
-            
+
             return 0;
         }
         

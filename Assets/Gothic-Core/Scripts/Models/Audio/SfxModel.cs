@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -8,6 +9,7 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Models.Audio
 {
@@ -64,9 +66,10 @@ namespace Gothic.Core.Models.Audio
                 var firstSound = _gameStateService.SfxVm.InitInstance<SoundEffectInstance>(soundKey);
                 sounds.Add(firstSound);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                // If the key itself doesn't exist, then we don't need to look further.
+                // SFX symbol missing from Gothic's SFX scripts — expected for some broken VOBs (e.g. Wood_Night2 was never defined).
+                Logger.LogWarning($"SFX symbol not found in VM: '{soundKey}' — no sound will play.", LogCat.Audio);
                 _soundEffects = Array.Empty<SoundEffectInstance>();
                 return;
             }
