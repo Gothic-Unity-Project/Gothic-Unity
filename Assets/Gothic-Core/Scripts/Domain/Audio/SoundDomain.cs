@@ -107,17 +107,11 @@ namespace Gothic.Core.Domain.Audio
             {
                 case BitDepth.Bit8:
                     {
-                        var wavSize = BitConverter.ToInt32(source, headerOffset);
-
-                        var data = new float[wavSize];
-
-                        var maxValue = sbyte.MaxValue;
-
-                        for (var i = 0; i < wavSize; i++)
-                        {
-                            data[i] = (float)source[i] / maxValue;
-                        }
-
+                        // 8-bit WAV samples are unsigned (0-255), silence = 128.
+                        var sampleCount = source.Length - headerOffset;
+                        var data = new float[sampleCount];
+                        for (var i = 0; i < sampleCount; i++)
+                            data[i] = (source[headerOffset + i] - 128) / 128f;
                         return data;
                     }
                 case BitDepth.Bit16:
