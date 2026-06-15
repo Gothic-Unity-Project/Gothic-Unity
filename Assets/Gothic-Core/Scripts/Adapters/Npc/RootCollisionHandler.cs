@@ -22,6 +22,23 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
+        /// The capsule must not live under the animated skeleton root: Update() transfers the physics
+        /// displacement to Go in this transform's parent space, and the root bone's rest rotation differs
+        /// per species. Humans only get away with it because BIP01 is purely yawed - Bloodfly's tilted
+        /// "BIP01 CENTER" turned the vertical settling displacement into a permanent horizontal slide
+        /// ("flies backwards"), with the capsule lying sideways on top. The animated root Y (sitting,
+        /// flying) would also drag the capsule along and push the NPC up/down with it.
+        /// AnimationSystem.FollowRootColliderHeight() resizes the capsule for pose changes instead.
+        /// Reparenting happens in Start(): NpcData.Go is only assigned after the prefab is instantiated,
+        /// and the mesh builder has reshaped the bone hierarchy by then.
+        /// </summary>
+        private void Start()
+        {
+            transform.SetParent(Go.transform, false);
+            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        }
+
+        /// <summary>
         /// We need to apply physics on the NPC itself.
         /// General movement and animations are handled within AnimationSystem.cs. This Collider object is to add physics on top.
         /// </summary>
@@ -39,8 +56,8 @@ namespace Gothic.Core.Adapters.Npc
              * NPC GO hierarchy:
              *
              * root
+             *  /RootCollisionHandler <- physics (gravity settling) is calculated here and merged to root
              *  /BIP01/ <- animation root
-             *    /RootCollisionHandler <- Moved with animation as inside BIP01, but physics are applied and merged to root
              *    /... <- animation bones
              */
 
