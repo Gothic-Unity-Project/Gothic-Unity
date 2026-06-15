@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.HVROverrides;
 using HurricaneVR.Framework.ControllerInput;
 using HurricaneVR.Framework.Shared;
@@ -15,6 +16,7 @@ namespace Gothic.VR.Adapters.UI
     public class VRMenuCheatAdapter : MonoBehaviour
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly GameTimeService _gameTimeService;
 
         private MenuHandler _menuHandler;
         private StatusMenu _statusMenu;
@@ -27,6 +29,10 @@ namespace Gothic.VR.Adapters.UI
         private void Update()
         {
             if (_configService == null) return;
+
+            if (_configService.Dev.EnableTimeSkip && RightSecondaryJustPressed())
+                SkipTime30Min();
+
             if (!_configService.Dev.EnableLevel5Cheat && !_configService.Dev.EnableGuildCheat) return;
 
             if (!_initialized) TryInit();
@@ -69,6 +75,24 @@ namespace Gothic.VR.Adapters.UI
                     _statusMenu.ExecuteGuildCheat();
                 }
             }
+        }
+
+        private void SkipTime30Min()
+        {
+            var t = _gameTimeService.GetCurrentTime();
+            var next = t.Add(System.TimeSpan.FromMinutes(30));
+            _gameTimeService.SetTime(next.Hours, next.Minutes);
+            Logger.Log($"[VRMenuCheatAdapter] Time skip → {next.Hours:D2}:{next.Minutes:D2}", LogCat.Ui);
+        }
+
+        private static bool RightSecondaryJustPressed()
+        {
+            if (Keyboard.current != null && Keyboard.current[Key.N].wasPressedThisFrame)
+            {
+                Logger.Log("[VRMenuCheatAdapter] N key (sim B button / time skip)", LogCat.Ui);
+                return true;
+            }
+            return HVRController.GetButtonState(HVRHandSide.Right, HVRButtons.Secondary).JustActivated;
         }
 
         private void TryInit()
