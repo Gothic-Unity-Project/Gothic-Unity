@@ -203,6 +203,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                         rect.SetHeight(rend.sharedMaterial.mainTexture.height);
                         rect.SetPositionX(halfMainWidth - _arrowMargin);
                         rect.SetPositionY(halfMainHeight - _arrowMargin);
+                        SetLocalZ(rect, -0.03f);
                     }
 
                     // DOWN
@@ -221,6 +222,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                         rect.SetHeight(rend.sharedMaterial.mainTexture.height);
                         rect.SetPositionX(halfMainWidth - _arrowMargin);
                         rect.SetPositionY(-halfMainHeight + _arrowMargin);
+                        SetLocalZ(rect, -0.03f);
                     }
                 }
 
@@ -254,6 +256,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 rect.SetHeight(rend.sharedMaterial.mainTexture.height);
                 rect.SetPositionX(halfTextWidth + rend.sharedMaterial.mainTexture.width);
                 rect.SetPositionY(halfTextHeight + rend.sharedMaterial.mainTexture.height);
+                SetLocalZ(rect, -0.03f);
             }
 
             // DOWN - right side, below content
@@ -271,9 +274,10 @@ namespace Gothic.Core.Adapters.UI.Menus
                 rect.SetHeight(rend.sharedMaterial.mainTexture.height);
                 rect.SetPositionX(halfTextWidth + rend.sharedMaterial.mainTexture.width);
                 rect.SetPositionY(-halfTextHeight - rend.sharedMaterial.mainTexture.height);
+                SetLocalZ(rect, -0.03f);
             }
 
-            // BACK - top-left corner, inside the content area
+            // BACK - bottom-left corner, same Y as ARROW_DOWN
             {
                 var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiButtonTextured, name: "ARROW_BACK", parent: contentViewer.go)!;
                 var rect = go.GetComponentInChildren<RectTransform>();
@@ -285,11 +289,11 @@ namespace Gothic.Core.Adapters.UI.Menus
                 button.onClick.AddListener(OnContentViewerBackClick);
 
                 var arrowW = rend.sharedMaterial.mainTexture.width * go.transform.localScale.x;
-                var arrowH = rend.sharedMaterial.mainTexture.height * go.transform.localScale.y;
                 rect.SetWidth(rend.sharedMaterial.mainTexture.width);
                 rect.SetHeight(rend.sharedMaterial.mainTexture.height);
                 rect.SetPositionX(-halfTextWidth + arrowW);
-                rect.SetPositionY(halfTextHeight - arrowH);
+                rect.SetPositionY(-halfTextHeight - rend.sharedMaterial.mainTexture.height);
+                SetLocalZ(rect, -0.03f);
             }
         }
 
@@ -401,8 +405,12 @@ namespace Gothic.Core.Adapters.UI.Menus
             Background.SetActive(false);
 
             var contentViewer = MenuItemCache[_instanceContentViewer].go;
-            contentViewer.GetComponentInChildren<TMP_Text>().text = text;
+            var tmpText = contentViewer.GetComponentInChildren<TMP_Text>();
+            tmpText.text = text;
             contentViewer.SetActive(true);
+            tmpText.ForceMeshUpdate(ignoreActiveState: true);
+            foreach (var subMesh in tmpText.GetComponentsInChildren<TMP_SubMeshUI>())
+                SetLocalZ(subMesh.rectTransform, -0.02f);
         }
 
         private void OnArrowUpClick()
@@ -465,6 +473,13 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             // If the Command==ListMenu, then we set it as currently active.
             _listMenuCache.TryGetValue(menuItemName, out _activeListMenu);
+        }
+
+        private static void SetLocalZ(RectTransform rect, float z)
+        {
+            var pos = rect.localPosition;
+            pos.z = z;
+            rect.localPosition = pos;
         }
     }
 }
