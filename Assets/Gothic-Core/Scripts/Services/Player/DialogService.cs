@@ -117,6 +117,13 @@ namespace Gothic.Core.Manager
                 }
 
                 selectableDialogs = selectableDialogs.OrderBy(d => d.Nr).ToList();
+
+                if (!selectableDialogs.Any())
+                {
+                    StopDialog(npcContainer);
+                    return;
+                }
+
                 _contextDialogService.FillDialog(npcContainer.Instance, selectableDialogs);
                 _contextDialogService.ShowDialog(npcContainer.Go);
             }
