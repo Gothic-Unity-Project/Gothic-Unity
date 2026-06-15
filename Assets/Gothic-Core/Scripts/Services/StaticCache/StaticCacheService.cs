@@ -253,7 +253,7 @@ namespace Gothic.Core.Services.StaticCache
 
         public async Task SaveGlobalCache(Dictionary<string, Bounds> vobBounds,
             Dictionary<string, List<VobItemColliderCacheCreatorDomain.Data>> itemCollider,
-            Dictionary<string, TextureInfo> textureArrayInformation)
+            Dictionary<TextureCacheService.TextureArrayTypes, Dictionary<string, TextureInfo>> textureArrayInformation)
         {
             try
             {
@@ -276,16 +276,15 @@ namespace Gothic.Core.Services.StaticCache
                 };
                 await SaveCacheFile(vobItemCollider, BuildFilePathName(_fileNameGlobalVobItemCollider));
 
+                // A texture may appear in more than one list: dual-use textures occupy a slice in the Water
+                // array AND a solid array (e.g. G1's OWODWAT_A0 on rivers and the Old Camp cauldron).
                 var textureArrayContainer = new TextureArrayContainer
                 {
-                    TexturesOpaque = textureArrayInformation
-                        .Where(i => i.Value.T == TextureCacheService.TextureArrayTypes.Opaque)
+                    TexturesOpaque = textureArrayInformation[TextureCacheService.TextureArrayTypes.Opaque]
                         .Select(i => new TextureArrayEntry(i.Key, i.Value.MaxDim, i.Value.AnimFrameC)).ToList(),
-                    TexturesTransparent = textureArrayInformation
-                        .Where(i => i.Value.T == TextureCacheService.TextureArrayTypes.Transparent)
+                    TexturesTransparent = textureArrayInformation[TextureCacheService.TextureArrayTypes.Transparent]
                         .Select(i => new TextureArrayEntry(i.Key, i.Value.MaxDim, i.Value.AnimFrameC)).ToList(),
-                    TexturesWater = textureArrayInformation
-                        .Where(i => i.Value.T == TextureCacheService.TextureArrayTypes.Water)
+                    TexturesWater = textureArrayInformation[TextureCacheService.TextureArrayTypes.Water]
                         .Select(i => new TextureArrayEntry(i.Key, i.Value.MaxDim, i.Value.AnimFrameC)).ToList(),
                 };
                 await SaveCacheFile(textureArrayContainer, BuildFilePathName(_fileNameGlobalTextureArrayData));
@@ -365,17 +364,19 @@ namespace Gothic.Core.Services.StaticCache
             LoadedVobsBounds = vobBoundsContainer.BoundsEntries.ToDictionary(i => i.Mesh, i => i.Bounds);
             LoadedVobItemColliders = vobItemsColliderContainer.ColliderEntries.ToDictionary(i => i.Mesh, i => i.Colls);
 
+            // Keys are case-insensitive like Gothic's VFS, so materials referencing a texture with deviating
+            // casing still resolve to the same array slice.
             var loopIndex = 0;
             LoadedTextureInfoOpaque = textureArrayContainer.TexturesOpaque
-                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Opaque, i.MaxDim, i.AnimFrameC)));
+                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Opaque, i.MaxDim, i.AnimFrameC)), StringComparer.OrdinalIgnoreCase);
 
             loopIndex = 0;
             LoadedTextureInfoTransparent = textureArrayContainer.TexturesTransparent
-                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Transparent, i.MaxDim, i.AnimFrameC)));
+                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Transparent, i.MaxDim, i.AnimFrameC)), StringComparer.OrdinalIgnoreCase);
 
             loopIndex = 0;
             LoadedTextureInfoWater = textureArrayContainer.TexturesWater
-                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Water, i.MaxDim, i.AnimFrameC)));
+                .ToDictionary(i => i.Tex, i => (index: loopIndex++, data: new TextureInfo(TextureCacheService.TextureArrayTypes.Water, i.MaxDim, i.AnimFrameC)), StringComparer.OrdinalIgnoreCase);
         }
 
         public async Task LoadWorldCache(string worldName)
