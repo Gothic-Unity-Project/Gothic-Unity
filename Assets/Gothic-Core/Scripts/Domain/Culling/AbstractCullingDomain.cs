@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 
@@ -18,16 +16,27 @@ namespace Gothic.Core.Domain.Culling
             WorldLoaded
         }
 
+        /// <summary>
+        /// Logical culling state of a tracked object. Unknown forces the first event/initial sweep to apply a state.
+        /// </summary>
+        protected enum ObjectState : byte
+        {
+            Unknown,
+            Enabled,
+            Disabled
+        }
+
+        // Objects can move between cullingDistance and cullingDistance*factor without a state change (hysteresis).
+        // Prevents SetActive() flickering at the culling border while the VR headset bobs around.
+        protected const float HysteresisFactor = 1.15f;
+
         protected State CurrentState;
-        
+
         // Stored for resetting after world switch
         protected CullingGroup CullingGroup;
 
-        // Stored for later index mapping SphereIndex => GOIndex
-        protected readonly List<GameObject> Objects = new();
-
-        // Temporary spheres during async world loading calls.
-        protected List<BoundingSphere> Spheres = new();
+        // Main camera transform, set once the world finished loading.
+        protected Transform ReferencePoint;
 
         protected abstract void VisibilityChanged(CullingGroupEvent evt);
 
@@ -40,8 +49,6 @@ namespace Gothic.Core.Domain.Culling
 
         public virtual void PreWorldCreate()
         {
-            Objects.ClearAndReleaseMemory();
-            Spheres.ClearAndReleaseMemory();
             CullingGroup.Dispose();
             CullingGroup = new CullingGroup();
 
@@ -58,6 +65,7 @@ namespace Gothic.Core.Domain.Culling
             var mainCamera = Camera.main!;
             CullingGroup.targetCamera = mainCamera; // Needed for FrustumCulling and OcclusionCulling to work.
             CullingGroup.SetDistanceReferencePoint(mainCamera.transform); // Needed for BoundingDistances to work.
+            ReferencePoint = mainCamera.transform;
 
             CurrentState = State.WorldLoaded;
         }
