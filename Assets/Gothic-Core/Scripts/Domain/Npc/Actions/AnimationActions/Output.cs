@@ -4,11 +4,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
-using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
-using Gothic.Core.Const;
 using Reflex.Attributes;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -19,7 +16,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class Output : AbstractAnimationAction
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly NpcService _npcService;
@@ -87,13 +83,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var currentMessage = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName).Message;
 
             if (_isHeroSpeaking)
-            {
                 _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
             else
-            {
                 PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
         }
 
         /// <summary>
@@ -114,6 +106,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return _gameStateService.Dialogs.GestureCount;
         }
 
+        // Used by OutputSvm for hero greeting: audio plays fire-and-forget, subtitles auto-hide after clip ends.
+        protected void StartHeroFireAndForget()
+        {
+            _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ScheduleHide(_audioPlaySeconds);
+            IsFinishedFlag = true;
+        }
+
         public override void StopImmediately()
         {
             _audioPlaySeconds = 0f;
@@ -132,6 +131,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override bool IsFinished()
         {
+            if (IsFinishedFlag) return true;
+
             _audioPlaySeconds -= Time.deltaTime;
 
             if (_audioPlaySeconds <= 0f)

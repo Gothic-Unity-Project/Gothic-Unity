@@ -96,7 +96,6 @@ namespace Gothic.Core.Manager
                         continue;
                     }
 
-                    
                     // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
                     var oldSelf = _gameStateService.GothicVm.GlobalSelf;
                     var oldOther = _gameStateService.GothicVm.GlobalOther;
@@ -111,7 +110,7 @@ namespace Gothic.Core.Manager
                     {
                         continue;
                     }
-                    
+
                     // We can now add the dialog
                     selectableDialogs.Add(dialog);
                 }
@@ -190,18 +189,25 @@ namespace Gothic.Core.Manager
                 npcTalkingTo.GetUserData()));
         }
 
-        /// <summary>
-        /// SVM (Standard Voice Module) dialogs are only for NPCs between each other. Not related to Hero dialogs.
-        /// </summary>
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
-            var npcContainer = GetNpcContainer(npc);
+            var isHero = npc.Id == 0;
 
-            if (target != null)
+            // Hero SVM: enqueue on target's queue (hero's queue is never processed); hero container provides voice ID.
+            if (isHero && target != null)
             {
-                Logger.LogWarning("Ai_OutputSvm() - Handling with target not yet implemented!", LogCat.Dialog);
+                // NPC walked to player (e.g. important dialog) — hero's "hey" reactive lines make no sense.
+                if (!_gameStateService.Dialogs.WasPlayerInitiated)
+                    return;
+
+                var heroContainer = GetNpcContainer(npc);
+                target.GetUserData().Props.AnimationQueue.Enqueue(new OutputSvm(
+                    new AnimationAction(int0: 0, string0: svmName),
+                    heroContainer));
+                return;
             }
 
+            var npcContainer = GetNpcContainer(npc);
             npcContainer.Props.AnimationQueue.Enqueue(new OutputSvm(
                 new AnimationAction(int0: npcContainer.Instance.Id, string0: svmName),
                 npcContainer));
@@ -286,6 +292,7 @@ namespace Gothic.Core.Manager
             _gameStateService.Dialogs.CurrentInstance = null;
             _gameStateService.Dialogs.CurrentOptions.Clear();
             _gameStateService.Dialogs.IsInDialog = false;
+            _gameStateService.Dialogs.WasPlayerInitiated = false;
 
             // WIP: unlocking movement
             _contextInteractionService.UnlockPlayer();
