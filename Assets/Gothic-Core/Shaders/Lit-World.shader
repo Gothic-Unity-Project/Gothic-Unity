@@ -63,7 +63,7 @@ Shader "Lit/World"
 
             half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
             {
-                half3 diffuse = SunAndAmbientDiffuse(normal, color);
+                half3 diffuse = color;
 
                 //for (int j = 0; j < min(MAX_VISIBLE_LIGHTS, unity_LightData.y); j++)
                 //{
