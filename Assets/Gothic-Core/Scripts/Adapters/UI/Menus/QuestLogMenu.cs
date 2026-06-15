@@ -239,7 +239,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             textComp.overflowMode = TextOverflowModes.Page;
             textComp.pageToDisplay = 0;
 
-            // UP
+            // UP - right side, above content
             {
                 var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiButtonTextured, name: "ARROW_UP", parent: contentViewer.go)!;
                 var rect = go.GetComponentInChildren<RectTransform>();
@@ -256,7 +256,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 rect.SetPositionY(halfTextHeight + rend.sharedMaterial.mainTexture.height);
             }
 
-            // DOWN
+            // DOWN - right side, below content
             {
                 var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiButtonTextured, name: "ARROW_DOWN", parent: contentViewer.go)!;
                 var rect = go.GetComponentInChildren<RectTransform>();
@@ -273,7 +273,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 rect.SetPositionY(-halfTextHeight - rend.sharedMaterial.mainTexture.height);
             }
 
-            // BACK
+            // BACK - top-left corner, inside the content area
             {
                 var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiButtonTextured, name: "ARROW_BACK", parent: contentViewer.go)!;
                 var rect = go.GetComponentInChildren<RectTransform>();
@@ -284,10 +284,12 @@ namespace Gothic.Core.Adapters.UI.Menus
                 rend.sharedMaterial = TextureService.ArrowLeftMaterial;
                 button.onClick.AddListener(OnContentViewerBackClick);
 
+                var arrowW = rend.sharedMaterial.mainTexture.width * go.transform.localScale.x;
+                var arrowH = rend.sharedMaterial.mainTexture.height * go.transform.localScale.y;
                 rect.SetWidth(rend.sharedMaterial.mainTexture.width);
                 rect.SetHeight(rend.sharedMaterial.mainTexture.height);
-                rect.SetPositionX(-halfTextWidth - rend.sharedMaterial.mainTexture.width);
-                rect.SetPositionY(halfTextHeight + rend.sharedMaterial.mainTexture.height);
+                rect.SetPositionX(-halfTextWidth + arrowW);
+                rect.SetPositionY(halfTextHeight - arrowH);
             }
         }
 
