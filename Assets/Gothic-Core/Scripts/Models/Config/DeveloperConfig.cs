@@ -177,6 +177,10 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
         public bool EnableCombatSystem;
+
+        [ConditionalField(fieldToCheck: nameof(EnableCombatSystem), compareValues: true)]
+        [Tooltip("Call B_DeathXP on kill to grant XP. WIP - XP values may be incorrect.")]
+        public bool EnableDeathXP;
         
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public bool EnableNpcMeshCulling = true;
@@ -290,6 +294,12 @@ namespace Gothic.Core.Models.Config
         [Separator("WIP - Not production ready", true)]
         public bool EnableDecalVisuals;
         public bool EnableParticleEffects;
+
+        [Tooltip("Click MENU_ITEM_LEVEL 5 times within 2s in StatusMenu to instantly set hero to level 5 (exp=7500, next=10500, LP+50, HP+60).")]
+        public bool EnableLevel5Cheat;
+
+        [Tooltip("Click MENU_ITEM_PLAYERGUILD 3 times within 2s in StatusMenu to set hero guild to Novice (GIL_NOV).")]
+        public bool EnableGuildCheat;
 
     }
 }
