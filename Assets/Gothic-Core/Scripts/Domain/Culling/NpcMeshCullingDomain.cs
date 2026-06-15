@@ -163,5 +163,11 @@ namespace Gothic.Core.Domain.Culling
         {
             _spheres[sphereKey].position = position;
         }
+
+        public IEnumerable<NpcContainer> GetAllNpcContainers()
+        {
+            for (var i = 0; i < _count; i++)
+                yield return _loaders[i].Container;
+        }
     }
 }
