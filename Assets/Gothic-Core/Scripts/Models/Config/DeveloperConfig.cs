@@ -291,13 +291,13 @@ namespace Gothic.Core.Models.Config
         public bool EnableDecalVisuals;
         public bool EnableParticleEffects;
 
-        [Tooltip("Click MENU_ITEM_LEVEL 5 times within 2s in StatusMenu to instantly set hero to level 5 (exp=7500, next=10500, LP+50, HP+60).")]
+        [Tooltip("Press left A (VR) / K (PC) 5 times to add 5 levels (+50 LP, +60 HP max). Repeatable.")]
         public bool EnableLevel5Cheat;
 
-        [Tooltip("Click MENU_ITEM_PLAYERGUILD 3 times within 2s in StatusMenu to set hero guild to Novice (GIL_NOV).")]
+        [Tooltip("Press right A (VR) / L (PC) 3 times to set hero guild to Novice (GIL_NOV).")]
         public bool EnableGuildCheat;
 
-        [Tooltip("WIP: Press right controller B (or N key) to skip game time forward by 30 minutes.")]
+        [Tooltip("WIP: Press right B button (VR) / N key (PC) to skip game time forward by 30 minutes.")]
         public bool EnableTimeSkip;
 
     }
