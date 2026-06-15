@@ -12,6 +12,11 @@ namespace Gothic.Core.Services.Culling
             RegisterEventHandlers();
         }
 
+        public void PreWorldCreate()
+        {
+            Domain.PreWorldCreate();
+        }
+
         public void OnApplicationQuit()
         {
             UnregisterEventHandlers();
