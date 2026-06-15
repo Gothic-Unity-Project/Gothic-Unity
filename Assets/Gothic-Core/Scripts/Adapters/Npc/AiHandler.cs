@@ -318,6 +318,7 @@ namespace Gothic.Core.Adapters.Npc
                 Properties.AnimationQueue.Clear();
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
                 Properties.CurrentLoopState = NpcProperties.LoopState.None; // i.e. call StartNextState() next frame
+                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
             }

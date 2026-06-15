@@ -207,10 +207,21 @@ namespace Gothic.Core.Services.Npc
         {
             var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
             var victim = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
-            
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new StartState(
+
+            var container = npc.GetUserData();
+
+            if (stopCurrentState)
+            {
+                // Abandon current state immediately so the new one starts next frame, not after the whole queue drains.
+                container.PrefabProps?.AiHandler?.ClearState(false);
+                container.Props.StateEnd = 0;
+                container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
+
+            }
+
+            container.Props.AnimationQueue.Enqueue(new StartState(
                 new AnimationAction(int0: action, bool0: stopCurrentState, string0: wayPointName, instance0: other, instance1: victim),
-                npc.GetUserData()));
+                container));
         }
 
         public void ExtAiLookAt(NpcInstance npc, string wayPointName)
@@ -259,7 +270,10 @@ namespace Gothic.Core.Services.Npc
             // FIXME - Implement remaining tasks from G1 documentation:
             // * Ist der Nsc in einem Animatinsstate, wird die passende Rücktransition abgespielt.
             // * Benutzt der NSC gerade ein MOBSI, poppt er ins stehen.
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), npc.GetUserData()));
+            var container = npc.GetUserData();
+            // Reset immediately (not via queue) so Daedalus C_BodyStateContains checks in the same ZS_*_Loop tick see BsStand.
+            container.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+            container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
         }
 
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
