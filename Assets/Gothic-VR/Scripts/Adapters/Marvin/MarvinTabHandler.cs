@@ -40,13 +40,13 @@ namespace Gothic.VR.Adapters.Marvin
             var buttons = new System.Collections.Generic.List<(string label, System.Action onClick)>();
 
             if (_configService.Dev.EnableLevel5Cheat)
-                buttons.Add(("Level +5  [K]", () => { _statusMenu?.ExecuteLevelCheat(); Logger.Log("[MarvinMode] Level cheat triggered", LogCat.Ui); }));
+                buttons.Add(("Level +5", () => { _statusMenu?.ExecuteLevelCheat(); Logger.Log("[MarvinMode] Level cheat triggered", LogCat.Ui); }));
 
             if (_configService.Dev.EnableGuildCheat)
-                buttons.Add(("Guild → Novice  [L]", () => { _statusMenu?.ExecuteGuildCheat(); Logger.Log("[MarvinMode] Guild cheat triggered", LogCat.Ui); }));
+                buttons.Add(("Guild → Novice", () => { _statusMenu?.ExecuteGuildCheat(); Logger.Log("[MarvinMode] Guild cheat triggered", LogCat.Ui); }));
 
             if (_configService.Dev.EnableTimeSkip)
-                buttons.Add(("Skip Time +30min  [N]", SkipTime30Min));
+                buttons.Add(("Skip Time +30min", SkipTime30Min));
 
             const float buttonHeight = 50f;
             const float gap = 10f;
