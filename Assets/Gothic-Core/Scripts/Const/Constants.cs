@@ -154,7 +154,7 @@ namespace Gothic.Core.Const
         public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "4";
+        public const string StaticCacheVersion = "5";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.
