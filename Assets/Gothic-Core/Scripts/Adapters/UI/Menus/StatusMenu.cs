@@ -2,17 +2,11 @@ using System;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
-using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.EventSystems;
-using Logger = Gothic.Core.Logging.Logger;
-using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.Core.Adapters.UI.Menus
 {
@@ -42,23 +36,10 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly NpcService _npcService;
-        [Inject] private readonly ConfigService _configService;
-
-        private const float _cheatClickWindow = 2f;
-        private int _levelCheatClicks;
-        private float _levelCheatLastTime;
-        private int _guildCheatClicks;
-        private float _guildCheatLastTime;
 
         private void Awake()
         {
             InitializeMenu(new MenuInstanceAdapter("MENU_STATUS", null));
-        }
-
-        public override void InitializeMenu(AbstractMenuInstance menuInstance)
-        {
-            base.InitializeMenu(menuInstance);
-            SetupCheatTriggers();
         }
 
         private void OnEnable()
@@ -66,12 +47,6 @@ namespace Gothic.Core.Adapters.UI.Menus
             if (_npcService == null)
                 return;
             UpdateData();
-        }
-
-        private void OnDisable()
-        {
-            _levelCheatClicks = 0;
-            _guildCheatClicks = 0;
         }
 
         private void UpdateData()
@@ -82,8 +57,6 @@ namespace Gothic.Core.Adapters.UI.Menus
             var guildId = hero.Props.TrueGuild != VmGothicEnums.Guild.GIL_NONE
                 ? (int)hero.Props.TrueGuild
                 : vob.Guild;
-
-            Logger.Log($"[StatusMenu] Guild={guildId}({_vmService.GetGuildName(guildId)}) Level={vob.Level} XP={vob.Xp}/{vob.XpNextLevel} LP={vob.Lp} HP={vob.GetAttribute(0)}/{vob.GetAttribute(1)} Mana={vob.GetAttribute(2)}/{vob.GetAttribute(3)} STR={vob.GetAttribute(4)} DEX={vob.GetAttribute(5)}", LogCat.Ui);
 
             MenuItemCache[_itemNameGuild].go.GetComponentInChildren<TMP_Text>().text = _vmService.GetGuildName(guildId);
             MenuItemCache[_itemNameLevel].go.GetComponentInChildren<TMP_Text>().text = vob.Level.ToString();
@@ -143,95 +116,7 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         protected override void Undefined(string itemName, string commandName) { }
         protected override void StartMenu(string itemName, string commandName) { }
-
-        private void SetupCheatTriggers()
-        {
-            if (_configService.Dev.EnableLevel5Cheat)
-                AddCheatClickTrigger(_itemNameLevel, _ => OnLevelCheatClick());
-            if (_configService.Dev.EnableGuildCheat)
-                AddCheatClickTrigger(_itemNameGuild, _ => OnGuildCheatClick());
-        }
-
-        private void AddCheatClickTrigger(string itemName, UnityAction<BaseEventData> callback)
-        {
-            if (!MenuItemCache.TryGetValue(itemName, out var cached)) return;
-            var go = cached.go;
-            var tmp = go.GetComponentInChildren<TMP_Text>();
-            if (tmp != null) tmp.raycastTarget = true;
-            var trigger = go.GetComponent<EventTrigger>();
-            if (trigger == null) trigger = go.AddComponent<EventTrigger>();
-            var clickEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
-            clickEntry.callback.AddListener(callback);
-            trigger.triggers.Add(clickEntry);
-        }
-
-        public void TriggerLevelCheatClick() => OnLevelCheatClick();
-        public void TriggerGuildCheatClick() => OnGuildCheatClick();
-        public void ExecuteLevelCheat() => CheatAddLevels();
-        public void ExecuteGuildCheat() => CheatToNovice();
-
-        private void OnLevelCheatClick()
-        {
-            if (!_configService.Dev.EnableLevel5Cheat) return;
-            var now = Time.unscaledTime;
-            if (now - _levelCheatLastTime > _cheatClickWindow)
-                _levelCheatClicks = 0;
-            _levelCheatClicks++;
-            _levelCheatLastTime = now;
-            if (_levelCheatClicks >= 5)
-            {
-                _levelCheatClicks = 0;
-                CheatAddLevels();
-            }
-        }
-
-        private void OnGuildCheatClick()
-        {
-            if (!_configService.Dev.EnableGuildCheat) return;
-            var now = Time.unscaledTime;
-            if (now - _guildCheatLastTime > _cheatClickWindow)
-                _guildCheatClicks = 0;
-            _guildCheatClicks++;
-            _guildCheatLastTime = now;
-            if (_guildCheatClicks >= 3)
-            {
-                _guildCheatClicks = 0;
-                CheatToNovice();
-            }
-        }
-
-        protected override void StartItem(string itemName, string commandName)
-        {
-            if (itemName == _itemNameLevel) OnLevelCheatClick();
-            else if (itemName == _itemNameGuild) OnGuildCheatClick();
-        }
-
-        private void CheatAddLevels()
-        {
-            const int levelsToAdd = 5;
-            var hero = _npcService.GetHeroContainer();
-            var oldLevel = hero.Instance.Level;
-
-            hero.Instance.Level += levelsToAdd;
-            hero.Instance.Lp += levelsToAdd * 10;
-
-            var hpMax = hero.Vob.GetAttribute(1) + levelsToAdd * 12;
-            hero.Vob.SetAttribute(1, hpMax);
-            hero.Vob.SetAttribute(0, hpMax);
-
-            _npcService.SyncHeroInstanceToVob();
-            UpdateData();
-            Logger.Log($"[StatusMenu] Cheat: level {oldLevel}→{hero.Instance.Level} (+{levelsToAdd * 10} LP, +{levelsToAdd * 12} HP_MAX)", LogCat.Ui);
-        }
-
-        private void CheatToNovice()
-        {
-            var hero = _npcService.GetHeroContainer();
-            hero.Props.TrueGuild = VmGothicEnums.Guild.GIL_NOV;
-            UpdateData();
-            Logger.Log("[StatusMenu] Cheat: guild set to GIL_NOV", LogCat.Ui);
-        }
-
+        protected override void StartItem(string itemName, string commandName) { }
         protected override void Close(string itemName, string commandName) { }
         protected override void ConsoleCommand(string itemName, string commandName) { }
         protected override void PlaySound(string itemName, string commandName) { }
