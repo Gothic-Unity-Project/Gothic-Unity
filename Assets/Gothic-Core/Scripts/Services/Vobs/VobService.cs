@@ -195,7 +195,7 @@ namespace Gothic.Core.Services.Vobs
                         {
                             Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
                         }
-                        
+
                     }
 
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();

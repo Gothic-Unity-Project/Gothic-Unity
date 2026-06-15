@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using UnityEngine;
 using ZenKit;
@@ -9,384 +8,138 @@ namespace Gothic.Core.Models.Animations
 {
     /// <summary>
     /// Currently playing instance of a Track on a NPC.
+    ///
+    /// Pose sampling and blending are done inside AnimationPoseJob. This class only owns the Gothic-specific
+    /// runtime state: playback clock (with Gothic looping/freeze-on-blend-out semantics), blend weight ramps,
+    /// and the event timeline.
     /// </summary>
     public class AnimationTrackInstance
     {
-        public int CreationTime;
+        public readonly AnimationTrack Track;
+        public readonly int CreationTime;
 
-        public AnimationTrack Track;
-
-        // Value for this specific point in time
-        public float CurrentTime;
-        public int CurrentKeyFrameIndex;
-        public float CurrentKeyFrameTime;
-        public float NextKeyframeTime;
         public AnimationState State;
-        public AnimationState[] BoneStates;
-        public float[] BoneBlendWeights;
-        public float[] BoneBlendTimes;
-        public int BoneAmountStatePlay;
-        public int BoneAmountStateStop;
+        public float CurrentTime;
+        public float Weight;
 
-        // Data which might be overwritten by an Alias. We therefore set them now.
-        public string AnimationName;
+        public string AnimationName => Track.DisplayName;
 
+        /// <summary>
+        /// Playback position in (fractional) sample frames, fed into AnimationPoseJob.
+        /// Reversed tracks (ani/aniAlias with direction R, e.g. t_Sit_2_Stand aliasing t_Stand_2_Sit) play
+        /// the shared forward-baked samples back to front - the clock itself always runs forward.
+        /// </summary>
+        public float CurrentFrame => Track.Direction == AnimationDirection.Backward
+            ? Track.BakedFrameCount - 1 - CurrentTime / Track.FrameTime
+            : CurrentTime / Track.FrameTime;
 
-        // FIXME - Wrong - according to Docs, once the last frame is reached, the animation blends out at this pos+rot.
-        // FIXME - Docs: Anzumerken ist hierbei, dass das Herunterregeln des Einflusses erst beginnt, sobald der letzte Frame der Ani abgespielt worden ist
-        public bool IsLooping;
+        private float _blendDuration;
 
-        private bool _didFrameChangeThisUpdate;
+        // Frame position of the previous Update. Events fire when their frame is crossed between two Updates.
+        private float _previousFrame = -1f;
 
-        private int _lastExecutedAnimationEvent;
-        private int _lastExecutedPfxEvent;
-        private int _lastExecutedSfxEvent;
-        private int _lastExecutedMorphEvent;
-
-        private int _animationEventsToExecuteThisUpdate;
-        private int _pfxEventsToExecuteThisUpdate;
-        private int _sfxEventsToExecuteThisUpdate;
-        private int _morphEventsToExecuteThisUpdate;
+        // Reused buffers to avoid per-frame allocations. Null is returned when empty (see GetPending*()).
+        // Only allocated when the track has events at all - most tracks (and instances) have none.
+        private readonly List<IEventTag> _pendingEventTags;
+        private readonly List<IEventSoundEffect> _pendingSoundEffects;
+        private readonly List<IEventParticleEffect> _pendingParticleEffects;
+        private readonly List<IEventMorphAnimation> _pendingMorphAnimations;
 
 
         public AnimationTrackInstance(AnimationTrack track)
         {
             CreationTime = Time.frameCount;
             Track = track;
-            State = AnimationState.BlendIn;
             CurrentTime = 0f;
-            CurrentKeyFrameIndex = 0;
-            CurrentKeyFrameTime = 0f;
-            NextKeyframeTime = track.FrameTime;
 
-            // Looping if this == next. If an alias is used, we expect the same alias being selected. Looks promising so far. 
-            if (track.TrackType == AnimationTrack.Type.Animation)
-                IsLooping = track.Name.EqualsIgnoreCase(track.NextAni);
-            else
-                IsLooping = track.AliasName.EqualsIgnoreCase(track.NextAni);
-
-            BoneStates = new AnimationState[Track.BoneCount];
-            BoneBlendWeights = new float[Track.BoneCount];
-            BoneBlendTimes = new float[Track.BoneCount];
-
-            AnimationState initialBoneState;
-            float initialBoneWeight;
-            // If w have no BlendIn time, we need to set our animation to play fully right from the start.
-            if (Track.BlendIn == 0)
+            if (track.HasEvents)
             {
-                initialBoneState = AnimationState.Play;
-                initialBoneWeight = 1f;
-                BoneAmountStatePlay = Track.BoneCount;
+                _pendingEventTags = new List<IEventTag>();
+                _pendingSoundEffects = new List<IEventSoundEffect>();
+                _pendingParticleEffects = new List<IEventParticleEffect>();
+                _pendingMorphAnimations = new List<IEventMorphAnimation>();
+            }
+
+            // If we have no BlendIn time, the animation needs to play at full weight right from the start.
+            if (track.BlendIn <= 0f)
+            {
                 State = AnimationState.Play;
+                Weight = 1f;
             }
             else
             {
-                initialBoneState = AnimationState.BlendIn;
-                initialBoneWeight = 0f;
+                State = AnimationState.BlendIn;
+                Weight = 0f;
+                _blendDuration = track.BlendIn;
             }
-
-            for (var i = 0; i < Track.BoneCount; i++)
-            {
-                BoneStates[i] = initialBoneState;
-                BoneBlendWeights[i] = initialBoneWeight;
-                BoneBlendTimes[i] = Track.BlendIn;
-            }
-
-            BoneAmountStateStop = 0;
-
-            _lastExecutedAnimationEvent = -1;
-            _lastExecutedPfxEvent = -1;
-            _lastExecutedSfxEvent = -1;
-            _lastExecutedMorphEvent = -1;
         }
 
         /// <summary>
-        /// Update animation information at each frame.
-        /// Return status change of whole animation if happening now. (e.g. BlendOut).
+        /// Update playback clock, blend weight, and event timeline each frame.
+        /// Returns the state change happening this frame (e.g. BlendOut once the last frame is reached) or None.
         /// </summary>
         public AnimationState Update(float deltaTime)
         {
-            CurrentTime += deltaTime;
+            var stateChange = UpdateWeight(deltaTime);
 
-            if (!IsLooping && State == AnimationState.Play && CurrentTime >= Track.Duration)
+            if (State == AnimationState.Stop)
             {
-                BlendOutTrack(Track.BlendOut);
-                return AnimationState.BlendOut;
+                return AnimationState.Stop;
             }
 
-            UpdateTrackFrame();
-            UpdateEvents();
-            UpdateBoneWeights(deltaTime);
-            return UpdateState();
+            var wrapped = false;
+            if (State != AnimationState.BlendOut)
+            {
+                CurrentTime += deltaTime;
+
+                if (CurrentTime >= Track.Duration)
+                {
+                    if (Track.IsLooping)
+                    {
+                        wrapped = true;
+                        CurrentTime %= Track.Duration;
+                    }
+                    else
+                    {
+                        // Once the last frame is reached, the animation blends out while freezing at this pose.
+                        CurrentTime = Track.Duration;
+                        BlendOutTrack(Track.BlendOut);
+                        stateChange = AnimationState.BlendOut;
+                    }
+                }
+                // While blending out, CurrentTime stays put - the pose freezes at its last frame (Gothic behavior).
+            }
+
+            CollectPendingEvents(wrapped);
+
+            return stateChange;
         }
 
-        private void UpdateTrackFrame()
+        private AnimationState UpdateWeight(float deltaTime)
         {
-            _didFrameChangeThisUpdate = false;
-
-            // If the whole track blends ut, we do not proceed further. (Either we're at the last frame already, or another track stopped us).
-            if (State == AnimationState.BlendOut)
-            {
-                return;
-            }
-
-            if (CurrentTime >= Track.Duration)
-            {
-                _didFrameChangeThisUpdate = true;
-                // Restart from the beginning
-                _lastExecutedAnimationEvent = -1;
-                _lastExecutedPfxEvent = -1;
-                _lastExecutedSfxEvent = -1;
-                _lastExecutedMorphEvent = -1;
-
-                CurrentTime %= Track.Duration;
-                CurrentKeyFrameIndex = 0;
-                CurrentKeyFrameTime = 0f;
-                NextKeyframeTime = CurrentKeyFrameIndex * Track.FrameTime;
-            }
-
-            if (CurrentTime >= NextKeyframeTime)
-            {
-                _didFrameChangeThisUpdate = true;
-
-                CurrentKeyFrameIndex = (int)(CurrentTime / Track.FrameTime); // Round down
-                if (Track.KeyFrames.Length > CurrentKeyFrameIndex + 1)
-                {
-                    CurrentKeyFrameTime = CurrentKeyFrameIndex * Track.FrameTime;
-                    NextKeyframeTime = (CurrentKeyFrameIndex + 1) * Track.FrameTime;
-                }
-                else
-                {
-                    CurrentKeyFrameTime = Track.Duration;
-                    NextKeyframeTime = float.MaxValue;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Whenever an animation frame changed, we need to check, if an animation is now in time range and add it to the "Execute" list.
-        /// </summary>
-        private void UpdateEvents()
-        {
-            // If we had some executions last frame, we update the last executed event now.
-            _lastExecutedAnimationEvent += _animationEventsToExecuteThisUpdate;
-            _lastExecutedPfxEvent += _pfxEventsToExecuteThisUpdate;
-            _lastExecutedSfxEvent += _sfxEventsToExecuteThisUpdate;
-            _lastExecutedMorphEvent += _morphEventsToExecuteThisUpdate;
-            _animationEventsToExecuteThisUpdate = 0;
-            _pfxEventsToExecuteThisUpdate = 0;
-            _sfxEventsToExecuteThisUpdate = 0;
-            _morphEventsToExecuteThisUpdate = 0;
-
-            // We need to check for new events, if we moved to another frame only.
-            if (!_didFrameChangeThisUpdate)
-            {
-                return;
-            }
-
-            // AnimationEvents
-            for (var i = _lastExecutedAnimationEvent + 1; i < Track.EventTagCount; i++)
-            {
-                var animationEvent = Track.EventTags[i];
-
-                // Event values are handled based on frame normalization (e.g. animation frames are 39...49 --> 10 frames)
-                //   an event at 49 is then at frameIndex=9
-                // event Frame=0 has special handling: use as frame 0 without additional normalization
-                var animationEventFrame = animationEvent.Frame == 0 ? 0 : ClampFrame(animationEvent.Frame);
-
-                if (animationEventFrame <= CurrentKeyFrameIndex)
-                {
-                    _animationEventsToExecuteThisUpdate++;
-                }
-                // We passed the events which need to be played this frame.
-                else
-                {
-                    break;
-                }
-            }
-
-            // PFX
-            for (var i = _lastExecutedPfxEvent + 1; i < Track.ParticleEffectCount; i++)
-            {
-                var pfxEvent = Track.ParticleEffects[i];
-                var pfxEventFrame = ClampFrame(pfxEvent.Frame);
-
-                if (pfxEventFrame <= CurrentKeyFrameIndex)
-                {
-                    _pfxEventsToExecuteThisUpdate++;
-                }
-                // We passed the events which need to be played this frame.
-                else
-                {
-                    break;
-                }
-            }
-
-            // SFX
-            for (var i = _lastExecutedSfxEvent + 1; i < Track.SoundEffectCount; i++)
-            {
-                var sfxEvent = Track.SoundEffects[i];
-                var sfxEventFrame = ClampFrame(sfxEvent.Frame);
-
-                if (sfxEventFrame <= CurrentKeyFrameIndex)
-                {
-                    _sfxEventsToExecuteThisUpdate++;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // MorphEvents
-            for (var i = _lastExecutedMorphEvent + 1; i < Track.MorphAnimationCount; i++)
-            {
-                var morphEvent = Track.MorphAnimations[i];
-                var morphEventFrame = ClampFrame(morphEvent.Frame);
-
-                if (morphEventFrame <= CurrentKeyFrameIndex)
-                {
-                    _morphEventsToExecuteThisUpdate++;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-
-        /// <summary>
-        /// This method solves multiple circumstances:
-        /// (1). Gothic animations won't always start from frame 0. e.g. t_Potion_Random_1 expects to work from frame 45+.
-        ///      --> This might be, as the animations are "behind" another and could be one single animation in Gothic.
-        ///      --> But in Gothic, we create every transition animation separately and therefore normalize to start from frame 0.
-        /// (2). G1 animation key frames are optimized and not always aligned with 25fps (e.g. t_Potion_* leverages 10 frames only).
-        ///      But the animation event frame numbers are matching 25fps.
-        ///      --> In Unity we only store the key frames and fps value provided (e.g. 10fps), as Unity will interpolate on it's own.
-        ///      --> But then we need to calculate the ratio between the fpsSource (G1=25fps) and the actual fps (e.g. 10fps).
-        /// (3). Some animation events seem to be executed before or after the actual animation.
-        ///      --> We take care by checking its boundaries.
-        /// </summary>
-        private float ClampFrame(int expectedFrame)
-        {
-            // (2). calculate ration between FpsSource and the animations Fps.
-            var animationRatio = Track.ModelAnimation.Fps / Track.ModelAnimation.FpsSource;
-
-            // (1). Norm to start frame of 1
-            // (2). Norm to fpsSource (==25 in G1)
-            expectedFrame = (int)Math.Round((expectedFrame - Track.FirstFrame) * animationRatio);
-
-            // (3). check for misaligned animation frame boundaries (if any).
-            if (expectedFrame < 0)
-            {
-                return 0;
-            }
-
-            if (expectedFrame >= Track.ModelAnimation.FrameCount)
-            {
-                return Track.ModelAnimation.FrameCount - 1;
-            }
-
-            return expectedFrame;
-        }
-
-        /// <summary>
-        /// Apply BlendWeight changes to each bone
-        /// </summary>
-        private void UpdateBoneWeights(float deltaTime)
-        {
-            for (var i = 0; i < Track.BoneCount; i++)
-            {
-                switch (BoneStates[i])
-                {
-                    case AnimationState.BlendIn:
-                        BoneBlendWeights[i] += deltaTime / BoneBlendTimes[i];
-
-                        if (BoneBlendWeights[i] >= 1f)
-                        {
-                            BoneBlendWeights[i] = 1f;
-                            BoneStates[i] = AnimationState.Play;
-                            BoneAmountStatePlay++;
-                        }
-                        break;
-                    case AnimationState.BlendOut:
-                        if (BoneStates[i] == AnimationState.BlendOut)
-                        {
-                            BoneBlendWeights[i] -= deltaTime / BoneBlendTimes[i];
-
-                            if (BoneBlendWeights[i] <= 0f)
-                            {
-                                BoneBlendWeights[i] = 0f;
-                                BoneStates[i] = AnimationState.Stop;
-                                BoneAmountStateStop++;
-                            }
-                        }
-                        break;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Update main state of Animation. If nothing changed, we return AnimationState.None.
-        /// </summary>
-        private AnimationState UpdateState()
-        {
-            // Update State if blending is done for all bones.
             switch (State)
             {
                 case AnimationState.BlendIn:
-                    if (BoneAmountStatePlay >= Track.BoneCount)
+                    Weight += _blendDuration <= 0f ? 1f : deltaTime / _blendDuration;
+                    if (Weight >= 1f)
                     {
-                        BoneAmountStatePlay = Track.BoneCount;
+                        Weight = 1f;
                         State = AnimationState.Play;
                         return AnimationState.Play;
                     }
                     break;
-                case AnimationState.Play:
-                    break;
                 case AnimationState.BlendOut:
-                    if (BoneAmountStateStop >= Track.BoneCount)
+                    Weight -= _blendDuration <= 0f ? 1f : deltaTime / _blendDuration;
+                    if (Weight <= 0f)
                     {
-                        BoneAmountStateStop = Track.BoneCount;
+                        Weight = 0f;
                         State = AnimationState.Stop;
                         return AnimationState.Stop;
                     }
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
 
             return AnimationState.None;
-        }
-
-        public void GetBonePose(int boneIndex, out Vector3 position, out Quaternion rotation)
-        {
-            Track.GetBonePose(boneIndex, CurrentKeyFrameIndex, out position, out rotation);
-            // HINT: If we want to have the real animations only, remove the rest of this method. Then animations play with 10/30/60fps depending on their data.
-
-            // No Lerping, if we're already Blending Out (aka we return the same frame until weight==0)
-            if (State == AnimationState.BlendOut)
-            {
-                return;
-            }
-
-            var nextFrameIndex = CurrentKeyFrameIndex + 1;
-            if (nextFrameIndex >= Track.FrameCount) // We're already at the last frame.
-            {
-                nextFrameIndex = 0;
-
-                // We only lerp with first element, if the track is looping.
-                if (!IsLooping)
-                {
-                    return;
-                }
-            }
-
-            Track.GetBonePose(boneIndex, nextFrameIndex, out var nextPosition, out var nextRotation);
-
-            var interpolation = Mathf.InverseLerp(CurrentKeyFrameTime, NextKeyframeTime, CurrentTime);
-            position = Vector3.Lerp(position, nextPosition, interpolation);
-            rotation = Quaternion.Slerp(rotation, nextRotation, interpolation);
         }
 
         /// <summary>
@@ -396,120 +149,124 @@ namespace Gothic.Core.Models.Animations
         /// </summary>
         public void BlendOutTrack(float blendOutTime)
         {
+            if (State is AnimationState.BlendOut or AnimationState.Stop)
+            {
+                return;
+            }
+
             State = AnimationState.BlendOut;
-
-            for (var i = 0; i < Track.BoneCount; i++)
-            {
-                switch (BoneStates[i])
-                {
-                    case AnimationState.BlendIn:
-                    case AnimationState.Play:
-                        BoneBlendTimes[i] = blendOutTime;
-                        BoneStates[i] = AnimationState.BlendOut;
-                        break;
-                    case AnimationState.BlendOut:
-                    case AnimationState.Stop:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
+            _blendDuration = blendOutTime;
         }
 
-        private void ProcessBoneStateChange(string boneName, AnimationState targetState, float blendTime,
-                                             AnimationState conditionState, ref int counter)
+        /// <summary>
+        /// Collect all events whose (normalized) frame was crossed since the previous Update.
+        /// Handles loop wrap-around so that events close to the last frame aren't dropped (the old
+        /// implementation reset its cursors on wrap and silently skipped them).
+        /// </summary>
+        private void CollectPendingEvents(bool wrapped)
         {
-            // Use the dictionary for efficient bone index lookup
-            if (!Track.BoneNamesDictionary.TryGetValue(boneName, out var boneIndex))
+            // No events on this track - skip the whole timeline bookkeeping (the common case).
+            if (!Track.HasEvents)
             {
                 return;
             }
 
-            // Check if the bone is currently in the specified condition state and decrement counter if so
-            if (BoneStates[boneIndex] == conditionState)
+            _pendingEventTags.Clear();
+            _pendingSoundEffects.Clear();
+            _pendingParticleEffects.Clear();
+            _pendingMorphAnimations.Clear();
+
+            var currentFrame = CurrentTime / Track.FrameTime;
+
+            foreach (var eventTag in Track.EventTags)
             {
-                counter--;
+                // Event frame=0 has special handling: use as frame 0 without normalization.
+                var frame = eventTag.Frame == 0 ? 0f : ClampFrame(eventTag.Frame);
+                if (IsFrameCrossed(frame, currentFrame, wrapped))
+                    _pendingEventTags.Add(eventTag);
             }
 
-            // Update the bone's state and blend time
-            BoneStates[boneIndex] = targetState;
-            BoneBlendTimes[boneIndex] = blendTime;
+            foreach (var sfx in Track.SoundEffects)
+            {
+                if (IsFrameCrossed(ClampFrame(sfx.Frame), currentFrame, wrapped))
+                    _pendingSoundEffects.Add(sfx);
+            }
+
+            foreach (var pfx in Track.ParticleEffects)
+            {
+                if (IsFrameCrossed(ClampFrame(pfx.Frame), currentFrame, wrapped))
+                    _pendingParticleEffects.Add(pfx);
+            }
+
+            foreach (var morph in Track.MorphAnimations)
+            {
+                if (IsFrameCrossed(ClampFrame(morph.Frame), currentFrame, wrapped))
+                    _pendingMorphAnimations.Add(morph);
+            }
+
+            _previousFrame = currentFrame;
         }
 
-        public void BlendOutBones(string[] boneNames, float blendOutTime)
+        private bool IsFrameCrossed(float eventFrame, float currentFrame, bool wrapped)
         {
-            // Skip partial BlendOut if we're already blending out.
-            if (State == AnimationState.BlendOut)
+            if (wrapped)
             {
-                return;
+                // We passed the end of the animation and restarted: fire tail events and early events alike.
+                return eventFrame > _previousFrame || eventFrame <= currentFrame;
             }
 
-            foreach (var boneName in boneNames)
-            {
-                ProcessBoneStateChange(boneName, AnimationState.BlendOut, blendOutTime,
-                                       AnimationState.Play, ref BoneAmountStatePlay);
-            }
+            return eventFrame > _previousFrame && eventFrame <= currentFrame;
         }
 
-        public void BlendInBones(string[] boneNames, float blendInTime)
+        /// <summary>
+        /// This method solves multiple circumstances:
+        /// (1). Gothic animations won't always start from frame 0. e.g. t_Potion_Random_1 expects to work from frame 45+.
+        ///      --> This might be, as the animations are "behind" another and could be one single animation in Gothic.
+        ///      --> But in Gothic, we create every transition animation separately and therefore normalize to start from frame 0.
+        /// (2). G1 animation key frames are optimized and not always aligned with 25fps (e.g. t_Potion_* leverages 10 frames only).
+        ///      But the animation event frame numbers are matching 25fps.
+        ///      --> We therefore calculate the ratio between the fpsSource (G1=25fps) and the actual fps (e.g. 10fps).
+        /// (3). Some animation events seem to be executed before or after the actual animation.
+        ///      --> We take care by checking its boundaries.
+        /// </summary>
+        private float ClampFrame(int expectedFrame)
         {
-            // Skip partial BlendIn if we're already blending in.
-            if (State == AnimationState.BlendIn)
-            {
-                return;
-            }
+            // (2). calculate ratio between FpsSource and the animation's Fps.
+            var animationRatio = Track.Fps / Track.FpsSource;
 
-            foreach (var boneName in boneNames)
-            {
-                ProcessBoneStateChange(boneName, AnimationState.BlendIn, blendInTime,
-                                       AnimationState.Stop, ref BoneAmountStateStop);
-            }
-        }
+            // (1). Norm to start frame of 0. (2). Norm to fpsSource (==25 in G1).
+            var frame = (float)Math.Round((expectedFrame - Track.FirstFrame) * animationRatio);
 
-        public int GetBoneIndex(string boneName)
-        {
-            return Track.BoneNamesDictionary.GetValueOrDefault(boneName, -1);
+            // Reversed tracks play their samples back to front - the event timeline mirrors with them.
+            if (Track.Direction == AnimationDirection.Backward)
+                frame = Track.FrameCount - 1 - frame;
+
+            // (3). check for misaligned animation frame boundaries (if any).
+            return Mathf.Clamp(frame, 0, Track.FrameCount - 1);
         }
 
         [CanBeNull]
         public List<IEventTag> GetPendingEventTags()
         {
-            if (_animationEventsToExecuteThisUpdate == 0)
-            {
-                return null;
-            }
-
-            return Track.EventTags.GetRange(_lastExecutedAnimationEvent + 1, _animationEventsToExecuteThisUpdate);
+            return _pendingEventTags == null || _pendingEventTags.Count == 0 ? null : _pendingEventTags;
         }
 
-        public List<IEventParticleEffect> GetPendingParticleEffects()
-        {
-            if (_pfxEventsToExecuteThisUpdate == 0)
-            {
-                return null;
-            }
-
-            return Track.ParticleEffects.GetRange(_lastExecutedPfxEvent + 1, _pfxEventsToExecuteThisUpdate);
-        }
-
-        public List<IEventMorphAnimation> GetPendingMorphAnimations()
-        {
-            if (_morphEventsToExecuteThisUpdate == 0)
-            {
-                return null;
-            }
-
-            return Track.MorphAnimations.GetRange(_lastExecutedMorphEvent + 1, _morphEventsToExecuteThisUpdate);
-        }
-
+        [CanBeNull]
         public List<IEventSoundEffect> GetPendingSoundEffects()
         {
-            if (_sfxEventsToExecuteThisUpdate == 0)
-            {
-                return null;
-            }
+            return _pendingSoundEffects == null || _pendingSoundEffects.Count == 0 ? null : _pendingSoundEffects;
+        }
 
-            return Track.SoundEffects.GetRange(_lastExecutedSfxEvent + 1, _sfxEventsToExecuteThisUpdate);
+        [CanBeNull]
+        public List<IEventParticleEffect> GetPendingParticleEffects()
+        {
+            return _pendingParticleEffects == null || _pendingParticleEffects.Count == 0 ? null : _pendingParticleEffects;
+        }
+
+        [CanBeNull]
+        public List<IEventMorphAnimation> GetPendingMorphAnimations()
+        {
+            return _pendingMorphAnimations == null || _pendingMorphAnimations.Count == 0 ? null : _pendingMorphAnimations;
         }
     }
 }
