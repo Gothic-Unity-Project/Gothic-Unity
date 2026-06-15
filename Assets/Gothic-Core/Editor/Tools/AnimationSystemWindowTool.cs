@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Gothic.Core.Adapters;
 using Gothic.Core.Adapters.Animations;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
@@ -59,7 +58,6 @@ namespace Gothic.Core.Editor.Tools
             DrawAiActionInfo();
             DrawBreakpointInfo();
             DrawAnimationInfo();
-            DrawBoneStates();
 
             EditorGUILayout.EndScrollView();
 
@@ -106,7 +104,7 @@ namespace Gothic.Core.Editor.Tools
                 var no = 0;
                 // Add additional empty element to the Dictionary
                 _animationSystems = emptyElement
-                    .Concat(FindObjectsOfType<AnimationSystem>()
+                    .Concat(FindObjectsByType<AnimationSystem>(FindObjectsSortMode.None)
                         .Select(animComp => new { animComp.GetComponentInParent<NpcLoader>().name, animComp }))
                     .ToDictionary(i => $"#{no++} - {i.name}", i => i.animComp); // We need to have a unique key for the Dict as e.g. Meatbug will be there multiple times.
             }
@@ -256,78 +254,43 @@ namespace Gothic.Core.Editor.Tools
         {
             DrawDivider();
 
+            var originalBackgroundColor = GUI.backgroundColor;
+
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Layer - Animation", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Time x/y - State", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Blend Weight", EditorStyles.boldLabel);
             EditorGUILayout.EndHorizontal();
 
-            // Access the currently playing animations from selected AnimationSystem
+            // Access the currently playing animations from selected AnimationSystem.
+            // Per-bone weights are gone: bone subsets are handled per track inside AnimationPoseJob.
             foreach (var trackInstance in _targetAnimationSystem.DebugTrackInstances)
             {
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField($"{trackInstance.Track.Layer:D2} - {trackInstance.Track.AliasName ?? trackInstance.Track.Name}");
                 EditorGUILayout.LabelField(
                     $"{trackInstance.CurrentTime:F2} / {trackInstance.Track.Duration:F2} - {trackInstance.State}");
-                EditorGUILayout.EndHorizontal();
-            }
-        }
 
-        private void DrawBoneStates()
-        {
-            DrawDivider();
-
-            var originalBackgroundColor = GUI.backgroundColor;
-
-            EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("Bone States", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
-
-            // "" | "S_WALK" | "T_DIALOGGESTURE_00" | ...
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("-");
-            foreach (var trackInstance in _targetAnimationSystem.DebugTrackInstances)
-            {
-                EditorGUILayout.LabelField(trackInstance.Track.AliasName ?? trackInstance.Track.Name);
-            }
-            EditorGUILayout.EndHorizontal();
-
-            // "L_ARM" | BlendIn(0.32f) /---  / | Play(1.00f) /-----/ | ...
-            foreach (var boneName in _targetAnimationSystem.DebugBoneNames)
-            {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField(boneName);
-                foreach (var trackInstance in _targetAnimationSystem.DebugTrackInstances)
+                switch (trackInstance.State)
                 {
-                    var boneIndex = Array.IndexOf(trackInstance.Track.BoneNames, boneName);
-
-                    if (boneIndex == -1)
-                    {
-                        EditorGUILayout.LabelField("-");
-                        continue;
-                    }
-
-                    switch (trackInstance.BoneStates[boneIndex])
-                    {
-                        case AnimationState.None:
-                        case AnimationState.BlendIn:
-                        case AnimationState.Play:
-                            GUI.backgroundColor = Color.Lerp(Color.red, Color.green, trackInstance.BoneBlendWeights[boneIndex]);
-                            break;
-                        case AnimationState.BlendOut:
-                        case AnimationState.Stop:
-                            GUI.backgroundColor = Color.Lerp(Color.grey, Color.green, trackInstance.BoneBlendWeights[boneIndex]);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    // Reserve a rectangle for the progress bar
-                    var progressRect = EditorGUILayout.GetControlRect(GUILayout.Height(20));
-                    EditorGUI.ProgressBar(progressRect, trackInstance.BoneBlendWeights[boneIndex],
-                        $"{trackInstance.BoneStates[boneIndex]}({trackInstance.BoneBlendWeights[boneIndex]:F2})");
+                    case AnimationState.None:
+                    case AnimationState.BlendIn:
+                    case AnimationState.Play:
+                        GUI.backgroundColor = Color.Lerp(Color.red, Color.green, trackInstance.Weight);
+                        break;
+                    case AnimationState.BlendOut:
+                    case AnimationState.Stop:
+                        GUI.backgroundColor = Color.Lerp(Color.grey, Color.green, trackInstance.Weight);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
-                EditorGUILayout.EndHorizontal();
+
+                var progressRect = EditorGUILayout.GetControlRect(GUILayout.Height(20));
+                EditorGUI.ProgressBar(progressRect, trackInstance.Weight, $"{trackInstance.State}({trackInstance.Weight:F2})");
                 GUI.backgroundColor = originalBackgroundColor;
+
+                EditorGUILayout.EndHorizontal();
             }
         }
 
