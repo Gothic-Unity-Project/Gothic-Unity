@@ -2,10 +2,9 @@
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.HVROverrides;
-using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -17,6 +16,7 @@ namespace Gothic.VR.Adapters.UI
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameTimeService _gameTimeService;
+        [Inject] private readonly NpcRoutineService _npcRoutineService;
 
         private MenuHandler _menuHandler;
         private StatusMenu _statusMenu;
@@ -82,6 +82,7 @@ namespace Gothic.VR.Adapters.UI
             var t = _gameTimeService.GetCurrentTime();
             var next = t.Add(System.TimeSpan.FromMinutes(30));
             _gameTimeService.SetTime(next.Hours, next.Minutes);
+            _npcRoutineService.RecalculateAllNpcRoutines();
             Logger.Log($"[VRMenuCheatAdapter] Time skip → {next.Hours:D2}:{next.Minutes:D2}", LogCat.Ui);
         }
 
@@ -89,10 +90,10 @@ namespace Gothic.VR.Adapters.UI
         {
             if (Keyboard.current != null && Keyboard.current[Key.N].wasPressedThisFrame)
             {
-                Logger.Log("[VRMenuCheatAdapter] N key (sim B button / time skip)", LogCat.Ui);
+                Logger.Log("[VRMenuCheatAdapter] N key (time skip)", LogCat.Ui);
                 return true;
             }
-            return HVRController.GetButtonState(HVRHandSide.Right, HVRButtons.Secondary).JustActivated;
+            return false;
         }
 
         private void TryInit()
@@ -111,20 +112,20 @@ namespace Gothic.VR.Adapters.UI
         {
             if (Keyboard.current != null && Keyboard.current[Key.K].wasPressedThisFrame)
             {
-                Logger.Log("[VRMenuCheatAdapter] K key (sim left)", LogCat.Ui);
+                Logger.Log("[VRMenuCheatAdapter] K key (level cheat)", LogCat.Ui);
                 return true;
             }
-            return HVRController.GetButtonState(HVRHandSide.Left, HVRButtons.Primary).JustActivated;
+            return false;
         }
 
         private static bool RightPrimaryJustPressed()
         {
             if (Keyboard.current != null && Keyboard.current[Key.L].wasPressedThisFrame)
             {
-                Logger.Log("[VRMenuCheatAdapter] L key (sim right)", LogCat.Ui);
+                Logger.Log("[VRMenuCheatAdapter] L key (guild cheat)", LogCat.Ui);
                 return true;
             }
-            return HVRController.GetButtonState(HVRHandSide.Right, HVRButtons.Primary).JustActivated;
+            return false;
         }
     }
 }
