@@ -49,7 +49,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _mobContainer = container;
             _mobsiScheme = _mobContainer?.Props.GetVisualScheme();
 
-            if (container!.Go == null)
+            if (container == null || container.Go == null)
             {
                 IsFinishedFlag = true;
                 return;
