@@ -318,7 +318,6 @@ namespace Gothic.Core.Extensions
                 "$smalltalk23" => svm.Smalltalk23,
                 "$smalltalk24" => svm.Smalltalk24,
                 "$om" => svm.Om,
-                "$sc_heywaitasecond" => svm.ScHeyWaitASecond,
                 "$sc_heyturnaround" => svm.ScHeyTurnAround,
                 "$sc_heyturnaround02" => svm.ScHeyTurnAround02,
                 "$sc_heyturnaround03" => svm.ScHeyTurnAround03,
