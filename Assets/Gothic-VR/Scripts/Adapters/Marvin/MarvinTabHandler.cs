@@ -1,7 +1,7 @@
 #if GOTHIC_HVR_INSTALLED
-using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
@@ -20,14 +20,11 @@ namespace Gothic.VR.Adapters.Marvin
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
+        [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-
-        private StatusMenu _statusMenu;
 
         private void Start()
         {
-            _statusMenu = FindAnyObjectByType<StatusMenu>(FindObjectsInactive.Include);
-
             var placeholder = transform.Find("Text");
             if (placeholder != null)
                 placeholder.gameObject.SetActive(false);
@@ -40,10 +37,10 @@ namespace Gothic.VR.Adapters.Marvin
             var buttons = new System.Collections.Generic.List<(string label, System.Action onClick)>();
 
             if (_configService.Dev.EnableLevel5Cheat)
-                buttons.Add(("Level +5", () => { _statusMenu?.ExecuteLevelCheat(); Logger.Log("[MarvinMode] Level cheat triggered", LogCat.Ui); }));
+                buttons.Add(("Level +5", CheatAddLevels));
 
             if (_configService.Dev.EnableGuildCheat)
-                buttons.Add(("Guild → Novice", () => { _statusMenu?.ExecuteGuildCheat(); Logger.Log("[MarvinMode] Guild cheat triggered", LogCat.Ui); }));
+                buttons.Add(("Guild → Novice", CheatToNovice));
 
             if (_configService.Dev.EnableTimeSkip)
                 buttons.Add(("Skip Time +30min", SkipTime30Min));
@@ -58,6 +55,27 @@ namespace Gothic.VR.Adapters.Marvin
                 var (label, onClick) = buttons[i];
                 CreateButton(label, onClick, startY - i * (buttonHeight + gap));
             }
+        }
+
+        private void CheatAddLevels()
+        {
+            const int levelsToAdd = 5;
+            var hero = _npcService.GetHeroContainer();
+            var oldLevel = hero.Instance.Level;
+            hero.Instance.Level += levelsToAdd;
+            hero.Instance.Lp += levelsToAdd * 10;
+            var hpMax = hero.Vob.GetAttribute(1) + levelsToAdd * 12;
+            hero.Vob.SetAttribute(1, hpMax);
+            hero.Vob.SetAttribute(0, hpMax);
+            _npcService.SyncHeroInstanceToVob();
+            Logger.Log($"[MarvinMode] Level cheat: {oldLevel}→{hero.Instance.Level} (+{levelsToAdd * 10} LP, +{levelsToAdd * 12} HP_MAX)", LogCat.Ui);
+        }
+
+        private void CheatToNovice()
+        {
+            var hero = _npcService.GetHeroContainer();
+            hero.Props.TrueGuild = VmGothicEnums.Guild.GIL_NOV;
+            Logger.Log("[MarvinMode] Guild cheat: set to GIL_NOV", LogCat.Ui);
         }
 
         private void SkipTime30Min()

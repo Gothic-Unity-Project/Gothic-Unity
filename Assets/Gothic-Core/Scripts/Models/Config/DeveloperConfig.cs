@@ -291,13 +291,13 @@ namespace Gothic.Core.Models.Config
         public bool EnableDecalVisuals;
         public bool EnableParticleEffects;
 
-        [Tooltip("Press left A (VR) / K (PC) 5 times to add 5 levels (+50 LP, +60 HP max). Repeatable.")]
+        [Tooltip("Show 'Level +5' button in MarvinMode panel. Adds 5 levels (+50 LP, +60 HP max). Repeatable.")]
         public bool EnableLevel5Cheat;
 
-        [Tooltip("Press right A (VR) / L (PC) 3 times to set hero guild to Novice (GIL_NOV).")]
+        [Tooltip("Show 'Guild → Novice' button in MarvinMode panel. Sets hero guild to GIL_NOV.")]
         public bool EnableGuildCheat;
 
-        [Tooltip("WIP: Press right B button (VR) / N key (PC) to skip game time forward by 30 minutes.")]
+        [Tooltip("Show 'Skip Time +30min' button in MarvinMode panel. Advances game time and recalculates NPC routines.")]
         public bool EnableTimeSkip;
 
     }
