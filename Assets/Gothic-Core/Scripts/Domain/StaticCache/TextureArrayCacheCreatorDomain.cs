@@ -23,7 +23,17 @@ namespace Gothic.Core.Domain.StaticCache
 {
     public class TextureArrayCacheCreatorDomain
     {
-        public Dictionary<string, StaticCacheService.TextureInfo> TextureArrayInformation { get; } = new();
+        /// <summary>
+        /// Texture information per target array. A texture can be registered in the Water array AND a solid
+        /// array at the same time (dual-use, e.g. G1's OWODWAT_A0 is used by river materials and by the Old
+        /// Camp cauldron's soup surface). Gothic's VFS is case-insensitive, therefore the keys are as well.
+        /// </summary>
+        public Dictionary<TextureCacheService.TextureArrayTypes, Dictionary<string, StaticCacheService.TextureInfo>> TextureArrayInformation { get; } = new()
+        {
+            [TextureCacheService.TextureArrayTypes.Opaque] = new Dictionary<string, StaticCacheService.TextureInfo>(StringComparer.OrdinalIgnoreCase),
+            [TextureCacheService.TextureArrayTypes.Transparent] = new Dictionary<string, StaticCacheService.TextureInfo>(StringComparer.OrdinalIgnoreCase),
+            [TextureCacheService.TextureArrayTypes.Water] = new Dictionary<string, StaticCacheService.TextureInfo>(StringComparer.OrdinalIgnoreCase)
+        };
 
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly FrameSkipperService _frameSkipperService;
@@ -46,11 +56,6 @@ namespace Gothic.Core.Domain.StaticCache
             
             foreach (var material in worldMesh.Materials)
             {
-                if (TextureArrayInformation.ContainsKey(material.Texture))
-                {
-                    continue;
-                }
-
                 AddTextureToCache(material.Group, material.Texture);
 
                 _loadingService.Tick();
@@ -200,8 +205,19 @@ namespace Gothic.Core.Domain.StaticCache
 
         private void AddTextureToCache(MaterialGroup group, string textureName)
         {
-            // Already cached.
-            if (TextureArrayInformation.ContainsKey(textureName))
+            // The target array is a pure function of (material group, texture format): registration is
+            // deterministic and independent of the order in which worlds, VOBs and items are processed.
+            // Dual-use textures get registered once per referencing side (Water and solid).
+            if (group == MaterialGroup.Water)
+            {
+                if (TextureArrayInformation[TextureCacheService.TextureArrayTypes.Water].ContainsKey(textureName))
+                {
+                    return;
+                }
+            }
+            // Solid materials land in Opaque or Transparent depending on the texture's format - check both.
+            else if (TextureArrayInformation[TextureCacheService.TextureArrayTypes.Opaque].ContainsKey(textureName)
+                     || TextureArrayInformation[TextureCacheService.TextureArrayTypes.Transparent].ContainsKey(textureName))
             {
                 return;
             }
@@ -220,40 +236,39 @@ namespace Gothic.Core.Domain.StaticCache
                 Logger.LogError("Only DXT1 and RGBA32 textures are supported for texture arrays as of now!", LogCat.PreCaching);
             }
 
-            var textureArrayType = TextureCacheService.TextureArrayTypes.Unknown;
+            TextureCacheService.TextureArrayTypes textureArrayType;
 
             // Water is separate as we use a different shader.
-            // TODO - Do we need to check for different TextureFormats as well?
             if (group == MaterialGroup.Water)
             {
                 textureArrayType = TextureCacheService.TextureArrayTypes.Water;
             }
-            // DXT1 can be opaque
-            else if (unityTextureFormat == TextureFormat.DXT1)
-            {
-                textureArrayType = TextureCacheService.TextureArrayTypes.Opaque;
-            }
-            // RGBA32 is transparent
-            else if (unityTextureFormat == TextureFormat.RGBA32)
-            {
-                textureArrayType = TextureCacheService.TextureArrayTypes.Transparent;
-            }
             else
             {
-                Logger.LogError($"TextureFormat={unityTextureFormat} + MaterialGroup={group} isn't handled for TextureArray so far.", LogCat.PreCaching);
+                // DXT1 is opaque, everything else carries an alpha channel and is handled as transparent.
+                textureArrayType = unityTextureFormat == TextureFormat.DXT1
+                    ? TextureCacheService.TextureArrayTypes.Opaque
+                    : TextureCacheService.TextureArrayTypes.Transparent;
             }
 
+            var textures = TextureArrayInformation[textureArrayType];
             var animationTextures = CalculateAnimationTextures(textureName);
 
             // TryAdd is used to ignore duplicates.
-            TextureArrayInformation.TryAdd(textureName,
+            textures.TryAdd(textureName,
                 new StaticCacheService.TextureInfo(textureArrayType, Math.Max(texture.Width, texture.Height), animationTextures.Count));
 
             // If the texture is an "animated one", we also need to add the animation textures. During runtime, water will iterate the z-index of TextureArray to loop through these elements.
             foreach (var animationTexture in animationTextures)
             {
-                TextureArrayInformation.Add(animationTexture.Key,
-                    new StaticCacheService.TextureInfo(textureArrayType, Math.Max(animationTexture.Value.Width, animationTexture.Value.Height), 0));
+                // Animation frames must occupy the array slices directly after their base texture.
+                // If a frame was already registered on its own, that contiguity is broken and the animation samples wrong slices.
+                if (!textures.TryAdd(animationTexture.Key,
+                        new StaticCacheService.TextureInfo(textureArrayType, Math.Max(animationTexture.Value.Width, animationTexture.Value.Height), 0)))
+                {
+                    Logger.LogError($"Animation frame texture >{animationTexture.Key}< was already registered before its base texture >{textureName}<. " +
+                                    "Its animation will sample wrong texture array slices.", LogCat.PreCaching);
+                }
             }
         }
 
