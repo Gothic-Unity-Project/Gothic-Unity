@@ -164,7 +164,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, string>("Npc_IsOnFP", Npc_IsOnFP);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_WasInState", Npc_WasInState);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItem", Npc_GetInvItem);
-            // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
+            vm.RegisterExternal<int, NpcInstance, int, int>("Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItem", Npc_RemoveInvItem);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int>("EquipItem", EquipItem);
@@ -174,6 +174,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedMeleeWeapon", Npc_HasEquippedMeleeWeapon);
             vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetEquippedRangedWeapon", Npc_GetEquippedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedRangedWeapon", Npc_HasEquippedRangedWeapon);
+            vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedMeleeWeapon", Npc_HasReadiedMeleeWeapon);
+            vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedRangedWeapon", Npc_HasReadiedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance, string>("Npc_GetDistToWP", Npc_GetDistToWP);
             vm.RegisterExternal<NpcInstance, int>("Npc_PercDisable", Npc_PercDisable);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpc", Npc_CanSeeNpc);
@@ -193,6 +195,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_SetTrueGuild", Npc_SetTrueGuild);
@@ -855,9 +858,32 @@ namespace Gothic.Core.Domain.Vm
             // NpcCreator.ExtGetInvItem();
         }
         
-        public void Npc_GetInvItemBySlot(IntPtr vmPtr)
+        public int Npc_GetInvItemBySlot(NpcInstance npc, int invType, int slot)
         {
-            // NpcCreator.ExtGetInvItemBySlot();
+            const int invWeapon = 1;
+            const int invArmor = 2;
+
+            var props = npc.GetUserData().Props;
+            ItemInstance found = null;
+
+            if (invType == invWeapon)
+            {
+                found = slot switch
+                {
+                    1 => props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatNf),
+                    2 => props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf),
+                    _ => null
+                };
+            }
+            else if (invType == invArmor)
+            {
+                if (slot == 1)
+                    found = props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor);
+            }
+
+            _gameStateService.GothicVm.GlobalItem = found;
+            var count = found != null ? 1 : 0;
+            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), count, npc);
         }
 
         public void Npc_RemoveInvItems(IntPtr vmPtr)
@@ -911,6 +937,20 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = _npcHelperService.ExtNpcHasEquippedRangedWeapon(npc) ? 1 : 0;
             return LogInstantExternal(nameof(Npc_HasEquippedRangedWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedMeleeWeapon(NpcInstance npc)
+        {
+            var fightMode = (VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode;
+            var ret = Convert.ToInt32(fightMode == VmGothicEnums.WeaponState.W1H || fightMode == VmGothicEnums.WeaponState.W2H);
+            return LogInstantExternal(nameof(Npc_HasReadiedMeleeWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedRangedWeapon(NpcInstance npc)
+        {
+            var fightMode = (VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode;
+            var ret = Convert.ToInt32(fightMode == VmGothicEnums.WeaponState.Bow || fightMode == VmGothicEnums.WeaponState.CBow);
+            return LogInstantExternal(nameof(Npc_HasReadiedRangedWeapon), ret, npc);
         }
 
         public int Npc_GetDistToWP(NpcInstance npc, string waypoint)
@@ -1025,6 +1065,12 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtGetTarget(npc));
             return LogInstantExternal(nameof(Npc_GetTarget), ret, npc);
+        }
+
+        public int Npc_GetNextTarget(NpcInstance npc)
+        {
+            var ret = _npcAiService.ExtGetNextTarget(npc);
+            return LogInstantExternal(nameof(Npc_GetNextTarget), ret, npc);
         }
 
         public void Npc_SetTarget(NpcInstance npc, NpcInstance target)

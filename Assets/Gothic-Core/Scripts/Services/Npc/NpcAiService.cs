@@ -2,6 +2,7 @@ using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
@@ -9,6 +10,7 @@ using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 using Vector3 = UnityEngine.Vector3;
 
 namespace Gothic.Core.Services.Npc
@@ -117,7 +119,18 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcClearAiQueue(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Clear();
+            var container = npc.GetUserData();
+            container.Props.AnimationQueue.Clear();
+
+            // When called from inside the AiHandler combo-preload (IsInComboPreload=true), the
+            // active AttackPlayAni must NOT be stopped — the combo window needs it alive so it can
+            // cut the animation early once the next attack is queued by AI_Attack.
+            // In all other contexts (B_FullStop, state transitions, etc.) stop immediately.
+            if (container.PrefabProps != null && container.PrefabProps.AiHandler != null && container.PrefabProps.AiHandler.IsInComboPreload)
+                return;
+
+            container.Props.CurrentAction = new None(new AnimationAction(), container);
+            container.PrefabProps?.AnimationSystem?.StopAllAnimations();
         }
 
         public void ExtAttack(NpcInstance npc)
@@ -177,10 +190,19 @@ namespace Gothic.Core.Services.Npc
 
             if (stopCurrentState)
             {
-                // Abandon current state immediately so the new one starts next frame, not after the whole queue drains.
-                container.PrefabProps?.AiHandler?.ClearState(false);
                 container.Props.StateEnd = 0;
-                container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
+                container.Props.CurrentWayPoint = null;
+
+                if (container.Props.AnimationQueue.OfType<UndrawWeapon>().Any())
+                {
+                    // UndrawWeapon is already queued (B_RemoveWeapon in ZS_Attack_End).
+                    // Let it play the sheath animation; StartState enqueued below will follow it.
+                    Logger.LogWarning($"[ExtAiStartState] pending UndrawWeapon — deferring state clear so sheath plays", LogCat.Fight);
+                }
+                else
+                {
+                    container.PrefabProps?.AiHandler?.ClearState(false);
+                }
             }
 
             container.Props.AnimationQueue.Enqueue(new StartState(
@@ -363,7 +385,14 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiDrawWeapon(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(), npc.GetUserData()));
+            var container = npc.GetUserData();
+            var fightMode = (VmGothicEnums.WeaponState)container.Vob.FightMode;
+            var stateLoop = container.Props.StateLoop;
+            var stateName = stateLoop != 0
+                ? (_gameStateService.GothicVm.GetSymbolByIndex(stateLoop)?.Name ?? "?")
+                : "NoState";
+            Logger.LogWarning($"[AI_DrawWeapon] {npc.GetName(NpcNameSlot.Slot0)} fightMode={fightMode} stateLoop={stateName} — enqueueing DrawWeapon", LogCat.Fight);
+            container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(), container));
         }
 
         public void ExtAiReadyRangedWeapon(NpcInstance npc)
@@ -374,7 +403,10 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiUndrawWeapon(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new UndrawWeapon(new AnimationAction(), npc.GetUserData()));
+            var container = npc.GetUserData();
+            var fightMode = (VmGothicEnums.WeaponState)container.Vob.FightMode;
+            Logger.LogWarning($"[AI_RemoveWeapon] {npc.GetName(NpcNameSlot.Slot0)} fightMode={fightMode} — enqueueing UndrawWeapon", LogCat.Fight);
+            container.Props.AnimationQueue.Enqueue(new UndrawWeapon(new AnimationAction(), container));
         }
 
         public bool ExtNpcIsDead(NpcInstance npcInstance)
@@ -469,6 +501,50 @@ namespace Gothic.Core.Services.Npc
         public void ExtSetTarget(NpcInstance npc, NpcInstance target)
         {
             npc.GetUserData().Props.TargetNpc = target;
+        }
+
+        public int ExtGetNextTarget(NpcInstance npc)
+        {
+            var selfNpc = npc.GetUserData();
+            var selfPosition = selfNpc.Go.transform.position;
+
+            NpcContainer closestEnemy = null;
+            var closestSqrDist = float.MaxValue;
+
+            var sensesRangeMeters = npc.SensesRange / 100f;
+            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate.Props == null || candidate.Go == null)
+                    continue;
+                if (candidate.Instance.Index == npc.Index)
+                    continue;
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                    continue;
+
+                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
+                    continue;
+
+                if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
+                    continue;
+
+                closestSqrDist = sqrDist;
+                closestEnemy = candidate;
+            }
+
+            if (closestEnemy == null)
+            {
+                Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)}: no next target", LogCat.Fight);
+                return 0;
+            }
+
+            selfNpc.Props.TargetNpc = closestEnemy.Instance;
+            selfNpc.Props.EnemyNpc = closestEnemy.Instance;
+            _gameStateService.GothicVm.GlobalOther = closestEnemy.Instance;
+            Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)} → {closestEnemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            return 1;
         }
 
         public void Npc_SendPassivePerc(NpcInstance npc,VmGothicEnums.PerceptionType perc, NpcInstance victim, NpcInstance other)

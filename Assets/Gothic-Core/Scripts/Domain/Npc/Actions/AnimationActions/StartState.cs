@@ -35,6 +35,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Props.StateTime = 0;
             Props.Perceptions.Clear();
 
+            Props.StateOther = _other;
+            Props.StateVictim = _victim;
+
             GameStateService.GothicVm.GlobalOther = _other;
             GameStateService.GothicVm.GlobalVictim = _victim;
         }
