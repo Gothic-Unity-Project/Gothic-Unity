@@ -17,12 +17,30 @@ namespace Gothic.Core.Services.World
         private static readonly int _globalStationaryLightColorsShaderId =
             Shader.PropertyToID("_GlobalStationaryLightColors");
 
+        private Vector4[] _lightPositionsAndAttenuation;
+        private Vector4[] _lightColors;
+        private bool _lightColorsDirty;
+        private bool _lightPositionsDirty;
 
         private readonly HashSet<MeshRenderer> _dirtiedMeshes = new();
         private readonly Dictionary<MeshRenderer, List<StationaryLight>> _lightsPerRenderer = new();
 
         public void LateUpdate()
         {
+            // Upload animated light data to shader arrays.
+            if (_lightColorsDirty)
+            {
+                Shader.SetGlobalVectorArray(_globalStationaryLightColorsShaderId, _lightColors);
+                _lightColorsDirty = false;
+            }
+
+            if (_lightPositionsDirty)
+            {
+                Shader.SetGlobalVectorArray(
+                    _globalStationaryLightPositionsAndAttenuationShaderId, _lightPositionsAndAttenuation);
+                _lightPositionsDirty = false;
+            }
+
             // Update the renderer once for all updated lights.
             if (_dirtiedMeshes.Count <= 0)
             {
@@ -118,26 +136,51 @@ namespace Gothic.Core.Services.World
         {
             var lights = _staticCacheService.LoadedStationaryLights.StationaryLights;
 
-            var lightPositionsAndAttenuation = new Vector4[lights.Count];
-            var lightColors = new Vector4[lights.Count];
+            _lightPositionsAndAttenuation = new Vector4[lights.Count];
+            _lightColors = new Vector4[lights.Count];
 
             for (var i = 0; i < lights.Count; i++)
             {
-                lightPositionsAndAttenuation[i] = new Vector4(
+                _lightPositionsAndAttenuation[i] = new Vector4(
                     lights[i].P.x, lights[i].P.y, lights[i].P.z,
                     1f / (lights[i].R * lights[i].R));
-                lightColors[i] = lights[i].Col;
+                _lightColors[i] = lights[i].Col;
             }
 
+            _lightColorsDirty = false;
+            _lightPositionsDirty = false;
+
             // Unity exception: Zero sized arrays aren't allowed for Shader values.
-            if (lightPositionsAndAttenuation.IsEmpty())
+            if (_lightPositionsAndAttenuation.IsEmpty())
             {
                 return;
             }
 
             Shader.SetGlobalVectorArray(_globalStationaryLightPositionsAndAttenuationShaderId,
-                lightPositionsAndAttenuation);
-            Shader.SetGlobalVectorArray(_globalStationaryLightColorsShaderId, lightColors);
+                _lightPositionsAndAttenuation);
+            Shader.SetGlobalVectorArray(_globalStationaryLightColorsShaderId, _lightColors);
+        }
+
+        /// <summary>
+        /// Called each frame by animated StationaryLights to push their current color and range
+        /// into the shader global arrays. The arrays are uploaded to the GPU once per frame in
+        /// LateUpdate if dirty.
+        /// </summary>
+        public void NotifyLightChanged(StationaryLight light)
+        {
+            var idx = light.Index;
+            if (idx < 0 || _lightColors == null || idx >= _lightColors.Length)
+                return;
+
+            var color = light.Color;
+            _lightColors[idx] = new Vector4(color.r, color.g, color.b, 0);
+            _lightColorsDirty = true;
+
+            if (light.Range > 0f)
+            {
+                _lightPositionsAndAttenuation[idx].w = 1f / (light.Range * light.Range);
+                _lightPositionsDirty = true;
+            }
         }
     }
 }

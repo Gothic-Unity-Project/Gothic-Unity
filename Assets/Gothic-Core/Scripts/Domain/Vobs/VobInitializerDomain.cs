@@ -417,6 +417,31 @@ namespace Gothic.Core.Domain.Vobs
                                   $"Will be solved later. ;-)", LogCat.Vob);
             }
 
+            // Color animation (flicker)
+            var colorAnimList = vob.ColorAnimationList;
+            if (colorAnimList.Count > 0)
+            {
+                var colors = new UnityEngine.Color[colorAnimList.Count];
+                for (var i = 0; i < colors.Length; i++)
+                {
+                    var c = colorAnimList[i];
+                    colors[i] = new UnityEngine.Color(c.R / 255f, c.G / 255f, c.B / 255f);
+                }
+
+                lightComp.SetColorAnimation(colors, vob.ColorAnimationFps, vob.ColorAnimationSmooth);
+            }
+
+            // Range animation (pulse)
+            var rangeAnimList = vob.RangeAnimationScale;
+            if (rangeAnimList.Count > 0)
+            {
+                var scales = new float[rangeAnimList.Count];
+                for (var i = 0; i < scales.Length; i++)
+                    scales[i] = rangeAnimList[i];
+
+                lightComp.SetRangeAnimation(scales, vob.RangeAnimationFps, vob.RangeAnimationSmooth);
+            }
+
             lightComp.Init();
 
             return go;
