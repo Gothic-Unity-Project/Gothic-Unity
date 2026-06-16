@@ -8,9 +8,10 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
+using ZenKit;
 using UnityEngine;
-using Random = UnityEngine.Random;
 using Logger = Gothic.Core.Logging.Logger;
+using Random = UnityEngine.Random;
 using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -49,9 +50,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             var audioClip = _audioService.CreateAudioClip(OutputName);
+            var block = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+
             if (audioClip == null)
-                Logger.LogWarning($"[Output] Audio not found: {OutputName} — using fallback duration", LogCat.Dialog);
-            _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
+                Logger.LogWarning($"AudioClip >{OutputName}< not found. Using text-length fallback.", LogCat.Dialog);
+            _audioPlaySeconds = audioClip != null ? audioClip.length : Mathf.Max(2f, (block?.Message.Text.Length ?? 30) / 15f);
 
             // Hero
             if (_isHeroSpeaking)
@@ -59,7 +62,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 if (audioClip != null)
                     _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
             // NPC
             else
@@ -74,14 +77,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
         }
 
-        private void PrintDialog()
+        private void PrintDialog(ICutsceneBlock block)
         {
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
             if (block == null)
             {
                 Logger.LogWarning($"Dialog block '{OutputName}' not found in CutsceneLibrary.", LogCat.Dialog);

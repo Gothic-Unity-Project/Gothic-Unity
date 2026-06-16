@@ -52,7 +52,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly NpcService _npcService;
-        [Inject] private readonly RoutineService _routineService;
+        [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly ParticleService _particleService;
         
@@ -102,7 +102,7 @@ namespace Gothic.Core.Services
             _npcMeshCullingService.Init();
             _vobSoundCullingService.Init();
             _gameTimeService.Init();
-            _routineService.Init();
+            _npcRoutineService.Init();
             _fightService.Init();
             _particleService.Init();
         }
@@ -181,7 +181,12 @@ namespace Gothic.Core.Services
             }
             else
             {
-                // If we have saveGameId -1 that means to just change the world and keep the same data.
+                // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
+                // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
+                _vobMeshCullingService.PreWorldCreate();
+                _npcMeshCullingService.PreWorldCreate();
+                _vobSoundCullingService.PreWorldCreate();
+                _npcService.ClearQueues();
             }
             _saveGameService.ChangeWorld(worldName);
 

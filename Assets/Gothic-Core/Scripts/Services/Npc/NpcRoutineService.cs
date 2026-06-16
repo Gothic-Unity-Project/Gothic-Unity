@@ -1,7 +1,9 @@
+using System;
 using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.World;
 using MyBox;
@@ -16,9 +18,37 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly GameTimeService _gameTimeService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
-        
+
+
         private DaedalusVm _vm => _gameStateService.GothicVm;
+
+        public void Init()
+        {
+            GlobalEventDispatcher.GameTimeMinuteChangeCallback.AddListener(OnGameTimeMinuteChanged);
+        }
+
+        /// <summary>
+        /// Advance the time-based daily routine of all NPCs - including culled ones, so that the world progresses
+        /// while we're not looking. Visible NPCs pick the new routine up with their next StartNextRoutine().
+        /// For culled NPCs, the culling sphere follows the schedule to the new waypoint.
+        /// FIXME - Original G1 interrupts the current ZS_* state of visible NPCs when their routine changes.
+        /// </summary>
+        private void OnGameTimeMinuteChanged(DateTime now)
+        {
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                // e.g. Hero and monsters have no daily routines.
+                if (npc.Props == null || npc.Props.Routines.Count == 0)
+                    continue;
+
+                if (!CalculateCurrentRoutine(npc.Instance))
+                    continue;
+
+                _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
+            }
+        }
 
         public void ExtNpcExchangeRoutine(NpcInstance npcInstance, string routineName)
         {
@@ -81,7 +111,7 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Based on time of the day, we need to calculate routine.
         /// </summary>
-        private bool CalculateCurrentRoutine(NpcInstance npc)
+        public bool CalculateCurrentRoutine(NpcInstance npc)
         {
             var npcProps = npc.GetUserData().Props;
             var currentTime = _gameTimeService.GetCurrentDateTime();

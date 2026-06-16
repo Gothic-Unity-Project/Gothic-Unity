@@ -31,8 +31,9 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
-        
+
         private const float _fpLookupDistance = 7f; // meter
+        private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
 
         public void Init()
         {
@@ -138,11 +139,11 @@ namespace Gothic.Core.Services.Npc
         public bool ExtWldDetectNpcEx(NpcInstance npcInstance, int specificNpcIndex, int aiState, int guild,
             bool detectPlayer)
         {
-            var npc = GetProperties(npcInstance);
             var npcPos = npcInstance.GetUserData().Go.transform.position;
-            var npcVob = npcInstance.GetUserData().Vob;
 
-            // FIXME - add range check based on perceiveAll's range (npc.sense_range)
+            var sensesRangeMeters = npcInstance.SensesRange / 100f;
+            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
+
             var foundNpc = _multiTypeCacheService.NpcCache
                 .Where(i => i.Props != null) // ignore empty (safe check)
                 .Where(i => i.Go != null) // ignore empty (safe check)
@@ -154,7 +155,8 @@ namespace Gothic.Core.Services.Npc
                             specificNpcIndex == i.Instance.Index) // Specific NPC is found right now?
                 .Where(i => aiState < 0 || aiState == i.Vob.CurrentStateIndex)
                 .Where(i => guild < 0 || i.Instance.Guild == guild) // check guild
-                .OrderBy(i => Vector3.Distance(i.Go.transform.position, npcPos)) // get nearest
+                .Where(i => (i.Go.transform.position - npcPos).sqrMagnitude <= sensesRangeSqr) // detect only within senses range
+                .OrderBy(i => (i.Go.transform.position - npcPos).sqrMagnitude) // get nearest
                 .FirstOrDefault();
 
             // without this Dialog box stops and breaks the entire NPC logic
@@ -238,20 +240,89 @@ namespace Gothic.Core.Services.Npc
             return npc?.GetUserData().Props;
         }
 
-        // FIXME - CanSense is not separating between smell, hear, and see as of now. Please add functionality.
-        public bool CanSenseNpc(NpcInstance self, NpcInstance other, bool freeLOS)
+        /// <summary>
+        /// Senses check based on C_NPC.senses: hearing and smelling only need the range check,
+        /// seeing additionally needs a free line of sight (and FOV unless freeLOS is set).
+        /// </summary>
+        public bool CanSenseNpc(NpcInstance self, NpcInstance other, bool freeLOS, float maxRangeMeters = float.MaxValue)
         {
-            var senseRange = (self.SensesRange / 100); // daedalus values are in cm, we need them in m
+            var senseRangeMeters = Mathf.Min(self.SensesRange / 100f, maxRangeMeters); // daedalus values are in cm, we need them in m
             var range = Vector3.Distance(other.GetUserData().Go.transform.position,
                 self.GetUserData().Go.transform.position);
-            if (range > senseRange)
+
+            if (range > senseRangeMeters)
             {
                 return false;
             }
-            else
+
+            var senses = (VmGothicEnums.NpcSenses)self.Senses;
+
+            // Defensive: an NPC without configured senses keeps the previous distance-only behavior.
+            if (senses == 0)
             {
                 return true;
             }
+
+            if ((senses & (VmGothicEnums.NpcSenses.Hear | VmGothicEnums.NpcSenses.Smell)) != 0)
+            {
+                return true;
+            }
+
+            return CanSeeNpc(self, other, freeLOS);
+        }
+
+        /// <summary>
+        /// freeLOS - Free Line Of Sight == ignoreFOV
+        /// fov = 50 - OpenGothic assumes 100 fov for NPCs
+        /// fov = 30 - We reuse this for Focus angle during AI_Attack()
+        /// </summary>
+        public bool CanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f)
+        {
+            var selfContainer = self.GetUserData();
+            var otherContainer = other.GetUserData();
+
+            if (selfContainer == null || otherContainer == null)
+            {
+                return false;
+            }
+
+            // Hint: For forward direction check, we can't use HeadMesh as e.g., Molerat's head is rotated to have red axis (right) as forward.
+            //       OpenGothic is therefore using Body rotation, too.
+            var selfRoot = selfContainer.Go.transform;
+            var otherRoot = otherContainer.Go.transform;
+            var selfHead = selfContainer.PrefabProps.Head ?? selfRoot;
+            var otherHead = otherContainer.PrefabProps.Head ?? otherRoot;
+
+            var selfGroundPosition = selfRoot.position;
+            var otherGroundPosition = otherRoot.position;
+            // Unity places positions of objects at the bottom. We need to lift them up towards the head
+            var selfRealHeadPosition = new Vector3(selfRoot.position.x, selfHead.position.y, selfRoot.position.z);
+            var otherRealHeadPosition = new Vector3(otherRoot.position.x, otherHead.position.y, otherRoot.position.z);
+
+            var distanceToNpc = Vector3.Distance(selfRealHeadPosition, otherRealHeadPosition);
+            var inSightRange = distanceToNpc <= self.SensesRange / 100f; // SensesRange is in cm.
+
+            var hasLineOfSightCollisions = Physics.Linecast(selfRealHeadPosition, otherRealHeadPosition, _raycastLayersToUse);
+
+            // Calculate horizontal direction only (ignore Y axis for FOV check), basically a Gobbo is only using x+z for FOV and hero standing in front of it will work correctly.
+            var directionToTarget = new Vector3(
+                otherGroundPosition.x - selfGroundPosition.x,
+                0f,
+                otherGroundPosition.z - selfGroundPosition.z
+            ).normalized;
+            var selfForwardHorizontal = new Vector3(selfRoot.forward.x, 0f, selfRoot.forward.z).normalized;
+            var angleToTarget = Vector3.Angle(selfForwardHorizontal, directionToTarget);
+            var inFov = angleToTarget <= fov;
+
+            return inSightRange && !hasLineOfSightCollisions && (freeLOS || inFov);
+        }
+
+        /// <summary>
+        /// Range set via Perc_SetRange() in meters. Unset perceptions are unlimited (senses range still applies).
+        /// </summary>
+        public float GetPerceptionRange(VmGothicEnums.PerceptionType type)
+        {
+            return PerceptionRanges.TryGetValue(type, out var range) ? range : float.MaxValue;
         }
     }
 }

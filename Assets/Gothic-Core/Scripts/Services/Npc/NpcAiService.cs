@@ -1,6 +1,5 @@
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
@@ -21,8 +20,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
 
-        private static int _raycastLayersToUse = (1 << Constants.DefaultLayer);
-        
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
             npc.GetUserData().Props.Perceptions[perception] = function;
@@ -50,12 +47,12 @@ namespace Gothic.Core.Services.Npc
             }
 
             var oldSelf = _gameStateService.GothicVm.GlobalSelf;
-            var oldOther = _gameStateService.GothicVm.GlobalOther;
             var oldVictim = _gameStateService.GothicVm.GlobalVictim;
+            var oldOther = _gameStateService.GothicVm.GlobalOther;
 
             _gameStateService.GothicVm.GlobalSelf = self;
 
-            if(other != null) 
+            if(other != null)
             {
                 _gameStateService.GothicVm.GlobalOther = other;
             }
@@ -65,11 +62,18 @@ namespace Gothic.Core.Services.Npc
                 _gameStateService.GothicVm.GlobalVictim = victim;
             }
 
-            _gameStateService.GothicVm.Call(perceptionFunction);
-
-            _gameStateService.GothicVm.GlobalSelf = oldSelf;
-            _gameStateService.GothicVm.GlobalOther = oldOther;
-            _gameStateService.GothicVm.GlobalVictim = oldVictim;
+            // The finally block ensures a throwing perception function doesn't leave the globals
+            // polluted for every subsequent script call of all NPCs.
+            try
+            {
+                _gameStateService.GothicVm.Call(perceptionFunction);
+            }
+            finally
+            {
+                _gameStateService.GothicVm.GlobalSelf = oldSelf;
+                _gameStateService.GothicVm.GlobalVictim = oldVictim;
+                _gameStateService.GothicVm.GlobalOther = oldOther;
+            }
         }
 
         public void ExtNpcSetPerceptionTime(NpcInstance npc, float time)
@@ -108,46 +112,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool ExtNpcCanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f)
         {
-            var selfContainer = self.GetUserData();
-            var otherContainer = other.GetUserData();
-
-            if (selfContainer == null || otherContainer == null)
-            {
-                return false;
-            }
-
-            // Hint: For forward direction check, we can't use HeadMesh as e.g., Molerat's head is rotated to have red axis (right) as forward.
-            //       OpenGothic is therefore using Body rotation, too.
-            var selfRoot = selfContainer.Go.transform;
-            var otherRoot = otherContainer.Go.transform;
-            var selfHead = selfContainer.PrefabProps.Head ?? selfRoot;
-            var otherHead = otherContainer.PrefabProps.Head ?? otherRoot;
-
-            var selfGroundPosition = selfRoot.position;
-            var otherGroundPosition = otherRoot.position;
-            // Unity places positions of objects at the bottom. We need to lift them up towards the head
-            var selfRealHeadPosition = new Vector3(selfRoot.position.x, selfHead.position.y, selfRoot.position.z);
-            var otherRealHeadPosition = new Vector3(otherRoot.position.x, otherHead.position.y, otherRoot.position.z);
-
-            var distanceToNpc = Vector3.Distance(selfRealHeadPosition, otherRealHeadPosition);
-            var inSightRange = distanceToNpc <= self.SensesRange;
-
-            var hasLineOfSightCollisions = Physics.Linecast(selfRealHeadPosition, otherRealHeadPosition, _raycastLayersToUse);
-
-            // DEBUG - collision detection and fetching the object which is blocking LoS.
-            // var hasLineOfSightCollisionsDebug = Physics.Linecast(selfRealHeadPosition, otherRealHeadPosition, out var hit, _raycastLayersToUse);
-
-            // Calculate horizontal direction only (ignore Y axis for FOV check), basically a Gobbo is only using x+z for FOV and hero standing in front of it will work correctly. 
-            var directionToTarget = new Vector3(
-                otherGroundPosition.x - selfGroundPosition.x,
-                0f,
-                otherGroundPosition.z - selfGroundPosition.z
-            ).normalized;
-            var selfForwardHorizontal = new Vector3(selfRoot.forward.x, 0f, selfRoot.forward.z).normalized;
-            var angleToTarget = Vector3.Angle(selfForwardHorizontal, directionToTarget);
-            var inFov = angleToTarget <= fov;
-
-            return inSightRange && !hasLineOfSightCollisions && (freeLOS || inFov);
+            return _npcHelperService.CanSeeNpc(self, other, freeLOS, fov);
         }
 
         public void ExtNpcClearAiQueue(NpcInstance npc)
@@ -206,7 +171,7 @@ namespace Gothic.Core.Services.Npc
         public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName)
         {
             var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
-            var victim = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
+            var victim = (NpcInstance)_gameStateService.GothicVm.GlobalVictim;
 
             var container = npc.GetUserData();
 
@@ -216,7 +181,6 @@ namespace Gothic.Core.Services.Npc
                 container.PrefabProps?.AiHandler?.ClearState(false);
                 container.Props.StateEnd = 0;
                 container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
-
             }
 
             container.Props.AnimationQueue.Enqueue(new StartState(
@@ -402,6 +366,17 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(), npc.GetUserData()));
         }
 
+        public void ExtAiReadyRangedWeapon(NpcInstance npc)
+        {
+            // int0 == 1 --> DrawWeapon picks the equipped ranged weapon instead of the melee one.
+            npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), npc.GetUserData()));
+        }
+
+        public void ExtAiUndrawWeapon(NpcInstance npc)
+        {
+            npc.GetUserData().Props.AnimationQueue.Enqueue(new UndrawWeapon(new AnimationAction(), npc.GetUserData()));
+        }
+
         public bool ExtNpcIsDead(NpcInstance npcInstance)
         {
             // FIXME - BodyState is runtime-only and lost on NPC reload (e.g. world reload respawns the NPC alive).
@@ -479,7 +454,16 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtGetTarget(NpcInstance npc)
         {
-            return npc.GetUserData().Props.TargetNpc != null;
+            var target = npc.GetUserData().Props.TargetNpc;
+
+            if (target == null)
+            {
+                return false;
+            }
+
+            // Npc_GetTarget() also fills >other< with the target - scripts use it immediately afterwards.
+            _gameStateService.GothicVm.GlobalOther = target;
+            return true;
         }
 
         public void ExtSetTarget(NpcInstance npc, NpcInstance target)
@@ -515,9 +499,11 @@ namespace Gothic.Core.Services.Npc
             NpcContainer closestEnemy = null;
             var closestSqrDist = float.MaxValue;
 
+            var sensesRangeMeters = self.SensesRange / 100f;
+            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
+
             // FIXME - Performance - Can we clean this up to support only spawned and visible NPCs/Monsters?
-            //         Otherwise we might need to loop through it for each visible monster and 1000x per visible NPC/Monster
-            //         -> about 10k checks per frame!
+            //         A spatial lookup (e.g. the culling system's distance buckets) would avoid the full scan.
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
                 // Fast-fail checks in order of cheapest first
@@ -531,7 +517,16 @@ namespace Gothic.Core.Services.Npc
                     continue;
                 }
 
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
+                // Corpses aren't enemies.
+                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                {
+                    continue;
+                }
+
+                // Range and closest-so-far gates before the expensive attitude and senses checks
+                // (senses may include a line-of-sight raycast for see-only monsters).
+                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
                 {
                     continue;
                 }
@@ -541,13 +536,13 @@ namespace Gothic.Core.Services.Npc
                     continue;
                 }
 
-                // Compare squared distances to avoid sqrt calculation
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist < closestSqrDist)
+                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
                 {
-                    closestSqrDist = sqrDist;
-                    closestEnemy = candidate;
+                    continue;
                 }
+
+                closestSqrDist = sqrDist;
+                closestEnemy = candidate;
             }
 
             selfNpc.Props.EnemyNpc = closestEnemy?.Instance;
