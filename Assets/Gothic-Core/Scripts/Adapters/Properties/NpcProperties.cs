@@ -37,6 +37,9 @@ namespace Gothic.Core.Adapters.Properties
         public string MdmName;
         public string MdsNameBase;
         public string MdsNameOverlay;
+        // Stores the overlay set by Daedalus routines (Mdl_ApplyOverlayMds). DrawWeapon temporarily
+        // replaces MdsNameOverlay with a combat overlay; UndrawWeapon restores from this.
+        public string MdsNameRoutineOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
         // An MDS file has always an MDH file named identically
@@ -79,7 +82,13 @@ namespace Gothic.Core.Adapters.Properties
         public float StateTime;
         public LoopState CurrentLoopState = LoopState.None;
         public AbstractAnimationAction CurrentAction;
-        
+
+        // "other" and "victim" saved when a state is started via AI_StartState with a specific enemy.
+        // Used by AiHandler.Update() so state functions (ZS_*_Start/Loop) receive the correct NPC,
+        // not the hero default. Cleared when returning to daily routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;
     }
