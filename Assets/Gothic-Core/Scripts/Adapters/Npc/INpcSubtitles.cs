@@ -4,5 +4,6 @@ namespace Gothic.Core.Adapters.Npc
     {
         void ShowSubtitles(string text);
         void HideSubtitles();
+        void ScheduleHide(float delay);
     }
 }

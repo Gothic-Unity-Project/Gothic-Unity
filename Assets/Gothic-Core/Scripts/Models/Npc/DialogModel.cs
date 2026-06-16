@@ -10,6 +10,13 @@ namespace Gothic.Core.Models.Npc
         public List<InfoInstance> Instances = new();
         public bool IsInDialog;
 
+        /// <summary>
+        /// Set from C# when the hero physically initiates dialog (collision/grab).
+        /// False when the NPC initiates (e.g. important dialog walks to player).
+        /// Used to suppress hero's reactive "hey" SVM lines for NPC-initiated conversations.
+        /// </summary>
+        public bool WasPlayerInitiated;
+
         public CutsceneLibrary CutsceneLibrary;
 
         public int GestureCount;
@@ -20,6 +27,7 @@ namespace Gothic.Core.Models.Npc
         public void Dispose()
         {
             IsInDialog = false;
+            WasPlayerInitiated = false;
             CurrentInstance = null;
             CurrentOptions.Clear();
             GestureCount = 0;
