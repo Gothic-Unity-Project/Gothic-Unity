@@ -6,6 +6,8 @@ using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
+using FreePoint = Gothic.Core.Models.Vob.WayNet.FreePoint;
+using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
@@ -316,6 +318,7 @@ namespace Gothic.Core.Adapters.Npc
                 Properties.AnimationQueue.Clear();
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
                 Properties.CurrentLoopState = NpcProperties.LoopState.None; // i.e. call StartNextState() next frame
+                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
             }
@@ -339,7 +342,11 @@ namespace Gothic.Core.Adapters.Npc
             {
                 var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
                 if (wp != null)
+                {
                     gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                    Properties.CurrentFreePoint = wp as FreePoint;
+                    Properties.CurrentWayPoint = wp as WayPoint;
+                }
                 else
                     Logger.LogWarning($"ReEnableNpc: waypoint '{currentRoutine.Waypoint}' not found for {gameObject.name} — NPC will re-enable at current position.", LogCat.Npc);
             }
