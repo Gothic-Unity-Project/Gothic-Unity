@@ -307,8 +307,18 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Show 'Guild → Novice' button in MarvinMode panel. Sets hero guild to GIL_NOV.")]
         public bool EnableGuildCheat;
 
+        [Tooltip("Show 'Guild → Scavenger' button in MarvinMode panel. Sets hero guild to GIL_SCAVENGER (24) for NPC combat testing.")]
+        public bool EnableScavengerGuildCheat;
+
         [Tooltip("Show 'Skip Time +30min' button in MarvinMode panel. Advances game time and recalculates NPC routines.")]
         public bool EnableTimeSkip;
+
+        [Header("NPC Combat (WIP)")]
+        [Tooltip("Fire ZS_Attack_Loop early when combo window opens so the next attack chains before the animation ends.")]
+        public bool EnableNpcCombatCombos = true;
+
+        [Tooltip("Enable proximity + FOV hit detection in AttackPlayAni. Disable to watch animations without dealing damage.")]
+        public bool EnableNpcHitDetection = true;
 
     }
 }

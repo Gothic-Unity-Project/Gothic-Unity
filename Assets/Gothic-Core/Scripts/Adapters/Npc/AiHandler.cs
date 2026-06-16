@@ -40,6 +40,10 @@ namespace Gothic.Core.Adapters.Npc
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
 
+        // True while the combo-preload CallAiFunction is executing. Used by ExtNpcClearAiQueue to
+        // avoid stopping the active AttackPlayAni when Npc_ClearAIQueue fires from ZS_Attack_Loop.
+        public bool IsInComboPreload { get; private set; }
+
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
@@ -85,6 +89,25 @@ namespace Gothic.Core.Adapters.Npc
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
             if (!Properties.CurrentAction.IsFinished())
             {
+                // Combo preload: Gothic's fight AI runs continuously, so the next attack is always
+                // queued before the combo window opens. We replicate this by firing the fight loop
+                // as soon as the window opens with an empty queue, so the cut happens at the right
+                // frame instead of waiting for the full animation (e.g. s_1hAttack is 5.6s).
+                if (_configService.Dev.EnableNpcCombatCombos &&
+                    Properties.CurrentAction is AttackPlayAni &&
+                    Properties.AnimationQueue.Count == 0 &&
+                    Properties.CurrentLoopState == NpcProperties.LoopState.Loop &&
+                    Properties.StateLoop != 0 &&
+                    PrefabProps.AnimationSystem.HasComboWindowOpened)
+                {
+                    Vm.GlobalSelf = NpcInstance;
+                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+                    IsInComboPreload = true;
+                    var preloadResponse = CallAiFunction(Properties.StateLoop);
+                    IsInComboPreload = false;
+                    if (preloadResponse != _daedalusLoopContinue)
+                        Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                }
                 return;
             }
 
@@ -97,7 +120,9 @@ namespace Gothic.Core.Adapters.Npc
                 if (NpcInstance != null)
                 {
                     Vm.GlobalSelf = NpcInstance;
-                    Vm.GlobalOther = Vm.GlobalHero;
+                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+                    if (Properties.StateVictim != null)
+                        Vm.GlobalVictim = Properties.StateVictim;
                 }
 
                 switch (Properties.CurrentLoopState)
@@ -254,6 +279,10 @@ namespace Gothic.Core.Adapters.Npc
             // If we have nothing prepared, start daily Routine.
             else
             {
+                // Returning to routine — clear combat context so routine states get hero as "other".
+                Properties.StateOther = null;
+                Properties.StateVictim = null;
+
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)
                     StartRoutine(currentRoutine.Action, currentRoutine.Waypoint);

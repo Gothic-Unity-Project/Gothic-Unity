@@ -16,8 +16,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly NpcAiService _npcAiService;
 
-        private NpcInstance _enemy => Props.EnemyNpc;
-        
+        private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
+
         private FightAiMove _move;
         
         // e.g., when a Zombie is spawned away, it won't fight, but instead start to walk again. We need to say to the game: you're about 30cm closer than the center of NPC/Monster/Hero.
@@ -31,15 +31,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            if (Vob.GuildTrue < (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM)
+            if (_enemy == null)
             {
-                Logger.Log($"AI_Attack() on human NPC (guild={Vob.GuildTrue}) — not yet implemented, skipping.", LogCat.Ai);
+                Logger.LogWarning($"AI_Attack(): no enemy target for NPC guild={Vob.GuildTrue}, skipping.", LogCat.Ai);
                 IsFinishedFlag = true;
                 return;
             }
 
             var aiFunctionTemplate = FindAiFunctionTemplate();
             _move = VmCacheService.TryGetFightAiData(aiFunctionTemplate, Vob.FightTactic).GetRandomMove();
+            Logger.Log($"[Attack] {NpcInstance.GetName(NpcNameSlot.Slot0)} move={_move} fightMode={(VmGothicEnums.WeaponState)Vob.FightMode} tactic={Vob.FightTactic}", LogCat.Ai);
             StartAttackAction();
         }
 
@@ -106,13 +107,30 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     else
                         _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), _move, _enemy);
                     break;
-                // The combo attacks (triple/whirl/master) are chained hit windows of the base swing in the
-                // original engine. Until attack combos are implemented, the base swing is the closest match.
+                // Combo attacks chain multiple hit windows in sequence, matching the original Gothic engine.
+                // Each PlayAttackAni call enqueues one swing; they play back-to-back before the next AI_Attack loop.
                 case FightAiMove.AttackFront:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    break;
                 case FightAiMove.AttackTriple:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    break;
                 case FightAiMove.AttackWhirl:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    break;
                 case FightAiMove.AttackMaster:
-                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), _move, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), FightAiMove.Attack, _enemy);
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), FightAiMove.Attack, _enemy);
                     break;
                 case FightAiMove.Parry:
                     _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackBlock), _move, _enemy);
