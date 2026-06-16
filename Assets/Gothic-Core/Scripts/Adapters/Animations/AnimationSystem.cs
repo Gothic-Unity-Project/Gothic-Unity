@@ -717,13 +717,18 @@ namespace Gothic.Core.Adapters.Animations
                         AttackAnimation = trackInstance.AnimationName;
                         break;
                     case EventType.OptimalFrame:
-                        AttackOptFrame = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        // ZenKit stores numeric frame params in .Frames, not .Slots (which holds string params like bone names).
+                        AttackOptFrame = eventTag.Frames;
                         break;
                     case EventType.HitEnd:
-                        AttackHitEnd = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        AttackHitEnd = eventTag.Frames;
                         break;
                     case EventType.ComboWindow:
-                        AttackWindowFrames = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        AttackWindowFrames = eventTag.Frames;
+                        if (AttackWindowFrames.Count == 0)
+                            Logger.LogWarning($"[ComboWindow] DEF_WINDOW on >{trackInstance.AnimationName}< has no frame params - combo window will never open.", LogCat.Animation);
+                        else
+                            Logger.Log($"[ComboWindow] DEF_WINDOW on >{trackInstance.AnimationName}< frames={string.Join(",", AttackWindowFrames)}", LogCat.Animation);
                         break;
                     // Unused. @see: https://gothic-modding-community.github.io/gmc/zengin/anims/events/#def_dir
                     case EventType.HitDirection:
@@ -805,6 +810,28 @@ namespace Gothic.Core.Adapters.Animations
         {
             // FIXME - Implement
             Logger.LogWarning("StopHeadAnimation not yet implemented.", LogCat.Animation);
+        }
+
+        /// True when the current attack animation has advanced past the DEF_WINDOW start frame.
+        /// DEF_WINDOW fires at frame 0 in MDS (stores window bounds as params), so we check elapsed time
+        /// against the actual window start frame — matching how VrWeaponAttackDomain reads it.
+        public bool HasComboWindowOpened
+        {
+            get
+            {
+                if (AttackWindowFrames == null || AttackWindowFrames.Count == 0 || AttackAnimation == null)
+                    return false;
+
+                foreach (var trackInstance in _trackInstances)
+                {
+                    if (!trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation))
+                        continue;
+                    var comboStartTime = AttackWindowFrames[0] / trackInstance.Track.FpsSource;
+                    return trackInstance.CurrentTime >= comboStartTime;
+                }
+
+                return false;
+            }
         }
 
         public bool IsPlaying(string animationName)
