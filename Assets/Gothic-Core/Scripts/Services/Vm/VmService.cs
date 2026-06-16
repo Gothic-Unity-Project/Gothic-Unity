@@ -62,7 +62,7 @@ namespace Gothic.Core.Services.Vm
         public string GetGuildName(int guildId)
         {
             var guilds = _gameStateService.GothicVm.GetSymbolByName("TXT_GUILDS");
-            var max = _gameStateService.GothicVm.GetSymbolByName("GIL_MAX")?.GetInt(0) ?? 42;
+            var max = _gameStateService.GothicVm.GetSymbolByName("GIL_MAX")?.GetInt(0);
             if (guilds == null || guildId < 0 || guildId >= max)
                 return string.Empty;
             return guilds.GetString((ushort)guildId);
