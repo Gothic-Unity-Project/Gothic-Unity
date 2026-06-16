@@ -53,6 +53,7 @@ namespace Gothic.VR.Adapters
             }
             else
             {
+                _gameStateService.Dialogs.WasPlayerInitiated = true;
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessTalk, _npcData.Props, _npcData.Instance, null, (NpcInstance)_gameStateService.GothicVm.GlobalHero);
             }
         }

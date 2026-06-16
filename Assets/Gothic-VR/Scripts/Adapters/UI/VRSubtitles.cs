@@ -51,6 +51,7 @@ namespace Gothic.VR.Adapters.UI
             if (!_configService.Gothic.IniSubtitles)
                 return;
 
+            CancelInvoke(nameof(HideSubtitles));
             gameObject.SetActive(true);
             _dialogText.text = text;
         }
@@ -59,6 +60,8 @@ namespace Gothic.VR.Adapters.UI
         {
             gameObject.SetActive(false);
         }
+
+        public void ScheduleHide(float delay) => Invoke(nameof(HideSubtitles), delay);
     }
 }
 #endif
