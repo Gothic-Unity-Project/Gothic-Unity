@@ -42,6 +42,9 @@ namespace Gothic.VR.Adapters.Marvin
             if (_configService.Dev.EnableGuildCheat)
                 buttons.Add(("Guild → Novice", CheatToNovice));
 
+            if (_configService.Dev.EnableScavengerGuildCheat)
+                buttons.Add(("Guild → Scavenger", CheatToScavenger));
+
             if (_configService.Dev.EnableTimeSkip)
                 buttons.Add(("Skip Time +30min", SkipTime30Min));
 
@@ -76,6 +79,13 @@ namespace Gothic.VR.Adapters.Marvin
             var hero = _npcService.GetHeroContainer();
             hero.Props.TrueGuild = VmGothicEnums.Guild.GIL_NOV;
             Logger.Log("[MarvinMode] Guild cheat: set to GIL_NOV", LogCat.Ui);
+        }
+
+        private void CheatToScavenger()
+        {
+            var hero = _npcService.GetHeroContainer();
+            hero.Props.TrueGuild = VmGothicEnums.Guild.GIL_SCAVENGER;
+            Logger.Log("[MarvinMode] Guild cheat: set to GIL_SCAVENGER (24)", LogCat.Ui);
         }
 
         private void SkipTime30Min()
