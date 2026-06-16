@@ -374,6 +374,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5386860113628118030}
+  - component: {fileID: 6156926067449766355}
   m_Layer: 5
   m_Name: Marvin
   m_TagString: Untagged
@@ -401,6 +402,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &6156926067449766355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5820877293525665859}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02892e1f337a44efa55341709d7e198a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Marvin.MarvinTabHandler
 --- !u!1 &6247289729643234375
 GameObject:
   m_ObjectHideFlags: 0
@@ -656,23 +669,23 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 517236181012009095, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 517236181012009095, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: -17
       objectReference: {fileID: 0}
     - target: {fileID: 890792953355197406, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 0.9829977
       objectReference: {fileID: 0}
     - target: {fileID: 890792953355197406, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 890792953355197406, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 0.016998425
       objectReference: {fileID: 0}
     - target: {fileID: 929895960900457201, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -684,31 +697,31 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1626834628713960527, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Size
-      value: 0.9514286
+      value: 0.9514327
       objectReference: {fileID: 0}
     - target: {fileID: 1626834628713960527, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Value
-      value: 0.50001436
+      value: 0.4991185
       objectReference: {fileID: 0}
     - target: {fileID: 3710024926871342539, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3710024926871342539, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 0.97567356
       objectReference: {fileID: 0}
     - target: {fileID: 3710024926871342539, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 0.024240837
       objectReference: {fileID: 0}
     - target: {fileID: 5024558192787257873, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5024558192787257873, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: -17
       objectReference: {fileID: 0}
     - target: {fileID: 6561304037755016771, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Name
@@ -716,27 +729,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6890339962025503928, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Size
-      value: 0.9659995
+      value: 0.9659993
       objectReference: {fileID: 0}
     - target: {fileID: 6890339962025503928, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Value
-      value: 0.50001615
+      value: 0.49994346
       objectReference: {fileID: 0}
     - target: {fileID: 6920145050234318524, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6920145050234318524, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6920145050234318524, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: -17
       objectReference: {fileID: 0}
     - target: {fileID: 6920145050234318524, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: -17
       objectReference: {fileID: 0}
     - target: {fileID: 8772624249612126932, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Pivot.x
@@ -1216,7 +1229,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6401121504383089494, guid: b985e9a3bfa3f1549a1ea82804052e77, type: 3}
       propertyPath: m_fontSize
-      value: 59.35
+      value: 72
+      objectReference: {fileID: 0}
+    - target: {fileID: 6401121504383089494, guid: b985e9a3bfa3f1549a1ea82804052e77, type: 3}
+      propertyPath: m_margin.x
+      value: -91.44824
+      objectReference: {fileID: 0}
+    - target: {fileID: 6401121504383089494, guid: b985e9a3bfa3f1549a1ea82804052e77, type: 3}
+      propertyPath: m_margin.y
+      value: 50.481155
+      objectReference: {fileID: 0}
+    - target: {fileID: 6401121504383089494, guid: b985e9a3bfa3f1549a1ea82804052e77, type: 3}
+      propertyPath: m_margin.z
+      value: -119.05803
       objectReference: {fileID: 0}
     - target: {fileID: 6401121504383089494, guid: b985e9a3bfa3f1549a1ea82804052e77, type: 3}
       propertyPath: m_fontStyle
@@ -1537,30 +1562,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9136318422916384799}
     m_Modifications:
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_text
-      value: Activate logging
-      objectReference: {fileID: 0}
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_fontSize
-      value: 21.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5884682838452541498}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnSeverityLoggingClick
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
-      objectReference: {fileID: 0}
     - target: {fileID: 3823877585082073918, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -1677,6 +1678,30 @@ PrefabInstance:
       propertyPath: m_Name
       value: Info
       objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_text
+      value: Activate logging
+      objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_fontSize
+      value: 21.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 5884682838452541498}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OnSeverityLoggingClick
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 3080389665104698963, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
@@ -1736,19 +1761,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 929895960900457201, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -366.49945
+      value: -366.50037
       objectReference: {fileID: 0}
     - target: {fileID: 929895960900457201, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 166.50015
+      value: 166.47084
       objectReference: {fileID: 0}
     - target: {fileID: 1626834628713960527, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Size
-      value: 0.9514286
+      value: 0.9514328
       objectReference: {fileID: 0}
     - target: {fileID: 1626834628713960527, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Value
-      value: 1.0000036
+      value: 0.9988151
       objectReference: {fileID: 0}
     - target: {fileID: 3710024926871342539, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
@@ -1780,7 +1805,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6890339962025503928, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_Value
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6920145050234318524, guid: 9ab68cd3394ee0848957a005d1e40f7c, type: 3}
       propertyPath: m_AnchorMax.x
@@ -2058,34 +2083,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9136318422916384799}
     m_Modifications:
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_text
-      value: Activate logging
-      objectReference: {fileID: 0}
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_fontSize
-      value: 21.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5884682838452541498}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnSeverityLoggingClick
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 3823877585082073918, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2202,6 +2199,34 @@ PrefabInstance:
       propertyPath: m_Name
       value: Warning
       objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_text
+      value: Activate logging
+      objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_fontSize
+      value: 21.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 5884682838452541498}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OnSeverityLoggingClick
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 3080389665104698963, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
@@ -2235,34 +2260,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9136318422916384799}
     m_Modifications:
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_text
-      value: Activate logging
-      objectReference: {fileID: 0}
-    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_fontSize
-      value: 21.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5884682838452541498}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnSeverityLoggingClick
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
-      value: 2
-      objectReference: {fileID: 0}
     - target: {fileID: 3823877585082073918, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2378,6 +2375,34 @@ PrefabInstance:
     - target: {fileID: 7714362784747067597, guid: bb90991527e1ecd4db09250bba4d0d5d, type: 3}
       propertyPath: m_Name
       value: Error
+      objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_text
+      value: Activate logging
+      objectReference: {fileID: 0}
+    - target: {fileID: 2821804090852614954, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_fontSize
+      value: 21.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 5884682838452541498}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OnSeverityLoggingClick
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Gothic.VR.Components.Marvin.MarvinLogsTabHandler, Gothic.VR
+      objectReference: {fileID: 0}
+    - target: {fileID: 9209086173068401286, guid: c2209e18b7c1ef64a8384244a1d8f739, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
+      value: 2
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:

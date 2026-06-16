@@ -301,6 +301,14 @@ namespace Gothic.Core.Models.Config
         public bool EnableDecalVisuals;
         public bool EnableParticleEffects;
 
+        [Tooltip("Show 'Level +5' button in MarvinMode panel. Adds 5 levels (+50 LP, +60 HP max). Repeatable.")]
+        public bool EnableLevel5Cheat;
+
+        [Tooltip("Show 'Guild → Novice' button in MarvinMode panel. Sets hero guild to GIL_NOV.")]
+        public bool EnableGuildCheat;
+
+        [Tooltip("Show 'Skip Time +30min' button in MarvinMode panel. Advances game time and recalculates NPC routines.")]
+        public bool EnableTimeSkip;
 
     }
 }
