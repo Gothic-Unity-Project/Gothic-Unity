@@ -2,6 +2,7 @@ using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
@@ -15,6 +16,7 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly GameTimeService _gameTimeService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
@@ -122,7 +124,25 @@ namespace Gothic.Core.Services.Npc
             }
             npcProps.RoutineCurrent = newRoutine;
 
+            if (changed)
+                _npcMeshCullingService.NotifyNpcRoutineChanged(npc.GetUserData());
+
             return changed;
+        }
+
+        /// <summary>
+        /// Re-evaluates the time-based routine for all NPCs. Culled NPCs whose routine changed
+        /// will have their culling sphere moved to the new waypoint via NotifyNpcRoutineChanged.
+        /// Call this after a time skip so off-screen NPCs appear at their correct schedule position.
+        /// </summary>
+        public void RecalculateAllNpcRoutines()
+        {
+            foreach (var container in _npcMeshCullingService.GetAllNpcContainers())
+            {
+                if (container?.Props?.Routines == null || container.Props.Routines.Count == 0)
+                    continue;
+                CalculateCurrentRoutine(container.Instance);
+            }
         }
     }
 }

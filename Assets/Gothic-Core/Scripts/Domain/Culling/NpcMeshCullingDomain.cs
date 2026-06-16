@@ -253,5 +253,11 @@ namespace Gothic.Core.Domain.Culling
 
             return visibleNpcs;
         }
+
+        public IEnumerable<NpcContainer> GetAllNpcContainers()
+        {
+            for (var i = 0; i < _count; i++)
+                yield return _loaders[i].Container;
+        }
     }
 }
