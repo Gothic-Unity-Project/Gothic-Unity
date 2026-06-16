@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Debugging;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
@@ -14,9 +14,9 @@ using Gothic.Core.Extensions;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
-using ZenKit;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
+using NumericsVector3 = System.Numerics.Vector3;
 
 namespace Gothic.Core.Domain.Culling
 {
@@ -28,37 +28,62 @@ namespace Gothic.Core.Domain.Culling
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
-        
-        // Stored for resetting after world switch
-        private CullingGroup _cullingGroupSmall => CullingGroup;
-        private CullingGroup _cullingGroupMedium;
-        private CullingGroup _cullingGroupLarge;
 
-        // Stored for later index mapping SphereIndex => GOIndex
-        private List<GameObject> _objectsSmall => Objects;
-        private readonly List<GameObject> _objectsMedium = new();
-        private readonly List<GameObject> _objectsLarge = new();
+        private const int _initialBucketCapacity = 1024;
 
-        // Stored for later position updates for moved Vobs
-        private List<BoundingSphere> _spheresSmall => Spheres;
-        private List<BoundingSphere> _spheresMedium = new();
-        private List<BoundingSphere> _spheresLarge = new();
-
-        // Do not trigger FC or OC while in that range of an object.
-        private const float _gracePeriodCullingDistance = 5f;
-
-        private enum VobList
+        /// <summary>
+        /// One CullingGroup per VOB size class. The sphere array is shared by reference with the CullingGroup
+        /// and grows by doubling. The used entry amount is communicated via SetBoundingSphereCount() -
+        /// i.e. add/remove won't allocate a new array each time.
+        /// </summary>
+        private class CullingBucket
         {
-            Small,
-            Medium,
-            Large
+            public CullingGroup Group;
+            public BoundingSphere[] Spheres = new BoundingSphere[_initialBucketCapacity];
+            public GameObject[] Objects = new GameObject[_initialBucketCapacity];
+            public ObjectState[] States = new ObjectState[_initialBucketCapacity];
+            // Grabbed VOBs are ignored by culling until they're released and at rest again.
+            public bool[] Paused = new bool[_initialBucketCapacity];
+            public int Count;
+
+            public readonly MeshCullingGroup Config;
+            public readonly Color GizmoColor;
+
+            public CullingBucket(MeshCullingGroup config, Color gizmoColor)
+            {
+                Config = config;
+                GizmoColor = gizmoColor;
+            }
+
+            public void Grow()
+            {
+                var newSize = Spheres.Length * 2;
+                Array.Resize(ref Spheres, newSize);
+                Array.Resize(ref Objects, newSize);
+                Array.Resize(ref States, newSize);
+                Array.Resize(ref Paused, newSize);
+            }
+
+            public void Reset()
+            {
+                Spheres = new BoundingSphere[_initialBucketCapacity];
+                Objects = new GameObject[_initialBucketCapacity];
+                States = new ObjectState[_initialBucketCapacity];
+                Paused = new bool[_initialBucketCapacity];
+                Count = 0;
+            }
         }
 
-        // Grabbed Vobs will be ignored from Culling until Grabbing stopped and velocity = 0
-        private Dictionary<GameObject, Tuple<VobList, int>> _pausedVobs = new();
-        private Dictionary<GameObject, Rigidbody> _pausedVobsToReenable = new();
-        private Dictionary<GameObject, Coroutine> _pausedVobsToReenableCoroutine = new();
+        // Small / Medium / Large
+        private CullingBucket[] _buckets;
 
+        // O(1) lookup for removal, pausing and position updates.
+        private readonly Dictionary<GameObject, (CullingBucket Bucket, int Index)> _vobIndices = new();
+
+        // Released VOBs we wait for to come to rest, before we re-enable culling for them.
+        private readonly Dictionary<GameObject, Rigidbody> _pausedVobsToReenable = new();
+        private readonly Dictionary<GameObject, Coroutine> _pausedVobsToReenableCoroutine = new();
+        private readonly List<GameObject> _vobsAtRestScratch = new();
 
 
         public override void Init()
@@ -68,9 +93,12 @@ namespace Gothic.Core.Domain.Culling
 
             base.Init();
 
-            // Unity demands CullingGroups to be created in Awake() or Start() earliest.
-            _cullingGroupMedium = new CullingGroup();
-            _cullingGroupLarge = new CullingGroup();
+            _buckets = new[]
+            {
+                new CullingBucket(ConfigService.Dev.SmallVOBMeshCullingGroup, new Color(.9f, 0, 0)) { Group = CullingGroup },
+                new CullingBucket(ConfigService.Dev.MediumVOBMeshCullingGroup, new Color(.5f, 0, 0)) { Group = new CullingGroup() },
+                new CullingBucket(ConfigService.Dev.LargeVOBMeshCullingGroup, new Color(.2f, 0, 0)) { Group = new CullingGroup() }
+            };
 
             _unityMonoService.StartCoroutine(StopVobTrackingBasedOnVelocity());
         }
@@ -80,44 +108,20 @@ namespace Gothic.Core.Domain.Culling
         /// </summary>
         public void OnDrawGizmos()
         {
-            if (!Application.isPlaying || !ConfigService.Dev.ShowVOBMeshCullingGizmos)
+            if (!Application.isPlaying || !ConfigService.Dev.ShowVOBMeshCullingGizmos || _buckets == null)
             {
                 return;
             }
 
-            Gizmos.color = new Color(.9f, 0, 0);
-            if (_spheresSmall != null)
+            foreach (var bucket in _buckets)
             {
-                for (var i = 0; i < _spheresSmall.Count; i++)
+                Gizmos.color = bucket.GizmoColor;
+                for (var i = 0; i < bucket.Count; i++)
                 {
-                    if (_objectsSmall[i].TryGetComponent(out VobCullingGizmo gizmoComp) && gizmoComp.ActivateGizmo)
+                    if (bucket.Objects[i] != null &&
+                        bucket.Objects[i].TryGetComponent(out VobCullingGizmo gizmoComp) && gizmoComp.ActivateGizmo)
                     {
-                        Gizmos.DrawWireSphere(_spheresSmall[i].position, _spheresSmall[i].radius);
-                    }
-                }
-            }
-
-            Gizmos.color = new Color(.5f, 0, 0);
-            if (_spheresMedium != null)
-            {
-                for (var i = 0; i < _spheresMedium.Count; i++)
-                {
-                    if (_objectsMedium[i].TryGetComponent(out VobCullingGizmo gizmoComp) && gizmoComp.ActivateGizmo)
-                    {
-                        Gizmos.DrawWireSphere(_spheresMedium[i].position, _spheresMedium[i].radius);
-                    }
-                }
-
-            }
-
-            Gizmos.color = new Color(.2f, 0, 0);
-            if (_spheresLarge != null)
-            {
-                for (var i = 0; i < _spheresLarge.Count; i++)
-                {
-                    if (_objectsLarge[i].TryGetComponent(out VobCullingGizmo gizmoComp) && gizmoComp.ActivateGizmo)
-                    {
-                        Gizmos.DrawWireSphere(_spheresLarge[i].position, _spheresLarge[i].radius);
+                        Gizmos.DrawWireSphere(bucket.Spheres[i].position, bucket.Spheres[i].radius);
                     }
                 }
             }
@@ -125,205 +129,239 @@ namespace Gothic.Core.Domain.Culling
 
         public override void PreWorldCreate()
         {
+            if (!ConfigService.Dev.EnableVOBMeshCulling)
+                return;
+
             base.PreWorldCreate();
 
-            Logger.LogWarningEditor(
-                "FIXME - As the VOBs aren't loaded yet, we need to fetch the LocalBounds from mesh cache " +
-                "which needs to be created before the game starts. " +
-                "Currently, each VOB is of >small< size aka Bounds.default", LogCat.Vob);
+            // The base class recreated its CullingGroup. Realign the small bucket and recreate the other ones.
+            _buckets[0].Group = CullingGroup;
+            for (var i = 1; i < _buckets.Length; i++)
+            {
+                _buckets[i].Group.Dispose();
+                _buckets[i].Group = new CullingGroup();
+            }
 
-            _objectsMedium.ClearAndReleaseMemory();
-            _objectsLarge.ClearAndReleaseMemory();
+            foreach (var bucket in _buckets)
+            {
+                bucket.Reset();
+            }
 
-            _spheresMedium.ClearAndReleaseMemory();
-            _spheresLarge.ClearAndReleaseMemory();
-
-            _cullingGroupMedium.Dispose();
-            _cullingGroupLarge.Dispose();
-            _cullingGroupMedium = new CullingGroup();
-            _cullingGroupLarge = new CullingGroup();
-
-            _pausedVobs.Clear();
+            _vobIndices.Clear();
             _pausedVobsToReenable.Clear();
             _pausedVobsToReenableCoroutine.Clear();
         }
 
+        /// <summary>
+        /// Set main camera once world is loaded fully.
+        /// Doesn't work at loading time as we change scenes etc.
+        /// </summary>
+        public override void PostWorldCreate()
+        {
+            if (!ConfigService.Dev.EnableVOBMeshCulling)
+                return;
+
+            base.PostWorldCreate();
+
+            foreach (var bucket in _buckets)
+            {
+                bucket.Group.targetCamera = Camera.main;
+                bucket.Group.SetDistanceReferencePoint(ReferencePoint);
+                bucket.Group.SetBoundingDistances(new[]
+                    { bucket.Config.CullingDistance, bucket.Config.CullingDistance * HysteresisFactor });
+                bucket.Group.SetBoundingSpheres(bucket.Spheres);
+                bucket.Group.SetBoundingSphereCount(bucket.Count);
+            }
+
+            // Route every bucket's events to VobChanged with that bucket. The closures are created once here
+            // (not per frame), so adding a size class (see the FIXME on GetBucket) needs no extra handler.
+            foreach (var bucket in _buckets)
+            {
+                var captured = bucket;
+                captured.Group.onStateChanged = evt => VobChanged(evt, captured);
+            }
+
+            // Apply the initial state for all VOBs ourselves, as CullingGroup events aren't reliable for
+            // spheres which start inside the first distance band.
+            foreach (var bucket in _buckets)
+            {
+                for (var i = 0; i < bucket.Count; i++)
+                {
+                    ApplyStateByDistance(bucket, i);
+                }
+            }
+        }
+
+        // All buckets are wired via per-bucket closures in PostWorldCreate; the single-group abstract handler
+        // from the base is unused for the multi-bucket VOB mesh case.
         protected override void VisibilityChanged(CullingGroupEvent evt)
         {
-            VobChanged(evt, _objectsSmall, VobList.Small);
-        }
-
-        private void VobMediumChanged(CullingGroupEvent evt)
-        {
-            VobChanged(evt, _objectsMedium, VobList.Medium);
-        }
-
-        private void VobLargeChanged(CullingGroupEvent evt)
-        {
-            VobChanged(evt, _objectsLarge, VobList.Large);
         }
 
         /// <summary>
-        /// Band explanation:
-        /// Band 0 - (0m...~5m)   - Grace period where a VOB won't get culled (no FC, no OC) - e.g. to ensure a ladder is still in our hands or a light behind us still shines.
-        /// Band 1 - (5m...~100m) - Frustum Culling (FC) and Occlusion Culling (OC) will happen - ensure proper performance for culled out, unseen objects.
-        /// Band 2 - [~100m-∞)    - Items inside last band will always be culled out.
+        /// Band 0 - [0...cullingDistance)         - VOB is enabled.
+        /// Band 1 - [cullingDistance...*1.15)     - Hysteresis zone: VOB keeps its current state to avoid border flickering.
+        /// Band 2 - [cullingDistance*1.15...inf)  - VOB is disabled.
+        ///
+        /// We deliberately ignore evt.isVisible: Frustum culling of Renderers is done by Unity/URP itself.
+        /// SetActive() based frustum culling would just duplicate it with main thread costs on every head turn.
         /// </summary>
-        private void VobChanged(CullingGroupEvent evt, List<GameObject> vobObjects, VobList vobListType)
+        private void VobChanged(CullingGroupEvent evt, CullingBucket bucket)
         {
-            var pausedVobs = _pausedVobs
-                .Where(i => i.Value.Item1 == vobListType)
-                .Select(i => i.Value.Item2);
-
-            if (pausedVobs.Contains(evt.index))
-            {
+            if (bucket.Paused[evt.index])
                 return;
-            }
 
-            var go = vobObjects[evt.index];
+            if (evt.currentDistance == 0)
+                SetVobState(bucket, evt.index, true);
+            else if (evt.currentDistance >= 2)
+                SetVobState(bucket, evt.index, false);
+        }
 
-            switch (evt.currentDistance)
+        private void ApplyStateByDistance(CullingBucket bucket, int index)
+        {
+            var sphere = bucket.Spheres[index];
+            var distance = Vector3.Distance(ReferencePoint.position, sphere.position) - sphere.radius;
+
+            SetVobState(bucket, index, distance < bucket.Config.CullingDistance);
+        }
+
+        private void SetVobState(CullingBucket bucket, int index, bool active)
+        {
+            var desiredState = active ? ObjectState.Enabled : ObjectState.Disabled;
+            if (bucket.States[index] == desiredState)
+                return;
+
+            bucket.States[index] = desiredState;
+
+            var go = bucket.Objects[index];
+            go.SetActive(active);
+
+            if (active)
             {
-                case 0: // grace period band - ignore FC and OC, plainly enable the vob!
-                    vobObjects[evt.index].SetActive(true);
-                    GlobalEventDispatcher.VobMeshCullingChanged.Invoke(go);
-                    break;
-                default:
-                    var setActive = evt.hasBecomeVisible || (evt.isVisible && !evt.hasBecomeInvisible);
-                    vobObjects[evt.index].SetActive(setActive);
-
-                    if (setActive)
-                    {
-                        GlobalEventDispatcher.VobMeshCullingChanged.Invoke(go);
-                    }
-
-                    break;
+                GlobalEventDispatcher.VobMeshCullingChanged.Invoke(go);
             }
         }
 
         public void AddCullingEntry(VobContainer container)
         {
-            if (container.Go == null)
+            var go = container.Go;
+            if (go == null)
                 return;
 
-            // FIXME - Particles (like leaves in the forest) will be handled like big vobs, but could potentially
-            //         being handled as small ones as leaves shouldn't be visible from 100 of meters away.
+            // Without culling, we simply enable (and therefore lazy-initialize) every VOB.
+            if (!ConfigService.Dev.EnableVOBMeshCulling)
+            {
+                GlobalEventDispatcher.VobMeshCullingChanged.Invoke(go);
+                return;
+            }
+
             var bounds = GetLocalBounds(container);
             if (!bounds.HasValue)
             {
                 // e.g. ITMICELLO which has no mesh and therefore no cached Bounds.
-                // Logger.LogError($"Couldn't find mesh for >{obj}< to be used for CullingGroup. Skipping...");
                 return;
             }
 
-            var sphere = GetSphere(container.Go, bounds.Value);
-            var size = sphere.radius * 2;
+            var sphere = GetSphere(go, bounds.Value);
+            var bucket = GetBucket(sphere.radius * 2);
 
-            if (size <= ConfigService.Dev.SmallVOBMeshCullingGroup.MaximumObjectSize)
+            if (bucket.Count == bucket.Spheres.Length)
             {
-                _objectsSmall.Add(container.Go);
-                _spheresSmall.Add(sphere);
-
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
+                bucket.Grow();
                 if (CurrentState == State.WorldLoaded)
-                    _cullingGroupSmall.SetBoundingSpheres(_spheresSmall.ToArray());
+                    bucket.Group.SetBoundingSpheres(bucket.Spheres);
             }
-            else if (size <= ConfigService.Dev.MediumVOBMeshCullingGroup.MaximumObjectSize)
-            {
-                _objectsMedium.Add(container.Go);
-                _spheresMedium.Add(sphere);
 
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
-                if (CurrentState == State.WorldLoaded)
-                    _cullingGroupMedium.SetBoundingSpheres(_spheresMedium.ToArray());
-            }
-            else
-            {
-                _objectsLarge.Add(container.Go);
-                _spheresLarge.Add(sphere);
+            var index = bucket.Count++;
+            bucket.Spheres[index] = sphere;
+            bucket.Objects[index] = go;
+            bucket.States[index] = ObjectState.Unknown;
+            bucket.Paused[index] = false;
+            _vobIndices[go] = (bucket, index);
 
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
-                if (CurrentState == State.WorldLoaded)
-                    _cullingGroupLarge.SetBoundingSpheres(_spheresLarge.ToArray());
+            if (CurrentState == State.WorldLoaded)
+            {
+                bucket.Group.SetBoundingSphereCount(bucket.Count);
+                ApplyStateByDistance(bucket, index);
             }
         }
 
         public void RemoveCullingEntry(VobContainer container)
         {
-            if (container.Go == null)
+            var go = container.Go;
+            if (go == null || !ConfigService.Dev.EnableVOBMeshCulling)
                 return;
 
-            var index = _objectsSmall.IndexOf(container.Go);
-            if (index >= 0)
-            {
-                _objectsSmall.RemoveAt(index);
-                _spheresSmall.RemoveAt(index);
-    
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
-                if (CurrentState == State.WorldLoaded)
-                    _cullingGroupSmall.SetBoundingSpheres(_spheresSmall.ToArray());
-                
+            if (!_vobIndices.Remove(go, out var entry))
                 return;
-            }
-            
-            index = _objectsMedium.IndexOf(container.Go);
-            if (index >= 0)
+
+            var (bucket, index) = entry;
+            var lastIndex = bucket.Count - 1;
+
+            // Swap-remove: move the last entry into the freed slot to keep the arrays dense and all indices stable.
+            if (index != lastIndex)
             {
-                _objectsMedium.RemoveAt(index);
-                _spheresMedium.RemoveAt(index);
-                
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
-                if (CurrentState == State.WorldLoaded)
-                    _cullingGroupMedium.SetBoundingSpheres(_spheresMedium.ToArray());
-                
-                return;
+                bucket.Spheres[index] = bucket.Spheres[lastIndex];
+                bucket.Objects[index] = bucket.Objects[lastIndex];
+                bucket.States[index] = bucket.States[lastIndex];
+                bucket.Paused[index] = bucket.Paused[lastIndex];
+                _vobIndices[bucket.Objects[index]] = (bucket, index);
             }
 
-            index = _objectsLarge.IndexOf(container.Go);
-            if (index >= 0)
-            {
-                _objectsLarge.RemoveAt(index);
-                _spheresLarge.RemoveAt(index);
-                
-                // Each time we add an entry, we need to recreate the array for the CullingGroup.
-                if (CurrentState == State.WorldLoaded)
-                    _cullingGroupLarge.SetBoundingSpheres(_spheresLarge.ToArray());
-                
-                return;
-            }
+            bucket.Objects[lastIndex] = null;
+            bucket.Count--;
+
+            if (CurrentState == State.WorldLoaded)
+                bucket.Group.SetBoundingSphereCount(bucket.Count);
+
+            // Drop any pending physics tracking for the removed VOB.
+            CancelStopTrackVobPositionUpdates(go);
         }
 
-        private BoundingSphere GetSphere(GameObject go, Bounds bounds)
+        // FIXME - Particles (like leaves in the forest) will be handled like big vobs, but could potentially
+        //         being handled as small ones as leaves shouldn't be visible from 100 of meters away.
+        private CullingBucket GetBucket(float size)
         {
-            var bboxSize = bounds.size;
-            var worldCenter = go.transform.TransformPoint(bounds.center);
+            foreach (var bucket in _buckets)
+            {
+                if (size <= bucket.Config.MaximumObjectSize)
+                    return bucket;
+            }
 
-            // Get the biggest dimension for calculation of object size group.
-            var maxDimension = Mathf.Max(bboxSize.x, bboxSize.y, bboxSize.z);
-            var sphere = new BoundingSphere(worldCenter, maxDimension / 2); // Radius is half the size.
+            // Bigger than the large bucket's maximum size? Still large.
+            return _buckets[^1];
+        }
 
-            return sphere;
+        private BoundingSphere GetSphere(GameObject go, Bounds localBounds)
+        {
+            var worldCenter = go.transform.TransformPoint(localBounds.center);
+
+            // The sphere needs to enclose the whole (potentially rotated) bbox - i.e. its half diagonal,
+            // not just half of its biggest dimension.
+            var scaledExtents = Vector3.Scale(localBounds.extents, go.transform.lossyScale);
+            var radius = scaledExtents.magnitude;
+
+            return new BoundingSphere(worldCenter, radius);
         }
 
         /// <summary>
         /// Fetch Mesh Bounds which are in local space. We will later "move" the bbox to the current world space.
-        ///
-        /// TODO If performance allows it, we could also look dynamically for all the existing meshes inside GO
-        /// TODO and look for maximum value for largest mesh. But it should be fine for now.
         /// </summary>
         private Bounds? GetLocalBounds(VobContainer container)
         {
-            var totalBounds = new Bounds();
-            AddLocalBounds(container.Vob, ref totalBounds);
+            Bounds? totalBounds = null;
+            AddLocalBounds(container.Vob, container.Vob.Position, ref totalBounds);
 
-            return totalBounds == default ? null : totalBounds;
+            return totalBounds;
         }
 
         /// <summary>
         /// VOBs can contain child-VOBs which might be Particles, Lights, etc.
         /// We therefore need to sum up the overall Bounds to ensure Culling kicks in correctly.
+        /// Child bounds are offset by their position relative to the root VOB. (Their rotation is ignored,
+        /// but the resulting sphere uses the full bbox diagonal and therefore stays conservative enough.)
         /// </summary>
-        private void AddLocalBounds(IVirtualObject vob, ref Bounds totalBounds)
+        private void AddLocalBounds(IVirtualObject vob, NumericsVector3 rootPosition, ref Bounds? totalBounds)
         {
             Bounds additionalBounds = default;
 
@@ -333,7 +371,7 @@ namespace Gothic.Core.Domain.Culling
                     additionalBounds = GetLocalLightBounds((ILight)vob);
                     break;
                 default:
-                    switch (vob.Visual.Type)
+                    switch (vob.Visual?.Type)
                     {
                         // We don't support Decal and Pfx so far.
                         case VisualType.Decal:
@@ -347,11 +385,15 @@ namespace Gothic.Core.Domain.Culling
                     break;
             }
 
-            totalBounds.Encapsulate(additionalBounds);
+            if (additionalBounds != default)
+            {
+                additionalBounds.center += (vob.Position - rootPosition).ToUnityVector();
+                Encapsulate(ref totalBounds, additionalBounds);
+            }
 
             foreach (var childVob in vob.Children)
             {
-                AddLocalBounds(childVob, ref totalBounds);
+                AddLocalBounds(childVob, rootPosition, ref totalBounds);
             }
 
             // Fire VOBs children are inside a .zen file
@@ -366,24 +408,32 @@ namespace Gothic.Core.Domain.Culling
                     return;
                 }
 
+                // VobTree positions are local to the fire VOB already.
                 foreach (var childFireVob in fireWorld!.RootObjects)
                 {
-                    AddLocalBounds(childFireVob, ref totalBounds);
+                    AddLocalBounds(childFireVob, NumericsVector3.Zero, ref totalBounds);
                 }
+            }
+        }
+
+        private static void Encapsulate(ref Bounds? totalBounds, Bounds additionalBounds)
+        {
+            if (totalBounds.HasValue)
+            {
+                var bounds = totalBounds.Value;
+                bounds.Encapsulate(additionalBounds);
+                totalBounds = bounds;
+            }
+            else
+            {
+                totalBounds = additionalBounds;
             }
         }
 
         private Bounds GetLocalLightBounds(ILight light)
         {
-            // FIXME - #1 - Lights shine for the whole mesh they belong to again. :-/
-            // FIXME - #2 - When inside a light range, turning to our back will disable the light.
+            // FIXME - Lights shine for the whole mesh they belong to again. :-/
             return new Bounds(Vector3.zero, Vector3.one * light.Range / 100 * 2);
-        }
-
-        // TODO - Not yet implemented.
-        private Bounds? GetLocalParticleBounds(EventParticleEffect particle)
-        {
-            return null;
         }
 
         private Bounds GetLocalMeshBounds(IVirtualObject vob)
@@ -423,37 +473,6 @@ namespace Gothic.Core.Domain.Culling
             }
         }
 
-        /// <summary>
-        /// Set main camera once world is loaded fully.
-        /// Doesn't work at loading time as we change scenes etc.
-        /// </summary>
-        public override void PostWorldCreate()
-        {
-            base.PostWorldCreate();
-
-            var mainCamera = Camera.main!;
-
-            _cullingGroupMedium.targetCamera = mainCamera;
-            _cullingGroupLarge.targetCamera = mainCamera;
-
-            _cullingGroupMedium.SetDistanceReferencePoint(mainCamera.transform);
-            _cullingGroupLarge.SetDistanceReferencePoint(mainCamera.transform);
-
-            _cullingGroupMedium.onStateChanged = VobMediumChanged;
-            _cullingGroupLarge.onStateChanged = VobLargeChanged;
-
-            _cullingGroupSmall.SetBoundingDistances(new[]
-                { _gracePeriodCullingDistance, ConfigService.Dev.SmallVOBMeshCullingGroup.CullingDistance });
-            _cullingGroupMedium.SetBoundingDistances(new[]
-                { _gracePeriodCullingDistance, ConfigService.Dev.MediumVOBMeshCullingGroup.CullingDistance });
-            _cullingGroupLarge.SetBoundingDistances(new[]
-                { _gracePeriodCullingDistance, ConfigService.Dev.LargeVOBMeshCullingGroup.CullingDistance });
-
-            _cullingGroupSmall.SetBoundingSpheres(_spheresSmall.ToArray());
-            _cullingGroupMedium.SetBoundingSpheres(_spheresMedium.ToArray());
-            _cullingGroupLarge.SetBoundingSpheres(_spheresLarge.ToArray());
-        }
-
         public void StartTrackVobPositionUpdates(GameObject go)
         {
             if (!ConfigService.Dev.EnableVOBMeshCulling)
@@ -464,40 +483,14 @@ namespace Gothic.Core.Domain.Culling
 
             CancelStopTrackVobPositionUpdates(rootGo);
 
-            // Entry is already in list
-            if (_pausedVobs.ContainsKey(rootGo))
+            if (!_vobIndices.TryGetValue(rootGo, out var entry))
             {
-                return;
-            }
-
-            // Check Small list
-            var index = _objectsSmall.IndexOf(rootGo);
-            var vobType = VobList.Small;
-
-            // Check Medium list
-            if (index == -1)
-            {
-                index = _objectsMedium.IndexOf(rootGo);
-                vobType = VobList.Medium;
-            }
-
-            // Check Large list
-            if (index == -1)
-            {
-                index = _objectsLarge.IndexOf(rootGo);
-                vobType = VobList.Large;
-            }
-
-            if (index == -1)
-            {
-                // Dynamically spawned items (loot panel, backpack fill) are not registered in the culling lists.
-                // This is expected — just skip tracking for them.
-                Logger.LogWarning($"VOB {rootGo.name} not in culling list — skipping position tracking (dynamically spawned).",
+                Logger.LogError($"Couldn't find object in Culling list {rootGo.name}. Culling updates will break.",
                     LogCat.Vob);
                 return;
             }
 
-            _pausedVobs.Add(rootGo, new Tuple<VobList, int>(vobType, index));
+            entry.Bucket.Paused[entry.Index] = true;
         }
 
         /// <summary>
@@ -506,16 +499,12 @@ namespace Gothic.Core.Domain.Culling
         /// </summary>
         private void CancelStopTrackVobPositionUpdates(GameObject rootGo)
         {
-            if (_pausedVobsToReenableCoroutine.ContainsKey(rootGo))
+            if (_pausedVobsToReenableCoroutine.Remove(rootGo, out var coroutine))
             {
-                _unityMonoService.StopCoroutine(_pausedVobsToReenableCoroutine[rootGo]);
-                _pausedVobsToReenableCoroutine.Remove(rootGo);
+                _unityMonoService.StopCoroutine(coroutine);
             }
 
-            if (_pausedVobsToReenable.ContainsKey(rootGo))
-            {
-                _pausedVobsToReenable.Remove(rootGo);
-            }
+            _pausedVobsToReenable.Remove(rootGo);
         }
 
         /// <summary>
@@ -526,7 +515,7 @@ namespace Gothic.Core.Domain.Culling
         {
             if (!ConfigService.Dev.EnableVOBMeshCulling)
                 return;
-            
+
             // Meshes are always 1...n levels below initially created VobLoader GO. Therefore, we need to fetch its parent for track updates.
             var rootGo = go.GetComponentInParent<VobLoader>().gameObject;
 
@@ -547,15 +536,7 @@ namespace Gothic.Core.Domain.Culling
         {
             yield return new WaitForSeconds(1f);
             _pausedVobsToReenableCoroutine.Remove(rootGo);
-
-            // GO may have been destroyed (e.g., loot panel closed) during the 1-second delay.
-            if (rootGo == null)
-                yield break;
-
-            if (!_pausedVobsToReenable.ContainsKey(rootGo))
-            {
-                _pausedVobsToReenable.Add(rootGo, rootGo.GetComponentInChildren<Rigidbody>());
-            }
+            _pausedVobsToReenable.TryAdd(rootGo, rootGo.GetComponentInChildren<Rigidbody>());
         }
 
         /// <summary>
@@ -568,53 +549,37 @@ namespace Gothic.Core.Domain.Culling
         {
             while (true)
             {
-                for (var i = _pausedVobsToReenable.Keys.Count - 1; i >= 0; i--)
+                if (_pausedVobsToReenable.Count != 0)
                 {
-                    var key = _pausedVobsToReenable.Keys.ElementAt(i);
-                    var rigidBody = _pausedVobsToReenable[key];
-                    if (rigidBody == null)
+                    _vobsAtRestScratch.Clear();
+
+                    foreach (var pausedVob in _pausedVobsToReenable)
                     {
-                        _pausedVobsToReenable.Remove(key);
-                        continue;
-                    }
-                    if (rigidBody.linearVelocity != Vector3.zero)
-                    {
-                        continue;
+                        if (pausedVob.Value.linearVelocity == Vector3.zero)
+                        {
+                            _vobsAtRestScratch.Add(pausedVob.Key);
+                        }
                     }
 
-                    // Item may not be in _pausedVobs if it was dynamically spawned and never registered in culling lists.
-                    if (_pausedVobs.ContainsKey(key))
-                        UpdateSpherePosition(key);
-
-                    rigidBody.isKinematic = true;
-                    _pausedVobs.Remove(key);
-                    _pausedVobsToReenable.Remove(key);
+                    foreach (var go in _vobsAtRestScratch)
+                    {
+                        _pausedVobsToReenable[go].isKinematic = true;
+                        _pausedVobsToReenable.Remove(go);
+                        ResumeCullingAtCurrentPosition(go);
+                    }
                 }
 
                 yield return null;
             }
         }
 
-        private void UpdateSpherePosition(GameObject go)
+        private void ResumeCullingAtCurrentPosition(GameObject go)
         {
-            var grabbed = _pausedVobs[go];
-            var vobType = grabbed.Item1;
-            var index = grabbed.Item2;
-
-            // We need to find the GO's correlated Sphere in the right VobArray.
-            var sphereList = vobType switch
-            {
-                VobList.Small => _spheresSmall,
-                VobList.Medium => _spheresMedium,
-                VobList.Large => _spheresLarge,
-                _ => throw new ArgumentOutOfRangeException()
-            };
-
-            // Index may be stale if other VOBs were removed from the list after this item was grabbed.
-            if (index >= sphereList.Count)
+            if (!_vobIndices.TryGetValue(go, out var entry))
                 return;
 
-            sphereList[index] = new BoundingSphere(go.transform.position, sphereList[index].radius);
+            entry.Bucket.Spheres[entry.Index].position = go.transform.position;
+            entry.Bucket.Paused[entry.Index] = false;
         }
 
         public override void OnApplicationQuit()
@@ -622,9 +587,10 @@ namespace Gothic.Core.Domain.Culling
             if (!ConfigService.Dev.EnableVOBMeshCulling)
                 return;
 
-            _cullingGroupSmall.Dispose();
-            _cullingGroupMedium.Dispose();
-            _cullingGroupLarge.Dispose();
+            foreach (var bucket in _buckets)
+            {
+                bucket.Group.Dispose();
+            }
         }
     }
 }

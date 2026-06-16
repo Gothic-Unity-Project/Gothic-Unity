@@ -177,14 +177,12 @@ namespace Gothic.Core.Services.Npc
         {
             var npcGo = GetNpc(npc);
 
-            // For some reason, Xardas calls this function for Lester but since he's not culled, npcGo is null. We need to check for this and log a warning
             if (npcGo == null)
             {
                 Logger.LogWarning($"ExtNpcGetDistToWp: npcGo is null for npc={npc?.GetName(NpcNameSlot.Slot0)} waypoint={waypointName}", LogCat.Npc);
                 return int.MaxValue;
             }
 
-            var npcPos = npcGo.transform.position;
             var waypoint = _wayNetService.GetWayNetPoint(waypointName);
 
             if (waypoint == null)
@@ -194,7 +192,7 @@ namespace Gothic.Core.Services.Npc
             }
 
             // *100 as Gothic metrics are in cm, not m.
-            return (int)(Vector3.Distance(npcPos, waypoint.Position) * 100);
+            return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
         }
 
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)
