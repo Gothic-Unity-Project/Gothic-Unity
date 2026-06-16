@@ -517,6 +517,10 @@ namespace Gothic.Core.Services.Npc
             if (GetTrack(animationName, npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) == null &&
                 overrideWeaponState == null)
             {
+                Logger.LogWarning(
+                    $"[AnimFallback] >{npc.Go.name}< anim >{animationName}< not found " +
+                    $"(base={npc.Props.MdsNameBase}, overlay={npc.Props.MdsNameOverlay}, fightMode={(VmGothicEnums.WeaponState)npc.Vob.FightMode}) → falling back to Fist",
+                    LogCat.Animation);
                 return GetAnimationName(type, npc, VmGothicEnums.WeaponState.Fist);
             }
 

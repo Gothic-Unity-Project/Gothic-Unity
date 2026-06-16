@@ -347,7 +347,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
-            npc.GetUserData().Props.MdsNameOverlay = overlayName;
+            var props = npc.GetUserData().Props;
+            props.MdsNameOverlay = overlayName;
+            props.MdsNameRoutineOverlay = overlayName;
         }
 
         public void ExtNpcSetToFistMode(NpcInstance npc)
