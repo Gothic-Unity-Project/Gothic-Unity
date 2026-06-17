@@ -1,18 +1,25 @@
 ﻿#if GOTHIC_HVR_INSTALLED
+using System;
 using System.Collections;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
 using Gothic.VR.Services;
 using Gothic.Core;
+using Gothic.Core.Logging;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob
 {
@@ -23,6 +30,9 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly DocService _docService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -88,6 +98,9 @@ namespace Gothic.VR.Adapters.Vob
             
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(grabber, grabbable);
+
+            if (_vrPlayerService.IsDualGrabbed)
+                TryShowDocument();
         }
 
         /// <summary>
@@ -109,6 +122,57 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(grabber, grabbable);
+
+            // Close any open document viewer when item is no longer dual-grabbed.
+            if (!_vrPlayerService.IsDualGrabbed)
+            {
+                var viewer = GetComponent<Adapters.Vob.VobItem.VRDocViewer>();
+                if (viewer != null)
+                    Destroy(viewer);
+                foreach (Transform child in transform)
+                {
+                    if (child.name == "_DocCanvas")
+                        Destroy(child.gameObject);
+                }
+            }
+        }
+
+        private void TryShowDocument()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatDocs)
+                return;
+
+            var onStateIndex = item.GetOnState(0);
+            if (onStateIndex == 0)
+                return;
+
+            // Ensure VRDocViewer is present on this GO before Daedalus fires Doc_Show.
+            if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
+
+            var vm = _gameStateService.GothicVm;
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = vm.GlobalHero;
+            _docService.PendingItemGo = gameObject;
+            try
+            {
+                vm.Call(onStateIndex);
+                Logger.Log($"[VRVobItem] Called on_state[0] for doc item {item.Name}", LogCat.VR);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[VRVobItem] on_state[0] failed for {item.Name}: {e.Message}", LogCat.VR);
+                _docService.PendingItemGo = null;
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
         }
 
         /// <summary>

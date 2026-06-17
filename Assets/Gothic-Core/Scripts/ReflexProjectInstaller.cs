@@ -86,6 +86,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
             containerBuilder.AddSingleton(typeof(FightService));
+            containerBuilder.AddSingleton(typeof(DocService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

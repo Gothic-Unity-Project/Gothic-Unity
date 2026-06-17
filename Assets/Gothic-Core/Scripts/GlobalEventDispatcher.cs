@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Doc;
 using UnityEngine;
 using UnityEngine.Events;
 using ZenKit;
@@ -86,5 +87,8 @@ namespace Gothic.Core
 
         // FIXME - If LockPick in hand is Amount=0, then destroy as Mesh.
         public static readonly UnityEvent<VobContainer, VobContainer, int> LockPickComboBroken = new();
+
+        // DocModel — document to show; GameObject — item GO to attach the viewer to (may be null in flat mode).
+        public static readonly UnityEvent<DocModel, GameObject> DocShow = new();
     }
 }

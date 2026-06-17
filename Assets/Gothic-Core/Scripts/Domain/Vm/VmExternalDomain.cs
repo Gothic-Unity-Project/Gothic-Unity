@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Domain.Npc.Actions;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -12,6 +14,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
+using Gothic.Core.Models.Doc;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit;
@@ -38,6 +41,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly DocService _docService;
 
         // (optional) Some messages from Daedalus are quite spammy. Ignore them.
         private static readonly string[] _spammyMessages = new[]
@@ -109,6 +113,16 @@ namespace Gothic.Core.Domain.Vm
 
             // Apply Options
             // Doc
+            vm.RegisterExternal<int>("Doc_Create", Doc_Create);
+            vm.RegisterExternal<int>("Doc_CreateMap", Doc_CreateMap);
+            vm.RegisterExternal<int, int>("Doc_SetPages", Doc_SetPages);
+            vm.RegisterExternal<int, int, string, int>("Doc_SetPage", Doc_SetPage);
+            vm.RegisterExternal<int, int, int, int, int, int, int>("Doc_SetMargins", Doc_SetMargins);
+            vm.RegisterExternal<int, int, string>("Doc_SetFont", Doc_SetFont);
+            vm.RegisterExternal<int, int, string>("Doc_PrintLine", Doc_PrintLine);
+            vm.RegisterExternal<int, int, string>("Doc_PrintLines", Doc_PrintLines);
+            vm.RegisterExternal<int>("Doc_Show", Doc_Show);
+
             // Helper
             vm.RegisterExternal<int, int>("Hlp_Random", Hlp_Random);
             vm.RegisterExternal<int, string, string>("Hlp_StrCmp", Hlp_StrCmp);
@@ -135,6 +149,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
             vm.RegisterExternal<NpcInstance, string>("Mdl_RemoveOverlayMDS", Mdl_RemoveOverlayMDS);
+            vm.RegisterExternal<NpcInstance, string, string>("Mdl_ApplyRandomAni", Mdl_ApplyRandomAni);
+            vm.RegisterExternal<NpcInstance, string, float>("Mdl_ApplyRandomAniFreq", Mdl_ApplyRandomAniFreq);
 
             // Mission
 
@@ -500,7 +516,25 @@ namespace Gothic.Core.Domain.Vm
 
         #region Doc
 
-        //
+        public int Doc_Create() => _docService.CreateDoc();
+
+        public int Doc_CreateMap() => _docService.CreateMap();
+
+        public void Doc_SetPages(int id, int count) => _docService.SetPages(id, count);
+
+        public void Doc_SetPage(int id, int page, string texture, int flags) =>
+            _docService.SetPage(id, page, texture, flags);
+
+        public void Doc_SetMargins(int id, int page, int left, int top, int right, int bottom, int type) =>
+            _docService.SetMargins(id, page, left, top, right, bottom, type);
+
+        public void Doc_SetFont(int id, int page, string font) => _docService.SetFont(id, page, font);
+
+        public void Doc_PrintLine(int id, int page, string text) => _docService.PrintLine(id, page, text);
+
+        public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
+
+        public void Doc_Show(int id) => _docService.ShowDoc(id);
 
         #endregion
 
@@ -608,6 +642,16 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtMdlSetVisual(npc, visual);
         }
 
+
+        public void Mdl_ApplyRandomAni(NpcInstance npc, string stateName, string transitionName)
+        {
+            _npcAiService.ExtMdlApplyRandomAni(npc, stateName, transitionName);
+        }
+
+        public void Mdl_ApplyRandomAniFreq(NpcInstance npc, string stateName, float frequency)
+        {
+            // Frequency tuning for random animation replay — not needed for basic unconscious state.
+        }
 
         public void Mdl_ApplyOverlayMds(NpcInstance npc, string overlayName)
         {
