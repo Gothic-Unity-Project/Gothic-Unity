@@ -247,6 +247,15 @@ namespace Gothic.Core.Services.Npc
             vob.Attributes[attributeId] = value;
         }
 
+        public void SyncHeroInstanceToVob()
+        {
+            var hero = GetHeroContainer();
+            hero.Vob.Level = hero.Instance.Level;
+            hero.Vob.Xp = hero.Instance.Exp;
+            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
+            hero.Vob.Lp = hero.Instance.Lp;
+        }
+
         public NpcContainer GetHeroContainer()
         {
             return ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData();
