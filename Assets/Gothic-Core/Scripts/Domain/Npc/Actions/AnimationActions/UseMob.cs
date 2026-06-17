@@ -13,7 +13,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class UseMob : AbstractWalkAnimationAction2
     {
         private const string _mobTransitionAnimationString = "T_{0}{1}{2}_2_{3}";
-        private const string _mobLoopAnimationString = "S_{0}_S{1}";
+        private const string _mobLoopAnimationString = "S_{0}{1}S{2}";
         private VobContainer _mobContainer;
         private GameObject _slotGo;
         private Vector3 _destination;
@@ -22,6 +22,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string _schemeName => Action.String0;
         private int _desiredState => Action.Int0;
         private bool IsStopUsingMob => _desiredState <= -1;
+
+        // -1 is the not-in-use state; scripts may send any negative value to stop.
+        private int TargetState => IsStopUsingMob ? -1 : _desiredState;
 
         private bool _isMobFoundButNotYetInitialized;
         private string _currentMobAnimation;
@@ -40,6 +43,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _slotGo = PrefabProps.CurrentInteractableSlot;
                 _mobsiScheme = _mobContainer.Props.GetVisualScheme();
 
+                // We already stand at the slot. Without this, Tick() would treat the unset
+                // _destination (0,0,0) as walk target and never reach TickMobUsage().
+                _destination = _slotGo.transform.position;
+                IsDestReached = true;
+
                 StartMobUseAnimation();
                 return;
             }
@@ -49,7 +57,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _mobContainer = container;
             _mobsiScheme = _mobContainer?.Props.GetVisualScheme();
 
-            if (container == null || container.Go == null)
+            // No free Mobsi of this scheme within reach (e.g. all occupied by other NPCs).
+            if (container == null || !container.Go)
             {
                 IsFinishedFlag = true;
                 return;
@@ -63,9 +72,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void StartNow()
         {
-            // We call Start only if the Mobsi is already available.
-            base.Start();
-
             _isMobFoundButNotYetInitialized = false;
 
             var slot = GetNearestMobSlot();
@@ -83,6 +89,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PrefabProps.CurrentInteractableSlot = _slotGo;
 
             SetBodyState();
+
+            // base.Start() checks the walk destination and may start the walk loop - it must only
+            // run once _destination is set, and not at all when no slot was found.
+            base.Start();
         }
 
         private void SetBodyState()
@@ -136,11 +146,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             if (PrefabProps.AnimationSystem.IsPlaying(_currentMobAnimation))
                 return;
-            
-            UpdateState();
+
+            // A finished transition moves the state one step toward the target (e.g. S1 -> S0 -> Stand when stopping).
+            if (Props.CurrentInteractableStateId != TargetState)
+                UpdateState();
 
             // If we arrived at the Mobsi, we will further execute the transitions step-by-step until demanded state is reached.
-            if (Props.CurrentInteractableStateId != _desiredState)
+            if (Props.CurrentInteractableStateId != TargetState)
             {
                 PlayTransitionAnimation();
                 return;
@@ -151,6 +163,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             {
                 PrefabProps.CurrentInteractable = null;
                 PrefabProps.CurrentInteractableSlot = null;
+                Props.CurrentItem = -1;
                 Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PhysicsService.EnablePhysicsForNpc(PrefabProps);
@@ -158,7 +171,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Loop Mobsi animation until the same UseMob with -1 is called.
             else
             {
-                var animName = string.Format(_mobLoopAnimationString, _mobsiScheme, _desiredState);
+                // Loop animations carry the slot position as well (e.g. s_Bed_Front_S1 vs. s_Cauldron_S1).
+                var animName = string.Format(_mobLoopAnimationString, _mobsiScheme, GetSlotPositionTag(_slotGo.name), TargetState);
                 PrefabProps.AnimationSystem.PlayAnimation(animName);
             }
 
@@ -205,7 +219,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             NpcGo.transform.SetPositionAndRotation(_slotGo.transform.position, _slotGo.transform.rotation);
 
-            PlayTransitionAnimation();
+            // Already in the demanded state (e.g. a repeated AI_UseMob with the same state):
+            // TickMobUsage() will replay the loop animation and finish without a transition.
+            if (Props.CurrentInteractableStateId != TargetState)
+                PlayTransitionAnimation();
         }
 
         private string GetSlotPositionTag(string name)
@@ -230,41 +247,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void UpdateState()
         {
-            // FIXME - We need to check. For Cauldron/Cook we have only t_s0_2_Stand, but not t_s1_2_s0 - But is it for all of them?
-            if (IsStopUsingMob)
-            {
-                Props.CurrentInteractableStateId = -1;
-                Props.CurrentItem = -1;
-            }
-            else
-            {
-                var newStateAddition = Props.CurrentInteractableStateId > _desiredState ? -1 : +1;
-                Props.CurrentInteractableStateId += newStateAddition;
-            }
+            var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
+            Props.CurrentInteractableStateId += step;
         }
 
         private void PlayTransitionAnimation()
         {
-            string from;
-            string to;
+            var current = Props.CurrentInteractableStateId;
+            var next = current + (TargetState > current ? +1 : -1);
 
-            // FIXME - We need to check. For Cauldron/Cook we have only t_s0_2_Stand, but not t_s1_2_s0 - But is it for all of them?
-            if (IsStopUsingMob)
-            {
-                from = "S0";
-                to = "Stand";
-            }
-            else
-            {
-                from = Props.CurrentInteractableStateId.ToString();
-                to = $"S{Props.CurrentInteractableStateId + 1}";
-
-                from = from switch
-                {
-                    "-1" => "Stand",
-                    _ => $"S{from}"
-                };
-            }
+            // -1 is the not-in-use state and is named Stand inside the animations.
+            // Both directions exist as own animations (e.g. t_Cauldron_Stand_2_S0, t_Cauldron_S0_2_S1, t_Cauldron_S1_2_S0).
+            var from = current == -1 ? "Stand" : $"S{current}";
+            var to = next == -1 ? "Stand" : $"S{next}";
 
             var slotPositionName = GetSlotPositionTag(_slotGo.name);
             var animName = string.Format(_mobTransitionAnimationString, _mobsiScheme, slotPositionName, from, to);

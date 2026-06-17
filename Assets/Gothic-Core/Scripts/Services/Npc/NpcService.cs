@@ -70,12 +70,17 @@ namespace Gothic.Core.Services.Npc
             
             GlobalEventDispatcher.LoadGameStart.AddListener(() =>
             {
-                _objectsToInitQueue.Clear();
-                _objectToReEnableQueue.Clear();
+                ClearQueues();
             });
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
             GlobalEventDispatcher.CreateNpc.AddListener(CreateVobNpc);
+        }
+
+        public void ClearQueues()
+        {
+            _objectsToInitQueue.Clear();
+            _objectToReEnableQueue.Clear();
         }
 
         private IEnumerator InitNpcCoroutine()

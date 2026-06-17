@@ -15,7 +15,6 @@ using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.Services.UI;
-using Gothic.Core.Models.Container;
 using Reflex.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -84,7 +83,6 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcService));
             containerBuilder.AddSingleton(typeof(NpcAiService));
             containerBuilder.AddSingleton(typeof(NpcHelperService));
-            containerBuilder.AddSingleton(typeof(RoutineService));
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
             containerBuilder.AddSingleton(typeof(FightService));

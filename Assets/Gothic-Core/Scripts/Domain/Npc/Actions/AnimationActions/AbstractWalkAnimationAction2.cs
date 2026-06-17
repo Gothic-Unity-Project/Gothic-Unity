@@ -2,7 +2,6 @@ using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
-using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -11,6 +10,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         protected Transform NpcTransform => NpcGo.transform;
         protected bool IsDestReached;
+
+        // Name of the animation StartWalk() actually played. StopWalk() must stop exactly this one:
+        // recalculating the name would stop the wrong animation when walk/fight mode changed mid-walk
+        // (e.g. via an immediately executed AI_SetWalkmode), leaving the walk loop sliding the NPC forever.
+        private string _startedWalkAnimationName;
 
         protected AbstractWalkAnimationAction2(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -34,6 +38,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (IsDestinationReached())
             {
                 OnDestinationReached();
+
+                // Already at the final destination (e.g. a FP_ROAM FreePoint right next to the NPC):
+                // never start the walk loop - nobody would stop it again and its root motion
+                // would slide the NPC around (visible e.g. on roaming Molerats).
+                // IsDestReached covers subclasses which continue at the spot without finishing
+                // (e.g. UseMob playing its transition animation) - the walk loop would blend
+                // that animation out again. Only a multi-stop route (GoToWp) resets the flag
+                // and walks on.
+                if (IsFinishedFlag || IsDestReached)
+                    return;
             }
 
             StartWalk();
@@ -64,8 +78,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 ? VmGothicEnums.BodyState.BsWalk
                 : VmGothicEnums.BodyState.BsRun;
 
-            var animName = AnimationService.GetAnimationName(VmGothicEnums.AnimationType.Move, NpcContainer);
-            PrefabProps.AnimationSystem.PlayAnimation(animName);
+            _startedWalkAnimationName = AnimationService.GetAnimationName(VmGothicEnums.AnimationType.Move, NpcContainer);
+            PrefabProps.AnimationSystem.PlayAnimation(_startedWalkAnimationName);
         }
 
         protected virtual void StopWalk()
@@ -73,8 +87,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
             Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
-            var animName = AnimationService.GetAnimationName(VmGothicEnums.AnimationType.Move, NpcContainer);
-            PrefabProps.AnimationSystem.StopAnimation(animName);
+            if (_startedWalkAnimationName != null)
+            {
+                PrefabProps.AnimationSystem.StopAnimation(_startedWalkAnimationName);
+            }
         }
 
         private bool IsDestinationReached()
