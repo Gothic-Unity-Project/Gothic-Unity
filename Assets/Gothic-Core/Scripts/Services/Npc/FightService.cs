@@ -58,15 +58,23 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target)
         {
-            // FIXME - We need to handle this via power and skill level of attacker, not weapon alone.
+            // FIXME - Talent/skill level (e.g. 1H skill) is not factored in yet.
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
             var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
 
             var equippedWeapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            Logger.Log($"[FightService.OnHitUpdateHealth] Attacker: {attacker.Instance.GetName(NpcNameSlot.Slot0)}, WeaponName: {(equippedWeapon != null ? equippedWeapon.Name : "None")}, Damage: {(equippedWeapon != null ? equippedWeapon.DamageTotal.ToString() : "N/A")}", LogCat.Npc);
-            // FIXME - Instead of 0, use fist value
-            // FIXME - Instead of DamageTotal, use calculated NPC/Hero value
-            var damage = equippedWeapon?.DamageTotal ?? 0;
+
+            // G1 melee damage: weapon damage + strength, reduced by the protection matching the damage type.
+            // Unarmed attackers (fists, monster claws/bites) deal blunt damage with their strength alone.
+            var strength = attacker.Vob.GetAttribute((int)NpcAttribute.Strength);
+            var weaponDamage = equippedWeapon?.DamageTotal ?? 0;
+            var protectionIndex = equippedWeapon == null
+                ? (int)DamageType.Blunt
+                : GetProtectionIndex(equippedWeapon.DamageType);
+            var protection = target.Vob.GetProtection(protectionIndex);
+
+            // Like G1: protection -1 means immune to this damage type; otherwise no damage when fully absorbed.
+            var damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
             if (damage <= 0)
                 damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
 
@@ -121,6 +129,21 @@ namespace Gothic.Core.Services.Npc
             vm.GlobalSelf = oldSelf;
             vm.GlobalOther = oldOther;
         }
+  
+        /// <summary>
+        /// C_ITEM.damageType is a DAM_* bitmask whose bit positions match the PROT_* indices.
+        /// Weapons carry one damage type; the first set bit wins.
+        /// </summary>
+        private static int GetProtectionIndex(int damageTypeMask)
+        {
+            for (var i = 0; i < 8; i++)
+            {
+                if ((damageTypeMask & (1 << i)) != 0)
+                    return i;
+            }
+
+            return (int)DamageType.Blunt;
+        }
 
         private void OnDyingChangeAnimation(NpcContainer target)
         {
@@ -129,6 +152,10 @@ namespace Gothic.Core.Services.Npc
             target.Props.AnimationQueue.Clear();
             target.PrefabProps.AnimationSystem.StopAllAnimations();
             _physicsService.DisablePhysicsForNpc(target.PrefabProps);
+
+            // Drop any queued non-death actions (e.g. a GoToWp/UseMob enqueued the same frame the killing hit
+            // landed). Otherwise AiHandler's dead-NPC branch would play them out on the corpse before dying.
+            target.Props.AnimationQueue.Clear();
 
             var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, target);
             target.PrefabProps.AnimationSystem.PlayAnimation(animName);

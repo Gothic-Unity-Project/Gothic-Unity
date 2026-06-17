@@ -6,6 +6,8 @@ using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
+using FreePoint = Gothic.Core.Models.Vob.WayNet.FreePoint;
+using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
@@ -52,12 +54,23 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void Update()
         {
-            // If NPC/Monster is dead, stop any further process logic.
+            // If NPC/Monster is dead, only play out the already queued animations (e.g. the dying animation
+            // enqueued by FightService), then stop any further process logic.
             if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
             {
-                enabled = false;
+                Properties.CurrentAction.Tick();
+
+                if (Properties.CurrentAction.IsFinished())
+                {
+                    if (Properties.AnimationQueue.Count > 0)
+                        PlayNextAnimation(Properties.AnimationQueue.Dequeue());
+                    else
+                        enabled = false;
+                }
+
+                return;
             }
-            
+
             ExecuteActivePerceptions();
             ExecuteStates();
 
@@ -87,7 +100,6 @@ namespace Gothic.Core.Adapters.Npc
                     Vm.GlobalOther = Vm.GlobalHero;
                 }
 
-                DaedalusSymbol loopSymbol;
                 switch (Properties.CurrentLoopState)
                 {
                     // None means, the NPC is newly created and didn't execute any Routine as of now OR a State was changed via Daedalus scripts.
@@ -135,7 +147,9 @@ namespace Gothic.Core.Adapters.Npc
             // Go on
             else
             {
-                Logger.Log($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
+                // Editor-only: this fires for every dequeued action of every NPC - the string interpolation
+                // plus file sink would be measurable noise on device.
+                Logger.LogEditor($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 PlayNextAnimation(Properties.AnimationQueue.Dequeue());
             }
         }
@@ -180,18 +194,25 @@ namespace Gothic.Core.Adapters.Npc
                 return;
             }
             
-            _npcAiService.UpdateEnemyNpc(NpcInstance);
+            var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
+            var assessPlayerRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessPlayer);
 
-            // FIXME - CanSense is not separating between smell, hear, and see as of now. Please add functionality.
-            if(_npcHelperService.CanSenseNpc(NpcInstance, (NpcInstance)_gameStateService.GothicVm.GlobalHero, false))
+            if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false, assessPlayerRange))
             {
-                _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance,null, (NpcInstance)_gameStateService.GothicVm.GlobalHero);
+                _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
             }
 
-            // FIXME - Throws a lot of errors and warnings when NPCs are nearby monsters (e.g. Bridge guard next to OC)
-            if(Properties.EnemyNpc != null)
+            // Scanning all NPCs for the closest enemy is expensive - only do it for NPCs that react to enemies at all.
+            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessEnemy, out var enemyPerception) &&
+                enemyPerception >= 0)
             {
-                _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
+                _npcAiService.UpdateEnemyNpc(NpcInstance);
+
+                // FIXME - Throws a lot of errors and warnings when NPCs are nearby monsters (e.g. Bridge guard next to OC)
+                if(Properties.EnemyNpc != null)
+                {
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
+                }
             }
 
 
@@ -267,6 +288,10 @@ namespace Gothic.Core.Adapters.Npc
             var routineSymbol = Vm.GetSymbolByIndex(action)!;
             Vob.CurrentStateName = routineSymbol.Name;
 
+            // Reset the previous routine's symbols: a new ZS without own _Loop/_End must not call the old ones.
+            Properties.StateLoop = 0;
+            Properties.StateEnd = 0;
+
             var symbolLoop = Vm.GetSymbolByName($"{routineSymbol.Name}_Loop");
             if (symbolLoop != null)
             {
@@ -316,6 +341,7 @@ namespace Gothic.Core.Adapters.Npc
                 Properties.AnimationQueue.Clear();
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
                 Properties.CurrentLoopState = NpcProperties.LoopState.None; // i.e. call StartNextState() next frame
+                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
             }
@@ -339,7 +365,11 @@ namespace Gothic.Core.Adapters.Npc
             {
                 var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
                 if (wp != null)
+                {
                     gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                    Properties.CurrentFreePoint = wp as FreePoint;
+                    Properties.CurrentWayPoint = wp as WayPoint;
+                }
                 else
                     Logger.LogWarning($"ReEnableNpc: waypoint '{currentRoutine.Waypoint}' not found for {gameObject.name} — NPC will re-enable at current position.", LogCat.Npc);
             }

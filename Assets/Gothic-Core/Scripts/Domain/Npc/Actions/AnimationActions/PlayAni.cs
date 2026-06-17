@@ -21,5 +21,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             ActionEndEventTime = PrefabProps.AnimationSystem.GetAnimationDuration(_animName);
         }
+
+        public override void Tick()
+        {
+            base.Tick();
+
+            if (IsFinishedFlag)
+                return;
+
+            // An external stop (e.g. AI_StopAni) triggered the track's blend-out before
+            // the natural duration elapsed — finish the action now rather than waiting
+            // for the timer.
+            if (PrefabProps.AnimationSystem.IsAnimationBlendingOut(_animName))
+            {
+                AnimationEnd();
+            }
+        }
     }
 }

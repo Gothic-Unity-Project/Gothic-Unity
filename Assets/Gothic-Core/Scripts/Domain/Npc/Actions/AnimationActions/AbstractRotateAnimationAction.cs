@@ -2,7 +2,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Npc;
-using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -53,9 +52,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            // https://discussions.unity.com/t/determining-whether-to-rotate-left-or-right/44021
-            var cross = Vector3.Cross(NpcGo.transform.forward, _finalRotation.eulerAngles);
-            _isRotateLeft = cross.y >= 0;
+            // Negative signed angle around the up axis means the target direction is to our left.
+            var targetForward = _finalRotation * Vector3.forward;
+            _isRotateLeft = Vector3.SignedAngle(NpcGo.transform.forward, targetForward, Vector3.up) < 0;
 
             if (PlayAnimation)
             {
@@ -92,7 +91,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Check if rotation is done.
             if (Quaternion.Angle(npcTransform.rotation, _finalRotation) < 1f)
             {
-                PrefabProps.AnimationSystem.StopAnimation(_rotationAnimationName);
+                if (_rotationAnimationName != null)
+                    PrefabProps.AnimationSystem.StopAnimation(_rotationAnimationName);
 
                 IsFinishedFlag = true;
             }
