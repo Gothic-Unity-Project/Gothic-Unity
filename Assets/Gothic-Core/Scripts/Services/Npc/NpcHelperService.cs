@@ -178,17 +178,13 @@ namespace Gothic.Core.Services.Npc
         public int ExtNpcGetDistToWp(NpcInstance npc, string waypointName)
         {
             var npcGo = GetNpc(npc);
-            var npcPos = npcGo.transform.position;
-
             var waypoint = _wayNetService.GetWayNetPoint(waypointName);
 
-            if (waypoint == null || !npcGo)
-            {
+            if (!npcGo || waypoint == null)
                 return int.MaxValue;
-            }
 
             // *100 as Gothic metrics are in cm, not m.
-            return (int)(Vector3.Distance(npcPos, waypoint.Position) * 100);
+            return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
         }
 
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)

@@ -1,3 +1,5 @@
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -10,7 +12,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            var ai = PrefabProps.AiHandler;
+            var ai = PrefabProps.AiHandler ?? NpcGo.GetComponent<AiHandler>();
+
+            if (ai == null)
+            {
+                Logger.LogWarning($"[ContinueRoutine] AiHandler null on {NpcGo.name} — skipping routine restart", LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
 
             ai.ClearState(false);
 

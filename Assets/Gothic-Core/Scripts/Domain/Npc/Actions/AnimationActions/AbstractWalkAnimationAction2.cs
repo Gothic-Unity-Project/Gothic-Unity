@@ -73,6 +73,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
 
+            var walkMode = (VmGothicEnums.WalkMode)Vob.AiHuman.WalkMode;
+            Props.BodyState = walkMode == VmGothicEnums.WalkMode.Walk
+                ? VmGothicEnums.BodyState.BsWalk
+                : VmGothicEnums.BodyState.BsRun;
+
             _startedWalkAnimationName = AnimationService.GetAnimationName(VmGothicEnums.AnimationType.Move, NpcContainer);
             PrefabProps.AnimationSystem.PlayAnimation(_startedWalkAnimationName);
         }
@@ -80,6 +85,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         protected virtual void StopWalk()
         {
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
+            Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
             if (_startedWalkAnimationName != null)
             {

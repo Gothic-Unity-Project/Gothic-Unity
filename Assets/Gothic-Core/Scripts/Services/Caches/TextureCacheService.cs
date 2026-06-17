@@ -162,34 +162,26 @@ namespace Gothic.Core.Services.Caches
         public void GetTextureArrayIndex(IMaterial materialData, out TextureArrayTypes textureArrayType, out int arrayIndex, out Vector2 textureScale, out int maxMipLevel, out int animFrameCount)
         {
             var textureName = materialData.Texture;
-            var texture = _resourceCacheService.TryGetTexture(textureName);
+            (int Index, StaticCacheService.TextureInfo Data) entry;
 
-            if (_staticCacheService.LoadedTextureInfoOpaque.ContainsKey(materialData.Texture))
+            // A texture can live in the Water array AND a solid array at the same time (dual-use, e.g. G1's
+            // OWODWAT_A0 on rivers and on the Old Camp cauldron's soup surface). The material's group decides
+            // which array this mesh samples - mirroring the registration in TextureArrayCacheCreatorDomain.
+            if (materialData.Group == MaterialGroup.Water && _staticCacheService.LoadedTextureInfoWater.TryGetValue(textureName, out entry))
             {
-                arrayIndex = _staticCacheService.LoadedTextureInfoOpaque[materialData.Texture].Index;
-                textureArrayType = TextureArrayTypes.Opaque;
-
-                maxMipLevel = texture!.MipmapCount - 1;
-                textureScale = new Vector2((float)texture.Width / ReferenceTextureSize, (float)texture.Height / ReferenceTextureSize);
-                animFrameCount = _staticCacheService.LoadedTextureInfoOpaque[materialData.Texture].Data.AnimFrameC;
-            }
-            else if (_staticCacheService.LoadedTextureInfoTransparent.ContainsKey(materialData.Texture))
-            {
-                arrayIndex = _staticCacheService.LoadedTextureInfoTransparent[materialData.Texture].Index;
-                textureArrayType = TextureArrayTypes.Transparent;
-
-                maxMipLevel = texture!.MipmapCount - 1;
-                textureScale = new Vector2((float)texture.Width / ReferenceTextureSize, (float)texture.Height / ReferenceTextureSize);
-                animFrameCount = _staticCacheService.LoadedTextureInfoTransparent[materialData.Texture].Data.AnimFrameC;
-            }
-            else if (_staticCacheService.LoadedTextureInfoWater.ContainsKey(materialData.Texture))
-            {
-                arrayIndex = _staticCacheService.LoadedTextureInfoWater[materialData.Texture].Index;
                 textureArrayType = TextureArrayTypes.Water;
-
-                maxMipLevel = texture!.MipmapCount - 1;
-                textureScale = new Vector2((float)texture.Width / ReferenceTextureSize, (float)texture.Height / ReferenceTextureSize);
-                animFrameCount = _staticCacheService.LoadedTextureInfoWater[materialData.Texture].Data.AnimFrameC;
+            }
+            else if (_staticCacheService.LoadedTextureInfoOpaque.TryGetValue(textureName, out entry))
+            {
+                textureArrayType = TextureArrayTypes.Opaque;
+            }
+            else if (_staticCacheService.LoadedTextureInfoTransparent.TryGetValue(textureName, out entry))
+            {
+                textureArrayType = TextureArrayTypes.Transparent;
+            }
+            else if (_staticCacheService.LoadedTextureInfoWater.TryGetValue(textureName, out entry))
+            {
+                textureArrayType = TextureArrayTypes.Water;
             }
             else
             {
@@ -199,7 +191,15 @@ namespace Gothic.Core.Services.Caches
                 maxMipLevel = 0;
                 textureScale = Vector2.one;
                 animFrameCount = 0;
+                return;
             }
+
+            var texture = _resourceCacheService.TryGetTexture(textureName);
+
+            arrayIndex = entry.Index;
+            maxMipLevel = texture!.MipmapCount - 1;
+            textureScale = new Vector2((float)texture.Width / ReferenceTextureSize, (float)texture.Height / ReferenceTextureSize);
+            animFrameCount = entry.Data.AnimFrameC;
         }
 
         public async Task BuildTextureArray()
@@ -247,12 +247,7 @@ namespace Gothic.Core.Services.Caches
             {
                 ++i;
 
-                if (texInfo.Key.EqualsIgnoreCase("obj_city_boulderbig_03.tga"))
-                {
-                    int a = 2;
-                }
                 var sourceTex = TryGetTexture(texInfo.Key, false);
-
 
                 if (sourceTex == null)
                 {

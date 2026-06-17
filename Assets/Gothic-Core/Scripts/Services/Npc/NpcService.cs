@@ -492,7 +492,83 @@ namespace Gothic.Core.Services.Npc
                 .Where(dialog => dialog.Npc == npcIndex)
                 .OrderByDescending(dialog => dialog.Important)
                 .ToList();
+
+            if (!npcContainer.Props.Dialogs.Any())
+                TryAssignAmbientDialogs(npcContainer);
         }
+
+        // ZenKit bug: Daedalus member assignment like `Info_Grd_6_EXIT.npc = X` inside
+        // function bodies fails with "C_INFO.NPC without an instance set". B_AssignAmbientInfos
+        // relies on this to link ambient C_INFO instances to NPCs at runtime. We replicate
+        // the assignment here by matching symbol name patterns (INFO_<GUILD>_<VOICE>_*)
+        // and setting InfoInstance.Npc directly via the ZenKitCS setter.
+        private void TryAssignAmbientDialogs(NpcContainer npcContainer)
+        {
+            var guildAbbr = GetAmbientGuildAbbreviation(npcContainer.Instance.Guild);
+            if (guildAbbr == null)
+                return;
+
+            _ambientInfoByPrefix ??= BuildAmbientInfoPrefixLookup();
+
+            var voice = npcContainer.Instance.Voice;
+            if (!_ambientInfoByPrefix.TryGetValue($"INFO_{guildAbbr}_{voice}", out var ambientDialogs) &&
+                !_ambientInfoByPrefix.TryGetValue($"INFO_MINE_{guildAbbr}_{voice}", out ambientDialogs))
+                return;
+
+            var npcIndex = npcContainer.Instance.Index;
+            foreach (var dialog in ambientDialogs)
+                dialog.Npc = npcIndex;
+
+            npcContainer.Props.Dialogs = ambientDialogs.OrderByDescending(d => d.Important).ToList();
+        }
+
+        // Cached lookup: "INFO_GRD_6" → list of ambient C_INFO instances with that guild+voice prefix.
+        // Built lazily from symbol names to avoid repeated GetSymbolByIndex calls per frame.
+        private Dictionary<string, List<InfoInstance>> _ambientInfoByPrefix;
+
+        private Dictionary<string, List<InfoInstance>> BuildAmbientInfoPrefixLookup()
+        {
+            var lookup = new Dictionary<string, List<InfoInstance>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var info in _gameStateService.Dialogs.Instances)
+            {
+                var name = _vm.GetSymbolByIndex(info.Index)?.Name;
+                if (name == null) continue;
+
+                var parts = name.Split('_');
+                if (parts.Length < 4 || !parts[0].Equals("INFO", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string key;
+                if (parts[1].Equals("MINE", StringComparison.OrdinalIgnoreCase) && parts.Length >= 5 && int.TryParse(parts[3], out var mineVoice) && mineVoice <= 15)
+                    key = $"INFO_MINE_{parts[2]}_{parts[3]}";
+                else if (int.TryParse(parts[2], out var campVoice) && campVoice <= 15)
+                    key = $"INFO_{parts[1]}_{parts[2]}";
+                else
+                    continue;
+
+                if (!lookup.TryGetValue(key, out var list))
+                {
+                    list = new List<InfoInstance>();
+                    lookup[key] = list;
+                }
+                list.Add(info);
+            }
+            return lookup;
+        }
+
+        private static string GetAmbientGuildAbbreviation(int guild) => guild switch
+        {
+            (int)VmGothicEnums.Guild.GIL_GRD => "GRD",
+            (int)VmGothicEnums.Guild.GIL_STT => "STT",
+            (int)VmGothicEnums.Guild.GIL_VLK => "VLK",
+            (int)VmGothicEnums.Guild.GIL_SLD => "SLD",
+            (int)VmGothicEnums.Guild.GIL_ORG => "ORG",
+            (int)VmGothicEnums.Guild.GIL_BAU => "BAU",
+            (int)VmGothicEnums.Guild.GIL_SFB => "SFB",
+            (int)VmGothicEnums.Guild.GIL_NOV => "NOV",
+            (int)VmGothicEnums.Guild.GIL_TPL => "TPL",
+            _ => null
+        };
 
         private void EventNpcMeshCullingChanged(NpcContainer npcContainer, NpcLoader npcLoader, bool isInVisibleRange, bool wasOutOfDistance)
         {
