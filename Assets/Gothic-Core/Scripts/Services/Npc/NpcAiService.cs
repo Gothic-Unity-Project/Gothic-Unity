@@ -6,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly PhysicsService _physicsService;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -199,6 +201,11 @@ namespace Gothic.Core.Services.Npc
                     // Let it play the sheath animation; StartState enqueued below will follow it.
                     Logger.LogWarning($"[ExtAiStartState] pending UndrawWeapon — deferring state clear so sheath plays", LogCat.Fight);
                 }
+                else if (container.Props.AnimationQueue.OfType<StandUp>().Any())
+                {
+                    // StandUp was just enqueued (e.g. AI_StandUp in ZS_Unconscious_End before AI_StartState).
+                    // Don't clear the queue — let the standup animation play; StartState follows it.
+                }
                 else
                 {
                     container.PrefabProps?.AiHandler?.ClearState(false);
@@ -255,13 +262,29 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiStandUp(NpcInstance npc)
         {
-            // FIXME - Implement remaining tasks from G1 documentation:
-            // * Ist der Nsc in einem Animatinsstate, wird die passende Rücktransition abgespielt.
-            // * Benutzt der NSC gerade ein MOBSI, poppt er ins stehen.
             var container = npc.GetUserData();
+            var wasUnconscious = container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
             // Reset immediately (not via queue) so Daedalus C_BodyStateContains checks in the same ZS_*_Loop tick see BsStand.
             container.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+            if (wasUnconscious)
+                container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "T_Wounded_2_Stand"), container));
             container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
+        }
+
+        public void ExtMdlApplyRandomAni(NpcInstance npc, string stateName, string transitionName)
+        {
+            var container = npc.GetUserData();
+            if (container?.PrefabProps == null)
+                return;
+
+            _physicsService.DisablePhysicsForNpc(container.PrefabProps);
+            // transitionName (T_Wounded_Try) is a "struggle to stand" random — not the fall animation.
+            // Map state to the correct fall transition from HUMANS.MDS.
+            var fallAni = stateName.Equals("S_WOUNDEDB", System.StringComparison.OrdinalIgnoreCase)
+                ? "T_Stand_2_WoundedB"
+                : "T_Stand_2_Wounded";
+            container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: fallAni), container));
+            container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: stateName), container));
         }
 
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
@@ -418,7 +441,16 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)
         {
-            return npc.GetUserData()?.Vob.CurrentStateIndex == state;
+            var container = npc.GetUserData();
+            if (container == null) return false;
+            if (container.PrefabProps != null && container.PrefabProps.IsHero() &&
+                container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+            {
+                // Hero doesn't run the Daedalus state machine — map BsUnconscious to ZS_Unconscious/ZS_MagicSleep.
+                var stateName = _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name;
+                return stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
+            }
+            return container.Vob.CurrentStateIndex == state;
         }
 
         public bool ExtNpcIsPlayer(NpcInstance npc)
