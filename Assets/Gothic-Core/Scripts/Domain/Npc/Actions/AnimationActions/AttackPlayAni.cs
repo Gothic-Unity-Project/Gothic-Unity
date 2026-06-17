@@ -163,11 +163,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            // Player uses VR physical collision — bone collider detection handles NPC→player hits.
-            if (target.PrefabProps != null && target.PrefabProps.IsHero())
-                return;
-
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
             // NPC vs NPC hit: check weapon reach + forward arc so the target can dodge by

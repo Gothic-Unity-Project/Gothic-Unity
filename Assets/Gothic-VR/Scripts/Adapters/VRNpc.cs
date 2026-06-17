@@ -36,12 +36,13 @@ namespace Gothic.VR.Adapters
 
         public void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
-            var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            var bodyState = _npcData.Props.BodyState;
+            var isDead = bodyState == VmGothicEnums.BodyState.BsDead;
+            var isUnconscious = bodyState == VmGothicEnums.BodyState.BsUnconscious;
 
-            if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
+            if ((isDead || isUnconscious) && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
-                // HVR sets isKinematic=false during grab; release immediately and freeze the corpse
                 grabber.ForceRelease();
                 _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
                 return;

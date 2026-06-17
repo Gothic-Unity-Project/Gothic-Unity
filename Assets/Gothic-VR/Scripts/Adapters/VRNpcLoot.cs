@@ -86,6 +86,16 @@ namespace Gothic.VR.Adapters
             StartCoroutine(FillSockets());
         }
 
+        private void Update()
+        {
+            if (!_isOpen || _npcContainer == null)
+                return;
+
+            var state = _npcContainer.Props.BodyState;
+            if (state != VmGothicEnums.BodyState.BsDead && state != VmGothicEnums.BodyState.BsUnconscious)
+                Close();
+        }
+
         public void Close()
         {
             _isOpen = false;

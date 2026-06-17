@@ -1,9 +1,12 @@
+using System.Collections;
 using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -21,6 +24,10 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly Gothic.Core.Services.GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
 
         public void Init()
         {
@@ -35,14 +42,50 @@ namespace Gothic.Core.Services.Npc
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
+            var isHero = target.PrefabProps != null && target.PrefabProps.IsHero();
+
+            // Hero finishes off unconscious NPC with any hit.
+            if (target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious && !isHero)
+            {
+                var attackerIsHero = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
+                if (attackerIsHero)
+                {
+                    Logger.Log($"[FightService] Hero finishes off {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+                    OnDyingChangeAnimation(target);
+                    if (_configService.Dev.EnableDeathXP)
+                        OnNpcDied(target, attacker);
+                }
+                return;
+            }
+
+            if (isHero && _gameStateService.Dialogs.IsInDialog)
+            {
+                Logger.LogWarning("[FightService] Dialog interrupted by NPC attack", LogCat.Fight);
+                _dialogService.StopDialog(attacker);
+            }
+
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             if (OnHitUpdateHealth(attacker, target))
             {
-                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
-                target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                OnDyingChangeAnimation(target);
-                if (_configService.Dev.EnableDeathXP)
-                    OnNpcDied(target, attacker);
+                if (isHero)
+                {
+                    Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
+                    OnHeroKnockedOut(target);
+                }
+                else if (IsHuman(target))
+                {
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
+                    OnNpcKnockedOut(target, attacker);
+                }
+                else
+                {
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
+                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+                    OnDyingChangeAnimation(target);
+                    if (_configService.Dev.EnableDeathXP)
+                        OnNpcDied(target, attacker);
+                }
             }
             else
             {
@@ -50,6 +93,76 @@ namespace Gothic.Core.Services.Npc
                 OnHitChangeAnimation(target);
                 OnHitPlaySound(target);
             }
+        }
+
+        // GIL_SEPERATOR_ORC = 37: humans and orcs (guild < 37) go unconscious; monsters die.
+        private static bool IsHuman(NpcContainer npc) => npc.Instance.Guild < 37;
+
+        private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
+        {
+            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
+
+            var vm = _gameStateService.GothicVm;
+            var zsUnconscious = vm.GetSymbolByName("ZS_UNCONSCIOUS");
+
+            if (zsUnconscious == null)
+            {
+                Logger.LogWarning("[FightService] ZS_UNCONSCIOUS symbol not found — falling back to S_Wounded anim", LogCat.Fight);
+                npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+                npc.Props.AnimationQueue.Clear();
+                npc.PrefabProps.AnimationSystem.StopAllAnimations();
+                _physicsService.DisablePhysicsForNpc(npc.PrefabProps);
+                var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.UnconsciousA, npc);
+                npc.PrefabProps.AnimationSystem.PlayAnimation(animName);
+                return;
+            }
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            vm.GlobalSelf = npc.Instance;
+            vm.GlobalOther = attacker.Instance;
+            // ClearState(false) inside ExtAiStartState resets BodyState=BsStand — set BsUnconscious after.
+            _npcAiService.ExtAiStartState(npc.Instance, zsUnconscious.Index, true, "");
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+
+            // Give unconscious XP now from C# (same as OnNpcDied gives death XP).
+            // Pre-set AIV_WASDEFEATEDBYSC so ZS_UNCONSCIOUS's B_UnconciousXP skips the duplicate call.
+            if (_configService.Dev.EnableDeathXP && attacker.PrefabProps.IsHero())
+            {
+                var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? 19;
+                if (npc.Instance.GetAiVar(aivWasDefeated) == 0)
+                {
+                    var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
+                    if (bUnconciousXp != null)
+                    {
+                        vm.Call(bUnconciousXp.Index);
+                        npc.Instance.SetAiVar(aivWasDefeated, 1);
+                        _npcService.SyncHeroInstanceToVob();
+                        Logger.Log($"[FightService] Unconscious XP given for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+                    }
+                }
+            }
+
+            vm.GlobalSelf = oldSelf;
+            vm.GlobalOther = oldOther;
+        }
+
+        private void OnHeroKnockedOut(NpcContainer hero)
+        {
+            hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+            hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
+            var statusBar = hero.Go.GetComponentInChildren<StatusBarAdapter>(true);
+            statusBar?.SetFillAmount(1, hero.Vob.GetAttribute((int)NpcAttribute.HitPointsMax));
+            _contextInteractionService.LockPlayerInPlace();
+            _unityMonoService.StartCoroutine(KnockoutRecovery(hero));
+        }
+
+        private IEnumerator KnockoutRecovery(NpcContainer hero)
+        {
+            yield return new WaitForSeconds(10f);
+            hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+            _contextInteractionService.UnlockPlayer();
+            Logger.Log("[FightService] Hero recovered from knockout", LogCat.Fight);
         }
 
         /// <summary>
@@ -77,6 +190,13 @@ namespace Gothic.Core.Services.Npc
             var damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
             if (damage <= 0)
                 damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
+
+            // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.
+            if (((int)target.Instance.Flags & 2) != 0)
+            {
+                Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} is immortal — 0 damage", LogCat.Npc);
+                damage = 0;
+            }
 
             Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)}: {hitPoints} - {damage} dmg", LogCat.Npc);
 
