@@ -81,9 +81,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string GetWalkModeAnimationString()
         {
             var fightMode = (VmGothicEnums.WeaponState)Vob.FightMode;
-            var weaponState = fightMode == VmGothicEnums.WeaponState.NoWeapon
-                ? ""
-                : fightMode.ToString();
+            var weaponState = Services.Npc.AnimationService.GetWeaponAnimationPrefix(fightMode);
             var walkMode = (VmGothicEnums.WalkMode)Vob.AiHuman.WalkMode;
             switch (walkMode)
             {

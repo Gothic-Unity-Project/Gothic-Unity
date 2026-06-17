@@ -1,5 +1,4 @@
 using System;
-using System.Numerics;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -17,7 +16,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly NpcAiService _npcAiService;
 
-        private NpcInstance _enemy => (NpcInstance)GameStateService.GothicVm.GlobalVictim;
+        private NpcInstance _enemy => Props.EnemyNpc;
         
         private FightAiMove _move;
         
@@ -51,27 +50,26 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var attackRange = GetAttackRange();
             var isInWRange = distance <= attackRange; // W-Range == Weapon range
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
-            var isInFKRange = !isInWRange && !isInGRange; // FK-Range == Fernkampf range; Yes, in G1 it's assumed that nothing is farther away than 30 m, but I don't expect any AI_Attack() call to be at this range.
-            var isRunning = false; // FIXME - We need to handle this for >MyGRunTo<
+            // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
 
             switch ((VmGothicEnums.WeaponState)Vob.FightMode)
             {
-                case VmGothicEnums.WeaponState.Fist:
-                case VmGothicEnums.WeaponState.W1H:
-                case VmGothicEnums.WeaponState.W2H:
-                    if (isInWRange)
-                        return isInFocus ? FightConst.AttackActions.MyWFocus : FightConst.AttackActions.MyWNoFocus;
-                    if (isInGRange)
-                        return isInFocus ? FightConst.AttackActions.MyGFocus : FightConst.AttackActions.MyGFkNoFocus;
-                    else
-                        return isInFocus ? FightConst.AttackActions.MyFkFocus : FightConst.AttackActions.MyGFkNoFocus;
-                case VmGothicEnums.WeaponState.NoWeapon:
                 case VmGothicEnums.WeaponState.Bow:
                 case VmGothicEnums.WeaponState.CBow:
                 case VmGothicEnums.WeaponState.Mage:
-                default:
-                    throw new ArgumentOutOfRangeException();
+                    // Ranged/magic fight AI isn't implemented yet. Behave like a melee fighter so fights continue.
+                    Logger.LogWarning($"Ai_Attack() with {(VmGothicEnums.WeaponState)Vob.FightMode} not yet implemented. Using melee behavior.", LogCat.Ai);
+                    break;
             }
+
+            // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
+            if (isInWRange)
+                return isInFocus ? FightConst.AttackActions.MyWFocus : FightConst.AttackActions.MyWNoFocus;
+            if (isInGRange)
+                return isInFocus ? FightConst.AttackActions.MyGFocus : FightConst.AttackActions.MyGFkNoFocus;
+
+            // FK-Range == Fernkampf range. In G1 nothing is assumed to be farther away than 30m.
+            return isInFocus ? FightConst.AttackActions.MyFkFocus : FightConst.AttackActions.MyGFkNoFocus;
         }
 
         // FIXME - In the future, we need to handle more information than just playing the attack animations. But fine for the first iteration.
@@ -96,24 +94,43 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Move), _move, _enemy);
                     break;
                 case FightAiMove.Turn:
+                case FightAiMove.TurnToHit:
                     _npcAiService.ExtAiTurnToNpc(NpcInstance, _enemy);
                     break;
                 // Some attacks have no action. Therefore TryGetFightAiData() returns Nop as fallback.
                 case FightAiMove.Nop:
                     break;
-                case FightAiMove.RunBack:
-                case FightAiMove.JumpBack:
                 case FightAiMove.AttackSide:
+                    if (Random.Range(0, 2) == 0)
+                        _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackL), _move, _enemy);
+                    else
+                        _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), _move, _enemy);
+                    break;
+                // The combo attacks (triple/whirl/master) are chained hit windows of the base swing in the
+                // original engine. Until attack combos are implemented, the base swing is the closest match.
                 case FightAiMove.AttackFront:
                 case FightAiMove.AttackTriple:
                 case FightAiMove.AttackWhirl:
                 case FightAiMove.AttackMaster:
-                case FightAiMove.TurnToHit:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), _move, _enemy);
+                    break;
                 case FightAiMove.Parry:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackBlock), _move, _enemy);
+                    break;
+                // No run-backwards loop exists in the assets; the parade jump-back is the closest match for both.
+                case FightAiMove.RunBack:
+                case FightAiMove.JumpBack:
+                    _npcAiService.PlayAttackAni(NpcInstance, GetJumpBackAnimName(), _move, _enemy);
+                    break;
                 case FightAiMove.StandUp:
+                    _npcAiService.ExtAiStandUp(NpcInstance);
+                    break;
+                // Wait durations relative to FightAiMove.Wait (0.2s); the original engine scales them similarly.
                 case FightAiMove.WaitLonger:
+                    _npcAiService.ExtAiWait(NpcInstance, 0.4f);
+                    break;
                 case FightAiMove.WaitExt:
-                    Logger.LogError($"Ai_Attack() type >{_move}< not yet handled. Skipping...", LogCat.Ai);
+                    _npcAiService.ExtAiWait(NpcInstance, 0.8f);
                     break;
                 default:
                     Logger.LogError("No action for Ai_Attack() selected. Missing path in logic!", LogCat.Ai);
@@ -134,7 +151,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
             // By default, use Fist range.
-            float weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);;
+            float weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
 
             // If NPC has a weapon equipped, then use it's length in G1 (as FIGHT_RANGE_1HA and FIGHT_RANGE_1HS aren't set. Same for 2H).
             // FIXME - Check how G2 is handling ranges. Also via weapon range or guild values?
@@ -164,7 +181,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 }
             }
 
-            return (baseRange + weaponRange) / 100f; // m -> cm
+            return (baseRange + weaponRange) / 100f; // cm -> m
         }
 
         /// <summary>
@@ -173,6 +190,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string GetAnimName(VmGothicEnums.AnimationType type)
         {
             return AnimationService.GetAnimationName(type, NpcContainer);
+        }
+
+        private string GetJumpBackAnimName()
+        {
+            var fightMode = (VmGothicEnums.WeaponState)Vob.FightMode;
+
+            // There is no weaponless jump-back animation - the fist one is used.
+            if (fightMode == VmGothicEnums.WeaponState.NoWeapon)
+                fightMode = VmGothicEnums.WeaponState.Fist;
+
+            var prefix = AnimationService.GetWeaponAnimationPrefix(fightMode);
+
+            return $"t_{prefix}ParadeJumpB";
         }
     }
 }

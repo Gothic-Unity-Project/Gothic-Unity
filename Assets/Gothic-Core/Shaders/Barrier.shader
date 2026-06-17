@@ -71,6 +71,17 @@ Shader "Unlit/Barrier"
                 v.uv.y += waveY * waveParams.x + (_MainTex_ST.y * (timeScaled - timeFloor)) + waveStrength;
 
                 o.vertex = UnityObjectToClipPos(v.vertex);
+
+                // The dome radius exceeds the dynamic (fog-sized) far-clip plane, so its far
+                // hemisphere would otherwise be clipped, leaving the barrier visible only at the
+                // screen edges. Pin any vertex beyond the far plane onto it (skybox technique);
+                // verts already inside keep their true depth, so nearer geometry still occludes.
+                #if defined(UNITY_REVERSED_Z)
+                    o.vertex.z = max(o.vertex.z, 0.0);
+                #else
+                    o.vertex.z = min(o.vertex.z, o.vertex.w);
+                #endif
+
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 
                 o.color = v.color;

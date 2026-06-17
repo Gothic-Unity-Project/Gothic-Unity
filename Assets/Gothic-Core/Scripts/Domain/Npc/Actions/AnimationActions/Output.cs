@@ -6,10 +6,11 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Reflex.Attributes;
 using UnityEngine;
-using Random = UnityEngine.Random;
 using Logger = Gothic.Core.Logging.Logger;
+using Random = UnityEngine.Random;
 using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -49,7 +50,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             
             var audioClip = _audioService.CreateAudioClip(OutputName);
             if (audioClip == null)
-                Logger.LogWarning($"[Output] Audio not found: {OutputName} — using fallback duration", LogCat.Dialog);
+                Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
             _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
 
             // Hero

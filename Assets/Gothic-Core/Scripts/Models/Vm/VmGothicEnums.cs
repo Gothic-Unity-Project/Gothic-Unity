@@ -296,6 +296,17 @@ namespace Gothic.Core.Models.Vm
             Mage
         }
 
+        /// <summary>
+        /// Daedalus SENSE_* constants (C_NPC.senses bitmask).
+        /// </summary>
+        [Flags]
+        public enum NpcSenses
+        {
+            See = 1,
+            Hear = 2,
+            Smell = 4
+        }
+
         public enum MoverState
         {
             Open,
