@@ -243,8 +243,17 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
             var vob = npc.GetUserData().Vob;
+            var newValue = vob.GetAttribute(attributeId) + value;
 
-            vob.Attributes[attributeId] = value;
+            // Clamp paired attributes (HP ↔ HP_MAX, Mana ↔ Mana_MAX): max is at attributeId+1 by G1 convention.
+            if (attributeId % 2 == 0 && attributeId + 1 < vob.Attributes.Count)
+            {
+                var max = vob.GetAttribute(attributeId + 1);
+                if (max > 0)
+                    newValue = Mathf.Clamp(newValue, 0, max);
+            }
+
+            vob.SetAttribute(attributeId, newValue);
         }
 
         public NpcContainer GetHeroContainer()
