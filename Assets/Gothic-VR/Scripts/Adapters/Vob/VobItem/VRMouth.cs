@@ -1,14 +1,18 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -30,6 +34,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcService _npcService;
 
         
         // Do not eat them twice during destroy time.
@@ -115,14 +121,53 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay)
         {
             if (clip != null)
-            {
                 _mouthAudio.PlayOneShot(clip);
-            }
 
             yield return new WaitForSeconds(destroyDelay);
 
+            CallOnState(go);
+
             _objectsInDestroyGracePeriod.Remove(go);
             Destroy(go);
+        }
+
+        private void CallOnState(GameObject go)
+        {
+            var item = go.GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var onStateIndex = item.GetOnState(0);
+            if (onStateIndex == 0)
+                return;
+
+            var vm = _gameStateService.GothicVm;
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = vm.GlobalHero;
+            try
+            {
+                vm.Call(onStateIndex);
+                Logger.Log($"[VRMouth] Called on_state[0] (idx={onStateIndex}) for {item.Name}", LogCat.VR);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[VRMouth] on_state[0] call failed: {e.Message}", LogCat.VR);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
+
+            RefreshHeroStatusBar();
+        }
+
+        private void RefreshHeroStatusBar()
+        {
+            var hero = _npcService.GetHeroContainer();
+            var hp = hero.Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            var maxHp = hero.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
+            var statusBar = hero.Go.GetComponentInChildren<StatusBarAdapter>(true);
+            statusBar?.SetFillAmount(hp, maxHp);
         }
     }
 }

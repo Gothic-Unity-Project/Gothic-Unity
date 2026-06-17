@@ -137,7 +137,10 @@ namespace Gothic.Core.Services.Npc
 
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
-            var itemInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(itemId)!.Name;
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(itemId);
+            if (symbol == null)
+                return 0;
+            var itemInstanceName = symbol.Name;
 
             foreach (InvCats cat in System.Enum.GetValues(typeof(InvCats)))
             {
