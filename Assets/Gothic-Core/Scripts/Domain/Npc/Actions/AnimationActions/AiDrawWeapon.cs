@@ -6,6 +6,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -16,6 +17,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class DrawWeapon : AbstractAnimationAction
     {
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly DialogService _dialogService;
 
         private bool _isRangedRequested => Action.Int0 == 1;
 
@@ -25,6 +27,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            if (GameStateService.Dialogs.IsInDialog && GameStateService.Dialogs.CurrentDialogNpc == NpcContainer)
+            {
+                Logger.LogWarning($"[DrawWeapon] {NpcInstance.GetName(NpcNameSlot.Slot0)} drew weapon during dialog — closing dialog", LogCat.Fight);
+                _dialogService.StopDialog(NpcContainer);
+            }
+
             var weapon = GetEquippedWeapon();
             var weaponState = GetWeaponState(weapon);
 

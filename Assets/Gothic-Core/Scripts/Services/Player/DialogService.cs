@@ -68,8 +68,9 @@ namespace Gothic.Core.Manager
             }
 
             _gameStateService.Dialogs.IsInDialog = true;
+            _gameStateService.Dialogs.CurrentDialogNpc = npcContainer;
 
-            // WIP: locking movement 
+            // WIP: locking movement
             _contextInteractionService.LockPlayerInPlace();
 
             // We are already inside a sub-dialog
@@ -293,10 +294,12 @@ namespace Gothic.Core.Manager
             _gameStateService.Dialogs.CurrentOptions.Clear();
             _gameStateService.Dialogs.IsInDialog = false;
             _gameStateService.Dialogs.WasPlayerInitiated = false;
+            _gameStateService.Dialogs.CurrentDialogNpc = null;
 
             // WIP: unlocking movement
             _contextInteractionService.UnlockPlayer();
 
+            _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();
 
             // Hide subtitles from both dialog partners.
