@@ -50,9 +50,9 @@ namespace Gothic.Core.Services.Meshes
             MainMenuTextImageMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Transparent);
 
             // Loading Bars
-            GothicLoadingMenuMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
-            LoadingBarBackgroundMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
-            LoadingBarMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
+            GothicLoadingMenuMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
+            LoadingBarBackgroundMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
+            LoadingBarMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             
             // Status Bars
             StatusBarBackgroundMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
@@ -110,7 +110,7 @@ namespace Gothic.Core.Services.Meshes
 
         public Material GetEmptyMaterial(MaterialExtension.BlendMode blendMode)
         {
-            var standardShader = Constants.ShaderUnlit;
+            var standardShader = Constants.ShaderUI;
             var material = new Material(standardShader);
 
             switch (blendMode)
@@ -118,13 +118,13 @@ namespace Gothic.Core.Services.Meshes
                 case MaterialExtension.BlendMode.Opaque:
                     material.ToOpaqueMode();
                     break;
+                case MaterialExtension.BlendMode.Fade:
+                    material.ToFadeMode();
+                    break;
                 case MaterialExtension.BlendMode.Transparent:
                     material.ToTransparentMode();
                     break;
             }
-
-            // Enable clipping of alpha values.
-            material.EnableKeyword("_ALPHATEST_ON");
 
             return material;
         }
