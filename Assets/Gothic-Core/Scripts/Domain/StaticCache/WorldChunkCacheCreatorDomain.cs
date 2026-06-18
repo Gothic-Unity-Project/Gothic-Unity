@@ -9,12 +9,12 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.StaticCache;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
-using TextureFormat = ZenKit.TextureFormat;
 
 namespace Gothic.Core.Domain.StaticCache
 {
@@ -29,7 +29,6 @@ namespace Gothic.Core.Domain.StaticCache
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly FrameSkipperService _frameSkipperService;
         [Inject] private readonly LoadingService _loadingService;
-        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         
         public Dictionary<TextureCacheService.TextureArrayTypes, List<WorldChunk>> MergedChunksByLights;
@@ -44,9 +43,10 @@ namespace Gothic.Core.Domain.StaticCache
         private const int _maxAmountOfPolygonsPerChunk = 10000;
         
         private List<Bounds> _stationaryLightBounds;
+        private Dictionary<TextureCacheService.TextureArrayTypes, Dictionary<string, StaticCacheService.TextureInfo>> _textureArrayInformation;
 
 
-        public async Task CalculateWorldChunks(IWorld world, List<Bounds> stationaryLightBounds, int worldIndex)
+        public async Task CalculateWorldChunks(IWorld world, List<Bounds> stationaryLightBounds, int worldIndex, Dictionary<TextureCacheService.TextureArrayTypes, Dictionary<string, StaticCacheService.TextureInfo>> textureArrayInformation)
         {
             var cachedBspTree = (CachedBspTree)world.BspTree.Cache();
             
@@ -54,6 +54,7 @@ namespace Gothic.Core.Domain.StaticCache
             _loadingService.SetPhase($"{nameof(PreCachingLoadingBarHandler.ProgressTypesPerWorld.CalculateWorldChunks)}_{worldIndex}", elementAmount);
 
             _stationaryLightBounds = stationaryLightBounds;
+            _textureArrayInformation = textureArrayInformation;
             // Hint: We need to cache BspTree, otherwise looping through it will take ages.
             await BuildBspTree(world.Mesh, cachedBspTree);
             
@@ -177,14 +178,13 @@ namespace Gothic.Core.Domain.StaticCache
                 {
                     var polygon = mesh.GetPolygon(polygonId);
                     var material = mesh.GetMaterial(polygon.MaterialIndex);
-                    var texture = _resourceCacheService.TryGetTexture(material.Texture);
 
-                    if (texture == null)
-                    {
-                        continue;
-                    }
+                    // Polygons are routed into the chunk type their material will sample at runtime. This
+                    // guarantees that the slice index baked into the vertices (uv.z) always belongs to the
+                    // texture array which is bound to the chunk's renderer.
+                    var textureArrayType = GetTextureArrayType(material);
 
-                    if (material.Group == MaterialGroup.Water)
+                    if (textureArrayType == TextureCacheService.TextureArrayTypes.Water)
                     {
                         // First time we have a Polygon with Water in this node.
                         if (!isCurrentNodeWithWater)
@@ -194,7 +194,7 @@ namespace Gothic.Core.Domain.StaticCache
                         }
                         currentWaterChunkPolygons.PolygonIds.Add(polygonId);
                     }
-                    else if (texture.Format == TextureFormat.Dxt1)
+                    else if (textureArrayType == TextureCacheService.TextureArrayTypes.Opaque)
                     {
                         // First time we have a Polygon with Dxt1 in this node.
                         if (!isCurrentNodeWithOpaque)
@@ -204,8 +204,7 @@ namespace Gothic.Core.Domain.StaticCache
                         }
                         currentOpaqueChunkPolygons.PolygonIds.Add(polygonId);
                     }
-                    // aka TextureFormat.R8G8B8A8 or anything else (e.g. DTX3, which will be changed to uncompressed R8G8B8A8 anyways)
-                    else
+                    else if (textureArrayType == TextureCacheService.TextureArrayTypes.Transparent)
                     {
                         // First time we have a Polygon with R8G8B8A8 in this node.
                         if (!isCurrentNodeWithTransparent)
@@ -245,7 +244,7 @@ namespace Gothic.Core.Domain.StaticCache
                     }
                     if (currentTransparentChunkLightsCount > Constants.MaxLightsPerWorldChunk || currentTransparentChunkPolygons.PolygonIds.Count > _maxAmountOfPolygonsPerChunk)
                     {
-                        if (currentWaterChunkPolygons.PolygonIds.Count > _maxAmountOfPolygonsPerChunk)
+                        if (currentTransparentChunkPolygons.PolygonIds.Count > _maxAmountOfPolygonsPerChunk)
                             Logger.Log($"Polygon threshold of {_maxAmountOfPolygonsPerChunk} reached. Slicing Transparent chunk for world {mesh.Name} now.", LogCat.PreCaching);
 
                         if (currentTransparentChunkPolygons.PolygonIds.NotNullOrEmpty())
@@ -277,10 +276,44 @@ namespace Gothic.Core.Domain.StaticCache
 
             MergedChunksByLights = new()
             {
-                { TextureCacheService.TextureArrayTypes.Opaque, new List<WorldChunk>(finalPolygonsOpaque) },
+                { TextureCacheService.TextureArrayTypes.Opaque, finalPolygonsOpaque },
                 { TextureCacheService.TextureArrayTypes.Transparent, finalPolygonsTransparent },
                 { TextureCacheService.TextureArrayTypes.Water, finalPolygonsWater }
             };
+        }
+
+        /// <summary>
+        /// Mirrors the registration in TextureArrayCacheCreatorDomain and the runtime lookup in
+        /// TextureCacheService.GetTextureArrayIndex: a texture can live in the Water array AND a solid array
+        /// at the same time (dual-use, e.g. G1's OWODWAT_A0 on rivers and on the Old Camp cauldron), so the
+        /// material's group - not the texture - decides between Water and the solid arrays.
+        /// Textures which couldn't be loaded at precache time aren't registered; their polygons return
+        /// Unknown and are skipped.
+        /// </summary>
+        private TextureCacheService.TextureArrayTypes GetTextureArrayType(IMaterial material)
+        {
+            if (material.Group == MaterialGroup.Water
+                && _textureArrayInformation[TextureCacheService.TextureArrayTypes.Water].ContainsKey(material.Texture))
+            {
+                return TextureCacheService.TextureArrayTypes.Water;
+            }
+
+            if (_textureArrayInformation[TextureCacheService.TextureArrayTypes.Opaque].ContainsKey(material.Texture))
+            {
+                return TextureCacheService.TextureArrayTypes.Opaque;
+            }
+
+            if (_textureArrayInformation[TextureCacheService.TextureArrayTypes.Transparent].ContainsKey(material.Texture))
+            {
+                return TextureCacheService.TextureArrayTypes.Transparent;
+            }
+
+            if (_textureArrayInformation[TextureCacheService.TextureArrayTypes.Water].ContainsKey(material.Texture))
+            {
+                return TextureCacheService.TextureArrayTypes.Water;
+            }
+
+            return TextureCacheService.TextureArrayTypes.Unknown;
         }
 
         private int GetLightsInBound(Bounds nodeBounds, HashSet<int> excludeElements)

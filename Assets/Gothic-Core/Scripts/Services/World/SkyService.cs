@@ -144,21 +144,26 @@ namespace Gothic.Core.Services.World
                 Logger.LogError(e.ToString(), LogCat.Mesh);
                 return;
             }
+            
+            var fogColor = new Vector3(colorValues[0], colorValues[1], colorValues[2]);
 
             foreach (var state in _stateList)
             {
-                // all states that contain day sky layer dawn, evening and day 0 to 3
-                if (state.Time < 0.35 || state.Time > 0.65)
+                if (!(state.Time < 0.35) || !(state.Time > 0.65)) // set new textures only for day states 
                 {
-                    state.Layer[0].TEXName = "SKYDAY_LAYER0_A" + day % 2 + ".TGA";
-                    // day states that contain sky cloud layer day 0 to 3
-                    if (state.Time < 0.3 || state.Time > 0.7)
-                    {
-                        state.Layer[1].TEXName = "SKYDAY_LAYER1_A" + day % 2 + ".TGA";
-                        state.FogColor = new Vector3(colorValues[0], colorValues[1], colorValues[2]);
-                        state.DomeColor0 = new Vector3(colorValues[0], colorValues[1], colorValues[2]);
-                    }
+                    continue;
                 }
+                
+                state.Layer[0].TEXName = "SKYDAY_LAYER0_A" + day % 2 + ".TGA";
+                
+                if (!(state.Time < 0.3) || !(state.Time > 0.7))
+                {
+                    continue;
+                }
+                
+                state.Layer[1].TEXName = "SKYDAY_LAYER1_A" + day % 2 + ".TGA";
+                state.FogColor = fogColor;
+                state.DomeColor0 = fogColor;
             }
         }
 

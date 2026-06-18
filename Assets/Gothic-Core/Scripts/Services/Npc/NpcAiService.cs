@@ -262,6 +262,8 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiStandUp(NpcInstance npc)
         {
+            // FIXME - Implement remaining task from G1 documentation:
+            // * Ist der Nsc in einem Animationsstate, wird die passende Rücktransition abgespielt (e.g. item states).
             var container = npc.GetUserData();
             var wasUnconscious = container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
             // Reset immediately (not via queue) so Daedalus C_BodyStateContains checks in the same ZS_*_Loop tick see BsStand.

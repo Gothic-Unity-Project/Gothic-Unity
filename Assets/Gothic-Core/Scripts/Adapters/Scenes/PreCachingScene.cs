@@ -160,7 +160,8 @@ namespace Gothic.Core.Adapters.Scenes
                     await stationaryLightCache.CalculateStationaryLights(world.RootObjects, worldIndex);
                     watch.LogAndRestart($"{worldName}: Stationary lights calculated.");
 
-                    await worldChunkCache.CalculateWorldChunks(world, stationaryLightCache.StationaryLightBounds, worldIndex);
+                    await worldChunkCache.CalculateWorldChunks(world, stationaryLightCache.StationaryLightBounds,
+                        worldIndex, textureArrayCache.TextureArrayInformation);
                     watch.LogAndRestart($"{worldName}: World chunks calculated.");
 
                     await _staticCacheService.SaveWorldCache(worldName, worldChunkCache.MergedChunksByLights, stationaryLightCache.StationaryLightInfos);

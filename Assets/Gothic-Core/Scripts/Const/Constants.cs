@@ -16,6 +16,7 @@ namespace Gothic.Core.Const
         // Unity shaders
         public static readonly Shader ShaderUnlit = Shader.Find("Universal Render Pipeline/Unlit");
         public static readonly Shader ShaderUnlitParticles = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        public static readonly Shader ShaderUI = Shader.Find("Gothic/UI");
         public static readonly Shader ShaderTMPSprite = Shader.Find("TextMeshPro/Sprite");
         public static readonly Shader ShaderDecal = Shader.Find("Shader Graphs/Decal");
         public static readonly Shader ShaderStandard = Shader.Find("Standard");

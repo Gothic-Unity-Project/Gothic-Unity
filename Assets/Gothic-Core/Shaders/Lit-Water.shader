@@ -8,7 +8,7 @@ Shader "Lit/Water"
     {
         Tags
         {
-            "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "RenderQueue" = "Transparent"
+            "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "Queue" = "Transparent"
         }
 
         Pass
@@ -21,6 +21,7 @@ Shader "Lit/Water"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -28,8 +29,6 @@ Shader "Lit/Water"
             struct appdata
             {
                 float4 vertex : POSITION;
-                half4 color : COLOR;
-                half3 normal : NORMAL;
                 float4 uv : TEXCOORD0; // uv, array slice, max mip level
                 float4 textureAnimation : TEXCOORD1; // linear anim x, linear anim y, frame count, fps
 
@@ -39,12 +38,12 @@ Shader "Lit/Water"
             struct v2f
             {
                 float4 vertex : SV_POSITION;
-                half3 normal : NORMAL;
                 float4 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
+                // Animated textures occupy consecutive array slices; this is the current frame offset.
+                // nointerpolation: a frame index must never be blended between vertices.
+                nointerpolation float frameIndex : TEXCOORD2;
                 half3 diffuse : COLOR;
-                int frameIndex : TEXCOORD2;
-
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -57,20 +56,6 @@ Shader "Lit/Water"
 
             #include "GothicIncludes.hlsl"
 
-            half3 DiffuseLighting(v2f i, appdata v)
-            {
-                half3 diffuse = _SunColor + _AmbientColor;
-
-                //for (int j = 0; j < min(MAX_VISIBLE_LIGHTS, unity_LightData.y); j++)
-                //{
-                //    int lightIndex = GetPerObjectLightIndex(j);
-                //    Light light = CustomGetAdditionalPerObjectLight(lightIndex, i.worldPos);
-                //    diffuse += AdditionalUnityLightDiffuse(light, i.normal);
-                //}
-
-                return diffuse;
-            }
-
             v2f vert(appdata v)
             {
                 v2f o;
@@ -78,21 +63,22 @@ Shader "Lit/Water"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-                o.worldPos = TransformObjectToWorld(v.vertex);
-                o.vertex = TransformObjectToHClip(v.vertex);
+                o.worldPos = TransformObjectToWorld(v.vertex.xyz);
+                o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 float2 movingUv = v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy + v.textureAnimation.xy * _Time.y * 1000;
                 o.uv = float4(movingUv, v.uv.zw);
-                o.normal = TransformObjectToWorldNormal(v.normal);
-                o.diffuse = DiffuseLighting(o, v);
-                o.frameIndex = (_Time.y * v.textureAnimation.w) % v.textureAnimation.z;
+                // textureAnimation.z is frameCount+1 (1 for non-animated textures -> frameIndex stays 0).
+                o.frameIndex = floor(fmod(_Time.y * v.textureAnimation.w, max(v.textureAnimation.z, 1.0)));
+                o.diffuse = _SunColor + _AmbientColor;
                 return o;
             }
 
             half4 frag(v2f i) : SV_Target
             {
                 float mipLevel = CalcMipLevel(i.uv.xy * _MainTex_TexelSize.zw);
-                half4 albedo = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainTex, sampler_MainTex, i.uv.xy, i.uv.z + i.frameIndex, clamp(mipLevel, 0, i.uv.w));
-                half3 diffuse = albedo * i.diffuse;
+                half4 albedo = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainTex, sampler_MainTex, i.uv.xy, i.uv.z + i.frameIndex,
+                    clamp(mipLevel, 0, i.uv.w));
+                half3 diffuse = albedo.rgb * i.diffuse;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
 
