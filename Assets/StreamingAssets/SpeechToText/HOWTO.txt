@@ -7,7 +7,7 @@
 -> For latest instructions to activate it in game, please check the Gothic Unity wiki at: https://github.com/Gothic-Unity-Project/Gothic-Unity/wiki
 
 In general:
-1. Go to Gothic Unity release page and select the one with .sentis files stored: https://github.com/Gothic-Unity-Project/Gothic-Unity/releases
+1. Go to release page for v0.2.0-alpha: https://github.com/Gothic-Unity-Project/Gothic-Unity/releases/tag/v0.2.0-alpha
 2. Download SpeechToText.zip with the following files:
   1. vocab.json
   2. decoder_model.sentis

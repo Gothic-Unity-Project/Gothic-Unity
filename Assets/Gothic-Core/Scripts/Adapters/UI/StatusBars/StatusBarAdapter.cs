@@ -63,6 +63,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             switch (_statusType)
             {
                 case StatusType.Health:
+                    if (_isPlayer)
+                        DisableBar();
                     break;
                 case StatusType.Mana:
                     break;
