@@ -12,11 +12,11 @@ half3 AdditionalStationaryDiffuse(uint lightIndex, real3 worldPos, real3 normal)
     float4 lightPosAndAttenuation = _GlobalStationaryLightPositionsAndAttenuation[lightIndex];
     float3 lightVector = lightPosAndAttenuation.xyz - worldPos;
     float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
-    half3 lightDirection = half3(lightVector * rsqrt(distanceSqr));
-    float diffuseDot = saturate(dot(lightDirection, normal));
 
-    return _GlobalStationaryLightColors[lightIndex] * CustomDistanceAttenuation(distanceSqr, lightPosAndAttenuation.w) *
-        diffuseDot * _PointLightIntensity;
+    // Linear distance falloff (1 - d/R)
+    float attenuation = saturate(1.0 - sqrt(distanceSqr * lightPosAndAttenuation.w));
+
+    return _GlobalStationaryLightColors[lightIndex] * attenuation * _PointLightIntensity;
 }
 
 #endif

@@ -12,7 +12,6 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
-using UnityEngine.Rendering;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 using Material = UnityEngine.Material;
@@ -117,7 +116,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             if (Mdm == null)
             {
-                Logger.LogError($"MDH from name >{mdmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
+                Logger.LogError($"MDM from name >{mdmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
             }
         }
 
@@ -142,7 +141,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             if (Mrm == null)
             {
-                Logger.LogError($"MDH from name >{mrmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
+                Logger.LogError($"MRM from name >{mrmName}< for object >{RootGo.name}< not found.", LogCat.Mesh);
             }
         }
 
@@ -392,7 +391,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (materialData.Texture.IsEmpty()) // No texture to add.
                 {
                     Logger.LogWarning("No texture was set for: " + materialData.Name, LogCat.Mesh);
-                    return;
+                    continue;
                 }
 
                 Texture texture;
@@ -447,6 +446,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         protected void PrepareMeshFilter(MeshFilter meshFilter, IMultiResolutionMesh mrmData, Renderer meshRenderer, int meshIndex, List<System.Numerics.Vector3> calculatedVertices = null)
         {
             // ISoftSkinMeshes will be prepared before reaching this method. This is due to NPC armors having dedicated offsets per item.
+            // A non-null calculatedVertices is also our soft-skin signal: only that overload passes it, and its bone
+            // weights are filled afterwards in the un-welded 3-per-triangle order (see the ISoftSkinMesh overload).
+            var isSoftSkin = calculatedVertices != null;
             calculatedVertices ??= mrmData.Positions;
 
             var subMeshPerTextureFormat = new Dictionary<TextureCacheService.TextureArrayTypes, int>();
@@ -471,11 +473,21 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             int triangleCount = mrmData.SubMeshes.Sum(i => i.Triangles.Count);
             int vertexCount = triangleCount * 3;
-            int index = 0;
             var preparedVertices = new List<Vector3>(vertexCount);
             var preparedUVs = new List<Vector4>(vertexCount);
             var normals = new List<Vector3>(vertexCount);
             var preparedTriangles = new List<List<int>>();
+
+            // Weld identical corners to a single Unity vertex instead of emitting 3 fresh vertices per triangle.
+            // This removes the ~3x vertex bloat (and the vertex-shader + bandwidth cost it carries; on Quest the
+            // stationary lighting is computed per-vertex). Keying on the full (position, normal, uv) tuple is
+            // visually lossless: hard edges and UV seams keep their own vertices, only true duplicates collapse.
+            // Disabled for soft-skin (bone weights rely on the expanded order) and morph meshes (morph animation
+            // maps source positions to specific Unity vertices).
+            var weldVertices = !isSoftSkin && Mmb == null;
+            var weldMap = weldVertices
+                ? new Dictionary<(Vector3 pos, Vector3 normal, Vector4 uv), int>(vertexCount)
+                : null;
 
             foreach (var subMesh in mrmData.SubMeshes)
             {
@@ -498,33 +510,46 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     preparedTriangles.Add(new List<int>());
                 }
 
-                for (var i = 0; i < subMesh.Triangles.Count; i++)
+                // Determine which triangle list to use
+                var triangleList = UseTextureArray
+                    ? preparedTriangles[subMeshPerTextureFormat[textureArrayType]]
+                    : preparedTriangles[^1];
+
+                void AddWedgeVertex(MeshWedge wedge)
                 {
-                    // One triangle is made of 3 elements for Unity. We therefore need to prepare 3 elements within one loop.
-                    MeshWedge[] wedges =
+                    var rawPosition = calculatedVertices[wedge.Index];
+                    var position = new Vector3(rawPosition.X / 100f, rawPosition.Y / 100f, rawPosition.Z / 100f);
+                    var normal = new Vector3(wedge.Normal.X, wedge.Normal.Y, wedge.Normal.Z);
+                    var uv = new Vector4(wedge.Texture.X * textureScale.x, wedge.Texture.Y * textureScale.y,
+                        textureArrayIndex, maxMipLevel);
+
+                    if (weldVertices && weldMap.TryGetValue((position, normal, uv), out var existingIndex))
                     {
-                        subMesh.Wedges[subMesh.Triangles[i].Wedge2], subMesh.Wedges[subMesh.Triangles[i].Wedge1],
-                        subMesh.Wedges[subMesh.Triangles[i].Wedge0]
-                    };
-
-                    for (var w = 0; w < wedges.Length; w++)
-                    {
-                        preparedVertices.Add(calculatedVertices[wedges[w].Index].ToUnityVector());
-                        if (UseTextureArray)
-                        {
-                            preparedTriangles[subMeshPerTextureFormat[textureArrayType]].Add(index++);
-                        }
-                        else
-                        {
-                            preparedTriangles[preparedTriangles.Count - 1].Add(index++);
-                        }
-
-                        normals.Add(wedges[w].Normal.ToUnityVector());
-                        var uv = Vector2.Scale(textureScale, wedges[w].Texture.ToUnityVector());
-                        preparedUVs.Add(new Vector4(uv.x, uv.y, textureArrayIndex, maxMipLevel));
-
-                        CreateMorphMeshEntry(wedges[w].Index, preparedVertices.Count);
+                        triangleList.Add(existingIndex);
+                        return;
                     }
+
+                    var vertexIndex = preparedVertices.Count;
+                    preparedVertices.Add(position);
+                    normals.Add(normal);
+                    preparedUVs.Add(uv);
+                    triangleList.Add(vertexIndex);
+
+                    if (weldVertices)
+                        weldMap[(position, normal, uv)] = vertexIndex;
+                    else
+                        CreateMorphMeshEntry(wedge.Index, preparedVertices.Count);
+                }
+
+                var wedges = subMesh.Wedges;
+                var triangles = subMesh.Triangles;
+                for (var ti = 0; ti < triangles.Count; ti++)
+                {
+                    var triangle = triangles[ti];
+                    // The wedge order is reversed to flip the triangle winding for Unity's coordinate system.
+                    AddWedgeVertex(wedges[triangle.Wedge2]);
+                    AddWedgeVertex(wedges[triangle.Wedge1]);
+                    AddWedgeVertex(wedges[triangle.Wedge0]);
                 }
             }
 
@@ -542,6 +567,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             CreateMorphMeshEnd(preparedVertices);
+
+            // Reorder the (now welded) index/vertex buffers for post-transform vertex-cache locality. Only useful
+            // once vertices are shared, and it reorders the vertex buffer - so it is strictly gated to welded meshes
+            // (never morph: their external positionIndex->vertex mapping would be invalidated; never soft-skin).
+            // Built once per unique mesh (cached by name), so the cost amortizes across all instances.
+            if (weldVertices)
+                mesh.Optimize();
 
             _multiTypeCacheService.Meshes.Add($"{MeshName}_{meshIndex}", mesh);
         }
@@ -736,22 +768,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             if (UseTextureArray)
             {
-                Shader shader;
                 switch (textureType)
                 {
                     case TextureCacheService.TextureArrayTypes.Opaque:
-                        shader = Constants.ShaderWorldLit;
-                        break;
+                        return new Material(Constants.ShaderWorldLit);
                     case TextureCacheService.TextureArrayTypes.Transparent:
                         // Cutout for e.g. bushes.
-                        shader = Constants.ShaderLitAlphaToCoverage;
-                        break;
+                        return new Material(Constants.ShaderLitAlphaToCoverage);
+                    case TextureCacheService.TextureArrayTypes.Water:
+                        return GetWaterMaterial();
                     default:
                         throw new ArgumentOutOfRangeException(nameof(textureType), textureType, null);
                 }
-
-                var material = new Material(shader);
-                return material;
             }
             else
             {
@@ -761,10 +789,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         protected Material GetWaterMaterial()
         {
-            var material = new Material(Constants.ShaderWater);
-            // Manually correct the render queue for alpha test, as Unity doesn't want to do it from the shader's render queue tag.
-            material.renderQueue = (int)RenderQueue.Transparent;
-            return material;
+            // The render queue is defined by the water shader's "Queue" tag.
+            return new Material(Constants.ShaderWater);
         }
 
         protected void SetPosAndRot(GameObject obj, Matrix4x4 matrix)
