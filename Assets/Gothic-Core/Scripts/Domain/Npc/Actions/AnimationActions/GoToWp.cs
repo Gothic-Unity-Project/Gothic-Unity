@@ -45,17 +45,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             base.Start();
         }
 
-        /// <summary>
-        /// Skip animation setting if we're on the final destination right from the start.
-        /// </summary>
-        protected override void StartWalk()
-        {
-            if (!IsFinishedFlag)
-            {
-                base.StartWalk();
-            }
-        }
-
         protected override Vector3 GetWalkDestination()
         {
             return _route.Peek().Position;
@@ -79,6 +68,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            StopWalk();
             AnimationEnd();
 
             IsFinishedFlag = true;

@@ -10,8 +10,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private string _destination => Action.String0;
 
-        private FreePoint _freePoint;
-
         public GoToFp(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
         }
@@ -27,9 +25,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            // Free the FP we still hold from a previous GoToFp. Otherwise every FP an NPC ever
+            // visited stays locked until the NPC is culled, and roaming runs out of free FPs.
+            if (Props.CurrentFreePoint != null && Props.CurrentFreePoint != _fp)
+                Props.CurrentFreePoint.IsLocked = false;
+
             _fp.IsLocked = true;
             Props.CurrentFreePoint = _fp;
-            
+
             base.Start();
         }
 

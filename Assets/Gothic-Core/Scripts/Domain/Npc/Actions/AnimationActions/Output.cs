@@ -4,20 +4,19 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
-using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
-using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
+using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class Output : AbstractAnimationAction
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly NpcService _npcService;
@@ -50,12 +49,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             var audioClip = _audioService.CreateAudioClip(OutputName);
-            _audioPlaySeconds = audioClip.length;
+            if (audioClip == null)
+                Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
+            _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
 
             // Hero
             if (_isHeroSpeaking)
             {
-                _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
+                if (audioClip != null)
+                    _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
 
                 PrintDialog();
             }
@@ -69,7 +71,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
                 PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
 
-                PrefabProps.NpcSound.PlayOneShot(audioClip);
+                if (audioClip != null)
+                    PrefabProps.NpcSound.PlayOneShot(audioClip);
 
                 PrintDialog();
             }
@@ -81,13 +84,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var currentMessage = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName).Message;
 
             if (_isHeroSpeaking)
-            {
                 _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
             else
-            {
                 PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
-            }
         }
 
         /// <summary>
@@ -108,6 +107,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return _gameStateService.Dialogs.GestureCount;
         }
 
+        // Used by OutputSvm for hero greeting: audio plays fire-and-forget, subtitles auto-hide after clip ends.
+        protected void StartHeroFireAndForget()
+        {
+            _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ScheduleHide(_audioPlaySeconds);
+            IsFinishedFlag = true;
+        }
+
         public override void StopImmediately()
         {
             _audioPlaySeconds = 0f;
@@ -126,6 +132,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override bool IsFinished()
         {
+            if (IsFinishedFlag) return true;
+
             _audioPlaySeconds -= Time.deltaTime;
 
             if (_audioPlaySeconds <= 0f)
@@ -138,8 +146,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // NPC
                 else
                 {
-                    PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                    PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                    if (_randomDialogAnimationName != null)
+                    {
+                        PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                    }
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
