@@ -4,6 +4,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
@@ -13,6 +14,10 @@ using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using ZenKit.Daedalus;
+using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
+using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.VR.Adapters
 {
@@ -29,6 +34,8 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcAiService _npcAiService;
 
 
         private static Camera _mainCamera;
@@ -40,6 +47,7 @@ namespace Gothic.VR.Adapters
 
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
+        private bool _mobActivated;
 
         private void Awake()
         {
@@ -56,6 +64,41 @@ namespace Gothic.VR.Adapters
         private void Start()
         {
             _nameCanvas.SetActive(false);
+            GetComponent<HVRGrabbable>()?.Grabbed.AddListener(OnGrabbed);
+        }
+
+        // When any grabbable vob is grabbed, activate mob interactions based on visual name.
+        private void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            if (_mobActivated) return;
+            var vobLoader = GetComponentInParent<VobLoader>();
+            Logger.Log($"[VRFocus.OnGrabbed] go={gameObject.name} loader={vobLoader?.gameObject.name ?? "NULL"}", LogCat.Ai);
+            if (vobLoader == null) return;
+            if (!vobLoader.gameObject.name.ContainsIgnoreCase("WHEEL")) return;
+
+            var mob = vobLoader.Container.VobAs<IInteractiveObject>();
+            var condFunc = mob?.ConditionFunction ?? "";
+            Logger.Log($"[VRFocus.OnGrabbed] WHEEL! condFunc={( condFunc.Length > 0 ? condFunc : "empty")}", LogCat.Ai);
+
+            _mobActivated = true;
+            var vm = _gameStateService.GothicVm;
+            if (vm == null) return;
+
+            if (condFunc.Length > 0)
+            {
+                var symbol = vm.GetSymbolByName(condFunc);
+                if (symbol != null)
+                    vm.Call(symbol.Index);
+                else
+                    Logger.LogWarning($"[VRFocus.OnGrabbed] ConditionFunction '{condFunc}' not found in VM", LogCat.Ai);
+            }
+            else
+            {
+                // No condition function — trigger UseMob directly as fallback.
+                var hero = vm.GlobalHero as NpcInstance;
+                if (hero != null)
+                    _npcAiService.ExtAiUseMob(hero, "VWHEEL", 1);
+            }
         }
 
         public void OnHoverEnter(HVRGrabberBase _, HVRGrabbable __)
