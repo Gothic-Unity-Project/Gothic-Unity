@@ -37,7 +37,7 @@ namespace Gothic.Core.Adapters.Vob
             {
                 var pos = raw[i].Position.ToUnityVector();
                 var r = raw[i].Rotation;
-                var rot = new Quaternion(r.X, r.Y, r.Z, r.W);
+                var rot = new Quaternion(r.X, r.Y, r.Z, -r.W); // Gothic→Unity: negate W, same as AnimationService
                 _keyframes[i] = (pos, rot);
             }
 
