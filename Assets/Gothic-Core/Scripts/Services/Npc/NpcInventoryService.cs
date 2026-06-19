@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -16,6 +18,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly MeshService _meshService;
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
@@ -166,6 +169,65 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcClearInventory(NpcInstance npc)
         {
             npc.GetUserData()!.Vob.ClearItems();
+        }
+
+        public void ExtAiEquipBestMeleeWeapon(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            // Find already-equipped melee weapon, or pick the best from inventory.
+            var equipped = container.Props.EquippedItems
+                .FirstOrDefault(i => i.MainFlag == (int)ItemFlags.ItemKatNf);
+
+            if (equipped == null)
+            {
+                List<ContentItem> weaponItems;
+                try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                catch { return; }
+
+                var bestDamage = -1;
+                foreach (var contentItem in weaponItems)
+                {
+                    var symbol = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (symbol == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(symbol.Index);
+                    if (itemData == null || itemData.MainFlag != (int)ItemFlags.ItemKatNf) continue;
+                    if (itemData.DamageTotal > bestDamage)
+                    {
+                        bestDamage = itemData.DamageTotal;
+                        equipped = itemData;
+                    }
+                }
+
+                if (equipped == null)
+                {
+                    Logger.LogWarning($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: no melee weapon in inventory", LogCat.Npc);
+                    return;
+                }
+
+                container.Props.EquippedItems.Add(equipped);
+                Logger.Log($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: equipped '{equipped.Name}' dmg={bestDamage}", LogCat.Npc);
+            }
+
+            // Check if the weapon mesh GO exists in the stow slot or the hand slot.
+            // The mesh can be lost after combat cycles; if missing, respawn it.
+            var isTwoHanded = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdAxe) ||
+                              ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdSwd);
+            var stowSlotName = isTwoHanded ? "ZS_LONGSWORD" : "ZS_SWORD";
+
+            var stowGo = container.Go.FindChildRecursively(stowSlotName);
+            var handGo = container.Go.FindChildRecursively("ZS_RIGHTHAND");
+
+            var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
+                             (handGo != null && handGo.transform.childCount > 0);
+
+            if (!meshExists)
+            {
+                Logger.Log($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: mesh missing — respawning '{equipped.Name}'", LogCat.Npc);
+                _meshService.CreateNpcWeapon(container.Go, equipped, (ItemFlags)equipped.MainFlag, (ItemFlags)equipped.Flags);
+            }
         }
     }
 }

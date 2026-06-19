@@ -14,7 +14,9 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Models.Doc;
+using Gothic.Core.Creator;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit;
@@ -42,6 +44,8 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly DocService _docService;
+        [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         // (optional) Some messages from Daedalus are quite spammy. Ignore them.
         private static readonly string[] _spammyMessages = new[]
@@ -94,11 +98,13 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, float>("AI_Wait", AI_Wait);
             vm.RegisterExternal<NpcInstance, int>("AI_WaitMs", AI_WaitMs);
             vm.RegisterExternal<int, NpcInstance, string, int>("AI_UseMob", AI_UseMob);
+            vm.RegisterExternal<NpcInstance, string>("AI_Teleport", AI_Teleport);
             vm.RegisterExternal<NpcInstance, string>("AI_GoToNextFP", AI_GoToNextFP);
             vm.RegisterExternal<NpcInstance>("AI_DrawWeapon", AI_DrawWeapon);
             vm.RegisterExternal<NpcInstance>("AI_ReadyMeleeWeapon", AI_ReadyMeleeWeapon);
             vm.RegisterExternal<NpcInstance>("AI_ReadyRangedWeapon", AI_ReadyRangedWeapon);
             vm.RegisterExternal<NpcInstance>("AI_RemoveWeapon", AI_RemoveWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestMeleeWeapon", AI_EquipBestMeleeWeapon);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_Output", AI_Output);
             vm.RegisterExternal<NpcInstance>("AI_ProcessInfos", AI_ProcessInfos);
             vm.RegisterExternal<NpcInstance>("AI_StopProcessInfos", AI_StopProcessInfos);
@@ -110,6 +116,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
+            vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM_Overlay", AI_OutputSVM_Overlay);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WhirlAround", AI_WhirlAround);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnAway", AI_TurnAway);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_FinishingMove", AI_FinishingMove);
 
             // Apply Options
             // Doc
@@ -209,6 +219,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int>("Npc_SetToFightMode", Npc_SetToFightMode);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
@@ -218,6 +230,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetRefuseTalk", Npc_SetRefuseTalk);
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetKnowsPlayer", Npc_SetKnowsPlayer);
+            vm.RegisterExternal<int, NpcInstance, int, NpcInstance, NpcInstance>("Npc_HasNews", Npc_HasNews);
 
             // G2 externals only.
             if (_configService.Dev.GameVersion == GameVersion.Gothic2)
@@ -241,6 +255,7 @@ namespace Gothic.Core.Domain.Vm
 
             // World
             vm.RegisterExternal<int, string>("Wld_InsertNpc", Wld_InsertNpc);
+            vm.RegisterExternal<NpcInstance, int, int, int>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsFPAvailable", Wld_IsFPAvailable);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsMobAvailable", Wld_IsMobAvailable);
             vm.RegisterExternal<int, NpcInstance, int, int, int>("Wld_DetectNpc", Wld_DetectNpc);
@@ -352,6 +367,17 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAttack(npc);
         }
 
+        public void AI_FinishingMove(NpcInstance self, NpcInstance other)
+        {
+            var attacker = self?.GetUserData();
+            var target = other?.GetUserData();
+            if (attacker == null || target == null) return;
+            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead) return;
+
+            Logger.Log($"[VmExternalDomain.AI_FinishingMove] {self.GetName(NpcNameSlot.Slot0)} executes {other.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            GlobalEventDispatcher.FightFinishingMove.Invoke(attacker, target);
+        }
+
         public void AI_StandUp(NpcInstance npc)
         {
             _npcAiService.ExtAiStandUp(npc);
@@ -426,6 +452,33 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(AI_UseMob), ret, npc, target, state);
         }
 
+        public void AI_Teleport(NpcInstance npc, string waypointName)
+        {
+            var container = npc.GetUserData();
+            var overrideWp = _configService.Dev.MarvinTeleportWaypoint;
+            var destination = overrideWp.NotNullOrEmpty() ? overrideWp : waypointName;
+            var waypoint = _wayNetService.GetWayNetPoint(destination);
+            if (waypoint == null && overrideWp.NotNullOrEmpty())
+                waypoint = _wayNetService.GetWayNetPoint(waypointName); // fallback to spell's own WP
+
+            if (waypoint == null)
+            {
+                Logger.LogWarning($"AI_Teleport: waypoint '{waypointName}' not found", LogCat.Npc);
+                return;
+            }
+
+            if (container.PrefabProps.IsHero())
+            {
+                _contextInteractionService.TeleportPlayerTo(waypoint.Position);
+                Logger.Log($"[AI_Teleport] Hero → {destination} (spell={waypointName})", LogCat.Npc);
+            }
+            else if (container.Go != null)
+            {
+                container.Go.transform.position = waypoint.Position;
+                Logger.Log($"[AI_Teleport] {container.Go.name} → {waypointName}", LogCat.Npc);
+            }
+        }
+
         public void AI_GoToNextFP(NpcInstance npc, string fpNamePart)
         {
             _npcAiService.ExtAiGoToNextFp(npc, fpNamePart);
@@ -449,6 +502,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_RemoveWeapon(NpcInstance npc)
         {
             _npcAiService.ExtAiUndrawWeapon(npc);
+        }
+
+        public void AI_EquipBestMeleeWeapon(NpcInstance npc)
+        {
+            _npcInventoryService.ExtAiEquipBestMeleeWeapon(npc);
         }
 
         public void AI_Output(NpcInstance self, NpcInstance target, string outputName)
@@ -506,6 +564,21 @@ namespace Gothic.Core.Domain.Vm
             _dialogService.ExtAiOutputSvm(npc, target, svmname);
         }
 
+        public void AI_OutputSVM_Overlay(NpcInstance npc, NpcInstance target, string svmname)
+        {
+            _dialogService.ExtAiOutputSvmOverlay(npc, target, svmname);
+        }
+
+        public void AI_WhirlAround(NpcInstance npc, NpcInstance target)
+        {
+            _npcAiService.ExtAiTurnToNpc(npc, target);
+        }
+
+        public void AI_TurnAway(NpcInstance npc, NpcInstance target)
+        {
+            // Stub — ZS_TurnAway_Loop still works via Npc_GetStateTime > HAI_TIME_TURNAWAY (20s).
+        }
+
         #endregion
 
         #region Apply Options
@@ -556,10 +629,7 @@ namespace Gothic.Core.Domain.Vm
         public int Hlp_IsItem(ItemInstance item, int itemIndexToCheck)
         {
             if (item == null)
-            {
-                Logger.LogError("Hlp_IsItem called with a null item", LogCat.ZenKit);
                 return 0;
-            }
             
             var ret = Convert.ToInt32(item.Index == itemIndexToCheck);
             return LogInstantExternal(nameof(Hlp_IsItem), ret);
@@ -814,7 +884,7 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_GetPermAttitude(NpcInstance self, NpcInstance other)
         {
-            var ret = (int)_npcAiService.ExtGetAttitude(self, other);
+            var ret = (int)_npcAiService.ExtGetPermAttitude(self, other);
             return LogInstantExternal(nameof(Npc_GetPermAttitude), ret, self, other);
         }
 
@@ -1099,6 +1169,20 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_IsPlayer), ret, npc);
         }
 
+        public int Npc_GetActiveSpell(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            var ret = container?.ActiveSpell ?? 0;
+            return LogInstantExternal(nameof(Npc_GetActiveSpell), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellLevel(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            var ret = container?.ActiveSpellLevel ?? 1;
+            return LogInstantExternal(nameof(Npc_GetActiveSpellLevel), ret, npc);
+        }
+
         public int Npc_OwnedByNpc(ItemInstance item, NpcInstance npc)
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcOwnedByNpc(item, npc));
@@ -1159,6 +1243,17 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_RefuseTalk), ret, npc);
         }
 
+        public void Npc_SetKnowsPlayer(NpcInstance npc, NpcInstance player)
+        {
+            // Not tracked yet — Gothic uses this for greeting/dialog state, not combat.
+        }
+
+        public int Npc_HasNews(NpcInstance npc, int newsId, NpcInstance offender, NpcInstance victim)
+        {
+            // News system not implemented — return false so B_AssessAndMemorize always processes fresh.
+            return 0;
+        }
+
         #endregion
 
         #region Day Routine
@@ -1189,6 +1284,27 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtWldInsertNpc(npcInstance, spawnPoint);
         }
 
+        public void Wld_SpawnNpcRange(NpcInstance caster, int spawnInstance, int count, int range)
+        {
+            var container = caster.GetUserData();
+            if (container?.Go == null)
+            {
+                Logger.LogWarning("[Wld_SpawnNpcRange] Caster has no GO", LogCat.Npc);
+                return;
+            }
+
+            var nearestWp = _wayNetService.FindNearestWayPoint(container.Go.transform.position);
+            if (nearestWp == null)
+            {
+                Logger.LogWarning("[Wld_SpawnNpcRange] No waypoint found near caster", LogCat.Npc);
+                return;
+            }
+
+            for (var i = 0; i < count; i++)
+                _npcService.ExtWldInsertNpc(spawnInstance, nearestWp.Name);
+
+            Logger.Log($"[Wld_SpawnNpcRange] Spawned {count}x instance={spawnInstance} at '{nearestWp.Name}'", LogCat.Npc);
+        }
 
         public int Wld_IsFPAvailable(NpcInstance npc, string fpName)
         {
