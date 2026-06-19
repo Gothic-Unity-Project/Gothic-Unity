@@ -2,8 +2,8 @@
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
-using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Services.Context;
 using Gothic.Core;
@@ -15,7 +15,6 @@ using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
-using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -29,7 +28,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly VobService _vobService;
         
         public VRContextInteractionService VRContextInteractionService => _contextInteractionService.GetImpl<VRContextInteractionService>();
         public VRPlayerInputs VRPlayerInputs => VRContextInteractionService.GetVRPlayerInputs();
@@ -140,20 +139,42 @@ namespace Gothic.VR.Services
             var condFunc = mob.ConditionFunction ?? "";
             Logger.Log($"[VRPlayerService] HandleMobGrab mob={loader.gameObject.name} condFunc={(condFunc.Length > 0 ? condFunc : "empty")}", LogCat.Ai);
 
+            // ConditionFunction is a Daedalus check: returns 0 = interaction denied.
             if (condFunc.Length > 0)
             {
                 var symbol = vm.GetSymbolByName(condFunc);
-                if (symbol != null)
-                    vm.Call(symbol.Index);
-                else
+                if (symbol == null)
+                {
                     Logger.LogWarning($"[VRPlayerService] ConditionFunction '{condFunc}' not found in VM", LogCat.Ai);
+                    return;
+                }
+                var allowed = vm.Call<int>(symbol.Index);
+                if (allowed == 0)
+                {
+                    Logger.Log($"[VRPlayerService] HandleMobGrab: '{condFunc}' denied (returned 0)", LogCat.Ai);
+                    return;
+                }
             }
-            else if (vm.GlobalHero is NpcInstance hero)
+
+            // Condition passed (or no condition) — trigger the linked mover via mob.Target.
+            var moverTarget = mob.Target;
+            if (string.IsNullOrEmpty(moverTarget))
             {
-                var scheme = loader.Container.Props.GetVisualScheme();
-                _npcAiService.ExtAiUseMob(hero, scheme, 1);
-                _npcAiService.ExtAiUseMob(hero, scheme, -1);
+                Logger.LogWarning($"[VRPlayerService] HandleMobGrab: no Target on {loader.gameObject.name}", LogCat.Ai);
+                return;
             }
+            if (!_vobService.TryGetMover(moverTarget, out var moverVob) || moverVob?.Go == null)
+            {
+                Logger.LogWarning($"[VRPlayerService] HandleMobGrab: mover '{moverTarget}' not found", LogCat.Ai);
+                return;
+            }
+            if (!moverVob.Go.TryGetComponent<MoverAdapter>(out var adapter))
+            {
+                Logger.LogWarning($"[VRPlayerService] HandleMobGrab: MoverAdapter missing on '{moverTarget}'", LogCat.Ai);
+                return;
+            }
+            Logger.Log($"[VRPlayerService] HandleMobGrab: triggering mover '{moverTarget}'", LogCat.Ai);
+            adapter.Toggle();
         }
 
         public HVRController GetHand(HVRHandSide side)
