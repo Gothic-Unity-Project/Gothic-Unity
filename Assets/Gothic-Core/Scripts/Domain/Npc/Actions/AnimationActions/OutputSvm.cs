@@ -28,10 +28,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             base.Start();
 
-            // Hero SVM (e.g. "Hej ty!") is fire-and-forget — NPC queue continues immediately
-            // so the NPC can turn and greet in parallel. Regular Output dialog lines stay blocking.
+            // Hero SVM or overlay SVM: audio plays, queue continues immediately.
+            // Bool0 = true means AI_OutputSVM_Overlay — fire-and-forget for NPC combat chatter.
             if (Action.Int0 == 0)
                 StartHeroFireAndForget();
+            else if (Action.Bool0)
+            {
+                PrefabProps.NpcSubtitles.ScheduleHide(_audioPlaySeconds);
+                IsFinishedFlag = true;
+            }
         }
     }
 }

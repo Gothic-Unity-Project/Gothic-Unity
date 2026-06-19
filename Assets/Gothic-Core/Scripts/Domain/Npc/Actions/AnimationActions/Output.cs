@@ -27,7 +27,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         protected virtual string OutputName => Action.String0;
 
         private bool _isHeroSpeaking => Action.Int0 == 0;
-        private float _audioPlaySeconds;
+        protected float _audioPlaySeconds;
 
         private string _randomDialogAnimationName;
 

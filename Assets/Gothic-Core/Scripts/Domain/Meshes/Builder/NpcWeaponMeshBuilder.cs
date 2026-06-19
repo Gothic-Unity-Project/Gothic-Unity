@@ -98,16 +98,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private GameObject EquipRangeWeapon()
         {
-            string slotName;
-            switch ((VmGothicEnums.ItemFlags)_itemData.Flags)
-            {
-                case VmGothicEnums.ItemFlags.ItemCrossbow:
-                    slotName = "ZS_CROSSBOW";
-                    break;
-                default:
-                    slotName = "ZS_BOW";
-                    break;
-            }
+            var flags = (VmGothicEnums.ItemFlags)_itemData.Flags;
+            var slotName = flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow) ? "ZS_CROSSBOW" : "ZS_BOW";
 
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
             if (weaponSlotGo == null)

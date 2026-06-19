@@ -1,4 +1,5 @@
 using System.Linq;
+using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -249,6 +250,32 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
             Props.CurrentInteractableStateId += step;
+
+            if (_mobContainer == null)
+                return;
+
+            // Propagate to the mob VOB so Wld_GetMobState() returns the correct value.
+            var mobProps = _mobContainer.PropsAs<InteractiveProperties>();
+            if (mobProps != null)
+                mobProps.State = Props.CurrentInteractableStateId;
+
+            // If this mob is linked to a mover (e.g. VWHEEL → gate), activate it.
+            var target = _mobContainer.VobAs<IInteractiveObject>()?.Target;
+            if (!string.IsNullOrEmpty(target))
+                TriggerLinkedMover(target, step > 0);
+        }
+
+        private void TriggerLinkedMover(string targetName, bool opening)
+        {
+            if (!VobService.TryGetMover(targetName, out var moverContainer) || moverContainer?.Go == null)
+                return;
+
+            var moverAdapter = moverContainer.Go.GetComponent<MoverAdapter>();
+            if (moverAdapter == null)
+                return;
+
+            if (opening) moverAdapter.Open();
+            else moverAdapter.Close();
         }
 
         private void PlayTransitionAnimation()

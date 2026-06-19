@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
-    public class GoToNpc : AbstractWalkAnimationAction
+    public class GoToNpc : AbstractWalkAnimationAction2
     {
         private const float ConversationDistance = 1.5f;
 
@@ -16,9 +16,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            base.Start();
-
             _destinationTransform = Action.Instance0.GetUserData().Go.transform;
+
+            base.Start();
         }
 
         protected override Vector3 GetWalkDestination()
@@ -30,21 +30,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return targetPos + toTarget.normalized * -ConversationDistance;
         }
 
-
-        protected override void AnimationEnd()
-        {
-            base.AnimationEnd();
-
-            IsFinishedFlag = false;
-        }
-
         protected override void OnDestinationReached()
         {
             base.OnDestinationReached();
-
-            AnimationEnd();
-
-            State = WalkState.Done;
             IsFinishedFlag = true;
         }
     }
