@@ -143,7 +143,7 @@ namespace Gothic.Core.Domain.Config
         /// <summary>
         /// Check if the specified path inside GameSettings is a valid Gothic installation. If not, use a platform specific fallback:
         /// Standalone: C:\Program Files (x86)\Steam\steamapps\common\Gothic\
-        /// Android: /storage/emulated/0/Android/data/com.Gothic.Unity/files/Gothic1/
+        /// Android: /storage/emulated/0/Android/data/com.gothic.unity/files/Gothic1/
         /// </summary>
         private static string AlterGothicInstallationPath(string gothicInstallationPath, GameVersion version)
         {

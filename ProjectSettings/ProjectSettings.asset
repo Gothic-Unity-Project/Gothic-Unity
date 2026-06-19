@@ -168,8 +168,8 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.Gothic.Unity
-    Standalone: com.Gothic.Unity
+    Android: com.gothic.unity
+    Standalone: com.gothic.unity
   buildNumber:
     Standalone: 0
     VisionOS: 0
