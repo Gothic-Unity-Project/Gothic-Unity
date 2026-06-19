@@ -2,10 +2,12 @@
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Services.Context;
 using Gothic.Core;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Bags;
@@ -13,6 +15,7 @@ using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -25,6 +28,8 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcAiService _npcAiService;
         
         public VRContextInteractionService VRContextInteractionService => _contextInteractionService.GetImpl<VRContextInteractionService>();
         public VRPlayerInputs VRPlayerInputs => VRContextInteractionService.GetVRPlayerInputs();
@@ -75,11 +80,12 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
+            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
+            if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.AddItem(instanceName, vobItem.Amount);
         }
-        
+
         public void UnsetGrab(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
             var dualGrabPrev = IsDualGrabbed;
@@ -117,9 +123,37 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
+            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
+            if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.RemoveItem(instanceName, vobItem.Amount);
+        }
+
+        public void HandleMobGrab(VobLoader loader)
+        {
+            var mob = loader.Container.VobAs<IInteractiveObject>();
+            if (mob == null) return;
+
+            var vm = _gameStateService.GothicVm;
+            if (vm == null) return;
+
+            var condFunc = mob.ConditionFunction ?? "";
+            Logger.Log($"[VRPlayerService] HandleMobGrab mob={loader.gameObject.name} condFunc={(condFunc.Length > 0 ? condFunc : "empty")}", LogCat.Ai);
+
+            if (condFunc.Length > 0)
+            {
+                var symbol = vm.GetSymbolByName(condFunc);
+                if (symbol != null)
+                    vm.Call(symbol.Index);
+                else
+                    Logger.LogWarning($"[VRPlayerService] ConditionFunction '{condFunc}' not found in VM", LogCat.Ai);
+            }
+            else if (vm.GlobalHero is NpcInstance hero)
+            {
+                var scheme = loader.Container.Props.GetVisualScheme();
+                _npcAiService.ExtAiUseMob(hero, scheme, 1);
+                _npcAiService.ExtAiUseMob(hero, scheme, -1);
+            }
         }
 
         public HVRController GetHand(HVRHandSide side)
