@@ -67,12 +67,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // NPC
             else
             {
-                var gestureCount = GetDialogGestureCount();
-                var randomId = Random.Range(1, gestureCount + 1);
-
-                _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
-                PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
-                PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                // Overlay SVMs (Bool0=true) fire over existing animations — skip gesture and head morph.
+                if (!Action.Bool0)
+                {
+                    var gestureCount = GetDialogGestureCount();
+                    var randomId = Random.Range(1, gestureCount + 1);
+                    _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
+                    PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                }
 
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
@@ -133,7 +136,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             else
             {
                 PrefabProps.NpcSound.Stop();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                if (_randomDialogAnimationName != null)
+                    PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
             }
         }
 
