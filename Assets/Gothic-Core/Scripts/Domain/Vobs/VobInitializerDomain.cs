@@ -424,12 +424,15 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateMover(IMover vob, GameObject parent)
         {
-            // Each mover starts "Closed", when game boots. (At least for a new game.)
-            // TODO - We need to check if it's the case for a loaded game
             vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
 
-            // TODO - We need to implement animations for this vob type
             var go = CreateDefaultMesh(vob, parent);
+
+            if (go != null)
+            {
+                var adapter = go.AddComponent<MoverAdapter>();
+                adapter.Init(vob);
+            }
 
             return go;
         }
