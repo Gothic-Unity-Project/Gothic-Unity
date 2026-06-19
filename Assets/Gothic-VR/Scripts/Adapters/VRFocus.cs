@@ -67,7 +67,7 @@ namespace Gothic.VR.Adapters
         {
             if (_mobActivated) return;
             var vobLoader = GetComponentInParent<VobLoader>();
-            if (vobLoader?.Container.VobAs<IInteractiveObject>() == null) return;
+            if (vobLoader == null || vobLoader.Container.Vob is not IInteractiveObject) return;
 
             _mobActivated = true;
             Logger.Log($"[VRFocus.OnGrabbed] mob={vobLoader.gameObject.name}", LogCat.Ai);
