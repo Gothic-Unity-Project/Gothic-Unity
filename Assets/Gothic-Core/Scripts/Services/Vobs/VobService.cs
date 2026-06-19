@@ -354,6 +354,7 @@ namespace Gothic.Core.Services.Vobs
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
                     CreateVobNow(container);
+                    AddToMobInteractableList(container);
                 }
                 else
                 {
