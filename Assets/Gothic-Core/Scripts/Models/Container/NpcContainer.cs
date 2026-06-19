@@ -156,6 +156,8 @@ namespace Gothic.Core.Models.Container
         // ZenKit data
         public NpcInstance Instance;
         public NpcProxy Vob;
+        // True after Vm.InitInstance() was called for this container (prevents double-init in InitZkInstance).
+        public bool IsZkInstanceInitialized;
 
         // Unity Data
         public GameObject Go;
@@ -166,5 +168,15 @@ namespace Gothic.Core.Models.Container
 
         // Cache objects from Prefab
         public NpcPrefabProperties PrefabProps;
+
+        // Save/load identity — assigned in AllocZkInstance, stable within a play session
+        public int InstanceId;
+        public int SymbolIndex;
+        public string SpawnWaypoint;
+        public string GoName; // Unity parent GO name e.g. "Diego (1)" — set in InitLazyLoadNpc
+
+        // Spell casting state — set by VRRuneCaster while a rune is held
+        public int ActiveSpell;
+        public int ActiveSpellLevel = 1;
     }
 }

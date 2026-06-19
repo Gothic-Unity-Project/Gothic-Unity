@@ -50,13 +50,16 @@ namespace Gothic.Core.Domain.Npc
         
         public GameObject RootGo;
         private readonly List<(NpcContainer npc, string spawnPoint)> _tmpWldInsertNpcData = new();
+        private int _nextInstanceId;
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
 
         public async Task InitNpcsNewGame(LoadingService loading)
         {
+            _nextInstanceId = 0;
             NewRunDaedalus();
             await NewAddLazyLoading(loading);
+            _saveGameService.SaveNpcInitSnapshot(_multiTypeCacheService.NpcCache);
         }
 
         public async Task InitNpcsSaveGame(LoadingService loading)
@@ -70,13 +73,87 @@ namespace Gothic.Core.Domain.Npc
                 await _frameSkipperService.TrySkipToNextFrame();
 
                 var npcContainer = AllocZkInstance(vobNpc);
+                if (npcContainer == null) continue;
                 SaveGameAddLazyLoadingAnywhere(npcContainer, vobNpc.ScriptWaypoint);
             }
+        }
+
+        /// <summary>
+        /// Save-game NPC init: spawns ALL NPCs from UNITYNPCINIT.json (the new-game baseline), then
+        /// overrides position and attributes for those present in UNITYSAVE.json (the dirty delta).
+        /// NPCs absent from the dirty dict are placed at their original spawn waypoints.
+        /// </summary>
+        public async Task InitNpcsFromMergedSnapshots(LoadingService loading, List<NpcInitEntry> initList, Dictionary<string, NpcSaveEntry> dirtyDict)
+        {
+            loading.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Npc), initList.Count);
+
+            foreach (var initEntry in initList)
+            {
+                loading.Tick();
+                await _frameSkipperService.TrySkipToNextFrame();
+
+                var container = AllocZkInstance(initEntry.SymbolIndex);
+                if (container == null) continue;
+                container.InstanceId = initEntry.InstanceId; // restore stable init ID
+
+                var dirtyKey = initEntry.GoName;
+                NpcSaveEntry dirty = null;
+                var hasDirty = dirtyDict != null && !dirtyKey.IsNullOrEmpty() && dirtyDict.TryGetValue(dirtyKey, out dirty);
+
+                // Apply saved routine before InitZkInstance reads vob.CurrentRoutine
+                if (hasDirty && !dirty.CurrentRoutine.IsNullOrEmpty())
+                    container.Vob.CurrentRoutine = dirty.CurrentRoutine;
+
+                var go = InitLazyLoadNpc(container);
+
+                if (hasDirty)
+                {
+                    var pos = new Vector3(dirty.Position[0], dirty.Position[1], dirty.Position[2]);
+                    var rot = new Quaternion(dirty.Rotation[0], dirty.Rotation[1], dirty.Rotation[2], dirty.Rotation[3]);
+                    go.transform.SetPositionAndRotation(pos, rot);
+
+                    if (dirty.Attributes != null)
+                    {
+                        var vob = container.Vob;
+                        for (var i = 0; i < dirty.Attributes.Length && i < 8; i++)
+                            vob.SetAttribute(i, dirty.Attributes[i]);
+                    }
+                }
+                else
+                {
+                    // Apply init-time attributes saved post-startup-scripts (e.g. dead NPCs have HP=0)
+                    if (initEntry.Attributes != null)
+                        for (var i = 0; i < initEntry.Attributes.Length && i < 8; i++)
+                            container.Vob.SetAttribute(i, initEntry.Attributes[i]);
+
+                    var spawnPoint = GetSpawnPoint(container, initEntry.WaypointName);
+                    if (spawnPoint == null)
+                    {
+                        Logger.LogWarning($"InitNpcsFromMergedSnapshots: waypoint '{initEntry.WaypointName}' not found for {initEntry.NpcInstance} — skipping.", LogCat.Npc);
+                        Object.Destroy(go);
+                        continue;
+                    }
+                    if (spawnPoint.IsFreePoint())
+                        container.Props.CurrentFreePoint = (FreePoint)spawnPoint;
+                    else
+                        container.Props.CurrentWayPoint = (WayPoint)spawnPoint;
+                    go.transform.SetPositionAndRotation(spawnPoint.Position, spawnPoint.Rotation);
+                }
+
+                container.Props.CurrentLoopState = NpcProperties.LoopState.None;
+                container.Vob.CurrentStateValid = false;
+                container.Vob.NextStateValid = false;
+
+                _npcMeshCullingService.AddCullingEntry(go);
+            }
+
+            loading.FinalizePhase();
         }
 
         public void InitNpcVobSaveGame(INpc vobNpc)
         {
             var npcContainer = AllocZkInstance(vobNpc);
+            if (npcContainer == null) return;
             SaveGameAddLazyLoadingNearby(npcContainer, vobNpc);
         }
 
@@ -96,16 +173,39 @@ namespace Gothic.Core.Domain.Npc
         {
             var userDataObject = AllocZkInstance(npcInstanceIndex);
 
+            // Initialize the Daedalus instance immediately so that script code running after Wld_InsertNpc()
+            // (e.g. B_InitializeStory setting Nek's HP to 0) sees a fully-initialized instance.
+            Vm.InitInstance(userDataObject.Instance);
+
+            // Copy prototype defaults to the Vob NOW (HP_MAX, Mana_MAX, etc.) so that Npc_ChangeAttribute
+            // calls from startup scripts work from the correct baseline (e.g. HP = HP_MAX + (-HP_MAX) = 0).
+            // Mark IsNew=false so the CopyFromInstanceData call in InitZkInstance() is a no-op,
+            // preserving whatever startup scripts set. RestoreInstanceFromVob will sync changes back.
+            userDataObject.Vob.CopyFromInstanceData(userDataObject.Instance);
+            userDataObject.Vob.IsNew = false;
+
+            userDataObject.IsZkInstanceInitialized = true;
+
             // For mesh creation later, we need to store that there is a new NPC or a duplicate Monster to be spawned.
             _tmpWldInsertNpcData.Add((userDataObject, spawnPoint));
         }
 
         private NpcContainer AllocZkInstance(INpc vobNpc)
         {
-            var symbol = _gameStateService.GothicVm.GetSymbolByName(vobNpc.Name)!;
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(vobNpc.NpcInstance);
+            if (symbol == null)
+            {
+                Logger.LogWarning($"[NpcInitializerDomain] No Daedalus symbol for NPC '{vobNpc.NpcInstance}' (vobName='{vobNpc.Name}') — skipping.", LogCat.Npc);
+                return null;
+            }
             var userDataObject = AllocZkInstance(symbol.Index);
+            // Run InitInstance against the fresh default NpcProxy BEFORE swapping in the save-game Vob.
+            // If we swap first, Daedalus constructors (e.g. Npc_GetTalentValue) would access potentially
+            // invalid talent objects from the ZenKit-deserialized save VOB and crash natively.
+            Vm.InitInstance(userDataObject.Instance);
+            userDataObject.IsZkInstanceInitialized = true;
             userDataObject.Vob = (NpcProxy)vobNpc;
-            
+
             return userDataObject;
         }
 
@@ -118,7 +218,9 @@ namespace Gothic.Core.Domain.Npc
             {
                 Instance = npcInstance,
                 Vob = new NpcProxy(npcIndex),
-                Props = new()
+                Props = new(),
+                InstanceId = _nextInstanceId++,
+                SymbolIndex = npcIndex
             };
             
             // We reference our object as user data to retrieve it whenever a Daedalus External provides an NpcInstance as input.
@@ -166,6 +268,7 @@ namespace Gothic.Core.Domain.Npc
                 loading.Tick();
                 await _frameSkipperService.TrySkipToNextFrame();
 
+                element.npc.SpawnWaypoint = element.spawnPoint;
                 var go = InitLazyLoadNpc(element.npc);
 
                 var spawnPoint = GetSpawnPoint(element.npc, element.spawnPoint);
@@ -258,6 +361,8 @@ namespace Gothic.Core.Domain.Npc
             else
                 go.name = $"{npc.Instance.GetName(NpcNameSlot.Slot0)} ({_monsterIndex++})";
 
+            npc.GoName = go.name;
+
             var loader = go.AddComponent<NpcLoader>();
             loader.Npc = npc.Instance;
 
@@ -266,10 +371,18 @@ namespace Gothic.Core.Domain.Npc
 
         private void InitZkInstance(NpcContainer npc)
         {
-            // As we have our back reference between NpcInstance and NpcData, we can now initialize the object on ZenKit side.
-            // Lookups like Npc_SetTalentValue() will work now as NpcInstance.UserData() points to our object which stores the information.
-            Vm.InitInstance(npc.Instance);
+            // Skip Vm.InitInstance() if already called in ExtWldInsertNpc (new game path).
+            // For save game NPCs (not pre-initialized), we still need to run it so externals like
+            // Npc_SetTalentValue() work — but then we overwrite the prototype defaults with saved values.
+            if (!npc.IsZkInstanceInitialized)
+                Vm.InitInstance(npc.Instance);
+
             npc.Vob.CopyFromInstanceData(npc.Instance);
+
+            // Save game: Instance was just reset to prototype defaults by Vm.InitInstance().
+            // Restore the actual saved runtime values (HP, AiVars, level…) from the Vob back into the Instance.
+            if (!npc.Vob.IsNew)
+                npc.Vob.RestoreInstanceFromVob(npc.Instance);
 
             // NpcInstance is the initialized Daedalus Instance which contains initial data.
             // Vob.Npc contains runtime information. If no runtime information is set (new game started / world entered for the first time), we use the initial data.

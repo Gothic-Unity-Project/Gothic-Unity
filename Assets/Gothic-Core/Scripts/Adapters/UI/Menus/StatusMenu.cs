@@ -54,9 +54,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             var hero = _npcService.GetHeroContainer();
             var vob = hero.Vob;
 
-            var guildId = hero.Props.TrueGuild != VmGothicEnums.Guild.GIL_NONE
-                ? (int)hero.Props.TrueGuild
-                : vob.Guild;
+            var guildId = hero.Instance.Guild;
 
             MenuItemCache[_itemNameGuild].go.GetComponentInChildren<TMP_Text>().text = _vmService.GetGuildName(guildId);
             MenuItemCache[_itemNameLevel].go.GetComponentInChildren<TMP_Text>().text = vob.Level.ToString();

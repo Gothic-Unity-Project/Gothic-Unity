@@ -105,6 +105,12 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Menu and Loading", true)]
+        [Tooltip("Enable 'Load Game' in the main menu.")]
+        public bool EnableLoadFeature;
+
+        [Tooltip("Enable 'Save Game' in the main menu.")]
+        public bool EnableSaveFeature;
+
         public bool EnableMainMenu = true;
 
         [ConditionalField(fieldToCheck: nameof(EnableMainMenu), compareValues: false)]
@@ -313,6 +319,9 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Show 'Skip Time +30min' button in MarvinMode panel. Advances game time and recalculates NPC routines.")]
         public bool EnableTimeSkip;
 
+        [Tooltip("Waypoint name for 'Teleport to WP' Marvin button. E.g. GRYD_072 or START. Leave empty to disable.")]
+        public string MarvinTeleportWaypoint;
+
         [Header("NPC Combat (WIP)")]
         [Tooltip("Fire ZS_Attack_Loop early when combo window opens so the next attack chains before the animation ends.")]
         public bool EnableNpcCombatCombos = true;
@@ -320,5 +329,7 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Enable proximity + FOV hit detection in AttackPlayAni. Disable to watch animations without dealing damage.")]
         public bool EnableNpcHitDetection = true;
 
+        [Tooltip("Hide the health bar for the player character.")]
+        public bool HideHealthBar { get; internal set; }
     }
 }

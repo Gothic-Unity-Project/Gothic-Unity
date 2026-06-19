@@ -47,6 +47,15 @@ namespace Gothic.Core.Adapters.Npc
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPC was dead at save time (or killed by startup scripts before mesh creation, e.g. Nek).
+            // Skip the normal AI routine and settle into the dead state immediately.
+            if (Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0)
+            {
+                Properties.BodyState = VmGothicEnums.BodyState.BsDead;
+                PrefabProps.AnimationSystem.PlayAnimation("S_DEADB");
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: HP=0 on spawn — dead state", LogCat.Npc);
+            }
         }
 
         /// <summary>
@@ -218,8 +227,21 @@ namespace Gothic.Core.Adapters.Npc
             {
                 return;
             }
-            
+
             var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
+
+            // Skip perception VM calls for NPCs far outside their own sense range.
+            // Avoids expensive Daedalus calls for every NPC in the scene (e.g. Old Camp).
+            var heroGo = hero?.GetUserData()?.Go;
+            if (heroGo != null)
+            {
+                var dist = Vector3.Distance(gameObject.transform.position, heroGo.transform.position);
+                if (dist > NpcInstance.SensesRange / 100f)
+                {
+                    Properties.CurrentPerceptionTime = 0f;
+                    return;
+                }
+            }
             var assessPlayerRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessPlayer);
 
             if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false, assessPlayerRange))
@@ -241,9 +263,21 @@ namespace Gothic.Core.Adapters.Npc
             }
 
 
-            // FIXME - We need to add other active perceptions here:
-            //         PERC_ASSESSBODY, PERC_ASSESSITEM, PERC_ASSESSFIGHTER
-            //         But at best when we test it immediately
+            // PERC_ASSESSFIGHTER: fire when hero has any weapon drawn (not fists).
+            // B_AssessFighter checks distance and fight mode internally — we only need to gate on
+            // the hero being in a non-fist fight mode so we don't flood the VM every tick.
+            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessFighter, out var fighterPerception) &&
+                fighterPerception >= 0)
+            {
+                var heroWeaponState = (VmGothicEnums.WeaponState)(hero?.GetUserData()?.Vob?.FightMode ?? 0);
+                if (heroWeaponState != VmGothicEnums.WeaponState.NoWeapon &&
+                    heroWeaponState != VmGothicEnums.WeaponState.Fist)
+                {
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance, null, hero);
+                }
+            }
+
+            // TODO: PERC_ASSESSBODY, PERC_ASSESSITEM
 
             // Reset timer if we executed Perceptions.
             Properties.CurrentPerceptionTime = 0f;

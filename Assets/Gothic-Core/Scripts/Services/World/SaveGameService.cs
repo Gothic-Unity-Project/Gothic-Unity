@@ -7,10 +7,15 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Proxy;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Extensions;
+using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
+using Newtonsoft.Json;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -67,6 +72,23 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly GameTimeService _gameTimeService;
+
+        private UnityCustomSave _pendingHeroRestore;
+        private SaveGame _pendingSaveRestore;
+        private readonly Dictionary<string, NpcSaveEntry> _npcSnapshots = new();
+        private Dictionary<string, NpcSaveEntry> _pendingNpcRestore;
+        private List<NpcInitEntry> _pendingNpcInit;
+
+        public Dictionary<string, NpcSaveEntry> PendingNpcRestore => _pendingNpcRestore;
+        public List<NpcInitEntry> PendingNpcInit => _pendingNpcInit;
+
+        public void ClearPendingNpcData()
+        {
+            _pendingNpcRestore = null;
+            _pendingNpcInit = null;
+        }
 
         
         public enum SlotId
@@ -93,7 +115,23 @@ namespace Gothic.Core.Services.World
             
         public void Init()
         {
-            // Nothing to do for now.
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
+            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(OnNpcCullingChanged);
+        }
+
+        private void OnWorldSceneLoaded()
+        {
+            Logger.Log($"OnWorldSceneLoaded: pendingSave={_pendingSaveRestore != null} pendingHero={_pendingHeroRestore != null}", LogCat.Loading);
+            if (_pendingSaveRestore != null)
+            {
+                RestoreDaedalusState(_pendingSaveRestore);
+                _pendingSaveRestore = null;
+            }
+            if (_pendingHeroRestore != null)
+            {
+                ApplyHeroRestore(_pendingHeroRestore);
+                _pendingHeroRestore = null;
+            }
         }
 
         public void LoadNewGame()
@@ -104,6 +142,9 @@ namespace Gothic.Core.Services.World
             Save = new SaveGame(_contextGameVersionService.Version);
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
+            _npcSnapshots.Clear();
+            _pendingNpcRestore = null;
+            _pendingNpcInit = null;
         }
 
         /// <summary>
@@ -128,6 +169,11 @@ namespace Gothic.Core.Services.World
             Save = save;
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
+            _npcSnapshots.Clear();
+            _pendingNpcRestore = null;
+            _pendingNpcInit = null;
+            _pendingSaveRestore = save;
+            LoadUnityCustomData(saveGameId);
         }
 
         /// <summary>
@@ -155,11 +201,9 @@ namespace Gothic.Core.Services.World
             bool worldFoundInSaveGame = false;
 
             // 2. Try to load world from save game.
-            if (IsLoadedGame)
-            {
-                saveGameWorld = Save.LoadWorld(CurrentWorldName);
-                worldFoundInSaveGame = saveGameWorld != null;
-            }
+            // TODO: WORLD.SAV loading is disabled — our binary format is not yet crash-free in Gothic.exe.
+            // Daedalus state (quest flags, time) is restored from SAVEDAT via RestoreDaedalusState().
+            // World always loads from the .zen file; items/NPCs reset to world-file defaults.
 
             ZenKit.World worldToUse;
             if (worldFoundInSaveGame)
@@ -238,21 +282,28 @@ namespace Gothic.Core.Services.World
             saveGame.Thumbnail = CreateThumbnail();
             saveGame.Metadata.World = CurrentWorldName.ToUpper();
 
+            FlushDaedalusState(saveGame);
+
             foreach (var worldData in _worlds)
             {
                 var worldContainer = worldData.Value;
                 // FIXME - We need to create a new combined world first.
-                
+
                 // World not yet saved
                 if (worldContainer.SaveGameWorld == null)
                 {
                     // We simply load the world an additional time to have a Pointer to save later.
-                    worldContainer.SaveGameWorld = _resourceCacheService.TryGetWorld(worldData.Key)!;
+                    worldContainer.SaveGameWorld = _resourceCacheService.TryGetWorld(worldData.Key);
                 }
-                
+
                 PrepareWorldDataForSaving(worldData.Key == CurrentWorldName, worldContainer);
                 saveGame.Save(GetSaveGamePath(saveGameId), worldContainer.SaveGameWorld, worldData.Key.TrimEndIgnoreCase(".ZEN").ToUpper());
             }
+
+            // After ZenKit writes its files (SAVEINFO.SAV, SAVEDAT), overlay GOLDENSAVE world files for Gothic.exe compat.
+            // Then write our JSON last so it's never wiped.
+            CopyGoldenSaveToSlot(saveGameId);
+            SaveUnityCustomData(saveGameId);
         }
 
         private Texture CreateThumbnail()
@@ -324,7 +375,8 @@ namespace Gothic.Core.Services.World
                 var heroContainer = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData()!;
                 heroContainer.Vob.Position = heroContainer.Go.transform.position.ToZkVector();
                 heroContainer.Vob.Rotation = heroContainer.Go.transform.rotation.ToZkMatrix();
-                
+                FlushAiVars(heroContainer);
+                FlushTalents(heroContainer);
                 allVobs.Add(heroContainer.Vob);
             }
 
@@ -333,10 +385,365 @@ namespace Gothic.Core.Services.World
 
             foreach (var visibleNpc in visibleNpcs)
             {
+                FlushAiVars(visibleNpc);
+                FlushTalents(visibleNpc);
                 allVobs.Add(visibleNpc.Vob);
             }
             
             container.SaveGameWorld.RootObjects = UnwrapVobs(allVobs);
+        }
+
+        /// <summary>
+        /// Gothic 1's C++ engine archives exactly 12 talent slots (0–11) per NPC, regardless
+        /// of what NPC_TALENT_MAX is set to in mod scripts (DM_E sets it to 16).
+        /// If we write 16 talents ZenKit stores numTalents=16 and Gothic reads only 12, leaving
+        /// 4 extra talent chunks where the next string field should be → RestoreStringEOL crash.
+        /// </summary>
+        private static void FlushTalents(NpcContainer npc)
+        {
+            const int G1NpcTalentMax = 12;
+            var before = npc.Vob.TalentCount;
+            for (var i = before - 1; i >= G1NpcTalentMax; i--)
+                npc.Vob.RemoveTalent(i);
+            Logger.Log($"FlushTalents [{npc.Vob.NpcInstance}]: {before} → {npc.Vob.TalentCount}", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// Gothic always writes exactly 50 AiVars (200 bytes raw) per NPC.
+        /// A brand-new NpcProxy has AiVars.Length == 0; writing that would corrupt the
+        /// fixed-size scriptVars field in the archive and cause std::bad_alloc on load.
+        /// </summary>
+        private static void FlushAiVars(NpcContainer npc)
+        {
+            const int AiVarCount = 50;
+            var aiVars = new int[AiVarCount];
+            for (var i = 0; i < AiVarCount; i++)
+                aiVars[i] = npc.Instance.GetAiVar(i);
+            npc.Vob.AiVars = aiVars;
+        }
+
+        private void SaveUnityCustomData(SlotId saveGameId)
+        {
+            var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
+            var heroContainer = hero.GetUserData()!;
+            var vob = heroContainer.Vob; // Vob is the runtime truth — attributes are updated here by ExtNpcChangeAttribute
+
+            var heroAttrs = new int[8];
+            for (var i = 0; i < 8; i++)
+                heroAttrs[i] = vob.GetAttribute(i);
+
+            var heroPos = heroContainer.Go.transform.position;
+            var heroRot = heroContainer.Go.transform.rotation;
+
+            var data = new UnityCustomSave
+            {
+                WorldName = CurrentWorldName,
+                HeroPosition = new[] { heroPos.x, heroPos.y, heroPos.z },
+                HeroRotation = new[] { heroRot.x, heroRot.y, heroRot.z, heroRot.w },
+                HeroAttributes = heroAttrs,
+                HeroGuild = heroContainer.Props.TrueGuild != VmGothicEnums.Guild.GIL_NONE
+                    ? (int)heroContainer.Props.TrueGuild
+                    : vob.Guild,
+                HeroLevel = vob.Level,
+                HeroXp = vob.Xp,
+                HeroExpNext = vob.XpNextLevel,
+                HeroLp = vob.Lp
+            };
+
+            // Load existing UNITYSAVE.json as base so saves are additive (update/add, never delete)
+            var existingPath = GetUnityCustomSavePath(saveGameId);
+            var npcEntries = new Dictionary<string, NpcSaveEntry>();
+            if (File.Exists(existingPath))
+            {
+                var existing = JsonConvert.DeserializeObject<UnityCustomSave>(File.ReadAllText(existingPath));
+                if (existing?.Npcs != null)
+                    foreach (var e in existing.Npcs)
+                        npcEntries[e.Key] = e;
+            }
+
+            // Merge: culled-out snapshots then currently visible NPCs override previous entries
+            foreach (var (k, v) in _npcSnapshots)
+                npcEntries[k] = v;
+            foreach (var visibleNpc in _npcMeshCullingService.GetVisibleNpcs())
+            {
+                if (visibleNpc.Vob.Player) continue;
+                var key = MakeNpcKey(visibleNpc);
+                npcEntries[key] = CreateNpcSnapshot(key, visibleNpc);
+            }
+            data.Npcs = npcEntries.Values.ToList();
+
+            var json = JsonConvert.SerializeObject(data, Formatting.Indented);
+            var savePath = GetUnityCustomSavePath(saveGameId);
+            Directory.CreateDirectory(Path.GetDirectoryName(savePath));
+            File.WriteAllText(savePath, json);
+            Logger.Log($"SaveUnityCustomData: level={data.HeroLevel} hp={data.HeroAttributes[0]}/{data.HeroAttributes[1]} npcs={data.Npcs.Count}", LogCat.Loading);
+        }
+
+        private void LoadUnityCustomData(SlotId saveGameId)
+        {
+            var path = GetUnityCustomSavePath(saveGameId);
+            if (!File.Exists(path))
+            {
+                Logger.LogWarning($"LoadUnityCustomData: no UNITYSAVE.json at {path}", LogCat.Loading);
+                return;
+            }
+
+            var unitySave = JsonConvert.DeserializeObject<UnityCustomSave>(File.ReadAllText(path));
+            _pendingHeroRestore = unitySave;
+
+            if (_pendingHeroRestore == null) return;
+
+            _pendingNpcRestore = unitySave?.Npcs?.Count > 0
+                ? unitySave.Npcs.ToDictionary(e => e.Key, e => e)
+                : null;
+
+            // Load global NPC init baseline (created once on new game)
+            if (File.Exists(NpcInitPath))
+            {
+                var npcInit = JsonConvert.DeserializeObject<UnityNpcInit>(File.ReadAllText(NpcInitPath));
+                if (npcInit?.Npcs?.Count > 0 && string.Equals(npcInit.WorldName, CurrentWorldName, StringComparison.OrdinalIgnoreCase))
+                    _pendingNpcInit = npcInit.Npcs;
+                else
+                    Logger.LogWarning($"LoadUnityCustomData: UNITYNPCINIT.json world='{npcInit?.WorldName}' vs current='{CurrentWorldName}' — mismatch or empty, falling back.", LogCat.Loading);
+            }
+
+            var playerService = ReflexProjectInstaller.DIContainer.Resolve<PlayerService>();
+            playerService.HeroSpawnPosition = new Vector3(
+                _pendingHeroRestore.HeroPosition[0],
+                _pendingHeroRestore.HeroPosition[1],
+                _pendingHeroRestore.HeroPosition[2]);
+            playerService.HeroSpawnRotation = new Quaternion(
+                _pendingHeroRestore.HeroRotation[0],
+                _pendingHeroRestore.HeroRotation[1],
+                _pendingHeroRestore.HeroRotation[2],
+                _pendingHeroRestore.HeroRotation[3]);
+
+            Logger.Log($"LoadUnityCustomData: spawning at {playerService.HeroSpawnPosition}, npcInit={_pendingNpcInit?.Count ?? 0}, dirty={_pendingNpcRestore?.Count ?? 0}", LogCat.Loading);
+        }
+
+        private void ApplyHeroRestore(UnityCustomSave data)
+        {
+            Logger.Log($"ApplyHeroRestore: data level={data.HeroLevel} hp={data.HeroAttributes?[0]}/{data.HeroAttributes?[1]} attrs={data.HeroAttributes?.Length}", LogCat.Loading);
+
+            var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
+            if (hero == null)
+            {
+                Logger.LogError("ApplyHeroRestore: GlobalHero is null", LogCat.Loading);
+                return;
+            }
+
+            var heroContainer = hero.GetUserData();
+            if (heroContainer == null)
+            {
+                Logger.LogError("ApplyHeroRestore: hero has no container", LogCat.Loading);
+                return;
+            }
+
+            var vob = heroContainer.Vob;
+            Logger.Log($"ApplyHeroRestore: vob BEFORE level={vob.Level} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)}", LogCat.Loading);
+
+            for (var i = 0; i < data.HeroAttributes.Length && i < 8; i++)
+            {
+                hero.SetAttribute((NpcAttribute)i, data.HeroAttributes[i]);
+                vob.SetAttribute(i, data.HeroAttributes[i]);
+            }
+
+            hero.Level = data.HeroLevel; vob.Level = data.HeroLevel;
+            hero.Exp = data.HeroXp; vob.Xp = data.HeroXp;
+            hero.ExpNext = data.HeroExpNext; vob.XpNextLevel = data.HeroExpNext;
+            hero.Lp = data.HeroLp; vob.Lp = data.HeroLp;
+            if (data.HeroGuild > 0)
+            {
+                hero.Guild = data.HeroGuild; vob.Guild = data.HeroGuild; vob.GuildTrue = data.HeroGuild;
+                heroContainer.Props.TrueGuild = (VmGothicEnums.Guild)data.HeroGuild;
+            }
+
+            Logger.Log($"ApplyHeroRestore: vob AFTER level={vob.Level} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)}", LogCat.Loading);
+        }
+
+        private void OnNpcCullingChanged(NpcContainer npc, NpcLoader loader, bool isInVisibleRange, bool wasOutOfDistance)
+        {
+            if (npc.Vob.Player) return;
+
+            var key = MakeNpcKey(npc);
+
+            if (!isInVisibleRange)
+            {
+                if (npc.Go == null) return;
+                _npcSnapshots[key] = CreateNpcSnapshot(key, npc);
+            }
+            else if (_pendingNpcRestore != null && _pendingNpcRestore.TryGetValue(key, out var entry))
+            {
+                ApplyNpcSavedState(npc, entry);
+                _pendingNpcRestore.Remove(key);
+            }
+        }
+
+        private static string MakeNpcKey(NpcContainer npc)
+        {
+            if (npc.Go == null) return npc.Vob.NpcInstance;
+            var parent = npc.Go.transform.parent;
+            return parent != null ? parent.name : npc.Go.name;
+        }
+
+        private static NpcSaveEntry CreateNpcSnapshot(string key, NpcContainer npc)
+        {
+            var pos = npc.Go.transform.position;
+            var rot = npc.Go.transform.rotation;
+            var vob = npc.Vob;
+            var attrs = new int[8];
+            for (var i = 0; i < 8; i++) attrs[i] = vob.GetAttribute(i);
+            return new NpcSaveEntry
+            {
+                Key = key,
+                NpcInstance = vob.NpcInstance,
+                Position = new[] { pos.x, pos.y, pos.z },
+                Rotation = new[] { rot.x, rot.y, rot.z, rot.w },
+                Attributes = attrs,
+                CurrentStateName = vob.CurrentStateName ?? "",
+                CurrentRoutine = vob.CurrentRoutine ?? ""
+            };
+        }
+
+        private static void ApplyNpcSavedState(NpcContainer npc, NpcSaveEntry entry)
+        {
+            var vob = npc.Vob;
+            if (entry.Attributes != null)
+                for (var i = 0; i < entry.Attributes.Length && i < 8; i++)
+                    vob.SetAttribute(i, entry.Attributes[i]);
+
+            if (npc.Go != null && entry.Position != null)
+            {
+                npc.Go.transform.position = new Vector3(entry.Position[0], entry.Position[1], entry.Position[2]);
+                npc.Go.transform.rotation = new Quaternion(entry.Rotation[0], entry.Rotation[1], entry.Rotation[2], entry.Rotation[3]);
+            }
+
+            Logger.Log($"ApplyNpcSavedState: {entry.NpcInstance} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)}", LogCat.Npc);
+        }
+
+        private string GetUnityCustomSavePath(SlotId saveGameId)
+            => Path.GetFullPath(Path.Join(GetSaveGamePath(saveGameId), "UNITYSAVE.json"));
+
+        private string NpcInitPath => Path.GetFullPath(Path.Join(SavesFolderPath, "UNITYNPCINIT.json"));
+
+        public bool HasNpcInitSnapshot() => File.Exists(NpcInitPath);
+
+        public void SaveNpcInitSnapshot(IList<NpcContainer> allNpcs)
+        {
+            var npcInit = new UnityNpcInit { WorldName = CurrentWorldName };
+            foreach (var npc in allNpcs)
+            {
+                if (npc.Vob.Player) continue;
+                var attrs = new int[8];
+                for (var i = 0; i < 8; i++) attrs[i] = npc.Vob.GetAttribute(i);
+                npcInit.Npcs.Add(new NpcInitEntry
+                {
+                    InstanceId = npc.InstanceId,
+                    SymbolIndex = npc.SymbolIndex,
+                    GoName = npc.GoName ?? "",
+                    WaypointName = npc.SpawnWaypoint ?? "",
+                    NpcInstance = npc.Vob.NpcInstance,
+                    Attributes = attrs
+                });
+            }
+            Directory.CreateDirectory(SavesFolderPath);
+            File.WriteAllText(NpcInitPath, JsonConvert.SerializeObject(npcInit, Formatting.Indented));
+            Logger.Log($"SaveNpcInitSnapshot: {npcInit.Npcs.Count} NPCs → {NpcInitPath}", LogCat.Loading);
+        }
+
+        private void FlushDaedalusState(SaveGame saveGame)
+        {
+            var vm = _gameStateService.GothicVm;
+            if (vm == null)
+            {
+                Logger.LogWarning("FlushDaedalusState: GothicVm not available, skipping.", LogCat.Loading);
+                return;
+            }
+
+            var now = _gameTimeService.GetCurrentDateTime();
+            var day = now.Day - 1; // DateTime.Day is 1-indexed; Gothic day is 0-indexed
+            var hour = now.Hour;
+            var minute = now.Minute;
+
+            saveGame.State.Day = day;
+            saveGame.State.Hour = hour;
+            saveGame.State.Minute = minute;
+            saveGame.Metadata.TimeDay = day;
+            saveGame.Metadata.TimeHour = hour;
+            saveGame.Metadata.TimeMinute = minute;
+
+            var symbolStates = new List<SaveSymbolState>();
+
+            for (var i = 0; i < vm.SymbolCount; i++)
+            {
+                var sym = vm.GetSymbolByIndex(i);
+                if (sym == null || sym.IsConst || sym.IsMember || sym.IsExternal || sym.IsGenerated) continue;
+                if (sym.Type != DaedalusDataType.Int && sym.Type != DaedalusDataType.Float) continue;
+                if (sym.Size == 0) continue;
+
+                var values = new List<int>(sym.Size);
+                for (var j = 0; j < sym.Size; j++)
+                {
+                    values.Add(sym.Type == DaedalusDataType.Float
+                        ? BitConverter.SingleToInt32Bits(sym.GetFloat((ushort)j))
+                        : sym.GetInt((ushort)j));
+                }
+
+                symbolStates.Add(new SaveSymbolState { Name = sym.Name, Values = values });
+            }
+
+            saveGame.State.SymbolStates = symbolStates;
+
+            // Copy quest log topics and dialog told-states — both services mutate Save.State directly
+            if (Save?.State != null)
+            {
+                for (var i = 0; i < Save.State.LogTopicCount; i++)
+                    saveGame.State.AddLogTopic(Save.State.GetLogTopic(i));
+
+                for (var i = 0; i < Save.State.InfoStateCount; i++)
+                    saveGame.State.AddInfoState(Save.State.GetInfoState(i));
+            }
+
+            Logger.Log($"FlushDaedalusState: {symbolStates.Count} symbols, {saveGame.State.LogTopicCount} log topics, {saveGame.State.InfoStateCount} info states, day={day} {hour}:{minute:D2}", LogCat.Loading);
+        }
+
+        private void RestoreDaedalusState(SaveGame save)
+        {
+            if (save.State.SymbolStateCount == 0)
+            {
+                Logger.LogWarning("RestoreDaedalusState: No symbols in save, skipping.", LogCat.Loading);
+                return;
+            }
+
+            var vm = _gameStateService.GothicVm;
+            if (vm == null)
+            {
+                Logger.LogWarning("RestoreDaedalusState: GothicVm not available.", LogCat.Loading);
+                return;
+            }
+
+            var restored = 0;
+            var skipped = 0;
+
+            foreach (var state in save.State.SymbolStates)
+            {
+                var sym = vm.GetSymbolByName(state.Name);
+                if (sym == null) { skipped++; continue; }
+
+                for (var j = 0; j < state.Values.Count && j < sym.Size; j++)
+                {
+                    if (sym.Type == DaedalusDataType.Float)
+                        sym.SetFloat(BitConverter.Int32BitsToSingle(state.Values[j]), (ushort)j);
+                    else
+                        sym.SetInt(state.Values[j], (ushort)j);
+                }
+                restored++;
+            }
+
+            // SetTime supports hour > 23 to advance days (hour = day*24 + hour)
+            _gameTimeService.SetTime(save.State.Day * 24 + save.State.Hour, save.State.Minute);
+
+            Logger.Log($"RestoreDaedalusState: {restored} symbols restored, {skipped} skipped (not in script), day={save.State.Day} {save.State.Hour}:{save.State.Minute:D2}", LogCat.Loading);
         }
 
         private List<NpcProxy> WrapVobs(List<ZenKit.Vobs.Npc> npcs)
@@ -383,10 +790,54 @@ namespace Gothic.Core.Services.World
             return unwrappedVobs;
         }
 
-        private string GetSaveGamePath(SlotId folderSaveId)
+        /// <summary>
+        /// Gothic mirrors save folder per mod: vanilla uses "Saves/", mods use "saves_{modname}/".
+        /// E.g. DM_E.ini → saves_dm_e/
+        /// </summary>
+        public string SavesFolderPath
         {
-            var gothicDir = _contextGameVersionService.RootPath;
-            return Path.GetFullPath(Path.Join(gothicDir, $"Saves/savegame{(int)folderSaveId}"));
+            get
+            {
+                var modIni = _configService.EffectiveModIni;
+                var folderName = string.IsNullOrEmpty(modIni)
+                    ? "Saves"
+                    : $"saves_{Path.GetFileNameWithoutExtension(modIni).ToLower()}";
+                return Path.GetFullPath(Path.Join(_contextGameVersionService.RootPath, folderName));
+            }
+        }
+
+        private string GetSaveGamePath(SlotId folderSaveId)
+            => Path.GetFullPath(Path.Join(SavesFolderPath, $"savegame{(int)folderSaveId}"));
+
+        private string _goldenSavePath => Path.GetFullPath(Path.Join(SavesFolderPath, "GOLDENSAVE"));
+
+        private void CopyGoldenSaveToSlot(SlotId saveGameId)
+        {
+            var goldenPath = _goldenSavePath;
+            if (!Directory.Exists(goldenPath))
+            {
+                Logger.LogWarning($"CopyGoldenSaveToSlot: no GOLDENSAVE at {goldenPath}", LogCat.Loading);
+                return;
+            }
+
+            var slotPath = GetSaveGamePath(saveGameId);
+            var copied = 0;
+
+            foreach (var srcFile in Directory.GetFiles(goldenPath))
+            {
+                var filename = Path.GetFileName(srcFile).ToUpperInvariant();
+                // ZenKit already wrote SAVEINFO.SAV (metadata) and SAVEDAT (quest state) — keep ours.
+                // THUMB.TGA is already written by SaveCurrentGame via CreateThumbnail — keep our screenshot.
+                if (filename == "SAVEINFO.SAV" || filename == "SAVEDAT.SAV" || filename == "THUMB.SAV") continue;
+
+                var destFile = Path.Join(slotPath, Path.GetFileName(srcFile));
+                File.Copy(srcFile, destFile, overwrite: true);
+                // Strip read-only so future saves can overwrite without access-denied
+                File.SetAttributes(destFile, File.GetAttributes(destFile) & ~FileAttributes.ReadOnly);
+                copied++;
+            }
+
+            Logger.Log($"CopyGoldenSaveToSlot: copied {copied} world files to slot {saveGameId}", LogCat.Loading);
         }
     }
 }

@@ -154,11 +154,19 @@ namespace Gothic.Core.Services.Npc
         {
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
-            
-            if (_saveGameService.IsNewGame)
-                await _initializerDomain.InitNpcsNewGame(loading);
+
+            var npcInit = _saveGameService.PendingNpcInit;
+            if (_saveGameService.IsNewGame || npcInit == null)
+            {
+                if (_saveGameService.IsWorldEnteredFirstTime)
+                    await _initializerDomain.InitNpcsNewGame(loading);
+                else
+                    await _initializerDomain.InitNpcsSaveGame(loading);
+            }
             else
-                await _initializerDomain.InitNpcsSaveGame(loading);
+            {
+                await _initializerDomain.InitNpcsFromMergedSnapshots(loading, npcInit, _saveGameService.PendingNpcRestore);
+            }
         }
 
         /// <summary>

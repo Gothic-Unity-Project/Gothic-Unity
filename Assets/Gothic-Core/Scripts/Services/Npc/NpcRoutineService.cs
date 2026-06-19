@@ -67,6 +67,9 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            var npcData = npcInstance.GetUserData();
+            if (npcData != null)
+                npcData.Vob.CurrentRoutine = formattedRoutineName;
             ExchangeRoutine(npcInstance, newRoutine.Index);
         }
 

@@ -102,6 +102,7 @@ namespace Gothic.Core.Services
             _npcMeshCullingService.Init();
             _vobSoundCullingService.Init();
             _gameTimeService.Init();
+            _saveGameService.Init();
             _npcRoutineService.Init();
             _fightService.Init();
             _particleService.Init();
@@ -183,6 +184,8 @@ namespace Gothic.Core.Services
             {
                 // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
                 // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
+                _saveGameService.ClearPendingNpcData();
+                _vobService.PreWorldCreate();
                 _vobMeshCullingService.PreWorldCreate();
                 _npcMeshCullingService.PreWorldCreate();
                 _vobSoundCullingService.PreWorldCreate();

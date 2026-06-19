@@ -81,7 +81,8 @@ namespace Gothic.Core.Services.Vobs
         public void Init()
         {
             _unityMonoService.StartCoroutine(InitVobCoroutine());
-            
+            GlobalEventDispatcher.LoadGameStart.AddListener(PreWorldCreate);
+
             // Decoupling Culling logic from actual init logic.
             GlobalEventDispatcher.VobMeshCullingChanged.AddListener(InitVob);
             GlobalEventDispatcher.LockPickComboBroken.AddListener((lockPick, _, _) => lockPick.VobAs<IItem>().Amount--);
@@ -92,6 +93,11 @@ namespace Gothic.Core.Services.Vobs
                 else if (containerOrDoor.Vob is IDoor door)
                     door.IsLocked = false;
             });
+        }
+
+        public void PreWorldCreate()
+        {
+            _gameStateService.VobsInteractable.Clear();
         }
 
         /// <summary>
@@ -502,16 +508,27 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
                     var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
-                    
+
                     if (visualScheme.IsNullOrEmpty())
                         return;
-                    
+
                     _gameStateService.VobsInteractable.TryAdd(visualScheme, new());
                     _gameStateService.VobsInteractable[visualScheme!].Add(container);
                     break;
+
+                case VirtualObjectType.zCMover:
+                    var moverName = container.Vob.Name;
+                    if (!string.IsNullOrEmpty(moverName))
+                        _gameStateService.VobsMover.TryAdd(moverName.ToUpper(), container);
+                    break;
             }
         }
-        
+
+        public bool TryGetMover(string name, out VobContainer container)
+        {
+            return _gameStateService.VobsMover.TryGetValue(name.ToUpper(), out container);
+        }
+
         public List<ContentItem> UnpackItems(string contents)
         {
             List<ContentItem> result = new();

@@ -6,7 +6,6 @@ using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using TMPro;
@@ -43,7 +42,6 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly BootstrapService _bootstrapService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         
         /// <summary>
@@ -144,13 +142,17 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         protected override bool IsMenuItemActive(string menuItemName)
         {
+            if (menuItemName.StartsWith("MENUITEM_SAVE_SLOT") || menuItemName.StartsWith("MENUITEM_LOAD_SLOT"))
+                return true;
             return (MenuItemCache[menuItemName].item.Flags & MenuItemFlag.Disabled) == 0;
         }
 
         private void FillSaveGameEntries()
         {
-            var gothicDir = _contextGameVersionService.RootPath;
-            var saveGameListPath = Path.GetFullPath(Path.Join(gothicDir, "Saves"));
+            var saveGameListPath = _saveGameService.SavesFolderPath;
+
+            if (!Directory.Exists(saveGameListPath))
+                return;
 
             foreach (var fullPath in Directory.EnumerateDirectories(saveGameListPath))
             {
