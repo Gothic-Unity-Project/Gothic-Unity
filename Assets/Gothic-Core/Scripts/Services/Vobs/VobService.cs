@@ -526,9 +526,11 @@ namespace Gothic.Core.Services.Vobs
 
         public bool TryGetMover(string name, out VobContainer container)
         {
-            // Gothic uses "//" prefix in IInteractiveObject.Target references (e.g. "//EVT_GATE_MOVER"),
-            // but VOBs register their own Name without it.
-            return _gameStateService.VobsMover.TryGetValue(name.TrimStart('/').ToUpper(), out container);
+            // Gothic uses "//" prefix in Target references; VOBs register without it.
+            // Mesh movers register with ".3DS" suffix (e.g. "EVT_GATE_01.3DS"); event movers do not.
+            var key = name.TrimStart('/').ToUpper();
+            if (_gameStateService.VobsMover.TryGetValue(key, out container)) return true;
+            return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out container);
         }
 
         public List<ContentItem> UnpackItems(string contents)
