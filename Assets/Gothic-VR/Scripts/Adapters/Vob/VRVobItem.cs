@@ -100,7 +100,10 @@ namespace Gothic.VR.Adapters.Vob
             _vrPlayerService.SetGrab(grabber, grabbable);
 
             if (_vrPlayerService.IsDualGrabbed)
+            {
                 TryShowDocument();
+                TryCastSpell();
+            }
         }
 
         /// <summary>
@@ -123,7 +126,7 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(grabber, grabbable);
 
-            // Close any open document viewer when item is no longer dual-grabbed.
+            // Close any open document viewer / rune caster when item is no longer dual-grabbed.
             if (!_vrPlayerService.IsDualGrabbed)
             {
                 var viewer = GetComponent<Adapters.Vob.VobItem.VRDocViewer>();
@@ -133,6 +136,19 @@ namespace Gothic.VR.Adapters.Vob
                 {
                     if (child.name == "_DocCanvas")
                         Destroy(child.gameObject);
+                }
+
+                var caster = GetComponent<Adapters.Vob.VobItem.VRRuneCaster>();
+                if (caster != null)
+                {
+                    // During telekinesis, keep the caster alive while one hand still holds the rune —
+                    // the freed hand needs to grab the distant item. Destroy when both hands are clear.
+                    var runeStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject
+                                     || _vrPlayerService.GrabbedItemRight == gameObject;
+                    var keepAlive = runeStillHeld
+                        && (_vrPlayerService.IsTelekinesisActive || caster.IsTargetingActive);
+                    if (!keepAlive)
+                        Destroy(caster);
                 }
             }
         }
@@ -173,6 +189,20 @@ namespace Gothic.VR.Adapters.Vob
             {
                 vm.GlobalSelf = oldSelf;
             }
+        }
+
+        private void TryCastSpell()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatRune)
+                return;
+
+            if (GetComponent<Adapters.Vob.VobItem.VRRuneCaster>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRRuneCaster>();
         }
 
         /// <summary>

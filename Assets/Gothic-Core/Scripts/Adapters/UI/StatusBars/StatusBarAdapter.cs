@@ -5,6 +5,7 @@ using Gothic.Core.Services.Player;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.UI;
+using Gothic.Core.Services.Config;
 
 namespace Gothic.Core.Adapters.UI.StatusBars
 {
@@ -17,13 +18,18 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly ConfigService _configService;
 
-        private enum StatusType
+        private Coroutine _fadeCoroutine;
+
+        public enum StatusType
         {
             Health,
             Mana,
             Misc
         }
+
+        public StatusType Type => _statusType;
 
         private void Awake()
         {
@@ -63,7 +69,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             switch (_statusType)
             {
                 case StatusType.Health:
-                    if (_isPlayer)
+                    if (_isPlayer && _configService.Dev.HideHealthBar)
                         DisableBar();
                     break;
                 case StatusType.Mana:
@@ -112,6 +118,54 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         {
             _background.enabled = true;
             _statusValue.enabled = true;
+        }
+
+        public void FadeIn(float duration = 0.25f)
+        {
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeRoutine(0f, 1f, duration, enable: true));
+        }
+
+        public void FadeOut(float duration = 0.25f)
+        {
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));
+        }
+
+        private IEnumerator FadeRoutine(float from, float to, float duration, bool enable)
+        {
+            if (enable)
+            {
+                _background.enabled = true;
+                _statusValue.enabled = true;
+            }
+
+            SetAlpha(from);
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                SetAlpha(Mathf.Lerp(from, to, elapsed / duration));
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            SetAlpha(to);
+
+            if (!enable)
+            {
+                _background.enabled = false;
+                _statusValue.enabled = false;
+            }
+        }
+
+        private void SetAlpha(float a)
+        {
+            var bg = _background.color;
+            bg.a = a;
+            _background.color = bg;
+
+            var val = _statusValue.color;
+            val.a = a;
+            _statusValue.color = val;
         }
     }
 }

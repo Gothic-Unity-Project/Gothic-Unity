@@ -9,6 +9,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
@@ -24,6 +25,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -36,6 +38,12 @@ namespace Gothic.VR.Adapters
 
         public void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
+            if (_vrPlayerService.IsSpellActive)
+            {
+                grabber.ForceRelease();
+                return;
+            }
+
             var bodyState = _npcData.Props.BodyState;
             var isDead = bodyState == VmGothicEnums.BodyState.BsDead;
             var isUnconscious = bodyState == VmGothicEnums.BodyState.BsUnconscious;
