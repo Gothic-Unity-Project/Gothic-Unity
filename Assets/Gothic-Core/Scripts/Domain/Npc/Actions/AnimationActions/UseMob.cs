@@ -270,7 +270,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (!VobService.TryGetMover(targetName, out var moverContainer) || moverContainer?.Go == null)
                 return;
 
-            var moverAdapter = moverContainer.Go.GetComponent<MoverAdapter>();
+            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
             if (moverAdapter == null)
                 return;
 

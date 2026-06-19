@@ -168,7 +168,8 @@ namespace Gothic.VR.Services
                 Logger.LogWarning($"[VRPlayerService] HandleMobGrab: mover '{moverTarget}' not found", LogCat.Ai);
                 return;
             }
-            if (!moverVob.Go.TryGetComponent<MoverAdapter>(out var adapter))
+            var adapter = moverVob.Go.GetComponentInChildren<MoverAdapter>();
+            if (adapter == null)
             {
                 Logger.LogWarning($"[VRPlayerService] HandleMobGrab: MoverAdapter missing on '{moverTarget}'", LogCat.Ai);
                 return;

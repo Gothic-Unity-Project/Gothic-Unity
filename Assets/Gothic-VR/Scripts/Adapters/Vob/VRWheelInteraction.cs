@@ -86,7 +86,7 @@ namespace Gothic.VR.Adapters.Vob
                 return;
             }
 
-            var moverAdapter = moverContainer.Go.GetComponent<MoverAdapter>();
+            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
             if (moverAdapter == null)
             {
                 Logger.LogWarning($"[VRWheelInteraction] MoverAdapter missing on '{target}'", LogCat.Vob);
