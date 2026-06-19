@@ -23,6 +23,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private Transform _enemyTransform => _enemy.Go.transform;
         private bool _comboWindowLogged;
         private bool _hasHitFired;
+        private string _activeTurnAnimName;
+        private const float _turnThresholdDeg = 10f;
+
+        private float _chaseTimer;
+        private float _heroStopTimer;
+        private Vector3 _previousHeroPos;
+        private bool _firstRunTick = true;
+        private const float _chaseGiveUpDuration = 10f;
+        private const float _heroStopResetDelay = 2f;
+        private const float _heroRunSpeedThreshold = 2f;
 
 
         public AttackPlayAni(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
@@ -34,7 +44,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             base.Tick();
 
             if (IsFinishedFlag)
+            {
+                StopTurnAnimation();
                 return;
+            }
 
             // Combo chaining: once the DEF_WINDOW frame is reached, cut this animation short so the
             // next queued attack starts immediately — exactly like Gothic's original combo system.
@@ -82,7 +95,53 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 case FightAiMove.Strafe:
                     StrafeTick();
                     break;
+                default:
+                    HandleCombatRotation();
+                    break;
             }
+        }
+
+        private void HandleCombatRotation()
+        {
+            var myPos = NpcGo.transform.position;
+            var targetPos = _enemyTransform.position;
+            var direction = new Vector3(targetPos.x - myPos.x, 0, targetPos.z - myPos.z);
+
+            if (direction.sqrMagnitude < 0.001f)
+                return;
+
+            var angle = Vector3.SignedAngle(NpcGo.transform.forward, direction.normalized, Vector3.up);
+            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
+
+            if (Mathf.Abs(angle) > _turnThresholdDeg)
+            {
+                var desiredAnim = AnimationService.GetAnimationName(
+                    angle < 0 ? VmGothicEnums.AnimationType.RotL : VmGothicEnums.AnimationType.RotR,
+                    NpcContainer);
+
+                if (_activeTurnAnimName != desiredAnim)
+                {
+                    StopTurnAnimation();
+                    _activeTurnAnimName = desiredAnim;
+                    PrefabProps.AnimationSystem.PlayAnimation(_activeTurnAnimName);
+                }
+
+                NpcGo.transform.rotation = Quaternion.RotateTowards(
+                    NpcGo.transform.rotation,
+                    Quaternion.LookRotation(direction),
+                    Time.deltaTime * turnSpeed);
+            }
+            else
+                StopTurnAnimation();
+        }
+
+        private void StopTurnAnimation()
+        {
+            if (_activeTurnAnimName == null)
+                return;
+            PrefabProps.AnimationSystem.StopAnimation(_activeTurnAnimName);
+            _activeTurnAnimName = null;
         }
 
         private void RunTick()
@@ -110,6 +169,44 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 NpcGo.transform.rotation,
                 Quaternion.LookRotation(direction),
                 Time.deltaTime * turnSpeed);
+
+            // Give-up: track hero speed via position delta. If hero is running, accumulate
+            // _chaseTimer. Only reset it after hero has been stationary for 2s.
+            var heroGo = ((NpcInstance)GameStateService.GothicVm.GlobalHero).GetUserData().Go;
+            var heroPos = heroGo.transform.position;
+
+            if (_firstRunTick)
+            {
+                _previousHeroPos = heroPos;
+                _firstRunTick = false;
+            }
+
+            var heroSpeed = Vector3.Distance(heroPos, _previousHeroPos) / Time.deltaTime;
+            _previousHeroPos = heroPos;
+
+            if (heroSpeed > _heroRunSpeedThreshold)
+            {
+                _chaseTimer += Time.deltaTime;
+                _heroStopTimer = 0f;
+            }
+            else
+            {
+                _heroStopTimer += Time.deltaTime;
+                if (_heroStopTimer >= _heroStopResetDelay)
+                {
+                    _chaseTimer = 0f;
+                    _heroStopTimer = 0f;
+                }
+            }
+
+            if (_chaseTimer >= _chaseGiveUpDuration)
+            {
+                Logger.LogWarning($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)}: hero ran away — giving up after {_chaseTimer:F1}s", LogCat.Fight);
+                PrefabProps.AnimationSystem.StopAllAnimations();
+                Props.AnimationQueue.Clear();
+                Props.CurrentLoopState = NpcProperties.LoopState.End;
+                IsFinishedFlag = true;
+            }
         }
 
         private void StrafeTick()
@@ -163,7 +260,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            if (target.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
             // NPC vs NPC hit: check weapon reach + forward arc so the target can dodge by

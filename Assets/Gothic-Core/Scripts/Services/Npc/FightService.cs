@@ -4,9 +4,9 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -26,8 +26,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
         public void Init()
         {
@@ -35,14 +35,35 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
+            GlobalEventDispatcher.SpellHit.AddListener(OnSpellHit);
+            GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
         }
 
-        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __)
+        private void OnSpellHit(NpcContainer caster, NpcContainer target, Vector3 pos, int damage)
+        {
+            Logger.Log($"[FightService.SpellHit] {caster.Instance.GetName(NpcNameSlot.Slot0)} → {target.Instance.GetName(NpcNameSlot.Slot0)} dmg={damage}", LogCat.Fight);
+            OnHit(caster, target, pos, damageOverride: damage);
+        }
+
+        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __) =>
+            OnHit(attacker, target, __, damageOverride: null);
+
+        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, int? damageOverride)
         {
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
+            if (_gameStateService.Dialogs.IsInDialog)
+            {
+                Logger.Log("[FightService] Hit blocked — dialog in progress", LogCat.Fight);
+                return;
+            }
+
             var isHero = target.PrefabProps != null && target.PrefabProps.IsHero();
+
+            // Ignore hits on already-unconscious hero — prevents stacking recovery coroutines.
+            if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
 
             // Hero finishes off unconscious NPC with any hit.
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious && !isHero)
@@ -59,21 +80,23 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            if (isHero && _gameStateService.Dialogs.IsInDialog)
-            {
-                Logger.LogWarning("[FightService] Dialog interrupted by NPC attack", LogCat.Fight);
-                _dialogService.StopDialog(attacker);
-            }
-
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            if (OnHitUpdateHealth(attacker, target))
+            if (OnHitUpdateHealth(attacker, target, damageOverride))
             {
-                if (isHero)
+                if (!isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                {
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} finished off while unconscious — DEAD", LogCat.Npc);
+                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+                    OnDyingChangeAnimation(target);
+                    if (_configService.Dev.EnableDeathXP)
+                        OnNpcDied(target, attacker);
+                }
+                else if (isHero)
                 {
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target);
                 }
-                else if (IsHuman(target))
+                else if (IsHuman(target) && IsHuman(attacker))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
                     OnNpcKnockedOut(target, attacker);
@@ -93,10 +116,80 @@ namespace Gothic.Core.Services.Npc
                 OnHitChangeAnimation(target);
                 OnHitPlaySound(target);
             }
+
+            BroadcastDamagePerceptions(attacker, target);
         }
 
-        // GIL_SEPERATOR_ORC = 37: humans and orcs (guild < 37) go unconscious; monsters die.
-        private static bool IsHuman(NpcContainer npc) => npc.Instance.Guild < 37;
+        /// Fire PERC_ASSESSDAMAGE on the target so it reacts (B_MM_ReactToDamage / B_AssessDamage),
+        /// then broadcast PERC_ASSESSOTHERSDAMAGE to nearby NPCs so allies join the fight.
+        private void BroadcastDamagePerceptions(NpcContainer attacker, NpcContainer target)
+        {
+            _npcAiService.ExecutePerception(
+                VmGothicEnums.PerceptionType.AssessDamage,
+                target.Props, target.Instance,
+                victim: target.Instance,
+                other: attacker.Instance);
+
+            if (attacker.Go == null) return;
+
+            var broadcasted = 0;
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate == target || candidate == attacker)
+                    continue;
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                    continue;
+                // Skip culled NPCs — Go is null or inactive (out of cull range).
+                if (candidate.Go == null || !candidate.Go.activeInHierarchy)
+                    continue;
+
+                // Use candidate's own SensesRange — GetPerceptionRange returns float.MaxValue when unset.
+                var sensesRangeM = candidate.Instance.SensesRange / 100f;
+                var dist = Vector3.Distance(candidate.Go.transform.position, attacker.Go.transform.position);
+                if (dist > sensesRangeM)
+                    continue;
+
+                if (candidate.Props.Perceptions.ContainsKey(VmGothicEnums.PerceptionType.AssessOthersDamage))
+                {
+                    _npcAiService.ExecutePerception(
+                        VmGothicEnums.PerceptionType.AssessOthersDamage,
+                        candidate.Props, candidate.Instance,
+                        victim: target.Instance,
+                        other: attacker.Instance);
+                }
+
+                if (candidate.Props.Perceptions.ContainsKey(VmGothicEnums.PerceptionType.AssessFightSound))
+                {
+                    _npcAiService.ExecutePerception(
+                        VmGothicEnums.PerceptionType.AssessFightSound,
+                        candidate.Props, candidate.Instance,
+                        victim: target.Instance,
+                        other: attacker.Instance);
+                }
+                else if (candidate.Instance.Guild >= 16 && candidate.Instance.Guild < 37)
+                {
+                    // Monsters in routine states don't register the perception — call directly.
+                    // Humans must NOT use B_MM_ReactToOthersDamage (monster AI) — their
+                    // active PERC_ASSESSENEMY tick will pick up the fight naturally.
+                    _npcAiService.CallVmFunctionWithNpcGlobals(
+                        "B_MM_REACTTOOTHERSDAMAGE",
+                        candidate.Instance,
+                        victim: target.Instance,
+                        other: attacker.Instance);
+                }
+                else
+                {
+                    continue;
+                }
+
+                broadcasted++;
+            }
+            Logger.Log($"[FightService.Perc] AssessOthersDamage broadcast to {broadcasted} NPC(s)", LogCat.Fight);
+        }
+
+        // GIL_SEPERATOR_HUM = 16: only true humans (guild < 16) go unconscious.
+        // Mole rats (34), orcs (16–37), monsters (>37) all die.
+        private static bool IsHuman(NpcContainer npc) => npc.Instance.Guild < 16;
 
         private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
         {
@@ -117,6 +210,18 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // Set AIV_WASDEFEATEDBYSC immediately in C# — StartState is queued so ZS_Unconscious entry
+            // runs next frame. Any perception firing before that frame would see AIV=0 and take wrong branch.
+            var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? 19;
+            if (attacker.PrefabProps.IsHero())
+            {
+                npc.Instance.SetAiVar(aivWasDefeated, 1);
+                // ZS_Unconscious_Loop transitions via AI_StartState(callEndFunction=false), skipping
+                // ZS_Unconscious_End → B_ResetTempAttitude never runs. Reset AttitudeTemp to perm here
+                // so PERC_ASSESSENEMY doesn't re-trigger with stale HOSTILE temp after wake-up.
+                npc.Vob.AttitudeTemp = npc.Vob.Attitude;
+            }
+
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = npc.Instance;
@@ -125,18 +230,15 @@ namespace Gothic.Core.Services.Npc
             _npcAiService.ExtAiStartState(npc.Instance, zsUnconscious.Index, true, "");
             npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
 
-            // Give unconscious XP now from C# (same as OnNpcDied gives death XP).
-            // Pre-set AIV_WASDEFEATEDBYSC so ZS_UNCONSCIOUS's B_UnconciousXP skips the duplicate call.
+            // Give XP — AIV_WASDEFEATEDBYSC already set above, so B_UnconciousXP won't double-count.
             if (_configService.Dev.EnableDeathXP && attacker.PrefabProps.IsHero())
             {
-                var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? 19;
-                if (npc.Instance.GetAiVar(aivWasDefeated) == 0)
+                if (npc.Instance.GetAiVar(aivWasDefeated) == 1)
                 {
                     var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
                     if (bUnconciousXp != null)
                     {
                         vm.Call(bUnconciousXp.Index);
-                        npc.Instance.SetAiVar(aivWasDefeated, 1);
                         _npcService.SyncHeroInstanceToVob();
                         Logger.Log($"[FightService] Unconscious XP given for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                     }
@@ -157,6 +259,25 @@ namespace Gothic.Core.Services.Npc
             _unityMonoService.StartCoroutine(KnockoutRecovery(hero));
         }
 
+        private void OnFinishingMove(NpcContainer attacker, NpcContainer target)
+        {
+            var isHero = target.PrefabProps != null && target.PrefabProps.IsHero();
+            if (isHero)
+            {
+                // No respawn system yet — treat as extended knockout so the player can reload.
+                Logger.LogWarning("[FightService.FinishingMove] Hero executed — extended knockout (no respawn yet)", LogCat.Fight);
+                if (target.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
+                    OnHeroKnockedOut(target);
+                return;
+            }
+
+            Logger.Log($"[FightService.FinishingMove] {attacker.Instance.GetName(NpcNameSlot.Slot0)} executes {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+            target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+            OnDyingChangeAnimation(target);
+            if (_configService.Dev.EnableDeathXP)
+                OnNpcDied(target, attacker);
+        }
+
         private IEnumerator KnockoutRecovery(NpcContainer hero)
         {
             yield return new WaitForSeconds(10f);
@@ -169,27 +290,37 @@ namespace Gothic.Core.Services.Npc
         /// Handles health changes.
         /// Returns true if Npc/Monster is dead.
         /// </summary>
-        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target)
+        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target, int? damageOverride = null)
         {
             // FIXME - Talent/skill level (e.g. 1H skill) is not factored in yet.
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
             var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
 
-            var equippedWeapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
+            int damage;
+            if (damageOverride.HasValue)
+            {
+                // Spell damage bypasses weapon formula — protection still applies.
+                var protection = target.Vob.GetProtection((int)DamageType.Fire); // FIXME: use spell damage type
+                damage = protection < 0 ? 0 : Mathf.Max(0, damageOverride.Value - protection);
+            }
+            else
+            {
+                var equippedWeapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
 
-            // G1 melee damage: weapon damage + strength, reduced by the protection matching the damage type.
-            // Unarmed attackers (fists, monster claws/bites) deal blunt damage with their strength alone.
-            var strength = attacker.Vob.GetAttribute((int)NpcAttribute.Strength);
-            var weaponDamage = equippedWeapon?.DamageTotal ?? 0;
-            var protectionIndex = equippedWeapon == null
-                ? (int)DamageType.Blunt
-                : GetProtectionIndex(equippedWeapon.DamageType);
-            var protection = target.Vob.GetProtection(protectionIndex);
+                // G1 melee damage: weapon damage + strength, reduced by the protection matching the damage type.
+                // Unarmed attackers (fists, monster claws/bites) deal blunt damage with their strength alone.
+                var strength = attacker.Vob.GetAttribute((int)NpcAttribute.Strength);
+                var weaponDamage = equippedWeapon?.DamageTotal ?? 0;
+                var protectionIndex = equippedWeapon == null
+                    ? (int)DamageType.Blunt
+                    : GetProtectionIndex(equippedWeapon.DamageType);
+                var protection = target.Vob.GetProtection(protectionIndex);
 
-            // Like G1: protection -1 means immune to this damage type; otherwise no damage when fully absorbed.
-            var damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
-            if (damage <= 0)
-                damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
+                // Like G1: protection -1 means immune to this damage type; otherwise no damage when fully absorbed.
+                damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
+                if (damage <= 0)
+                    damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
+            }
 
             // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.
             if (((int)target.Instance.Flags & 2) != 0)

@@ -80,6 +80,28 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        public void CallVmFunctionWithNpcGlobals(string funcName, NpcInstance self, NpcInstance victim, NpcInstance other)
+        {
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(funcName);
+            if (symbol == null) return;
+
+            var oldSelf = _gameStateService.GothicVm.GlobalSelf;
+            var oldVictim = _gameStateService.GothicVm.GlobalVictim;
+            var oldOther = _gameStateService.GothicVm.GlobalOther;
+
+            _gameStateService.GothicVm.GlobalSelf = self;
+            if (other != null) _gameStateService.GothicVm.GlobalOther = other;
+            if (victim != null) _gameStateService.GothicVm.GlobalVictim = victim;
+
+            try { _gameStateService.GothicVm.Call(symbol.Index); }
+            finally
+            {
+                _gameStateService.GothicVm.GlobalSelf = oldSelf;
+                _gameStateService.GothicVm.GlobalVictim = oldVictim;
+                _gameStateService.GothicVm.GlobalOther = oldOther;
+            }
+        }
+
         public void ExtNpcSetPerceptionTime(NpcInstance npc, float time)
         {
             npc.GetUserData().Props.PerceptionTime = time;
@@ -116,6 +138,10 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool ExtNpcCanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f)
         {
+            var otherContainer = other?.GetUserData();
+            if (otherContainer != null && otherContainer.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return false;
+
             return _npcHelperService.CanSeeNpc(self, other, freeLOS, fov);
         }
 
@@ -450,7 +476,9 @@ namespace Gothic.Core.Services.Npc
             {
                 // Hero doesn't run the Daedalus state machine — map BsUnconscious to ZS_Unconscious/ZS_MagicSleep.
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name;
-                return stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
+                var result = stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
+                Logger.Log($"[NpcAiService.IsInState] Hero unconscious — queried state={stateName} → {result}", LogCat.Npc);
+                return result;
             }
             return container.Vob.CurrentStateIndex == state;
         }
@@ -493,9 +521,22 @@ namespace Gothic.Core.Services.Npc
             var npc1 = self.GetUserData();
             var npc2 = other.GetUserData();
             if (npc1 == null || npc2 == null)
-            {
                 return VmGothicEnums.Attitude.Neutral;
-            }
+
+            return _npcHelperService.GetPersonAttitude(npc1, npc2);
+        }
+
+        // Npc_GetPermAttitude must return only the permanent attitude, never the temp override.
+        // GetPersonAttitude returns temp when it differs, which breaks ZS_Attack_End's hostile check.
+        public VmGothicEnums.Attitude ExtGetPermAttitude(NpcInstance self, NpcInstance other)
+        {
+            var npc1 = self.GetUserData();
+            var npc2 = other.GetUserData();
+            if (npc1 == null || npc2 == null)
+                return VmGothicEnums.Attitude.Neutral;
+
+            if (npc2.PrefabProps?.IsHero() == true)
+                return (VmGothicEnums.Attitude)npc1.Vob.Attitude;
 
             return _npcHelperService.GetPersonAttitude(npc1, npc2);
         }

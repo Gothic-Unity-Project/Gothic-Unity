@@ -75,7 +75,21 @@ namespace Gothic.Core
         /// Vector3      - at which position
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
-        
+
+        /// <summary>
+        /// NpcContainer - caster
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// int          - total spell damage (SPL_DAMAGE_* * level, already calculated)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, int> SpellHit = new();
+
+        /// <summary>
+        /// NpcContainer - who performs the finishing move (attacker)
+        /// NpcContainer - who is executed (unconscious target)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> FightFinishingMove = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick
