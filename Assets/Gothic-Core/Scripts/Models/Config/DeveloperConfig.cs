@@ -129,6 +129,10 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]
         public string SpawnAtWaypoint = string.Empty;
 
+        [Separator("Save/Load System (WIP)")]
+        [Tooltip("Enable save/load system. OFF = main-branch behavior: no UNITYNPCINIT snapshot, no merged-snapshot NPC restore, no NpcCulling tracking. Turn OFF to diagnose monster/NPC init regressions.")]
+        public bool EnableSaveLoadSystem;
+
         [Separator("Debug")]
         [Tooltip("Ignore frame skipping during loading.")]
         public bool SpeedUpLoading;

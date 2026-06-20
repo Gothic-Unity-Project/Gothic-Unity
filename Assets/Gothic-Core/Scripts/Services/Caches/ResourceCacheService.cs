@@ -40,7 +40,7 @@ namespace Gothic.Core.Services.Caches
         private ResourceCacheType<ITexture> _texture;
         private ResourceCacheType<GameObject> _prefab;
 
-        public void Init(string root)
+        public void Init(string root, bool mountModFiles = false)
         {
             var workPath = FindWorkPath(root);
             var diskPaths = FindDiskPaths(root);
@@ -54,8 +54,11 @@ namespace Gothic.Core.Services.Caches
             Vfs.Mount(Path.GetFullPath(workPath), "/_work", VfsOverwriteBehavior.Older);
 
             // Mod VDFs (.mod extension) always override base game content, regardless of timestamps.
-            diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
-                .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
+            // Only mount when mod mode is active — vanilla Gothic has no .mod files, but patched
+            // installations might, and mounting them with All would corrupt vanilla VFS.
+            if (mountModFiles)
+                diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
+                    .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
 
             _dmLoader.AddResolver(name =>
             {

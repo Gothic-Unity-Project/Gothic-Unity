@@ -14,6 +14,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -40,6 +41,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly FrameSkipperService _frameSkipperService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
@@ -59,7 +61,8 @@ namespace Gothic.Core.Domain.Npc
             _nextInstanceId = 0;
             NewRunDaedalus();
             await NewAddLazyLoading(loading);
-            _saveGameService.SaveNpcInitSnapshot(_multiTypeCacheService.NpcCache);
+            if (_configService.Dev.EnableSaveLoadSystem)
+                _saveGameService.SaveNpcInitSnapshot(_multiTypeCacheService.NpcCache);
         }
 
         public async Task InitNpcsSaveGame(LoadingService loading)
@@ -172,19 +175,6 @@ namespace Gothic.Core.Domain.Npc
         public void ExtWldInsertNpc(int npcInstanceIndex, string spawnPoint)
         {
             var userDataObject = AllocZkInstance(npcInstanceIndex);
-
-            // Initialize the Daedalus instance immediately so that script code running after Wld_InsertNpc()
-            // (e.g. B_InitializeStory setting Nek's HP to 0) sees a fully-initialized instance.
-            Vm.InitInstance(userDataObject.Instance);
-
-            // Copy prototype defaults to the Vob NOW (HP_MAX, Mana_MAX, etc.) so that Npc_ChangeAttribute
-            // calls from startup scripts work from the correct baseline (e.g. HP = HP_MAX + (-HP_MAX) = 0).
-            // Mark IsNew=false so the CopyFromInstanceData call in InitZkInstance() is a no-op,
-            // preserving whatever startup scripts set. RestoreInstanceFromVob will sync changes back.
-            userDataObject.Vob.CopyFromInstanceData(userDataObject.Instance);
-            userDataObject.Vob.IsNew = false;
-
-            userDataObject.IsZkInstanceInitialized = true;
 
             // For mesh creation later, we need to store that there is a new NPC or a duplicate Monster to be spawned.
             _tmpWldInsertNpcData.Add((userDataObject, spawnPoint));
@@ -381,7 +371,7 @@ namespace Gothic.Core.Domain.Npc
 
             // Save game: Instance was just reset to prototype defaults by Vm.InitInstance().
             // Restore the actual saved runtime values (HP, AiVars, level…) from the Vob back into the Instance.
-            if (!npc.Vob.IsNew)
+            if (_configService.Dev.EnableSaveLoadSystem && !npc.Vob.IsNew)
                 npc.Vob.RestoreInstanceFromVob(npc.Instance);
 
             // NpcInstance is the initialized Daedalus Instance which contains initial data.

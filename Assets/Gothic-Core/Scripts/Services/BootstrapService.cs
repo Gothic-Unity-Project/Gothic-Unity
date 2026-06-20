@@ -122,7 +122,7 @@ namespace Gothic.Core.Services
             var gothicRootPath = _contextGameVersionService.RootPath;
 
             Logger.Log($"Initializing Gothic installation at: {gothicRootPath}", LogCat.Loading);
-            _resourceCacheService.Init(gothicRootPath);
+            _resourceCacheService.Init(gothicRootPath, _configService.Dev.EnableMod);
 
             _audioService.InitMusic();
             _staticCacheService.Init();

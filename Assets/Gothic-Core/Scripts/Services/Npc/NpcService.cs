@@ -155,7 +155,7 @@ namespace Gothic.Core.Services.Npc
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
 
-            var npcInit = _saveGameService.PendingNpcInit;
+            var npcInit = _configService.Dev.EnableSaveLoadSystem ? _saveGameService.PendingNpcInit : null;
             if (_saveGameService.IsNewGame || npcInit == null)
             {
                 if (_saveGameService.IsWorldEnteredFirstTime)

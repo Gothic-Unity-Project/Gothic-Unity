@@ -260,7 +260,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private static IEnumerator ApplySpellHitDelayed(NpcContainer target, NpcContainer caster, int damage)
         {
             Logger.LogWarning($"[VRRuneCaster] FIXME: no spell VFX — SpellHit {target.Instance.GetName(NpcNameSlot.Slot0)} dmg={damage} in 1s", LogCat.VR);
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.21f);
             if (target.Go == null) yield break;
             GlobalEventDispatcher.SpellHit.Invoke(caster, target, target.Go.transform.position, damage);
         }

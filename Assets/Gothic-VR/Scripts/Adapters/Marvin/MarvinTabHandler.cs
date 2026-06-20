@@ -36,17 +36,9 @@ namespace Gothic.VR.Adapters.Marvin
             CreateButtons();
         }
 
-        private bool _isMinimized;
-        private TMP_Text _minimizeBtnText;
-        private static readonly Vector3 _fullScale = Vector3.one;
-        private static readonly Vector3 _miniScale = new(0.15f, 0.15f, 0.15f);
-
         private void CreateButtons()
         {
             var buttons = new System.Collections.Generic.List<(string label, System.Action onClick)>();
-
-            // Always present — minimize/restore the panel
-            buttons.Add(("⊟ Minimize", ToggleMinimize));
 
             if (_configService.Dev.EnableLevel5Cheat)
                 buttons.Add(("Level +5", CheatAddLevels));
@@ -71,8 +63,7 @@ namespace Gothic.VR.Adapters.Marvin
             for (var i = 0; i < buttons.Count; i++)
             {
                 var (label, onClick) = buttons[i];
-                var btn = CreateButton(label, onClick, startY - i * (buttonHeight + gap));
-                if (i == 0) _minimizeBtnText = btn;
+                CreateButton(label, onClick, startY - i * (buttonHeight + gap));
             }
         }
 
@@ -126,22 +117,13 @@ namespace Gothic.VR.Adapters.Marvin
             Logger.Log($"[MarvinMode] Time skip → {next.Hours:D2}:{next.Minutes:D2}", LogCat.Ui);
         }
 
-        private void ToggleMinimize()
-        {
-            _isMinimized = !_isMinimized;
-            transform.root.localScale = _isMinimized ? _miniScale : _fullScale;
-            if (_minimizeBtnText != null)
-                _minimizeBtnText.text = _isMinimized ? "⊞ Restore" : "⊟ Minimize";
-            Logger.Log($"[MarvinMode] Panel {(_isMinimized ? "minimized" : "restored")}", LogCat.Ui);
-        }
-
-        private TMP_Text CreateButton(string label, System.Action onClick, float anchoredY)
+        private void CreateButton(string label, System.Action onClick, float anchoredY)
         {
             var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiDebugButton, parent: gameObject);
             if (go == null)
             {
                 Logger.LogWarning($"[MarvinMode] UiDebugButton prefab not found for: {label}", LogCat.Ui);
-                return null;
+                return;
             }
 
             var rt = go.GetComponent<RectTransform>();
@@ -155,8 +137,6 @@ namespace Gothic.VR.Adapters.Marvin
             var button = go.GetComponentInChildren<Button>();
             if (button != null)
                 button.onClick.AddListener(() => onClick());
-
-            return text;
         }
     }
 }

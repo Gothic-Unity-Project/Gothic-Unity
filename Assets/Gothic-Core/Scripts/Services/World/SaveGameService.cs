@@ -115,6 +115,7 @@ namespace Gothic.Core.Services.World
             
         public void Init()
         {
+            if (!_configService.Dev.EnableSaveLoadSystem) return;
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(OnNpcCullingChanged);
         }
