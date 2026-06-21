@@ -319,6 +319,9 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Waypoint name for 'Teleport to WP' Marvin button. E.g. GRYD_072 or START. Leave empty to disable.")]
         public string MarvinTeleportWaypoint;
 
+        [Tooltip("Daedalus symbol name of NPC to spawn next to player via Marvin 'Spawn NPC' button. E.g. SH, PC_THIEF. Leave empty to disable.")]
+        public string MarvinSpawnNpcSymbol = string.Empty;
+
         [Header("NPC Combat (WIP)")]
         [Tooltip("Fire ZS_Attack_Loop early when combo window opens so the next attack chains before the animation ends.")]
         public bool EnableNpcCombatCombos = true;

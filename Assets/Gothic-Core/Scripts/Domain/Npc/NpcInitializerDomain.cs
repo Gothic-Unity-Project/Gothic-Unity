@@ -172,6 +172,22 @@ namespace Gothic.Core.Domain.Npc
         /// --> Otherwise we get a NPE.
         /// --> We will fill the NpcCache with proper values later.
         /// </summary>
+        /// <summary>
+        /// Spawns an NPC at runtime (during gameplay, not during world loading).
+        /// Used by Wld_SpawnNpcRange (summon spells) and Marvin spawn cheats.
+        /// </summary>
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation)
+        {
+            var container = AllocZkInstance(npcIndex);
+            Vm.InitInstance(container.Instance);
+            container.IsZkInstanceInitialized = true;
+
+            var go = InitLazyLoadNpc(container);
+            go.transform.SetPositionAndRotation(GetFreeAreaAtSpawnPoint(position), rotation);
+            _npcMeshCullingService.AddCullingEntry(go);
+            return go;
+        }
+
         public void ExtWldInsertNpc(int npcInstanceIndex, string spawnPoint)
         {
             var userDataObject = AllocZkInstance(npcInstanceIndex);

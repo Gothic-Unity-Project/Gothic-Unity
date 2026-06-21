@@ -7,6 +7,7 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
@@ -189,6 +190,23 @@ namespace Gothic.Core.Services.Npc
         public void ExtWldInsertNpc(int npcInstanceIndex, string spawnPoint)
         {
             _initializerDomain.ExtWldInsertNpc(npcInstanceIndex, spawnPoint);
+        }
+
+        public void SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation)
+        {
+            _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation);
+        }
+
+        public bool SpawnNpcByName(string symbolName, Vector3 position, Quaternion rotation)
+        {
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(symbolName);
+            if (symbol == null)
+            {
+                Logger.LogWarning($"[NpcService] SpawnNpcByName: symbol '{symbolName}' not found", LogCat.Npc);
+                return false;
+            }
+            _initializerDomain.SpawnNpcRuntime(symbol.Index, position, rotation);
+            return true;
         }
 
         // FIXME - I think they are overwritten when an NPC is loaded from a SaveGame, as we Initialize them again...

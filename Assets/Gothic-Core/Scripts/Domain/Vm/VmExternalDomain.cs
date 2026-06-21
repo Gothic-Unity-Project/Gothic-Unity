@@ -1293,17 +1293,16 @@ namespace Gothic.Core.Domain.Vm
                 return;
             }
 
-            var nearestWp = _wayNetService.FindNearestWayPoint(container.Go.transform.position);
-            if (nearestWp == null)
+            var casterPos = container.Go.transform.position;
+            var casterRot = container.Go.transform.rotation;
+            for (var i = 0; i < count; i++)
             {
-                Logger.LogWarning("[Wld_SpawnNpcRange] No waypoint found near caster", LogCat.Npc);
-                return;
+                var angle = count > 1 ? i * (360f / count) * UnityEngine.Mathf.Deg2Rad : 0f;
+                var offset = new UnityEngine.Vector3(UnityEngine.Mathf.Cos(angle) * 2f, 0f, UnityEngine.Mathf.Sin(angle) * 2f);
+                _npcService.SpawnNpcRuntime(spawnInstance, casterPos + offset, casterRot);
             }
 
-            for (var i = 0; i < count; i++)
-                _npcService.ExtWldInsertNpc(spawnInstance, nearestWp.Name);
-
-            Logger.Log($"[Wld_SpawnNpcRange] Spawned {count}x instance={spawnInstance} at '{nearestWp.Name}'", LogCat.Npc);
+            Logger.Log($"[Wld_SpawnNpcRange] Spawned {count}x instance={spawnInstance} near caster", LogCat.Npc);
         }
 
         public int Wld_IsFPAvailable(NpcInstance npc, string fpName)

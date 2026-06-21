@@ -55,6 +55,9 @@ namespace Gothic.VR.Adapters.Marvin
             if (!string.IsNullOrEmpty(_configService.Dev.MarvinTeleportWaypoint))
                 buttons.Add(($"TP → {_configService.Dev.MarvinTeleportWaypoint}", CheatTeleportToWaypoint));
 
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinSpawnNpcSymbol))
+                buttons.Add(($"Spawn {_configService.Dev.MarvinSpawnNpcSymbol}", CheatSpawnNpc));
+
             const float buttonHeight = 50f;
             const float gap = 10f;
             var totalHeight = buttons.Count * buttonHeight + (buttons.Count - 1) * gap;
@@ -106,6 +109,22 @@ namespace Gothic.VR.Adapters.Marvin
             }
             _contextInteractionService.TeleportPlayerTo(wp.Position, wp.Rotation);
             Logger.Log($"[MarvinMode] Teleported to '{wpName}'", LogCat.Ui);
+        }
+
+        private void CheatSpawnNpc()
+        {
+            var symbol = _configService.Dev.MarvinSpawnNpcSymbol;
+            var hero = _npcService.GetHeroContainer();
+            if (hero?.Go == null)
+            {
+                Logger.LogWarning($"[MarvinMode] Spawn NPC: hero GO not found", LogCat.Ui);
+                return;
+            }
+            var pos = hero.Go.transform.position + hero.Go.transform.forward * 2f;
+            var rot = hero.Go.transform.rotation;
+            var ok = _npcService.SpawnNpcByName(symbol, pos, rot);
+            if (ok)
+                Logger.Log($"[MarvinMode] Spawned '{symbol}' near player", LogCat.Ui);
         }
 
         private void SkipTime30Min()
