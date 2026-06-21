@@ -87,7 +87,7 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCVobSpot:
                 case VirtualObjectType.zCVobStartpoint:
-                    go = CreateSpot(vob, parent, _configService.Dev.ShowFreePoints);
+                    go = CreateSpot(vob, parent, worldPosition, _configService.Dev.ShowFreePoints);
                     break;
                 case VirtualObjectType.oCTriggerChangeLevel:
                     go = CreateTriggerChangeLevel((TriggerChangeLevel)vob, parent);
@@ -633,7 +633,7 @@ namespace Gothic.Core.Domain.Vobs
         /// Basically a free point where NPCs can do something like sitting on a bench etc.
         /// @see for more information: https://ataulien.github.io/Inside-Gothic/objects/spot/
         /// </summary>
-        private GameObject CreateSpot(IVirtualObject vob, GameObject parent, bool debugDraw = false)
+        private GameObject CreateSpot(IVirtualObject vob, GameObject parent, Vector3 worldPosition, bool debugDraw = false)
         {
             // FIXME - change to a Prefab in the future.
             var vobObj = GetPrefab(vob);
@@ -653,7 +653,9 @@ namespace Gothic.Core.Domain.Vobs
             var freePointData = new FreePoint
             {
                 Name = fpName,
-                Position = vob.Position.ToUnityVector(),
+                // worldPosition is the accumulated parent chain offset + vob.Position — use it
+                // instead of the raw local vob.Position so nested FPs get the correct world coords.
+                Position = worldPosition,
                 Direction = vob.Rotation.ToUnityQuaternion().eulerAngles
             };
             vobObj.GetComponent<VobSpotProperties>().Fp = freePointData;

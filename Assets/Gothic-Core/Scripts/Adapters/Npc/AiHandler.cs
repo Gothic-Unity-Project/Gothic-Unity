@@ -402,7 +402,10 @@ namespace Gothic.Core.Adapters.Npc
             Properties.IsStateTimeActive = true;
 
             // When we reached end of ZS_*_END, we also call this method. Check if we really altered the routine action or just restarted it.
-            if (didRoutineChange)
+            // Skip FP release on the very first routine start (LastAiState==0 means no prior state).
+            // This preserves CurrentFreePoint restored from dirty save so Npc_IsOnFP returns true
+            // on the first B_GotoFP call, preventing the NPC from walking to a wrong distant FP.
+            if (didRoutineChange && Vob.LastAiState != 0)
             {
                 if (Properties.CurrentFreePoint != null)
                 {
@@ -410,6 +413,11 @@ namespace Gothic.Core.Adapters.Npc
                     Properties.CurrentFreePoint = null;
                 }
                 Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}<", LogCat.Ai);
+                Properties.StateTime = 0;
+            }
+            else if (didRoutineChange)
+            {
+                Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}< (FP preserved)", LogCat.Ai);
                 Properties.StateTime = 0;
             }
         }
