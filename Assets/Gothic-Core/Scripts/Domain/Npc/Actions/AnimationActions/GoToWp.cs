@@ -18,11 +18,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            // Always find the physically nearest WP as the Dijkstra start.
-            // Using Props.CurrentWayPoint (last-visited WP) caused backward travel whenever
-            // the NPC stopped mid-route (B_FullStop): the stored WP was behind current position,
-            // so the NPC walked back to it before going forward.
-            var currentWaypoint = WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
+            // Props.CurrentWayPoint is updated on every WP pop in OnDestinationReached, so it tracks
+            // the last waynet node the NPC actually reached. Fall back to FindNearestWayPoint only
+            // when it has never been set (e.g. fresh spawn before any GoToWp has run).
+            var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
             
             /*
