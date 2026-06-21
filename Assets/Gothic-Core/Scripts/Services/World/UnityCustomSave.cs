@@ -28,11 +28,18 @@ namespace Gothic.Core.Services.World
         public int[] Attributes;        // NpcAttribute indices 0-7 (HP, HP_MAX, Mana, etc.)
         public string CurrentStateName;
         public string CurrentRoutine;
+        public bool IsDead;             // true if HP was 0 at snapshot time
+    }
+
+    public class HeroInventoryEntry
+    {
+        public string Name;             // Daedalus symbol name, e.g. "ITFO_APPLE"
+        public int Amount;
     }
 
     public class UnityCustomSave
     {
-        public int Version = 2;
+        public int Version = 3;
         public string WorldName;
 
         // Hero transform
@@ -46,6 +53,12 @@ namespace Gothic.Core.Services.World
         public int HeroXp;
         public int HeroExpNext;
         public int HeroLp;
+
+        // Hero inventory — full packed inventory snapshot (all categories)
+        public List<HeroInventoryEntry> HeroInventory;
+
+        // Guild attitude matrix — flat int[] indexed as [guild1 * GuildCount + guild2]
+        public int[] GuildAttitudes;
 
         // NPC dirty delta — additive (update/add only, never delete)
         public List<NpcSaveEntry> Npcs = new();

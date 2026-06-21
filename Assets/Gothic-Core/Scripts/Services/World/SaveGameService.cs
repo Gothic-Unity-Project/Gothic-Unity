@@ -576,6 +576,12 @@ namespace Gothic.Core.Services.World
                         npcEntries[e.Key] = e;
             }
 
+            // NPCs that were loaded from a previous save but never became visible this session
+            // (e.g. saving to a new slot). Carry them forward so they're not lost.
+            if (_pendingNpcRestore != null)
+                foreach (var (k, v) in _pendingNpcRestore)
+                    npcEntries[k] = v;
+
             // Merge: culled-out snapshots then currently visible NPCs override previous entries
             foreach (var (k, v) in _npcSnapshots)
                 npcEntries[k] = v;
@@ -743,6 +749,9 @@ namespace Gothic.Core.Services.World
             var vob = npc.Vob;
             var attrs = new int[8];
             for (var i = 0; i < 8; i++) attrs[i] = vob.GetAttribute(i);
+            var isDead = npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || attrs[0] <= 0;
+            // Normalize HP to 0 for dead NPCs — human knockouts leave HP=1 but the NPC is dead.
+            if (isDead) attrs[0] = 0;
             return new NpcSaveEntry
             {
                 Key = key,
@@ -752,7 +761,7 @@ namespace Gothic.Core.Services.World
                 Attributes = attrs,
                 CurrentStateName = vob.CurrentStateName ?? "",
                 CurrentRoutine = vob.CurrentRoutine ?? "",
-                IsDead = npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || vob.GetAttribute(0) <= 0
+                IsDead = isDead
             };
         }
 

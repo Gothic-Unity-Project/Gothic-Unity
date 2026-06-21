@@ -49,12 +49,14 @@ namespace Gothic.Core.Adapters.Npc
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
 
             // NPC was dead at save time (or killed by startup scripts before mesh creation, e.g. Nek).
-            // Skip the normal AI routine and settle into the dead state immediately.
-            if (Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0)
+            // Also catches HP=1 dead humans: FightService sets HP=1 on knockout; save-restore sets BsDead
+            // before InitNpc runs (via ApplyNpcSavedState in OnNpcCullingChanged), so the BsDead check
+            // here fires even when HP wasn't zeroed on kill.
+            if (Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
             {
                 Properties.BodyState = VmGothicEnums.BodyState.BsDead;
                 PrefabProps.AnimationSystem.PlayAnimation("S_DEADB");
-                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: HP=0 on spawn — dead state", LogCat.Npc);
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={Vob.GetAttribute((int)NpcAttribute.HitPoints)}", LogCat.Npc);
             }
         }
 

@@ -12,8 +12,10 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using HurricaneVR.Framework.Components;
 using HurricaneVR.Framework.Core;
+using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Sockets;
 using MyBox;
 using Reflex.Attributes;
@@ -29,6 +31,7 @@ namespace Gothic.VR.Adapters.Vob.Container
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         private readonly char[] _itemNameSeparators = { ';', ',' };
@@ -50,6 +53,10 @@ namespace Gothic.VR.Adapters.Vob.Container
         private bool _openingForTheFirstTime = true;
         private bool _onOpenedHandled;
         private bool _onClosedHandled;
+
+        // Items grabbed out of this chest during the session.
+        // Tracked so Contents is updated before WORLD.SAV is written.
+        private readonly HashSet<string> _takenItemNames = new(StringComparer.OrdinalIgnoreCase);
         
         
         [Serializable]
@@ -294,14 +301,33 @@ namespace Gothic.VR.Adapters.Vob.Container
         {
             // We wait for some time to ensure the objects are automatically snapped into place.
             yield return new WaitForSeconds(1f);
-            
+
             foreach (var socket in _socketContainer.Sockets)
             {
                 socket.AudioGrabbedFallback = grabAudio;
                 socket.AudioReleasedFallback = releaseAudio;
+                socket.Grabbed.AddListener(OnSocketGrabbed);
             }
         }
+
+        private void OnSocketGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            if (grabber is HVRSocket) return; // item moved between sockets, not taken by hand
+            var vobLoader = grabbable.GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container == null) return;
+            _takenItemNames.Add(vobLoader.Container.Vob.Name);
+            UpdateContentsString();
+        }
         
+        private void UpdateContentsString()
+        {
+            if (_vobContainer == null) return;
+            var remaining = ParseContent(_vobContainer.Contents)
+                .Where(i => !_takenItemNames.Contains(i.Name))
+                .ToList();
+            _vobContainer.Contents = string.Join(",", remaining.Select(i => $"{i.Name}:{i.Amount}"));
+        }
+
         /// <summary>
         /// FIXME - Only temporary function. In the future we need to create a new Item to use it (e.g.) for saving later.
         /// FIXME - For now we stick with the mesh without properties only.
