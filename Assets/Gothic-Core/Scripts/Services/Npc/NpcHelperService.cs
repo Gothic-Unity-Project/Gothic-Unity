@@ -212,10 +212,13 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            // Temp attitude is a hero-specific override (e.g. theft, summoned ally via ZS_MM_SummonedByPC)
+            if (other.PrefabProps.IsHero() && self.Vob.AttitudeTemp != attNull)
                 return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
-
+            // Permanent personal attitude overrides guild when explicitly set via Npc_SetAttitude
+            if (self.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)self.Vob.Attitude;
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
 
