@@ -319,7 +319,15 @@ namespace Gothic.Core.Adapters.Npc
 
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)
+                {
+                    // Update CurrentWayPoint to the nearest WP so GoToWP uses the correct Dijkstra
+                    // starting position instead of the stale spawn WP. Without this, GoToWP(destination)
+                    // computes a path from the old spawn WP, walking the NPC backward before going forward.
+                    var nearestWp = _wayNetService.FindNearestWayPoint(gameObject.transform.position);
+                    if (nearestWp != null)
+                        Properties.CurrentWayPoint = nearestWp;
                     StartRoutine(currentRoutine.Action, currentRoutine.Waypoint);
+                }
                 else
                     // If we don't have a routine, we're a monster.
                     StartRoutine(NpcInstance.StartAiState);

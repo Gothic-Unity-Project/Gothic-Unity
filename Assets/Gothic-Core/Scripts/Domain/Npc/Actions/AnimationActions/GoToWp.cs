@@ -11,6 +11,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string Destination => Action.String0;
 
         private Stack<DijkstraWaypoint> _route;
+        private WayPoint _destinationWayPoint;
 
         public GoToWp(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -20,6 +21,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
+            _destinationWayPoint = destinationWaypoint;
             
             /*
              * Two situations, when this action can be skipped:
@@ -70,6 +72,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             StopWalk();
             AnimationEnd();
+
+            // Keep CurrentWayPoint up to date so the next GoToWP uses the correct Dijkstra start.
+            if (_destinationWayPoint != null)
+                Props.CurrentWayPoint = _destinationWayPoint;
 
             IsFinishedFlag = true;
         }
