@@ -5,7 +5,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
@@ -21,7 +20,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private AnimationService _animationService;
         [Inject] private PhysicsService _physicsService;
         [Inject] private NpcHelperService _npcHelperService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly Gothic.Core.Services.GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
@@ -31,9 +29,6 @@ namespace Gothic.Core.Services.Npc
 
         public void Init()
         {
-            if (!_configService.Dev.EnableCombatSystem)
-                return;
-
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.SpellHit.AddListener(OnSpellHit);
             GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
@@ -74,8 +69,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.Log($"[FightService] Hero finishes off {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                     target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                     OnDyingChangeAnimation(target);
-                    if (_configService.Dev.EnableDeathXP)
-                        OnNpcDied(target, attacker);
+                    OnNpcDied(target, attacker);
                 }
                 return;
             }
@@ -88,8 +82,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} finished off while unconscious — DEAD", LogCat.Npc);
                     target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                     OnDyingChangeAnimation(target);
-                    if (_configService.Dev.EnableDeathXP)
-                        OnNpcDied(target, attacker);
+                    OnNpcDied(target, attacker);
                 }
                 else if (isHero)
                 {
@@ -106,8 +99,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
                     target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                     OnDyingChangeAnimation(target);
-                    if (_configService.Dev.EnableDeathXP)
-                        OnNpcDied(target, attacker);
+                    OnNpcDied(target, attacker);
                 }
             }
             else
@@ -231,17 +223,14 @@ namespace Gothic.Core.Services.Npc
             npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
 
             // Give XP — AIV_WASDEFEATEDBYSC already set above, so B_UnconciousXP won't double-count.
-            if (_configService.Dev.EnableDeathXP && attacker.PrefabProps.IsHero())
+            if (npc.Instance.GetAiVar(aivWasDefeated) == 1)
             {
-                if (npc.Instance.GetAiVar(aivWasDefeated) == 1)
+                var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
+                if (bUnconciousXp != null)
                 {
-                    var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
-                    if (bUnconciousXp != null)
-                    {
-                        vm.Call(bUnconciousXp.Index);
-                        _npcService.SyncHeroInstanceToVob();
-                        Logger.Log($"[FightService] Unconscious XP given for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-                    }
+                    vm.Call(bUnconciousXp.Index);
+                    _npcService.SyncHeroInstanceToVob();
+                    Logger.Log($"[FightService] Unconscious XP given for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                 }
             }
 
@@ -274,8 +263,7 @@ namespace Gothic.Core.Services.Npc
             Logger.Log($"[FightService.FinishingMove] {attacker.Instance.GetName(NpcNameSlot.Slot0)} executes {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
             OnDyingChangeAnimation(target);
-            if (_configService.Dev.EnableDeathXP)
-                OnNpcDied(target, attacker);
+            OnNpcDied(target, attacker);
         }
 
         private IEnumerator KnockoutRecovery(NpcContainer hero)
@@ -354,28 +342,23 @@ namespace Gothic.Core.Services.Npc
         private void OnNpcDied(NpcContainer dead, NpcContainer killer)
         {
             var vm = _gameStateService.GothicVm;
-            var aivPlundered = vm.GetSymbolByName("AIV_PLUNDERED")?.GetInt(0) ?? 8;
-            dead.Instance.SetAiVar(aivPlundered, 0);
 
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = dead.Instance;
-            vm.GlobalOther = killer.Instance;
+            // Always set other=hero so Npc_IsPlayer(other) in ZS_Dead fires B_DeathXP,
+            // even when a companion/guide NPC landed the killing blow.
+            vm.GlobalOther = _npcService.GetHeroContainer().Instance;
 
-            if (_configService.Dev.EnableDeathXP && killer.PrefabProps.IsHero())
+            var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
+            if (zsDeadSym != null)
             {
-                var bDeathXp = vm.GetSymbolByName("B_DeathXP");
-                if (bDeathXp != null)
-                {
-                    vm.Call(bDeathXp.Index);
-                    _npcService.SyncHeroInstanceToVob();
-                    Logger.Log($"[FightService.OnNpcDied] B_DeathXP: {dead.Instance.GetName(NpcNameSlot.Slot0)} killed by hero", LogCat.Npc);
-                }
+                vm.Call(zsDeadSym.Index);
+                _npcService.SyncHeroInstanceToVob();
+                Logger.Log($"[FightService.OnNpcDied] ZS_Dead: {dead.Instance.GetName(NpcNameSlot.Slot0)} (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
             }
-
-            var bGiveDeathInv = vm.GetSymbolByName("B_GiveDeathInv");
-            if (bGiveDeathInv != null)
-                vm.Call(bGiveDeathInv.Index);
+            else
+                Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
 
             vm.GlobalSelf = oldSelf;
             vm.GlobalOther = oldOther;

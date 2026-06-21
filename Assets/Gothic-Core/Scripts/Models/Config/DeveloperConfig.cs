@@ -191,13 +191,6 @@ namespace Gothic.Core.Models.Config
         [OverrideLabel("Enable NPCs & Monsters")]
         public bool EnableNpcs;
 
-        [Tooltip("Enable player→NPC melee combat (hit detection, damage, hurt/death animations). WIP - debug damage values only.")]
-        public bool EnableCombatSystem;
-
-        [ConditionalField(fieldToCheck: nameof(EnableCombatSystem), compareValues: true)]
-        [Tooltip("Call B_DeathXP on kill to grant XP. WIP - XP values may be incorrect.")]
-        public bool EnableDeathXP;
-        
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public bool EnableNpcMeshCulling = true;
 

@@ -51,8 +51,6 @@ MonoBehaviour:
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
   EnableNpcs: 1
-  EnableCombatSystem: 1
-  EnableDeathXP: 1
   EnableNpcMeshCulling: 1
   NpcCullingDistance: 50
   SpawnNpcInstances:
