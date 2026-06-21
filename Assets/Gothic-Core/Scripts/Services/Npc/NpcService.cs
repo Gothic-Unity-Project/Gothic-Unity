@@ -262,6 +262,9 @@ namespace Gothic.Core.Services.Npc
             }
 
             vob.SetAttribute(attributeId, newValue);
+            // Keep the NpcInstance in sync so CopyFromInstanceData (called in InitZkInstance) doesn't
+            // overwrite this value with the prototype default when the NPC mesh is lazy-loaded later.
+            npc.SetAttribute((NpcAttribute)attributeId, newValue);
         }
 
         public NpcContainer GetHeroContainer()
