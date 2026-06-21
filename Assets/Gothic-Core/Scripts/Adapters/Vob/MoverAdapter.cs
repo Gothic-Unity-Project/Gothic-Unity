@@ -3,6 +3,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -19,6 +20,7 @@ namespace Gothic.Core.Adapters.Vob
     public class MoverAdapter : MonoBehaviour
     {
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly VobService _vobService;
 
         private IMover _mover;
         private (Vector3 pos, Quaternion rot)[] _keyframes;
@@ -55,14 +57,53 @@ namespace Gothic.Core.Adapters.Vob
 
         public void Open()
         {
-            if (_isMoving || _keyframes == null || _keyframes.Length < 2) return;
-            StartCoroutine(MoveTo(0, _keyframes.Length - 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () => _isOpen = true));
+            if (_isMoving) return;
+            if (_keyframes != null && _keyframes.Length >= 2)
+                StartCoroutine(MoveTo(0, _keyframes.Length - 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () =>
+                {
+                    _isOpen = true;
+                    TriggerChainedMover(opening: true);
+                }));
+            else
+            {
+                _isOpen = true;
+                TriggerChainedMover(opening: true);
+            }
         }
 
         public void Close()
         {
-            if (_isMoving || _keyframes == null || _keyframes.Length < 2) return;
-            StartCoroutine(MoveTo(_keyframes.Length - 1, 0, _mover.SfxCloseStart, _mover.SfxCloseEnd, onDone: () => _isOpen = false));
+            if (_isMoving) return;
+            if (_keyframes != null && _keyframes.Length >= 2)
+                StartCoroutine(MoveTo(_keyframes.Length - 1, 0, _mover.SfxCloseStart, _mover.SfxCloseEnd, onDone: () =>
+                {
+                    _isOpen = false;
+                    TriggerChainedMover(opening: false);
+                }));
+            else
+            {
+                _isOpen = false;
+                TriggerChainedMover(opening: false);
+            }
+        }
+
+        private void TriggerChainedMover(bool opening)
+        {
+            var target = (_mover as ITrigger)?.VobTarget;
+            if (string.IsNullOrEmpty(target)) return;
+            if (!_vobService.TryGetMover(target, out var container) || container?.Go == null)
+            {
+                Logger.LogWarning($"[MoverAdapter] {_mover.Name} → chained target '{target}' not found in VobsMover", LogCat.Vob);
+                return;
+            }
+            var chained = container.Go.GetComponentInChildren<MoverAdapter>();
+            if (chained == null)
+            {
+                Logger.LogWarning($"[MoverAdapter] {_mover.Name} → chained target '{target}' has no MoverAdapter", LogCat.Vob);
+                return;
+            }
+            Logger.Log($"[MoverAdapter] {_mover.Name} → chaining trigger to '{target}'", LogCat.Vob);
+            if (opening) chained.Open(); else chained.Close();
         }
 
         private IEnumerator MoveTo(int fromIdx, int toIdx, string sfxStart, string sfxEnd, System.Action onDone)

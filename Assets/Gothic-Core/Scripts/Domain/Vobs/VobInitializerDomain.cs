@@ -428,11 +428,18 @@ namespace Gothic.Core.Domain.Vobs
 
             var go = CreateDefaultMesh(vob, parent);
 
-            if (go != null)
+            if (go == null)
             {
-                var adapter = go.AddComponent<MoverAdapter>();
-                adapter.Init(vob);
+                // Invisible anchor mover (no visual) — create empty GO so children can be parented and move with it
+                go = new GameObject($"Mover_{vob.Name}");
+                go.transform.SetParent(parent != null ? parent.transform : null);
+                go.transform.SetPositionAndRotation(
+                    vob.Position.ToUnityVector(),
+                    vob.Rotation.ToUnityQuaternion());
             }
+
+            var adapter = go.AddComponent<MoverAdapter>();
+            adapter.Init(vob);
 
             return go;
         }
