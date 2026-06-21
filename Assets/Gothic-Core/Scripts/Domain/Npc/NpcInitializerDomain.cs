@@ -151,7 +151,11 @@ namespace Gothic.Core.Domain.Npc
                         continue;
                     }
                     if (spawnPoint.IsFreePoint())
-                        container.Props.CurrentFreePoint = (FreePoint)spawnPoint;
+                    {
+                        var spawnFp = (FreePoint)spawnPoint;
+                        container.Props.CurrentFreePoint = spawnFp;
+                        spawnFp.IsLocked = true;
+                    }
                     else
                         container.Props.CurrentWayPoint = (WayPoint)spawnPoint;
                     go.transform.SetPositionAndRotation(spawnPoint.Position, spawnPoint.Rotation);
