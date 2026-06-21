@@ -11,7 +11,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string Destination => Action.String0;
 
         private Stack<DijkstraWaypoint> _route;
-        private WayPoint _destinationWayPoint;
 
         public GoToWp(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -19,9 +18,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
+            // Always find the physically nearest WP as the Dijkstra start.
+            // Using Props.CurrentWayPoint (last-visited WP) caused backward travel whenever
+            // the NPC stopped mid-route (B_FullStop): the stored WP was behind current position,
+            // so the NPC walked back to it before going forward.
+            var currentWaypoint = WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
-            _destinationWayPoint = destinationWaypoint;
             
             /*
              * Two situations, when this action can be skipped:
@@ -61,7 +63,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override void OnDestinationReached()
         {
-            _route.Pop();
+            // Keep Props.CurrentWayPoint current so AlignToWp and other consumers
+            // always know the last waynet node the NPC actually visited.
+            var reached = _route.Pop();
+            var reachedWp = WayNetService.GetWayNetPoint(reached.Name) as WayPoint;
+            if (reachedWp != null)
+                Props.CurrentWayPoint = reachedWp;
 
             if (_route.Count != 0)
             {
@@ -72,11 +79,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             StopWalk();
             AnimationEnd();
-
-            // Keep CurrentWayPoint up to date so the next GoToWP uses the correct Dijkstra start.
-            if (_destinationWayPoint != null)
-                Props.CurrentWayPoint = _destinationWayPoint;
-
             IsFinishedFlag = true;
         }
     }
