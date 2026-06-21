@@ -6,7 +6,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToNpc : AbstractWalkAnimationAction2
     {
-        private const float ConversationDistance = 1.5f;
+        private const float ConversationDistance = 1.3f;
 
         private Transform _destinationTransform;
 

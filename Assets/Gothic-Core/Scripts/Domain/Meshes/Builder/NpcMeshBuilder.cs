@@ -73,8 +73,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             Dictionary<string, IMultiResolutionMesh> newAttachments = new(attachments);
 
-            // Remove head as it will be loaded later.
-            if (newAttachments.Remove("BIP01 HEAD"))
+            // Only strip BIP01 HEAD when a separate head MMB file replaces it (human NPCs).
+            // Monsters like Skeleton bake the skull directly into the MDM attachment — removing it
+            // leaves them headless because NpcHeadMeshBuilder has nothing to load (Head="").
+            if (!string.IsNullOrEmpty(BodyData.Head) && newAttachments.Remove("BIP01 HEAD"))
             {
                 Logger.Log("Removed default >BIP01 HEAD< attachment mesh from NPC.", LogCat.Mesh);
             }

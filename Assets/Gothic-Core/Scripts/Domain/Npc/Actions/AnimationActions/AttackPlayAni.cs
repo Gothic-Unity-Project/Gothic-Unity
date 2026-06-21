@@ -33,6 +33,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private const float _chaseGiveUpDuration = 10f;
         private const float _heroStopResetDelay = 2f;
         private const float _heroRunSpeedThreshold = 2f;
+        private const float _attackApproachDistance = 1.3f;
 
 
         public AttackPlayAni(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
@@ -149,25 +150,31 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var myPosition = NpcContainer.Go.transform.position;
             var targetPosition = _enemyTransform.position;
 
-            // Consider only horizontal distance (ignore Y-axis)
-            var myPositionHorizontal = new Vector3(myPosition.x, 0, myPosition.z);
-            var targetPositionHorizontal = new Vector3(targetPosition.x, 0, targetPosition.z);
-            var distance = Vector3.Distance(myPositionHorizontal, targetPositionHorizontal);
+            var myPositionH = new Vector3(myPosition.x, 0, myPosition.z);
+            var targetPositionH = new Vector3(targetPosition.x, 0, targetPosition.z);
+            var toTarget = targetPositionH - myPositionH;
 
-            if (distance <= 1f)
+            // Each attacker targets a point _attackApproachDistance from the enemy in its own approach direction.
+            // Prevents all NPCs converging on the exact same spot (the "skeleton tower" problem).
+            var approachTarget = toTarget.sqrMagnitude > 0.001f
+                ? targetPositionH - toTarget.normalized * _attackApproachDistance
+                : targetPositionH;
+
+            var distance = Vector3.Distance(myPositionH, approachTarget);
+
+            if (distance <= 0.2f)
             {
                 PrefabProps.AnimationSystem.StopAllAnimations();
                 IsFinishedFlag = true;
                 return;
             }
 
-            // Rotate toward enemy using the guild-defined turn speed — same as StrafeTick() and the original Gothic engine.
+            // Rotate toward actual enemy while running (not toward the offset approach point).
             var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
-            var direction = targetPositionHorizontal - myPositionHorizontal;
             NpcGo.transform.rotation = Quaternion.RotateTowards(
                 NpcGo.transform.rotation,
-                Quaternion.LookRotation(direction),
+                Quaternion.LookRotation(toTarget),
                 Time.deltaTime * turnSpeed);
 
             // Give-up: track hero speed via position delta. If hero is running, accumulate
