@@ -176,6 +176,13 @@ namespace Gothic.Core.Domain.Npc
         {
             var userDataObject = AllocZkInstance(npcInstanceIndex);
 
+            // InitInstance must run now, before STARTUP scripts call Npc_ChangeAttribute on this NPC.
+            // If we defer to InitZkInstance (as before), Vm.InitInstance resets attributes to prototype
+            // defaults AFTER STARTUP has already modified them (e.g. Nek's HP set to 0).
+            // Setting IsZkInstanceInitialized=true tells InitZkInstance to skip re-running it.
+            Vm.InitInstance(userDataObject.Instance);
+            userDataObject.IsZkInstanceInitialized = true;
+
             // For mesh creation later, we need to store that there is a new NPC or a duplicate Monster to be spawned.
             _tmpWldInsertNpcData.Add((userDataObject, spawnPoint));
         }
