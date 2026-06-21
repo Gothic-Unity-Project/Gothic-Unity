@@ -11,6 +11,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Vm;
@@ -75,11 +76,21 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameTimeService _gameTimeService;
 
+        // NpcInventoryService intentionally NOT injected — VobService already injects SaveGameService,
+        // so injecting NpcInventoryService (which injects VobService) here would create a circular dependency.
+        // Resolved lazily at call time instead.
+        private NpcInventoryService _npcInventorySvc
+            => ReflexProjectInstaller.DIContainer.Resolve<NpcInventoryService>();
+
         private UnityCustomSave _pendingHeroRestore;
         private SaveGame _pendingSaveRestore;
         private readonly Dictionary<string, NpcSaveEntry> _npcSnapshots = new();
         private Dictionary<string, NpcSaveEntry> _pendingNpcRestore;
         private List<NpcInitEntry> _pendingNpcInit;
+
+        // Items currently loose in the world (taken out of backpack, or loot dropped on ground).
+        // Keyed by the ZenKit VOB so PrepareWorldDataForSaving can sync their Unity transforms before writing WORLD.SAV.
+        private readonly Dictionary<IVirtualObject, VobContainer> _looseWorldItems = new();
 
         public Dictionary<string, NpcSaveEntry> PendingNpcRestore => _pendingNpcRestore;
         public List<NpcInitEntry> PendingNpcInit => _pendingNpcInit;
@@ -88,6 +99,39 @@ namespace Gothic.Core.Services.World
         {
             _pendingNpcRestore = null;
             _pendingNpcInit = null;
+        }
+
+        /// <summary>
+        /// Call when an item enters the world as a physical object (e.g. taken out of backpack, dropped by NPC).
+        /// Registers it so PrepareWorldDataForSaving can sync the Unity transform → ZenKit VOB position before writing WORLD.SAV.
+        /// </summary>
+        public void TrackLooseItem(VobContainer container)
+        {
+            if (container?.Vob == null || container.Go == null) return;
+            _looseWorldItems[container.Vob] = container;
+        }
+
+        /// <summary>
+        /// Call when the item leaves the world (put into backpack or inventory).
+        /// </summary>
+        public void UntrackLooseItem(VobContainer container)
+        {
+            if (container?.Vob == null) return;
+            _looseWorldItems.Remove(container.Vob);
+        }
+
+        /// <summary>
+        /// Call when a fresh item VOB (created by chest/container spawn, not originally in the world tree)
+        /// is dropped into the world and needs to be persisted in WORLD.SAV.
+        /// Adds the VOB to the runtime world list and tracks its position for save time.
+        /// </summary>
+        public void PromoteChestItemToWorld(VobContainer container)
+        {
+            if (container?.Vob == null || container.Go == null) return;
+            if (!_worlds.ContainsKey(CurrentWorldName)) return;
+            if (!CurrentWorldData.Vobs.Contains(container.Vob))
+                CurrentWorldData.Vobs.Add(container.Vob);
+            _looseWorldItems[container.Vob] = container;
         }
 
         
@@ -144,6 +188,7 @@ namespace Gothic.Core.Services.World
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
             _npcSnapshots.Clear();
+            _looseWorldItems.Clear();
             _pendingNpcRestore = null;
             _pendingNpcInit = null;
         }
@@ -171,6 +216,7 @@ namespace Gothic.Core.Services.World
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
             _npcSnapshots.Clear();
+            _looseWorldItems.Clear();
             _pendingNpcRestore = null;
             _pendingNpcInit = null;
             _pendingSaveRestore = save;
@@ -201,10 +247,30 @@ namespace Gothic.Core.Services.World
             ZenKit.World saveGameWorld = null;
             bool worldFoundInSaveGame = false;
 
-            // 2. Try to load world from save game.
-            // TODO: WORLD.SAV loading is disabled — our binary format is not yet crash-free in Gothic.exe.
-            // Daedalus state (quest flags, time) is restored from SAVEDAT via RestoreDaedalusState().
-            // World always loads from the .zen file; items/NPCs reset to world-file defaults.
+            // 2. Try to load world from save game (gated behind EnableSaveLoadSystem).
+            // ZenKit can reliably round-trip its own format; the previous disable was for Gothic.exe
+            // compat of the WORLD.SAV binary, which we now sidestep via GOLDENSAVE world stubs.
+            if (IsLoadedGame && _configService.Dev.EnableSaveLoadSystem)
+            {
+                try
+                {
+                    var saveName = CurrentWorldName.TrimEndIgnoreCase(".ZEN").ToUpper();
+                    saveGameWorld = Save.LoadWorld(saveName);
+                    if (saveGameWorld != null)
+                    {
+                        worldFoundInSaveGame = true;
+                        Logger.Log($"ChangeWorld: loaded '{CurrentWorldName}' VOB state from WORLD.SAV", LogCat.Loading);
+                    }
+                    else
+                    {
+                        Logger.Log($"ChangeWorld: '{CurrentWorldName}' not in save (first visit) — loading from .zen", LogCat.Loading);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"ChangeWorld: failed to load '{CurrentWorldName}' from save — falling back to .zen: {ex.Message}", LogCat.Loading);
+                }
+            }
 
             ZenKit.World worldToUse;
             if (worldFoundInSaveGame)
@@ -222,6 +288,32 @@ namespace Gothic.Core.Services.World
 
             // 3. Store this world into runtime data as it's now loaded and cached during gameplay. (To save later when needed.)
             // TODO - If we get memory consumption issue, we can consider removing some data to free memory once world is loaded later.
+            // When loading from a save: use WORLD.SAV for item/mover/chest state, but NOT for NPCs.
+            // WORLD.SAV's RootObjects contains NPC VOBs written by PrepareWorldDataForSaving (hero + visible NPCs).
+            // Daedalus startup scripts always run Wld_InsertNpc for every NPC regardless — loading them
+            // from WORLD.SAV alongside Daedalus creates duplicates (two Diegos, hero position conflict, etc).
+            // NPCs are spawned exclusively by Daedalus; PendingNpcRestore dirty delta patches position/HP/death.
+            // Build a flat list of world VOBs, excluding NPCs (always spawned by Daedalus).
+            // When loading from .zen, items sit inside zCVobLevelCompo children — flatten them here
+            // so CurrentWorldData.Vobs.Remove() works correctly when items enter the backpack.
+            // WORLD.SAV is already flat, so the LevelCompo branch never fires on a saved load.
+            IEnumerable<IVirtualObject> worldVobsSource = worldFoundInSaveGame
+                ? (IEnumerable<IVirtualObject>)saveGameWorld.RootObjects
+                : originalWorld.RootObjects;
+
+            var worldVobs = new List<IVirtualObject>();
+            foreach (var vob in worldVobsSource)
+            {
+                if (vob.Type == VirtualObjectType.zCVobLevelCompo)
+                {
+                    foreach (var child in vob.Children)
+                        if (child.Type != VirtualObjectType.oCNpc)
+                            worldVobs.Add(child);
+                }
+                else if (vob.Type != VirtualObjectType.oCNpc)
+                    worldVobs.Add(vob);
+            }
+
             _worlds[CurrentWorldName] = new WorldContainer
             {
                 OriginalWorld = originalWorld,
@@ -231,11 +323,13 @@ namespace Gothic.Core.Services.World
                 Mesh = (Mesh)originalWorld.Mesh, // Do not cache or memory consumption will be way too high
                 BspTree = (CachedBspTree)originalWorld.BspTree.Cache(),
 
-                // Only existing in SaveGame world
-                Npcs = WrapVobs(worldToUse.Npcs), // (if it's a new world, it's simply null)
+                // NPC list from .zen is always empty — Daedalus startup scripts handle NPC spawning.
+                // Never use WORLD.SAV's Npcs; that path also causes duplicates.
+                Npcs = WrapVobs(originalWorld.Npcs),
 
-                // Contained inside both: normal .zen file and also saveGame.
-                Vobs = WrapVobs(worldToUse!.RootObjects),
+                // Items, movers, chests: from WORLD.SAV when available (correct picked/opened states).
+                // oCNpc entries already excluded from worldVobs above.
+                Vobs = WrapVobs(worldVobs),
                 WayNet = (CachedWayNet)worldToUse.WayNet.Cache()
             };
         }
@@ -381,6 +475,16 @@ namespace Gothic.Core.Services.World
                 allVobs.Add(heroContainer.Vob);
             }
 
+            // Sync Unity transforms → ZenKit VOB positions for items that were dropped in the world.
+            // Without this, dropped items save at their original .zen position and teleport back on load.
+            // Items held in hand at save time also get their hand position synced (they load frozen/kinematic there).
+            foreach (var (vob, looseItem) in _looseWorldItems)
+            {
+                if (looseItem.Go == null) continue;
+                vob.Position = looseItem.Go.transform.position.ToZkVector();
+                vob.Rotation = looseItem.Go.transform.rotation.ToZkMatrix();
+            }
+
             _npcMeshCullingService.UpdateVobPositionOfVisibleNpcs();
             var visibleNpcs = _npcMeshCullingService.GetVisibleNpcs();
 
@@ -426,7 +530,7 @@ namespace Gothic.Core.Services.World
         private void SaveUnityCustomData(SlotId saveGameId)
         {
             var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
-            var heroContainer = hero.GetUserData()!;
+            var heroContainer = hero.GetUserData();
             var vob = heroContainer.Vob; // Vob is the runtime truth — attributes are updated here by ExtNpcChangeAttribute
 
             var heroAttrs = new int[8];
@@ -435,6 +539,12 @@ namespace Gothic.Core.Services.World
 
             var heroPos = heroContainer.Go.transform.position;
             var heroRot = heroContainer.Go.transform.rotation;
+
+            // Hero inventory — read all categories from packed storage (runtime truth)
+            var heroInvItems = _npcInventorySvc.GetAllInventoryItems(hero);
+            var heroInventory = heroInvItems
+                .Select(i => new HeroInventoryEntry { Name = i.Name, Amount = i.Amount })
+                .ToList();
 
             var data = new UnityCustomSave
             {
@@ -448,7 +558,11 @@ namespace Gothic.Core.Services.World
                 HeroLevel = vob.Level,
                 HeroXp = vob.Xp,
                 HeroExpNext = vob.XpNextLevel,
-                HeroLp = vob.Lp
+                HeroLp = vob.Lp,
+                HeroInventory = heroInventory,
+                GuildAttitudes = _gameStateService.GuildAttitudes != null
+                    ? (int[])_gameStateService.GuildAttitudes.Clone()
+                    : null
             };
 
             // Load existing UNITYSAVE.json as base so saves are additive (update/add, never delete)
@@ -477,7 +591,7 @@ namespace Gothic.Core.Services.World
             var savePath = GetUnityCustomSavePath(saveGameId);
             Directory.CreateDirectory(Path.GetDirectoryName(savePath));
             File.WriteAllText(savePath, json);
-            Logger.Log($"SaveUnityCustomData: level={data.HeroLevel} hp={data.HeroAttributes[0]}/{data.HeroAttributes[1]} npcs={data.Npcs.Count}", LogCat.Loading);
+            Logger.Log($"SaveUnityCustomData: level={data.HeroLevel} hp={data.HeroAttributes[0]}/{data.HeroAttributes[1]} inv={data.HeroInventory?.Count ?? 0} npcs={data.Npcs.Count} attitudes={data.GuildAttitudes?.Length ?? 0}", LogCat.Loading);
         }
 
         private void LoadUnityCustomData(SlotId saveGameId)
@@ -559,6 +673,34 @@ namespace Gothic.Core.Services.World
                 heroContainer.Props.TrueGuild = (VmGothicEnums.Guild)data.HeroGuild;
             }
 
+            // Restore hero inventory: clear Daedalus-assigned defaults then re-add saved items.
+            // The backpack reads from GetPacked() at open time, so it will reflect this automatically.
+            if (data.HeroInventory != null && data.HeroInventory.Count > 0)
+            {
+                _npcInventorySvc.ExtNpcClearInventory(hero);
+                var restored = 0;
+                foreach (var entry in data.HeroInventory)
+                {
+                    var sym = _gameStateService.GothicVm.GetSymbolByName(entry.Name);
+                    if (sym == null)
+                    {
+                        Logger.LogWarning($"ApplyHeroRestore: item '{entry.Name}' not found in VM, skipping", LogCat.Loading);
+                        continue;
+                    }
+                    _npcInventorySvc.ExtCreateInvItems(hero, sym.Index, entry.Amount);
+                    restored++;
+                }
+                Logger.Log($"ApplyHeroRestore: restored {restored}/{data.HeroInventory.Count} inventory entries", LogCat.Loading);
+            }
+
+            // Restore guild attitude matrix so faction changes (e.g. joining a camp) persist.
+            if (data.GuildAttitudes != null && _gameStateService.GuildAttitudes != null &&
+                data.GuildAttitudes.Length == _gameStateService.GuildAttitudes.Length)
+            {
+                Array.Copy(data.GuildAttitudes, _gameStateService.GuildAttitudes, data.GuildAttitudes.Length);
+                Logger.Log($"ApplyHeroRestore: restored guild attitude matrix ({data.GuildAttitudes.Length} entries)", LogCat.Loading);
+            }
+
             Logger.Log($"ApplyHeroRestore: vob AFTER level={vob.Level} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)}", LogCat.Loading);
         }
 
@@ -575,6 +717,7 @@ namespace Gothic.Core.Services.World
             }
             else if (_pendingNpcRestore != null && _pendingNpcRestore.TryGetValue(key, out var entry))
             {
+                Logger.Log($"OnNpcCullingChanged: restoring '{key}' dead={entry.IsDead} hp={entry.Attributes?[0]} goSet={npc.Go != null}", LogCat.Loading);
                 ApplyNpcSavedState(npc, entry);
                 _pendingNpcRestore.Remove(key);
             }
@@ -582,9 +725,15 @@ namespace Gothic.Core.Services.World
 
         private static string MakeNpcKey(NpcContainer npc)
         {
-            if (npc.Go == null) return npc.Vob.NpcInstance;
-            var parent = npc.Go.transform.parent;
-            return parent != null ? parent.name : npc.Go.name;
+            // GoName is set in InitLazyLoadNpc before npc.Go is assigned, so it's stable at
+            // restore time (PostWorldCreate fires before InitNpc creates the "Root" GO).
+            if (!string.IsNullOrEmpty(npc.GoName)) return npc.GoName;
+            if (npc.Go != null)
+            {
+                var parent = npc.Go.transform.parent;
+                return parent != null ? parent.name : npc.Go.name;
+            }
+            return npc.Vob.NpcInstance;
         }
 
         private static NpcSaveEntry CreateNpcSnapshot(string key, NpcContainer npc)
@@ -602,7 +751,8 @@ namespace Gothic.Core.Services.World
                 Rotation = new[] { rot.x, rot.y, rot.z, rot.w },
                 Attributes = attrs,
                 CurrentStateName = vob.CurrentStateName ?? "",
-                CurrentRoutine = vob.CurrentRoutine ?? ""
+                CurrentRoutine = vob.CurrentRoutine ?? "",
+                IsDead = npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || vob.GetAttribute(0) <= 0
             };
         }
 
@@ -619,7 +769,21 @@ namespace Gothic.Core.Services.World
                 npc.Go.transform.rotation = new Quaternion(entry.Rotation[0], entry.Rotation[1], entry.Rotation[2], entry.Rotation[3]);
             }
 
-            Logger.Log($"ApplyNpcSavedState: {entry.NpcInstance} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)}", LogCat.Npc);
+            if (entry.IsDead)
+            {
+                npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+                // AiHandler.Start() runs before PostWorldCreate fires NpcMeshCullingChanged,
+                // so it saw full HP and initialized the NPC alive. Force dead state now.
+                npc.Props.AnimationQueue.Clear();
+                if (npc.PrefabProps?.AnimationSystem != null)
+                {
+                    npc.PrefabProps.AnimationSystem.StopAllAnimations();
+                    npc.PrefabProps.AnimationSystem.PlayAnimation("S_DEADB");
+                }
+                Logger.Log($"ApplyNpcSavedState: {entry.NpcInstance} marked dead", LogCat.Npc);
+            }
+
+            Logger.Log($"ApplyNpcSavedState: {entry.NpcInstance} hp={vob.GetAttribute(0)}/{vob.GetAttribute(1)} dead={entry.IsDead}", LogCat.Npc);
         }
 
         private string GetUnityCustomSavePath(SlotId saveGameId)

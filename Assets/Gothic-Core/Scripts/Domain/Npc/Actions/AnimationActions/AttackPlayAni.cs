@@ -154,6 +154,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var targetPositionH = new Vector3(targetPosition.x, 0, targetPosition.z);
             var toTarget = targetPositionH - myPositionH;
 
+            // Already within attack range — stop immediately.
+            // Without this, approachTarget = targetPos - toTarget.normalized * 1.3 lands BEHIND the
+            // enemy when the NPC is already closer than 1.3m, causing it to walk through the player.
+            if (toTarget.magnitude <= _attackApproachDistance)
+            {
+                PrefabProps.AnimationSystem.StopAllAnimations();
+                IsFinishedFlag = true;
+                return;
+            }
+
             // Each attacker targets a point _attackApproachDistance from the enemy in its own approach direction.
             // Prevents all NPCs converging on the exact same spot (the "skeleton tower" problem).
             var approachTarget = toTarget.sqrMagnitude > 0.001f

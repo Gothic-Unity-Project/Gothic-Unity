@@ -102,6 +102,7 @@ namespace Gothic.Core.Domain.Npc
                 var dirtyKey = initEntry.GoName;
                 NpcSaveEntry dirty = null;
                 var hasDirty = dirtyDict != null && !dirtyKey.IsNullOrEmpty() && dirtyDict.TryGetValue(dirtyKey, out dirty);
+                Logger.Log($"InitNpcsFromMergedSnapshots: '{dirtyKey}' hasDirty={hasDirty}{(hasDirty ? $" dead={dirty.IsDead} hp={dirty.Attributes?[0]}" : "")}", LogCat.Loading);
 
                 // Apply saved routine before InitZkInstance reads vob.CurrentRoutine
                 if (hasDirty && !dirty.CurrentRoutine.IsNullOrEmpty())

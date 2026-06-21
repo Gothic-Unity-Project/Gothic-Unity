@@ -277,13 +277,14 @@ namespace Gothic.Core.Adapters.Npc
                 }
             }
 
-            // PERC_MOVENPC: fire when hero is within the configured range (Gothic sets this to PERC_DIST_DIALOG = 5m).
-            // Previously only triggered by physical collision — this gives the leeway the SVM needs.
+            // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
+            // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.
             // B_MoveNpc itself checks BS_STAND so it won't bark at a moving player.
             if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.MoveNpc, out var moveNpcPerception) &&
                 moveNpcPerception >= 0)
             {
-                var moveNpcRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.MoveNpc);
+                const float moveNpcMaxRange = 1f;
+                var moveNpcRange = Mathf.Min(_npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.MoveNpc), moveNpcMaxRange);
                 var distToHero = Vector3.Distance(gameObject.transform.position, heroGo.transform.position);
                 if (distToHero <= moveNpcRange)
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.MoveNpc, Properties, NpcInstance, null, hero);

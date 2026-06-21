@@ -1,7 +1,10 @@
 #if GOTHIC_HVR_INSTALLED
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
+using Gothic.Core.Services.World;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
+using HurricaneVR.Framework.Core.Sockets;
 using Reflex.Attributes;
 using UnityEngine;
 
@@ -10,6 +13,7 @@ namespace Gothic.VR.Adapters.Player
     public class VRPlayerItemAdapter : MonoBehaviour
     {
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         /// <summary>
@@ -31,6 +35,13 @@ namespace Gothic.VR.Adapters.Player
             {
                 rb.isKinematic = false;
             }
+
+            // Promote item to the world VOB list if it isn't already there (e.g. grabbed from a chest
+            // socket — chest items are created as fresh VOBs not in CurrentWorldData.Vobs).
+            // For regular world items already in the list this is a no-op add + position track.
+            var vobLoader = grabbable.GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container != null)
+                _saveGameService.PromoteChestItemToWorld(vobLoader.Container);
         }
 
     }

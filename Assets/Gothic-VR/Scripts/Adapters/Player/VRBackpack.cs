@@ -95,10 +95,11 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_tempIgnoreSocketing)
                 return;
-            
+
             var vobLoader = grabbable.GetComponentInParent<VobLoader>(true);
             var vobContainer = vobLoader.Container;
 
+            _saveGameService.UntrackLooseItem(vobContainer);
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
 
@@ -131,6 +132,7 @@ namespace Gothic.VR.Adapters.Player
 
             _vobMeshCullingService.AddCullingEntry(vobContainer);
             _saveGameService.CurrentWorldData.Vobs.Add(vobContainer.Vob);
+            _saveGameService.TrackLooseItem(vobContainer);
 
             _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
