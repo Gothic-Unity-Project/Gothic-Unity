@@ -184,6 +184,12 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // InitNpcsFromMergedSnapshots is the primary NPC path when loading a saved game.
+            // Creating a duplicate container from the WORLD.SAV NPC VOB causes it to run ZS_* routines
+            // and lock FreePoints before the real container starts, so GoToNextFp picks the wrong FP.
+            if (_saveGameService.PendingNpcInit != null)
+                return;
+
             // Initialize NPC and set its data from SaveGame (VOB entry).
             _initializerDomain.InitNpcVobSaveGame(vobNpc);
         }

@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
 using UnityEngine;
+using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -29,6 +32,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
              * 1. Ai_GoToWp() can get called multiple times until it will loose the WP in between the Ai_StartState() calls. (e.g. ZS_Sleep() -> ZS_StandAround())
              * 2. During spawning (e.g.). As we spawn NPCs onto their current WayPoints, they don't need to walk there from entrance of OC.
              */
+            Logger.Log($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: currentWP={currentWaypoint.Name} dest={Destination} match={currentWaypoint.Name == Destination}", LogCat.Ai);
             if (destinationWaypoint == null || destinationWaypoint.Name == "" || currentWaypoint.Name == Destination)
             {
                 IsFinishedFlag = true;
@@ -39,9 +43,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var path = WayNetService.FindFastestPath(currentWaypoint.Name, destinationWaypoint.Name);
             if (path == null)
             {
+                Logger.LogWarning($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: no path {currentWaypoint.Name} → {Destination}", LogCat.Ai);
                 IsFinishedFlag = true;
                 return;
             }
+            Logger.Log($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: path {currentWaypoint.Name}→{Destination} steps={path.Length} firstHop={path[path.Length - 1].Name}", LogCat.Ai);
 
             _route = new Stack<DijkstraWaypoint>(path);
 

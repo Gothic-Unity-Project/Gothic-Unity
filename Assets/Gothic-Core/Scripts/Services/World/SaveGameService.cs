@@ -763,6 +763,7 @@ namespace Gothic.Core.Services.World
                 Attributes = attrs,
                 CurrentStateName = vob.CurrentStateName ?? "",
                 CurrentRoutine = vob.CurrentRoutine ?? "",
+                CurrentFreePointName = npc.Props.CurrentFreePoint?.Name,
                 IsDead = isDead
             };
         }

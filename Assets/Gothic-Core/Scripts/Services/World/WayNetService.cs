@@ -217,6 +217,12 @@ namespace Gothic.Core.Creator
         [CanBeNull]
         public FreePoint FindNearestFreePoint(Vector3 lookupPosition, string fpNamePart, FreePoint npcOnFp)
         {
+            // If the NPC already has a home FP and it's available, return it directly.
+            // This prevents an NPC that woke up at the wrong position (e.g. after save/load or cull-in)
+            // from grabbing a closer unlocked FP that belongs to another NPC's post.
+            if (npcOnFp != null && npcOnFp.Name.ContainsIgnoreCase(fpNamePart) && !npcOnFp.IsLocked)
+                return npcOnFp;
+
             return _gameStateService.FreePoints
                 .Where(pair =>
                     pair.Value.Name.ContainsIgnoreCase(fpNamePart) && (pair.Value == npcOnFp || !pair.Value.IsLocked))

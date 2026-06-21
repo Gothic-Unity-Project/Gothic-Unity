@@ -126,6 +126,15 @@ namespace Gothic.Core.Domain.Npc
                         for (var i = 0; i < dirty.Attributes.Length && i < 8; i++)
                             vob.SetAttribute(i, dirty.Attributes[i]);
                     }
+
+                    // Restore the FP the NPC held at save time so it reclaims its home post
+                    // instead of racing against other NPCs for the nearest unlocked FP.
+                    if (!dirty.CurrentFreePointName.IsNullOrEmpty()
+                        && _gameStateService.FreePoints.TryGetValue(dirty.CurrentFreePointName, out var savedFp))
+                    {
+                        container.Props.CurrentFreePoint = savedFp;
+                        savedFp.IsLocked = true;
+                    }
                 }
                 else
                 {

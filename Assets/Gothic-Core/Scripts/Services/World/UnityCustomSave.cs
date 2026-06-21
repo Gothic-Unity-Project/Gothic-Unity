@@ -28,6 +28,7 @@ namespace Gothic.Core.Services.World
         public int[] Attributes;        // NpcAttribute indices 0-7 (HP, HP_MAX, Mana, etc.)
         public string CurrentStateName;
         public string CurrentRoutine;
+        public string CurrentFreePointName; // name of the FP the NPC held when last snapshotted
         public bool IsDead;             // true if HP was 0 at snapshot time
     }
 

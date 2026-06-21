@@ -114,6 +114,7 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiGoToWp(NpcInstance npc, string wayPointName)
         {
+            Logger.Log($"[ExtAiGoToWp] {npc.GetName(NpcNameSlot.Slot0)}: dest={wayPointName}", LogCat.Ai);
             npc.GetUserData()!.Props.AnimationQueue.Enqueue(new GoToWp(
                 new AnimationAction(wayPointName),
                 npc.GetUserData()));
@@ -126,6 +127,7 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiGoToFp(NpcInstance npc, string freePointName)
         {
+            Logger.Log($"[ExtAiGoToFp] {npc.GetName(NpcNameSlot.Slot0)}: pattern={freePointName}", LogCat.Ai);
             npc.GetUserData()!.Props.AnimationQueue.Enqueue(new GoToFp(
                 new AnimationAction(freePointName),
                 npc.GetUserData()));

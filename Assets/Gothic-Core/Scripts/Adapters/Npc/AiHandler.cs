@@ -338,9 +338,12 @@ namespace Gothic.Core.Adapters.Npc
                     // Update CurrentWayPoint to the nearest WP so GoToWP uses the correct Dijkstra
                     // starting position instead of the stale spawn WP. Without this, GoToWP(destination)
                     // computes a path from the old spawn WP, walking the NPC backward before going forward.
+                    var prevWp = Properties.CurrentWayPoint?.Name ?? "null";
                     var nearestWp = _wayNetService.FindNearestWayPoint(gameObject.transform.position);
                     if (nearestWp != null)
                         Properties.CurrentWayPoint = nearestWp;
+                    var pos = gameObject.transform.position;
+                    Logger.Log($"[StartNextRoutine] {NpcInstance.GetName(NpcNameSlot.Slot0)}: routine={currentRoutine.Waypoint} prevWP={prevWp} nearestWP={nearestWp?.Name ?? "null"} pos=({pos.x:F1},{pos.y:F1},{pos.z:F1})", LogCat.Ai);
                     StartRoutine(currentRoutine.Action, currentRoutine.Waypoint);
                 }
                 else
@@ -453,7 +456,11 @@ namespace Gothic.Core.Adapters.Npc
                 if (wp != null)
                 {
                     gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
-                    Properties.CurrentFreePoint = wp as FreePoint;
+                    // Only overwrite CurrentFreePoint when the routine WP is itself a FreePoint.
+                    // If it's a WayPoint (e.g. SPAWN_ZOLLO), preserve the home FP so GoToNextFp
+                    // can reclaim it instead of grabbing the nearest unlocked one.
+                    if (wp is FreePoint reFp)
+                        Properties.CurrentFreePoint = reFp;
                     Properties.CurrentWayPoint = wp as WayPoint;
                 }
                 else
