@@ -184,7 +184,9 @@ namespace Gothic.Core.Services
             {
                 // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
                 // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
-                _saveGameService.ClearPendingNpcData();
+                // Only clear _pendingNpcInit (world-specific) — keep _pendingNpcRestore alive so dirty
+                // NPCs modified in other worlds are restored when we revisit those worlds this session.
+                _saveGameService.ClearPendingNpcInit();
                 _vobService.PreWorldCreate();
                 _vobMeshCullingService.PreWorldCreate();
                 _npcMeshCullingService.PreWorldCreate();

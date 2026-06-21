@@ -102,6 +102,16 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
+        /// Clears only the per-world init list (used on world change).
+        /// Unlike ClearPendingNpcData, this keeps _pendingNpcRestore alive so dirty NPCs
+        /// from previously visited worlds are still restored when we enter those worlds again.
+        /// </summary>
+        public void ClearPendingNpcInit()
+        {
+            _pendingNpcInit = null;
+        }
+
+        /// <summary>
         /// Call when an item enters the world as a physical object (e.g. taken out of backpack, dropped by NPC).
         /// Registers it so PrepareWorldDataForSaving can sync the Unity transform → ZenKit VOB position before writing WORLD.SAV.
         /// </summary>
@@ -235,6 +245,15 @@ namespace Gothic.Core.Services.World
             // Linux doesn't see \ as a directory separator, Windows sees both \ and /
             CurrentWorldName = Path.GetFileName(worldName.Replace("\\","/"));
 
+            // For world-change during a loaded-game session, ClearPendingNpcInit() wiped _pendingNpcInit.
+            // Reload the per-world init snapshot for the destination world so InitNpcsFromMergedSnapshots works.
+            // On initial load, LoadUnityCustomData already set _pendingNpcInit — only reload if it's missing.
+            if (_configService.Dev.EnableSaveLoadSystem && IsLoadedGame && _pendingNpcInit == null)
+            {
+                Logger.Log($"ChangeWorld: _pendingNpcInit null — reloading init for '{CurrentWorldName}'", LogCat.Loading);
+                TryLoadNpcInitForWorld(CurrentWorldName);
+            }
+
             // 1. World was already loaded.
             if (_worlds.ContainsKey(CurrentWorldName))
             {
@@ -243,66 +262,16 @@ namespace Gothic.Core.Services.World
             }
 
             IsWorldLoadedForTheFirstTime = true;
-            ZenKit.World originalWorld = _resourceCacheService.TryGetWorld(CurrentWorldName)!; // Always needed for some data not present in SaveGame.
-            ZenKit.World saveGameWorld = null;
-            bool worldFoundInSaveGame = false;
+            IsWorldEnteredFirstTime = true; // Always true — VOBs always come from .zen, never WORLD.SAV
+            ZenKit.World originalWorld = _resourceCacheService.TryGetWorld(CurrentWorldName)!;
 
-            // 2. Try to load world from save game (gated behind EnableSaveLoadSystem).
-            // ZenKit can reliably round-trip its own format; the previous disable was for Gothic.exe
-            // compat of the WORLD.SAV binary, which we now sidestep via GOLDENSAVE world stubs.
-            if (IsLoadedGame && _configService.Dev.EnableSaveLoadSystem)
-            {
-                try
-                {
-                    var saveName = CurrentWorldName.TrimEndIgnoreCase(".ZEN").ToUpper();
-                    saveGameWorld = Save.LoadWorld(saveName);
-                    if (saveGameWorld != null)
-                    {
-                        worldFoundInSaveGame = true;
-                        Logger.Log($"ChangeWorld: loaded '{CurrentWorldName}' VOB state from WORLD.SAV", LogCat.Loading);
-                    }
-                    else
-                    {
-                        Logger.Log($"ChangeWorld: '{CurrentWorldName}' not in save (first visit) — loading from .zen", LogCat.Loading);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"ChangeWorld: failed to load '{CurrentWorldName}' from save — falling back to .zen: {ex.Message}", LogCat.Loading);
-                }
-            }
-
-            ZenKit.World worldToUse;
-            if (worldFoundInSaveGame)
-            {
-                worldToUse = saveGameWorld;
-                IsWorldLoadedForTheFirstTime = false;
-                IsWorldEnteredFirstTime = false;
-            }
-            else
-            {
-                // If there is no save game used or world not saved, we visit it for the first time.
-                worldToUse = originalWorld;
-                IsWorldEnteredFirstTime = true;
-            }
-
-            // 3. Store this world into runtime data as it's now loaded and cached during gameplay. (To save later when needed.)
-            // TODO - If we get memory consumption issue, we can consider removing some data to free memory once world is loaded later.
-            // When loading from a save: use WORLD.SAV for item/mover/chest state, but NOT for NPCs.
-            // WORLD.SAV's RootObjects contains NPC VOBs written by PrepareWorldDataForSaving (hero + visible NPCs).
-            // Daedalus startup scripts always run Wld_InsertNpc for every NPC regardless — loading them
-            // from WORLD.SAV alongside Daedalus creates duplicates (two Diegos, hero position conflict, etc).
-            // NPCs are spawned exclusively by Daedalus; PendingNpcRestore dirty delta patches position/HP/death.
-            // Build a flat list of world VOBs, excluding NPCs (always spawned by Daedalus).
-            // When loading from .zen, items sit inside zCVobLevelCompo children — flatten them here
-            // so CurrentWorldData.Vobs.Remove() works correctly when items enter the backpack.
-            // WORLD.SAV is already flat, so the LevelCompo branch never fires on a saved load.
-            IEnumerable<IVirtualObject> worldVobsSource = worldFoundInSaveGame
-                ? (IEnumerable<IVirtualObject>)saveGameWorld.RootObjects
-                : originalWorld.RootObjects;
-
+            // Always build VOBs from the original .zen.
+            // ZenKit's round-tripped WORLD.SAV crashes on reload; all runtime state lives in UNITYSAVE.json.
+            // Item/chest/mover persistence via WORLD.SAV is a future TODO.
+            // Flatten zCVobLevelCompo children so CurrentWorldData.Vobs.Remove() works correctly
+            // when items enter the backpack.
             var worldVobs = new List<IVirtualObject>();
-            foreach (var vob in worldVobsSource)
+            foreach (var vob in originalWorld.RootObjects)
             {
                 if (vob.Type == VirtualObjectType.zCVobLevelCompo)
                 {
@@ -317,18 +286,14 @@ namespace Gothic.Core.Services.World
             _worlds[CurrentWorldName] = new WorldContainer
             {
                 OriginalWorld = originalWorld,
-                SaveGameWorld = saveGameWorld,
+                SaveGameWorld = null, // Set lazily in SaveCurrentGame when writing WORLD.SAV
 
-                // Only existing in normal world (not in save game)
                 Mesh = (Mesh)originalWorld.Mesh, // Do not cache or memory consumption will be way too high
                 BspTree = (CachedBspTree)originalWorld.BspTree.Cache(),
 
                 // NPC list from .zen is always empty — Daedalus startup scripts handle NPC spawning.
-                // Never use WORLD.SAV's Npcs; that path also causes duplicates.
                 Npcs = WrapVobs(originalWorld.Npcs),
 
-                // Items, movers, chests: from WORLD.SAV when available (correct picked/opened states).
-                // oCNpc entries already excluded from worldVobs above.
                 Vobs = WrapVobs(worldVobs),
                 // Always use original .zen WayNet — WORLD.SAV can have corrupt/shifted waypoint positions
                 // that cause NPCs to route to wrong coordinates on load.
@@ -397,9 +362,6 @@ namespace Gothic.Core.Services.World
                 saveGame.Save(GetSaveGamePath(saveGameId), worldContainer.SaveGameWorld, worldData.Key.TrimEndIgnoreCase(".ZEN").ToUpper());
             }
 
-            // After ZenKit writes its files (SAVEINFO.SAV, SAVEDAT), overlay GOLDENSAVE world files for Gothic.exe compat.
-            // Then write our JSON last so it's never wiped.
-            CopyGoldenSaveToSlot(saveGameId);
             SaveUnityCustomData(saveGameId);
         }
 
@@ -620,15 +582,12 @@ namespace Gothic.Core.Services.World
                 ? unitySave.Npcs.ToDictionary(e => e.Key, e => e)
                 : null;
 
-            // Load global NPC init baseline (created once on new game)
-            if (File.Exists(NpcInitPath))
-            {
-                var npcInit = JsonConvert.DeserializeObject<UnityNpcInit>(File.ReadAllText(NpcInitPath));
-                if (npcInit?.Npcs?.Count > 0 && string.Equals(npcInit.WorldName, CurrentWorldName, StringComparison.OrdinalIgnoreCase))
-                    _pendingNpcInit = npcInit.Npcs;
-                else
-                    Logger.LogWarning($"LoadUnityCustomData: UNITYNPCINIT.json world='{npcInit?.WorldName}' vs current='{CurrentWorldName}' — mismatch or empty, falling back.", LogCat.Loading);
-            }
+            // Load world-specific NPC init baseline.
+            // IMPORTANT: CurrentWorldName is NULL here — ChangeWorld() hasn't been called yet.
+            // Use unitySave.WorldName (the world where the game was saved) as the lookup key.
+            var targetWorld = unitySave?.WorldName ?? "";
+            Logger.Log($"LoadUnityCustomData: save world='{targetWorld}', CurrentWorldName='{CurrentWorldName}' (not yet set)", LogCat.Loading);
+            TryLoadNpcInitForWorld(targetWorld);
 
             var playerService = ReflexProjectInstaller.DIContainer.Resolve<PlayerService>();
             playerService.HeroSpawnPosition = new Vector3(
@@ -642,6 +601,46 @@ namespace Gothic.Core.Services.World
                 _pendingHeroRestore.HeroRotation[3]);
 
             Logger.Log($"LoadUnityCustomData: spawning at {playerService.HeroSpawnPosition}, npcInit={_pendingNpcInit?.Count ?? 0}, dirty={_pendingNpcRestore?.Count ?? 0}", LogCat.Loading);
+        }
+
+        private void TryLoadNpcInitForWorld(string worldName)
+        {
+            if (string.IsNullOrEmpty(worldName)) return;
+
+            // World-specific file takes priority over the legacy single file
+            var worldPath = GetNpcInitPath(worldName);
+            var legacyPath = LegacyNpcInitPath;
+
+            string pathToUse = null;
+            if (File.Exists(worldPath))
+            {
+                pathToUse = worldPath;
+                Logger.Log($"TryLoadNpcInitForWorld: using world-specific file for '{worldName}'", LogCat.Loading);
+            }
+            else if (File.Exists(legacyPath))
+            {
+                var legacy = JsonConvert.DeserializeObject<UnityNpcInit>(File.ReadAllText(legacyPath));
+                if (legacy != null && string.Equals(legacy.WorldName, worldName, StringComparison.OrdinalIgnoreCase))
+                {
+                    pathToUse = legacyPath;
+                    Logger.Log($"TryLoadNpcInitForWorld: falling back to legacy UNITYNPCINIT.json for '{worldName}'", LogCat.Loading);
+                }
+                else
+                    Logger.LogWarning($"TryLoadNpcInitForWorld: legacy file world='{legacy?.WorldName}' doesn't match '{worldName}' — no init found", LogCat.Loading);
+            }
+            else
+                Logger.LogWarning($"TryLoadNpcInitForWorld: no init snapshot found for '{worldName}' — NPCs will be re-initialized from Daedalus", LogCat.Loading);
+
+            if (pathToUse == null) return;
+
+            var npcInit = JsonConvert.DeserializeObject<UnityNpcInit>(File.ReadAllText(pathToUse));
+            if (npcInit?.Npcs?.Count > 0)
+            {
+                _pendingNpcInit = npcInit.Npcs;
+                Logger.Log($"TryLoadNpcInitForWorld: loaded {_pendingNpcInit.Count} NPC entries for '{worldName}'", LogCat.Loading);
+            }
+            else
+                Logger.LogWarning($"TryLoadNpcInitForWorld: file '{pathToUse}' is empty or invalid", LogCat.Loading);
         }
 
         private void ApplyHeroRestore(UnityCustomSave data)
@@ -801,9 +800,21 @@ namespace Gothic.Core.Services.World
         private string GetUnityCustomSavePath(SlotId saveGameId)
             => Path.GetFullPath(Path.Join(GetSaveGamePath(saveGameId), "UNITYSAVE.json"));
 
-        private string NpcInitPath => Path.GetFullPath(Path.Join(SavesFolderPath, "UNITYNPCINIT.json"));
+        // Per-world init file: UNITYNPCINIT_{WORLDNAME}.json (e.g. UNITYNPCINIT_WORLD.json)
+        private string GetNpcInitPath(string worldName)
+            => Path.GetFullPath(Path.Join(SavesFolderPath, $"UNITYNPCINIT_{worldName.TrimEndIgnoreCase(".ZEN").ToUpper()}.json"));
 
-        public bool HasNpcInitSnapshot() => File.Exists(NpcInitPath);
+        // Legacy single-file path — checked as fallback when world-specific file doesn't exist
+        private string LegacyNpcInitPath => Path.GetFullPath(Path.Join(SavesFolderPath, "UNITYNPCINIT.json"));
+
+        public bool HasNpcInitSnapshot(string worldName = null)
+        {
+            if (worldName != null) return File.Exists(GetNpcInitPath(worldName));
+            // Any world has an init if either world-specific or legacy file exists
+            return Directory.Exists(SavesFolderPath) &&
+                   (Directory.GetFiles(SavesFolderPath, "UNITYNPCINIT_*.json").Length > 0 ||
+                    File.Exists(LegacyNpcInitPath));
+        }
 
         public void SaveNpcInitSnapshot(IList<NpcContainer> allNpcs)
         {
@@ -824,8 +835,9 @@ namespace Gothic.Core.Services.World
                 });
             }
             Directory.CreateDirectory(SavesFolderPath);
-            File.WriteAllText(NpcInitPath, JsonConvert.SerializeObject(npcInit, Formatting.Indented));
-            Logger.Log($"SaveNpcInitSnapshot: {npcInit.Npcs.Count} NPCs → {NpcInitPath}", LogCat.Loading);
+            var path = GetNpcInitPath(CurrentWorldName);
+            File.WriteAllText(path, JsonConvert.SerializeObject(npcInit, Formatting.Indented));
+            Logger.Log($"SaveNpcInitSnapshot: {npcInit.Npcs.Count} NPCs for '{CurrentWorldName}' → {path}", LogCat.Loading);
         }
 
         private void FlushDaedalusState(SaveGame saveGame)
@@ -986,35 +998,5 @@ namespace Gothic.Core.Services.World
         private string GetSaveGamePath(SlotId folderSaveId)
             => Path.GetFullPath(Path.Join(SavesFolderPath, $"savegame{(int)folderSaveId}"));
 
-        private string _goldenSavePath => Path.GetFullPath(Path.Join(SavesFolderPath, "GOLDENSAVE"));
-
-        private void CopyGoldenSaveToSlot(SlotId saveGameId)
-        {
-            var goldenPath = _goldenSavePath;
-            if (!Directory.Exists(goldenPath))
-            {
-                Logger.LogWarning($"CopyGoldenSaveToSlot: no GOLDENSAVE at {goldenPath}", LogCat.Loading);
-                return;
-            }
-
-            var slotPath = GetSaveGamePath(saveGameId);
-            var copied = 0;
-
-            foreach (var srcFile in Directory.GetFiles(goldenPath))
-            {
-                var filename = Path.GetFileName(srcFile).ToUpperInvariant();
-                // ZenKit already wrote SAVEINFO.SAV (metadata) and SAVEDAT (quest state) — keep ours.
-                // THUMB.TGA is already written by SaveCurrentGame via CreateThumbnail — keep our screenshot.
-                if (filename == "SAVEINFO.SAV" || filename == "SAVEDAT.SAV" || filename == "THUMB.SAV") continue;
-
-                var destFile = Path.Join(slotPath, Path.GetFileName(srcFile));
-                File.Copy(srcFile, destFile, overwrite: true);
-                // Strip read-only so future saves can overwrite without access-denied
-                File.SetAttributes(destFile, File.GetAttributes(destFile) & ~FileAttributes.ReadOnly);
-                copied++;
-            }
-
-            Logger.Log($"CopyGoldenSaveToSlot: copied {copied} world files to slot {saveGameId}", LogCat.Loading);
-        }
     }
 }
