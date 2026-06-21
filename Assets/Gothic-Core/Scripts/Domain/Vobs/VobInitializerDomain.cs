@@ -430,7 +430,6 @@ namespace Gothic.Core.Domain.Vobs
 
             if (go == null)
             {
-                // Invisible anchor mover (no visual) — create empty GO so children can be parented and move with it
                 go = new GameObject($"Mover_{vob.Name}");
                 go.transform.SetParent(parent != null ? parent.transform : null);
                 go.transform.SetPositionAndRotation(
@@ -439,7 +438,7 @@ namespace Gothic.Core.Domain.Vobs
             }
 
             var adapter = go.AddComponent<MoverAdapter>();
-            adapter.Init(vob);
+            adapter.Init(vob, vob.Target);
 
             return go;
         }

@@ -34,8 +34,8 @@ namespace Gothic.Core.Services
         // [IInteractiveObject] => VisualScheme (aka vob.Visual.Name.SubString("_");
         public readonly Dictionary<string, List<VobContainer>> VobsInteractable = new();
 
-        // [zCMover] keyed by VOB Name — used to find movers by IInteractiveObject.Target
-        public readonly Dictionary<string, VobContainer> VobsMover = new();
+        // [zCMover] keyed by VOB Name — multiple movers can share the same name (copy-pasted VOBs)
+        public readonly Dictionary<string, List<VobContainer>> VobsMover = new();
 
         public int GuildHumanCount;
         public int GuildCount;

@@ -163,19 +163,17 @@ namespace Gothic.VR.Services
                 Logger.LogWarning($"[VRPlayerService] HandleMobGrab: no Target on {loader.gameObject.name}", LogCat.Ai);
                 return;
             }
-            if (!_vobService.TryGetMover(moverTarget, out var moverVob) || moverVob?.Go == null)
+            if (!_vobService.TryGetMovers(moverTarget, out var moverVobs))
             {
                 Logger.LogWarning($"[VRPlayerService] HandleMobGrab: mover '{moverTarget}' not found", LogCat.Ai);
                 return;
             }
-            var adapter = moverVob.Go.GetComponentInChildren<MoverAdapter>();
-            if (adapter == null)
+            Logger.Log($"[VRPlayerService] HandleMobGrab: triggering mover '{moverTarget}' ({moverVobs.Count} instance(s))", LogCat.Ai);
+            foreach (var moverVob in moverVobs)
             {
-                Logger.LogWarning($"[VRPlayerService] HandleMobGrab: MoverAdapter missing on '{moverTarget}'", LogCat.Ai);
-                return;
+                var adapter = moverVob?.Go?.GetComponentInChildren<MoverAdapter>();
+                if (adapter != null) adapter.Toggle();
             }
-            Logger.Log($"[VRPlayerService] HandleMobGrab: triggering mover '{moverTarget}'", LogCat.Ai);
-            adapter.Toggle();
         }
 
         public HVRController GetHand(HVRHandSide side)

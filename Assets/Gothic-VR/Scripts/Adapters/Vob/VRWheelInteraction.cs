@@ -80,21 +80,18 @@ namespace Gothic.VR.Adapters.Vob
             var target = interactable.Target;
             if (string.IsNullOrEmpty(target)) return;
 
-            if (!_vobService.TryGetMover(target, out var moverContainer) || moverContainer?.Go == null)
+            if (!_vobService.TryGetMovers(target, out var moverContainers))
             {
                 Logger.LogWarning($"[VRWheelInteraction] Mover '{target}' not found in VobsMover registry", LogCat.Vob);
                 return;
             }
 
-            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
-            if (moverAdapter == null)
+            Logger.Log($"[VRWheelInteraction] Activating wheel → mover '{target}' ({moverContainers.Count} instance(s)) state={_currentState}", LogCat.Vob);
+            foreach (var moverContainer in moverContainers)
             {
-                Logger.LogWarning($"[VRWheelInteraction] MoverAdapter missing on '{target}'", LogCat.Vob);
-                return;
+                var moverAdapter = moverContainer?.Go?.GetComponentInChildren<MoverAdapter>();
+                if (moverAdapter != null) moverAdapter.Toggle();
             }
-
-            Logger.Log($"[VRWheelInteraction] Activating wheel → mover '{target}' state={_currentState}", LogCat.Vob);
-            moverAdapter.Toggle();
         }
     }
 }

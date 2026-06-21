@@ -520,21 +520,31 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.zCMover:
                     var moverName = container.Vob.Name;
                     if (!string.IsNullOrEmpty(moverName))
-                        _gameStateService.VobsMover.TryAdd(moverName.ToUpper(), container);
+                    {
+                        var moverKey = moverName.ToUpper();
+                        if (!_gameStateService.VobsMover.TryGetValue(moverKey, out var moverList))
+                            _gameStateService.VobsMover[moverKey] = moverList = new();
+                        moverList.Add(container);
+                    }
                     break;
             }
         }
 
-        public bool TryGetMover(string name, out VobContainer container)
+        public bool TryGetMovers(string name, out List<VobContainer> containers)
         {
-            // Strip any leading non-alphanumeric chars (Gothic uses "//" path prefix in Target refs).
-            // Mesh movers register with ".3DS" suffix (e.g. "EVT_GATE_01.3DS"); event movers do not.
             var start = 0;
             while (start < name.Length && !char.IsLetterOrDigit(name[start]))
                 start++;
             var key = name.Substring(start).ToUpper();
-            if (_gameStateService.VobsMover.TryGetValue(key, out container)) return true;
-            return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out container);
+            if (_gameStateService.VobsMover.TryGetValue(key, out containers)) return true;
+            return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
+        }
+
+        public bool TryGetMover(string name, out VobContainer container)
+        {
+            if (!TryGetMovers(name, out var list) || list.Count == 0) { container = null; return false; }
+            container = list[0];
+            return true;
         }
 
         public List<ContentItem> UnpackItems(string contents)

@@ -6,7 +6,6 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
-using ZenKit;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -23,15 +22,17 @@ namespace Gothic.Core.Adapters.Vob
         [Inject] private readonly VobService _vobService;
 
         private IMover _mover;
+        private string _chainTarget;
         private (Vector3 pos, Quaternion rot)[] _keyframes;
         private bool _isOpen;
         private bool _isMoving;
 
         private void Awake() => this.Inject();
 
-        public void Init(IMover mover)
+        public void Init(IMover mover, string chainTarget = "")
         {
             _mover = mover;
+            _chainTarget = chainTarget;
 
             var raw = mover.Keyframes;
             _keyframes = new (Vector3, Quaternion)[raw.Count];
@@ -46,11 +47,15 @@ namespace Gothic.Core.Adapters.Vob
             if (_keyframes.Length > 0)
                 (transform.position, transform.rotation) = _keyframes[0];
 
-            Logger.Log($"[MoverAdapter] {mover.Name} init — {_keyframes.Length} keyframes, speed={mover.Speed}", LogCat.Vob);
+            if (_keyframes.Length >= 2)
+                Logger.Log($"[MoverAdapter] {mover.Name} init — kf[0]={_keyframes[0].pos} kf[1]={_keyframes[1].pos} dist={Vector3.Distance(_keyframes[0].pos, _keyframes[1].pos):F2} speed={mover.Speed}", LogCat.Vob);
+            else
+                Logger.Log($"[MoverAdapter] {mover.Name} init — {_keyframes.Length} keyframes, speed={mover.Speed}", LogCat.Vob);
         }
 
         public void Toggle()
         {
+            Logger.Log($"[MoverAdapter] {_mover?.Name ?? "NULL"} Toggle() on GO='{gameObject.name}' active={gameObject.activeInHierarchy} isMoving={_isMoving} isOpen={_isOpen}", LogCat.Vob);
             if (_isMoving) return;
             if (_isOpen) Close(); else Open();
         }
@@ -58,6 +63,7 @@ namespace Gothic.Core.Adapters.Vob
         public void Open()
         {
             if (_isMoving) return;
+            Logger.Log($"[MoverAdapter] {_mover.Name} Open() — keyframes={_keyframes?.Length ?? 0}, chainTarget='{_chainTarget}'", LogCat.Vob);
             if (_keyframes != null && _keyframes.Length >= 2)
                 StartCoroutine(MoveTo(0, _keyframes.Length - 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () =>
                 {
@@ -89,21 +95,19 @@ namespace Gothic.Core.Adapters.Vob
 
         private void TriggerChainedMover(bool opening)
         {
-            var target = (_mover as ITrigger)?.VobTarget;
-            if (string.IsNullOrEmpty(target)) return;
-            if (!_vobService.TryGetMover(target, out var container) || container?.Go == null)
+            if (string.IsNullOrEmpty(_chainTarget)) return;
+            if (!_vobService.TryGetMovers(_chainTarget, out var containers))
             {
-                Logger.LogWarning($"[MoverAdapter] {_mover.Name} → chained target '{target}' not found in VobsMover", LogCat.Vob);
+                Logger.LogWarning($"[MoverAdapter] {_mover.Name} → chained target '{_chainTarget}' not found", LogCat.Vob);
                 return;
             }
-            var chained = container.Go.GetComponentInChildren<MoverAdapter>();
-            if (chained == null)
+            foreach (var container in containers)
             {
-                Logger.LogWarning($"[MoverAdapter] {_mover.Name} → chained target '{target}' has no MoverAdapter", LogCat.Vob);
-                return;
+                if (container?.Go == null) continue;
+                var chained = container.Go.GetComponentInChildren<MoverAdapter>();
+                if (chained != null)
+                    if (opening) chained.Open(); else chained.Close();
             }
-            Logger.Log($"[MoverAdapter] {_mover.Name} → chaining trigger to '{target}'", LogCat.Vob);
-            if (opening) chained.Open(); else chained.Close();
         }
 
         private IEnumerator MoveTo(int fromIdx, int toIdx, string sfxStart, string sfxEnd, System.Action onDone)
@@ -117,7 +121,7 @@ namespace Gothic.Core.Adapters.Vob
             var endRot = _keyframes[toIdx].rot;
 
             var dist = Vector3.Distance(startPos, endPos);
-            var speed = _mover.Speed > 0 ? _mover.Speed / 100f : 1f; // Gothic units → m/s
+            var speed = _mover.Speed > 0 ? _mover.Speed : 1f;
             var duration = dist > 0.001f ? dist / speed : 0.5f;
 
             var elapsed = 0f;
