@@ -28,6 +28,7 @@ using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Object = UnityEngine.Object;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
 {
