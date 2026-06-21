@@ -330,7 +330,9 @@ namespace Gothic.Core.Services.World
                 // Items, movers, chests: from WORLD.SAV when available (correct picked/opened states).
                 // oCNpc entries already excluded from worldVobs above.
                 Vobs = WrapVobs(worldVobs),
-                WayNet = (CachedWayNet)worldToUse.WayNet.Cache()
+                // Always use original .zen WayNet — WORLD.SAV can have corrupt/shifted waypoint positions
+                // that cause NPCs to route to wrong coordinates on load.
+                WayNet = (CachedWayNet)originalWorld.WayNet.Cache()
             };
         }
 

@@ -59,6 +59,8 @@ namespace Gothic.Core.Domain.Npc
         public async Task InitNpcsNewGame(LoadingService loading)
         {
             _nextInstanceId = 0;
+            _monsterIndex = 0;
+            _monsterWaypointCount.Clear();
             NewRunDaedalus();
             await NewAddLazyLoading(loading);
             if (_configService.Dev.EnableSaveLoadSystem)
@@ -88,6 +90,8 @@ namespace Gothic.Core.Domain.Npc
         /// </summary>
         public async Task InitNpcsFromMergedSnapshots(LoadingService loading, List<NpcInitEntry> initList, Dictionary<string, NpcSaveEntry> dirtyDict)
         {
+            _monsterIndex = 0;
+            _monsterWaypointCount.Clear();
             loading.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Npc), initList.Count);
 
             foreach (var initEntry in initList)
@@ -358,9 +362,11 @@ namespace Gothic.Core.Domain.Npc
             _npcMeshCullingService.AddCullingEntry(go);
         }
 
-        // Just some number to find a monster easier when debugging in Unity Inspector.
+        // Fallback counter for monsters with no spawn waypoint (edge case).
         private int _monsterIndex;
-        
+        // Per-waypoint counter for monsters — handles multiple monsters on the same WP.
+        private readonly Dictionary<string, int> _monsterWaypointCount = new();
+
         /// <summary>
         /// InitZkInstance and create a GameObject for the NPC to be loaded later.
         /// </summary>
@@ -371,9 +377,22 @@ namespace Gothic.Core.Domain.Npc
             go.SetParent(RootGo);
 
             if (npc.Instance.Id > 0)
+            {
                 go.name = $"{npc.Instance.GetName(NpcNameSlot.Slot0)} ({npc.Instance.Id})";
+            }
+            else if (!string.IsNullOrEmpty(npc.SpawnWaypoint))
+            {
+                // Use waypoint as stable monster key — immune to ordering/counter drift between sessions.
+                // Multiple monsters on the same WP get a suffix: (@WP_X), (@WP_X_1), (@WP_X_2), ...
+                _monsterWaypointCount.TryGetValue(npc.SpawnWaypoint, out var idx);
+                _monsterWaypointCount[npc.SpawnWaypoint] = idx + 1;
+                var suffix = idx == 0 ? $"@{npc.SpawnWaypoint}" : $"@{npc.SpawnWaypoint}_{idx}";
+                go.name = $"{npc.Instance.GetName(NpcNameSlot.Slot0)} ({suffix})";
+            }
             else
+            {
                 go.name = $"{npc.Instance.GetName(NpcNameSlot.Slot0)} ({_monsterIndex++})";
+            }
 
             npc.GoName = go.name;
 
