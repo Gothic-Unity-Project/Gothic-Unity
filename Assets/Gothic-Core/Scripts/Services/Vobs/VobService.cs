@@ -502,10 +502,10 @@ namespace Gothic.Core.Services.Vobs
             switch (container.Vob.Type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
+                // oCMobDoor excluded: doors use HVRPhysicsDoor for VR interaction, not AI_UseMob.
                 case VirtualObjectType.oCMobFire:
                 case VirtualObjectType.oCMobInter:
                 case VirtualObjectType.oCMobBed:
-                case VirtualObjectType.oCMobDoor:
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
