@@ -98,6 +98,7 @@ namespace Gothic.Core.Services.Vobs
         public void PreWorldCreate()
         {
             _gameStateService.VobsInteractable.Clear();
+            _gameStateService.VobsMover.Clear();
         }
 
         /// <summary>

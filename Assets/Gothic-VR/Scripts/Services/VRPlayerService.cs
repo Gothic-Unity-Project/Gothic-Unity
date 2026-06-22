@@ -171,7 +171,8 @@ namespace Gothic.VR.Services
             Logger.Log($"[VRPlayerService] HandleMobGrab: triggering mover '{moverTarget}' ({moverVobs.Count} instance(s))", LogCat.Ai);
             foreach (var moverVob in moverVobs)
             {
-                var adapter = moverVob?.Go?.GetComponentInChildren<MoverAdapter>();
+                if (moverVob?.Go == null || !moverVob.Go) continue;
+                var adapter = moverVob.Go.GetComponentInChildren<MoverAdapter>();
                 if (adapter != null) adapter.Toggle();
             }
         }
