@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.Menu;
@@ -54,30 +53,16 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             foreach (var menuName in menuInstanceNames)
             {
-                // G2 shares some sub-menus across multiple paths — skip duplicates.
-                if (_menuList.ContainsKey(menuName))
-                    continue;
-
                 var go = _resourceCacheService.TryGetPrefabObject($"Prefabs/UI/Menus/{menuName}", parent: this.gameObject, worldPositionStays: false);
 
                 if (go == null)
                 {
                     Logger.LogError($"Could not find UI Menu prefab >{menuName}<", LogCat.Ui);
-                    continue;
+                    return;
                 }
 
-                // Register BEFORE InitializeMenu so CloseAllMenus() can always reach this GO,
-                // even if InitializeMenu throws due to missing G2 assets.
+                go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
                 _menuList.Add(menuName, go);
-
-                try
-                {
-                    go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError($"Failed to initialize menu >{menuName}<: {e.Message}", LogCat.Ui);
-                }
             }
         }
         
