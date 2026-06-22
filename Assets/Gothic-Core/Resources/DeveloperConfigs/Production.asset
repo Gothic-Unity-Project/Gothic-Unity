@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PreselectGameVersion: 1
   GameVersion: 0
+  EnableMod: 0
+  ModPath: 
   ModIni: 
   GameControls: 0
   EnableVRDeviceSimulator: 0
@@ -26,11 +28,14 @@ MonoBehaviour:
   IgnoreSpammyZSpyLogs: 1
   ZenKitLogLevel: 1
   DirectMusicLogLevel: 30
+  EnableLoadFeature: 0
+  EnableSaveFeature: 0
   EnableMainMenu: 1
   LoadFromSaveSlot: 0
   SaveSlotToLoad: 0
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
+  EnableSaveLoadSystem: 0
   SpeedUpLoading: 0
   EnableVOBs: 1
   SpawnVOBTypes:
@@ -47,6 +52,7 @@ MonoBehaviour:
     CullingDistance: 200
   BrightenUpHoveredVOBs: 1
   ShowNamesOnHoveredVOBs: 1
+  MoverSpeedMultiplier: 3.48
   PlayerInventoryAddition: 
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
@@ -58,6 +64,9 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 
   EnableNpcEyeBlinking: 0
+  NpcDialogStopDistance: 1.3
+  NpcAttackApproachSpread: 1.3
+  NpcAttackArrivalThreshold: 0.2
   EnableNpcLooting: 1
   ShowNpcColliders: 0
   ShowFreePoints: 0
@@ -74,7 +83,15 @@ MonoBehaviour:
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
-  AlwaysRecreateCache: 0
+  AlwaysRecreateCache: 1
   OnlyCreateCacheForWorld: 
   EnableDecalVisuals: 0
   EnableParticleEffects: 0
+  EnableLevel5Cheat: 0
+  EnableGuildCheat: 0
+  EnableScavengerGuildCheat: 0
+  EnableTimeSkip: 0
+  MarvinTeleportWaypoint: 
+  MarvinSpawnNpcSymbol: 
+  EnableNpcCombatCombos: 1
+  EnableNpcHitDetection: 1
