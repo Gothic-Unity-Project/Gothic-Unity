@@ -172,6 +172,11 @@ namespace Gothic.Core.Models.Config
         [OverrideLabel("Show Names On Hovered VOBs")]
         public bool ShowNamesOnHoveredVOBs = true;
 
+        [Separator("Movers")]
+        [Tooltip("Multiplies zCMover animation speed. 1 = original, 3 = three times faster. Useful when a world mover has a very low speed value in Gothic data.")]
+        [Range(0.1f, 10f)]
+        public float MoverSpeedMultiplier = 1f;
+
         [Separator("Debug")]
         [Tooltip("Array like this: C_ITEM_NAME:AMOUNT;... e.g., ItMi_Stuff_OldCoin_01:10;ItFo_Potion_Mana_01:1")]
         public string PlayerInventoryAddition;
@@ -214,6 +219,19 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public bool EnableNpcEyeBlinking;
         
+        [Separator("Distances")]
+        [Tooltip("How close an NPC stops when walking toward the player for dialog (GoToNpc). Default 1.3m.")]
+        [Range(0.1f, 5f)]
+        public float NpcDialogStopDistance = 1.3f;
+
+        [Tooltip("Attack approach: offset from enemy center each attacker targets, spreading them out. Default 1.3m.")]
+        [Range(0f, 3f)]
+        public float NpcAttackApproachSpread = 1.3f;
+
+        [Tooltip("Attack approach: how close an attacker must get to the offset target before stopping the chase. Default 0.2m.")]
+        [Range(0.05f, 2f)]
+        public float NpcAttackArrivalThreshold = 0.2f;
+
         [Separator("WIP")]
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;

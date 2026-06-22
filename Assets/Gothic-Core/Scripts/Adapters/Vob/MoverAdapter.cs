@@ -3,6 +3,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Gothic.Core.Adapters.Vob
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly ConfigService _configService;
 
         private IMover _mover;
         private string _chainTarget;
@@ -121,7 +123,7 @@ namespace Gothic.Core.Adapters.Vob
             var endRot = _keyframes[toIdx].rot;
 
             var dist = Vector3.Distance(startPos, endPos);
-            var speed = _mover.Speed > 0 ? _mover.Speed : 1f;
+            var speed = (_mover.Speed > 0 ? _mover.Speed : 1f) * _configService.Dev.MoverSpeedMultiplier;
             var duration = dist > 0.001f ? dist / speed : 0.5f;
 
             var elapsed = 0f;

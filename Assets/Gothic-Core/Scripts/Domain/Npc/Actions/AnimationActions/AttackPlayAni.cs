@@ -33,7 +33,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private const float _chaseGiveUpDuration = 10f;
         private const float _heroStopResetDelay = 2f;
         private const float _heroRunSpeedThreshold = 2f;
-        private const float _attackApproachDistance = 1.3f;
 
 
         public AttackPlayAni(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
@@ -154,25 +153,28 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var targetPositionH = new Vector3(targetPosition.x, 0, targetPosition.z);
             var toTarget = targetPositionH - myPositionH;
 
+            var approachSpread = _configService.Dev.NpcAttackApproachSpread;
+            var arrivalThreshold = _configService.Dev.NpcAttackArrivalThreshold;
+
             // Already within attack range — stop immediately.
-            // Without this, approachTarget = targetPos - toTarget.normalized * 1.3 lands BEHIND the
-            // enemy when the NPC is already closer than 1.3m, causing it to walk through the player.
-            if (toTarget.magnitude <= _attackApproachDistance)
+            // Without this, approachTarget = targetPos - toTarget.normalized * spread lands BEHIND the
+            // enemy when the NPC is already closer than spread, causing it to walk through the player.
+            if (toTarget.magnitude <= approachSpread)
             {
                 PrefabProps.AnimationSystem.StopAllAnimations();
                 IsFinishedFlag = true;
                 return;
             }
 
-            // Each attacker targets a point _attackApproachDistance from the enemy in its own approach direction.
+            // Each attacker targets a point approachSpread from the enemy in its own approach direction.
             // Prevents all NPCs converging on the exact same spot (the "skeleton tower" problem).
             var approachTarget = toTarget.sqrMagnitude > 0.001f
-                ? targetPositionH - toTarget.normalized * _attackApproachDistance
+                ? targetPositionH - toTarget.normalized * approachSpread
                 : targetPositionH;
 
             var distance = Vector3.Distance(myPositionH, approachTarget);
 
-            if (distance <= 0.2f)
+            if (distance <= arrivalThreshold)
             {
                 PrefabProps.AnimationSystem.StopAllAnimations();
                 IsFinishedFlag = true;

@@ -1,12 +1,14 @@
 using Gothic.Core.Models.Container;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.Config;
+using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToNpc : AbstractWalkAnimationAction2
     {
-        private const float ConversationDistance = 1.3f;
+        [Inject] private readonly ConfigService _configService;
 
         private Transform _destinationTransform;
 
@@ -27,7 +29,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var toTarget = targetPos - NpcGo.transform.position;
             if (toTarget.sqrMagnitude < 0.001f)
                 return targetPos;
-            return targetPos + toTarget.normalized * -ConversationDistance;
+            return targetPos + toTarget.normalized * -_configService.Dev.NpcDialogStopDistance;
         }
 
         protected override void OnDestinationReached()
