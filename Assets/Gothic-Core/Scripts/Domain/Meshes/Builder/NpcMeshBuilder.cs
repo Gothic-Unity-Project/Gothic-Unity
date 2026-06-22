@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -29,9 +30,22 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public override GameObject Build()
         {
             BuildViaMdmAndMdh();
+            SetNpcMeshLayers();
             CreateBodyAabbCollider();
 
             return RootGo;
+        }
+
+        private void SetNpcMeshLayers()
+        {
+            foreach (var t in RootGo.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.GetComponent<Rigidbody>() != null)
+                    continue; // RootMotionCollider stays on VobNpcOrMonster
+                if (t.GetComponent<NpcHitboxColliderAdapter>() != null)
+                    continue; // WeaponHitboxCollider stays on VobHitbox
+                t.gameObject.layer = Constants.VobItemNoWorldCollision;
+            }
         }
 
         protected override GameObject[] BuildViaMdmAndMdh()

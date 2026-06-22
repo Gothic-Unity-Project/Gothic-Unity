@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -77,6 +78,7 @@ namespace Gothic.Core.Adapters.Animations
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
         private const float _rootColliderUpdateThreshold = 0.05f;
+        private float _lastMovementLogTime = -999f;
 
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
@@ -122,6 +124,15 @@ namespace Gothic.Core.Adapters.Animations
 
             CreateGraph();
             ResizeRootCollider();
+            // Snap NpcGo to ground now that we know restRootHeight, then allow gravity.
+            // RootCollisionHandler.Awake() set kinematic=true to block the depenetration jump
+            // that would otherwise happen before this point.
+            SnapToGround();
+            var parentTf = Go.transform.parent;
+            var parentInfo = parentTf != null ? $"parent='{parentTf.name}' parentPos={parentTf.position}" : "parent=none";
+            Logger.Log($"[SnapDiag] {Go.name} Start: enabling physics. GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} {parentInfo}", LogCat.Animation);
+            if (PrefabProps.ColliderRootMotion != null)
+                PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>().isKinematic = false;
         }
 
         /// <summary>
@@ -133,12 +144,25 @@ namespace Gothic.Core.Adapters.Animations
         /// </summary>
         private void ResizeRootCollider()
         {
-            var rootHeight = _animationService.GetRootBoneHeight(Properties.MdsNameBase);
+            // The overlay MDH defines the actual bone hierarchy used by the mesh builder, so its
+            // RootTranslation.y is the true rest height of the root bone above the feet. Using the
+            // base MDH instead (e.g. humans.mdh for a skeleton NPC whose bones come from
+            // humans_skeleton.mdh) sizes the capsule for the wrong skeleton, causing floating or
+            // incorrect terrain contact.
+            var mdsForHeight = string.IsNullOrEmpty(Properties.MdsNameOverlay)
+                ? Properties.MdsNameBase
+                : Properties.MdsNameOverlay;
+            var rootHeight = _animationService.GetRootBoneHeight(mdsForHeight);
+            if (rootHeight <= 0f)
+                rootHeight = _animationService.GetRootBoneHeight(Properties.MdsNameBase);
             var colliderTransform = PrefabProps.ColliderRootMotion;
+
+            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider: base={Properties.MdsNameBase} overlay={Properties.MdsNameOverlay} mdsForHeight={mdsForHeight} rootHeight={rootHeight:F3} collider={(colliderTransform == null ? "NULL" : "OK")}", LogCat.Animation);
 
             if (rootHeight <= 0f || colliderTransform == null ||
                 !colliderTransform.TryGetComponent<CapsuleCollider>(out var capsule))
             {
+                Logger.LogWarning($"[SnapDiag] {Go.name} ResizeRootCollider SKIPPED: rootHeight={rootHeight:F3} colliderNull={colliderTransform == null}", LogCat.Animation);
                 return;
             }
 
@@ -148,6 +172,44 @@ namespace Gothic.Core.Adapters.Animations
             _walkCapsuleBaseRadius = Mathf.Min(capsule.radius, rootHeight);
 
             UpdateRootCollider(0f);
+            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider DONE: restRootHeight={_restRootHeight:F3} capsuleCenter={_walkCapsule.center} capsuleHeight={_walkCapsule.height:F3} capsuleLayer={colliderTransform.gameObject.layer}", LogCat.Animation);
+        }
+
+        /// Snap NpcGo.Y so the capsule bottom lands exactly on the world mesh below.
+        /// Called by PhysicsService before enabling the rigidbody: if NpcGo was placed at terrain level
+        /// (waypoint Y), the capsule bottom is 1 m underground, and physics depenetration would push the
+        /// NPC into the air the moment gravity activates. The snap prevents that jump.
+        public void SnapToGround()
+        {
+            if (_restRootHeight <= 0f || _walkCapsule == null)
+            {
+                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround SKIPPED: restRootHeight={_restRootHeight:F3} walkCapsuleNull={_walkCapsule == null}", LogCat.Animation);
+                return;
+            }
+
+            var groundMask = 1 << (int)Constants.DefaultLayer;
+            var origin = Go.transform.position + Vector3.up * 2f;
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround: GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} origin={origin} mask={groundMask}", LogCat.Animation);
+
+            if (!Physics.Raycast(origin, Vector3.down, out var hit, 20f, groundMask))
+            {
+                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround RAYCAST MISSED from {origin} (no ground within 20m on DefaultLayer)", LogCat.Animation);
+                return;
+            }
+
+            var beforeY = Go.transform.position.y;
+            var targetY = hit.point.y + _restRootHeight;
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround HIT: collider='{hit.collider.name}' layer={hit.collider.gameObject.layer} hitY={hit.point.y:F3} restH={_restRootHeight:F3} targetY={targetY:F3} currentY={beforeY:F3} delta={targetY - beforeY:F3}", LogCat.Animation);
+
+            if (Mathf.Abs(beforeY - targetY) < 0.05f)
+            {
+                Logger.Log($"[SnapDiag] {Go.name} SnapToGround: already at correct Y (delta < 0.05), no move needed", LogCat.Animation);
+                return;
+            }
+
+            var pos = Go.transform.position;
+            Go.transform.position = new Vector3(pos.x, targetY, pos.z);
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround MOVED: {beforeY:F3} -> {targetY:F3}", LogCat.Animation);
         }
 
         /// <summary>
@@ -653,8 +715,21 @@ namespace Gothic.Core.Adapters.Animations
                 finalMovement += instance.Track.MovementSpeed * Time.deltaTime;
             }
 
-            // Pos change is applied with rotated value.
-            Go.transform.localPosition += Go.transform.rotation * finalMovement;
+            // Strip pitch/roll — Gothic waypoints can have non-zero X/Z rotation (sloped terrain).
+            // Applying raw Go.transform.rotation to a horizontal movement vector produces a world-space
+            // Y component equal to speed * sin(pitch), which floats the NPC upward while walking.
+            var yawRotation = Quaternion.Euler(0f, Go.transform.eulerAngles.y, 0f);
+            var worldMove = yawRotation * finalMovement;
+
+            // Log if anything has Y — rate-limited to once per second.
+            if ((Mathf.Abs(finalMovement.y) > 0.0001f || Mathf.Abs(worldMove.y) > 0.0001f)
+                && Time.time - _lastMovementLogTime > 1f)
+            {
+                Logger.Log($"[SnapDiag] {Go.name} ApplyFinalMovement: rawY={finalMovement.y:F5} worldY={worldMove.y:F5} GoWorldY={Go.transform.position.y:F3}", LogCat.Animation);
+                _lastMovementLogTime = Time.time;
+            }
+
+            Go.transform.localPosition += worldMove;
         }
 
         private void ApplyFinalRotation()

@@ -1,5 +1,7 @@
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Npc
 {
@@ -9,16 +11,23 @@ namespace Gothic.Core.Adapters.Npc
         [SerializeField] private CapsuleCollider _walkCollider;
 
         private SkinnedMeshRenderer[] _meshRenderers;
-        
+        private float _lastPhysicsLogTime = -999f;
+
         private const float _pushbackDistance = 0.3f;
-        
-        
+
+
         protected override void Awake()
         {
             base.Awake();
 
             // Cached object which will be used later.
             NpcData.PrefabProps.ColliderRootMotion = gameObject.transform;
+
+            // Keep kinematic until AnimationSystem.Start() has snapped NpcGo to the correct
+            // ground height. Without this the capsule bottom starts 1 m underground and physics
+            // depenetration would push the NPC into the air before Start() even runs.
+            GetComponent<Rigidbody>().isKinematic = true;
+            Logger.Log($"[SnapDiag] RootCollisionHandler.Awake: {gameObject.name} layer={gameObject.layer} worldPos={transform.position} localPos={transform.localPosition} kinematic=true", LogCat.Animation);
         }
 
         /// <summary>
@@ -34,38 +43,32 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void Start()
         {
+            var oldParent = transform.parent;
+            Logger.Log($"[SnapDiag] RootCollisionHandler.Start: {gameObject.name} reparenting from '{oldParent?.name}' to '{Go.transform.name}'. GoWorldPos={Go.transform.position} capsuleWorldPos={transform.position}", LogCat.Animation);
             transform.SetParent(Go.transform, false);
             transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            Logger.Log($"[SnapDiag] RootCollisionHandler.Start: after reparent capsuleWorldPos={transform.position} capsuleLocalPos={transform.localPosition}", LogCat.Animation);
         }
 
-        /// <summary>
-        /// We need to apply physics on the NPC itself.
-        /// General movement and animations are handled within AnimationSystem.cs. This Collider object is to add physics on top.
-        /// </summary>
         private void Update()
         {
             if (_meshRenderers == null)
                 _meshRenderers = Go.GetComponentsInChildren<SkinnedMeshRenderer>();
 
-            var bbox = new Bounds();
-
-            foreach (var rend in _meshRenderers)
-                bbox.Encapsulate(rend.localBounds);
-
-            /*
-             * NPC GO hierarchy:
-             *
-             * root
-             *  /RootCollisionHandler <- physics (gravity settling) is calculated here and merged to root
-             *  /BIP01/ <- animation root
-             *    /... <- animation bones
-             */
+            var capsuleLocalY = transform.localPosition.y;
 
             // Apply physics based position change to root.
             Go.transform.localPosition += transform.localPosition;
 
             // Empty physics based diff. Next frame physics will be recalculated.
             transform.localPosition = Vector3.zero;
+
+            // Log if capsule drifted (physics pushed something) — rate-limited.
+            if (Mathf.Abs(capsuleLocalY) > 0.005f && Time.time - _lastPhysicsLogTime > 1f)
+            {
+                _lastPhysicsLogTime = Time.time;
+                Logger.Log($"[SnapDiag] RootCollisionHandler.Update: {gameObject.name} capsuleLocalY={capsuleLocalY:F4} -> transferred to Go. GoWorldY={Go.transform.position.y:F3}", LogCat.Animation);
+            }
         }
 
         private void OnCollisionEnter(Collision collision)
