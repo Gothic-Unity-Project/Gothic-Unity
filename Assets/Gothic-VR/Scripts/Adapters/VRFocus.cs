@@ -69,6 +69,9 @@ namespace Gothic.VR.Adapters
             var vobLoader = GetComponentInParent<VobLoader>();
             if (vobLoader == null || vobLoader.Container.Vob is not IInteractiveObject) return;
 
+            // IDoor uses HVRPhysicsDoor for interaction — skip the mover-trigger path.
+            if (vobLoader.Container.Vob is IDoor) return;
+
             _mobActivated = true;
             Logger.Log($"[VRFocus.OnGrabbed] mob={vobLoader.gameObject.name}", LogCat.Ai);
             _vrPlayerService.HandleMobGrab(vobLoader);
