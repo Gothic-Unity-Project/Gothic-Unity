@@ -53,12 +53,16 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             foreach (var menuName in menuInstanceNames)
             {
+                // G2 shares some sub-menus across multiple paths — skip duplicates.
+                if (_menuList.ContainsKey(menuName))
+                    continue;
+
                 var go = _resourceCacheService.TryGetPrefabObject($"Prefabs/UI/Menus/{menuName}", parent: this.gameObject, worldPositionStays: false);
 
                 if (go == null)
                 {
                     Logger.LogError($"Could not find UI Menu prefab >{menuName}<", LogCat.Ui);
-                    return;
+                    continue;
                 }
 
                 go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
