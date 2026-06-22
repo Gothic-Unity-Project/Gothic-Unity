@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.Menu;
@@ -65,8 +66,18 @@ namespace Gothic.Core.Adapters.UI.Menus
                     continue;
                 }
 
-                go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
+                // Register BEFORE InitializeMenu so CloseAllMenus() can always reach this GO,
+                // even if InitializeMenu throws due to missing G2 assets.
                 _menuList.Add(menuName, go);
+
+                try
+                {
+                    go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"Failed to initialize menu >{menuName}<: {e.Message}", LogCat.Ui);
+                }
             }
         }
         

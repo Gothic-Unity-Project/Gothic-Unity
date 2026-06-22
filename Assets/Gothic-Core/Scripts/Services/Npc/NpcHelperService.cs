@@ -230,7 +230,7 @@ namespace Gothic.Core.Services.Npc
         [CanBeNull]
         private GameObject GetNpc([CanBeNull] NpcInstance npc)
         {
-            return npc.GetUserData().Go;
+            return npc?.GetUserData()?.Go;
         }
 
         private NpcContainer GetContainer(NpcInstance npc)
