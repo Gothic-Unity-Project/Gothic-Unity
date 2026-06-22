@@ -64,8 +64,13 @@ namespace Gothic.Core.Adapters.Animations.Morph
             }
 
             newMorph.AnimationMetadata = animationName == null
-                ? newMorph.MeshMetadata.Animations.First()
-                : newMorph.MeshMetadata.Animations.First(anim => anim.Name.EqualsIgnoreCase(animationName));
+                ? newMorph.MeshMetadata.Animations.FirstOrDefault()
+                : newMorph.MeshMetadata.Animations.FirstOrDefault(anim => anim.Name.EqualsIgnoreCase(animationName));
+            if (newMorph.AnimationMetadata == null)
+            {
+                Logger.LogWarning($"MorphAnimation '{animationName}' not found in '{morphMeshName}'", LogCat.Mesh);
+                return;
+            }
             newMorph.AnimationFrameData =
                 _morphMeshCacheService.TryGetMorphData(morphMeshName, newMorph.AnimationMetadata.Name);
 
