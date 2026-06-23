@@ -268,7 +268,11 @@ namespace Gothic.Core.Services.Caches
         /// </summary>
         public GameObject TryGetPrefabObject(string prefabPath, string name = null, GameObject parent = null, bool worldPositionStays = true)
         {
-            var go = Object.Instantiate(TryGetPrefab(prefabPath), parent?.transform, worldPositionStays);
+            var prefab = TryGetPrefab(prefabPath);
+            if (prefab == null)
+                return null;
+
+            var go = Object.Instantiate(prefab, parent?.transform, worldPositionStays);
 
             if (name != null)
             {
@@ -288,10 +292,6 @@ namespace Gothic.Core.Services.Caches
         private GameObject TryGetPrefab(string prefabPath)
         {
             _prefab.TryLoad(prefabPath, out var item);
-            
-            if (item == null)
-                Logger.LogError($"Prefab at >{prefabPath}< not found.", LogCat.Loading);
-            
             return item;
         }
 

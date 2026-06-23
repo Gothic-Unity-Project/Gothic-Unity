@@ -50,6 +50,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void InstantiateMenus()
         {
             var menuInstanceNames = MainMenuHierarchy.GetMenuInstanceNamesRecursive();
+            Logger.Log($"[MenuHandler] Instantiating {menuInstanceNames.Count} menus: {string.Join(", ", menuInstanceNames)}", LogCat.Ui);
 
             foreach (var menuName in menuInstanceNames)
             {
@@ -57,13 +58,23 @@ namespace Gothic.Core.Adapters.UI.Menus
 
                 if (go == null)
                 {
-                    Logger.LogError($"Could not find UI Menu prefab >{menuName}<", LogCat.Ui);
-                    return;
+                    Logger.LogWarning($"[MenuHandler] No prefab for >{menuName}< — skipping (menu will be unavailable)", LogCat.Ui);
+                    continue;
                 }
 
-                go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
-                _menuList.Add(menuName, go);
+                try
+                {
+                    go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
+                    _menuList.Add(menuName, go);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogError($"[MenuHandler] Failed to initialize >{menuName}<: {e.Message}", LogCat.Ui);
+                    Object.Destroy(go);
+                }
             }
+
+            Logger.Log($"[MenuHandler] Instantiated {_menuList.Count}/{menuInstanceNames.Count} menus successfully", LogCat.Ui);
         }
         
         private void InstantiateMenu(string menuName, GameObject prefab)
