@@ -19,6 +19,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private PhysicsService _physicsService;
         [Inject] private NpcHelperService _npcHelperService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.GameStateService _gameStateService;
+        [Inject] private readonly NpcService _npcService;
 
         public void Init()
         {
@@ -39,6 +41,8 @@ namespace Gothic.Core.Services.Npc
                 Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
                 target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
                 OnDyingChangeAnimation(target);
+                if (_configService.Dev.EnableDeathXP)
+                    OnNpcDied(target, attacker);
             }
             else
             {
@@ -96,6 +100,36 @@ namespace Gothic.Core.Services.Npc
             return hitPoints <= 0;
         }
 
+        private void OnNpcDied(NpcContainer dead, NpcContainer killer)
+        {
+            var vm = _gameStateService.GothicVm;
+            var aivPlundered = vm.GetSymbolByName("AIV_PLUNDERED")?.GetInt(0) ?? 8;
+            dead.Instance.SetAiVar(aivPlundered, 0);
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            vm.GlobalSelf = dead.Instance;
+            vm.GlobalOther = killer.Instance;
+
+            if (_configService.Dev.EnableDeathXP && killer.PrefabProps.IsHero())
+            {
+                var bDeathXp = vm.GetSymbolByName("B_DeathXP");
+                if (bDeathXp != null)
+                {
+                    vm.Call(bDeathXp.Index);
+                    _npcService.SyncHeroInstanceToVob();
+                    Logger.Log($"[FightService.OnNpcDied] B_DeathXP: {dead.Instance.GetName(NpcNameSlot.Slot0)} killed by hero", LogCat.Npc);
+                }
+            }
+
+            var bGiveDeathInv = vm.GetSymbolByName("B_GiveDeathInv");
+            if (bGiveDeathInv != null)
+                vm.Call(bGiveDeathInv.Index);
+
+            vm.GlobalSelf = oldSelf;
+            vm.GlobalOther = oldOther;
+        }
+  
         /// <summary>
         /// C_ITEM.damageType is a DAM_* bitmask whose bit positions match the PROT_* indices.
         /// Weapons carry one damage type; the first set bit wins.
