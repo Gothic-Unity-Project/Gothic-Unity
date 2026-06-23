@@ -44,5 +44,10 @@ namespace Gothic.Core.Services.Culling
         {
             return _npcDomain.GetVisibleNpcs();
         }
+
+        public IEnumerable<NpcContainer> GetAllNpcContainers()
+        {
+            return _npcDomain.GetAllNpcContainers();
+        }
     }
 }
