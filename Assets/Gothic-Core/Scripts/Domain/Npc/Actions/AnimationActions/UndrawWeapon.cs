@@ -100,11 +100,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
             Props.MdsNameOverlay = Props.MdsNameRoutineOverlay;
             Props.CurrentItem = -1;
+            if (_weaponState == VmGothicEnums.WeaponState.Mage)
+                NpcContainer.ActiveSpell = 0;
         }
 
         private void PlayWeaponSound(bool sheathing)
         {
-            if (_weaponState == VmGothicEnums.WeaponState.Fist)
+            if (_weaponState == VmGothicEnums.WeaponState.Fist || _weaponState == VmGothicEnums.WeaponState.Mage)
                 return;
 
             var soundName = (_weaponState == VmGothicEnums.WeaponState.Bow || _weaponState == VmGothicEnums.WeaponState.CBow)
@@ -118,7 +120,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void MoveWeaponBackToStowSlot(VmGothicEnums.WeaponState weaponState)
         {
-            if (weaponState == VmGothicEnums.WeaponState.Fist)
+            if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.Mage)
                 return;
 
             var handSlotName = DrawWeapon.GetHandSlotName(weaponState);

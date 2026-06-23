@@ -20,6 +20,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] private readonly DialogService _dialogService;
 
         private bool _isRangedRequested => Action.Int0 == 1;
+        private bool _isMagicRequested => Action.Int0 == 2;
 
         public DrawWeapon(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -76,6 +77,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [CanBeNull]
         private ItemInstance GetEquippedWeapon()
         {
+            if (_isMagicRequested) return null; // magic uses no weapon mesh
+
             var mainFlag = _isRangedRequested ? VmGothicEnums.ItemFlags.ItemKatFf : VmGothicEnums.ItemFlags.ItemKatNf;
 
             return Props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)mainFlag);
@@ -83,6 +86,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private VmGothicEnums.WeaponState GetWeaponState([CanBeNull] ItemInstance weapon)
         {
+            if (_isMagicRequested)
+                return VmGothicEnums.WeaponState.Mage;
+
             // No weapon equipped: fight with fists (the default for monsters and brawling humans).
             if (weapon == null)
                 return VmGothicEnums.WeaponState.Fist;
@@ -101,7 +107,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void PlayWeaponDrawSound(VmGothicEnums.WeaponState weaponState)
         {
-            if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.NoWeapon)
+            if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.NoWeapon ||
+                weaponState == VmGothicEnums.WeaponState.Mage)
                 return;
 
             var soundName = (weaponState == VmGothicEnums.WeaponState.Bow || weaponState == VmGothicEnums.WeaponState.CBow)

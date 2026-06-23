@@ -171,6 +171,57 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData()!.Vob.ClearItems();
         }
 
+        public void ExtAiEquipBestRangedWeapon(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            var equipped = container.Props.EquippedItems
+                .FirstOrDefault(i => i.MainFlag == (int)ItemFlags.ItemKatFf);
+
+            if (equipped == null)
+            {
+                List<ContentItem> weaponItems;
+                try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                catch { return; }
+
+                foreach (var contentItem in weaponItems)
+                {
+                    var symbol = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (symbol == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(symbol.Index);
+                    if (itemData == null || itemData.MainFlag != (int)ItemFlags.ItemKatFf) continue;
+                    equipped = itemData;
+                    break; // first ranged weapon found is good enough (no damage comparison for ranged)
+                }
+
+                if (equipped == null)
+                {
+                    Logger.LogWarning($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: no ranged weapon in inventory", LogCat.Npc);
+                    return;
+                }
+
+                container.Props.EquippedItems.Add(equipped);
+                Logger.Log($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: equipped '{equipped.Name}'", LogCat.Npc);
+            }
+
+            // Ensure weapon mesh exists in the bow/crossbow stow slot.
+            var isCrossbow = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.ItemCrossbow);
+            var stowSlotName = isCrossbow ? "ZS_CROSSBOW" : "ZS_BOW";
+            var stowGo = container.Go.FindChildRecursively(stowSlotName);
+            var handGo = container.Go.FindChildRecursively("ZS_LEFTHAND");
+
+            var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
+                             (handGo != null && handGo.transform.childCount > 0);
+
+            if (!meshExists)
+            {
+                Logger.Log($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: mesh missing — respawning '{equipped.Name}'", LogCat.Npc);
+                _meshService.CreateNpcWeapon(container.Go, equipped, (ItemFlags)equipped.MainFlag, (ItemFlags)equipped.Flags);
+            }
+        }
+
         public void ExtAiEquipBestMeleeWeapon(NpcInstance npc)
         {
             var container = npc.GetUserData();

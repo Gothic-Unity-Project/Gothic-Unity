@@ -40,6 +40,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly VobService _vobService;
@@ -106,6 +107,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_ReadyRangedWeapon", AI_ReadyRangedWeapon);
             vm.RegisterExternal<NpcInstance>("AI_RemoveWeapon", AI_RemoveWeapon);
             vm.RegisterExternal<NpcInstance>("AI_EquipBestMeleeWeapon", AI_EquipBestMeleeWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestRangedWeapon", AI_EquipBestRangedWeapon);
+            vm.RegisterExternal<NpcInstance, int, int>("AI_ReadySpell", AI_ReadySpell);
+            vm.RegisterExternal<NpcInstance>("AI_UnreadySpell", AI_UnreadySpell);
+            vm.RegisterExternal<NpcInstance>("AI_StopAim", AI_StopAim);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_Output", AI_Output);
             vm.RegisterExternal<NpcInstance>("AI_ProcessInfos", AI_ProcessInfos);
             vm.RegisterExternal<NpcInstance>("AI_StopProcessInfos", AI_StopProcessInfos);
@@ -121,6 +126,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WhirlAround", AI_WhirlAround);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnAway", AI_TurnAway);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_FinishingMove", AI_FinishingMove);
+            vm.RegisterExternal<NpcInstance>("AI_StopPointAt", AI_StopPointAt);
+            vm.RegisterExternal<NpcInstance, int>("AI_DropItem", AI_DropItem);
+            vm.RegisterExternal<NpcInstance, ItemInstance>("AI_TakeItem", AI_TakeItem);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_Quicklook", AI_Quicklook);
 
             // Apply Options
             // Doc
@@ -203,10 +212,14 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedRangedWeapon", Npc_HasEquippedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedMeleeWeapon", Npc_HasReadiedMeleeWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedRangedWeapon", Npc_HasReadiedRangedWeapon);
+            vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetReadiedWeapon", Npc_GetReadiedWeapon);
+            vm.RegisterExternal<int, NpcInstance, int>("Npc_HasSpell", Npc_HasSpell);
+            vm.RegisterExternal<int, NpcInstance>("Npc_HasRangedWeaponWithAmmo", Npc_HasRangedWeaponWithAmmo);
             vm.RegisterExternal<int, NpcInstance, string>("Npc_GetDistToWP", Npc_GetDistToWP);
             vm.RegisterExternal<NpcInstance, int>("Npc_PercDisable", Npc_PercDisable);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpc", Npc_CanSeeNpc);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpcFreeLOS", Npc_CanSeeNpcFreeLOS);
+            vm.RegisterExternal<int, NpcInstance, ItemInstance>("Npc_CanSeeItem", Npc_CanSeeItem);
             vm.RegisterExternal<NpcInstance>("Npc_ClearAiQueue", Npc_ClearAiQueue);
             // vm.RegisterExternal<NpcInstance>("Npc_ClearInventory", Npc_ClearInventory);
             vm.RegisterExternal<string, NpcInstance>("Npc_GetNextWp", Npc_GetNextWp);
@@ -221,6 +234,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
@@ -261,6 +275,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsMobAvailable", Wld_IsMobAvailable);
             vm.RegisterExternal<int, NpcInstance, int, int, int>("Wld_DetectNpc", Wld_DetectNpc);
             vm.RegisterExternal<int, NpcInstance, int, int, int, int>("Wld_DetectNpcEx", Wld_DetectNpcEx);
+            vm.RegisterExternal<int, NpcInstance, int>("Wld_DetectItem", Wld_DetectItem);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsNextFPAvailable", Wld_IsNextFPAvailable);
             vm.RegisterExternal<int, int>("Wld_SetTime", Wld_SetTime);
             vm.RegisterExternal("Wld_GetDay", Wld_GetDay);
@@ -512,6 +527,28 @@ namespace Gothic.Core.Domain.Vm
             _npcInventoryService.ExtAiEquipBestMeleeWeapon(npc);
         }
 
+        public void AI_EquipBestRangedWeapon(NpcInstance npc)
+        {
+            _npcInventoryService.ExtAiEquipBestRangedWeapon(npc);
+        }
+
+        public void AI_ReadySpell(NpcInstance npc, int spellId, int investMana)
+        {
+            _npcAiService.ExtAiReadySpell(npc, spellId, investMana);
+            LogInstantExternal(nameof(AI_ReadySpell), npc, spellId, investMana);
+        }
+
+        public void AI_UnreadySpell(NpcInstance npc)
+        {
+            _npcAiService.ExtAiUndrawWeapon(npc);
+            LogInstantExternal(nameof(AI_UnreadySpell), npc);
+        }
+
+        public void AI_StopAim(NpcInstance npc)
+        {
+            // Stub — NPC ranged aiming not yet implemented; NPC will sheath via AI_RemoveWeapon.
+        }
+
         public void AI_Output(NpcInstance self, NpcInstance target, string outputName)
         {
             _dialogService.ExtAiOutput(self, target, outputName);
@@ -535,6 +572,13 @@ namespace Gothic.Core.Domain.Vm
         public void AI_LookAtNPC(NpcInstance npc, NpcInstance target)
         {
             _npcAiService.ExtAiLookAtNpc(npc, target);
+        }
+
+        public void AI_Quicklook(NpcInstance self, NpcInstance other)
+        {
+            // Brief look-at (auto-cancels on next action) — reuse persistent look-at; StopLookAt follows.
+            if (other != null)
+                _npcAiService.ExtAiLookAtNpc(self, other);
         }
 
         public void AI_StopLookAt(NpcInstance npc)
@@ -580,6 +624,40 @@ namespace Gothic.Core.Domain.Vm
         public void AI_TurnAway(NpcInstance npc, NpcInstance target)
         {
             // Stub — ZS_TurnAway_Loop still works via Npc_GetStateTime > HAI_TIME_TURNAWAY (20s).
+        }
+
+        public void AI_StopPointAt(NpcInstance npc)
+        {
+            // Stub — NPC pointing-at behavior not yet implemented.
+        }
+
+        public void AI_DropItem(NpcInstance npc, int itemInstanceId)
+        {
+            var npcContainer = npc.GetUserData();
+            if (npcContainer?.Go == null)
+            {
+                Logger.LogWarning($"[AI_DropItem] NPC container or GO is null for {npc.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+                return;
+            }
+
+            Logger.Log($"[AI_DropItem] {npc.GetName(NpcNameSlot.Slot0)} drops item id={itemInstanceId}", LogCat.Npc);
+            _vobService.DropItemAtPosition(itemInstanceId, npcContainer.Go.transform.position);
+        }
+
+        public void AI_TakeItem(NpcInstance npc, ItemInstance item)
+        {
+            if (npc == null || item == null) return;
+            var npcContainer = npc.GetUserData();
+            if (npcContainer == null) return;
+
+            var sym = _gameStateService.GothicVm.GetSymbolByIndex(item.Index);
+            if (sym == null) return;
+
+            Logger.Log($"[AI_TakeItem] {npc.GetName(NpcNameSlot.Slot0)} queuing pickup of '{sym.Name}'", LogCat.Npc);
+
+            // Enqueue pickup so it executes after any pending stand-up / dialog animations
+            npcContainer.Props.AnimationQueue.Enqueue(
+                new TakeItem(new AnimationAction(), npcContainer, item.Index, sym.Name));
         }
 
         #endregion
@@ -1070,6 +1148,62 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_HasReadiedRangedWeapon), ret, npc);
         }
 
+        public ItemInstance Npc_GetReadiedWeapon(NpcInstance npc)
+        {
+            var fightMode = (VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode;
+            ItemInstance item = fightMode switch
+            {
+                VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
+                    => _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc),
+                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
+                    => _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc),
+                _ => null
+            };
+            return LogInstantExternal(nameof(Npc_GetReadiedWeapon), item, npc);
+        }
+
+        public int Npc_HasSpell(NpcInstance npc, int spellId)
+        {
+            try
+            {
+                var runeItems = _npcInventoryService.GetInventoryItems(npc, VmGothicEnums.InvCats.InvRune);
+                foreach (var contentItem in runeItems)
+                {
+                    var sym = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (sym == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(sym.Index);
+                    if (itemData != null && itemData.Spell == spellId)
+                        return LogInstantExternal(nameof(Npc_HasSpell), 1, npc, spellId);
+                }
+            }
+            catch { }
+            return LogInstantExternal(nameof(Npc_HasSpell), 0, npc, spellId);
+        }
+
+        public int Npc_HasRangedWeaponWithAmmo(NpcInstance npc)
+        {
+            // Equipped ranged weapon is sufficient — B_FillQuiver provides ammo via CreateInvItems.
+            var equippedRanged = _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc);
+            if (equippedRanged != null)
+                return LogInstantExternal(nameof(Npc_HasRangedWeaponWithAmmo), 1, npc);
+
+            // Fall back: check weapon inventory for any ranged weapon.
+            try
+            {
+                var weaponItems = _npcInventoryService.GetInventoryItems(npc, VmGothicEnums.InvCats.InvWeapon);
+                foreach (var contentItem in weaponItems)
+                {
+                    var sym = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (sym == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(sym.Index);
+                    if (itemData != null && itemData.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf)
+                        return LogInstantExternal(nameof(Npc_HasRangedWeaponWithAmmo), 1, npc);
+                }
+            }
+            catch { }
+            return LogInstantExternal(nameof(Npc_HasRangedWeaponWithAmmo), 0, npc);
+        }
+
         public int Npc_GetDistToWP(NpcInstance npc, string waypoint)
         {
             var dist = _npcHelperService.ExtNpcGetDistToWp(npc, waypoint);
@@ -1080,6 +1214,13 @@ namespace Gothic.Core.Domain.Vm
         {
             _npcAiService.ExtNpcPerceptionDisable(npc, (VmGothicEnums.PerceptionType)perception);
             LogInstantExternal(nameof(Npc_PercDisable), npc, perception);
+        }
+
+        public int Npc_CanSeeItem(NpcInstance npc, ItemInstance item)
+        {
+            // Wld_DetectItem already confirmed the item is within range; this is a simple proximity proxy.
+            var result = item != null ? 1 : 0;
+            return LogInstantExternal(nameof(Npc_CanSeeItem), result, npc);
         }
 
         public int Npc_CanSeeNpc(NpcInstance npc, NpcInstance target)
@@ -1179,6 +1320,15 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_GetActiveSpell), ret, npc);
         }
 
+        public int Npc_GetActiveSpellCat(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            // -1 = not casting; 2 = SPELL_BAD (offensive). VR hero casts via dual-grab rune;
+            // ActiveSpell is set in VRRuneCaster.Start() and cleared in OnDestroy().
+            var ret = (container?.ActiveSpell ?? 0) != 0 ? 2 : -1;
+            return LogInstantExternal(nameof(Npc_GetActiveSpellCat), ret, npc);
+        }
+
         public int Npc_GetActiveSpellLevel(NpcInstance npc)
         {
             var container = npc.GetUserData();
@@ -1253,7 +1403,17 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_HasNews(NpcInstance npc, int newsId, NpcInstance offender, NpcInstance victim)
         {
-            // News system not implemented — return false so B_AssessAndMemorize always processes fresh.
+            // Proxy for NEWS_DEFEAT: check AIV_WASDEFEATEDBYSC flag set in FightService when NPC goes unconscious.
+            const int newsDefeat = 185;
+            if (newsId == newsDefeat)
+            {
+                var aivSym = _gameStateService.GothicVm.GetSymbolByName("AIV_WASDEFEATEDBYSC");
+                if (aivSym != null)
+                {
+                    var aivIndex = aivSym.GetInt(0);
+                    return npc.GetAiVar(aivIndex) == 1 ? 1 : 0;
+                }
+            }
             return 0;
         }
 
@@ -1332,6 +1492,12 @@ namespace Gothic.Core.Domain.Vm
             var res = _npcHelperService.ExtWldDetectNpcEx(npc, npcInstance, aiState, guild, Convert.ToBoolean(detectPlayer));
             var ret = Convert.ToInt32(res);
             return LogInstantExternal(nameof(Wld_DetectNpcEx), ret, npc, npcInstance, aiState, guild, detectPlayer);
+        }
+
+        public int Wld_DetectItem(NpcInstance npc, int flags)
+        {
+            var result = _npcHelperService.ExtWldDetectItem(npc, flags);
+            return LogInstantExternal(nameof(Wld_DetectItem), Convert.ToInt32(result), npc, flags);
         }
 
         public int Wld_IsNextFPAvailable(NpcInstance npc, string fpNamePart)
