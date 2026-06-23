@@ -46,31 +46,27 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var go = other.gameObject;
 
-            if (_objectsInDestroyGracePeriod.Contains(go))
+            if (!TryGetItemToEat(go, out var item))
                 return;
 
-            if (!TryGetItemToEat(go, out var item))
+            // Resolve root before grace-period check so the same object is tracked and removed.
+            var rootGo = go;
+            var vobLoaderComp = go.GetComponentInParent<VobLoader>();
+            if (vobLoaderComp != null && vobLoaderComp.Container.Vob.Type == VirtualObjectType.oCItem)
+                rootGo = vobLoaderComp.gameObject;
+
+            if (_objectsInDestroyGracePeriod.Contains(rootGo))
                 return;
 
             Logger.Log($"Eating item: {go.name}", LogCat.VR);
 
-            // Defines after which time period the object will be destroyed in hand.
             var destroyTime = 1f;
             if (TryExtractSfx(item, out var clip))
                 destroyTime = clip.length;
             else
                 Logger.LogWarning("No SFX for eating/drinking item found. Removing item anyways after 1 second.", LogCat.VR);
 
-            // Can be set now already. It's sufficient to use this children instead of root.
-            _objectsInDestroyGracePeriod.Add(go);
-
-            GameObject rootGo = go;
-            var vobLoaderComp = go.GetComponentInParent<VobLoader>();
-
-            // Only use the VobLoader root if it belongs to this specific item (not a parent chest/container).
-            if (vobLoaderComp != null && vobLoaderComp.Container.Vob.Type == VirtualObjectType.oCItem)
-                rootGo = vobLoaderComp.gameObject;
-
+            _objectsInDestroyGracePeriod.Add(rootGo);
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));
         }
 
@@ -117,7 +113,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return true;
         }
 
-        // FIXME- Handle also inventory state in the future. Currently only mesh is gone, but not object from save game and inventory.
         private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay)
         {
             if (clip != null)
@@ -128,6 +123,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             CallOnState(go);
 
             _objectsInDestroyGracePeriod.Remove(go);
+
+            var vobItem = go.GetComponent<VobLoader>()?.Container.VobAs<IItem>();
+            if (vobItem != null && vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                Logger.Log($"[VRMouth] Stack decremented: {go.name} remaining={vobItem.Amount}", LogCat.VR);
+                yield break;
+            }
+
             Destroy(go);
         }
 
