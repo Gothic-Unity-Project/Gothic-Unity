@@ -591,6 +591,9 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npc.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
+            var partySymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            var aivPartyIndex = partySymbol?.GetInt(0) ?? -1;
+
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
                 if (candidate.Props == null || candidate.Go == null)
@@ -603,6 +606,14 @@ namespace Gothic.Core.Services.Npc
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
                     continue;
+
+                // Skip party members unless they already provoked this NPC (retaliation is fine).
+                if (aivPartyIndex >= 0 && candidate.Instance.GetAiVar(aivPartyIndex) == 1)
+                {
+                    var selfProps = selfNpc.Props;
+                    if (selfProps.EnemyNpc != candidate.Instance && selfProps.TargetNpc != candidate.Instance)
+                        continue;
+                }
 
                 if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
                     continue;
