@@ -1,4 +1,5 @@
 ﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,7 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Util;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
@@ -430,11 +432,142 @@ namespace Gothic.Core.Services.Vobs
             var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
             var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
 
+            SpawnItemVob(instanceName, wp.Position.ToZkVector(), wp.Rotation.ToZkMatrix());
+        }
+
+        /// <summary>
+        /// Spawns an item VOB at a given world position with physics — used for weapon drops on NPC death/knockout.
+        /// </summary>
+        public void DropItemAtPosition(int symbolIndex, Vector3 worldPosition)
+        {
+            var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
+            if (!_configService.Dev.EnableVOBs || (!activeTypes.IsEmpty() && activeTypes.Contains(VirtualObjectType.oCItem)))
+                return;
+
+            var sym = _gameStateService.GothicVm.GetSymbolByIndex(symbolIndex);
+            if (sym == null)
+            {
+                Logger.LogWarning($"[VobService] DropItemAtPosition: no symbol at index {symbolIndex}", LogCat.Vob);
+                return;
+            }
+
+            Logger.Log($"[VobService] DropItemAtPosition: '{sym.Name}' at {worldPosition}", LogCat.Vob);
+
+            var vob = new Item
+            {
+                Name = sym.Name,
+                Position = worldPosition.ToZkVector(),
+                Rotation = Quaternion.identity.ToZkMatrix(),
+                Visual = new VisualMesh(),
+                Instance = sym.Name
+            };
+
+            var container = CreateContainerWithLoader(vob);
+            CreateVobNow(container);
+            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+
+            // Add physics so the item falls to the ground.
+            // The VobItemWeapon prefab only has trigger colliders (for HVR grab); we add a solid
+            // BoxCollider so the Rigidbody has something to rest on world geometry.
+            if (container.Go != null)
+            {
+                var col = container.Go.AddComponent<BoxCollider>();
+                col.size = new Vector3(0.1f, 0.06f, 0.5f);
+                col.center = new Vector3(0f, 0.03f, 0f);
+
+                var rb = container.Go.AddComponent<Rigidbody>();
+                rb.mass = 1f;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            }
+        }
+
+        /// <summary>
+        /// Finds the nearest world VobContainer for a given item symbol within maxDist meters.
+        /// Uses actual GO position and skips kinematic (VR-grabbed) items.
+        /// </summary>
+        public VobContainer FindNearbyWorldItemContainer(string instanceName, Vector3 nearPosition, float maxDist = 5f)
+        {
+            VobContainer nearest = null;
+            var minDist = maxDist;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+                if (container.Go == null) continue;
+
+                // Skip items grabbed by VR hands — HVR sets Rigidbody.isKinematic=true on grab
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                var itemSym = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (!string.Equals(itemSym, instanceName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var dist = Vector3.Distance(container.Go.transform.position, nearPosition);
+                if (dist >= minDist) continue;
+
+                minDist = dist;
+                nearest = container;
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// Removes a VobContainer from the world cache without destroying its GameObject.
+        /// Use when the player physically takes a world item (GO stays alive in VR hands).
+        /// </summary>
+        public void UntrackVobFromCache(VobContainer container)
+        {
+            if (!_multiTypeCacheService.VobCache.Remove(container))
+                return;
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
+        }
+
+        public void RemoveWorldItem(string instanceName, Vector3 nearPosition)
+        {
+            VobContainer toRemove = null;
+            var minDist = float.MaxValue;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+                if (container.Go == null) continue;
+
+                // Skip items held in VR hands (kinematic = grabbed)
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                var itemSym = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (!string.Equals(itemSym, instanceName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                // Use actual GO position (physics may have moved it from spawn point)
+                var dist = Vector3.Distance(container.Go.transform.position, nearPosition);
+                if (dist >= minDist) continue;
+
+                minDist = dist;
+                toRemove = container;
+            }
+
+            if (toRemove == null)
+            {
+                Logger.LogWarning($"[VobService] RemoveWorldItem: '{instanceName}' not found near {nearPosition}", LogCat.Vob);
+                return;
+            }
+
+            Logger.Log($"[VobService] RemoveWorldItem: destroying '{instanceName}' GO dist={minDist:F1}m from NPC", LogCat.Vob);
+            _multiTypeCacheService.VobCache.Remove(toRemove);
+            _saveGameService.CurrentWorldData.Vobs.Remove(toRemove.Vob);
+            Object.Destroy(toRemove.Go);
+        }
+
+        private void SpawnItemVob(string instanceName, System.Numerics.Vector3 position, Matrix3x3 rotation)
+        {
             var vob = new Item
             {
                 Name = instanceName,
-                Position = wp.Position.ToZkVector(),
-                Rotation = wp.Rotation.ToZkMatrix(),
+                Position = position,
+                Rotation = rotation,
                 Visual = new VisualMesh(),
                 Instance = instanceName
             };

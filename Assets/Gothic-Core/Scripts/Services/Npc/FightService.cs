@@ -1,11 +1,14 @@
 using System.Collections;
 using Gothic.Core.Adapters.UI.StatusBars;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -26,6 +29,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         public void Init()
         {
@@ -255,6 +260,7 @@ namespace Gothic.Core.Services.Npc
 
         private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
         {
+            DropReadiedWeapon(npc);
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
 
             var vm = _gameStateService.GothicVm;
@@ -411,14 +417,17 @@ namespace Gothic.Core.Services.Npc
 
         private void OnNpcDied(NpcContainer dead, NpcContainer killer)
         {
+            DropReadiedWeapon(dead);
+
             var vm = _gameStateService.GothicVm;
 
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = dead.Instance;
-            // Always set other=hero so Npc_IsPlayer(other) in ZS_Dead fires B_DeathXP,
-            // even when a companion/guide NPC landed the killing blow.
-            vm.GlobalOther = _npcService.GetHeroContainer().Instance;
+            // Pass the real killer as 'other' — ZS_Dead checks Npc_IsPlayer(other),
+            // human.aivar[AIV_PARTYMEMBER], and monster.aivar[AIV_MM_PARTYMEMBER] to decide XP.
+            // Forcing other=hero would grant XP for kills by any random NPC.
+            vm.GlobalOther = killer.Instance;
 
             var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
             if (zsDeadSym != null)
@@ -447,6 +456,47 @@ namespace Gothic.Core.Services.Npc
             }
 
             return (int)DamageType.Blunt;
+        }
+
+        private void DropReadiedWeapon(NpcContainer npc)
+        {
+            if (npc?.Go == null) return;
+            var fightMode = (VmGothicEnums.WeaponState)npc.Vob.FightMode;
+            var weapon = fightMode switch
+            {
+                VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
+                    => _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc.Instance),
+                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
+                    => _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc.Instance),
+                _ => null
+            };
+            if (weapon == null) return;
+
+            Logger.Log($"[DropWeapon] {npc.Instance.GetName(NpcNameSlot.Slot0)} drops '{weapon.Name}' idx={weapon.Index} fightMode={fightMode}", LogCat.Fight);
+
+            // Drop world VOB
+            _vobService.DropItemAtPosition(weapon.Index, npc.Go.transform.position);
+
+            // Remove from equipped list (visual/logic) so loot menu doesn't show it
+            npc.Props.EquippedItems.Remove(weapon);
+
+            // Remove from Daedalus packed inventory so TakeItem→ExtCreateInvItems doesn't duplicate it
+            _npcInventoryService.ExtRemoveInvItems(npc.Instance, weapon.Index, 1);
+            Logger.Log($"[DropWeapon] removed '{weapon.Name}' from packed inventory", LogCat.Fight);
+
+            // Remove weapon mesh from hand slot so NPC doesn't visually hold it after knockout/death
+            var handSlotName = DrawWeapon.GetHandSlotName(fightMode);
+            var handGo = npc.Go.FindChildRecursively(handSlotName);
+            if (handGo != null && handGo.transform.childCount > 0)
+            {
+                UnityEngine.Object.Destroy(handGo.transform.GetChild(0).gameObject);
+                Logger.Log($"[FightService] DropReadiedWeapon: removed weapon mesh from '{handSlotName}'", LogCat.Fight);
+            }
+
+            // Reset FightMode and combat MDS overlay so NPC returns to walk/run stance
+            npc.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
+            npc.Props.MdsNameOverlay = npc.Props.MdsNameRoutineOverlay;
+            npc.Props.CurrentItem = -1;
         }
 
         private void OnDyingChangeAnimation(NpcContainer target)

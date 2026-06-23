@@ -101,7 +101,7 @@ namespace Gothic.VR.Adapters.Player
 
             _saveGameService.UntrackLooseItem(vobContainer);
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
-            _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
+            _vobService.UntrackVobFromCache(vobContainer);
 
             _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
