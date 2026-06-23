@@ -60,6 +60,11 @@ namespace Gothic.Core.Services.Npc
             if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
+            // Hero is being hit — alert party members immediately. We already know isHero here so no
+            // comparison needed; attacker is directly the enemy party members should engage.
+            if (isHero)
+                AlertPartyMembersToDefendHero(attacker);
+
             // Hero finishes off unconscious NPC with any hit.
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious && !isHero)
             {
@@ -89,11 +94,12 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target);
                 }
-                else if (IsHuman(target) && IsHuman(attacker))
+                else if (IsHuman(target) && (IsHuman(attacker) || IsPartyMember(attacker)))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
                     OnNpcKnockedOut(target, attacker);
                 }
+                
                 else
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
@@ -122,6 +128,16 @@ namespace Gothic.Core.Services.Npc
                 victim: target.Instance,
                 other: attacker.Instance);
 
+            var heroContainer = _npcService.GetHeroContainer();
+            var heroIndex = heroContainer.Instance.Index;
+
+            // Party member was hit by a non-hero — it defends itself immediately.
+            if (IsPartyMember(target) && attacker.Instance.Index != heroIndex)
+            {
+                ActivatePartyMemberAttack(target, attacker);
+                Logger.Log($"[FightService] Party member {target.Instance.GetName(NpcNameSlot.Slot0)} defends self against {attacker.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            }
+
             if (attacker.Go == null) return;
 
             var broadcasted = 0;
@@ -135,8 +151,28 @@ namespace Gothic.Core.Services.Npc
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy)
                     continue;
 
-                // Use candidate's own SensesRange — GetPerceptionRange returns float.MaxValue when unset.
                 var sensesRangeM = candidate.Instance.SensesRange / 100f;
+
+                // Party members follow the hero — measure distance to hero (anchor), not to attacker.
+                if (IsPartyMember(candidate))
+                {
+                    NpcContainer enemy = null;
+                    NpcContainer anchor = null;
+                    if (attacker.Instance.Index == heroIndex) { enemy = target; anchor = attacker; }
+                    else if (target.Instance.Index == heroIndex) { enemy = attacker; anchor = target; }
+
+                    if (enemy == null || anchor?.Go == null)
+                        continue;
+
+                    var distToHero = Vector3.Distance(candidate.Go.transform.position, anchor.Go.transform.position);
+                    if (distToHero > sensesRangeM)
+                        continue;
+
+                    ActivatePartyMemberAttack(candidate, enemy);
+                    broadcasted++;
+                    continue;
+                }
+
                 var dist = Vector3.Distance(candidate.Go.transform.position, attacker.Go.transform.position);
                 if (dist > sensesRangeM)
                     continue;
@@ -183,6 +219,40 @@ namespace Gothic.Core.Services.Npc
         // Mole rats (34), orcs (16–37), monsters (>37) all die.
         private static bool IsHuman(NpcContainer npc) => npc.Instance.Guild < 16;
 
+        private bool IsPartyMember(NpcContainer npc)
+        {
+            var sym = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            if (sym == null) return false;
+            var aivIndex = sym.GetInt(0);
+            return npc.Instance.GetAiVar(aivIndex) == 1;
+        }
+
+        private void AlertPartyMembersToDefendHero(NpcContainer attacker)
+        {
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (!IsPartyMember(candidate)) continue;
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious) continue;
+                if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
+
+                ActivatePartyMemberAttack(candidate, attacker);
+            }
+        }
+
+        private void ActivatePartyMemberAttack(NpcContainer partyMember, NpcContainer enemy)
+        {
+            var zsAttack = _gameStateService.GothicVm.GetSymbolByName("ZS_MM_ATTACK");
+            if (zsAttack == null) return;
+
+            partyMember.Props.EnemyNpc = enemy.Instance;
+            _npcAiService.ExtSetTarget(partyMember.Instance, enemy.Instance);
+            var oldOther = _gameStateService.GothicVm.GlobalOther;
+            _gameStateService.GothicVm.GlobalOther = enemy.Instance;
+            _npcAiService.ExtAiStartState(partyMember.Instance, zsAttack.Index, true, "");
+            _gameStateService.GothicVm.GlobalOther = oldOther;
+            Logger.Log($"[FightService] Party member {partyMember.Instance.GetName(NpcNameSlot.Slot0)} → attack {enemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+        }
+
         private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
         {
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
@@ -205,7 +275,7 @@ namespace Gothic.Core.Services.Npc
             // Set AIV_WASDEFEATEDBYSC immediately in C# — StartState is queued so ZS_Unconscious entry
             // runs next frame. Any perception firing before that frame would see AIV=0 and take wrong branch.
             var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? 19;
-            if (attacker.PrefabProps.IsHero())
+            if (attacker.PrefabProps.IsHero() || IsPartyMember(attacker))
             {
                 npc.Instance.SetAiVar(aivWasDefeated, 1);
                 // ZS_Unconscious_Loop transitions via AI_StartState(callEndFunction=false), skipping
