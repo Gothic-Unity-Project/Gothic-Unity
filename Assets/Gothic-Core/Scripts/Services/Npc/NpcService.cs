@@ -365,6 +365,10 @@ namespace Gothic.Core.Services.Npc
             _multiTypeCacheService.NpcCache.Add(npcData);
             _vm.InitInstance(heroInstance);
             vobNpc.CopyFromInstanceData(heroInstance);
+            // ZenKit initialises FightMode to 6 (its None enum), which we would otherwise
+            // misinterpret as WeaponState.Mage. Hero in VR never uses the AI draw-weapon flow,
+            // so force NoWeapon (0) so C_NpcIsInFightMode and AssessFighter checks are correct.
+            vobNpc.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
 
             if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
             {
@@ -421,11 +425,12 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetToFightMode(NpcInstance npc, int itemIndex)
         {
             var item = _vmCacheService.TryGetItemData(itemIndex);
-            npc.GetUserData()!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
-            npc.GetUserData().Props.CurrentItem = itemIndex;
-            
-            // Also add item into Inventory (G1; e.g., Gobbo NailMace).
-            // TODO - Check if it's the same in G2.
+            var container = npc.GetUserData();
+            // VR hero never draws weapons via Gothic's fight-mode system — physical VR hands handle combat.
+            // Only update FightMode for non-hero NPCs so Daedalus fmode stays 0 for the hero.
+            if (container?.PrefabProps?.IsHero() != true)
+                container!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
+            container!.Props.CurrentItem = itemIndex;
             _npcInventoryService.ExtCreateInvItems(npc, item.Index, 1);
         }
 

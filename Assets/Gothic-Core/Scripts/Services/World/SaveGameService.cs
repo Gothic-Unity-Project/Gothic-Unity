@@ -674,6 +674,7 @@ namespace Gothic.Core.Services.World
             hero.Exp = data.HeroXp; vob.Xp = data.HeroXp;
             hero.ExpNext = data.HeroExpNext; vob.XpNextLevel = data.HeroExpNext;
             hero.Lp = data.HeroLp; vob.Lp = data.HeroLp;
+            vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
             if (data.HeroGuild > 0)
             {
                 hero.Guild = data.HeroGuild; vob.Guild = data.HeroGuild; vob.GuildTrue = data.HeroGuild;

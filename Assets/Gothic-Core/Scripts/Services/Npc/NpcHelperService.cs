@@ -15,6 +15,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
@@ -29,6 +30,7 @@ namespace Gothic.Core.Services.Npc
         
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
 
@@ -94,6 +96,12 @@ namespace Gothic.Core.Services.Npc
 
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)
         {
+            // VR hero never "draws" a melee weapon in the Gothic sense — physical VR hands handle combat.
+            // EquippedItems is populated by the startup script but does not reflect drawn state.
+            // Returning null prevents G2 guards from triggering ZS_REACTTOWEAPON via this check.
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var meleeWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatNf);
 
@@ -107,6 +115,9 @@ namespace Gothic.Core.Services.Npc
 
         public ItemInstance ExtNpcGetEquippedRangedWeapon(NpcInstance npc)
         {
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var rangedWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf);
 
@@ -195,6 +206,55 @@ namespace Gothic.Core.Services.Npc
 
             // *100 as Gothic metrics are in cm, not m.
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
+        }
+
+        public bool ExtWldDetectItem(NpcInstance npc, int flags)
+        {
+            var npcGo = npc.GetUserData()?.Go;
+            if (npcGo == null) return false;
+
+            var npcPos = npcGo.transform.position;
+            const float searchRadius = 20f;
+
+            ItemInstance nearestData = null;
+            var nearestDist = float.MaxValue;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+
+                var itemSymName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (string.IsNullOrEmpty(itemSymName)) continue;
+
+                var itemData = _vmCacheService.TryGetItemData(itemSymName);
+                if (itemData == null) continue;
+
+                if (flags != 0 && (itemData.MainFlag & flags) == 0) continue;
+
+                // Skip items whose GO was destroyed (player already picked them up via loot menu)
+                if (container.Go == null) continue;
+
+                // Skip items currently grabbed by VR hands — HVR sets Rigidbody.isKinematic=true on grab
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                // Use actual GO position (physics may have moved it)
+                var dist = Vector3.Distance(container.Go.transform.position, npcPos);
+                if (dist > searchRadius || dist >= nearestDist) continue;
+
+                nearestDist = dist;
+                nearestData = itemData;
+            }
+
+            if (nearestData == null)
+            {
+                Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)}: no item with flags={flags} nearby", LogCat.Npc);
+                return false;
+            }
+
+            _gameStateService.GothicVm.GlobalItem = nearestData;
+            Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
+            return true;
         }
 
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)

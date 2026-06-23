@@ -265,20 +265,6 @@ namespace Gothic.Core.Adapters.Npc
             }
 
 
-            // PERC_ASSESSFIGHTER: fire when hero has any weapon drawn (not fists).
-            // B_AssessFighter checks distance and fight mode internally — we only need to gate on
-            // the hero being in a non-fist fight mode so we don't flood the VM every tick.
-            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessFighter, out var fighterPerception) &&
-                fighterPerception >= 0)
-            {
-                var heroWeaponState = (VmGothicEnums.WeaponState)(hero?.GetUserData()?.Vob?.FightMode ?? 0);
-                if (heroWeaponState != VmGothicEnums.WeaponState.NoWeapon &&
-                    heroWeaponState != VmGothicEnums.WeaponState.Fist)
-                {
-                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance, null, hero);
-                }
-            }
-
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
             // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.
             // B_MoveNpc itself checks BS_STAND so it won't bark at a moving player.

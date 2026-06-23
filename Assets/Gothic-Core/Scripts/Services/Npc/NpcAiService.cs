@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
@@ -389,11 +390,19 @@ namespace Gothic.Core.Services.Npc
         public int ExtNpcGetDistToNpc(NpcInstance npc1, NpcInstance npc2)
         {
             if (npc1 == null || npc2 == null)
-            {
                 return int.MaxValue;
-            }
 
-            var npc1Pos = npc1.GetUserData().Go.transform.position;
+            var npc1Container = npc1.GetUserData();
+            if (npc1Container?.Go == null)
+                return int.MaxValue;
+
+            var npc1Pos = npc1Container.Go.transform.position;
+
+            // npc2 may be an ItemInstance passed as NpcInstance by Daedalus (e.g. Npc_GetDistToNpc(self, item)
+            // in B_FetchWeapon). When GetUserData() returns null, treat as distance 0 so the proximity check passes.
+            var npc2Container = npc2.GetUserData();
+            if (npc2Container == null)
+                return 0;
 
             Vector3 npc2Pos;
             // If hero: use camera position (VR head position is most accurate)
@@ -403,14 +412,12 @@ namespace Gothic.Core.Services.Npc
             }
             else
             {
-                var go = npc2.GetUserData().Go;
+                var go = npc2Container.Go;
 
                 // e.g. Triggered at Grd_214_Torwache_NODUSTY_Condition as Dusty is not yet spawned.
-                // Hint: Could be optimized/overcome if we copy pos+rot between GO and ZenKitVob each frame.
                 if (go == null)
                     return int.MaxValue;
-                else
-                    npc2Pos = go.transform.position;
+                npc2Pos = go.transform.position;
             }
 
             return (int)(Vector3.Distance(npc1Pos, npc2Pos) * 100);
@@ -505,7 +512,26 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsInFightMode(NpcInstance npc, VmGothicEnums.FightMode fightMode)
         {
-            return npc.GetUserData().Vob.FightMode == (int)fightMode;
+            var ws = (VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode;
+            return fightMode switch
+            {
+                VmGothicEnums.FightMode.None  => ws == VmGothicEnums.WeaponState.NoWeapon,
+                VmGothicEnums.FightMode.Fists => ws == VmGothicEnums.WeaponState.Fist,
+                VmGothicEnums.FightMode.Melee => ws == VmGothicEnums.WeaponState.W1H || ws == VmGothicEnums.WeaponState.W2H,
+                VmGothicEnums.FightMode.Far   => ws == VmGothicEnums.WeaponState.Bow || ws == VmGothicEnums.WeaponState.CBow,
+                VmGothicEnums.FightMode.Magic => ws == VmGothicEnums.WeaponState.Mage,
+                _ => false
+            };
+        }
+
+        public void ExtAiReadySpell(NpcInstance npc, int spellId, int investMana)
+        {
+            var container = npc.GetUserData();
+            if (container == null) return;
+            container.ActiveSpell = spellId;
+            container.ActiveSpellLevel = Math.Max(1, investMana);
+            Logger.Log($"[AI_ReadySpell] {npc.GetName(NpcNameSlot.Slot0)} spell={spellId} mana={investMana} — enqueueing DrawWeapon(magic)", LogCat.Fight);
+            container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 2), container));
         }
 
         public bool ExtNpcOwnedByNpc(ItemInstance item, NpcInstance npc)
