@@ -174,30 +174,40 @@ namespace Gothic.Core.Domain.Vobs
                     // This value is always true when a new game/world is loaded. (Compared with G1 save game.)
                     ((TriggerList)vob).SendOnTrigger = true;
 
-                    // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
-                    // Remove it from here once we properly implement and handle it.
-                    CreateEmptyDefaultVob(vob, parent);
+                    go = CreateTriggerList((ITriggerList)vob, parent);
                     return;
                 case VirtualObjectType.oCTriggerScript:
                     go = CreateTriggerScript((ITriggerScript)vob, parent);
                     return;
-                case VirtualObjectType.zCVobScreenFX:
+                case VirtualObjectType.zCCodeMaster:
+                    go = CreateCodeMaster((ICodeMaster)vob, parent);
+                    return;
+                case VirtualObjectType.zCTrigger:
+                    go = CreateTriggerZone((ITrigger)vob, parent);
+                    return;
+                case VirtualObjectType.zCTriggerUntouch:
+                    go = CreateTriggerUntouch((ITriggerUntouch)vob, parent);
+                    return;
                 case VirtualObjectType.zCTriggerWorldStart:
+                    go = CreateTriggerWorldStart((ITriggerWorldStart)vob, parent);
+                    return;
+                case VirtualObjectType.zCMoverController:
+                    go = CreateMoverController((IMoverController)vob, parent);
+                    return;
+                case VirtualObjectType.zCMessageFilter:
+                    go = CreateMessageFilter((IMessageFilter)vob, parent);
+                    return;
+                case VirtualObjectType.zCVobScreenFX:
                 case VirtualObjectType.oCCSTrigger:
                 case VirtualObjectType.zCVobLensFlare:
-                case VirtualObjectType.zCMoverController:
                 case VirtualObjectType.zCZoneZFog:
                 case VirtualObjectType.zCZoneZFogDefault:
                 case VirtualObjectType.zCZoneVobFarPlane:
                 case VirtualObjectType.zCZoneVobFarPlaneDefault:
-                case VirtualObjectType.zCMessageFilter:
-                case VirtualObjectType.zCCodeMaster:
                 case VirtualObjectType.zCCSCamera:
                 case VirtualObjectType.zCCamTrj_KeyFrame:
                 case VirtualObjectType.oCTouchDamage:
-                case VirtualObjectType.zCTriggerUntouch:
                 case VirtualObjectType.zCEarthquake:
-                case VirtualObjectType.zCTrigger:
                 case VirtualObjectType.Ignored:
                 case VirtualObjectType.Unknown:
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
@@ -689,10 +699,84 @@ namespace Gothic.Core.Domain.Vobs
             vobObj.transform.position = (min + max) / 2f;
 
             vobObj.transform.localScale = max - min;
-            
+
             vobObj.GetComponent<TriggerScriptHandler>().Init(vob);
 
             return vobObj;
+        }
+
+        private GameObject CreateTriggerList(ITriggerList vob, GameObject parent)
+        {
+            var go = new GameObject($"TriggerList_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+            go.AddComponent<TriggerListHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateCodeMaster(ICodeMaster vob, GameObject parent)
+        {
+            var go = new GameObject($"CodeMaster_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+            go.AddComponent<CodeMasterHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateTriggerZone(ITrigger vob, GameObject parent)
+        {
+            var go = new GameObject($"TriggerZone_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+
+            var min = vob.BoundingBox.Min.ToUnityVector();
+            var max = vob.BoundingBox.Max.ToUnityVector();
+            go.transform.position = (min + max) / 2f;
+            go.transform.localScale = Vector3.Max(max - min, Vector3.one * 0.01f);
+
+            var col = go.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+
+            go.AddComponent<TriggerZoneHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateTriggerUntouch(ITriggerUntouch vob, GameObject parent)
+        {
+            var go = new GameObject($"TriggerUntouch_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+
+            var min = vob.BoundingBox.Min.ToUnityVector();
+            var max = vob.BoundingBox.Max.ToUnityVector();
+            go.transform.position = (min + max) / 2f;
+            go.transform.localScale = Vector3.Max(max - min, Vector3.one * 0.01f);
+
+            var col = go.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+
+            go.AddComponent<TriggerUntouchHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateTriggerWorldStart(ITriggerWorldStart vob, GameObject parent)
+        {
+            var go = new GameObject($"TriggerWorldStart_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+            go.AddComponent<TriggerWorldStartHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateMoverController(IMoverController vob, GameObject parent)
+        {
+            var go = new GameObject($"MoverController_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+            go.AddComponent<MoverControllerHandler>().Init(vob);
+            return go;
+        }
+
+        private GameObject CreateMessageFilter(IMessageFilter vob, GameObject parent)
+        {
+            var go = new GameObject($"MessageFilter_{vob.Name}");
+            go.transform.SetParent(parent != null ? parent.transform : null);
+            go.AddComponent<MessageFilterHandler>().Init(vob);
+            return go;
         }
 
         private GameObject CreateAnimatedVob(Animate vob, GameObject parent = null)

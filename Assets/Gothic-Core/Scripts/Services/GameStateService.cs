@@ -37,6 +37,24 @@ namespace Gothic.Core.Services
         // [zCMover] keyed by VOB Name — multiple movers can share the same name (copy-pasted VOBs)
         public readonly Dictionary<string, List<VobContainer>> VobsMover = new();
 
+        // [oCTriggerScript] keyed by VOB Name — for Wld_SendTrigger and mob-grab trigger chains
+        public readonly Dictionary<string, VobContainer> VobsTriggerScript = new();
+
+        // [zCTriggerList] keyed by VOB Name — fires multiple targets in sequence/all/random
+        public readonly Dictionary<string, VobContainer> VobsTriggerList = new();
+
+        // [zCCodeMaster] keyed by VOB Name — combination/sequence puzzle controller
+        public readonly Dictionary<string, VobContainer> VobsCodeMaster = new();
+
+        // [zCTrigger] keyed by VOB Name — proximity zone that can also receive programmatic OnTrigger
+        public readonly Dictionary<string, VobContainer> VobsTrigger = new();
+
+        // [zCMoverController] keyed by VOB Name — sends keyframe commands to a target mover
+        public readonly Dictionary<string, VobContainer> VobsMoverController = new();
+
+        // [zCMessageFilter] keyed by VOB Name — converts OnTrigger/OnUntrigger to another action on its Target
+        public readonly Dictionary<string, VobContainer> VobsMessageFilter = new();
+
         public int GuildHumanCount;
         public int GuildCount;
         public int[] GuildAttitudes;
@@ -57,6 +75,12 @@ namespace Gothic.Core.Services
             FreePoints.Clear();
             VobsInteractable.Clear();
             VobsMover.Clear();
+            VobsTriggerScript.Clear();
+            VobsTriggerList.Clear();
+            VobsCodeMaster.Clear();
+            VobsTrigger.Clear();
+            VobsMoverController.Clear();
+            VobsMessageFilter.Clear();
         }
 
         public void Dispose()
@@ -68,6 +92,11 @@ namespace Gothic.Core.Services
             FreePoints.Clear();
             VobsInteractable.Clear();
             VobsMover.Clear();
+            VobsTriggerList.Clear();
+            VobsCodeMaster.Clear();
+            VobsTrigger.Clear();
+            VobsMoverController.Clear();
+            VobsMessageFilter.Clear();
 
             Dialogs.Dispose();
         }

@@ -163,18 +163,23 @@ namespace Gothic.VR.Services
                 Logger.LogWarning($"[VRPlayerService] HandleMobGrab: no Target on {loader.gameObject.name}", LogCat.Ai);
                 return;
             }
-            if (!_vobService.TryGetMovers(moverTarget, out var moverVobs))
+            // Direct mover: Toggle (player physically interacts — can open and close).
+            if (_vobService.TryGetMovers(moverTarget, out var moverVobs))
             {
-                Logger.LogWarning($"[VRPlayerService] HandleMobGrab: mover '{moverTarget}' not found", LogCat.Ai);
+                Logger.Log($"[VRPlayerService] HandleMobGrab: toggling mover '{moverTarget}' ({moverVobs.Count} instance(s))", LogCat.Ai);
+                foreach (var moverVob in moverVobs)
+                {
+                    if (moverVob?.Go == null || !moverVob.Go) continue;
+                    var adapter = moverVob.Go.GetComponentInChildren<MoverAdapter>();
+                    if (adapter != null) adapter.Toggle();
+                }
                 return;
             }
-            Logger.Log($"[VRPlayerService] HandleMobGrab: triggering mover '{moverTarget}' ({moverVobs.Count} instance(s))", LogCat.Ai);
-            foreach (var moverVob in moverVobs)
-            {
-                if (moverVob?.Go == null || !moverVob.Go) continue;
-                var adapter = moverVob.Go.GetComponentInChildren<MoverAdapter>();
-                if (adapter != null) adapter.Toggle();
-            }
+            // Target is a CodeMaster, TriggerList, TriggerScript, or chained mover — dispatch through the chain.
+            // Pass the mob's VOB name as sender so CodeMaster can match it against its Slaves list.
+            var senderName = loader.Container.Vob.Name;
+            Logger.Log($"[VRPlayerService] HandleMobGrab: dispatching trigger chain '{moverTarget}' from '{senderName}'", LogCat.Ai);
+            _vobService.DispatchTrigger(moverTarget, senderName);
         }
 
         public HVRController GetHand(HVRHandSide side)

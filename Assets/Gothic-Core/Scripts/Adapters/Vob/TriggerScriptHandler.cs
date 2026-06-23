@@ -11,37 +11,55 @@ namespace Gothic.Core.Adapters.Vob
     public class TriggerScriptHandler : MonoBehaviour
     {
         [Inject] private VmService _vmService;
-        
-        private TriggerScript _triggerScript;
-        
-        
+
+        private ITriggerScript _triggerScript;
+        private int _activationCount;
+
         public void Init(ITriggerScript triggerScript)
         {
-            _triggerScript = (TriggerScript)triggerScript;
+            _triggerScript = triggerScript;
         }
-        
+
+        /// <summary>
+        /// Called programmatically when a mob-grab or Wld_SendTrigger activates this trigger.
+        /// </summary>
+        public void Trigger()
+        {
+            if (!_triggerScript.IsEnabled)
+                return;
+
+            // MaxActivationCount: -1 = unlimited, 0 = never, N = fire N times.
+            // CountCanBeActivated is a save-game field (starts at 0 on fresh load) — do NOT use as the limit.
+            var max = _triggerScript.MaxActivationCount;
+            if (max == 0)
+                return;
+            if (max > 0 && _activationCount >= max)
+                return;
+
+            _activationCount++;
+            var funcName = _triggerScript.Function;
+            Logger.Log($"[TriggerScript] calling '{funcName}' — activation {_activationCount}/{(max < 0 ? "∞" : max.ToString())}", LogCat.Vob);
+            var sym = _vmService.Vm.GetSymbolByName(funcName);
+            if (sym == null)
+            {
+                Logger.LogWarning($"[TriggerScript] function '{funcName}' not found in Daedalus VM", LogCat.Vob);
+                return;
+            }
+            _vmService.Vm.Call(sym.Index);
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (!other.CompareTag(Constants.PlayerTag))
-            {
                 return;
-            }
 
             if (!_triggerScript.ReactToOnTouch)
             {
-                Logger.LogWarning($"oCTriggerScript {other.gameObject.name} is triggering {_triggerScript.Function} but not for ReactOnTrigger." +
-                                  $"But any other trigger types aren't implemented yet.", LogCat.Vob);
+                Logger.LogWarning($"oCTriggerScript {_triggerScript.Function}: not ReactToOnTouch — other trigger types not implemented", LogCat.Vob);
                 return;
             }
-            
-            // If -1, then it can be triggered infinite. Only decrease if >0
-            if (_triggerScript.CountCanBeActivated > 0)
-                _triggerScript.CountCanBeActivated--;
 
-            if (_triggerScript.CountCanBeActivated == 0)
-                return;
-
-            _vmService.Vm.Call(_triggerScript.Function);
+            Trigger();
         }
     }
 }

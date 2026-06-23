@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
@@ -272,6 +273,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, string, int>("Wld_SetMobRoutine", Wld_SetMobRoutine);
             vm.RegisterExternal<string, int>("Wld_AssignRoomToGuild", Wld_AssignRoomToGuild);
             vm.RegisterExternal<int, int, int>("Wld_GetGuildAttitude", Wld_GetGuildAttitude);
+            vm.RegisterExternal<string>("Wld_SendTrigger", Wld_SendTrigger);
+            vm.RegisterExternal<string>("Wld_SendUntrigger", Wld_SendUntrigger);
 
             // Misc
             vm.RegisterExternal<int, int>("Perc_SetRange", Perc_SetRange);
@@ -1377,6 +1380,25 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_InsertItem(int itemInstance, string spawnpoint)
         {
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
+        }
+
+        public void Wld_SendTrigger(string vobName)
+        {
+            _vobService.DispatchTrigger(vobName);
+        }
+
+        public void Wld_SendUntrigger(string vobName)
+        {
+            if (!_vobService.TryGetMovers(vobName, out var movers))
+            {
+                Logger.LogWarning($"Wld_SendUntrigger: '{vobName}' not found in VobsMover", LogCat.Vob);
+                return;
+            }
+            foreach (var container in movers)
+            {
+                if (container?.Go == null || !container.Go) continue;
+                container.Go.GetComponentInChildren<MoverAdapter>()?.Close();
+            }
         }
 
         public void Wld_ExchangeGuildAttitudes(string name)
