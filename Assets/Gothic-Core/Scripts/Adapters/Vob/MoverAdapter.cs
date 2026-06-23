@@ -28,6 +28,7 @@ namespace Gothic.Core.Adapters.Vob
         private (Vector3 pos, Quaternion rot)[] _keyframes;
         private bool _isOpen;
         private bool _isMoving;
+        private int _currentKeyIndex;
 
         private void Awake() => this.Inject();
 
@@ -65,15 +66,18 @@ namespace Gothic.Core.Adapters.Vob
         public void Open()
         {
             if (_isMoving) return;
-            Logger.Log($"[MoverAdapter] {_mover.Name} Open() — keyframes={_keyframes?.Length ?? 0}, chainTarget='{_chainTarget}'", LogCat.Vob);
+            if (_isOpen) return;
+            Logger.Log($"[MoverAdapter] {_mover.Name} Open() — kf[{_currentKeyIndex}]→kf[{(_keyframes?.Length ?? 1) - 1}], chainTarget='{_chainTarget}'", LogCat.Vob);
             if (_keyframes != null && _keyframes.Length >= 2)
-                StartCoroutine(MoveTo(0, _keyframes.Length - 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () =>
+                StartCoroutine(MoveTo(_currentKeyIndex, _keyframes.Length - 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () =>
                 {
+                    _currentKeyIndex = _keyframes.Length - 1;
                     _isOpen = true;
                     TriggerChainedMover(opening: true);
                 }));
             else
             {
+                _currentKeyIndex = _keyframes != null ? _keyframes.Length - 1 : 0;
                 _isOpen = true;
                 TriggerChainedMover(opening: true);
             }
@@ -82,16 +86,77 @@ namespace Gothic.Core.Adapters.Vob
         public void Close()
         {
             if (_isMoving) return;
+            if (!_isOpen) return;
+            Logger.Log($"[MoverAdapter] {_mover.Name} Close() — kf[{_currentKeyIndex}]→kf[0], chainTarget='{_chainTarget}'", LogCat.Vob);
             if (_keyframes != null && _keyframes.Length >= 2)
-                StartCoroutine(MoveTo(_keyframes.Length - 1, 0, _mover.SfxCloseStart, _mover.SfxCloseEnd, onDone: () =>
+                StartCoroutine(MoveTo(_currentKeyIndex, 0, _mover.SfxCloseStart, _mover.SfxCloseEnd, onDone: () =>
                 {
+                    _currentKeyIndex = 0;
                     _isOpen = false;
                     TriggerChainedMover(opening: false);
                 }));
             else
             {
+                _currentKeyIndex = 0;
                 _isOpen = false;
                 TriggerChainedMover(opening: false);
+            }
+        }
+
+        public void GoToKeyNext()
+        {
+            if (_isMoving || _keyframes == null || _keyframes.Length < 2) return;
+            var from = _currentKeyIndex;
+            var to = (_currentKeyIndex + 1) % _keyframes.Length;
+            Logger.Log($"[MoverAdapter] {_mover.Name} GoToKeyNext() [{from}]→[{to}]", LogCat.Vob);
+            StartCoroutine(MoveTo(from, to, _mover.SfxOpenStart, _mover.SfxOpenEnd, onDone: () =>
+            {
+                _currentKeyIndex = to;
+                _isOpen = to != 0;
+                TriggerChainedMover(opening: _isOpen);
+            }));
+        }
+
+        public void GoToKeyPrev()
+        {
+            if (_isMoving || _keyframes == null || _keyframes.Length < 2) return;
+            var from = _currentKeyIndex;
+            var to = (_currentKeyIndex - 1 + _keyframes.Length) % _keyframes.Length;
+            Logger.Log($"[MoverAdapter] {_mover.Name} GoToKeyPrev() [{from}]→[{to}]", LogCat.Vob);
+            StartCoroutine(MoveTo(from, to, _mover.SfxCloseStart, _mover.SfxCloseEnd, onDone: () =>
+            {
+                _currentKeyIndex = to;
+                _isOpen = to != 0;
+                TriggerChainedMover(opening: _isOpen);
+            }));
+        }
+
+        public void GoToKeyFixed(int key, bool direct)
+        {
+            if (_isMoving || _keyframes == null || _keyframes.Length == 0) return;
+            key = Mathf.Clamp(key, 0, _keyframes.Length - 1);
+            if (key == _currentKeyIndex) return;
+            Logger.Log($"[MoverAdapter] {_mover.Name} GoToKeyFixed(key={key}, direct={direct}) from={_currentKeyIndex}", LogCat.Vob);
+
+            if (direct)
+            {
+                transform.position = _keyframes[key].pos;
+                transform.rotation = _keyframes[key].rot;
+                _currentKeyIndex = key;
+                _isOpen = key != 0;
+                TriggerChainedMover(opening: _isOpen);
+            }
+            else
+            {
+                var sfxStart = key > _currentKeyIndex ? _mover.SfxOpenStart : _mover.SfxCloseStart;
+                var sfxEnd = key > _currentKeyIndex ? _mover.SfxOpenEnd : _mover.SfxCloseEnd;
+                var targetKey = key;
+                StartCoroutine(MoveTo(_currentKeyIndex, targetKey, sfxStart, sfxEnd, onDone: () =>
+                {
+                    _currentKeyIndex = targetKey;
+                    _isOpen = targetKey != 0;
+                    TriggerChainedMover(opening: _isOpen);
+                }));
             }
         }
 
