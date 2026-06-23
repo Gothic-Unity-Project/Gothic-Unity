@@ -220,25 +220,25 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetTalentValue(NpcInstance npc, VmGothicEnums.Talent talent, int level)
         {
             var vob = npc.GetUserData()!.Vob;
-
+            var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
-                Type =  (int)talent,
-                Skill = 0,
+                Type  = (int)talent,
+                Skill = existing?.Skill ?? 0,
                 Value = level
             });
         }
-        
+
         // FIXME - In OpenGothic it adds MDS overlays based on skill level.
         public void ExtNpcSetTalentSkill(NpcInstance npc, VmGothicEnums.Talent talent, int skillValue)
         {
             var vob = npc.GetUserData()!.Vob;
-
+            var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
-                Type =  (int)talent,
+                Type  = (int)talent,
                 Skill = skillValue,
-                Value = 0
+                Value = existing?.Value ?? 0
             });
         }
 
@@ -304,6 +304,10 @@ namespace Gothic.Core.Services.Npc
             hero.Vob.Xp = hero.Instance.Exp;
             hero.Vob.XpNextLevel = hero.Instance.ExpNext;
             hero.Vob.Lp = hero.Instance.Lp;
+            // Sync attributes written directly by Daedalus (e.g. hero.lp -= cost; hero.attribute[x] += y)
+            // bypassing our Npc_ChangeAttribute external.
+            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
+                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
         }
 
         public GameObject GetHeroGameObject()

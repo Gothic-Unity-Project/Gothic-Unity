@@ -46,6 +46,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         {
             if (_npcService == null)
                 return;
+            _npcService.SyncHeroInstanceToVob();
             UpdateData();
         }
 
