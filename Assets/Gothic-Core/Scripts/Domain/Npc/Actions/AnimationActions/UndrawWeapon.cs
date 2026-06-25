@@ -101,7 +101,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Props.MdsNameOverlay = Props.MdsNameRoutineOverlay;
             Props.CurrentItem = -1;
             if (_weaponState == VmGothicEnums.WeaponState.Mage)
+            {
+                if (NpcContainer.ActiveSpellVfxGo != null)
+                {
+                    UnityEngine.Object.Destroy(NpcContainer.ActiveSpellVfxGo);
+                    NpcContainer.ActiveSpellVfxGo = null;
+                }
                 NpcContainer.ActiveSpell = 0;
+            }
         }
 
         private void PlayWeaponSound(bool sheathing)

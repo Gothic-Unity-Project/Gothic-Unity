@@ -5,6 +5,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using JetBrains.Annotations;
@@ -18,6 +19,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly MeshService _meshService;
 
         private bool _isRangedRequested => Action.Int0 == 1;
         private bool _isMagicRequested => Action.Int0 == 2;
@@ -53,6 +55,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             MoveWeaponToHand(weapon, weaponState);
             PlayWeaponDrawSound(weaponState);
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+                SpawnSpellVfx();
 
             var prefix = AnimationService.GetWeaponAnimationPrefix(weaponState);
             var walkMode = (VmGothicEnums.WalkMode)Vob.AiHuman.WalkMode;
@@ -72,6 +76,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             ActionEndEventTime = PrefabProps.AnimationSystem.GetAnimationDuration(animationName);
+        }
+
+        private void SpawnSpellVfx()
+        {
+            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
+            if (string.IsNullOrEmpty(mfxName))
+                return;
+            var handGo = NpcGo.FindChildRecursively(Constants.SlotRightHand);
+            if (handGo == null)
+                return;
+            if (NpcContainer.ActiveSpellVfxGo != null)
+                UnityEngine.Object.Destroy(NpcContainer.ActiveSpellVfxGo);
+            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx($"MFX_{mfxName.ToUpper()}_INIT", parent: handGo);
+            Logger.Log($"[DrawWeapon] spell VFX spawned MFX_{mfxName.ToUpper()}_INIT on {NpcInstance.GetName(NpcNameSlot.Slot0)}", LogCat.Animation);
         }
 
         [CanBeNull]

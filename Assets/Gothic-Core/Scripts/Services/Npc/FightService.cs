@@ -397,6 +397,16 @@ namespace Gothic.Core.Services.Npc
                     damage = Mathf.Max(0, hitPoints - 1);
             }
 
+            // Magic and ranged never one-shot humanoids or the hero — they always survive with 1 HP,
+            // requiring a follow-up hit to trigger knockout. Monsters (guild >= 16) take full damage.
+            var attackerMode = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
+            var isMagicOrRanged = attackerMode is VmGothicEnums.WeaponState.Mage
+                or VmGothicEnums.WeaponState.Bow
+                or VmGothicEnums.WeaponState.CBow;
+            var targetIsHumanOrHero = (target.PrefabProps != null && target.PrefabProps.IsHero()) || IsHuman(target);
+            if (isMagicOrRanged && targetIsHumanOrHero)
+                damage = Mathf.Min(damage, Mathf.Max(1, hitPoints - 1));
+
             // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.
             if (((int)target.Instance.Flags & 2) != 0)
             {
@@ -545,6 +555,8 @@ namespace Gothic.Core.Services.Npc
             if (clip == null)
                 return;
 
+            if (target.PrefabProps == null || target.PrefabProps.NpcSound == null)
+                return;
             target.PrefabProps.NpcSound.PlayOneShot(clip);
         }
     }

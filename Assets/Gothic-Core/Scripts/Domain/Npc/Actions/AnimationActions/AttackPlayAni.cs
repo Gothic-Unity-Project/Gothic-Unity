@@ -1,5 +1,6 @@
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Logger = Gothic.Core.Logging.Logger;
 using Gothic.Core.Models.Vm;
@@ -17,6 +18,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class AttackPlayAni : PlayAni
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly AudioService _audioService;
 
         private FightAiMove _move => (FightAiMove)Action.Int0;
         private NpcContainer _enemy => Action.Instance0.GetUserData();
@@ -46,6 +48,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (IsFinishedFlag)
             {
                 StopTurnAnimation();
+                // Magic/ranged animations have no DEF_OPT_FRAME, so HasComboWindowOpened never fires.
+                // Fire the hit at animation end instead.
+                if (!_hasHitFired && (VmGothicEnums.WeaponState)Vob.FightMode is
+                    VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                {
+                    _hasHitFired = true;
+                    TryFireHit();
+                }
                 return;
             }
 
@@ -309,11 +319,55 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             Logger.LogWarning($"[AttackPlayAni] HIT: {NpcInstance.GetName(NpcNameSlot.Slot0)} → {target.Instance.GetName(NpcNameSlot.Slot0)} dist={toTarget.magnitude:F2}m angle={angle:F0}°", LogCat.Fight);
-            GlobalEventDispatcher.FightHit.Invoke(NpcContainer, target, attackerPos);
+
+            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+            {
+                var spellDamage = GetNpcSpellDamage();
+                Logger.Log($"[AttackPlayAni] spell hit: ActiveSpell={NpcContainer.ActiveSpell} level={NpcContainer.ActiveSpellLevel} damage={spellDamage}", LogCat.Fight);
+                PlaySpellCastSound();
+                GlobalEventDispatcher.SpellHit.Invoke(NpcContainer, target, targetPos, spellDamage);
+            }
+            else
+            {
+                GlobalEventDispatcher.FightHit.Invoke(NpcContainer, target, attackerPos);
+            }
+        }
+
+        private void PlaySpellCastSound()
+        {
+            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
+            if (string.IsNullOrEmpty(mfxName))
+                return;
+            var clip = _audioService.GetRandomSoundClip($"MFX_{mfxName}_Cast");
+            if (clip == null)
+                clip = _audioService.GetRandomSoundClip("MFX_Thunderbolt_Cast"); // fallback for spells with no dedicated cast SFX
+            if (clip == null || PrefabProps.NpcSound == null)
+                return;
+            PrefabProps.NpcSound.PlayOneShot(clip);
+        }
+
+        private int GetNpcSpellDamage()
+        {
+            var spellId = NpcContainer.ActiveSpell;
+            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            var mfxName = mfxSym?.GetString((ushort)spellId);
+            if (string.IsNullOrEmpty(mfxName))
+                return 0;
+            var dmgSym = GameStateService.GothicVm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}");
+            var baseDamage = dmgSym?.GetInt(0) ?? 0;
+            return baseDamage * NpcContainer.ActiveSpellLevel;
         }
 
         private float GetWeaponReach()
         {
+            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+                return 12f;
+            if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                return 20f;
+
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
             var item = VmCacheService.TryGetItemData(Props.CurrentItem);
             var weaponRange = item?.Range ?? GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);

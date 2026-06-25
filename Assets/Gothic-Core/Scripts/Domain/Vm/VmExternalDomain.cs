@@ -236,6 +236,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
+            vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
@@ -1334,6 +1336,22 @@ namespace Gothic.Core.Domain.Vm
             var container = npc.GetUserData();
             var ret = container?.ActiveSpellLevel ?? 1;
             return LogInstantExternal(nameof(Npc_GetActiveSpellLevel), ret, npc);
+        }
+
+        public int Npc_IsDrawingSpell(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            // Return 1 when FightMode == Mage — draw animation has set the mode and spell is active.
+            var ret = Convert.ToInt32(container != null
+                && (VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.Mage
+                && container.ActiveSpell > 0);
+            return LogInstantExternal(nameof(Npc_IsDrawingSpell), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellIsScroll(NpcInstance npc)
+        {
+            // Scrolls vs runes: we treat all VR spell items as runes (not scrolls).
+            return LogInstantExternal(nameof(Npc_GetActiveSpellIsScroll), 0, npc);
         }
 
         public int Npc_OwnedByNpc(ItemInstance item, NpcInstance npc)

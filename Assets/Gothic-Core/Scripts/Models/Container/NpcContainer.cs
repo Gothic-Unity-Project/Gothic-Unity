@@ -178,5 +178,6 @@ namespace Gothic.Core.Models.Container
         // Spell casting state — set by VRRuneCaster while a rune is held
         public int ActiveSpell;
         public int ActiveSpellLevel = 1;
+        public GameObject ActiveSpellVfxGo;
     }
 }

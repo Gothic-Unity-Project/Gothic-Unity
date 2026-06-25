@@ -11,6 +11,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.ControllerInput;
@@ -43,6 +44,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly MeshService _meshService;
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
@@ -57,6 +59,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _telekinesisPrepped;
         private bool _isTargeting; // combat spells: trigger 1 pressed, waiting for target + trigger 2
         private HVRHandSide _runeHandSide;
+        private GameObject _spellVfxGo;
         public bool IsTargetingActive => _isTargeting;
         private float _manaTickTimer;
         private const float _manaTickInterval = 0.5f; // seconds per mana invested; tunes cast speed
@@ -95,6 +98,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _vrPlayerService.DeactivateSpellTargeting();
             _isCasting = false;
 
+            DestroySpellVfx();
             StopInvestSound();
             if (_investAudioSource != null)
                 Destroy(_investAudioSource);
@@ -137,6 +141,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _runeHandSide = (_vrPlayerService.GrabbedItemLeft == gameObject) ? HVRHandSide.Left : HVRHandSide.Right;
                 _vrPlayerService.ActivateSpellTargeting(_runeHandSide, _targetRange);
                 StartInvestSound(_item.Spell);
+                SpawnSpellVfx();
                 Logger.Log($"[VRRuneCaster] Targeting — spell {_item.Spell} ({_item.Name}), aim rune hand at NPC and press trigger to fire", LogCat.VR);
             }
             else if (triggered && _isTargeting && !_isCasting)
@@ -144,6 +149,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 // Trigger 2: confirm target and start mana investment
                 _isTargeting = false;
                 _vrPlayerService.DeactivateSpellTargeting();
+                DestroySpellVfx();
                 _isCasting = true;
                 _manaInvested = 0;
                 _manaTickTimer = _manaTickInterval;
@@ -199,6 +205,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
+        }
+
+        private void SpawnSpellVfx()
+        {
+            DestroySpellVfx();
+            var mfxName = GetSpellMfxName(_item.Spell);
+            if (mfxName == null) return;
+            var hand = _vrPlayerService.GetHand(_runeHandSide);
+            if (hand == null) return;
+            _spellVfxGo = _meshService.CreateVobPfx($"MFX_{mfxName.ToUpper()}_INIT", parent: hand.gameObject);
+            Logger.Log($"[VRRuneCaster] spell VFX spawned MFX_{mfxName.ToUpper()}_INIT", LogCat.VR);
+        }
+
+        private void DestroySpellVfx()
+        {
+            if (_spellVfxGo == null) return;
+            Destroy(_spellVfxGo);
+            _spellVfxGo = null;
         }
 
         private bool IsTelekinesisSpell() =>
@@ -302,7 +326,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var mfxName = GetSpellMfxName(spellId);
             if (mfxName == null) return;
-            PlayOneShot($"MFX_{mfxName}_Cast");
+            var sfxName = $"MFX_{mfxName}_Cast";
+            var clip = _audioService.GetRandomSoundClip(sfxName);
+            if (clip == null)
+                clip = _audioService.GetRandomSoundClip("MFX_Thunderbolt_Cast"); // fallback for spells with no dedicated cast SFX
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, transform.position);
         }
 
         private void PlayOneShot(string sfxName)

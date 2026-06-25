@@ -55,15 +55,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
 
-            switch ((VmGothicEnums.WeaponState)Vob.FightMode)
-            {
-                case VmGothicEnums.WeaponState.Bow:
-                case VmGothicEnums.WeaponState.CBow:
-                case VmGothicEnums.WeaponState.Mage:
-                    // Ranged/magic fight AI isn't implemented yet. Behave like a melee fighter so fights continue.
-                    Logger.LogWarning($"Ai_Attack() with {(VmGothicEnums.WeaponState)Vob.FightMode} not yet implemented. Using melee behavior.", LogCat.Ai);
-                    break;
-            }
+            // Bow, CBow, Mage: range values are overridden in GetAttackRange() — fight logic is identical.
 
             // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
             if (isInWRange)
@@ -168,10 +160,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// Fight range is calculated by base range + weapon attack range.
         private float GetAttackRange()
         {
+            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+
+            // Magic and ranged use fixed engagement ranges instead of guild melee values.
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+                return 12f;
+            if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                return 20f;
+
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
             // If NPC has a weapon equipped, use its range; otherwise fall back to fist range.
-            // FIXME - Check how G2 is handling ranges. Also via weapon range or guild values?
             var item = VmCacheService.TryGetItemData(Props.CurrentItem);
             float weaponRange;
             if (item != null)
@@ -180,28 +179,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             else
             {
-                switch ((VmGothicEnums.WeaponState)Vob.FightMode)
+                switch (weaponState)
                 {
                     case VmGothicEnums.WeaponState.NoWeapon:
                     case VmGothicEnums.WeaponState.Fist:
-                        weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-                        break;
                     case VmGothicEnums.WeaponState.W1H:
                     case VmGothicEnums.WeaponState.W2H:
-                    case VmGothicEnums.WeaponState.Bow:
-                    case VmGothicEnums.WeaponState.CBow:
-                    case VmGothicEnums.WeaponState.Mage:
                         weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-                        Logger.LogWarning($"WeaponState attackrange not yet handled for {(VmGothicEnums.WeaponState)Vob.FightMode}. Assuming fist range.", LogCat.Npc);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
 
-            // Minimum 1.5m — matches RunTick's minStopDistance (1.8m) minus volumina (0.3m).
-            // Prevents NPCs with zero guild fight values from looping in G-Range forever.
-            return Mathf.Max((baseRange + weaponRange) / 100f, 1.51f);
+            // Minimum 1.5m — prevents NPCs with zero guild fight values from looping in G-Range forever.
+            return Mathf.Max((baseRange + weaponRange) / 100f, 1.5f);
         }
 
         /// <summary>

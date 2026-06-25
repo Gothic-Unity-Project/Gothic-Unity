@@ -457,6 +457,13 @@ namespace Gothic.Core.Services.Npc
             {
                 VmGothicEnums.AnimationType.Idle => GetIdleAnimationName(weaponStateString, walkModeString),
                 VmGothicEnums.AnimationType.Move => GetMoveAnimationName(weaponStateString, walkMode, walkModeString),
+                // Ranged/Mage have no s_*Attack — use their actual shoot/cast animations.
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "BOW" => "s_BowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "CBOW" => "s_CBowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "MAG" => "s_FBTShoot",
                 VmGothicEnums.AnimationType.Attack => $"s_{weaponStateString}Attack",
                 VmGothicEnums.AnimationType.MoveL => $"t_{weaponStateString}{walkModeString}StrafeL",
                 VmGothicEnums.AnimationType.MoveR => $"t_{weaponStateString}{walkModeString}StrafeR",
