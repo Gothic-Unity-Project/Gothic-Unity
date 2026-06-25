@@ -347,6 +347,12 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Enable proximity + FOV hit detection in AttackPlayAni. Disable to watch animations without dealing damage.")]
         public bool EnableNpcHitDetection = true;
 
+        [Tooltip("Hero attacks deal max HP damage — one hit kills any non-immortal NPC.")]
+        public bool EnableOneHitKill;
+
+        [Tooltip("Hero attacks deal currentHP-1 damage — one hit knocks out any NPC without killing them.")]
+        public bool EnableOneHitKnockout;
+
         [Tooltip("Hide the health bar for the player character.")]
         public bool HideHealthBar { get; internal set; }
     }

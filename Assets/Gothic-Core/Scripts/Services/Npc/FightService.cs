@@ -7,6 +7,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -31,6 +32,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly ConfigService _configService;
 
         public void Init()
         {
@@ -384,6 +386,15 @@ namespace Gothic.Core.Services.Npc
                 damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
                 if (damage <= 0)
                     damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
+            }
+
+            // Dev cheats: hero one-hit kill / knockout.
+            if (attacker.PrefabProps.IsHero())
+            {
+                if (_configService.Dev.EnableOneHitKill)
+                    damage = maxHP;
+                else if (_configService.Dev.EnableOneHitKnockout)
+                    damage = Mathf.Max(0, hitPoints - 1);
             }
 
             // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.

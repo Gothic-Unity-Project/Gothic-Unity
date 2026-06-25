@@ -271,6 +271,7 @@ namespace Gothic.VR.Adapters.Vob.Container
                 var zkVob = new Item
                 {
                     Name = currentItem.Name,
+                    Amount = currentItem.Amount,
                     Visual = new VisualMesh
                     {
                         Name = currentItem.Name

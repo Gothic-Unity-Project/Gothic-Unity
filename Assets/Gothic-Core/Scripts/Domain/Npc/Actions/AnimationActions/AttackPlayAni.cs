@@ -153,23 +153,26 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var targetPositionH = new Vector3(targetPosition.x, 0, targetPosition.z);
             var toTarget = targetPositionH - myPositionH;
 
-            var approachSpread = _configService.Dev.NpcAttackApproachSpread;
             var arrivalThreshold = _configService.Dev.NpcAttackArrivalThreshold;
+            // Attack.GetDistance() subtracts _npcMonsterVolumina (0.3m) from actual distance.
+            // To land exactly at attackRange when the run ends, stop at weaponReach + 0.3m.
+            // Minimum 1.8m so guild-value edge cases (0 range) don't collapse to 0 stop distance.
+            const float npcVoluminaOffset = 0.3f;
+            const float minStopDistance = 1.11f;
+            var stopDistance = Mathf.Max(GetWeaponReach() + npcVoluminaOffset, minStopDistance);
 
-            // Already within attack range — stop immediately.
-            // Without this, approachTarget = targetPos - toTarget.normalized * spread lands BEHIND the
-            // enemy when the NPC is already closer than spread, causing it to walk through the player.
-            if (toTarget.magnitude <= approachSpread)
+            // Already close enough — stop immediately.
+            if (toTarget.magnitude <= stopDistance)
             {
                 PrefabProps.AnimationSystem.StopAllAnimations();
                 IsFinishedFlag = true;
                 return;
             }
 
-            // Each attacker targets a point approachSpread from the enemy in its own approach direction.
-            // Prevents all NPCs converging on the exact same spot (the "skeleton tower" problem).
+            // Run toward a point at stopDistance from the enemy. Each attacker comes from its own
+            // direction so they naturally spread around the target instead of stacking.
             var approachTarget = toTarget.sqrMagnitude > 0.001f
-                ? targetPositionH - toTarget.normalized * approachSpread
+                ? targetPositionH - toTarget.normalized * Mathf.Max(0f, stopDistance - arrivalThreshold)
                 : targetPositionH;
 
             var distance = Vector3.Distance(myPositionH, approachTarget);

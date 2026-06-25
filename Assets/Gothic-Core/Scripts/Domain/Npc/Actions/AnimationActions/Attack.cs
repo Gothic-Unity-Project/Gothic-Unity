@@ -1,5 +1,7 @@
 using System;
 using Gothic.Core.Const;
+using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -160,7 +162,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private float GetDistance()
         {
-            return Vector3.Distance(NpcGo.transform.position, _enemy.GetUserData()!.Go.transform.position) - _npcMonsterVolumina;
+            return Vector3.Distance(NpcGo.transform.position, _enemy.GetUserData().Go.transform.position) - _npcMonsterVolumina;
         }
 
         /// Fight range is calculated by base range + weapon attack range.
@@ -168,12 +170,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
-            // By default, use Fist range.
-            float weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-
-            // If NPC has a weapon equipped, then use it's length in G1 (as FIGHT_RANGE_1HA and FIGHT_RANGE_1HS aren't set. Same for 2H).
+            // If NPC has a weapon equipped, use its range; otherwise fall back to fist range.
             // FIXME - Check how G2 is handling ranges. Also via weapon range or guild values?
             var item = VmCacheService.TryGetItemData(Props.CurrentItem);
+            float weaponRange;
             if (item != null)
             {
                 weaponRange = item.Range;
@@ -199,7 +199,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 }
             }
 
-            return (baseRange + weaponRange) / 100f; // cm -> m
+            // Minimum 1.5m — matches RunTick's minStopDistance (1.8m) minus volumina (0.3m).
+            // Prevents NPCs with zero guild fight values from looping in G-Range forever.
+            return Mathf.Max((baseRange + weaponRange) / 100f, 1.51f);
         }
 
         /// <summary>
