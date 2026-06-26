@@ -1,5 +1,6 @@
 using System.Linq;
 using Gothic.Core.Const;
+using UnityEngine;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -88,9 +89,36 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (handGo == null)
                 return;
             if (NpcContainer.ActiveSpellVfxGo != null)
-                UnityEngine.Object.Destroy(NpcContainer.ActiveSpellVfxGo);
-            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx($"MFX_{mfxName.ToUpper()}_INIT", parent: handGo);
-            Logger.Log($"[DrawWeapon] spell VFX spawned MFX_{mfxName.ToUpper()}_INIT on {NpcInstance.GetName(NpcNameSlot.Slot0)}", LogCat.Animation);
+                Object.Destroy(NpcContainer.ActiveSpellVfxGo);
+            var pfxName = $"MFX_{mfxName.ToUpper()}_INIT";
+            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            if (NpcContainer.ActiveSpellVfxGo == null)
+            {
+                pfxName = "MFX_FIREBALL_INIT"; // G2 fire fallback
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+            if (NpcContainer.ActiveSpellVfxGo == null)
+            {
+                pfxName = "MFX_FIREBOLT_INIT"; // G1 fire fallback
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+
+            // Force looping so the glow stays on hand until undraw/attack
+            if (NpcContainer.ActiveSpellVfxGo != null)
+            {
+                var ps = NpcContainer.ActiveSpellVfxGo.GetComponent<ParticleSystem>();
+                if (ps != null)
+                {
+                    var main = ps.main;
+                    main.loop = true;
+                    // Gothic INIT spell PFX use ppsValue=500 but our builder divides by 100 → only 5/s.
+                    // With 0.15s lifetime that's <1 particle visible — boost emission for VR/NPC visibility.
+                    var emission = ps.emission;
+                    emission.rateOverTime = 50f;
+                    ps.Play();
+                }
+            }
+            Logger.Log($"[DrawWeapon] spell VFX '{pfxName}' on {NpcInstance.GetName(NpcNameSlot.Slot0)}", LogCat.Animation);
         }
 
         [CanBeNull]

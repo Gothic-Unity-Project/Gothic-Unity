@@ -196,8 +196,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     if (_spellTarget != null && result == _splSendcast && spellDmg > 0)
                         StartCoroutine(ApplySpellHitDelayed(_spellTarget, _npcService.GetHeroContainer(), spellDmg));
 
+                    // TODO scrolls: consume one from stack, destroy if last
+                    // var isScroll = (_item.Flags & ItemFlags.Multi) != 0;
+                    // if (isScroll) ConsumeScroll();
+
                     _isCasting = false;
-                    _castThisGrab = true;
+                    // Allow recasting without re-grabbing: _castThisGrab stays false
                 }
             }
             finally
@@ -212,10 +216,43 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             DestroySpellVfx();
             var mfxName = GetSpellMfxName(_item.Spell);
             if (mfxName == null) return;
-            var hand = _vrPlayerService.GetHand(_runeHandSide);
-            if (hand == null) return;
-            _spellVfxGo = _meshService.CreateVobPfx($"MFX_{mfxName.ToUpper()}_INIT", parent: hand.gameObject);
-            Logger.Log($"[VRRuneCaster] spell VFX spawned MFX_{mfxName.ToUpper()}_INIT", LogCat.VR);
+            var handGo = _vrPlayerService.GetHandModelGo(_runeHandSide);
+            if (handGo == null) return;
+            var pfxName = $"MFX_{mfxName.ToUpper()}_INIT";
+            var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            if (pfxLeaf == null)
+            {
+                pfxName = "MFX_FIREBALL_INIT";
+                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+            if (pfxLeaf == null)
+            {
+                pfxName = "MFX_FIREBOLT_INIT";
+                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+
+            if (pfxLeaf != null)
+            {
+                // Build() returns pfxGo (child of RootGo). Store RootGo so DestroySpellVfx
+                // cleans up the whole tree, not just the inner leaf.
+                var parent = pfxLeaf.transform.parent;
+                _spellVfxGo = (parent != null && parent.gameObject != handGo) ? parent.gameObject : pfxLeaf;
+
+                var ps = _spellVfxGo.GetComponentInChildren<ParticleSystem>();
+                if (ps != null)
+                {
+                    var main = ps.main;
+                    main.loop = true;
+                    main.startSpeed = new ParticleSystem.MinMaxCurve(0f, 0.05f);
+                    // Gothic INIT spell PFX use ppsValue=500 but our builder divides by 100 → only 5/s.
+                    // With 0.15s lifetime that's <1 particle visible — boost emission for VR first-person.
+                    var emission = ps.emission;
+                    emission.rateOverTime = 50f;
+                    ps.Play();
+                }
+                var parentName = _spellVfxGo.transform.parent != null ? _spellVfxGo.transform.parent.name : "none";
+                Logger.Log($"[VRRuneCaster] spell VFX '{pfxName}' on {parentName}", LogCat.VR);
+            }
         }
 
         private void DestroySpellVfx()

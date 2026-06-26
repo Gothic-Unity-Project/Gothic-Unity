@@ -1,5 +1,6 @@
 ﻿#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
@@ -188,6 +189,16 @@ namespace Gothic.VR.Services
                 return _contextInteractionService.GetCurrentPlayerController().GetComponent<VRPlayerController>().LeftHand.Controller;
             else
                 return _contextInteractionService.GetCurrentPlayerController().GetComponent<VRPlayerController>().RightHand.Controller;
+        }
+
+        public GameObject GetHandModelGo(HVRHandSide side)
+        {
+            var ctrl = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<VRPlayerController>();
+            if (ctrl == null) return null;
+            var hand = side == HVRHandSide.Left ? ctrl.LeftHand : ctrl.RightHand;
+            var modelName = side == HVRHandSide.Left ? "LeftHandModel" : "RightHandModel";
+            var model = hand.gameObject.FindChildRecursively(modelName);
+            return model != null ? model : hand.gameObject;
         }
 
         public HVRForceGrabber GetForceGrabber(HVRHandSide side)
