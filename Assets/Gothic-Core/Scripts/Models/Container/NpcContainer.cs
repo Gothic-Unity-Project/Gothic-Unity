@@ -158,6 +158,8 @@ namespace Gothic.Core.Models.Container
         public NpcProxy Vob;
         // True after Vm.InitInstance() was called for this container (prevents double-init in InitZkInstance).
         public bool IsZkInstanceInitialized;
+        // True after ZS_Dead was called for this NPC (prevents double-call between OnNpcDied and dead-on-spawn).
+        public bool IsZsDeadCalled;
 
         // Unity Data
         public GameObject Go;
@@ -179,5 +181,10 @@ namespace Gothic.Core.Models.Container
         public int ActiveSpell;
         public int ActiveSpellLevel = 1;
         public GameObject ActiveSpellVfxGo;
+
+        // Tracks where the drawn weapon came from so UndrawWeapon can return it even if
+        // FightMode was already reset or the weapon ended up in an unexpected slot.
+        public GameObject WeaponHandSlotGo;  // slot the weapon was moved INTO on draw
+        public GameObject WeaponStowSlotGo;  // slot the weapon was taken FROM on draw
     }
 }

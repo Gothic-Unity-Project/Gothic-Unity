@@ -178,6 +178,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (slotGo == null || handGo == null || slotGo.transform.childCount == 0)
                 return;
 
+            // Record the slot GOs so UndrawWeapon can return the weapon to the exact source,
+            // even if FightMode is already reset or the weapon ends up in an unexpected slot.
+            NpcContainer.WeaponStowSlotGo = slotGo;
+            NpcContainer.WeaponHandSlotGo = handGo;
+
             slotGo.transform.GetChild(0).gameObject.SetParent(handGo, true, true);
         }
 
@@ -194,8 +199,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public static string GetHandSlotName(VmGothicEnums.WeaponState weaponState)
         {
-            // Bows are held in the left hand (the right hand draws the arrow), everything else in the right.
-            return weaponState == VmGothicEnums.WeaponState.Bow ? Constants.SlotLeftHand : Constants.SlotRightHand;
+            // Both bows and crossbows are held in the left (bow) hand in Gothic — the right hand draws the arrow/bolt.
+            return (weaponState == VmGothicEnums.WeaponState.Bow || weaponState == VmGothicEnums.WeaponState.CBow)
+                ? Constants.SlotLeftHand
+                : Constants.SlotRightHand;
         }
 
         [CanBeNull]

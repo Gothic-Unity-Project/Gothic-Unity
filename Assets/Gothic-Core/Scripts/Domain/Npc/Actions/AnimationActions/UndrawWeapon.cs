@@ -130,10 +130,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.Mage)
                 return;
 
+            // Use GOs recorded at draw time if available; otherwise fall back to slot name lookup.
+            var handGo = NpcContainer.WeaponHandSlotGo;
+            var slotGo = NpcContainer.WeaponStowSlotGo;
+            NpcContainer.WeaponHandSlotGo = null;
+            NpcContainer.WeaponStowSlotGo = null;
+
             var handSlotName = DrawWeapon.GetHandSlotName(weaponState);
             var stowSlotName = DrawWeapon.GetStowSlotName(weaponState);
-            var handGo = NpcGo.FindChildRecursively(handSlotName);
-            var slotGo = NpcGo.FindChildRecursively(stowSlotName);
+
+            if (handGo == null)
+                handGo = NpcGo.FindChildRecursively(handSlotName);
+            if (slotGo == null)
+                slotGo = NpcGo.FindChildRecursively(stowSlotName);
 
             if (handGo == null)
             {
@@ -147,11 +156,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             if (handGo.transform.childCount == 0)
             {
-                Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} handSlot '{handSlotName}' has no children — weapon not in hand!", LogCat.Fight);
+                Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} handSlot '{handGo.name}' has no children — weapon not in hand!", LogCat.Fight);
                 return;
             }
 
-            Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} moving weapon from '{handSlotName}' → '{stowSlotName}'", LogCat.Fight);
+            Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} moving weapon from '{handGo.name}' → '{slotGo.name}'", LogCat.Fight);
             handGo.transform.GetChild(0).gameObject.SetParent(slotGo, true, true);
         }
 
