@@ -196,6 +196,19 @@ namespace Gothic.Core.Services.Npc
                 if (!_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, attacker.Instance, true))
                     continue;
 
+                // If this bystander is locked onto the hero (hidden behind a wall) but can see a
+                // non-hero attacker actively fighting right in front of them, redirect their focus
+                // immediately. B_CombatReactToDamage only switches target when the PLAYER is the
+                // attacker, so without this companions/wolves attacking NPCs are fully ignored.
+                if (attacker.Instance.Index != heroIndex &&
+                    candidate.Props.TargetNpc?.Index == heroContainer.Instance.Index &&
+                    !_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, heroContainer.Instance, false))
+                {
+                    candidate.Props.TargetNpc = attacker.Instance;
+                    candidate.Props.EnemyNpc = attacker.Instance;
+                    Logger.Log($"[FightService] {candidate.Instance.GetName(NpcNameSlot.Slot0)} switches focus from hidden hero to visible {attacker.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+                }
+
                 if (candidate.Props.Perceptions.ContainsKey(VmGothicEnums.PerceptionType.AssessOthersDamage))
                 {
                     _npcAiService.ExecutePerception(

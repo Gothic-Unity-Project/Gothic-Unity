@@ -9,8 +9,11 @@ namespace Gothic.Core.Adapters.Npc
         [SerializeField] private CapsuleCollider _walkCollider;
 
         private SkinnedMeshRenderer[] _meshRenderers;
+        private readonly Collider[] _separationBuffer = new Collider[8];
 
         private const float _pushbackDistance = 0.3f;
+        private const float _npcSeparationRadius = 0.55f;
+        private const float _npcSeparationSpeed = 1.5f;
 
 
         protected override void Awake()
@@ -53,6 +56,35 @@ namespace Gothic.Core.Adapters.Npc
 
             // Empty physics based diff. Next frame physics will be recalculated.
             transform.localPosition = Vector3.zero;
+
+            SeparateFromNearbyNpcs();
+        }
+
+        // Kinematic Rigidbodies don't receive collision forces from other kinematic bodies, so NPCs
+        // would clip through each other without this manual overlap check. Runs each frame but uses
+        // NonAlloc with a small fixed buffer and an early-out per-NPC, so cost is minimal in practice.
+        private void SeparateFromNearbyNpcs()
+        {
+            var myPos = Go.transform.position;
+            var count = Physics.OverlapSphereNonAlloc(
+                myPos + Vector3.up,
+                _npcSeparationRadius,
+                _separationBuffer,
+                1 << (int)Constants.VobNpcOrMonsterLayer);
+
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _separationBuffer[i];
+                if (hit == null || hit.gameObject == gameObject) continue;
+
+                var diff = myPos - hit.transform.position;
+                diff.y = 0f;
+                // Two NPCs exactly on top of each other: push in a random direction to break the deadlock.
+                if (diff.sqrMagnitude < 0.001f)
+                    diff = new Vector3(Random.value - 0.5f, 0f, Random.value - 0.5f);
+
+                Go.transform.position += diff.normalized * (_npcSeparationSpeed * Time.deltaTime);
+            }
         }
 
         private void OnCollisionEnter(Collision collision)
