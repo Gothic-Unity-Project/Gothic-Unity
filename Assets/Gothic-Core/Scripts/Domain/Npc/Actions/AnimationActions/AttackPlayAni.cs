@@ -41,6 +41,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
         }
 
+        public override void Start()
+        {
+            if (_enemy?.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+            {
+                IsFinishedFlag = true;
+                return;
+            }
+            base.Start();
+        }
+
         public override void Tick()
         {
             base.Tick();
@@ -292,7 +302,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
             // NPC vs NPC hit: check weapon reach + forward arc so the target can dodge by
