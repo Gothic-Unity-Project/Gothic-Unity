@@ -72,17 +72,13 @@ namespace Gothic.Core.Services.Npc
             if (isHero)
                 AlertPartyMembersToDefendHero(attacker);
 
-            // Hero finishes off unconscious NPC with any hit.
+            // Any attacker finishes off unconscious NPC — set dead and call ZS_Dead.
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious && !isHero)
             {
-                var attackerIsHero = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
-                if (attackerIsHero)
-                {
-                    Logger.Log($"[FightService] Hero finishes off {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                    OnDyingChangeAnimation(target);
-                    OnNpcDied(target, attacker);
-                }
+                Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off unconscious {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+                target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+                OnDyingChangeAnimation(target);
+                OnNpcDied(target, attacker);
                 return;
             }
 
@@ -101,7 +97,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target);
                 }
-                else if (IsHuman(target) && (IsHuman(attacker) || IsPartyMember(attacker)))
+                else if (IsHuman(target) && (attacker.PrefabProps != null && attacker.PrefabProps.IsHero() || IsPartyMember(attacker)))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
                     OnNpcKnockedOut(target, attacker);
@@ -384,12 +380,10 @@ namespace Gothic.Core.Services.Npc
 
                 // Like G1: protection -1 means immune to this damage type; otherwise no damage when fully absorbed.
                 damage = protection < 0 ? 0 : Mathf.Max(0, weaponDamage + strength - protection);
-                if (damage <= 0)
-                    damage = 10; // debug: force minimum 10 until proper damage calculation is implemented
             }
 
             // Dev cheats: hero one-hit kill / knockout.
-            if (attacker.PrefabProps.IsHero())
+            if (attacker.PrefabProps != null && attacker.PrefabProps.IsHero())
             {
                 if (_configService.Dev.EnableOneHitKill)
                     damage = maxHP;
@@ -445,15 +439,17 @@ namespace Gothic.Core.Services.Npc
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = dead.Instance;
-            // Pass the real killer as 'other' — ZS_Dead checks Npc_IsPlayer(other),
-            // human.aivar[AIV_PARTYMEMBER], and monster.aivar[AIV_MM_PARTYMEMBER] to decide XP.
-            // Forcing other=hero would grant XP for kills by any random NPC.
-            vm.GlobalOther = killer.Instance;
+            // Gothic engine always passes hero as 'other' in ZS_Dead regardless of real killer.
+            // Scripts like B_CheckDeadMissionNPCs and ZS_Dead XP checks rely on Npc_IsPlayer(other)=true.
+            // Passing the real killer here breaks G2 escort quest completion (Cavalorn kills → other=Cavalorn
+            // → Npc_IsPlayer=false → B_CheckDeadMissionNPCs never triggers → quest dialog never fires).
+            vm.GlobalOther = _npcService.GetHeroContainer().Instance;
 
             var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
             if (zsDeadSym != null)
             {
                 vm.Call(zsDeadSym.Index);
+                dead.IsZsDeadCalled = true;
                 _npcService.SyncHeroInstanceToVob();
                 Logger.Log($"[FightService.OnNpcDied] ZS_Dead: {dead.Instance.GetName(NpcNameSlot.Slot0)} (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
             }

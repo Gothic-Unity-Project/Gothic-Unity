@@ -52,11 +52,32 @@ namespace Gothic.Core.Adapters.Npc
             // Also catches HP=1 dead humans: FightService sets HP=1 on knockout; save-restore sets BsDead
             // before InitNpc runs (via ApplyNpcSavedState in OnNpcCullingChanged), so the BsDead check
             // here fires even when HP wasn't zeroed on kill.
-            if (Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            var spawnHp = Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (spawnHp <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
             {
                 Properties.BodyState = VmGothicEnums.BodyState.BsDead;
                 PrefabProps.AnimationSystem.PlayAnimation("S_DEADB");
-                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={Vob.GetAttribute((int)NpcAttribute.HitPoints)}", LogCat.Npc);
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={spawnHp}", LogCat.Npc);
+
+                // NPC died before this session (e.g. killed before save). Run ZS_Dead so Daedalus quest
+                // variables (e.g. CAVALORN_BRAGO_KILLED) are set in the fresh VM — dialog conditions depend on them.
+                // Only for HP=0 deaths (not HP=1 knockout-restores). Guard against double-call if OnNpcDied already ran.
+                if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
+                {
+                    var zsDeadSym = Vm.GetSymbolByName("ZS_Dead");
+                    if (zsDeadSym != null)
+                    {
+                        var oldSelf = Vm.GlobalSelf;
+                        var oldOther = Vm.GlobalOther;
+                        Vm.GlobalSelf = NpcInstance;
+                        Vm.GlobalOther = _npcService.GetHeroContainer().Instance;
+                        Vm.Call(zsDeadSym.Index);
+                        NpcData.IsZsDeadCalled = true;
+                        _npcService.SyncHeroInstanceToVob();
+                        Vm.GlobalSelf = oldSelf;
+                        Vm.GlobalOther = oldOther;
+                    }
+                }
             }
         }
 
@@ -244,9 +265,10 @@ namespace Gothic.Core.Adapters.Npc
                     return;
                 }
             }
-            var assessPlayerRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessPlayer);
-
-            if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false, assessPlayerRange))
+            // Use the NPC's own senses_range (not the fixed global PERC_DIST_ASSESS_PLAYER).
+            // ZS_GuidePC sets self.senses_range = HAI_DIST_ASSESS_MONSTER (~35m) so escort NPCs
+            // can detect a lagging player far enough away to stop and wait.
+            if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false))
             {
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
             }
