@@ -5,6 +5,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
@@ -19,6 +20,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly ConfigService _configService;
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
@@ -173,6 +175,12 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiEquipBestRangedWeapon(NpcInstance npc)
         {
+            if (!_configService.Dev.EnableNpcRangedCombat)
+            {
+                ExtAiEquipBestMeleeWeapon(npc);
+                return;
+            }
+
             var container = npc.GetUserData();
             if (container == null)
                 return;

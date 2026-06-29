@@ -133,6 +133,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Enable save/load system. OFF = main-branch behavior: no UNITYNPCINIT snapshot, no merged-snapshot NPC restore, no NpcCulling tracking. Turn OFF to diagnose monster/NPC init regressions.")]
         public bool EnableSaveLoadSystem;
 
+        [Separator("Combat (WIP)")]
+        [Tooltip("Enable NPC ranged combat (bow/crossbow). OFF = NPCs fall back to their best melee weapon regardless of range.")]
+        public bool EnableNpcRangedCombat;
+
         [Separator("Debug")]
         [Tooltip("Ignore frame skipping during loading.")]
         public bool SpeedUpLoading;

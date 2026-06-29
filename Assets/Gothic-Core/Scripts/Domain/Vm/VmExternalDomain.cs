@@ -223,7 +223,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("Npc_ClearAiQueue", Npc_ClearAiQueue);
             // vm.RegisterExternal<NpcInstance>("Npc_ClearInventory", Npc_ClearInventory);
             vm.RegisterExternal<string, NpcInstance>("Npc_GetNextWp", Npc_GetNextWp);
-            // vm.RegisterExternal<int, NpcInstance, int>("Npc_GetTalentSkill", Npc_GetTalentSkill);
+            vm.RegisterExternal<int, NpcInstance, int>("Npc_GetTalentSkill", Npc_GetTalentSkill);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_GetTalentValue", Npc_GetTalentValue);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_KnowsInfo", Npc_KnowsInfo);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_CheckInfo", Npc_CheckInfo);
@@ -292,6 +292,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, int>("Wld_GetGuildAttitude", Wld_GetGuildAttitude);
             vm.RegisterExternal<string>("Wld_SendTrigger", Wld_SendTrigger);
             vm.RegisterExternal<string>("Wld_SendUntrigger", Wld_SendUntrigger);
+            // G2 portal/room system — outdoor areas have no portals so all return GIL_NONE (0).
+            vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild);
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild);
+            vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom);
 
             // Misc
             vm.RegisterExternal<int, int>("Perc_SetRange", Perc_SetRange);
@@ -1184,6 +1188,11 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_HasRangedWeaponWithAmmo(NpcInstance npc)
         {
+            // When ranged combat is disabled, pretend no ranged weapon exists so G2's combat AI
+            // takes the melee branch (same behavior as before this external was registered).
+            if (!_configService.Dev.EnableNpcRangedCombat)
+                return LogInstantExternal(nameof(Npc_HasRangedWeaponWithAmmo), 0, npc);
+
             // Equipped ranged weapon is sufficient — B_FillQuiver provides ammo via CreateInvItems.
             var equippedRanged = _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc);
             if (equippedRanged != null)
@@ -1564,6 +1573,24 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_InsertItem(int itemInstance, string spawnpoint)
         {
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
+        }
+
+        public int Wld_GetPlayerPortalGuild()
+        {
+            // Outdoor areas have no portals — return GIL_NONE (0). Indoor portals not yet implemented.
+            return 0;
+        }
+
+        public int Npc_GetPortalGuild(NpcInstance npc)
+        {
+            // Outdoor areas have no portals — return GIL_NONE (0). Indoor portals not yet implemented.
+            return 0;
+        }
+
+        public int Npc_IsInPlayersRoom(NpcInstance npc)
+        {
+            // Outdoor areas have no separate rooms — treat as always in same area.
+            return 1;
         }
 
         public void Wld_SendTrigger(string vobName)
