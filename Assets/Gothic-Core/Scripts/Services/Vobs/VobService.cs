@@ -466,18 +466,24 @@ namespace Gothic.Core.Services.Vobs
             CreateVobNow(container);
             _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
 
-            // Add physics so the item falls to the ground.
-            // The VobItemWeapon prefab only has trigger colliders (for HVR grab); we add a solid
-            // BoxCollider so the Rigidbody has something to rest on world geometry.
+            // Add a solid BoxCollider so the existing Rigidbody has something to rest on world geometry.
+            // IMPORTANT: do NOT add a second Rigidbody — the oCItem prefab already has one (kinematic by
+            // default). VrWeaponAttackDomain.TryHandle() does GetComponentInChildren<Rigidbody>() to track
+            // weapon velocity; a second root Rigidbody would shadow the prefab's one and break hit detection
+            // for weapons picked directly from the ground.
             if (container.Go != null)
             {
                 var col = container.Go.AddComponent<BoxCollider>();
                 col.size = new Vector3(0.1f, 0.06f, 0.5f);
                 col.center = new Vector3(0f, 0.03f, 0f);
 
-                var rb = container.Go.AddComponent<Rigidbody>();
-                rb.mass = 1f;
-                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                var rb = container.Go.GetComponentInChildren<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = false;
+                    rb.mass = 1f;
+                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                }
             }
         }
 
