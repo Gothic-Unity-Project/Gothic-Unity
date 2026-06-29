@@ -69,6 +69,7 @@ namespace Gothic.Core.Adapters.Animations.Morph
             {
                 HeadMorphType.Viseme => "VISEME",
                 HeadMorphType.Eat => "T_EAT",
+                HeadMorphType.Hurt => "T_HURT",
                 HeadMorphType.Eyesblink => "R_EYESBLINK",
                 _ => throw new Exception($"AnimationType >{type}< not yet handled for head morphing.")
             };
@@ -77,13 +78,13 @@ namespace Gothic.Core.Adapters.Animations.Morph
         public HeadMorphType GetAnimationTypeByName(string name)
         {
             if (name.ContainsIgnoreCase("EAT"))
-            {
                 return HeadMorphType.Eat;
-            }
+            if (name.ContainsIgnoreCase("HURT"))
+                return HeadMorphType.Hurt;
+            if (name.ContainsIgnoreCase("VISEME"))
+                return HeadMorphType.Viseme;
 
             Logger.LogError($"{name} as morphMeshType not yet mapped.", LogCat.Animation);
-
-            // If nothing found, we return the hurt face. Meme potential? ;-)
             return HeadMorphType.Hurt;
         }
     }
