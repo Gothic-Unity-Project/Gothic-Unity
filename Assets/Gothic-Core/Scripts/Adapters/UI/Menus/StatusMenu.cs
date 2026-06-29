@@ -81,8 +81,9 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             var talentTitles = _vmService.TalentTitles;
             var talentSkills = _vmService.TalentSkills;
+            var talentCount = Math.Min(talentTitles.Count, vob.TalentCount);
 
-            Enumerable.Range(0, talentTitles.Count).ForEach(i =>
+            Enumerable.Range(0, talentCount).ForEach(i =>
             {
                 var keyTitle = string.Format(_itemTalentTitlePattern, i + 1);
                 var keySkill = string.Format(_itemTalentSkillPattern, i + 1);
