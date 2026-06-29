@@ -134,6 +134,17 @@ namespace Gothic.Core.Services.Npc
             var heroContainer = _npcService.GetHeroContainer();
             var heroIndex = heroContainer.Instance.Index;
 
+            // When a non-hero NPC hits a target that is alive, force-switch the target's focus to
+            // the attacker. Gothic's B_CombatReactToDamage only does this for the player; we extend
+            // it here so that wolves, companions, etc. become the active fight target when they land
+            // a hit. This bypasses the guild-attitude check that would otherwise filter out neutral guilds.
+            if (attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            {
+                target.Props.TargetNpc = attacker.Instance;
+                target.Props.EnemyNpc = attacker.Instance;
+                Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} switches target to {attacker.Instance.GetName(NpcNameSlot.Slot0)} (hit by non-hero)", LogCat.Fight);
+            }
+
             // Party member was hit by a non-hero — it defends itself immediately.
             if (IsPartyMember(target) && attacker.Instance.Index != heroIndex)
             {
@@ -178,6 +189,11 @@ namespace Gothic.Core.Services.Npc
 
                 var dist = Vector3.Distance(candidate.Go.transform.position, attacker.Go.transform.position);
                 if (dist > sensesRangeM)
+                    continue;
+
+                // Require visual LOS so NPCs behind walls don't charge through geometry.
+                // freeLOS=true: skip FOV check — bystanders can react from any angle as long as there's no wall.
+                if (!_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, attacker.Instance, true))
                     continue;
 
                 if (candidate.Props.Perceptions.ContainsKey(VmGothicEnums.PerceptionType.AssessOthersDamage))
@@ -259,6 +275,7 @@ namespace Gothic.Core.Services.Npc
         private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
         {
             DropReadiedWeapon(npc);
+
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
 
             var vm = _gameStateService.GothicVm;
@@ -434,24 +451,36 @@ namespace Gothic.Core.Services.Npc
         {
             DropReadiedWeapon(dead);
 
-            var vm = _gameStateService.GothicVm;
+            // Set flag immediately so AiHandler.Start() on the corpse doesn't double-call ZS_Dead.
+            dead.IsZsDeadCalled = true;
 
+            // ZS_Dead (B_CheckDeadMissionNPCs + B_GiveDeathInv etc.) takes ~280ms in G2 — too heavy
+            // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
+            var deadInstance = dead.Instance;
+            var heroInstance = _npcService.GetHeroContainer().Instance;
+            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, heroInstance));
+
+            Logger.Log($"[FightService.OnNpcDied] {dead.Instance.GetName(NpcNameSlot.Slot0)} died — ZS_Dead deferred (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
+        }
+
+        private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcInstance hero)
+        {
+            yield return null;
+
+            var vm = _gameStateService.GothicVm;
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = dead.Instance;
+            vm.GlobalSelf = dead;
             // Gothic engine always passes hero as 'other' in ZS_Dead regardless of real killer.
             // Scripts like B_CheckDeadMissionNPCs and ZS_Dead XP checks rely on Npc_IsPlayer(other)=true.
-            // Passing the real killer here breaks G2 escort quest completion (Cavalorn kills → other=Cavalorn
-            // → Npc_IsPlayer=false → B_CheckDeadMissionNPCs never triggers → quest dialog never fires).
-            vm.GlobalOther = _npcService.GetHeroContainer().Instance;
+            vm.GlobalOther = hero;
 
             var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
             if (zsDeadSym != null)
             {
                 vm.Call(zsDeadSym.Index);
-                dead.IsZsDeadCalled = true;
                 _npcService.SyncHeroInstanceToVob();
-                Logger.Log($"[FightService.OnNpcDied] ZS_Dead: {dead.Instance.GetName(NpcNameSlot.Slot0)} (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
+                Logger.Log($"[FightService.OnNpcDied] ZS_Dead complete: {dead.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             }
             else
                 Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
@@ -491,7 +520,6 @@ namespace Gothic.Core.Services.Npc
 
             Logger.Log($"[DropWeapon] {npc.Instance.GetName(NpcNameSlot.Slot0)} drops '{weapon.Name}' idx={weapon.Index} fightMode={fightMode}", LogCat.Fight);
 
-            // Drop world VOB
             _vobService.DropItemAtPosition(weapon.Index, npc.Go.transform.position);
 
             // Remove from equipped list (visual/logic) so loot menu doesn't show it

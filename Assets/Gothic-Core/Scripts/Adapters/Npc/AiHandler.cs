@@ -286,6 +286,14 @@ namespace Gothic.Core.Adapters.Npc
                 }
             }
 
+            // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never
+            // register that perception, so an NPC already engaged with the hero would otherwise never
+            // notice a companion or monster (e.g. Cavalorn, a wolf) engaging it in melee instead.
+            if (Properties.TargetNpc != null)
+            {
+                _npcAiService.UpdateActiveAttackerTarget(NpcInstance);
+            }
+
 
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
             // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.

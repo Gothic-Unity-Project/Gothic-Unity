@@ -492,8 +492,29 @@ namespace Gothic.Core.Services.Npc
             // ZenKit's Pop<NpcInstance>() creates a fresh C# wrapper without UserData. We look up the
             // NpcContainer by NpcInstance.Index (Daedalus symbol index, embedded in the native instance).
             if (npcInstance == null) return false;
-            var container = _multiTypeCacheService.NpcCache
-                .FirstOrDefault(n => n.SymbolIndex == npcInstance.Index);
+            // Try direct UserData first (set on original C# wrappers; null on fresh VM-popped ones).
+            var container = npcInstance.GetUserData();
+            if (container != null)
+                return container.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+
+            // Fresh VM wrapper: UserData is null. Typical call site is ZS_Attack_Loop → C_NpcIsDown
+            // which checks the current NPC's TargetNpc. GlobalSelf is set to the executing NPC by
+            // AiHandler before every loop call, so we can resolve via the stored TargetNpc/EnemyNpc
+            // reference (which has UserData). This correctly distinguishes multiple instances that
+            // share the same SymbolIndex (e.g. three wolves: killing wolf #2 must not return isDead=false
+            // because FirstOrDefault would find alive wolf #1).
+            if (_gameStateService.GothicVm.GlobalSelf?.UserData is NpcContainer selfNpc)
+            {
+                var byTarget = selfNpc.Props.TargetNpc?.GetUserData();
+                if (byTarget != null && byTarget.SymbolIndex == npcInstance.Index)
+                    return byTarget.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+                var byEnemy = selfNpc.Props.EnemyNpc?.GetUserData();
+                if (byEnemy != null && byEnemy.SymbolIndex == npcInstance.Index)
+                    return byEnemy.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            }
+
+            // Generic fallback — may be incorrect for multi-instance symbols.
+            container = _multiTypeCacheService.NpcCache.FirstOrDefault(n => n.SymbolIndex == npcInstance.Index);
             return container?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
         }
 
@@ -705,7 +726,7 @@ namespace Gothic.Core.Services.Npc
         public void UpdateEnemyNpc(NpcInstance self)
         {
             var selfNpc = self.GetUserData();
-            var selfPosition = selfNpc.Go.transform.position; // Cache position
+            var selfPosition = selfNpc.Go.transform.position;
 
             NpcContainer closestEnemy = null;
             var closestSqrDist = float.MaxValue;
@@ -719,44 +740,101 @@ namespace Gothic.Core.Services.Npc
             {
                 // Fast-fail checks in order of cheapest first
                 if (candidate.Props == null || candidate.Go == null)
-                {
                     continue;
-                }
 
                 if (candidate.Instance.Index == self.Index)
-                {
                     continue;
-                }
 
                 // Corpses aren't enemies.
                 if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
-                {
                     continue;
-                }
 
-                // Range and closest-so-far gates before the expensive attitude and senses checks
-                // (senses may include a line-of-sight raycast for see-only monsters).
+                // Range and closest-so-far gates before the expensive attitude and senses checks.
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
-                {
                     continue;
-                }
 
                 if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
-                {
                     continue;
-                }
 
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
-                {
+                // Visual LOS required to initiate combat — hearing/smell alone doesn't trigger fight state.
+                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false))
                     continue;
-                }
 
                 closestSqrDist = sqrDist;
                 closestEnemy = candidate;
             }
 
+            // Mirror into TargetNpc too (consumed by ZS_Attack_Loop's Npc_GetTarget()). Must also be
+            // cleared to null when no hostile is found — otherwise a stale TargetNpc (e.g. hero, from
+            // before this NPC's attitude was changed to Friendly/Neutral) keeps being picked up by the
+            // Daedalus loop forever since Npc_GetTarget() never re-checks attitude itself.
             selfNpc.Props.EnemyNpc = closestEnemy?.Instance;
+            selfNpc.Props.TargetNpc = closestEnemy?.Instance;
+        }
+
+        /// <summary>
+        /// Switches focus to a nearby NPC/monster that is actively fighting >self< (has self as their
+        /// own TargetNpc/EnemyNpc), even when self's current target is hostile-by-guild-table but out of
+        /// sight (e.g. the hero heard through a wall). This covers companions (Cavalorn) and monsters
+        /// (wolves) engaging in melee, whose guild relation to self isn't marked Hostile in the guild
+        /// table. Unlike <see cref="UpdateEnemyNpc"/>, this is NOT gated behind PERC_ASSESSENEMY being
+        /// registered — combat states like ZS_Attack don't register that perception at all, so without
+        /// this NPCs already locked onto the hero would never notice someone else engaging them in melee.
+        /// </summary>
+        public void UpdateActiveAttackerTarget(NpcInstance self)
+        {
+            var selfNpc = self.GetUserData();
+            if (selfNpc?.Go == null)
+                return;
+
+            // Keep the current target if it's still alive and visible — avoids thrashing away from a
+            // valid fight once LOS to it is (re)established.
+            var currentTarget = selfNpc.Props.TargetNpc;
+            if (currentTarget != null)
+            {
+                var currentTargetNpc = currentTarget.GetUserData();
+                if (currentTargetNpc != null &&
+                    currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+                    ExtNpcCanSeeNpc(self, currentTarget, false))
+                    return;
+            }
+
+            var selfPosition = selfNpc.Go.transform.position;
+            var sensesRangeMeters = self.SensesRange / 100f;
+            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
+
+            NpcContainer attacker = null;
+            var closestSqrDist = float.MaxValue;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate.Props == null || candidate.Go == null) continue;
+                if (candidate.Instance.Index == self.Index) continue;
+                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
+
+                // Candidate must currently be fighting self (has self as their own target/enemy).
+                var targetIdx = candidate.Props.TargetNpc?.Index ?? -1;
+                var enemyIdx = candidate.Props.EnemyNpc?.Index ?? -1;
+                if (targetIdx != self.Index && enemyIdx != self.Index) continue;
+
+                // Never auto-switch onto someone explicitly Friendly to self (e.g. an NPC the player
+                // pacified/saved earlier) even if a stale target reference points at self.
+                if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
+
+                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist) continue;
+                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
+
+                closestSqrDist = sqrDist;
+                attacker = candidate;
+            }
+
+            if (attacker == null)
+                return;
+
+            selfNpc.Props.EnemyNpc = attacker.Instance;
+            selfNpc.Props.TargetNpc = attacker.Instance;
         }
 
         public void ExtSetRefuseTalk(NpcInstance self, int refuseSeconds)
