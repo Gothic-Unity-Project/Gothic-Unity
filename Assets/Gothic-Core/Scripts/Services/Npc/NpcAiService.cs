@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
@@ -23,6 +24,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly ConfigService _configService;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -159,6 +161,11 @@ namespace Gothic.Core.Services.Npc
             // In all other contexts (B_FullStop, state transitions, etc.) stop immediately.
             if (container.PrefabProps != null && container.PrefabProps.AiHandler != null && container.PrefabProps.AiHandler.IsInComboPreload)
                 return;
+
+            // If an UndrawWeapon is mid-animation when the queue is cleared, sheath the weapon
+            // immediately so the mesh isn't left orphaned in the hand slot.
+            if (container.Props.CurrentAction is UndrawWeapon activeUndraw)
+                activeUndraw.SheathImmediately();
 
             container.Props.CurrentAction = new None(new AnimationAction(), container);
             container.PrefabProps?.AnimationSystem?.StopAllAnimations();
@@ -457,8 +464,16 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiReadyRangedWeapon(NpcInstance npc)
         {
+            if (!_configService.Dev.EnableNpcRangedCombat)
+            {
+                // Ranged combat disabled — draw melee instead so the NPC doesn't stand empty-handed.
+                ExtAiDrawWeapon(npc);
+                return;
+            }
+
+            var container = npc.GetUserData();
             // int0 == 1 --> DrawWeapon picks the equipped ranged weapon instead of the melee one.
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), npc.GetUserData()));
+            container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), container));
         }
 
         public void ExtAiUndrawWeapon(NpcInstance npc)
@@ -473,7 +488,13 @@ namespace Gothic.Core.Services.Npc
         {
             // FIXME - BodyState is runtime-only and lost on NPC reload (e.g. world reload respawns the NPC alive).
             // A permanent death flag needs to be persisted in SaveGame state and checked here instead.
-            return npcInstance.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            //
+            // ZenKit's Pop<NpcInstance>() creates a fresh C# wrapper without UserData. We look up the
+            // NpcContainer by NpcInstance.Index (Daedalus symbol index, embedded in the native instance).
+            if (npcInstance == null) return false;
+            var container = _multiTypeCacheService.NpcCache
+                .FirstOrDefault(n => n.SymbolIndex == npcInstance.Index);
+            return container?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
         }
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)

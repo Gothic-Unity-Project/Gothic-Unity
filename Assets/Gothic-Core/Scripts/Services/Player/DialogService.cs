@@ -138,23 +138,16 @@ namespace Gothic.Core.Manager
             {
                 // Dialog is not important.
                 if (dialog.Important != 1)
-                {
                     continue;
-                }
 
                 // Important dialog has already been told.
                 if (dialog.Permanent != 1 && GetInfoState(dialog.Index).Told)
-                {
                     continue;
-                }
 
                 // No dialog condition exists or dialog condition() is false.
                 if (dialog.Condition == 0)
-                {
                     continue;
-                }
-                
-                // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
+
                 var oldSelf = _gameStateService.GothicVm.GlobalSelf;
                 var oldOther = _gameStateService.GothicVm.GlobalOther;
                 _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
@@ -164,9 +157,7 @@ namespace Gothic.Core.Manager
                 _gameStateService.GothicVm.GlobalOther = oldOther;
 
                 if (conditionResult == 0)
-                {
                     continue;
-                }
 
                 // Dialog is usable.
                 item = dialog;
