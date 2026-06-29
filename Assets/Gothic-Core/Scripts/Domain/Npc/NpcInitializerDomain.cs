@@ -53,6 +53,7 @@ namespace Gothic.Core.Domain.Npc
         public GameObject RootGo;
         private readonly List<(NpcContainer npc, string spawnPoint)> _tmpWldInsertNpcData = new();
         private int _nextInstanceId;
+        private bool _suppressWldInsertNpc;
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
 
@@ -168,6 +169,7 @@ namespace Gothic.Core.Domain.Npc
                 _npcMeshCullingService.AddCullingEntry(go);
             }
 
+            RebindNpcAliases();
             loading.FinalizePhase();
         }
 
@@ -208,6 +210,9 @@ namespace Gothic.Core.Domain.Npc
 
         public void ExtWldInsertNpc(int npcInstanceIndex, string spawnPoint)
         {
+            if (_suppressWldInsertNpc)
+                return;
+
             var userDataObject = AllocZkInstance(npcInstanceIndex);
 
             // InitInstance must run now, before STARTUP scripts call Npc_ChangeAttribute on this NPC.
@@ -262,6 +267,39 @@ namespace Gothic.Core.Domain.Npc
             _multiTypeCacheService.NpcCache.Add(userDataObject);
 
             return userDataObject;
+        }
+
+        /// <summary>
+        /// Re-runs INIT_{WORLD} with Wld_InsertNpc suppressed so that startup alias assignments like
+        /// "BAU_4300_ADDON_BRAGO = Hlp_GetNpc(BDT_1014_BANDIT_L)" correctly bind Daedalus NPC symbols
+        /// to the already-restored NpcCache entries. This is needed because we don't save/restore the
+        /// full Daedalus VM state, so all symbol bindings are lost after loading from snapshot.
+        /// Only INIT_ (not STARTUP_) is safe to re-run: STARTUP_ calls Npc_ChangeAttribute on NPCs
+        /// it finds via Hlp_GetNpc, which would corrupt restored attributes.
+        /// </summary>
+        private void RebindNpcAliases()
+        {
+            _suppressWldInsertNpc = true;
+            try
+            {
+                Vm.GlobalSelf = Vm.GlobalHero;
+                if (Vm.GetSymbolByName("INIT_GLOBAL") != null)
+                    Vm.Call("INIT_GLOBAL");
+                var worldName = _saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN");
+                var initFuncName = $"INIT_{worldName}";
+                if (Vm.GetSymbolByName(initFuncName) != null)
+                {
+                    Vm.Call(initFuncName);
+                    Logger.Log($"[NpcInitializerDomain] RebindNpcAliases: ran {initFuncName} with NPC insertion suppressed", LogCat.Npc);
+                }
+                else
+                    Logger.LogWarning($"[NpcInitializerDomain] RebindNpcAliases: symbol {initFuncName} not found — NPC aliases won't be rebound", LogCat.Npc);
+            }
+            finally
+            {
+                _suppressWldInsertNpc = false;
+                _tmpWldInsertNpcData.ClearAndReleaseMemory();
+            }
         }
 
         /// <summary>
