@@ -182,6 +182,10 @@ namespace Gothic.Core.Models.Container
         public int ActiveSpellLevel = 1;
         public GameObject ActiveSpellVfxGo;
 
+        // Light spell toggle — persists across rune grab/ungrab (unlike ActiveSpellVfxGo, which
+        // only lives while the rune is held), since casting Light again is what turns it back off.
+        public GameObject ActiveLightGo;
+
         // Tracks where the drawn weapon came from so UndrawWeapon can return it even if
         // FightMode was already reset or the weapon ended up in an unexpected slot.
         public GameObject WeaponHandSlotGo;  // slot the weapon was moved INTO on draw

@@ -6,6 +6,7 @@ using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -13,6 +14,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.ControllerInput;
 using HurricaneVR.Framework.Core.Bags;
@@ -45,9 +47,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly StationaryLightsService _stationaryLightsService;
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
+
+        private const string _lightName = "Light";
+        private const float _lightRange = 6f;
+        private const float _lightIntensity = 1.5f;
+        private const float _lightDurationSeconds = 90f;
+        private static readonly Color _lightColor = new(1f, 0.85f, 0.6f);
 
         private ItemInstance _item;
         private bool _isCasting;
@@ -155,6 +165,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _manaTickTimer = _manaTickInterval;
                 Logger.Log($"[VRRuneCaster] Cast confirmed — target={_spellTarget?.Instance?.GetName(NpcNameSlot.Slot0) ?? "none"}", LogCat.VR);
             }
+            else if (triggered && _isCasting && _manaInvested > 0)
+            {
+                // Trigger 3+: fire now at whatever level has been charged so far. Chargeable spells
+                // (Fireball, Firestorm, Windfist, Stormfist, Thunderball, Firerain) only auto-fire via
+                // Daedalus once mana hits the max threshold — without this, we'd always charge to max
+                // (or fizzle if mana runs out first) and never let the player release early for a
+                // quicker, weaker cast, exactly like releasing CTRL early in the original engine.
+                Logger.Log($"[VRRuneCaster] Fire-now triggered at level {_manaInvested}", LogCat.VR);
+                FinalizeCast(applyEffect: true);
+                return;
+            }
 
             if (!_isCasting) return;
 
@@ -175,6 +196,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
+            // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
+            // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
+            // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
+            hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
             RefreshManaFill();
 
             var vm = _gameStateService.GothicVm;
@@ -189,19 +214,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (result == _splSendcast || result == _splSendstop)
                 {
                     Logger.Log($"[VRRuneCaster] result={result} after {_manaInvested} ticks — spell fired", LogCat.VR);
-                    StopInvestSound();
-                    PlayCastSound(_item.Spell);
-
-                    var spellDmg = GetSpellDamage(_item.Spell) * _manaInvested;
-                    if (_spellTarget != null && result == _splSendcast && spellDmg > 0)
-                        StartCoroutine(ApplySpellHitDelayed(_spellTarget, _npcService.GetHeroContainer(), spellDmg));
-
-                    // TODO scrolls: consume one from stack, destroy if last
-                    // var isScroll = (_item.Flags & ItemFlags.Multi) != 0;
-                    // if (isScroll) ConsumeScroll();
-
-                    _isCasting = false;
-                    // Allow recasting without re-grabbing: _castThisGrab stays false
+                    FinalizeCast(applyEffect: result == _splSendcast);
                 }
             }
             finally
@@ -209,6 +222,142 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
+        }
+
+        /// <summary>
+        /// Ends the current cast — either because Daedalus auto-fired at max charge, sent an explicit
+        /// stop, or the player released early (trigger 3+) to fire at whatever level was reached.
+        /// </summary>
+        private void FinalizeCast(bool applyEffect)
+        {
+            StopInvestSound();
+            PlayCastSound(_item.Spell);
+
+            if (applyEffect)
+            {
+                var mfxName = GetSpellMfxName(_item.Spell);
+
+                // Light has no Daedalus-side hook at all (Spell_Logic_Light only gates the cast) —
+                // in the original engine it's a hardcoded C++ toggle, so it's the one spell effect
+                // we implement directly rather than routing through Spell_ProcessMana/ASSESSMAGIC.
+                if (mfxName == _lightName)
+                {
+                    ToggleLightSpell();
+                }
+                else
+                {
+                    var spellDmg = GetSpellDamage(_item.Spell) * _manaInvested;
+                    var hero = _npcService.GetHeroContainer();
+                    var isAoe = mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName);
+
+                    if (_spellTarget != null && _spellTarget.Go != null)
+                    {
+                        // SpellHit both applies direct damage (if any) and fires PERC_ASSESSMAGIC on the
+                        // target, so Daedalus content (ZS_MagicFreeze, ZS_MagicSleep, ZS_Zapped, Fear/
+                        // Charm/Berzerk...) drives the actual reaction — nothing per-spell to hardcode here.
+                        // For AOE spells FightService.OnSpellHit ignores this single target anyway and
+                        // fans out to everyone in range of the caster.
+                        GlobalEventDispatcher.SpellHit.Invoke(hero, _spellTarget, _spellTarget.Go.transform.position, spellDmg);
+                    }
+                    else if (isAoe)
+                    {
+                        // AOE spells (Icewave, ChainLightning...) hit everyone around the caster, not a
+                        // single aimed target — don't require one to be selected. hero/heroPos here are
+                        // just placeholders; FightService.OnSpellHit re-resolves the real affected NPCs.
+                        GlobalEventDispatcher.SpellHit.Invoke(hero, hero, hero.Go.transform.position, spellDmg);
+                    }
+                    else if (spellDmg == 0 && mfxName != "Heal" && !SpellConst.SummonEffectNames.Contains(mfxName ?? string.Empty))
+                    {
+                        Logger.LogWarning($"[VRRuneCaster] spell effect '{mfxName}' has no target and no known self-effect handling in C#/Daedalus — likely a no-op", LogCat.VR);
+                    }
+                }
+            }
+
+            // TODO scrolls: consume one from stack, destroy if last
+            // var isScroll = (_item.Flags & ItemFlags.Multi) != 0;
+            // if (isScroll) ConsumeScroll();
+
+            _isCasting = false;
+            // Allow recasting without re-grabbing: _castThisGrab stays false
+        }
+
+        /// <summary>
+        /// Light has no Daedalus-side effect to invoke — it's a hardcoded engine toggle in the
+        /// original game too. State lives on the hero NpcContainer (not this component) so the light
+        /// survives ungrabbing the rune; casting Light again is what turns it back off.
+        /// </summary>
+        private void ToggleLightSpell()
+        {
+            var hero = _npcService.GetHeroContainer();
+            if (hero?.Go == null) return;
+
+            if (hero.ActiveLightGo != null)
+            {
+                Destroy(hero.ActiveLightGo);
+                hero.ActiveLightGo = null;
+                _stationaryLightsService.ClearDynamicLight();
+                Logger.Log("[VRRuneCaster] Light spell OFF", LogCat.VR);
+                return;
+            }
+
+            var lightGo = new GameObject("SpellLight");
+            lightGo.transform.SetParent(hero.Go.transform, false);
+            lightGo.transform.localPosition = new Vector3(0f, 1.6f, 0f); // roughly head height
+
+            // StationaryLight (not a plain Light) so the world's baked-lighting shader — which never
+            // samples ordinary Unity/URP realtime lights, only its own static per-renderer index array
+            // — also picks this up via the one slot reserved for a runtime-moving light. The attached
+            // Light component (added by [RequireComponent]) still covers items/hands/NPCs normally.
+            var stationaryLight = lightGo.AddComponent<StationaryLight>();
+            stationaryLight.Inject();
+            stationaryLight.Type = LightType.Point;
+            stationaryLight.Color = _lightColor;
+            stationaryLight.Range = _lightRange;
+            stationaryLight.Intensity = _lightIntensity;
+            stationaryLight.Index = _stationaryLightsService.DynamicLightIndex;
+            stationaryLight.Init();
+
+            _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo);
+
+            hero.ActiveLightGo = lightGo;
+            Logger.Log("[VRRuneCaster] Light spell ON", LogCat.VR);
+            _unityMonoService.StartCoroutine(AutoTurnOffLight(hero, lightGo));
+            _unityMonoService.StartCoroutine(DriveDynamicLight(lightGo, stationaryLight));
+        }
+
+        /// <summary>
+        /// Periodically pushes the light's current (moving-with-the-player) world position into the
+        /// global shader arrays and re-gathers nearby renderers, so the world-lighting effect actually
+        /// follows the player instead of staying fixed at the cast position. Not done every frame —
+        /// each update re-uploads the whole global light array — a few times a second is plenty for a
+        /// walking-speed light.
+        /// </summary>
+        private IEnumerator DriveDynamicLight(GameObject lightGo, StationaryLight stationaryLight)
+        {
+            const float refreshInterval = 0.3f;
+            var linearColor = _lightColor.linear;
+
+            while (lightGo != null)
+            {
+                _stationaryLightsService.UpdateDynamicLight(lightGo.transform.position, _lightRange, linearColor);
+                stationaryLight.Refresh();
+                yield return new WaitForSeconds(refreshInterval);
+            }
+        }
+
+        /// <summary>
+        /// Compares against the current ActiveLightGo (not a cancelled-coroutine flag) so it's a no-op
+        /// if the player already toggled the light off — or back on again — before this fires.
+        /// </summary>
+        private IEnumerator AutoTurnOffLight(NpcContainer hero, GameObject lightGo)
+        {
+            yield return new WaitForSeconds(_lightDurationSeconds);
+            if (hero.ActiveLightGo != lightGo) yield break;
+
+            Destroy(lightGo);
+            hero.ActiveLightGo = null;
+            _stationaryLightsService.ClearDynamicLight();
+            Logger.Log("[VRRuneCaster] Light spell expired", LogCat.VR);
         }
 
         private void SpawnSpellVfx()
@@ -316,14 +465,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 Logger.Log($"[VRRuneCaster] Target → {name}", LogCat.VR);
                 if (_spellTarget != null) PlayOneShot("TMAG_INIT");
             }
-        }
-
-        private static IEnumerator ApplySpellHitDelayed(NpcContainer target, NpcContainer caster, int damage)
-        {
-            Logger.LogWarning($"[VRRuneCaster] FIXME: no spell VFX — SpellHit {target.Instance.GetName(NpcNameSlot.Slot0)} dmg={damage} in 1s", LogCat.VR);
-            yield return new WaitForSeconds(0.21f);
-            if (target.Go == null) yield break;
-            GlobalEventDispatcher.SpellHit.Invoke(caster, target, target.Go.transform.position, damage);
         }
 
         private int GetSpellDamage(int spellId)

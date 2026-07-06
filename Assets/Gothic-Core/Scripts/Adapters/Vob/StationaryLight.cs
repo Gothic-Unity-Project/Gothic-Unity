@@ -153,6 +153,19 @@ namespace Gothic.Core.Adapters.Vob
             OnEnable();
         }
 
+        /// <summary>
+        /// Re-gathers nearby renderers and re-registers with them. Unlike Init() (meant to run once
+        /// for a static world light), this is safe to call repeatedly for a light that moves at
+        /// runtime (e.g. a spell effect following the player) so it keeps affecting whatever's nearby.
+        /// </summary>
+        public void Refresh()
+        {
+            OnDisable();
+            _affectedRenderers.Clear();
+            GatherRenderers();
+            OnEnable();
+        }
+
         private void OnEnable()
         {
             foreach (var rend in _affectedRenderers)

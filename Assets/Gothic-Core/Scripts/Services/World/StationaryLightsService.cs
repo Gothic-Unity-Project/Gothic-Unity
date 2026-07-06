@@ -111,6 +111,16 @@ namespace Gothic.Core.Services.World
             }
         }
 
+        private Vector4[] _lightPositionsAndAttenuation;
+        private Vector4[] _lightColors;
+
+        /// <summary>
+        /// Index of the one reserved slot for a light that moves at runtime (e.g. the player's Light
+        /// spell) — everything else in these arrays is baked once from the world file and never moves.
+        /// -1 until InitStationaryLights() has run.
+        /// </summary>
+        public int DynamicLightIndex { get; private set; } = -1;
+
         /// <summary>
         /// Set global Shader data when world is being loaded.
         /// </summary>
@@ -118,26 +128,63 @@ namespace Gothic.Core.Services.World
         {
             var lights = _staticCacheService.LoadedStationaryLights.StationaryLights;
 
-            var lightPositionsAndAttenuation = new Vector4[lights.Count];
-            var lightColors = new Vector4[lights.Count];
+            DynamicLightIndex = lights.Count;
+            _lightPositionsAndAttenuation = new Vector4[lights.Count + 1];
+            _lightColors = new Vector4[lights.Count + 1];
 
             for (var i = 0; i < lights.Count; i++)
             {
-                lightPositionsAndAttenuation[i] = new Vector4(
+                _lightPositionsAndAttenuation[i] = new Vector4(
                     lights[i].P.x, lights[i].P.y, lights[i].P.z,
                     1f / (lights[i].R * lights[i].R));
-                lightColors[i] = lights[i].Col;
+                _lightColors[i] = lights[i].Col;
             }
+            // Dynamic slot starts inert (zero attenuation/color) until UpdateDynamicLight() moves it.
+            _lightPositionsAndAttenuation[DynamicLightIndex] = Vector4.zero;
+            _lightColors[DynamicLightIndex] = Vector4.zero;
 
+            UploadGlobalLightArrays();
+        }
+
+        /// <summary>
+        /// Moves the single reserved dynamic light slot and re-uploads the global shader arrays.
+        /// Call this sparingly (e.g. a few times a second while a light-spell-like effect is active),
+        /// not every frame — Shader.SetGlobalVectorArray re-uploads the whole array every time, so the
+        /// cost scales with total static light count, not just the dynamic one.
+        /// </summary>
+        public void UpdateDynamicLight(Vector3 worldPosition, float rangeMeters, Color linearColor)
+        {
+            if (DynamicLightIndex < 0) return; // world not loaded yet
+
+            _lightPositionsAndAttenuation[DynamicLightIndex] = new Vector4(
+                worldPosition.x, worldPosition.y, worldPosition.z, 1f / (rangeMeters * rangeMeters));
+            _lightColors[DynamicLightIndex] = linearColor;
+            UploadGlobalLightArrays();
+        }
+
+        /// <summary>
+        /// Zeroes the dynamic slot out so no stale position/color lingers once the effect ends.
+        /// </summary>
+        public void ClearDynamicLight()
+        {
+            if (DynamicLightIndex < 0) return;
+
+            _lightPositionsAndAttenuation[DynamicLightIndex] = Vector4.zero;
+            _lightColors[DynamicLightIndex] = Vector4.zero;
+            UploadGlobalLightArrays();
+        }
+
+        private void UploadGlobalLightArrays()
+        {
             // Unity exception: Zero sized arrays aren't allowed for Shader values.
-            if (lightPositionsAndAttenuation.IsEmpty())
+            if (_lightPositionsAndAttenuation.IsEmpty())
             {
                 return;
             }
 
             Shader.SetGlobalVectorArray(_globalStationaryLightPositionsAndAttenuationShaderId,
-                lightPositionsAndAttenuation);
-            Shader.SetGlobalVectorArray(_globalStationaryLightColorsShaderId, lightColors);
+                _lightPositionsAndAttenuation);
+            Shader.SetGlobalVectorArray(_globalStationaryLightColorsShaderId, _lightColors);
         }
     }
 }
