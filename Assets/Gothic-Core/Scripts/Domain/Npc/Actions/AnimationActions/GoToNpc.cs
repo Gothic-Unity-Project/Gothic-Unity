@@ -76,6 +76,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 if (directDist <= _configService.Dev.NpcDialogStopDistance * 4f ||
                     _npcHelperService.CanSeeNpc(NpcInstance, Action.Instance0, true))
                 {
+                    // Sync CurrentWayPoint to wherever we actually are before dropping the route —
+                    // otherwise it's left stuck at the last hop OnDestinationReached happened to reach,
+                    // which can be several hops behind the direct-approach walking that follows. Anyone
+                    // reading CurrentWayPoint later (GoToWp resuming the routine, another GoToNpc) would
+                    // otherwise compute a route from that stale spot instead of from the NPC's real
+                    // position, producing a needlessly long detour.
+                    var syncedWp = WayNetService.FindNearestWayPoint(NpcGo.transform.position);
+                    if (syncedWp != null)
+                        Props.CurrentWayPoint = syncedWp;
+
+                    Logger.Log($"[GoToNpc] {NpcInstance.GetName(NpcNameSlot.Slot0)}: bailing out of WP route (dist={directDist:F1}m) — CurrentWayPoint synced to {syncedWp?.Name}", LogCat.Ai);
                     _route = null;
                 }
             }

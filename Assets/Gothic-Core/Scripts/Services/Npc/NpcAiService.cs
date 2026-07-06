@@ -758,9 +758,13 @@ namespace Gothic.Core.Services.Npc
             if (currentTarget != null)
             {
                 var currentTargetNpc = currentTarget.GetUserData();
+                // Unconscious excluded too, not just dead — an incapacitated target isn't an ongoing
+                // fight to keep confirming every tick (matches ExtGetNextTarget, which already
+                // excludes both states).
                 var stillValid = currentTargetNpc != null &&
                                   currentTargetNpc.Go != null &&
                                   currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+                                  currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious &&
                                   currentTarget.Guild != self.Guild &&
                                   !IsPartyMember(currentTarget) &&
                                   ExtGetAttitude(self, currentTarget) == VmGothicEnums.Attitude.Hostile &&
@@ -787,8 +791,8 @@ namespace Gothic.Core.Services.Npc
                 if (candidate.Instance.Index == self.Index)
                     continue;
 
-                // Corpses aren't enemies.
-                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                // Corpses aren't enemies, and neither is someone currently knocked out.
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                     continue;
 
                 // Range and closest-so-far gates before the expensive attitude and senses checks.

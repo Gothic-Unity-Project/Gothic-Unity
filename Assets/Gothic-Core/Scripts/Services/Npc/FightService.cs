@@ -408,6 +408,31 @@ namespace Gothic.Core.Services.Npc
             var statusBar = hero.Go.GetComponentInChildren<StatusBarAdapter>(true);
             statusBar?.SetFillAmount(1, hero.Vob.GetAttribute((int)NpcAttribute.HitPointsMax));
             _contextInteractionService.LockPlayerInPlace();
+
+            // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
+            // this very knockout before its SVM warning/ZS_Attack ever ran) gets its tempAttitude reset
+            // to permanent now, the same way OnNpcKnockedOut already does for the reverse case. Without
+            // this, vanilla's ZS_ProclaimAndPunish_End silently aborts on C_NpcIsDown(hero) with no
+            // attitude reset, so the NPC stays Hostile with no memory that anything happened — once the
+            // hero wakes and is re-detected, it replays the whole warning and attacks again ("double
+            // beating" for one provocation). The intent here is for the confrontation to be considered
+            // over, not merely to skip the SVM line and fight anyway — resetting attitude means the NPC
+            // goes back to routine and won't re-engage on its own at all.
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate.Props?.TargetNpc?.Index != hero.Instance.Index)
+                    continue;
+
+                candidate.Vob.AttitudeTemp = candidate.Vob.Attitude;
+
+                // The encounter is over, but nothing else tells this NPC to sheath whatever weapon it
+                // drew for the confrontation (B_DrawWeapon back in ZS_AssessEnemy) — without this it
+                // keeps walking/standing with the weapon out and the wrong animation set even after it
+                // gives up and returns to routine.
+                if ((VmGothicEnums.WeaponState)candidate.Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
+                    _npcAiService.ExtAiUndrawWeapon(candidate.Instance);
+            }
+
             _unityMonoService.StartCoroutine(KnockoutRecovery(hero));
         }
 
