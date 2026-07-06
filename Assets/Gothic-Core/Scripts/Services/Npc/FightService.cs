@@ -142,14 +142,19 @@ namespace Gothic.Core.Services.Npc
 
             // When a non-hero NPC hits a target that is alive, force-switch the target's focus to
             // the attacker. Gothic's B_CombatReactToDamage only does this for the player; we extend
-            // it here so that wolves, companions, etc. become the active fight target when they land
+            // it here so that wolves, monsters, etc. become the active fight target when they land
             // a hit. Still skip Friendly attackers (e.g. a stray combo hit in a crowd) so allies/guards
             // don't turn hostile on each other from incidental damage — same gate used elsewhere in
             // this file (ActivatePartyMemberAttack) and in NpcAiService's target-switching methods.
             // Same-guild is excluded unconditionally too — this mechanic has no vanilla precedent for
             // guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
+            // Party members (summons/allies) are excluded too: an NPC being pummeled by the hero's golem
+            // should still keep focusing the hero — the real aggressor — not redirect onto the summon
+            // that's just piling on damage. This was the confirmed cause of NPCs abandoning the hero to
+            // fight the party member instead (logs: "Strażnik bramy switches target to Golem").
             if (attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
                 target.Instance.Guild != attacker.Instance.Guild &&
+                !IsPartyMember(attacker) &&
                 _npcAiService.ExtGetAttitude(target.Instance, attacker.Instance) != VmGothicEnums.Attitude.Friendly)
             {
                 target.Props.TargetNpc = attacker.Instance;
@@ -157,8 +162,10 @@ namespace Gothic.Core.Services.Npc
                 Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} switches target to {attacker.Instance.GetName(NpcNameSlot.Slot0)} (hit by non-hero)", LogCat.Fight);
             }
 
-            // Party member was hit by a non-hero — it defends itself immediately.
-            if (IsPartyMember(target) && attacker.Instance.Index != heroIndex)
+            // Party member was hit by a non-hero — only defend itself once it has no alive primary
+            // target to stay committed to (see HasAlivePrimaryTarget). Otherwise an incidental hit from
+            // a bystander would pull it off whatever the hero is actually attacking.
+            if (IsPartyMember(target) && attacker.Instance.Index != heroIndex && !HasAlivePrimaryTarget(target))
             {
                 ActivatePartyMemberAttack(target, attacker);
                 Logger.Log($"[FightService] Party member {target.Instance.GetName(NpcNameSlot.Slot0)} defends self against {attacker.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
@@ -184,8 +191,20 @@ namespace Gothic.Core.Services.Npc
                 {
                     NpcContainer enemy = null;
                     NpcContainer anchor = null;
-                    if (attacker.Instance.Index == heroIndex) { enemy = target; anchor = attacker; }
-                    else if (target.Instance.Index == heroIndex) { enemy = attacker; anchor = target; }
+                    if (attacker.Instance.Index == heroIndex)
+                    {
+                        // Hero landed the hit — this is the "primary target" signal, always follow it.
+                        enemy = target;
+                        anchor = attacker;
+                    }
+                    else if (target.Instance.Index == heroIndex && !HasAlivePrimaryTarget(candidate))
+                    {
+                        // Hero got hit instead — only a fallback for "no target yet," not an override,
+                        // so the party member doesn't ping-pong onto whoever last traded blows with the
+                        // hero in a multi-enemy fight.
+                        enemy = attacker;
+                        anchor = target;
+                    }
 
                     if (enemy == null || anchor?.Go == null)
                         continue;
@@ -215,10 +234,14 @@ namespace Gothic.Core.Services.Npc
                 // Skip Friendly attackers — otherwise a guard who loses sight of the hero for a
                 // moment redirects onto the ally guard standing next to them instead. Same-guild
                 // excluded unconditionally too, same reasoning as the force-switch block above.
+                // Party members excluded as well — a bystander that's lost sight of the hero should
+                // keep trying to reacquire the hero, not settle on the summon that's visibly fighting
+                // nearby instead.
                 if (attacker.Instance.Index != heroIndex &&
                     candidate.Props.TargetNpc?.Index == heroContainer.Instance.Index &&
                     !_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, heroContainer.Instance, false) &&
                     candidate.Instance.Guild != attacker.Instance.Guild &&
+                    !IsPartyMember(attacker) &&
                     _npcAiService.ExtGetAttitude(candidate.Instance, attacker.Instance) != VmGothicEnums.Attitude.Friendly)
                 {
                     candidate.Props.TargetNpc = attacker.Instance;
@@ -276,6 +299,20 @@ namespace Gothic.Core.Services.Npc
             return npc.Instance.GetAiVar(aivIndex) == 1;
         }
 
+        // A party member's "primary target" is whatever the hero is actively attacking — sticky until
+        // that target goes down, so a summon doesn't ping-pong between every enemy that trades hits
+        // with the hero in a multi-enemy fight (logs showed exactly this: "Party member Golem → attack
+        // Strażnik" / "→ attack Diego" alternating every few seconds as different guards traded blows
+        // with the hero). Self-defense (reacting to whoever's hitting the party member directly) is
+        // only allowed once there's no alive primary target to stay committed to.
+        private bool HasAlivePrimaryTarget(NpcContainer partyMember)
+        {
+            var current = partyMember.Props.TargetNpc?.GetUserData();
+            return current != null &&
+                   current.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+                   current.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious;
+        }
+
         private void AlertPartyMembersToDefendHero(NpcContainer attacker)
         {
             foreach (var candidate in _multiTypeCacheService.NpcCache)
@@ -283,6 +320,11 @@ namespace Gothic.Core.Services.Npc
                 if (!IsPartyMember(candidate)) continue;
                 if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious) continue;
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
+
+                // Fallback only — if the party member is already committed to a live primary target
+                // (set by the hero's own attacks, see BroadcastDamagePerceptions), don't pull it off
+                // that target just because a different enemy landed a hit on the hero.
+                if (HasAlivePrimaryTarget(candidate)) continue;
 
                 ActivatePartyMemberAttack(candidate, attacker);
             }

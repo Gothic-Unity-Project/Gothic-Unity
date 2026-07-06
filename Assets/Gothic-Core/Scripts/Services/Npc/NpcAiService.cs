@@ -586,6 +586,16 @@ namespace Gothic.Core.Services.Npc
             return item.Owner == npc.Index;
         }
 
+        // Shared by every auto target-acquisition heuristic below — a party member (summon/ally) should
+        // never be picked up as a new/replacement target by these, only ever by the deliberate combat
+        // flow (ActivatePartyMemberAttack) that mirrors the hero's own target.
+        private bool IsPartyMember(NpcInstance npc)
+        {
+            var partySymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            if (partySymbol == null) return false;
+            return npc.GetAiVar(partySymbol.GetInt(0)) == 1;
+        }
+
         public VmGothicEnums.Attitude ExtGetAttitude(NpcInstance self, NpcInstance other)
         {
             var npc1 = self.GetUserData();
@@ -659,9 +669,6 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npc.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
-            var partySymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
-            var aivPartyIndex = partySymbol?.GetInt(0) ?? -1;
-
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
                 if (candidate.Props == null || candidate.Go == null)
@@ -675,13 +682,15 @@ namespace Gothic.Core.Services.Npc
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
                     continue;
 
-                // Skip party members unless they already provoked this NPC (retaliation is fine).
-                if (aivPartyIndex >= 0 && candidate.Instance.GetAiVar(aivPartyIndex) == 1)
-                {
-                    var selfProps = selfNpc.Props;
-                    if (selfProps.EnemyNpc != candidate.Instance && selfProps.TargetNpc != candidate.Instance)
-                        continue;
-                }
+                // Party members (summons/allies) are never a valid auto-acquired target, full stop —
+                // not even "unless they already provoked me." That carve-out used to check whether
+                // self's OWN target field already pointed at the candidate, which is trivially true
+                // once something else has already (wrongly) force-switched onto them, so it let a
+                // summon get picked right back up as "next target" after the bug that put it there in
+                // the first place. NPCs should always re-focus the hero (the real aggressor), not a
+                // summon that's just piling on damage alongside them.
+                if (IsPartyMember(candidate.Instance))
+                    continue;
 
                 // Same-guild NPCs are never a valid auto-acquired target — vanilla never exercises
                 // Npc_GetNextTarget() against a fellow guild member, so an under-specified guild-attitude
@@ -735,11 +744,37 @@ namespace Gothic.Core.Services.Npc
             var selfNpc = self.GetUserData();
             var selfPosition = selfNpc.Go.transform.position;
 
-            NpcContainer closestEnemy = null;
-            var closestSqrDist = float.MaxValue;
-
             var sensesRangeMeters = self.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
+
+            // Keep the current target if it's still a valid hostile, instead of re-scanning "closest
+            // hostile" completely from scratch every tick. Without this, any momentary crossover in
+            // relative distance between two similarly-far candidates flips the target — and once
+            // flipped, the NPC's already-active combat state just keeps pursuing the new one, with no
+            // way back. Confirmed via logs: scavengers that first reacted to the hero permanently
+            // switched to attacking a nearby bystander NPC once it became marginally closer, and never
+            // reconsidered even though the hero (the actual provoker) stayed just as close.
+            var currentTarget = selfNpc.Props.EnemyNpc;
+            if (currentTarget != null)
+            {
+                var currentTargetNpc = currentTarget.GetUserData();
+                var stillValid = currentTargetNpc != null &&
+                                  currentTargetNpc.Go != null &&
+                                  currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+                                  currentTarget.Guild != self.Guild &&
+                                  !IsPartyMember(currentTarget) &&
+                                  ExtGetAttitude(self, currentTarget) == VmGothicEnums.Attitude.Hostile &&
+                                  (currentTargetNpc.Go.transform.position - selfPosition).sqrMagnitude <= sensesRangeSqr &&
+                                  _npcHelperService.CanSenseNpc(self, currentTarget, true);
+                if (stillValid)
+                {
+                    selfNpc.Props.TargetNpc = currentTarget;
+                    return;
+                }
+            }
+
+            NpcContainer closestEnemy = null;
+            var closestSqrDist = float.MaxValue;
 
             // FIXME - Performance - Can we clean this up to support only spawned and visible NPCs/Monsters?
             //         A spatial lookup (e.g. the culling system's distance buckets) would avoid the full scan.
@@ -763,6 +798,10 @@ namespace Gothic.Core.Services.Npc
 
                 // Safety net regardless of the guild-attitude table — see ExtGetNextTarget.
                 if (candidate.Instance.Guild == self.Guild)
+                    continue;
+
+                // Party members (summons/allies) never a valid auto-acquired target — see ExtGetNextTarget.
+                if (IsPartyMember(candidate.Instance))
                     continue;
 
                 if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
@@ -834,8 +873,12 @@ namespace Gothic.Core.Services.Npc
                 // Never auto-switch onto someone explicitly Friendly to self (e.g. an NPC the player
                 // pacified/saved earlier) even if a stale target reference points at self. Same-guild
                 // is excluded unconditionally too — safety net regardless of the guild-attitude table.
+                // Party members excluded unconditionally as well, even though the precondition above
+                // already means one is "actively fighting self" — a summon landing incidental hits on
+                // an NPC that's really fighting the hero shouldn't steal that NPC's focus (see ExtGetNextTarget).
                 if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
                 if (candidate.Instance.Guild == self.Guild) continue;
+                if (IsPartyMember(candidate.Instance)) continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist) continue;
@@ -885,8 +928,11 @@ namespace Gothic.Core.Services.Npc
                 // Mirror B_AssessFighter: ignore friendly NPCs (e.g. allies training), react to all others.
                 // Same-guild excluded unconditionally too — this mechanic has no vanilla precedent for
                 // guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
+                // Party members excluded too — a summon actively fighting nearby shouldn't itself read as
+                // an "armed threat" to bystanders; they should still only ever focus the hero.
                 if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
                 if (candidate.Instance.Guild == self.Guild) continue;
+                if (IsPartyMember(candidate.Instance)) continue;
 
                 if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
 
