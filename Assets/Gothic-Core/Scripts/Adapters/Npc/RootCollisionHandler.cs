@@ -79,11 +79,22 @@ namespace Gothic.Core.Adapters.Npc
 
                 var diff = myPos - hit.transform.position;
                 diff.y = 0f;
-                // Two NPCs exactly on top of each other: push in a random direction to break the deadlock.
-                if (diff.sqrMagnitude < 0.001f)
-                    diff = new Vector3(Random.value - 0.5f, 0f, Random.value - 0.5f);
+                var dist = diff.magnitude;
 
-                Go.transform.position += diff.normalized * (_npcSeparationSpeed * Time.deltaTime);
+                // Two NPCs exactly on top of each other: push in a random direction to break the deadlock.
+                if (dist < 0.001f)
+                {
+                    diff = new Vector3(Random.value - 0.5f, 0f, Random.value - 0.5f);
+                    dist = diff.magnitude;
+                }
+
+                // Scale push strength by how deep the overlap is (0 at the radius boundary, full speed
+                // at zero distance) instead of a flat push regardless of overlap amount. A constant push
+                // right up to a hard cutoff makes two NPCs sitting near the boundary flicker in and out
+                // of range every frame — shoved out, no longer overlapping, drift back in, shoved out
+                // again — instead of settling. Scaling by penetration depth converges to a stable gap.
+                var overlapFraction = Mathf.Clamp01(1f - dist / _npcSeparationRadius);
+                Go.transform.position += diff.normalized * (_npcSeparationSpeed * overlapFraction * Time.deltaTime);
             }
         }
 

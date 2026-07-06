@@ -234,10 +234,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
-            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
-            vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
-            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
@@ -254,6 +251,13 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.GameVersion == GameVersion.Gothic2)
             {
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
+                // G2 portal/room system — outdoor areas have no portals so all return GIL_NONE (0).
+                vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild);
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild);
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom);
             }
 
 
@@ -292,10 +296,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, int>("Wld_GetGuildAttitude", Wld_GetGuildAttitude);
             vm.RegisterExternal<string>("Wld_SendTrigger", Wld_SendTrigger);
             vm.RegisterExternal<string>("Wld_SendUntrigger", Wld_SendUntrigger);
-            // G2 portal/room system — outdoor areas have no portals so all return GIL_NONE (0).
-            vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild);
-            vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild);
-            vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom);
 
             // Misc
             vm.RegisterExternal<int, int>("Perc_SetRange", Perc_SetRange);

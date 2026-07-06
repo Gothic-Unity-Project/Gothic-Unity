@@ -683,6 +683,13 @@ namespace Gothic.Core.Services.Npc
                         continue;
                 }
 
+                // Same-guild NPCs are never a valid auto-acquired target — vanilla never exercises
+                // Npc_GetNextTarget() against a fellow guild member, so an under-specified guild-attitude
+                // entry (or a leftover personal attitude flag) resolving to Hostile between two guards
+                // has no vanilla behavior to fall back on. Safety net regardless of the attitude table.
+                if (candidate.Instance.Guild == npc.Guild)
+                    continue;
+
                 if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
                     continue;
 
@@ -754,11 +761,17 @@ namespace Gothic.Core.Services.Npc
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
                     continue;
 
+                // Safety net regardless of the guild-attitude table — see ExtGetNextTarget.
+                if (candidate.Instance.Guild == self.Guild)
+                    continue;
+
                 if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
                     continue;
 
-                // Visual LOS required to initiate combat — hearing/smell alone doesn't trigger fight state.
-                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false))
+                // Hearing/smell detect through walls (matches vanilla — e.g. a sleeping molerat wakes
+                // to nearby footsteps without seeing the source); only SENSE_SEE requires LOS+FOV.
+                // CanSenseNpc(freeLOS=true) handles that split internally.
+                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
                     continue;
 
                 closestSqrDist = sqrDist;
@@ -819,12 +832,16 @@ namespace Gothic.Core.Services.Npc
                 if (targetIdx != self.Index && enemyIdx != self.Index) continue;
 
                 // Never auto-switch onto someone explicitly Friendly to self (e.g. an NPC the player
-                // pacified/saved earlier) even if a stale target reference points at self.
+                // pacified/saved earlier) even if a stale target reference points at self. Same-guild
+                // is excluded unconditionally too — safety net regardless of the guild-attitude table.
                 if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
+                if (candidate.Instance.Guild == self.Guild) continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist) continue;
-                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
+                // Hearing/smell detect through walls, matching the "heard through a wall" case this
+                // method is meant to cover (see doc comment above) — only SENSE_SEE requires LOS+FOV.
+                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true)) continue;
 
                 closestSqrDist = sqrDist;
                 attacker = candidate;
@@ -835,6 +852,57 @@ namespace Gothic.Core.Services.Npc
 
             selfNpc.Props.EnemyNpc = attacker.Instance;
             selfNpc.Props.TargetNpc = attacker.Instance;
+        }
+
+        // B_AssessFighter.d has "if (!Npc_IsPlayer(other)) return" — so vanilla Daedalus never
+        // makes NPCs react to an armed non-player NPC approaching them. We add that missing
+        // NPC→NPC armed-threat detection here: if an NPC with drawn weapon is actively engaged
+        // in combat (TargetNpc set) and visible within ~4m, self enters ZS_AssessFighter just
+        // as it would if the player had drawn a weapon nearby.
+        public void CheckForArmedNpcThreat(NpcInstance self)
+        {
+            var selfNpc = self.GetUserData();
+            if (selfNpc?.Go == null) return;
+
+            const float threatRangeMeters = 4f; // slightly beyond HAI_DIST_MELEE (~3m)
+            var selfPos = selfNpc.Go.transform.position;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate.Props == null || candidate.Go == null) continue;
+                if (candidate.Instance.Index == self.Index) continue;
+                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
+
+                var weaponState = (VmGothicEnums.WeaponState)candidate.Vob.FightMode;
+                if (weaponState == VmGothicEnums.WeaponState.NoWeapon ||
+                    weaponState == VmGothicEnums.WeaponState.Fist) continue;
+
+                // Only react to NPCs actively engaged in combat, not patrol NPCs holding ranged weapons.
+                if (candidate.Props.TargetNpc == null) continue;
+
+                if (Vector3.Distance(selfPos, candidate.Go.transform.position) > threatRangeMeters) continue;
+
+                // Mirror B_AssessFighter: ignore friendly NPCs (e.g. allies training), react to all others.
+                // Same-guild excluded unconditionally too — this mechanic has no vanilla precedent for
+                // guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
+                if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
+                if (candidate.Instance.Guild == self.Guild) continue;
+
+                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
+
+                var zsAssessFighterSym = _gameStateService.GothicVm.GetSymbolByName("ZS_AssessFighter");
+                if (zsAssessFighterSym == null) return;
+
+                selfNpc.Props.EnemyNpc = candidate.Instance;
+                selfNpc.Props.TargetNpc = candidate.Instance;
+                Logger.Log($"[NpcAiService] {self.GetName(NpcNameSlot.Slot0)} reacts to armed {candidate.Instance.GetName(NpcNameSlot.Slot0)} — ZS_AssessFighter", LogCat.Fight);
+
+                var oldOther = _gameStateService.GothicVm.GlobalOther;
+                _gameStateService.GothicVm.GlobalOther = candidate.Instance;
+                ExtAiStartState(self, zsAssessFighterSym.Index, false, "");
+                _gameStateService.GothicVm.GlobalOther = oldOther;
+                break;
+            }
         }
 
         public void ExtSetRefuseTalk(NpcInstance self, int refuseSeconds)

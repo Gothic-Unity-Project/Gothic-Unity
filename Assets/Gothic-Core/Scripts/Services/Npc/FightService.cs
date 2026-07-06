@@ -125,11 +125,17 @@ namespace Gothic.Core.Services.Npc
         /// then broadcast PERC_ASSESSOTHERSDAMAGE to nearby NPCs so allies join the fight.
         private void BroadcastDamagePerceptions(NpcContainer attacker, NpcContainer target)
         {
-            _npcAiService.ExecutePerception(
-                VmGothicEnums.PerceptionType.AssessDamage,
-                target.Props, target.Instance,
-                victim: target.Instance,
-                other: attacker.Instance);
+            // Skip on a target that just died from this hit: its registered AssessDamage handler
+            // (e.g. ZS_MM_Attack, shared by monsters/summons) unconditionally calls AI_StandUp,
+            // which resets BodyState back to BsStand and undoes the death we just set above.
+            if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            {
+                _npcAiService.ExecutePerception(
+                    VmGothicEnums.PerceptionType.AssessDamage,
+                    target.Props, target.Instance,
+                    victim: target.Instance,
+                    other: attacker.Instance);
+            }
 
             var heroContainer = _npcService.GetHeroContainer();
             var heroIndex = heroContainer.Instance.Index;
@@ -137,8 +143,14 @@ namespace Gothic.Core.Services.Npc
             // When a non-hero NPC hits a target that is alive, force-switch the target's focus to
             // the attacker. Gothic's B_CombatReactToDamage only does this for the player; we extend
             // it here so that wolves, companions, etc. become the active fight target when they land
-            // a hit. This bypasses the guild-attitude check that would otherwise filter out neutral guilds.
-            if (attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            // a hit. Still skip Friendly attackers (e.g. a stray combo hit in a crowd) so allies/guards
+            // don't turn hostile on each other from incidental damage — same gate used elsewhere in
+            // this file (ActivatePartyMemberAttack) and in NpcAiService's target-switching methods.
+            // Same-guild is excluded unconditionally too — this mechanic has no vanilla precedent for
+            // guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
+            if (attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+                target.Instance.Guild != attacker.Instance.Guild &&
+                _npcAiService.ExtGetAttitude(target.Instance, attacker.Instance) != VmGothicEnums.Attitude.Friendly)
             {
                 target.Props.TargetNpc = attacker.Instance;
                 target.Props.EnemyNpc = attacker.Instance;
@@ -200,9 +212,14 @@ namespace Gothic.Core.Services.Npc
                 // non-hero attacker actively fighting right in front of them, redirect their focus
                 // immediately. B_CombatReactToDamage only switches target when the PLAYER is the
                 // attacker, so without this companions/wolves attacking NPCs are fully ignored.
+                // Skip Friendly attackers — otherwise a guard who loses sight of the hero for a
+                // moment redirects onto the ally guard standing next to them instead. Same-guild
+                // excluded unconditionally too, same reasoning as the force-switch block above.
                 if (attacker.Instance.Index != heroIndex &&
                     candidate.Props.TargetNpc?.Index == heroContainer.Instance.Index &&
-                    !_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, heroContainer.Instance, false))
+                    !_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, heroContainer.Instance, false) &&
+                    candidate.Instance.Guild != attacker.Instance.Guild &&
+                    _npcAiService.ExtGetAttitude(candidate.Instance, attacker.Instance) != VmGothicEnums.Attitude.Friendly)
                 {
                     candidate.Props.TargetNpc = attacker.Instance;
                     candidate.Props.EnemyNpc = attacker.Instance;

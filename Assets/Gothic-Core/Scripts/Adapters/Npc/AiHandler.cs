@@ -273,6 +273,12 @@ namespace Gothic.Core.Adapters.Npc
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
             }
 
+            // Snapshot before UpdateEnemyNpc below can assign a fresh target this tick — gates
+            // UpdateActiveAttackerTarget on an ONGOING fight from a previous tick only, so a target
+            // UpdateEnemyNpc just picked doesn't get immediately second-guessed in the same tick by
+            // a second heuristic using different selection criteria.
+            var hadTargetBeforeThisTick = Properties.TargetNpc != null;
+
             // Scanning all NPCs for the closest enemy is expensive - only do it for NPCs that react to enemies at all.
             if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessEnemy, out var enemyPerception) &&
                 enemyPerception >= 0)
@@ -289,11 +295,19 @@ namespace Gothic.Core.Adapters.Npc
             // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never
             // register that perception, so an NPC already engaged with the hero would otherwise never
             // notice a companion or monster (e.g. Cavalorn, a wolf) engaging it in melee instead.
-            if (Properties.TargetNpc != null)
+            if (hadTargetBeforeThisTick)
             {
                 _npcAiService.UpdateActiveAttackerTarget(NpcInstance);
             }
 
+            // B_AssessFighter.d has !Npc_IsPlayer(other) guard so vanilla Daedalus never reacts to
+            // an armed non-player NPC approaching. We add NPC→NPC armed-threat detection in C#:
+            // an NPC in routine (no current target) reacts to nearby actively-fighting hostile NPCs
+            // exactly as it would react to the player drawing a weapon (ZS_AssessFighter).
+            if (Properties.TargetNpc == null)
+            {
+                _npcAiService.CheckForArmedNpcThreat(NpcInstance);
+            }
 
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
             // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.

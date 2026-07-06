@@ -328,7 +328,9 @@ namespace Gothic.Core.Services.Npc
 
             if ((senses & (VmGothicEnums.NpcSenses.Hear | VmGothicEnums.NpcSenses.Smell)) != 0)
             {
-                return true;
+                // Hearing/smell don't require facing the source (ignore FOV), but sound and scent
+                // still don't travel through solid geometry — reuse the sight raycast for that.
+                return CanSeeNpc(self, other, true);
             }
 
             return CanSeeNpc(self, other, freeLOS);
