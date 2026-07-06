@@ -1,5 +1,5 @@
 using System.Collections;
-using Gothic.Core.Adapters.UI.StatusBars;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -43,8 +43,76 @@ namespace Gothic.Core.Services.Npc
 
         private void OnSpellHit(NpcContainer caster, NpcContainer target, Vector3 pos, int damage)
         {
+            var mfxName = GetSpellMfxName(caster.ActiveSpell);
+
+            if (mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName))
+            {
+                var rangeM = GetAoeRangeMeters(mfxName);
+                var casterPos = caster.Go.transform.position;
+                Logger.Log($"[FightService.SpellHit] {caster.Instance.GetName(NpcNameSlot.Slot0)} casts AOE '{mfxName}' (range={rangeM:F1}m) dmg={damage}", LogCat.Fight);
+
+                foreach (var candidate in _multiTypeCacheService.NpcCache)
+                {
+                    if (candidate == caster || candidate.Go == null || !candidate.Go.activeInHierarchy)
+                        continue;
+                    if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                        continue;
+                    if (Vector3.Distance(casterPos, candidate.Go.transform.position) > rangeM)
+                        continue;
+
+                    ApplySpellHit(caster, candidate, candidate.Go.transform.position, damage);
+                }
+                return;
+            }
+
+            ApplySpellHit(caster, target, pos, damage);
+        }
+
+        private void ApplySpellHit(NpcContainer caster, NpcContainer target, Vector3 pos, int damage)
+        {
             Logger.Log($"[FightService.SpellHit] {caster.Instance.GetName(NpcNameSlot.Slot0)} → {target.Instance.GetName(NpcNameSlot.Slot0)} dmg={damage}", LogCat.Fight);
-            OnHit(caster, target, pos, damageOverride: damage);
+
+            // PERC_ASSESSMAGIC drives victim-side spell reactions (B_AssessMagic -> ZS_MagicFreeze,
+            // ZS_MagicSleep, ZS_Zapped, Fear/Charm/Berzerk, guild immunity checks, ally fight-sound).
+            // That's pure Daedalus content dispatched by spell ID, so it covers every "bad" spell
+            // (Sleep, Icecube, Fear, Charm, Berzerk, ChainLightning...) without any C# per-spell
+            // logic, and works identically for G1/G2 since it's just a symbol lookup by name.
+            if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            {
+                _npcAiService.ExecutePerception(
+                    VmGothicEnums.PerceptionType.AssessMagic,
+                    target.Props, target.Instance,
+                    victim: target.Instance,
+                    other: caster.Instance);
+            }
+
+            // Direct damage (Firebolt, Fireball, ...) still goes through the normal hit pipeline for
+            // HP/animation/death handling. Reaction-only spells (damage=0) stop here — their effect
+            // (freeze, sleep, ...) is entirely driven by the ASSESSMAGIC dispatch above, and routing
+            // a fake 0-damage hit through OnHit would wrongly trigger pain animations/sounds.
+            if (damage > 0)
+                OnHit(caster, target, pos, damageOverride: damage);
+        }
+
+        private string GetSpellMfxName(int spellId)
+        {
+            if (spellId < 0) return null;
+            var sym = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            var name = sym?.GetString((ushort)spellId);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>
+        /// AOE radius for a spell. Chainlightning/Stormfist expose it as a standalone SPL_RANGE_*
+        /// const; Icewave/Firerain/Massdeath hardcode targetCollectRange=1000 directly on their
+        /// C_Spell_Proto instance in vanilla Gothic (not readable as a symbol), so those fall back
+        /// to SpellConst.DefaultAoeRangeCm, which matches that vanilla value.
+        /// </summary>
+        private float GetAoeRangeMeters(string mfxName)
+        {
+            var sym = _gameStateService.GothicVm.GetSymbolByName($"SPL_RANGE_{mfxName.ToUpper()}");
+            var rangeCm = sym?.GetInt(0) ?? SpellConst.DefaultAoeRangeCm;
+            return rangeCm / 100f;
         }
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __) =>
@@ -349,6 +417,7 @@ namespace Gothic.Core.Services.Npc
             DropReadiedWeapon(npc);
 
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
+            npc.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
 
             var vm = _gameStateService.GothicVm;
             var zsUnconscious = vm.GetSymbolByName("ZS_UNCONSCIOUS");
@@ -405,8 +474,7 @@ namespace Gothic.Core.Services.Npc
         {
             hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
-            var statusBar = hero.Go.GetComponentInChildren<StatusBarAdapter>(true);
-            statusBar?.SetFillAmount(1, hero.Vob.GetAttribute((int)NpcAttribute.HitPointsMax));
+            hero.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
             _contextInteractionService.LockPlayerInPlace();
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
@@ -529,17 +597,10 @@ namespace Gothic.Core.Services.Npc
             Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)} HP after: {hitPoints}/{maxHP}", LogCat.Npc);
 
             target.Vob.SetAttribute((int)NpcAttribute.HitPoints, hitPoints);
-
-            var statusBar = target.Go.GetComponentInChildren<StatusBarAdapter>(true);
-            if (statusBar != null)
-            {
-                Logger.Log($"[FightService.OnHitUpdateHealth] Updating HP bar for {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-                statusBar.SetFillAmount(hitPoints, maxHP);
-            }
-            else
-            {
-                Logger.LogWarning($"[FightService.OnHitUpdateHealth] No StatusBar found for {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            }
+            // Dual-write like ExtNpcChangeAttribute does: a Vob-only write here would get silently
+            // reverted on the hero the next time SyncHeroInstanceToVob() runs (e.g. on XP grant),
+            // since that blindly copies every attribute FROM the instance INTO Vob.
+            target.Instance.SetAttribute(NpcAttribute.HitPoints, hitPoints);
 
             return hitPoints <= 0;
         }

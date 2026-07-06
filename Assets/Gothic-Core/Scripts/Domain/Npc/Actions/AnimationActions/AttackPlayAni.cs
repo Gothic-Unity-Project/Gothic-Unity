@@ -333,9 +333,32 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
             if (weaponState == VmGothicEnums.WeaponState.Mage)
             {
-                var spellDamage = GetNpcSpellDamage();
+                var mfxName = GetSpellMfxName();
+                var spellDamage = GetNpcSpellDamage(mfxName);
+                PlaySpellCastSound(mfxName);
+
+                // Run Daedalus' Spell_ProcessMana so content-side effects (e.g. Spell_Logic_SummonSkeleton
+                // -> Wld_SpawnNpcRange) fire for NPC casters exactly like they already do for the player in VRRuneCaster.
+                var vm = GameStateService.GothicVm;
+                var oldSelf = vm.GlobalSelf;
+                var oldOther = vm.GlobalOther;
+                vm.GlobalSelf = NpcInstance;
+                vm.GlobalOther = target.Instance;
+                try
+                {
+                    vm.Call<int, int>("Spell_ProcessMana", NpcContainer.ActiveSpellLevel);
+                }
+                finally
+                {
+                    vm.GlobalSelf = oldSelf;
+                    vm.GlobalOther = oldOther;
+                }
+
+                // SpellHit both applies direct damage (if any) and fires PERC_ASSESSMAGIC on the
+                // target (always the enemy here, since TryFireHit only runs for active fight moves),
+                // so Daedalus content (ZS_MagicFreeze, ZS_MagicSleep, ZS_Zapped, Fear/Charm/Berzerk...)
+                // drives the actual reaction — nothing per-spell to hardcode here.
                 Logger.Log($"[AttackPlayAni] spell hit: ActiveSpell={NpcContainer.ActiveSpell} level={NpcContainer.ActiveSpellLevel} damage={spellDamage}", LogCat.Fight);
-                PlaySpellCastSound();
                 GlobalEventDispatcher.SpellHit.Invoke(NpcContainer, target, targetPos, spellDamage);
             }
             else
@@ -344,10 +367,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
         }
 
-        private void PlaySpellCastSound()
+        private void PlaySpellCastSound(string mfxName)
         {
-            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
             if (string.IsNullOrEmpty(mfxName))
                 return;
             var clip = _audioService.GetRandomSoundClip($"MFX_{mfxName}_Cast");
@@ -358,16 +379,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
-        private int GetNpcSpellDamage()
+        private int GetNpcSpellDamage(string mfxName)
         {
-            var spellId = NpcContainer.ActiveSpell;
-            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            var mfxName = mfxSym?.GetString((ushort)spellId);
             if (string.IsNullOrEmpty(mfxName))
                 return 0;
             var dmgSym = GameStateService.GothicVm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}");
             var baseDamage = dmgSym?.GetInt(0) ?? 0;
             return baseDamage * NpcContainer.ActiveSpellLevel;
+        }
+
+        private string GetSpellMfxName()
+        {
+            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            return mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
         }
 
         private float GetWeaponReach()
