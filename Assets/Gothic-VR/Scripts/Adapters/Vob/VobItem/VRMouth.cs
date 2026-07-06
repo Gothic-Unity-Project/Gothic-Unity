@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties.Vobs;
-using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
 using Gothic.Core.Extensions;
@@ -12,7 +11,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Npc;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -35,7 +33,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly NpcService _npcService;
 
         
         // Do not eat them twice during destroy time.
@@ -161,17 +158,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 vm.GlobalSelf = oldSelf;
             }
-
-            RefreshHeroStatusBar();
-        }
-
-        private void RefreshHeroStatusBar()
-        {
-            var hero = _npcService.GetHeroContainer();
-            var hp = hero.Vob.GetAttribute((int)NpcAttribute.HitPoints);
-            var maxHp = hero.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
-            var statusBar = hero.Go.GetComponentInChildren<StatusBarAdapter>(true);
-            statusBar?.SetFillAmount(hp, maxHp);
         }
     }
 }
