@@ -68,6 +68,13 @@ namespace Gothic.Core.Services
 
         public bool InGameAndAlive = false;
 
+        // Set while NpcInitializerDomain.RebindNpcAliases() re-runs a world's INIT_ function on
+        // save-game load (needed to rebind Daedalus alias symbols — see that method's doc comment).
+        // VOBs at that point exist as data but their GameObjects are still under the disabled vobRoot
+        // (Awake/DI injection hasn't run yet), so any Wld_SendTrigger the INIT_ script fires as a side
+        // effect must be suppressed here, the same way Wld_InsertNpc already is for the same reason.
+        public bool SuppressVobTriggerDispatch;
+
         // FIXME - Need to be called when a new world is loaded!
         public void Reset()
         {

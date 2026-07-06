@@ -280,6 +280,11 @@ namespace Gothic.Core.Domain.Npc
         private void RebindNpcAliases()
         {
             _suppressWldInsertNpc = true;
+            // INIT_ can also fire Wld_SendTrigger (e.g. Sleeper's Temple) as a side effect. At this
+            // point VOBs exist as data (created in step 4 of LoadWorldContentAsync) but their
+            // GameObjects are still parented under the disabled vobRoot, so they haven't Awake()/
+            // DI-injected yet — dispatching a real trigger here would NRE. Suppress it like Wld_InsertNpc.
+            _gameStateService.SuppressVobTriggerDispatch = true;
             try
             {
                 Vm.GlobalSelf = Vm.GlobalHero;
@@ -298,6 +303,7 @@ namespace Gothic.Core.Domain.Npc
             finally
             {
                 _suppressWldInsertNpc = false;
+                _gameStateService.SuppressVobTriggerDispatch = false;
                 _tmpWldInsertNpcData.ClearAndReleaseMemory();
             }
         }
