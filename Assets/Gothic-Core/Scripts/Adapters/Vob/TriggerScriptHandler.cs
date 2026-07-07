@@ -1,4 +1,5 @@
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Vm;
 using Reflex.Attributes;
@@ -25,6 +26,13 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void Trigger()
         {
+            // Wld_SendTrigger can arrive from a world's INIT_/startup Daedalus scripts (e.g. G2
+            // Renovation's INIT_NEWWORLD on a fresh new game) while this VOB's GameObject is still
+            // parented under the disabled vobRoot — Awake/DI injection hasn't run yet. Inject on
+            // demand instead of NRE-ing the whole world-load pipeline.
+            if (_vmService == null)
+                gameObject.Inject();
+
             if (!_triggerScript.IsEnabled)
                 return;
 

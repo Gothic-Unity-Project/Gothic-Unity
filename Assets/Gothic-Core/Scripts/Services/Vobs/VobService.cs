@@ -748,6 +748,35 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
+            // Gothic's engine routes trigger messages through an event manager queue (with optional
+            // fireDelay), so a script re-triggering itself is a common timer pattern — it re-fires on
+            // a later tick. We dispatch synchronously instead, which turns such a cycle into infinite
+            // recursion in a single frame (G2 Renovation's INIT triggers crashed the editor this way).
+            // Legit vanilla chains (TriggerList → movers, chained mover targets) are wide, not deep,
+            // so a small depth cap only ever cuts true cycles.
+            if (_dispatchTriggerDepth >= MaxDispatchTriggerDepth)
+            {
+                Logger.LogWarning($"[VobService] DispatchTrigger '{name}' dropped — trigger chain deeper than {MaxDispatchTriggerDepth} levels (self-retriggering loop?)", LogCat.Vob);
+                return;
+            }
+
+            _dispatchTriggerDepth++;
+            try
+            {
+                DispatchTriggerInternal(name, senderName);
+            }
+            finally
+            {
+                _dispatchTriggerDepth--;
+            }
+        }
+
+        private int _dispatchTriggerDepth;
+        private const int MaxDispatchTriggerDepth = 8;
+
+        private void DispatchTriggerInternal(string name, string senderName)
+        {
+
             if (TryGetMovers(name, out var movers))
             {
                 Logger.Log($"[VobService] DispatchTrigger '{name}' → mover(s) (Toggle)", LogCat.Vob);
