@@ -108,10 +108,12 @@ namespace Gothic.Core.Adapters.UI.Menus
         {
             if (!_menuList.ContainsKey(menuName))
             {
-                // G2's MENU_NEW_GAME is only a yes/no confirmation dialog and we have no prefab for
-                // it — treat opening it as an immediate "yes" and start the new game right away
-                // (same call MainMenu.Close makes for G1's direct NEW_GAME action).
-                if (menuName == "MENU_NEW_GAME")
+                // G2's MENU_NEW_GAME (and some G1 mods' custom equivalent, e.g. Dolina Zombie's
+                // MENU_WIRKLICH_NEUES, Świat Skazańców' MENU_PLAY_SELECT) is only a yes/no
+                // confirmation dialog (headline + yes + no) and we have no prefab for it — treat
+                // opening it as an immediate "yes" and start the new game right away (same call
+                // MainMenu.Close makes for G1's direct NEW_GAME action).
+                if (menuName is "MENU_NEW_GAME" or "MENU_WIRKLICH_NEUES" or "MENU_PLAY_SELECT")
                 {
                     // GothicMod.World defaults to G1's "World.zen" when no mod ini is loaded — for a
                     // vanilla G2 install the start world is NewWorld.zen instead.
