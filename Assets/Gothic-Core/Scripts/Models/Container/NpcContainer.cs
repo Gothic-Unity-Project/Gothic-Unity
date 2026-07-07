@@ -186,6 +186,13 @@ namespace Gothic.Core.Models.Container
         // only lives while the rune is held), since casting Light again is what turns it back off.
         public GameObject ActiveLightGo;
 
+        // Set by Wld_SpawnNpcRange (summon spells) — the caster that created this NPC at runtime.
+        // Daedalus has no native "who summoned me" concept (ZS_MM_Summoned just sets Attitude=Hostile
+        // and scans for the closest hostile NPC), so without this, a summon whose guild differs from
+        // its summoner's (e.g. SkeletonMage=GIL_DEMON vs its GIL_SKELETON summons) can end up targeting
+        // its own creator. Checked as a C# safety net alongside the existing same-guild/party exclusions.
+        public NpcInstance SummonedBy;
+
         // Tracks where the drawn weapon came from so UndrawWeapon can return it even if
         // FightMode was already reset or the weapon ended up in an unexpected slot.
         public GameObject WeaponHandSlotGo;  // slot the weapon was moved INTO on draw

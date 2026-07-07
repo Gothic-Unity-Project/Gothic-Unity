@@ -276,7 +276,9 @@ namespace Gothic.Core.Domain.Vm
 
             // World
             vm.RegisterExternal<int, string>("Wld_InsertNpc", Wld_InsertNpc);
-            vm.RegisterExternal<NpcInstance, int, int, int>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
+            // Externals.d declares the last param as VAR FLOAT — registering it as int would hand us
+            // the raw IEEE-754 bit pattern instead (500.0f => 1140457472, i.e. "11.4 million meters").
+            vm.RegisterExternal<NpcInstance, int, int, float>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsFPAvailable", Wld_IsFPAvailable);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsMobAvailable", Wld_IsMobAvailable);
             vm.RegisterExternal<int, NpcInstance, int, int, int>("Wld_DetectNpc", Wld_DetectNpc);
@@ -1474,7 +1476,7 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtWldInsertNpc(npcInstance, spawnPoint);
         }
 
-        public void Wld_SpawnNpcRange(NpcInstance caster, int spawnInstance, int count, int range)
+        public void Wld_SpawnNpcRange(NpcInstance caster, int spawnInstance, int count, float range)
         {
             var container = caster.GetUserData();
             if (container?.Go == null)
@@ -1485,14 +1487,20 @@ namespace Gothic.Core.Domain.Vm
 
             var casterPos = container.Go.transform.position;
             var casterRot = container.Go.transform.rotation;
+            // range is in cm (Gothic convention), e.g. Wld_SpawnNpcRange(self, SummonedByNPC_Skeleton, 2, 500)
+            // means "spread within 5m" — spawning them right on top of the caster (the old hardcoded 2f)
+            // made a summon's closest-hostile-NPC target selection likely to pick its own summoner.
+            // Scaled down by config (default 0.8): Gothic's cm ranges feel too spread out in our units.
+            var rangeMeters = UnityEngine.Mathf.Max(range / 100f * _configService.Dev.SummonSpawnRangeMultiplier, 1f);
             for (var i = 0; i < count; i++)
             {
                 var angle = count > 1 ? i * (360f / count) * UnityEngine.Mathf.Deg2Rad : 0f;
-                var offset = new UnityEngine.Vector3(UnityEngine.Mathf.Cos(angle) * 2f, 0f, UnityEngine.Mathf.Sin(angle) * 2f);
-                _npcService.SpawnNpcRuntime(spawnInstance, casterPos + offset, casterRot);
+                var distance = UnityEngine.Random.Range(rangeMeters * 0.4f, rangeMeters);
+                var offset = new UnityEngine.Vector3(UnityEngine.Mathf.Cos(angle) * distance, 0f, UnityEngine.Mathf.Sin(angle) * distance);
+                _npcService.SpawnNpcRuntime(spawnInstance, casterPos + offset, casterRot, caster);
             }
 
-            Logger.Log($"[Wld_SpawnNpcRange] Spawned {count}x instance={spawnInstance} near caster", LogCat.Npc);
+            Logger.Log($"[Wld_SpawnNpcRange] Spawned {count}x instance={spawnInstance} within {rangeMeters:F1}m of caster", LogCat.Npc);
         }
 
         public int Wld_IsFPAvailable(NpcInstance npc, string fpName)

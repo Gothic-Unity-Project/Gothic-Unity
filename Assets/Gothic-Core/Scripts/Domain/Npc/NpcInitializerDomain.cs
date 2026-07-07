@@ -196,11 +196,12 @@ namespace Gothic.Core.Domain.Npc
         /// Spawns an NPC at runtime (during gameplay, not during world loading).
         /// Used by Wld_SpawnNpcRange (summon spells) and Marvin spawn cheats.
         /// </summary>
-        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation)
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
         {
             var container = AllocZkInstance(npcIndex);
             Vm.InitInstance(container.Instance);
             container.IsZkInstanceInitialized = true;
+            container.SummonedBy = summonedBy;
 
             var go = InitLazyLoadNpc(container);
             go.transform.SetPositionAndRotation(GetFreeAreaAtSpawnPoint(position), rotation);

@@ -199,9 +199,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.ExtWldInsertNpc(npcInstanceIndex, spawnPoint);
         }
 
-        public void SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation)
+        public void SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
         {
-            _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation);
+            _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation, summonedBy);
         }
 
         public bool SpawnNpcByName(string symbolName, Vector3 position, Quaternion rotation)

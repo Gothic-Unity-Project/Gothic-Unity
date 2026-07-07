@@ -272,6 +272,20 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
+            // A summon and its master are always friendly to each other — in BOTH directions and above
+            // every other rule: the summon's ZS_MM_Summoned sets Npc_SetAttitude(HOSTILE) (it fights
+            // everyone on its master's behalf), and the guild attitude table only covers human guilds,
+            // so monster-vs-monster falls back to hostile — a SkeletonMage (GIL_DEMON) would otherwise
+            // pick its own fresh GIL_SKELETON summons (spawned 2-5m away, closer than any real enemy)
+            // as targets, and the summons would then retaliate via the hit-response path. Vanilla gets
+            // this peace from engine-internal target filtering we don't replicate; SummonedBy is our
+            // equivalent, and every targeting path (GetNextTarget, UpdateEnemyNpc, armed-threat scan,
+            // hit-response switch) already respects Friendly.
+            if (self.SummonedBy != null && other.Instance != null && self.SummonedBy.Index == other.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
+            if (other.SummonedBy != null && self.Instance != null && other.SummonedBy.Index == self.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
+
             const int attNull = (int)VmGothicEnums.Attitude.Null;
             // Temp attitude is a hero-specific override (e.g. theft, summoned ally via ZS_MM_SummonedByPC)
             if (other.PrefabProps.IsHero() && self.Vob.AttitudeTemp != attNull)

@@ -357,6 +357,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Hero attacks deal currentHP-1 damage — one hit knocks out any NPC without killing them.")]
         public bool EnableOneHitKnockout;
 
+        [Tooltip("Scales Wld_SpawnNpcRange's spawn radius (summon spells). Gothic's cm ranges feel too spread out against our Unity units — 0.8 keeps summons visibly near their caster.")]
+        [Range(0.1f, 2f)]
+        public float SummonSpawnRangeMultiplier = 0.8f;
+
         [Tooltip("Hide the health bar for the player character.")]
         public bool HideHealthBar { get; internal set; }
     }
