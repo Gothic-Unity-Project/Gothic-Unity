@@ -25,7 +25,12 @@ namespace Gothic.Core.Services.Caches
         
         public readonly Vfs Vfs = new();
 
-        private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default | LoaderOptions.Download);
+        // No LoaderOptions.Download! dmusic's internal auto-download error path double-frees the segment
+        // (native heap corruption, kills the whole process). We call Segment.Download() ourselves in
+        // TryGetSegment instead, where a failure surfaces as a catchable managed exception.
+        private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default);
+
+        private readonly HashSet<string> _brokenSegments = new();
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -43,7 +48,7 @@ namespace Gothic.Core.Services.Caches
         // Kept for TryGetDaedalusVm's loose-file fallback (mods overriding a DAT with one ZenKit can't parse).
         private string _workPath;
 
-        public void Init(string root, bool mountModFiles = false)
+        public void Init(string root, bool mountModFiles = false, IReadOnlyList<string> allowedModArchives = null)
         {
             var workPath = FindWorkPath(root);
             _workPath = workPath;
@@ -61,8 +66,17 @@ namespace Gothic.Core.Services.Caches
             // Only mount when mod mode is active — vanilla Gothic has no .mod files, but patched
             // installations might, and mounting them with All would corrupt vanilla VFS.
             if (mountModFiles)
-                diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
-                    .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
+            {
+                var modFiles = diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase));
+
+                // Multi-language mod packages (e.g. Dolina Zombie) ship every language's .mod archives
+                // side by side in Data/ — mounting all of them merges languages together. The mod ini's
+                // [FILES] vdf= list says exactly which ones belong together; restrict to that when present.
+                if (allowedModArchives is { Count: > 0 })
+                    modFiles = modFiles.Where(p => allowedModArchives.Contains(Path.GetFileName(p), StringComparer.OrdinalIgnoreCase));
+
+                modFiles.ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
+            }
 
             _dmLoader.AddResolver(name =>
             {
@@ -202,9 +216,35 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public Segment TryGetSegment([NotNull] string key)
         {
-            // NOTE(lmichaelis): There is no caching required here, since the loader
-            //                   already caches segments upon loading them
-            return _dmLoader.GetSegment(key);
+            if (_brokenSegments.Contains(key))
+                return null;
+
+            Segment segment = null;
+
+            try
+            {
+                segment = _dmLoader.GetSegment(key);
+
+                // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
+                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
+                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                segment?.Download(_dmLoader);
+                return segment;
+            }
+            catch (Exception e)
+            {
+                _brokenSegments.Add(key);
+                Logger.LogWarning($"Music segment >{key}< failed to load or download ({e.Message}). Skipping it from now on.", LogCat.Audio);
+
+                // DmSegment_download leaves the native segment half-initialized on failure. Its finalizer
+                // later calls DmSegment_release on that same broken state and double-frees, corrupting the
+                // native heap and crashing the whole process (seen on the GC finalizer thread). Suppressing
+                // the finalizer intentionally leaks this one native segment instead of risking that crash.
+                if (segment != null)
+                    GC.SuppressFinalize(segment);
+
+                return null;
+            }
         }
 
         /// <summary>

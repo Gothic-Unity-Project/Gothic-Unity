@@ -65,8 +65,8 @@ namespace Gothic.Core.Domain
             // pl - 2x: "Skrzynka" is used by some mods (e.g. G2 Renovation) instead of vanilla "Skrzynia"
             else if (CheckEncoding(StringEncoding.CentralEurope, "MOBNAME_CRATE", "Skrzynia", "Skrzynka"))
                 _localizationService.SetLanguage("pl", StringEncoding.CentralEurope);
-            // ru
-            else if (CheckEncoding(StringEncoding.EastEurope, "MOBNAME_CRATE", "Коробка"))
+            // ru - 2x: "Ящик" is used by some mods (e.g. Dolina Zombie) instead of vanilla "Коробка"
+            else if (CheckEncoding(StringEncoding.EastEurope, "MOBNAME_CRATE", "Коробка", "Ящик"))
                 _localizationService.SetLanguage("ru", StringEncoding.EastEurope);
             // de
             else if (CheckEncoding(StringEncoding.WestEurope, "MOBNAME_CRATE", "Kiste"))

@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -122,7 +123,7 @@ namespace Gothic.Core.Services
             var gothicRootPath = _contextGameVersionService.RootPath;
 
             Logger.Log($"Initializing Gothic installation at: {gothicRootPath}", LogCat.Loading);
-            _resourceCacheService.Init(gothicRootPath, _configService.Dev.EnableMod);
+            _resourceCacheService.Init(gothicRootPath, _configService.Dev.EnableMod, _configService.GothicMod.Vdfs);
 
             _audioService.InitMusic();
             _staticCacheService.Init();
@@ -193,7 +194,18 @@ namespace Gothic.Core.Services
                 _vobSoundCullingService.PreWorldCreate();
                 _npcService.ClearQueues();
             }
-            _saveGameService.ChangeWorld(worldName);
+            try
+            {
+                _saveGameService.ChangeWorld(worldName);
+            }
+            catch (Exception e)
+            {
+                // Mirrors PreCachingScene's per-world try/catch: a world can be unparsable (e.g. an
+                // unsupported VOB class in a mod's .zen) without crashing the whole session. Bail out
+                // before LoadScene so we don't proceed into a half-initialized Loading scene.
+                Logger.LogError($"Failed to load world '{worldName}': {e.Message}", LogCat.Loading);
+                return;
+            }
 
             LoadScene(Constants.SceneLoading, sceneToUnload);
         }

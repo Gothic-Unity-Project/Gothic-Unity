@@ -145,16 +145,28 @@ namespace Gothic.Core.Domain.Audio
                 return;
             }
             
+            var themeFileNode = _resourceCacheService.Vfs.Find(theme.File);
+            if (themeFileNode == null)
+            {
+                Logger.LogWarning($"Music theme >{theme.File}< not found in VFS. Safety skip", LogCat.Audio);
+                return;
+            }
+
             // DMusic crashes for some unfinished small themes (<3kB). Therefore, skipping them now with a warning until fixed.
             // Issue report: https://github.com/GothicKit/dmusic-cs/issues/1
 
-            if (_resourceCacheService.Vfs.Find(theme.File)?.Buffer.Bytes.Length < 1000)
+            if (themeFileNode.Buffer.Bytes.Length < 1000)
             {
                 Logger.LogWarning($"Music theme >{theme.File}< might be broken with less than 1kB size. Safety skip", LogCat.Audio);
                 return;
             }
 
             var segment = _resourceCacheService.TryGetSegment(theme.File);
+            if (segment == null)
+            {
+                Logger.LogWarning($"Music theme >{theme.File}< could not be prepared for playback. Safety skip", LogCat.Audio);
+                return;
+            }
 
             var timing = ToTiming(theme.TransSubType);
             var embellishment = ToEmbellishment(theme.TransType);
