@@ -39,5 +39,13 @@ namespace Gothic.Core.Const
             public static string MyFkFocusFar = "FA_MY_FK_FOCUS_FAR_{0}"; // I have opponent in focus
             public static string MyFkNoFocusFar = "FA_MY_FK_NOFOCUS_FAR_{0}"; // I have opponent NOT in focus
         }
+
+        // HAI_DIST_RANGED (vanilla AI_Constants.d) — the assumed max engagement distance for ranged/
+        // magic combat. A Bow/CBow/Mage attack dispatched from MyFkFocusFar (see Attack.cs) can
+        // legitimately connect from anywhere within this range; only true melee needs point-blank
+        // weapon reach. Used by AttackPlayAni.GetWeaponReach() so the hit-connect check agrees with
+        // what the move-selection already allows — a mismatch here silently turns every ranged
+        // "Attack" move dispatched beyond melee range into a "miss, target out of reach".
+        public const float RangedAttackReachMeters = 30f;
     }
 }

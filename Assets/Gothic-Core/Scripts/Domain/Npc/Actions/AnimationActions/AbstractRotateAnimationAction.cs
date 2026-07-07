@@ -72,6 +72,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (IsFinishedFlag)
                 return;
 
+            // Re-fetch every tick instead of reusing the Start() snapshot — the destination can be a
+            // moving NPC (TurnToNpc tracking a VR player who keeps repositioning). A stale one-time
+            // snapshot leaves the turn permanently aimed at where the target *was*, so it finishes
+            // "aligned" to an outdated direction and immediately falls out of focus again next round.
+            _finalRotation = GetRotationDirection();
             HandleRotation(NpcGo.transform);
         }
 

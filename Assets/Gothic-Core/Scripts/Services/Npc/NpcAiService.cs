@@ -162,6 +162,18 @@ namespace Gothic.Core.Services.Npc
             if (container.PrefabProps != null && container.PrefabProps.AiHandler != null && container.PrefabProps.AiHandler.IsInComboPreload)
                 return;
 
+            // ZS_Attack_Loop periodically calls Npc_ClearAIQueue(self) + B_SelectWeapon(self, other)
+            // every ~2s (Npc_GetStateTime(self) > 2) as a full tactic re-evaluation, even mid-fight.
+            // A mage's spell readying (DrawWeapon raising hands) or actual cast (AttackPlayAni, whose
+            // hit-frame fires Spell_ProcessMana) can easily take longer than that window — without this
+            // exception, the reset kills the cast before it ever completes and the mage loops forever
+            // re-readying the same spell. Same protection spirit as the combo-preload check above.
+            if (container.Props.CurrentAction is DrawWeapon { IsMagicRequest: true })
+                return;
+            if (container.Props.CurrentAction is AttackPlayAni &&
+                (VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.Mage)
+                return;
+
             // If an UndrawWeapon is mid-animation when the queue is cleared, sheath the weapon
             // immediately so the mesh isn't left orphaned in the hand slot.
             if (container.Props.CurrentAction is UndrawWeapon activeUndraw)
@@ -570,8 +582,24 @@ namespace Gothic.Core.Services.Npc
         {
             var container = npc.GetUserData();
             if (container == null) return;
+
+            // ZS_Attack_Loop's periodic tactic re-evaluation (~every 2s) calls B_SelectWeapon again even
+            // when nothing changed, which re-invokes AI_ReadySpell for the exact same spell. Replaying the
+            // DrawWeapon "raise hands" animation every time would look like constantly re-switching spells
+            // and (combined with the ExtNpcClearAiQueue exception above) still delay the cast — if this
+            // spell is already the one in hand, just update the invested mana and leave the cast alone.
+            var alreadyReadied = container.ActiveSpell == spellId &&
+                (VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.Mage;
+
             container.ActiveSpell = spellId;
             container.ActiveSpellLevel = Math.Max(1, investMana);
+
+            if (alreadyReadied)
+            {
+                Logger.Log($"[AI_ReadySpell] {npc.GetName(NpcNameSlot.Slot0)} spell={spellId} mana={investMana} — already readied, skipping re-draw", LogCat.Fight);
+                return;
+            }
+
             Logger.Log($"[AI_ReadySpell] {npc.GetName(NpcNameSlot.Slot0)} spell={spellId} mana={investMana} — enqueueing DrawWeapon(magic)", LogCat.Fight);
             container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 2), container));
         }
@@ -699,6 +727,12 @@ namespace Gothic.Core.Services.Npc
                 if (candidate.Instance.Guild == npc.Guild)
                     continue;
 
+                // A summon never targets its own summoner, even when their guilds differ (e.g. a
+                // SkeletonMage is GIL_DEMON so it "flies" instead of wading, but its GIL_SKELETON
+                // summons don't share that guild) — see NpcContainer.SummonedBy.
+                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index)
+                    continue;
+
                 if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
                     continue;
 
@@ -767,6 +801,7 @@ namespace Gothic.Core.Services.Npc
                                   currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious &&
                                   currentTarget.Guild != self.Guild &&
                                   !IsPartyMember(currentTarget) &&
+                                  (selfNpc.SummonedBy == null || selfNpc.SummonedBy.Index != currentTarget.Index) &&
                                   ExtGetAttitude(self, currentTarget) == VmGothicEnums.Attitude.Hostile &&
                                   (currentTargetNpc.Go.transform.position - selfPosition).sqrMagnitude <= sensesRangeSqr &&
                                   _npcHelperService.CanSenseNpc(self, currentTarget, true);
@@ -806,6 +841,10 @@ namespace Gothic.Core.Services.Npc
 
                 // Party members (summons/allies) never a valid auto-acquired target — see ExtGetNextTarget.
                 if (IsPartyMember(candidate.Instance))
+                    continue;
+
+                // A summon never targets its own summoner — see ExtGetNextTarget / NpcContainer.SummonedBy.
+                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index)
                     continue;
 
                 if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
@@ -883,6 +922,8 @@ namespace Gothic.Core.Services.Npc
                 if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
                 if (candidate.Instance.Guild == self.Guild) continue;
                 if (IsPartyMember(candidate.Instance)) continue;
+                // A summon never targets its own summoner — see ExtGetNextTarget / NpcContainer.SummonedBy.
+                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index) continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist) continue;
@@ -937,6 +978,8 @@ namespace Gothic.Core.Services.Npc
                 if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
                 if (candidate.Instance.Guild == self.Guild) continue;
                 if (IsPartyMember(candidate.Instance)) continue;
+                // A summon never treats its own summoner as an armed threat — see ExtGetNextTarget / NpcContainer.SummonedBy.
+                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index) continue;
 
                 if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
 

@@ -60,6 +60,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
             if (isInWRange)
                 return isInFocus ? FightConst.AttackActions.MyWFocus : FightConst.AttackActions.MyWNoFocus;
+
+            // Per vanilla FAI_Human_Mage.d: G-range and plain FK-range tables are Turn-only "close the
+            // gap to melee" buffers — they contain no Attack moves. A unit that is itself in a ranged
+            // fight mode (Bow/CBow/Mage) instead casts/shoots from FK_FOCUS_FAR, which is the only
+            // table with real Attack entries for ranged combat. Without this, a mage/archer beyond
+            // W-Range gets stuck cycling Turn/Strafe forever and can never actually fire.
+            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            var isRangedWeapon = weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow or VmGothicEnums.WeaponState.Mage;
+            if (isRangedWeapon)
+                return isInFocus ? FightConst.AttackActions.MyFkFocusFar : FightConst.AttackActions.MyFkNoFocusFar;
+
             if (isInGRange)
                 return isInFocus ? FightConst.AttackActions.MyGFocus : FightConst.AttackActions.MyGFkNoFocus;
 

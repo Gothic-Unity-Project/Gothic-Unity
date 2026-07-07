@@ -1,4 +1,5 @@
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
@@ -397,10 +398,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private float GetWeaponReach()
         {
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
-            if (weaponState == VmGothicEnums.WeaponState.Mage)
-                return 12f;
-            if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return 20f;
+            // Matches Attack.cs's MyFkFocusFar routing: a ranged/magic attack can be dispatched from
+            // anywhere within FK-range, not just the old artificial "close" W-range guess — otherwise
+            // TryFireHit() rejects the very attacks the fight-AI just chose to fire as "out of reach".
+            if (weaponState is VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                return FightConst.RangedAttackReachMeters;
 
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
             var item = VmCacheService.TryGetItemData(Props.CurrentItem);
