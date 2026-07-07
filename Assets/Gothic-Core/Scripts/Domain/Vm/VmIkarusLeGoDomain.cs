@@ -511,15 +511,13 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupTrialogeFunctions()
         {
-            var vm = _gameStateService.GothicVm;
-
-            vm.OverrideFunction<NpcInstance>("TRIA_Invite", npc =>
+            SafeOverride<NpcInstance>("TRIA_Invite", npc =>
                 Logger.LogWarning($"[LeGo] TRIA_Invite({npc?.GetName(NpcNameSlot.Slot0) ?? "null"}) — not yet implemented.", LogCat.ZenKit));
 
-            vm.OverrideFunction("TRIA_Start", () =>
+            SafeOverride("TRIA_Start", () =>
                 Logger.LogWarning("[LeGo] TRIA_Start() — not yet implemented.", LogCat.ZenKit));
 
-            vm.OverrideFunction<NpcInstance>("TRIA_Next", npc =>
+            SafeOverride<NpcInstance>("TRIA_Next", npc =>
                 Logger.LogWarning($"[LeGo] TRIA_Next({npc?.GetName(NpcNameSlot.Slot0) ?? "null"}) — not yet implemented.", LogCat.ZenKit));
         }
 

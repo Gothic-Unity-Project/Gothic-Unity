@@ -71,9 +71,24 @@ namespace Gothic.Core.Services.Npc
 
             // The finally block ensures a throwing perception function doesn't leave the globals
             // polluted for every subsequent script call of all NPCs.
+            //
+            // We also catch here: an uncaught exception thrown from inside a Daedalus external
+            // (invoked by the native VM while executing this perception function) unwinds back
+            // through the native VM's own call frames instead of returning normally. Repeated
+            // occurrences (e.g. one broken external firing every perception tick for every NPC)
+            // have been observed to corrupt the VM's internal stack ("Internal Exception: stack
+            // overflow" / "illegal access ... OTHER" / "tried to pop_instance but frame does not
+            // contain an instance"), eventually crashing the whole process natively. Catching here
+            // won't undo damage already done to the VM by an external further down the call chain,
+            // but it stops this specific call from cascading further and gives a clear, attributable
+            // log instead of an anonymous NullReferenceException.
             try
             {
                 _gameStateService.GothicVm.Call(perceptionFunction);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: {e.Message}", LogCat.Ai);
             }
             finally
             {
