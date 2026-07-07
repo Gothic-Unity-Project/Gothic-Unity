@@ -103,10 +103,33 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void CreateRootElements()
         {
             var backPic = TextureService.GetMaterial(MenuInstance.BackPic);
+            var hasRealBackPic = backPic.mainTexture != null;
+
+            if (!hasRealBackPic)
+            {
+                // Some mod menus (e.g. New Balance's MENU_MAIN under Union) define no backPic at all —
+                // presumably relying on engine hooks we don't have to draw their own background.
+                // Substituting a fallback for visual fill also feeds this texture's real pixel size into
+                // the pixel-ratio math below (same formula as any real-backPic menu), so its resolution
+                // directly controls how tightly items get packed. MainMenuBackgroundMaterial (2048x2048)
+                // made items too spread out with big gaps; MainMenuSaveLoadBackgroundMaterial matches the
+                // 1024x1024 convention actually used by this mod's own working, densely-packed menus
+                // (e.g. MENU_SAVEGAME_SAVE/LOAD), giving roughly 2x tighter, more plausible spacing.
+                backPic = TextureService.MainMenuSaveLoadBackgroundMaterial;
+            }
+
             SetupBackground(backPic);
             SetupCanvasSize(backPic);
             ComputePixelRatios(backPic);
             BuildAllMenuItems();
+
+            var canvasT = Canvas.transform;
+            Logger.Log($"[AbstractMenu] '{MenuInstance.Name}' hasRealBackPic={hasRealBackPic} " +
+                       $"DimX/Y={MenuInstance.DimX}/{MenuInstance.DimY} " +
+                       $"backPicTex={backPic.mainTexture?.width}x{backPic.mainTexture?.height} " +
+                       $"PixelRatio={PixelRatioX:F6}/{PixelRatioY:F6} " +
+                       $"canvasRect={Canvas.GetComponent<RectTransform>().rect.width}x{Canvas.GetComponent<RectTransform>().rect.height} " +
+                       $"canvasScale={canvasT.localScale:F6}", LogCat.Ui);
         }
         
         private void BuildAllMenuItems()

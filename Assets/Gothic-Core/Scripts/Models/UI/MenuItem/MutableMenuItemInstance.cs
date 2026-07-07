@@ -1,6 +1,7 @@
 using System;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Const;
+using JetBrains.Annotations;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 
@@ -12,9 +13,15 @@ namespace Gothic.Core.Model.UI.MenuItem
         
         /// <summary>
         /// Copy constructor. Mostly copying dimensions and look.
+        /// A mod can restructure/rename its options menus enough that the vanilla item name we look up
+        /// as a style/position template (e.g. MENUITEM_GAME_SUB_TITLES) doesn't exist, so callers may
+        /// pass a null reference — fall back to default look/position rather than crashing menu init.
         /// </summary>
-        public MutableMenuItemInstance(string menuItemName, AbstractMenuItemInstance reference): base(menuItemName)
+        public MutableMenuItemInstance(string menuItemName, [CanBeNull] AbstractMenuItemInstance reference): base(menuItemName)
         {
+            if (reference == null)
+                return;
+
             FontName = reference.FontName;
             BackPic = reference.BackPic;
             AlphaMode = reference.AlphaMode;
@@ -37,7 +44,7 @@ namespace Gothic.Core.Model.UI.MenuItem
             HideIfOptionSectionSet = reference.HideIfOptionSectionSet;
             HideIfOptionSet = reference.HideIfOptionSet;
             HideOnValue = reference.HideOnValue;
-            
+
             // for Slider: .tga of slider button
             SetUserString(0, reference.GetUserString(0));
         }
