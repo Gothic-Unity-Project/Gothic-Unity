@@ -89,8 +89,7 @@ namespace Gothic.Core.Domain.StaticCache
             if (mrm == null)
                 return;
 
-            var bounds = cachedVobBounds[visualName];
-            if (bounds == default)
+            if (!cachedVobBounds.TryGetValue(visualName, out var bounds) || bounds == default)
                 return;
 
             // Extract vertices and triangles similar to PrepareMeshFilter
