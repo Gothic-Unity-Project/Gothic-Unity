@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using DirectMusic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
@@ -271,9 +272,40 @@ namespace Gothic.Core.Domain.Audio
             _musicZones.Remove(newMusicZoneGo);
         }
 
+        // Some mod compositions (e.g. Gothic II New Balance's EGE_DAY_Std.sgt) embed an automatic
+        // segue to another segment (observed: "Endgegner") that dmusic triggers internally mid-render,
+        // entirely inside native code we never see or get to pre-validate via TryGetSegment. If that
+        // segment's referenced instruments/patches are incomplete, it hits the same native double-free
+        // as a directly-requested broken segment (see ResourceCacheService.TryGetSegment), but this
+        // time as a raw AccessViolationException with zero managed frames in between. Ordinarily that's
+        // an unrecoverable Corrupted State Exception .NET won't let a try/catch see at all; ONLY the
+        // Mono runtime backing the Editor/Player may behave differently, hence trying anyway.
+        private bool _renderingDisabledAfterFault;
+
+        [HandleProcessCorruptedStateExceptions]
         private void PCMReaderCallback(float[] data)
         {
-            _dxPerformance.RenderPcm(data, true);
+            // Once RenderPcm has faulted, _dxPerformance's native internals are potentially corrupted —
+            // calling into it again next buffer (which this callback would otherwise do, regardless of
+            // audio volume) risks repeating the crash. Stop touching it entirely, permanently, for the
+            // rest of this session; silence is a fine trade-off for "the game keeps running".
+            if (_renderingDisabledAfterFault)
+            {
+                Array.Clear(data, 0, data.Length);
+                return;
+            }
+
+            try
+            {
+                _dxPerformance.RenderPcm(data, true);
+            }
+            catch (Exception e)
+            {
+                _renderingDisabledAfterFault = true;
+                Logger.LogError($"RenderPcm threw ({e.GetType().Name}: {e.Message}) — disabling music playback for the rest of this session.", LogCat.Audio);
+                Array.Clear(data, 0, data.Length);
+                _audioSourceComp.volume = 0f;
+            }
         }
 
         public void OnWorldLoaded()

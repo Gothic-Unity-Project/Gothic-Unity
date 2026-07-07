@@ -274,6 +274,9 @@ namespace Gothic.Core.Models.Config
         [Foldout("Audio", true)]
         public bool EnableGameSounds = true;
 
+        [Tooltip("Some mod music compositions embed automatic dmusic segues (e.g. a boss-fight transition) to a segment we never see or validate. If its referenced instruments are incomplete, dmusic double-frees natively — an unrecoverable AccessViolationException no amount of C# try/catch can stop. Turn music off entirely to sidestep it for mods that hit this.")]
+        public bool EnableMusic = true;
+
 
         /**
          * ##########
