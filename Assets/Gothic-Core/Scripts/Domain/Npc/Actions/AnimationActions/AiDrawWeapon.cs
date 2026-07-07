@@ -25,6 +25,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private bool _isRangedRequested => Action.Int0 == 1;
         private bool _isMagicRequested => Action.Int0 == 2;
 
+        // Public so UndrawWeapon can check the queue for a follow-up spell re-draw (spell switching)
+        // before deciding whether to clear NpcContainer.ActiveSpell — see UndrawWeapon.ApplyStateSheath.
+        public bool IsMagicRequest => _isMagicRequested;
+
         public DrawWeapon(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
         }

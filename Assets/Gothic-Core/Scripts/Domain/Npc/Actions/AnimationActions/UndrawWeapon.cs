@@ -1,3 +1,4 @@
+using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -107,7 +108,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     UnityEngine.Object.Destroy(NpcContainer.ActiveSpellVfxGo);
                     NpcContainer.ActiveSpellVfxGo = null;
                 }
-                NpcContainer.ActiveSpell = 0;
+
+                // B_DrawSpell (switching spells mid-fight) calls AI_UnreadySpell immediately followed
+                // by AI_ReadySpell in the same Daedalus tick — ExtAiReadySpell already set ActiveSpell
+                // to the NEW spell synchronously, before this queued UndrawWeapon animation even started
+                // playing. Blindly zeroing it here would wipe that back to 0 (= "Light", spellFXInstanceNames[0])
+                // once this animation finishes, so the mage would visibly cast Light instead of the spell
+                // it actually switched to. Only clear it when nothing is about to re-draw magic right after.
+                var isSwitchingSpells = Props.AnimationQueue.OfType<DrawWeapon>().Any(d => d.IsMagicRequest);
+                if (!isSwitchingSpells)
+                    NpcContainer.ActiveSpell = 0;
             }
         }
 
