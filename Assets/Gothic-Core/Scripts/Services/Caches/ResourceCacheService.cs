@@ -40,9 +40,13 @@ namespace Gothic.Core.Services.Caches
         private ResourceCacheType<ITexture> _texture;
         private ResourceCacheType<GameObject> _prefab;
 
+        // Kept for TryGetDaedalusVm's loose-file fallback (mods overriding a DAT with one ZenKit can't parse).
+        private string _workPath;
+
         public void Init(string root, bool mountModFiles = false)
         {
             var workPath = FindWorkPath(root);
+            _workPath = workPath;
             var diskPaths = FindDiskPaths(root);
 
             // Mount base VDFs first. Gothic's own VDFs use Older so newest content in the stack wins.
@@ -216,8 +220,47 @@ namespace Gothic.Core.Services.Caches
             // AllowNullInstanceAccess - Ikarus fix.
             // IgnoreConstSpecifier - Ikarus fix. It is overwriting const entries multiple times.
             // TODO - both flags could be removed for non-Ikarus mods.
-            return new DaedalusVm(Vfs, $"{GetPreparedKey(key)}.dat",
-                DaedalusExecutionFlags.AllowNullInstanceAccess | DaedalusExecutionFlags.IgnoreConstSpecifier);
+            var flags = (byte)(DaedalusExecutionFlags.AllowNullInstanceAccess | DaedalusExecutionFlags.IgnoreConstSpecifier);
+            var fileName = $"{GetPreparedKey(key)}.dat";
+
+            try
+            {
+                return new DaedalusVm(Vfs, fileName, flags);
+            }
+            catch (Exception e)
+            {
+                // A mounted .mod archive can override an engine-side DAT with one ZenKit's native
+                // classes can't represent — e.g. G2 "Renovation" (a Union mod) extends C_FightAI.move
+                // to 7 entries while ZenKit is fixed at 6, failing the whole VM load. The mod installer
+                // still leaves the base-game DAT on disk under _work/, so fall back to that loose copy:
+                // for engine data (fight moves, menus, sfx) the vanilla version is a workable stand-in.
+                Logger.LogWarning($"[ResourceCacheService] DaedalusVm '{fileName}' failed to load from VFS ({e.Message}) — trying loose _work fallback", LogCat.ZenKit);
+
+                var looseDat = Directory.EnumerateFiles(_workPath, fileName, new EnumerationOptions
+                {
+                    MatchCasing = MatchCasing.CaseInsensitive,
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true
+                }).FirstOrDefault();
+
+                if (looseDat == null)
+                {
+                    Logger.LogError($"[ResourceCacheService] No loose '{fileName}' found under '{_workPath}' — VM unavailable", LogCat.ZenKit);
+                    return null;
+                }
+
+                try
+                {
+                    var vm = new DaedalusVm(looseDat, flags);
+                    Logger.LogWarning($"[ResourceCacheService] Loaded '{fileName}' from loose file '{looseDat}' instead", LogCat.ZenKit);
+                    return vm;
+                }
+                catch (Exception e2)
+                {
+                    Logger.LogError($"[ResourceCacheService] Loose fallback '{looseDat}' also failed to load ({e2.Message}) — VM unavailable", LogCat.ZenKit);
+                    return null;
+                }
+            }
         }
 
         // FIXME - Should it be used without Gothic game version? Or better always call with it?
