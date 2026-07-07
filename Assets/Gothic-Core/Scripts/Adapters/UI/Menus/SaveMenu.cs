@@ -164,10 +164,42 @@ namespace Gothic.Core.Adapters.UI.Menus
                 }
 
                 // G1 save games start with ID 1
-                var folderSaveId = int.Parse(saveGameFolderName.Remove(0, "savegame".Length));
+                if (!int.TryParse(saveGameFolderName.Remove(0, "savegame".Length), out var folderSaveId))
+                    continue;
 
-                // Load metadata
-                var save = _saveGameService.GetSaveGame((SaveGameService.SlotId)folderSaveId);
+                // Our menu prefab shows 15 slots (G1 layout); G2 installations can hold savegame16-20.
+                // Skip out-of-range folders instead of crashing the whole menu init on the array access.
+                if (folderSaveId < 1 || folderSaveId >= SaveSlots.Length || SaveSlots[folderSaveId] == null)
+                {
+                    Logger.LogWarning($"[SaveMenu] Save folder '{saveGameFolderName}' has no UI slot (1-15) — skipping.", LogCat.Ui);
+                    continue;
+                }
+
+                // Saves written by the original engine (or Union mods) lack our UNITYSAVE.json overlay.
+                // They can't be restored by our two-layer system anyway, and letting ZenKit parse them
+                // is actively dangerous: G2 Renovation's Union-format saves drive the native parser
+                // into allocating until OOM (std::bad_alloc → 99% RAM → editor crash), and a C# try/catch
+                // can't stop a native allocation rampage — so don't even open them.
+                if (!File.Exists(Path.Combine(fullPath, "UNITYSAVE.json")))
+                {
+                    Logger.LogWarning($"[SaveMenu] '{saveGameFolderName}' has no UNITYSAVE.json (original-engine save?) — not listed.", LogCat.Ui);
+                    continue;
+                }
+
+                // Load metadata. Kept as a guard for saves that pass the marker check but still fail parsing.
+                SaveGame save;
+                try
+                {
+                    save = _saveGameService.GetSaveGame((SaveGameService.SlotId)folderSaveId);
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"[SaveMenu] Save '{saveGameFolderName}' could not be parsed ({e.Message}) — skipping.", LogCat.Ui);
+                    continue;
+                }
+                if (save?.Metadata == null)
+                    continue;
+
                 _saves[folderSaveId] = save;
 
                 // Set metadata to slot
