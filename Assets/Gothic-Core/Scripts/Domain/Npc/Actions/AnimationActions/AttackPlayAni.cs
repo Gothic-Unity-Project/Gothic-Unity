@@ -402,7 +402,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // anywhere within FK-range, not just the old artificial "close" W-range guess — otherwise
             // TryFireHit() rejects the very attacks the fight-AI just chose to fire as "out of reach".
             if (weaponState is VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return FightConst.RangedAttackReachMeters;
+                return FightConst.RangedAttackReachMeters * _configService.Dev.RangedCombatRangeMultiplier;
 
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
             var item = VmCacheService.TryGetItemData(Props.CurrentItem);

@@ -361,6 +361,10 @@ namespace Gothic.Core.Models.Config
         [Range(0.1f, 2f)]
         public float SummonSpawnRangeMultiplier = 0.8f;
 
+        [Tooltip("Scales NPC ranged/magic engagement distances — how far a mage/archer will attack and connect from (vanilla HAI_DIST_RANGED = 30m). Gothic's ranges feel too far against our Unity units; 0.8 = 24m.")]
+        [Range(0.1f, 2f)]
+        public float RangedCombatRangeMultiplier = 0.8f;
+
         [Tooltip("Hide the health bar for the player character.")]
         public bool HideHealthBar { get; internal set; }
     }

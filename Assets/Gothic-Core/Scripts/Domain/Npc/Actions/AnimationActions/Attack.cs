@@ -6,6 +6,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -17,6 +18,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class Attack : AbstractAnimationAction
     {
         [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly ConfigService _configService;
 
         private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
 
@@ -173,11 +175,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
 
-            // Magic and ranged use fixed engagement ranges instead of guild melee values.
+            // Magic and ranged use fixed engagement ranges instead of guild melee values. These are
+            // the W-range boundary only (inside it the close-quarters W tables are used; beyond it
+            // ranged units fire from the FK_FOCUS_FAR tables) — scaled by the same config multiplier
+            // as the hit-connect range so both shrink together.
+            var rangedMultiplier = _configService.Dev.RangedCombatRangeMultiplier;
             if (weaponState == VmGothicEnums.WeaponState.Mage)
-                return 12f;
+                return 12f * rangedMultiplier;
             if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return 20f;
+                return 20f * rangedMultiplier;
 
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
