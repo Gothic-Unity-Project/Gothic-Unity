@@ -6,6 +6,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
@@ -22,6 +23,7 @@ namespace Gothic.Core.Domain
     public class BootstrapDomain
     {
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly LocalizationService _localizationService;
         [Inject] private readonly VmExternalService _vmExternalService;
         [Inject] private readonly NpcHelperService _npcHelperService;
@@ -60,8 +62,8 @@ namespace Gothic.Core.Domain
             // cs
             if (CheckEncoding(StringEncoding.CentralEurope, "MOBNAME_CRATE", "Bedna"))
                 _localizationService.SetLanguage("cs", StringEncoding.CentralEurope);
-            // pl
-            else if (CheckEncoding(StringEncoding.CentralEurope, "MOBNAME_CRATE", "Skrzynia"))
+            // pl - 2x: "Skrzynka" is used by some mods (e.g. G2 Renovation) instead of vanilla "Skrzynia"
+            else if (CheckEncoding(StringEncoding.CentralEurope, "MOBNAME_CRATE", "Skrzynia", "Skrzynka"))
                 _localizationService.SetLanguage("pl", StringEncoding.CentralEurope);
             // ru
             else if (CheckEncoding(StringEncoding.EastEurope, "MOBNAME_CRATE", "Коробка"))
@@ -83,10 +85,41 @@ namespace Gothic.Core.Domain
                 _localizationService.SetLanguage("it", StringEncoding.WestEurope);
             // Nothing found
             // TODO - Potentially re-enable error label on screen to say: We couldn't identify your language.
-            // TODO - It also might make sense to manually overwrite/define language/Encoding via GameConfiguration.json - but only if needed in the future.
             // TODO - Add values for Gothic 2
-            else
-                throw new CultureNotFoundException("Language couldn't be identified based on current Gothic installation.");
+            else if (!TrySetFallbackLanguage())
+                throw new CultureNotFoundException("Language couldn't be identified based on current Gothic installation. Set DeveloperConfig.FallbackLanguage to boot anyway.");
+        }
+
+        /// <summary>
+        /// Mods frequently rename MOBNAME_CRATE (the auto-detection probe constant), which would
+        /// otherwise hard-fail the boot. DeveloperConfig.FallbackLanguage lets the user pick the
+        /// language manually for such installations.
+        /// </summary>
+        private bool TrySetFallbackLanguage()
+        {
+            var fallback = _configService.Dev.FallbackLanguage?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(fallback))
+                return false;
+
+            var encoding = fallback switch
+            {
+                "cs" or "pl" => StringEncoding.CentralEurope,
+                "ru" => StringEncoding.EastEurope,
+                "de" or "en" or "es" or "fr" or "it" => StringEncoding.WestEurope,
+                _ => (StringEncoding)0
+            };
+            if (encoding == 0)
+            {
+                Logger.LogError($"DeveloperConfig.FallbackLanguage '{fallback}' is not a known language code (cs, pl, ru, de, en, es, fr, it).", LogCat.ZenKit);
+                return false;
+            }
+
+            var probeValue = _gameStateService.GothicVm.GetSymbolByName("MOBNAME_CRATE")?.GetString(0) ?? "<missing>";
+            Logger.LogWarning($"Language auto-detection failed (MOBNAME_CRATE='{probeValue}') — using DeveloperConfig fallback '{fallback}'.", LogCat.ZenKit);
+
+            StringEncodingController.SetEncoding(encoding);
+            _localizationService.SetLanguage(fallback, encoding);
+            return true;
         }
 
         private bool CheckEncoding(StringEncoding encoding, string daedalusConstantToCheck,

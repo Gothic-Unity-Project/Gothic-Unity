@@ -56,6 +56,9 @@ namespace Gothic.Core.Models.Config
         [Tooltip("INI filename inside ModPath/system/ (e.g. DM_E.ini)")]
         public string ModIni = string.Empty;
 
+        [Tooltip("Language used when auto-detection fails (mods often rename MOBNAME_CRATE, the probe constant — e.g. G2 Renovation uses 'Skrzynka'). One of: cs, pl, ru, de, en, es, fr, it. Empty = fail the boot like before.")]
+        public string FallbackLanguage = string.Empty;
+
         public Controls GameControls = Controls.VR;
 
         [Separator("Debug")]
