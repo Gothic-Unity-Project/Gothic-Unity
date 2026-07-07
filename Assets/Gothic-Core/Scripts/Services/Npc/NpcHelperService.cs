@@ -155,13 +155,17 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npcInstance.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
+            // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning Vm.GlobalHero —
+            // if a mod's script calls this externally during that window, GlobalHero is still null.
+            var globalHeroIndex = _gameStateService.GothicVm.GlobalHero?.Index;
+
             var foundNpc = _multiTypeCacheService.NpcCache
                 .Where(i => i.Props != null) // ignore empty (safe check)
                 .Where(i => i.Go != null) // ignore empty (safe check)
                 .Where(i => i.Instance.Index != npcInstance.Index) // ignore self
                 .Where(i => detectPlayer ||
-                            i.Instance.Index !=
-                            _gameStateService.GothicVm.GlobalHero!.Index) // if we don't detect player, then skip it
+                            globalHeroIndex == null ||
+                            i.Instance.Index != globalHeroIndex) // if we don't detect player, then skip it
                 .Where(i => specificNpcIndex < 0 ||
                             specificNpcIndex == i.Instance.Index) // Specific NPC is found right now?
                 .Where(i => aiState < 0 || aiState == i.Vob.CurrentStateIndex)

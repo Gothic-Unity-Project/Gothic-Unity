@@ -563,7 +563,12 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsPlayer(NpcInstance npc)
         {
-            return npc.Index == _gameStateService.GothicVm.GlobalHero!.Index;
+            // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning
+            // Vm.GlobalHero — if a mod's hero init script (or anything else) calls Npc_IsPlayer during
+            // that window, GlobalHero is still null. No global hero assigned yet means npc can't be
+            // "the player" in any meaningful sense yet either.
+            var globalHero = _gameStateService.GothicVm.GlobalHero;
+            return globalHero != null && npc.Index == globalHero.Index;
         }
 
         public ItemInstance ExtGetEquippedArmor(NpcInstance npc)
