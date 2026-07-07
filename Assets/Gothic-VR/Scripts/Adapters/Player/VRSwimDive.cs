@@ -102,8 +102,13 @@ namespace Gothic.VR.Adapters.Player
                     return;
                 }
                 
-                var mds = _resourceCacheService.TryGetModelScript("Humans")!;
-                
+                var mds = _resourceCacheService.TryGetModelScript("Humans");
+                if (mds == null)
+                {
+                    Logger.LogError("Humans.mds failed to load or parse. Swimming/diving sounds won't be available.", LogCat.VR);
+                    return;
+                }
+
                 // FIXME - In G1, there are different sounds for SwimBack, Sideways, and Forward
                 var swimAnim = mds.Animations.First(i => i.Name.EqualsIgnoreCase("s_SwimF"));
                 var swimSfxName = swimAnim.SoundEffects.First().Name;

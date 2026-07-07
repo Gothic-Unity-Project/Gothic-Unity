@@ -108,10 +108,15 @@ namespace Gothic.Core.Domain.StaticCache
                         continue;
                     }
 
-                    var fireWorldVobs = _resourceCacheService.TryGetWorld(fire.VobTree, _contextGameVersionService.Version, true)!.RootObjects;
+                    var fireWorld = _resourceCacheService.TryGetWorld(fire.VobTree, _contextGameVersionService.Version, true);
+                    if (fireWorld == null)
+                    {
+                        Logger.LogWarning($"Fire VobTree >{fire.VobTree}< could not be loaded. Skipping its child VOBs for caching.", LogCat.PreCaching);
+                        continue;
+                    }
 
                     // As we loaded the child-VOBs for fire*.zen at this time, we iterate now.
-                    await CalculateStationaryLights(fireWorldVobs, vobWorldPosition);
+                    await CalculateStationaryLights(fireWorld.RootObjects, vobWorldPosition);
                 }
 
                 // Recursion

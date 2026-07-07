@@ -110,7 +110,12 @@ namespace Gothic.Core.Services.Npc
                 return track;
             }
 
-            var mds = _resourceCacheService.TryGetModelScript(mdsName)!;
+            var mds = _resourceCacheService.TryGetModelScript(mdsName);
+            if (mds == null)
+            {
+                mdsTracks.Add(animName, null);
+                return null;
+            }
 
             var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
             IAnimationAlias animAlias = null;

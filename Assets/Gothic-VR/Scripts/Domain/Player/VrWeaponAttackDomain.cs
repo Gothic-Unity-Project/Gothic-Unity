@@ -97,6 +97,11 @@ namespace Gothic.VR.Domain.Player
                 _attackVelocityThreshold = weaponConfig.WeaponVelocityThreshold;
                 _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
                 var attackAnimation = GetAttackAnimation();
+                if (attackAnimation == null)
+                {
+                    Logger.LogError("Humans.mds failed to load or parse. Weapon attack handling is unavailable.", LogCat.VR);
+                    return false;
+                }
                 var (attackWindowTime, comboWindowStart, comboWindowTime) = CalculateWindowTimes(attackAnimation);
                 CalculateAttackSound(attackAnimation);
 
@@ -210,8 +215,8 @@ namespace Gothic.VR.Domain.Player
             var attackAnimationName = $"t_{(Is2HD() ? "2" : "1")}hAttackL";
 
             // FIXME - Combo settings for hero with more skills are in overlay mds (e.g., HUMANS_1HST2.mds) Use for improved weapon handling.
-            var mds = _resourceCacheService.TryGetModelScript("Humans")!;
-            return mds.Animations.First(i => i.Name.EqualsIgnoreCase(attackAnimationName));
+            var mds = _resourceCacheService.TryGetModelScript("Humans");
+            return mds?.Animations.First(i => i.Name.EqualsIgnoreCase(attackAnimationName));
         }
 
         private bool Is2HD()

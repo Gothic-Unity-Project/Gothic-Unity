@@ -85,7 +85,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             clip = null;
 
-            var mds = _resourceCacheService.TryGetModelScript("Humans")!;
+            var mds = _resourceCacheService.TryGetModelScript("Humans");
+            if (mds == null)
+                return false;
+
             var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
             var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
             if (anim == null)

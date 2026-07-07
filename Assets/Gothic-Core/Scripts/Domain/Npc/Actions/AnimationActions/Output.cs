@@ -109,6 +109,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // FIXME - We might need to check overlayMds and baseMds
                 // FIXME - We might need to save amount of gestures based on mds names (if they differ for e.g. humans and orcs)
                 var mds = _resourceCacheService.TryGetModelScript(Props.MdsNameBase);
+                if (mds == null)
+                {
+                    Logger.LogError($"{Props.MdsNameBase}.mds failed to load or parse. Dialog gestures are unavailable.", LogCat.Dialog);
+                    return 0;
+                }
 
                 _gameStateService.Dialogs.GestureCount = mds.Animations
                     .Count(anim => anim.Name.StartsWithIgnoreCase("T_DIALOGGESTURE_"));
