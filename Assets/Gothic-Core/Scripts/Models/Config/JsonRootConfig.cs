@@ -9,5 +9,6 @@
         public string LogLevel;
         public string LogCategories;
         public bool EnableMusic = true;
+        public bool EnableZSpyLogs;
     }
 }

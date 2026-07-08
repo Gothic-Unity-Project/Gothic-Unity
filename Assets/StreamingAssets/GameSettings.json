@@ -5,5 +5,6 @@
     "ModIni": "---Optional: mod INI filename inside ModPath/system/ (e.g. DM_E.ini). Leave empty for GothicGame.ini.---",
     "LogLevel": "---Set log level to one of these values: Message/Warning/Error. Default: Warning---",
     "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--",
-    "EnableMusic": true
+    "EnableMusic": true,
+    "EnableZSpyLogs": false
 }

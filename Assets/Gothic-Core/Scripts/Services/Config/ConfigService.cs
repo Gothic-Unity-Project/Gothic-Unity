@@ -87,6 +87,23 @@ namespace Gothic.Core.Services.Config
             }
         }
 
+        /// <summary>
+        /// ZSpy (Daedalus PrintDebug/PrintDebugInst) logging, same Editor/build split as EffectiveEnableMusic —
+        /// lets a standalone build be toggled on/off via GameSettings.json/.dev.json without a recompile,
+        /// instead of only being reachable via the DeveloperConfig Inspector toggle in the Editor.
+        /// </summary>
+        public bool EffectiveEnableZSpyLogs
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableZSpyLogs;
+#else
+                return Root.EnableZSpyLogs;
+#endif
+            }
+        }
+
 
         /// <summary>
         /// First one to load.
