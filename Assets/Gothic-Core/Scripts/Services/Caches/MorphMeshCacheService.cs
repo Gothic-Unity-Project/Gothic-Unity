@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Gothic.Core.Extensions;
+using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 
@@ -80,11 +81,12 @@ namespace Gothic.Core.Services.Caches
             _unityVertices.Add(preparedKey, unityVertices);
         }
 
+        [CanBeNull]
         public Vector3[] GetOriginalUnityVertices(string morphMeshName)
         {
             var preparedKey = GetPreparedKey(morphMeshName);
 
-            return _unityVertices[preparedKey];
+            return _unityVertices.TryGetValue(preparedKey, out var vertices) ? vertices : null;
         }
 
         /// <summary>
