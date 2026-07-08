@@ -44,6 +44,49 @@ namespace Gothic.Core.Services.Config
             }
         }
 
+        /// <summary>
+        /// EffectiveModIni with the same "GothicGame.ini" fallback LoadGothicInis applies — a mod
+        /// (e.g. New Balance) can be active with no ModIni set at all, relying purely on the default.
+        /// </summary>
+        public string EffectiveModIniFileName => EffectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : EffectiveModIni;
+
+        /// <summary>
+        /// Whether a mod is active right now, i.e. whether ModPath resolved to something. This is the
+        /// single source of truth for "is a mod active" — use it instead of Dev.EnableMod directly,
+        /// which only means "use the Editor's ModPath/ModIni override" and is meaningless in a build.
+        /// </summary>
+        public bool IsModActive => !EffectiveModPath.IsNullOrEmpty();
+
+        /// <summary>
+        /// Folder-safe suffix identifying the active mod, so StaticCacheService keeps a separate cache
+        /// per (GameVersion, mod) instead of one shared per GameVersion — switching between vanilla and
+        /// several mods (or between mods) would otherwise stomp on each other's cached VOB bounds/texture
+        /// arrays/world chunks, forcing a full recreate every time. Naming uses the resolved ini file,
+        /// e.g. "_mod_GothicGame" or "_mod_DM_E". Empty when running vanilla.
+        /// </summary>
+        public string ModCacheSuffix => IsModActive
+            ? $"_mod_{Path.GetFileNameWithoutExtension(EffectiveModIniFileName)}"
+            : string.Empty;
+
+        /// <summary>
+        /// Some mod music compositions embed a native dmusic segue we can't intercept (see
+        /// MusicDomain.PCMReaderCallback) — turning music off entirely is the only workaround.
+        /// Standalone builds read this from GameSettings.json/.dev.json so one build can be
+        /// repointed at a different mod (and its music requirement) without a recompile; the
+        /// Editor uses the DeveloperConfig Inspector toggle instead for quick iteration.
+        /// </summary>
+        public bool EffectiveEnableMusic
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMusic;
+#else
+                return Root.EnableMusic;
+#endif
+            }
+        }
+
 
         /// <summary>
         /// First one to load.
@@ -73,8 +116,7 @@ namespace Gothic.Core.Services.Config
             var rootPath = EffectiveModPath ?? baseRootPath;
             var gothicIniPath = Path.Combine(baseRootPath, "system/Gothic.ini");
 
-            var modIniFileName = EffectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : EffectiveModIni;
-            var gothicModIniPath = Path.Combine(rootPath, "system", modIniFileName);
+            var gothicModIniPath = Path.Combine(rootPath, "system", EffectiveModIniFileName);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
             GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
