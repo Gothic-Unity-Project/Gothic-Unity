@@ -6,5 +6,6 @@
     "LogLevel": "---Set log level to one of these values: Message/Warning/Error. Default: Warning---",
     "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--",
     "EnableMusic": true,
-    "EnableZSpyLogs": false
+    "EnableZSpyLogs": false,
+    "EnableOggAudio": true
 }

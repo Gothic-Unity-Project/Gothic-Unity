@@ -106,6 +106,23 @@ namespace Gothic.Core.Services.Config
 
 
         /// <summary>
+        /// Some mods (e.g. New Balance) ship dubbing as Ogg Vorbis mislabeled with a ".wav" extension.
+        /// SoundDomain sniffs real content and decodes via NVorbis when detected — this is an escape
+        /// hatch in case a specific mod's Ogg files misbehave, same Editor/build split as the others.
+        /// </summary>
+        public bool EffectiveEnableOggAudio
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableOggAudio;
+#else
+                return Root.EnableOggAudio;
+#endif
+            }
+        }
+
+        /// <summary>
         /// First one to load.
         /// Root, as it contains only a few Gothic specific bootstrap data like
         /// installation directory of Gothic1/2 and LogLevel.

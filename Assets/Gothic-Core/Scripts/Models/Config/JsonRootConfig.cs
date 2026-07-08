@@ -10,5 +10,6 @@
         public string LogCategories;
         public bool EnableMusic = true;
         public bool EnableZSpyLogs;
+        public bool EnableOggAudio = true;
     }
 }

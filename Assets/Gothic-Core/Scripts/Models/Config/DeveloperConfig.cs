@@ -277,6 +277,9 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Some mod music compositions embed automatic dmusic segues (e.g. a boss-fight transition) to a segment we never see or validate. If its referenced instruments are incomplete, dmusic double-frees natively — an unrecoverable AccessViolationException no amount of C# try/catch can stop. Turn music off entirely to sidestep it for mods that hit this.")]
         public bool EnableMusic = true;
 
+        [Tooltip("Some mods (e.g. New Balance) ship dubbing as Ogg Vorbis with a '.wav' extension slapped on. We sniff real content and decode via NVorbis when detected — vanilla Gothic never ships this, so this only ever applies to mod audio. Escape hatch in case a specific file misbehaves: turn off to skip decoding it gracefully (silence + text-length fallback) instead of failing loudly.")]
+        public bool EnableOggAudio = true;
+
 
         /**
          * ##########
