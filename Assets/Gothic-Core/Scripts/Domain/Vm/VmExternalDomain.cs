@@ -69,7 +69,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void RegisterExternals()
         {
-            _enableZSpyLogs = _configService.Dev.EnableZSpyLogs;
+            _enableZSpyLogs = _configService.EffectiveEnableZSpyLogs;
             _zSpyInstantLogging = _enableZSpyLogs && _configService.Dev.EnableZSpyInstantLogs;
             _ignoreSpammyMessages = _configService.Dev.IgnoreSpammyZSpyLogs;
 
@@ -860,7 +860,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void PrintDebug(string message)
         {
-            if (!_configService.Dev.EnableZSpyLogs)
+            if (!_configService.EffectiveEnableZSpyLogs)
                 return;
 
             Logger.Log($"[zspy]: {message}", LogCat.ZSpy);
@@ -876,7 +876,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void PrintDebugInst(string message)
         {
-            if (!_configService.Dev.EnableZSpyLogs)
+            if (!_configService.EffectiveEnableZSpyLogs)
                 return;
 
             Logger.Log($"[zspy]: {message}", LogCat.ZSpy);
