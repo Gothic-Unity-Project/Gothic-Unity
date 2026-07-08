@@ -40,7 +40,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_dialogService.SkipNextOutput)
             {
                 _dialogService.SkipNextOutput = false;
-                
+
                 // If - for any reason - the first dialog entry after selecting dialog entry, then we don't skip it.
                 if (_isHeroSpeaking)
                 {
@@ -48,7 +48,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     return;
                 }
             }
-            
+
             var audioClip = _audioService.CreateAudioClip(OutputName);
             var block = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
 
