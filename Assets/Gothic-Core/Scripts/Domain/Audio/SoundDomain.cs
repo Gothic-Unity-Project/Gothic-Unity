@@ -47,51 +47,60 @@ namespace Gothic.Core.Domain.Audio
 
         public SoundModel ConvertWavByteArrayToFloatArray(byte[] fileBytes)
         {
-            // HINT: Commented out elements are there for reference only.
+            // RIFF container: "RIFF"(4) + fileSize(4) + "WAVE"(4), then a sequence of chunks
+            // ("fmt ", "data", and others like LIST/INFO/fact/PAD/JUNK/bext/cue we don't care about).
+            // Walk chunks by their own declared size instead of assuming fixed byte offsets — some
+            // mod-shipped WAVs (e.g. New Balance's dubbing) insert extra chunks or an extended fmt
+            // chunk before "data", which made the old fixed-offset reads land on garbage bytes for
+            // bitsPerSample (observed as nonsensical values like "115 bit depth").
+            const int riffHeaderSize = 12;
 
-            // string riffHeader = Encoding.ASCII.GetString(fileBytes, 0, 4);
-            // int fileSize = BitConverter.ToInt32(fileBytes, 4);
-            // string waveHeader = Encoding.ASCII.GetString(fileBytes, 8, 4);
-            // string fmtHeader = Encoding.ASCII.GetString(fileBytes, 12, 4);
-            // int fmtLength = BitConverter.ToInt32(fileBytes, 16);
+            ushort formatType = 0;
+            ushort numChannels = 0;
+            int sampleRate = 0;
+            short bitsPerSample = 0;
+            int dataStart = -1;
+            int dataSize = 0;
 
-            ushort formatType = BitConverter.ToUInt16(fileBytes, 20);
-            string formatCode = FormatCode(formatType);
-            ushort numChannels = BitConverter.ToUInt16(fileBytes, 22);
-            int sampleRate = BitConverter.ToInt32(fileBytes, 24);
-
-            // int byteRate = BitConverter.ToInt32(fileBytes, 28);
-            // short blockAlign = BitConverter.ToInt16(fileBytes, 32);
-
-            short bitsPerSample = BitConverter.ToInt16(fileBytes, 34);
-            string dataHeader = Encoding.ASCII.GetString(fileBytes, 36, 4);
-
-            // Check for "PAD" header and skip it if present
-            int padSize = 0;
-            while (dataHeader == "PAD ")
+            var pos = riffHeaderSize;
+            while (pos + 8 <= fileBytes.Length)
             {
-                padSize += BitConverter.ToInt32(fileBytes, 40);
+                var chunkId = Encoding.ASCII.GetString(fileBytes, pos, 4);
+                var chunkSize = BitConverter.ToInt32(fileBytes, pos + 4);
+                var chunkDataStart = pos + 8;
 
-                // we add 8 bits to padding as to skip the pad subchunk header + data
-                padSize += 8;
+                if (chunkId == "fmt ")
+                {
+                    formatType = BitConverter.ToUInt16(fileBytes, chunkDataStart);
+                    numChannels = BitConverter.ToUInt16(fileBytes, chunkDataStart + 2);
+                    sampleRate = BitConverter.ToInt32(fileBytes, chunkDataStart + 4);
+                    bitsPerSample = BitConverter.ToInt16(fileBytes, chunkDataStart + 14);
+                }
+                else if (chunkId == "data")
+                {
+                    dataStart = chunkDataStart;
+                    // Sometimes a file has more data than is specified after the RIFF header.
+                    dataSize = (int)Math.Min(chunkSize, fileBytes.Length - chunkDataStart);
+                }
 
-                // Skip the PAD section
-                dataHeader = Encoding.ASCII.GetString(fileBytes, 36 + padSize, 4);
+                // Chunks are word-aligned: +1 pad byte if the declared size is odd.
+                pos = chunkDataStart + chunkSize + (chunkSize % 2);
             }
 
-            int dataSize = BitConverter.ToInt32(fileBytes, 40 + padSize);
+            if (dataStart < 0)
+            {
+                throw new Exception("WAV file has no 'data' chunk.");
+            }
 
+            string formatCode = FormatCode(formatType);
             if (formatCode == "IMA ADPCM")
             {
                 return ConvertWavByteArrayToFloatArray(_decoderDomain.Decode(fileBytes));
             }
 
-            // sometimes a file has more data than is specified after the RIFF header
-            long stopPosition = Math.Min(dataSize, (fileBytes.Length - 44));
-
             // Copy WAV data section into a new array
-            var audioData = new byte[stopPosition];
-            Array.Copy(fileBytes, 44+padSize, audioData, 0, stopPosition);
+            var audioData = new byte[dataSize];
+            Array.Copy(fileBytes, dataStart, audioData, 0, dataSize);
 
             return new SoundModel
             {
