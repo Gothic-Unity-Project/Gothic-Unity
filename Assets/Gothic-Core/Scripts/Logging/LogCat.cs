@@ -27,5 +27,8 @@ namespace Gothic.Core.Logging
         Vob,
         Audio,
         Debug,
+
+        // Functional test harness (ADR-0001) - session and step boundaries, watchdog trips, artifact paths.
+        Test,
     }
 }

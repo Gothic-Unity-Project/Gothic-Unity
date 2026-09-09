@@ -13,7 +13,7 @@ Data flow: Unity → ZenKit.dll (.NET Standard 2.1) → libzenkitcapi (native) �
 1. Place `GameSettings.dev.json` in `Assets/StreamingAssets/` (git-ignored) pointing to your local Gothic installation directory.
 2. Open and play the **Bootstrap scene** in the Unity Editor to start the game.
 3. Create a `DeveloperConfig` ScriptableObject via `Right-click > Create > Gothic > ScriptableObjects > DeveloperConfiguration` in `Gothic-Core/Resources/DeveloperConfigs/` and assign it to `GameManager`'s Config slot if you need a custom config. A Production config exists by default. Automated runs pick a config by name instead, via `-gothicTestConfig <name>` on the command line or the `GOTHIC_TEST_CONFIG` environment variable.
-4. Configuration is accessed at runtime via `GameGlobals.Config`, which exposes Gothic.ini, GothicGame.ini, GameSettings.json, and DeveloperConfig settings.
+4. Configuration is accessed at runtime via `ConfigService` (injected like any other service), which exposes Gothic.ini as `Gothic`, GothicGame.ini — or the mod ini named in `DeveloperConfig.ModIni` — as `GothicMod`, GameSettings.json as `Root`, and the DeveloperConfig as `Dev`.
 
 **Without HurricaneVR** (paid asset): Remove `GOTHIC_HVR_INSTALLED` from Project Settings scripting defines, then set `GameManager.DeveloperConfig → Controls.GameControls` to `Flat`.
 
@@ -63,7 +63,7 @@ Injection approaches:
 - `[Inject]` attribute on properties (preferred for brevity)
 - Constructor injection for non-MonoBehaviour classes created via Reflex
 - Each scene needs a `SceneScope` component for auto-injection; prefabs need `GameObjectSelfInspector`
-- Static contexts: `DIContainer.Resolve<T>()` or the `.Inject()` extension method on plain C# objects
+- Static contexts: `ReflexProjectInstaller.DIContainer.Resolve<T>()` or the `.Inject()` extension method on plain C# objects
 
 ### Key Patterns
 

@@ -30,21 +30,51 @@ Groups are listed in dependency order; within a group, items are roughly ordered
 
 ## Harness — `Assets/Gothic-Testing/Runtime` (§3.1, §3.2, §3.9)
 
-- [ ] ⚪ **V0** Create `Gothic.Testing.asmdef` (references `Gothic.Core` only; gated by `GOTHIC_FUNCTIONAL_TESTS`)
+- [x] ⚪ **V0** Create `Gothic.Testing.asmdef` (references `Gothic.Core` only; gated by `GOTHIC_FUNCTIONAL_TESTS`)
       and `Gothic.Testing.Editor.asmdef`.
-- [ ] ⚪ **V0** `TestSession` — owns the run directory, the shared clock, `Step(name)` returning `IDisposable`.
-- [ ] ⚪ **V0** `InputDriver` — wraps `InputTestFixture`; press/hold/release with frame-accurate timing.
-- [ ] ⚪ **V0** `GameDriver` — minimal verb set for the smoke scenario: `WalkForward`, `Turn`, `WaitForScene`,
+- [x] ⚪ **V0** `TestSession` — owns the run directory, the shared clock, `Step(name)` returning `IDisposable`.
+- [x] ⚪ **V0** `InputDriver` — wraps `InputTestFixture`; press/hold/release with frame-accurate timing.
+- [x] ⚪ **V0** `GameDriver` — minimal verb set for the smoke scenario: `WalkForward`, `Turn`, `WaitForScene`,
       `WaitUntil(predicate, timeout, because)`.
 - [ ] ⚪ **V2** `GameDriver` — complete the verb set: `WalkBack/Strafe`, `Jump`, `Sprint`, `Crouch`, `OpenMenu`,
       `GrabWithBothHands`, `DrawWeapon`, `Attack`, `Interact`, `WaitForEvent(UnityEvent, timeout)` (§3.2, D10).
       `WaitUntil` stays the only wait primitive — no fixed-delay verb is added (D11).
 - [ ] ⚪ **V2** `Teleport(waypoint)` shortcut so scenarios don't spend a minute walking (§3.2).
-- [ ] 🔴 **V0** `Watchdog` — fail the step cleanly when no bus event and no player movement occur for N seconds,
-      instead of letting the CLI timeout kill the process and the artifacts with it (§3.6).
-- [ ] ⚪ **V0** Set `Time.captureDeltaTime = 1f/30f` per session — capture pacing and CI-machine-speed
+- [x] 🟡 **V0** `Watchdog` — fail the step cleanly when no bus event and no player movement occur for N seconds,
+      instead of letting the CLI timeout kill the process and the artifacts with it (§3.6). **Downgraded from 🔴
+      after implementation** — see the note below; it is a load-phase fast-fail, not the thing standing between
+      us and undiagnosable failures.
+- [x] ⚪ **V0** Set `Time.captureDeltaTime = 1f/30f` per session — capture pacing and CI-machine-speed
       independence, not replay determinism (§3.5).
-- [ ] 🔴 **V0** Seed `Random.InitState(seed)` per session and record the seed in `manifest.json` (§3.9, D13).
+- [x] 🔴 **V0** Seed `Random.InitState(seed)` per session and record the seed in `manifest.json` (§3.9, D13).
+
+Four notes on what the harness commit decided, so the next item does not re-litigate them:
+
+- **Define gate.** The asmdefs constrain on `UNITY_INCLUDE_TESTS` **and** `GOTHIC_FUNCTIONAL_TESTS` (asmdef
+  constraints are ANDed). `GOTHIC_FUNCTIONAL_TESTS` was added to the Standalone and Android scripting defines,
+  so the Editor lane and a Lane B player build compile the harness; `UNITY_INCLUDE_TESTS` is what actually keeps
+  it out of a shipping player, and it is also required because `Unity.InputSystem.TestFramework` is test-only.
+- **One reflection binding, not two.** `Watchdog` needs "did any bus event fire" and the trace needs the same
+  events, so the D7 reflection lives in `GlobalEventObserver`. `TraceEventBinder` subscribes to that observer
+  rather than reflecting over `GlobalEventDispatcher` a second time — binding twice doubles every trace line.
+- **Timeouts are captured-time, not wall-clock.** Every wait and the watchdog read `SessionClock.ElapsedSeconds`,
+  which advances one `Time.captureDeltaTime` step per frame. Timeouts therefore mean the same number of frames
+  on a developer machine and on a loaded CI box. A frozen process is the CLI `--timeout`'s job, not the
+  watchdog's (§3.6).
+- **The watchdog only watches loading.** `GameTimeService.TimeTick()` fires `GameTimeSecondChangeCallback` every
+  ~0.07s of real time, started by `WorldSceneLoaded` and stopped by `LoadingSceneLoaded`. So once a world is up
+  the bus has a ~14Hz heartbeat and the watchdog can never trip; its live window is boot, pre-caching and the
+  load phase, where game time is stopped and events are bursty rather than periodic. That is the failure §3.6
+  actually names (a silent frame-skipped loader), but it is narrower than §3.6 reads.
+  Two consequences, both deliberate:
+  - **Do not blocklist the `GameTime*` events to "fix" this.** It would make the watchdog live during gameplay
+    and immediately flaky: a long dialog produces no bus events at all (`AI_Output` is Daedalus, the deferred
+    tier), so healthy scenarios would fail. That is the flakiness D11 exists to prevent.
+  - **§3.6's CLI-timeout argument is weaker than written.** Every point where the harness yields is already
+    inside a timeout-guarded wait which fails cleanly with artifacts intact, so the watchdog is a fast-fail and
+    a stall timestamp, not the only thing between us and a killed process. It earns its place because this
+    project's logs are noisy by design (the §3.3 baseline exists for that reason), so "an error was logged"
+    does not say *which* line meant "and then it stopped" — `watchdog.stall` does.
 
 ## Interaction gate — first end-to-end scenario (§3.2)
 
@@ -89,7 +119,9 @@ Groups are listed in dependency order; within a group, items are roughly ordered
 - [ ] ⚪ **V2** Semantic actuators — resolve targets through state observations, never world coordinates.
       Enforce in review: scenarios use semantic verbs unless the physicality is what is under test.
 - [ ] ⚪ **V2** Guards — continuous per-frame invariants: no unbaselined error, player Y within world bounds,
-      no `NaN` in a player/NPC transform, frame time under budget.
+      no `NaN` in a player/NPC transform, frame time under budget. **This is where "fell through the world" is
+      caught**, not the watchdog: game time keeps ticking while the player falls, so the bus heartbeat keeps the
+      watchdog quiet (see the harness notes above).
 - [ ] 🟡 Diagnostics observations — performance counters (frame time, GC, draw calls) into the trace, so the
       raw-input perf-regression case has something to compare against.
 
@@ -127,6 +159,8 @@ Groups are listed in dependency order; within a group, items are roughly ordered
       listener to each (§D7).
 - [ ] ⚪ **V0** Player state sampler — position, rotation, HP, walk mode, current animation every 10 fixed frames.
 - [ ] ⚪ **V0** `manifest.json` — git SHA, Unity version, config name, Gothic install fingerprint, seed, machine.
+      Mostly done: `Recording/RunManifest` writes all of it except the **Gothic install fingerprint**, and is
+      rewritten on every session start/end so a killed run still leaves one behind.
 - [ ] ⚪ **V0** `summary.md` generator — step-by-step pass/fail with inline screenshot links.
 - [ ] ⚪ **V0** `FrameRingBuffer` — ~30 s at 640×360 / 10 fps in memory, flushed to PNGs on failure only (§D8).
 - [ ] ⚪ **V0** ffmpeg step to turn a flushed buffer into `replay.mp4`.

@@ -7,7 +7,7 @@ using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace Gothic.VR
+namespace Gothic.Core
 {
     /// <summary>
     /// Each Service can be added to leverage Unity lifecycle events.

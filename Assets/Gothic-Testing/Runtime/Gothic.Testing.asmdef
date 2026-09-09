@@ -1,0 +1,24 @@
+{
+    "name": "Gothic.Testing",
+    "rootNamespace": "Gothic.Testing",
+    "references": [
+        "Gothic.Core",
+        "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "GOTHIC_FUNCTIONAL_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

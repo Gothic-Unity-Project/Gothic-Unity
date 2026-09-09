@@ -354,14 +354,39 @@ Editor-only, works in batch mode when graphics are initialised) for a full-sessi
 
 ### 3.6 Watchdog and timeouts
 
-`unity test --timeout` kills the process — and takes the artifacts with it. That is the wrong failure mode
-here, because the most likely failure for a frame-skipped async loader is a silent stall. So:
+The most likely failure for a frame-skipped async loader is a silent stall: no exception, no error line, just
+nothing happening. Four mechanisms cover the failure space between them, and it is worth being precise about
+which one covers what — an earlier draft of this section credited the watchdog with all four jobs.
 
-- **In-process watchdog:** if no `GlobalEventDispatcher` event and no player movement occur for N seconds
-  (default 30, configurable per step), the watchdog captures a screenshot, dumps the trace, writes a
-  `watchdog.stall` event and fails the step cleanly.
-- `WaitUntil(..., because:)` failures include the `because` string, the last 20 trace events and a screenshot.
-- The CLI `--timeout` is the outer safety net, set generously (e.g. 3× the expected session time).
+- **Tolerant waits are the primary net.** Every point where a scenario hands control back to the game is inside
+  a `WaitUntil(predicate, timeout, because:)` (D11). It fails cleanly, in-process, with the artifacts intact —
+  the `because` string, the last 20 trace events and a screenshot. This is what ends a stalled test.
+- **In-process watchdog — a load-phase fast-fail.** If no `GlobalEventDispatcher` event and no player movement
+  occur for N seconds (default 30, configurable per step; the boot before the first step has its own, larger
+  budget), it captures a screenshot, dumps the trace, writes a `watchdog.stall` event and fails the step.
+
+  Its live window is narrower than it looks, and deliberately so. `GameTimeService.TimeTick()` invokes
+  `GameTimeSecondChangeCallback` roughly every 0.07 s of real time, started by `WorldSceneLoaded` and stopped
+  by `LoadingSceneLoaded` — so once a world is up the bus carries a ~14 Hz heartbeat and the watchdog cannot
+  trip at all. It is live during boot, pre-caching and loading, where game time is stopped and bus traffic is
+  bursty (a `CreateNpc` per NPC, scene lifecycle events) so a gap in it means something.
+
+  Suppressing the watchdog during gameplay is the heartbeat doing useful work, not a defect to route around: a
+  long dialog produces no bus events whatsoever — `AI_Output` is Daedalus, the deferred tier of §3.11 — so a
+  watchdog which ignored the `GameTime*` events would fail perfectly healthy scenarios, which is the flakiness
+  D11 exists to prevent.
+
+  What it adds over the wait timeout is therefore narrow but real: it fails a dead load in seconds instead of
+  at the wait's full budget, and it timestamps *when* the game went quiet. The second half matters in this
+  project specifically, because a Gothic port legitimately logs errors constantly (§3.3) — "an error was
+  logged" does not tell you which line meant "and then it stopped"; `watchdog.stall` does.
+- **Guards cover gameplay-level wrongness** (§3.11), not the watchdog. Falling through the world, a `NaN` in a
+  transform and a frame-time cliff all happen while game time keeps ticking, so the bus heartbeat keeps the
+  watchdog quiet throughout. These are per-frame invariants and belong in that catalogue.
+- **The CLI `--timeout` is the outer safety net**, set generously (e.g. 3× the expected session time). It is
+  the only thing that catches a process which stops rendering entirely, since every in-process detector needs
+  frames to tick. It kills the process and takes the artifacts with it, which is why the mechanisms above exist
+  — but note they are what keeps the run off this path, not the watchdog alone.
 
 ### 3.7 Run artifact layout
 
