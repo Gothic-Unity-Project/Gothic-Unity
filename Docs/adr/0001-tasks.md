@@ -40,10 +40,10 @@ Groups are listed in dependency order; within a group, items are roughly ordered
       `GrabWithBothHands`, `DrawWeapon`, `Attack`, `Interact`, `WaitForEvent(UnityEvent, timeout)` (§3.2, D10).
       `WaitUntil` stays the only wait primitive — no fixed-delay verb is added (D11).
 - [ ] ⚪ **V2** `Teleport(waypoint)` shortcut so scenarios don't spend a minute walking (§3.2).
-- [x] 🟡 **V0** `Watchdog` — fail the step cleanly when no bus event and no player movement occur for N seconds,
-      instead of letting the CLI timeout kill the process and the artifacts with it (§3.6). **Downgraded from 🔴
-      after implementation** — see the note below; it is a load-phase fast-fail, not the thing standing between
-      us and undiagnosable failures.
+- [x] 🟡 **V0** `Watchdog` — fail the step cleanly when no bus event and no player movement occur for N seconds
+      (§3.6). **Downgraded from 🔴 after implementation**: it is a load-phase fast-fail and a stall timestamp,
+      not the thing standing between us and undiagnosable failures — the tolerant waits are. See the note below,
+      and §3.6, which was rewritten to match what was found while building this.
 - [x] ⚪ **V0** Set `Time.captureDeltaTime = 1f/30f` per session — capture pacing and CI-machine-speed
       independence, not replay determinism (§3.5).
 - [x] 🔴 **V0** Seed `Random.InitState(seed)` per session and record the seed in `manifest.json` (§3.9, D13).
@@ -64,17 +64,17 @@ Four notes on what the harness commit decided, so the next item does not re-liti
 - **The watchdog only watches loading.** `GameTimeService.TimeTick()` fires `GameTimeSecondChangeCallback` every
   ~0.07s of real time, started by `WorldSceneLoaded` and stopped by `LoadingSceneLoaded`. So once a world is up
   the bus has a ~14Hz heartbeat and the watchdog can never trip; its live window is boot, pre-caching and the
-  load phase, where game time is stopped and events are bursty rather than periodic. That is the failure §3.6
-  actually names (a silent frame-skipped loader), but it is narrower than §3.6 reads.
-  Two consequences, both deliberate:
+  load phase, where game time is stopped and events are bursty rather than periodic. Found while implementing
+  it — §3.6 was rewritten to match, and now names which of the four mechanisms covers what. Two consequences
+  worth repeating here, because both are easy to get wrong later:
   - **Do not blocklist the `GameTime*` events to "fix" this.** It would make the watchdog live during gameplay
     and immediately flaky: a long dialog produces no bus events at all (`AI_Output` is Daedalus, the deferred
     tier), so healthy scenarios would fail. That is the flakiness D11 exists to prevent.
-  - **§3.6's CLI-timeout argument is weaker than written.** Every point where the harness yields is already
-    inside a timeout-guarded wait which fails cleanly with artifacts intact, so the watchdog is a fast-fail and
-    a stall timestamp, not the only thing between us and a killed process. It earns its place because this
-    project's logs are noisy by design (the §3.3 baseline exists for that reason), so "an error was logged"
-    does not say *which* line meant "and then it stopped" — `watchdog.stall` does.
+  - **The tolerant waits, not the watchdog, are what keep a run off the CLI `--timeout`.** Every point where the
+    harness yields is already inside a timeout-guarded wait which fails cleanly with artifacts intact. The
+    watchdog is a fast-fail and a stall timestamp on top of that — it earns its place because this project's
+    logs are noisy by design (the §3.3 baseline exists for that reason), so "an error was logged" does not say
+    *which* line meant "and then it stopped"; `watchdog.stall` does.
 
 ## Interaction gate — first end-to-end scenario (§3.2)
 
