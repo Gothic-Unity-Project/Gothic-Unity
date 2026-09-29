@@ -20,6 +20,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] private readonly NpcArmorPositionCacheService _npcArmorCacheService;
 
 
+        // Meter of extra hitbox reach per side around the model's bounding box.
+        private const float _hitboxPadding = 0.1f;
+
         protected ExtSetVisualBodyData BodyData;
 
         public virtual void SetBodyData(ExtSetVisualBodyData body)
@@ -108,17 +111,19 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
         
         /// <summary>
-        /// Gothic stores a pre-baked collision AABB in the MDH file.
-        /// A single BoxCollider on the root GO matches Gothic's approach: the box is
-        /// static relative to the NPC's feet and is never deformed by animations.
+        /// Gothic stores two pre-baked AABBs in the MDH file, both relative to the root bone (BIP01) - which is
+        /// where the hitbox lives. The CollisionBoundingBox is meant for world collision and is tiny for hit
+        /// detection (Humans: 34x125x16cm, starting 28cm above the feet; Wolf: 30x83x96cm, starting 23cm above
+        /// the ground). We therefore use the full model BoundingBox (Humans: 69x169x33cm, Wolf: 59x113x193cm,
+        /// reaching down to the feet) plus some padding, as VR swings are far less precise than a gamepad attack.
         /// </summary>
         private void CreateBodyAabbCollider()
         {
             if (Mdh == null)
                 return;
 
-            // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
-            var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
+            var bounds = Mdh.BoundingBox.ToUnityBounds();
+            bounds.Expand(_hitboxPadding * 2f); // Expand() adds the amount to size, so we grow by padding per side.
             RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>().SetDimension(bounds);
         }
     }
