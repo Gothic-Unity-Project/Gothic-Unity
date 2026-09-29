@@ -78,6 +78,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (mainFlag != VmGothicEnums.ItemFlags.ItemKatFood && mainFlag != VmGothicEnums.ItemFlags.ItemKatPotions)
                 return false;
 
+#if GOTHIC_HVR_INSTALLED
+            // Only eat what's held in a hand. Items in the backpack or the NPC loot panel sit in sockets
+            // and can pass the mouth when those open near the head.
+            var grabbable = go.GetComponentInParent<HurricaneVR.Framework.Core.HVRGrabbable>();
+            if (grabbable != null && !grabbable.IsHandGrabbed)
+                return false;
+#endif
+
             return true;
         }
 
