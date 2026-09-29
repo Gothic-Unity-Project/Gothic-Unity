@@ -57,8 +57,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             Logger.Log($"[TakeItem] {NpcInstance.GetName(NpcNameSlot.Slot0)} picks up '{_itemSymbolName}' (world dist={UnityEngine.Vector3.Distance(container.Go.transform.position, npcPos):F1}m)", LogCat.Npc);
 
+            // Remove the exact container we validated above, then add it to the inventory - all within this frame,
+            // so the world VOB and the Daedalus inventory can't both own (or both lose) the item.
+            VobService.RemoveWorldItem(container);
             _npcInventoryService.ExtCreateInvItems(NpcInstance, _itemIndex, 1);
-            VobService.RemoveWorldItem(_itemSymbolName, npcPos);
             _npcInventoryService.ExtAiEquipBestMeleeWeapon(NpcInstance);
             _npcInventoryService.ExtAiEquipBestRangedWeapon(NpcInstance);
         }

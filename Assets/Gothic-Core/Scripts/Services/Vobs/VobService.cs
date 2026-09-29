@@ -500,8 +500,8 @@ namespace Gothic.Core.Services.Vobs
             {
                 if (container.Vob is not IItem vobItem) continue;
                 if (container.Go == null) continue;
+                if (container.IsHeldByPlayer) continue;
 
-                // Skip items grabbed by VR hands — HVR sets Rigidbody.isKinematic=true on grab
                 var rb = container.Go.GetComponent<Rigidbody>();
                 if (rb != null && rb.isKinematic) continue;
 
@@ -530,41 +530,17 @@ namespace Gothic.Core.Services.Vobs
             Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
         }
 
-        public void RemoveWorldItem(string instanceName, Vector3 nearPosition)
+        /// <summary>
+        /// Removes exactly this world item (cache + save data) and destroys its GameObject.
+        /// Callers must pass the container they validated themselves - re-searching by name here could pick
+        /// another copy of the item (e.g., the one in the player's hand).
+        /// </summary>
+        public void RemoveWorldItem(VobContainer container)
         {
-            VobContainer toRemove = null;
-            var minDist = float.MaxValue;
-
-            foreach (var container in _multiTypeCacheService.VobCache)
-            {
-                if (container.Vob is not IItem vobItem) continue;
-                if (container.Go == null) continue;
-
-                // Skip items held in VR hands (kinematic = grabbed)
-                var rb = container.Go.GetComponent<Rigidbody>();
-                if (rb != null && rb.isKinematic) continue;
-
-                var itemSym = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-                if (!string.Equals(itemSym, instanceName, StringComparison.OrdinalIgnoreCase)) continue;
-
-                // Use actual GO position (physics may have moved it from spawn point)
-                var dist = Vector3.Distance(container.Go.transform.position, nearPosition);
-                if (dist >= minDist) continue;
-
-                minDist = dist;
-                toRemove = container;
-            }
-
-            if (toRemove == null)
-            {
-                Logger.LogWarning($"[VobService] RemoveWorldItem: '{instanceName}' not found near {nearPosition}", LogCat.Vob);
-                return;
-            }
-
-            Logger.Log($"[VobService] RemoveWorldItem: destroying '{instanceName}' GO dist={minDist:F1}m from NPC", LogCat.Vob);
-            _multiTypeCacheService.VobCache.Remove(toRemove);
-            _saveGameService.CurrentWorldData.Vobs.Remove(toRemove.Vob);
-            Object.Destroy(toRemove.Go);
+            Logger.Log($"[VobService] RemoveWorldItem: destroying '{container.Vob.Name}' GO", LogCat.Vob);
+            _multiTypeCacheService.VobCache.Remove(container);
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            Object.Destroy(container.Go);
         }
 
         private void SpawnItemVob(string instanceName, System.Numerics.Vector3 position, Matrix3x3 rotation)

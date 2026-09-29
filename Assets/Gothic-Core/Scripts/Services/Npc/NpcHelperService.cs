@@ -238,7 +238,9 @@ namespace Gothic.Core.Services.Npc
                 // Skip items whose GO was destroyed (player already picked them up via loot menu)
                 if (container.Go == null) continue;
 
-                // Skip items currently grabbed by VR hands — HVR sets Rigidbody.isKinematic=true on grab
+                // The player's item - NPCs must not detect (and later AI_TakeItem) it out of their hand.
+                if (container.IsHeldByPlayer) continue;
+
                 var rb = container.Go.GetComponent<Rigidbody>();
                 if (rb != null && rb.isKinematic) continue;
 

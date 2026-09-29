@@ -20,6 +20,24 @@ namespace Gothic.VR.Adapters.HVROverrides
     /// </summary>
     public class VRSocket : HVRSocket
     {
+        // Lazily resolved: sockets on the player rig (holsters, shoulders, backpack) vs. world ones (chests, loot panel).
+        private bool? _isPlayerSocket;
+
+        /// <summary>
+        /// Rig layout: TechDemoXRRigOpenXR/{PlayerController, Waist/Holsters, BackPack, ...}.
+        /// The holsters aren't below PlayerController, so we check against its parent (the rig root).
+        /// </summary>
+        private bool IsPlayerSocket()
+        {
+            if (_isPlayerSocket.HasValue)
+                return _isPlayerSocket.Value;
+
+            var playerController = FindFirstObjectByType<VRPlayerController>();
+            var rig = playerController != null ? playerController.transform.parent : null;
+            _isPlayerSocket = rig != null && transform.IsChildOf(rig);
+            return _isPlayerSocket.Value;
+        }
+
         protected override void OnGrabbed(HVRGrabArgs args)
         {
             // HINT: We can't call base.OnGrabbed(), as it would break the parent behaviour already. We therefore recreate its logic here.
@@ -36,6 +54,10 @@ namespace Gothic.VR.Adapters.HVROverrides
                 var vobLoader = grabbable.GetComponentInParent<VobLoader>(true); // e.g., Backpack item might be disabled already as it's re-parented in parallel.
                 _previousParent = vobLoader.transform.parent; // We use parent of Grabbable object.
                 _previousScale = grabbable.transform.localScale;
+
+                // Items in the player's holsters etc. stay world VOBs, but NPCs must not pick them up (B_RegainDroppedWeapon).
+                if (IsPlayerSocket() && vobLoader.Container != null)
+                    vobLoader.Container.IsHeldByPlayer = true;
 
                 AttachGrabbable(grabbable);
                 OnGrabbableParented(grabbable);
@@ -62,6 +84,10 @@ namespace Gothic.VR.Adapters.HVROverrides
                 base.OnReleased(grabbable);
                 return;
             }
+
+            // Leaving the socket. If a hand takes it next, VRPlayerWeaponInteraction.OnGrabbed sets the flag again.
+            if (IsPlayerSocket() && vobLoader.Container != null)
+                vobLoader.Container.IsHeldByPlayer = false;
 
             var itemRoot = vobLoader.transform;
             base.OnReleased(grabbable);
