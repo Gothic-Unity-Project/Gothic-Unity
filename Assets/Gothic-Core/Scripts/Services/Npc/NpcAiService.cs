@@ -1018,6 +1018,58 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// The hero readies/removes a weapon (VR: a melee weapon enters/leaves the player's hands).
+        /// Gothic's engine does this in oCNpc::SetWeaponMode: store the fight mode (read by Npc_IsInFightMode and
+        /// Npc_HasReadied*Weapon) and send the passive perception PERC_DRAWWEAPON / PERC_ASSESSREMOVEWEAPON to nearby NPCs.
+        /// While armed, PERC_ASSESSFIGHTER is fired by AiHandler's active perception tick.
+        /// </summary>
+        public void ExtSetHeroWeaponState(VmGothicEnums.WeaponState newState)
+        {
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            if (hero?.Go == null)
+                return;
+
+            var oldState = (VmGothicEnums.WeaponState)hero.Vob.FightMode;
+            if (oldState == newState)
+                return;
+
+            hero.Vob.FightMode = (int)newState;
+
+            var isArmed = IsArmedWeaponState(newState);
+            if (isArmed == IsArmedWeaponState(oldState))
+                return;
+
+            var perception = isArmed
+                ? VmGothicEnums.PerceptionType.DrawWeapon
+                : VmGothicEnums.PerceptionType.AssessRemoveWeapon;
+            var heroPos = hero.Go.transform.position;
+            var notified = 0;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate == hero || candidate.Props == null) continue;
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious) continue;
+                // Culled NPCs don't perceive anything.
+                if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
+                if (!candidate.Props.Perceptions.TryGetValue(perception, out var perceptionFunction) || perceptionFunction < 0) continue;
+
+                // Passive perception range from Perc_SetRange(). Capped by senses_range in case the scripts never set it.
+                var range = Mathf.Min(_npcHelperService.GetPerceptionRange(perception), candidate.Instance.SensesRange / 100f);
+                if (Vector3.Distance(candidate.Go.transform.position, heroPos) > range) continue;
+
+                ExecutePerception(perception, candidate.Props, candidate.Instance, null, hero.Instance);
+                notified++;
+            }
+
+            Logger.Log($"[HeroWeapon] {oldState} -> {newState}: {perception} sent to {notified} NPC(s)", LogCat.Fight);
+        }
+
+        public bool IsArmedWeaponState(VmGothicEnums.WeaponState state)
+        {
+            return state is not (VmGothicEnums.WeaponState.NoWeapon or VmGothicEnums.WeaponState.Fist);
+        }
+
         public void ExtSetRefuseTalk(NpcInstance self, int refuseSeconds)
         {
             self.GetUserData().Props.RefuseTalkTimer = refuseSeconds;

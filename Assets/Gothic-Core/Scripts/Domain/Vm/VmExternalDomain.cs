@@ -235,6 +235,9 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
+            // G1 uses it too (B_AssessFighter, ZS_AssessMagic, ...).
+            vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
+            vm.RegisterExternal<int, NpcInstance>("Npc_IsInCutscene", Npc_IsInCutscene);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
@@ -251,7 +254,6 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.GameVersion == GameVersion.Gothic2)
             {
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
-                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
                 vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
                 vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
                 // G2 portal/room system — outdoor areas have no portals so all return GIL_NONE (0).
@@ -1333,12 +1335,26 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_GetActiveSpell), ret, npc);
         }
 
+        /// <summary>
+        /// We don't play engine cutscenes (.CS files), so no NPC is ever in one.
+        /// </summary>
+        public int Npc_IsInCutscene(NpcInstance npc)
+        {
+            return LogInstantExternal(nameof(Npc_IsInCutscene), 0, npc);
+        }
+
         public int Npc_GetActiveSpellCat(NpcInstance npc)
         {
             var container = npc.GetUserData();
-            // -1 = not casting; 2 = SPELL_BAD (offensive). VR hero casts via dual-grab rune;
-            // ActiveSpell is set in VRRuneCaster.Start() and cleared in OnDestroy().
-            var ret = (container?.ActiveSpell ?? 0) != 0 ? 2 : -1;
+
+            // -1 = no spell readied. ActiveSpell can't tell on its own: 0 is both "none" and SPL_LIGHT.
+            // FightMode Mage is set by AI_ReadySpell (NPCs) and a readied rune in VR (hero).
+            if (container == null || (VmGothicEnums.WeaponState)container.Vob.FightMode != VmGothicEnums.WeaponState.Mage)
+                return LogInstantExternal(nameof(Npc_GetActiveSpellCat), -1, npc);
+
+            // SPELL_GOOD=0 / SPELL_NEUTRAL=1 / SPELL_BAD=2 from the spell's C_Spell instance (e.g. Light is neutral).
+            // Unknown spell data -> treat as offensive, as before.
+            var ret = _vmCacheService.TryGetSpellData(container.ActiveSpell)?.SpellType ?? 2;
             return LogInstantExternal(nameof(Npc_GetActiveSpellCat), ret, npc);
         }
 

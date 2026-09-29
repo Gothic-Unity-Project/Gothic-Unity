@@ -5,6 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Models.Vob;
@@ -28,9 +29,12 @@ namespace Gothic.VR.Services
 
         [Inject] private AudioService _audioService;
         [Inject] private PlayerService _playerService;
+        [Inject] private NpcAiService _npcAiService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
+
+        private bool _isRuneReadied;
 
         public void Init()
         {
@@ -54,6 +58,8 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon grabbed with another hand.
                 _secondAttackDomain.TryHandle(vobContainer, weaponConfig, handSide, heroContainer);
             }
+
+            UpdateHeroWeaponState();
         }
 
         public void OnReleased(HVRHandSide handSide, WeaponPhysicsConfig weaponConfig)
@@ -63,6 +69,35 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon released from another hand.
                 _secondAttackDomain.TryUnHandle(weaponConfig, handSide);
             }
+
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Called by VRRuneCaster (rune dual-grabbed / released). Can't be derived from hero.ActiveSpell,
+        /// as spell ID 0 (SPL_LIGHT) is the same as "no spell".
+        /// </summary>
+        public void SetRuneReadied(bool isReadied)
+        {
+            _isRuneReadied = isReadied;
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
+        /// melee weapon in any hand > readied rune (VRRuneCaster sets hero.ActiveSpell) > nothing.
+        /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
+        /// </summary>
+        public void UpdateHeroWeaponState()
+        {
+            var state = _firstAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon && _isRuneReadied)
+                state = VmGothicEnums.WeaponState.Mage;
+            // TODO - Bows/crossbows (WeaponState.Bow/CBow) once VR ranged combat exists.
+
+            _npcAiService.ExtSetHeroWeaponState(state);
         }
 
         public void PlayDrawSound(VobContainer weapon)

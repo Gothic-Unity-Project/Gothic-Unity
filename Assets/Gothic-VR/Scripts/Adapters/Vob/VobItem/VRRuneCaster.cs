@@ -49,6 +49,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly VRWeaponService _vrWeaponService;
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
@@ -95,6 +96,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hero != null)
                 hero.ActiveSpell = _item.Spell;
 
+            // Readied rune == FMODE_MAGIC for Daedalus (B_AssessFighter checks Npc_IsInFightMode + Npc_GetActiveSpellCat).
+            _vrWeaponService.SetRuneReadied(true);
+
             ShowManaBar();
         }
 
@@ -103,6 +107,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             if (hero != null)
                 hero.ActiveSpell = 0;
+
+            // Only if Start() readied it (no item -> never readied).
+            if (_item != null)
+                _vrWeaponService.SetRuneReadied(false);
 
             _isTargeting = false;
             _vrPlayerService.DeactivateSpellTargeting();

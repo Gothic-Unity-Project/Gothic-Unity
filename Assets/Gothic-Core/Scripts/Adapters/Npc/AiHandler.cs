@@ -271,6 +271,12 @@ namespace Gothic.Core.Adapters.Npc
             if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false))
             {
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
+
+                // Active perception: hero is sensed while holding a weapon (FightMode set by NpcAiService.ExtSetHeroWeaponState).
+                // B_AssessFighter itself checks the distance (HAI_DIST_MELEE/RANGED) and attitude.
+                var heroWeaponState = (VmGothicEnums.WeaponState)hero.GetUserData().Vob.FightMode;
+                if (_npcAiService.IsArmedWeaponState(heroWeaponState))
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance, null, hero);
             }
 
             // Snapshot before UpdateEnemyNpc below can assign a fresh target this tick — gates

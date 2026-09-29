@@ -242,7 +242,15 @@ namespace Gothic.VR.Domain.Player
 
             // FIXME - Combo settings for hero with more skills are in overlay mds (e.g., HUMANS_1HST2.mds) Use for improved weapon handling.
             var mds = _resourceCacheService.TryGetModelScript("Humans");
-            return mds?.Animations.First(i => i.Name.EqualsIgnoreCase(attackAnimationName));
+            return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(attackAnimationName));
+        }
+
+        public VmGothicEnums.WeaponState GetWeaponState()
+        {
+            if (WeaponVobContainer == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            return Is2HD() ? VmGothicEnums.WeaponState.W2H : VmGothicEnums.WeaponState.W1H;
         }
 
         private bool Is2HD()
