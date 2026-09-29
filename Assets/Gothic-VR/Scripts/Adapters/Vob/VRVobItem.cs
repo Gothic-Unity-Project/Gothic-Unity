@@ -103,6 +103,7 @@ namespace Gothic.VR.Adapters.Vob
             {
                 TryShowDocument();
                 TryCastSpell();
+                TryPrepareItemUse();
             }
         }
 
@@ -137,6 +138,10 @@ namespace Gothic.VR.Adapters.Vob
                     if (child.name == "_DocCanvas")
                         Destroy(child.gameObject);
                 }
+
+                var itemUser = GetComponent<Adapters.Vob.VobItem.VRItemUser>();
+                if (itemUser != null)
+                    Destroy(itemUser);
 
                 var caster = GetComponent<Adapters.Vob.VobItem.VRRuneCaster>();
                 if (caster != null)
@@ -203,6 +208,19 @@ namespace Gothic.VR.Adapters.Vob
 
             if (GetComponent<Adapters.Vob.VobItem.VRRuneCaster>() == null)
                 gameObject.AddComponent<Adapters.Vob.VobItem.VRRuneCaster>();
+        }
+
+        /// <summary>
+        /// Items with a "use" function (on_state[0]) like pouches. VRItemUser waits for the trigger while dual-grabbed.
+        /// </summary>
+        private void TryPrepareItemUse()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (!Adapters.Vob.VobItem.VRItemUser.IsUsable(item))
+                return;
+
+            if (GetComponent<Adapters.Vob.VobItem.VRItemUser>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRItemUser>();
         }
 
         /// <summary>
