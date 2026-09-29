@@ -294,7 +294,8 @@ namespace Gothic.Core.Services.Npc
 
         public NpcContainer GetHeroContainer()
         {
-            return ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData();
+            // Hero doesn't exist yet in menus / during boot. Callers (e.g. StatusBarAdapter.Update) poll until it does.
+            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
         }
 
         public void SyncHeroInstanceToVob()

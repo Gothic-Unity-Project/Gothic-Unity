@@ -205,8 +205,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             if (vobLoader == null || vobLoader.Container == null)
                 return;
 
-            var vobItem = vobLoader.Container.VobAs<IItem>();
-            if (vobItem == null)
+            // Any VOB can enter the trigger (not only items) - VobAs<IItem>() would throw an InvalidCastException.
+            if (vobLoader.Container.Vob is not IItem vobItem)
                 return;
 
             var itemInstance = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
