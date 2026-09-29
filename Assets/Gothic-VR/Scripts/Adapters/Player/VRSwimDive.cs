@@ -109,23 +109,26 @@ namespace Gothic.VR.Adapters.Player
                     return;
                 }
 
+                // A mod's Humans.mds can be missing an animation entry or its sound effect event entirely
+                // (malformed/unsupported MDS syntax) - look it up defensively instead of crashing the
+                // ZenKitBootstrapped listener chain (which would also abort every listener after this one).
+                SfxModel FindSwimSfx(string animName)
+                {
+                    var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                    var sfxName = anim?.SoundEffects.FirstOrDefault()?.Name;
+                    if (sfxName == null)
+                    {
+                        Logger.LogWarning($"Humans.mds: '{animName}' animation or its sound effect is missing.", LogCat.VR);
+                        return null;
+                    }
+                    return _vmCacheService.TryGetSfxData(sfxName);
+                }
+
                 // FIXME - In G1, there are different sounds for SwimBack, Sideways, and Forward
-                var swimAnim = mds.Animations.First(i => i.Name.EqualsIgnoreCase("s_SwimF"));
-                var swimSfxName = swimAnim.SoundEffects.First().Name;
-                _sfxSwimSound = _vmCacheService.TryGetSfxData(swimSfxName)!;
-                
-                var diveAnim = mds.Animations.First(i => i.Name.EqualsIgnoreCase("s_DiveF"));
-                var diveSfxName = diveAnim.SoundEffects.First().Name;
-                _sfxDiveSound = _vmCacheService.TryGetSfxData(diveSfxName)!;
-
-
-                var swim2DiveAnim = mds.Animations.First(i => i.Name.EqualsIgnoreCase("t_Swim_2_Dive"));
-                var swim2DiveSfxName = swim2DiveAnim.SoundEffects.First().Name;
-                _sfxSwim2DiveSound = _vmCacheService.TryGetSfxData(swim2DiveSfxName)!;
-                
-                var swim2HangAnim = mds.Animations.First(i => i.Name.EqualsIgnoreCase("t_Swim_2_Hang"));
-                var swim2HangSfxName = swim2HangAnim.SoundEffects.First().Name;
-                _sfxSwim2HangSound = _vmCacheService.TryGetSfxData(swim2HangSfxName);
+                _sfxSwimSound = FindSwimSfx("s_SwimF");
+                _sfxDiveSound = FindSwimSfx("s_DiveF");
+                _sfxSwim2DiveSound = FindSwimSfx("t_Swim_2_Dive");
+                _sfxSwim2HangSound = FindSwimSfx("t_Swim_2_Hang");
 
                 // FIXME - Bubbles are too big on screen. Needs more love.
                 // Bubble settings

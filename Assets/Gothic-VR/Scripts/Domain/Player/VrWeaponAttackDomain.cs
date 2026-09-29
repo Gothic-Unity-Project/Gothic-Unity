@@ -76,6 +76,10 @@ namespace Gothic.VR.Domain.Player
 
         private AttackWindowStateMachine _stateMachine;
 
+        // Vanilla-like timings (seconds), used when a mod's Humans.mds provides no usable attack events.
+        private static readonly (float attackWindowTime, float comboWindowStart, float comboWindowTime) FallbackWindowTimes
+            = (0.4f, 0.5f, 0.4f);
+
         /// <summary>
         /// TRUE, when:
         ///   1. No weapon used by this handler so far
@@ -91,26 +95,40 @@ namespace Gothic.VR.Domain.Player
             // First time grabbing this weapon.
             if (WeaponVobContainer == null)
             {
-                WeaponVobContainer = vobContainer;
-                _weaponRigidbody = vobContainer.Go.GetComponentInChildren<Rigidbody>();
-
+                // Resolve everything first. Assign state only afterward, so a failure can't leave us half-initialized.
                 _attackVelocityThreshold = weaponConfig.WeaponVelocityThreshold;
                 _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
+
+                WeaponVobContainer = vobContainer;
                 var attackAnimation = GetAttackAnimation();
+                var windowTimes = FallbackWindowTimes;
+
                 if (attackAnimation == null)
                 {
-                    Logger.LogError("Humans.mds failed to load or parse. Weapon attack handling is unavailable.", LogCat.VR);
-                    return false;
+                    // Mods (or a broken Humans.mds parse) can lack the animation. Attacking must still work.
+                    Logger.LogError("Humans.mds attack animation not found. Using default attack window timings.", LogCat.VR);
+                    _swingSwordSound = null;
                 }
-                var (attackWindowTime, comboWindowStart, comboWindowTime) = CalculateWindowTimes(attackAnimation);
-                CalculateAttackSound(attackAnimation);
+                else
+                {
+                    var calculated = CalculateWindowTimes(attackAnimation);
+                    if (calculated.attackWindowTime > 0f)
+                        windowTimes = calculated;
+                    else
+                        Logger.LogError($"Attack animation >{attackAnimation.Name}< has unusable events. Using default attack window timings.", LogCat.VR);
+
+                    CalculateAttackSound(attackAnimation);
+                }
+
+                _weaponRigidbody = vobContainer.Go.GetComponentInChildren<Rigidbody>();
 
                 _velocityCheckDuration = weaponConfig.VelocityCheckDuration;
                 _velocitySampleCount = weaponConfig.VelocitySampleCount;
 
                 _velocityDropThreshold = _attackVelocityThreshold * (1f - _velocityDropPercentage);
 
-                _stateMachine = new AttackWindowStateMachine(playerNpcContainer, attackWindowTime, comboWindowStart, comboWindowTime);
+                _stateMachine = new AttackWindowStateMachine(playerNpcContainer, windowTimes.attackWindowTime,
+                    windowTimes.comboWindowStart, windowTimes.comboWindowTime);
             }
 
             if (handSide == HVRHandSide.Left)
@@ -274,7 +292,11 @@ namespace Gothic.VR.Domain.Player
             var soundAttack = attackAnim.SoundEffects.FirstOrDefault();
 
             if (soundAttack == null)
+            {
+                Logger.LogWarning($"Humans.mds: '{attackAnim.Name}' has no sound effect. Weapon swing will be silent.",
+                    LogCat.VR);
                 return;
+            }
 
             _swingSwordSound = _vmCacheService.TryGetSfxData(soundAttack.Name);
             _soundPlayTime = soundAttack.Frame / attackAnim.Fps;
@@ -383,6 +405,11 @@ namespace Gothic.VR.Domain.Player
                 return;
 
             _soundPlayed = true;
+
+            // A mod's Humans.mds can be missing the swing sound effect on this attack animation.
+            if (_swingSwordSound == null)
+                return;
+
             SFXPlayer.Instance.PlaySFX(_audioService.CreateAudioClip(_swingSwordSound.GetRandomSound()), _weaponRigidbody.position);
         }
 
