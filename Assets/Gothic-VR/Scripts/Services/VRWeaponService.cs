@@ -162,7 +162,8 @@ namespace Gothic.VR.Services
             else if (_secondAttackDomain.GetOwner() == combatant)
                 weapon = _secondAttackDomain.WeaponVobContainer;
 
-            if (weapon == null)
+            // Go can already be destroyed (Unity null). Throwing here would abort HVR's release chain.
+            if (weapon?.Go == null)
                 return;
 
             var weaponAdapter = weapon.Go.GetComponentInChildren<WeaponAdapter>();
