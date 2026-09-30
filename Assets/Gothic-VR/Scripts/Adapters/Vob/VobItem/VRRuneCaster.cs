@@ -51,6 +51,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
@@ -176,6 +178,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _isCasting = true;
                 _manaInvested = 0;
                 _manaTickTimer = _manaTickInterval;
+
+                // Like the engine: NPCs notice the casting (B_AssessCaster -> reacts to offensive spells only).
+                if (_configService.Dev.EnableCasterPerception)
+                    _npcAiService.SendHeroCasterPerception();
                 Logger.Log($"[VRRuneCaster] Cast confirmed — target={_spellTarget?.Instance?.GetName(NpcNameSlot.Slot0) ?? "none"}", LogCat.VR);
             }
             else if (triggered && _isCasting && _manaInvested > 0)

@@ -394,6 +394,15 @@ namespace Gothic.Core.Models.Config
         [Tooltip("When the hero gets knocked out, weapons held in VR hands are dropped (vanilla: hero drops readied weapon).")]
         public bool EnableHeroDropsWeaponsOnKnockout = true;
 
+        [Tooltip("Clear an NPC's perceptions when its routine/state changes, like the engine (changes AI of all NPCs). " +
+                 "Fixes NPCs keeping ZS_AssessFighter perceptions after AI_ContinueRoutine ($WISEMOVE on every " +
+                 "weapon/rune removal). The new state's ZS_ init re-enables its own perceptions.")]
+        public bool EnableRoutinePerceptionReset = true;
+
+        [Tooltip("When the hero starts casting (mana investment), nearby NPCs get PERC_ASSESSCASTER like in the engine. " +
+                 "B_AssessCaster only reacts to offensive (SPELL_BAD) spells.")]
+        public bool EnableCasterPerception = true;
+
 
         [Separator("TODO TEST ME V1s and MVPs", true)]
         [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
@@ -408,5 +417,12 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Daedalus EquipItem() applies protection[] + on_equip like the engine. Without it, NPC armor " +
                  "(and the hero's script-equipped starting armor) protects nothing. Changes NPC combat balance!")]
         public bool EnableScriptEquipEffects = true;
+
+        [Tooltip("V1: Mobs used with a melee tool + onStateFunc (G2 treasure X marks, pickaxe) are dug up by hitting " +
+                 "them 3 times with a swung melee weapon -> calls [onStateFunc]_S1 like the engine.")]
+        public bool EnableDigSpots = true;
+
+        [Tooltip("Dig spots only react to their own tool (vanilla: pickaxe). Off = any melee weapon (easier testing).")]
+        public bool DigSpotsRequireTool;
     }
 }

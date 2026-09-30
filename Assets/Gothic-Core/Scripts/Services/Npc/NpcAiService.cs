@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
@@ -1043,8 +1044,36 @@ namespace Gothic.Core.Services.Npc
             var perception = isArmed
                 ? VmGothicEnums.PerceptionType.DrawWeapon
                 : VmGothicEnums.PerceptionType.AssessRemoveWeapon;
+            var notified = BroadcastHeroPassivePerception(hero, perception, out var notifiedNpcs);
+
+            Logger.Log($"[HeroWeapon] {oldState} -> {newState}: {perception} sent to {notified} NPC(s) " +
+                       $"{string.Join(", ", notifiedNpcs)}", LogCat.Fight);
+        }
+
+        /// <summary>
+        /// The hero casts a spell (starts investing mana): passive PERC_ASSESSCASTER to nearby NPCs, like the engine.
+        /// B_AssessCaster only reacts to SPELL_BAD spells (-> ZS_AssessFighter), friends and non-players are ignored.
+        /// </summary>
+        public void SendHeroCasterPerception()
+        {
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            if (hero?.Go == null)
+                return;
+
+            var notified = BroadcastHeroPassivePerception(hero, VmGothicEnums.PerceptionType.AssessCaster, out var notifiedNpcs);
+            Logger.Log($"[HeroCast] AssessCaster sent to {notified} NPC(s) {string.Join(", ", notifiedNpcs)}", LogCat.Fight);
+        }
+
+        /// <summary>
+        /// Passive perception from the hero to every nearby NPC which registered it (range: Perc_SetRange, capped by
+        /// the NPC's senses_range). Returns the count, plus "Name[ZS_..._LOOP]" entries for diagnostics.
+        /// </summary>
+        private int BroadcastHeroPassivePerception(NpcContainer hero, VmGothicEnums.PerceptionType perception,
+            out List<string> notifiedNpcs)
+        {
             var heroPos = hero.Go.transform.position;
             var notified = 0;
+            notifiedNpcs = new List<string>();
 
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
@@ -1058,11 +1087,16 @@ namespace Gothic.Core.Services.Npc
                 var range = Mathf.Min(_npcHelperService.GetPerceptionRange(perception), candidate.Instance.SensesRange / 100f);
                 if (Vector3.Distance(candidate.Go.transform.position, heroPos) > range) continue;
 
+                // Diagnostics: which NPC in which state got it (e.g. an NPC stuck in ZS_AssessFighter answering every
+                // weapon/rune removal with $WISEMOVE).
+                var stateName = _gameStateService.GothicVm.GetSymbolByIndex(candidate.Props.StateLoop)?.Name ?? "?";
+                notifiedNpcs.Add($"{candidate.Instance.GetName(NpcNameSlot.Slot0)}[{stateName}]");
+
                 ExecutePerception(perception, candidate.Props, candidate.Instance, null, hero.Instance);
                 notified++;
             }
 
-            Logger.Log($"[HeroWeapon] {oldState} -> {newState}: {perception} sent to {notified} NPC(s)", LogCat.Fight);
+            return notified;
         }
 
         public bool IsArmedWeaponState(VmGothicEnums.WeaponState state)

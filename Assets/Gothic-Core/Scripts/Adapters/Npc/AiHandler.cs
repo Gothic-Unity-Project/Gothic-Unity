@@ -433,6 +433,12 @@ namespace Gothic.Core.Adapters.Npc
 
             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
 
+            // Engine (OpenGothic Npc::startState): every state change disables all perceptions, the new ZS_ init
+            // re-enables its own. Only StartState.cs did it so far - AI_ContinueRoutine / back-to-routine kept e.g.
+            // ZS_AssessFighter's PERC_ASSESSREMOVEWEAPON, so the NPC answered every later weapon/rune removal with $WISEMOVE.
+            if (didRoutineChange && _configService.Dev.EnableRoutinePerceptionReset)
+                Properties.Perceptions.Clear();
+
             // We need to properly start state time as e.g. ZS_Cook won't call AI_StartState() or Npc_SetStateTime()
             // But it's required as it checks immediately how long the Cauldron is already been whirled.
             Properties.IsStateTimeActive = true;
