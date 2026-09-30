@@ -5,15 +5,20 @@ using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Models.Vob;
 using Gothic.Core.Extensions;
+using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Utils;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services
 {
@@ -30,6 +35,7 @@ namespace Gothic.VR.Services
         [Inject] private AudioService _audioService;
         [Inject] private PlayerService _playerService;
         [Inject] private NpcAiService _npcAiService;
+        [Inject] private ConfigService _configService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -41,6 +47,31 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.FightWindowAttack.AddListener(OnAttackWindowStart);
             GlobalEventDispatcher.FightWindowInitial.AddListener(OnAttackWindowEnd);
+            GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
+        }
+
+        /// <summary>
+        /// MVP (DeveloperConfig.EnableHeroDropsWeaponsOnKnockout): vanilla drops the hero's readied weapon when knocked out.
+        /// In VR we let the hands drop every melee weapon they hold. Release events handle the rest (attack domain, flags).
+        /// </summary>
+        private void OnHeroKnockedOut(NpcContainer hero)
+        {
+            if (!_configService.Dev.EnableHeroDropsWeaponsOnKnockout)
+                return;
+
+            foreach (var hand in Object.FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None))
+            {
+                var grabbed = hand.GrabbedTarget;
+                if (grabbed == null)
+                    continue;
+
+                var item = grabbed.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
+                if (item == null || item.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+                    continue;
+
+                Logger.Log($"[VRWeaponService] Hero knocked out - dropping '{item.Name}' from {hand.HandSide} hand.", LogCat.VR);
+                hand.ForceRelease();
+            }
         }
 
         public void FixedUpdate()

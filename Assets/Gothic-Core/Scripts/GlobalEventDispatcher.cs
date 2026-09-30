@@ -90,6 +90,11 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer> FightFinishingMove = new();
 
+        /// <summary>
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick

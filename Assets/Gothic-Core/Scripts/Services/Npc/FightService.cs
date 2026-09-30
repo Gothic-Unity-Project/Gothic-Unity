@@ -501,6 +501,8 @@ namespace Gothic.Core.Services.Npc
                     _npcAiService.ExtAiUndrawWeapon(candidate.Instance);
             }
 
+            GlobalEventDispatcher.HeroKnockedOut.Invoke(hero);
+
             _unityMonoService.StartCoroutine(KnockoutRecovery(hero));
         }
 
