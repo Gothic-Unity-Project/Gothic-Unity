@@ -30,6 +30,10 @@ namespace Gothic.Core.Services.World
         public string CurrentRoutine;
         public string CurrentFreePointName; // name of the FP the NPC held when last snapshotted
         public bool IsDead;             // true if HP was 0 at snapshot time
+        public int[] Protection;        // PROT_* 0-7 incl. worn armor. Null in older saves.
+        // Daedalus symbol names. On load the NPC's INIT re-equips its default gear (EquipItem/Mdl_SetVisualBody),
+        // this list replaces it - e.g. a looted sword stays gone. Null in older saves.
+        public List<string> EquippedItems;
     }
 
     public class HeroInventoryEntry
@@ -57,6 +61,13 @@ namespace Gothic.Core.Services.World
 
         // Hero inventory — full packed inventory snapshot (all categories)
         public List<HeroInventoryEntry> HeroInventory;
+
+        // Hero protection (PROT_* indices 0-7) - the total incl. worn armor/amulets. Null in older saves.
+        public int[] HeroProtection;
+
+        // Daedalus symbol names of the hero's equipped items (Props.EquippedItems isn't part of the ZenKit save).
+        // Restored without re-applying effects, as HeroProtection/HeroAttributes already contain them. Null in older saves.
+        public List<string> HeroEquippedItems;
 
         // Guild attitude matrix — flat int[] indexed as [guild1 * GuildCount + guild2]
         public int[] GuildAttitudes;

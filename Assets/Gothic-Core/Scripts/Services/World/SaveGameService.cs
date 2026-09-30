@@ -75,6 +75,10 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameTimeService _gameTimeService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+
+        // PROT_INDEX_MAX in G1/G2 constants.d.
+        private const int ProtectionCount = 8;
 
         // NpcInventoryService intentionally NOT injected — VobService already injects SaveGameService,
         // so injecting NpcInventoryService (which injects VobService) here would create a circular dependency.
@@ -524,6 +528,8 @@ namespace Gothic.Core.Services.World
                 HeroExpNext = vob.XpNextLevel,
                 HeroLp = vob.Lp,
                 HeroInventory = heroInventory,
+                HeroProtection = Enumerable.Range(0, ProtectionCount).Select(i => vob.GetProtection(i)).ToArray(),
+                HeroEquippedItems = GetEquippedSymbolNames(heroContainer),
                 GuildAttitudes = _gameStateService.GuildAttitudes != null
                     ? (int[])_gameStateService.GuildAttitudes.Clone()
                     : null
@@ -701,6 +707,13 @@ namespace Gothic.Core.Services.World
                 Logger.Log($"ApplyHeroRestore: restored {restored}/{data.HeroInventory.Count} inventory entries", LogCat.Loading);
             }
 
+            // Protection + equipped items: hero init (INIT/Mdl_SetVisualBody/EquipItem) just equipped the instance's
+            // default gear with effects. Replace both with the saved state - no re-applying, the saved protection and
+            // attributes already include everything that was worn.
+            RestoreEquipment(heroContainer, data.HeroProtection, data.HeroEquippedItems);
+            Logger.Log($"ApplyHeroRestore: equipped items={heroContainer.Props.EquippedItems.Count}, " +
+                       $"protection={string.Join(",", data.HeroProtection ?? Array.Empty<int>())}", LogCat.Loading);
+
             // Restore guild attitude matrix so faction changes (e.g. joining a camp) persist.
             if (data.GuildAttitudes != null && _gameStateService.GuildAttitudes != null &&
                 data.GuildAttitudes.Length == _gameStateService.GuildAttitudes.Length)
@@ -744,7 +757,48 @@ namespace Gothic.Core.Services.World
             return npc.Vob.NpcInstance;
         }
 
-        private static NpcSaveEntry CreateNpcSnapshot(string key, NpcContainer npc)
+        /// <summary>
+        /// ItemInstance.Name is the display name - store the Daedalus symbol name.
+        /// </summary>
+        private List<string> GetEquippedSymbolNames(NpcContainer npc)
+        {
+            return npc.Props.EquippedItems
+                .Select(i => _gameStateService.GothicVm.GetSymbolByIndex(i.Index)?.Name)
+                .Where(i => !string.IsNullOrEmpty(i))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Replaces what INIT just equipped (EquipItem / Mdl_SetVisualBody, incl. their effects) with the saved state.
+        /// No effects are re-applied: the saved protection/attributes already contain everything that was worn.
+        /// Older saves without the data keep the INIT result.
+        /// </summary>
+        private void RestoreEquipment(NpcContainer npc, int[] protection, List<string> equippedItems)
+        {
+            if (protection != null)
+            {
+                for (var i = 0; i < protection.Length && i < ProtectionCount; i++)
+                {
+                    npc.Instance.SetProtection((DamageType)i, protection[i]);
+                    npc.Vob.SetProtection(i, protection[i]);
+                }
+            }
+
+            if (equippedItems == null)
+                return;
+
+            npc.Props.EquippedItems.Clear();
+            foreach (var itemName in equippedItems)
+            {
+                var item = _vmCacheService.TryGetItemData(itemName);
+                if (item != null)
+                    npc.Props.EquippedItems.Add(item);
+                else
+                    Logger.LogWarning($"RestoreEquipment: equipped item '{itemName}' not found in VM, skipping", LogCat.Loading);
+            }
+        }
+
+        private NpcSaveEntry CreateNpcSnapshot(string key, NpcContainer npc)
         {
             var pos = npc.Go.transform.position;
             var rot = npc.Go.transform.rotation;
@@ -764,16 +818,20 @@ namespace Gothic.Core.Services.World
                 CurrentStateName = vob.CurrentStateName ?? "",
                 CurrentRoutine = vob.CurrentRoutine ?? "",
                 CurrentFreePointName = npc.Props.CurrentFreePoint?.Name,
-                IsDead = isDead
+                IsDead = isDead,
+                Protection = Enumerable.Range(0, ProtectionCount).Select(i => vob.GetProtection(i)).ToArray(),
+                EquippedItems = GetEquippedSymbolNames(npc)
             };
         }
 
-        private static void ApplyNpcSavedState(NpcContainer npc, NpcSaveEntry entry)
+        private void ApplyNpcSavedState(NpcContainer npc, NpcSaveEntry entry)
         {
             var vob = npc.Vob;
             if (entry.Attributes != null)
                 for (var i = 0; i < entry.Attributes.Length && i < 8; i++)
                     vob.SetAttribute(i, entry.Attributes[i]);
+
+            RestoreEquipment(npc, entry.Protection, entry.EquippedItems);
 
             if (npc.Go != null && entry.Position != null)
             {
