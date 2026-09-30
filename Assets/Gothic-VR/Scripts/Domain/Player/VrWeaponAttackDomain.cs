@@ -431,6 +431,10 @@ namespace Gothic.VR.Domain.Player
 
         private void HandleInitialWindow()
         {
+            // An unconscious hero can still swing a weapon picked up again - but it's no attack.
+            if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
+
             if (_currentWeaponVelocity >= _attackVelocityThreshold)
                 StartAttack();
         }

@@ -11,6 +11,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -135,6 +136,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void Update()
         {
             if (_item == null || _castThisGrab) return;
+
+            // No casting while knocked out.
+            if (_npcService.GetHeroContainer()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
 
             bool triggered;
             if (_vrPlayerService.VRPlayerInputs.UseWASD)
