@@ -265,15 +265,15 @@ namespace Gothic.Core.Services.Npc
 
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)
         {
-            var props = GetProperties(npc);
-
-            // FIXME - this is related to overlays for the npc's
-            return 0;
+            // Was a stub returning 0 - every script asking for a talent level got "none". E.g. Mroczne Tajemnice's
+            // teachers (B_GiveprocentSkill) then reset a master's 1H rank to "Nowy". Same storage as Npc_SetTalentSkill.
+            // FIXME - skill levels should also drive the fight overlays (like OpenGothic does).
+            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Skill ?? 0;
         }
 
         public int ExtNpcGetTalentValue(NpcInstance npc, int skillId)
         {
-            return GetContainer(npc).Vob.GetTalent(skillId).Value;
+            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Value ?? 0;
         }
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)

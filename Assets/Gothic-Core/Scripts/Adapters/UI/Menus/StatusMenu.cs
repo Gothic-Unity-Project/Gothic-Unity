@@ -2,12 +2,16 @@ using System;
 using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
+using ZenKit;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.UI.Menus
@@ -38,6 +42,7 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly ConfigService _configService;
 
         private void Awake()
         {
@@ -116,10 +121,23 @@ namespace Gothic.Core.Adapters.UI.Menus
                 SetItemText(keySkill, skillFormatted);
                 // Optional: e.g. G1 shows hit chance / failure chance, mods often comment it out for some rows.
                 if (MenuItemCache.ContainsKey(keyDescription))
-                    SetItemText(keyDescription, $"{talent.Value}%");
+                    SetItemText(keyDescription, $"{GetTalentPercent(hero, i, talent.Value)}%");
             });
 
             Logger.Log($"[StatusMenu] Talents: count={vob.TalentCount}, titles={talentTitles.Count}, rows filled={filledRows}", LogCat.Ui);
+        }
+
+        /// <summary>
+        /// G2 keeps the weapon percentages (1H, 2H, bow, crossbow = talents 1-4) in C_NPC.hitchance[] (B_AddFightSkill),
+        /// not in the talent value. G1 and G1 mods (e.g. Mroczne Tajemnice) use the talent value (Npc_SetTalentValue).
+        /// </summary>
+        private int GetTalentPercent(NpcContainer hero, int talentIndex, int talentValue)
+        {
+            const int lastWeaponTalent = 4;
+            if (_configService.Dev.GameVersion == GameVersion.Gothic2 && talentIndex <= lastWeaponTalent)
+                return hero.Instance.GetHitChance((NpcTalent)talentIndex);
+
+            return talentValue;
         }
 
         /// <summary>
