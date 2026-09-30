@@ -4,8 +4,8 @@ using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Services.Config;
-using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
+using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -16,9 +16,9 @@ using ZenKit.Vobs;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and an item
-    /// in the other, a popup above the item shows what Gothic's inventory shows: description, amount and the
-    /// C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
+    /// V2 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and the other
+    /// hand holds an item (or hovers one inside the backpack), a popup above the item shows what Gothic's inventory
+    /// shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
     /// Added at runtime by VRBackpack.
     /// </summary>
     public class VRItemDetailsPopup : MonoBehaviour
@@ -26,16 +26,20 @@ namespace Gothic.VR.Adapters.Player
         // C_Item has 6 text[]/count[] rows.
         private const int _textRowCount = 6;
         private const float _canvasScale = 0.001f;
-        private const float _heightAboveItem = 0.18f;
+        private const float _heightAboveItem = 0.05f;
+        private const float _pullTowardsCamera = 0.15f;
+        // Max distance between the free hand's palm and a backpack slot item to show its popup.
+        private const float _hoverDistance = 0.12f;
         private const float _updateInterval = 0.1f;
 
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private HVRGrabbable _backpackGrabbable;
+        private HVRHandGrabber[] _hands;
         private GameObject _canvasGo;
         private TMP_Text _text;
         private GameObject _shownItem;
+        private Renderer[] _shownItemRenderers;
         private float _updateTimer;
 
 
@@ -47,6 +51,7 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             _backpackGrabbable = GetComponent<HVRGrabbable>();
+            _hands = FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None);
             BuildCanvas();
             _canvasGo.SetActive(false);
         }
@@ -70,16 +75,13 @@ namespace Gothic.VR.Adapters.Player
                 FollowItem();
         }
 
+        /// <summary>
+        /// Re-evaluated every tick (not only on change): the text refreshes e.g. the amount after eating from a stack,
+        /// and the popup hides as soon as HVR says the item isn't held/hovered anymore (e.g. stored in the backpack).
+        /// </summary>
         private void UpdateShownItem()
         {
-            GameObject item = null;
-            if (_configService.Dev.EnableItemDetailsPopup && _backpackGrabbable != null && _backpackGrabbable.IsHandGrabbed)
-                item = _vrPlayerService.GrabbedItemLeft != null ? _vrPlayerService.GrabbedItemLeft : _vrPlayerService.GrabbedItemRight;
-
-            if (item == _shownItem)
-                return;
-
-            _shownItem = item;
+            var item = FindItemToShow();
             if (item == null || !TrySetText(item))
             {
                 _shownItem = null;
@@ -87,7 +89,73 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
+            if (item != _shownItem)
+            {
+                _shownItem = item;
+                var root = item.GetComponentInParent<VobLoader>();
+                _shownItemRenderers = (root != null ? root.gameObject : item).GetComponentsInChildren<Renderer>();
+            }
+
             _canvasGo.SetActive(true);
+        }
+
+        /// <summary>
+        /// Backpack in one hand. The other hand either holds an item or hovers one inside the backpack's slots.
+        /// </summary>
+        private GameObject FindItemToShow()
+        {
+            if (!_configService.Dev.EnableItemDetailsPopup || _backpackGrabbable == null || !_backpackGrabbable.IsHandGrabbed)
+                return null;
+
+            foreach (var hand in _hands)
+            {
+                if (hand == null || hand.GrabbedTarget == _backpackGrabbable)
+                    continue;
+
+                var held = hand.GrabbedTarget;
+                if (held != null)
+                    return IsItem(held) ? held.gameObject : null;
+
+                var hovered = hand.HoverTarget;
+                if (hovered != null && hovered.transform.IsChildOf(transform) && IsItem(hovered))
+                    return hovered.gameObject;
+
+                // HVR doesn't report socketed backpack items as HoverTarget - fall back to the closest one near the palm.
+                var palm = hand.PhysicsPoser != null ? hand.Palm : null;
+                var near = FindBackpackItemNear(palm != null ? palm.position : hand.transform.position);
+                if (near != null)
+                    return near.gameObject;
+            }
+
+            return null;
+        }
+
+        private HVRGrabbable FindBackpackItemNear(Vector3 position)
+        {
+            HVRGrabbable closest = null;
+            var closestDistance = _hoverDistance;
+
+            foreach (var socket in GetComponentsInChildren<HVRSocket>())
+            {
+                var item = socket.GrabbedTarget;
+                if (item == null || !IsItem(item))
+                    continue;
+
+                var distance = Vector3.Distance(item.transform.position, position);
+                if (distance >= closestDistance)
+                    continue;
+
+                closestDistance = distance;
+                closest = item;
+            }
+
+            return closest;
+        }
+
+        private static bool IsItem(HVRGrabbable grabbable)
+        {
+            var container = grabbable.GetComponentInParent<VobLoader>()?.Container;
+            return container != null && container.Vob.Type == VirtualObjectType.oCItem;
         }
 
         private bool TrySetText(GameObject itemGo)
@@ -134,10 +202,36 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
+        /// <summary>
+        /// Placed above the item's rendered bounds (not its pivot) - big items like armor would cover it otherwise -
+        /// and pulled a bit towards the camera so it doesn't end up inside the item.
+        /// </summary>
         private void FollowItem()
         {
             var cam = Camera.main;
-            _canvasGo.transform.position = _shownItem.transform.position + Vector3.up * _heightAboveItem;
+            var anchor = _shownItem.transform.position;
+
+            if (_shownItemRenderers is { Length: > 0 })
+            {
+                var bounds = new Bounds();
+                var hasBounds = false;
+                foreach (var r in _shownItemRenderers)
+                {
+                    if (r == null || !r.enabled)
+                        continue;
+                    if (!hasBounds) { bounds = r.bounds; hasBounds = true; }
+                    else bounds.Encapsulate(r.bounds);
+                }
+
+                if (hasBounds)
+                    anchor = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            }
+
+            var position = anchor + Vector3.up * _heightAboveItem;
+            if (cam != null)
+                position += (cam.transform.position - position).normalized * _pullTowardsCamera;
+
+            _canvasGo.transform.position = position;
             if (cam != null)
                 _canvasGo.transform.rotation = Quaternion.LookRotation(_canvasGo.transform.position - cam.transform.position);
         }
