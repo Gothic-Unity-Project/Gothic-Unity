@@ -27,8 +27,132 @@ namespace Gothic.Core.Services.Npc
         {
             var props = npc.GetUserData().Props;
             var itemData = _vmCacheService.TryGetItemData(itemId);
-            
+
+            // The engine applies protection[] + on_equip for script equips too (OpenGothic: Inventory::setSlot -> applyArmor).
+            // Without it, every NPC's armor (and the hero's starting armor) protected nothing.
+            if (_configService.Dev.EnableScriptEquipEffects && itemData != null)
+            {
+                EquipItemWithEffects(npc, itemData);
+                return;
+            }
+
             props.EquippedItems.Add(itemData);
+        }
+
+        /// <summary>
+        /// Equip like the engine does: free the slot first (armor, amulet, belt, rings),
+        /// add the item's protection[] values and call its on_equip (e.g. amulet attribute bonuses).
+        /// </summary>
+        public void EquipItemWithEffects(NpcInstance npc, ItemInstance item)
+        {
+            var props = npc.GetUserData().Props;
+
+            foreach (var conflicting in GetConflictingEquippedItems(props.EquippedItems, item).ToList())
+                UnequipItemWithEffects(npc, conflicting);
+
+            props.EquippedItems.Add(item);
+            ApplyItemProtection(npc, item, 1);
+            CallItemFunction(npc, item, item.OnEquip);
+
+            Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} equipped '{item.Name}'", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// Counterpart of EquipItemWithEffects(). Returns false if the item wasn't equipped.
+        /// </summary>
+        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item)
+        {
+            var props = npc.GetUserData().Props;
+            var equipped = props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
+            if (equipped == null)
+                return false;
+
+            props.EquippedItems.Remove(equipped);
+            ApplyItemProtection(npc, equipped, -1);
+            CallItemFunction(npc, equipped, equipped.OnUnEquip);
+
+            Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} unequipped '{equipped.Name}'", LogCat.Npc);
+            return true;
+        }
+
+        public bool IsEquipped(NpcInstance npc, string itemInstanceName)
+        {
+            var item = _vmCacheService.TryGetItemData(itemInstanceName);
+            return item != null && npc.GetUserData().Props.EquippedItems.Any(i => i.Index == item.Index);
+        }
+
+        /// <summary>
+        /// Items with a body slot: one armor, one amulet, one belt, two rings.
+        /// </summary>
+        public static bool IsWearable(ItemInstance item)
+        {
+            return item != null &&
+                   (((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0 ||
+                    ((ItemFlags)item.Flags & (ItemFlags.ItemAmulet | ItemFlags.ItemRing | ItemFlags.ItemBelt)) != 0);
+        }
+
+        private static IEnumerable<ItemInstance> GetConflictingEquippedItems(List<ItemInstance> equippedItems, ItemInstance item)
+        {
+            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatArmor) != 0);
+
+            if (((ItemFlags)item.Flags & ItemFlags.ItemAmulet) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemAmulet) != 0);
+
+            if (((ItemFlags)item.Flags & ItemFlags.ItemBelt) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemBelt) != 0);
+
+            if (((ItemFlags)item.Flags & ItemFlags.ItemRing) != 0)
+            {
+                // Two ring slots: free the oldest one only when both are taken.
+                var rings = equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemRing) != 0).ToList();
+                return rings.Count >= 2 ? rings.Take(1) : Enumerable.Empty<ItemInstance>();
+            }
+
+            return Enumerable.Empty<ItemInstance>();
+        }
+
+        /// <summary>
+        /// Dual write (vob + instance) like ExtNpcChangeAttribute, otherwise CopyFromInstanceData would restore old values.
+        /// </summary>
+        private static void ApplyItemProtection(NpcInstance npc, ItemInstance item, int sign)
+        {
+            // The Vob can be missing while the NPC's instance is still being initialized. The instance is the source then
+            // (NpcProxy.CopyFromInstanceData copies it over afterward).
+            var vob = npc.GetUserData()?.Vob;
+            for (var i = 0; i < System.Enum.GetNames(typeof(DamageType)).Length; i++)
+            {
+                var delta = item.GetProtection((DamageType)i);
+                if (delta == 0)
+                    continue;
+
+                var newValue = npc.GetProtection((DamageType)i) + sign * delta;
+                npc.SetProtection((DamageType)i, newValue);
+                vob?.SetProtection(i, newValue);
+            }
+        }
+
+        private void CallItemFunction(NpcInstance npc, ItemInstance item, int function)
+        {
+            if (function <= 0)
+                return;
+
+            var vm = _gameStateService.GothicVm;
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = npc;
+            vm.GlobalItem = item;
+            try
+            {
+                vm.Call(function);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"[Equip] Item function {function} of '{item.Name}' failed: {e.Message}", LogCat.Npc);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
         }
         
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)

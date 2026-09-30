@@ -9,9 +9,14 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.ControllerInput;
+using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
@@ -35,7 +40,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     {
         private const string _useEndAnimationScheme = "t_{0}_S0_2_Stand";
 
-        // Handled elsewhere: equipping (weapons/armor/amulets), VRRuneCaster, VRDocViewer, VRMouth.
+        // Handled elsewhere: weapons, VRRuneCaster, VRDocViewer, VRMouth. Wearables only via Equip() (flag).
         private const int _notUsableCategories = (int)(VmGothicEnums.ItemFlags.ItemKatNf | VmGothicEnums.ItemFlags.ItemKatFf |
                                                        VmGothicEnums.ItemFlags.ItemKatMun | VmGothicEnums.ItemFlags.ItemKatArmor |
                                                        VmGothicEnums.ItemFlags.ItemKatFood | VmGothicEnums.ItemFlags.ItemKatDocs |
@@ -46,15 +51,26 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         private VobContainer _container;
         private ItemInstance _item;
         private bool _usedThisGrab;
 
 
-        public static bool IsUsable(ItemInstance item)
+        /// <param name="allowEquip">DeveloperConfig.EnableEquipItems - wearables (armor, amulets, rings, belts) get equipped.</param>
+        public static bool IsUsable(ItemInstance item, bool allowEquip)
         {
-            return item != null && item.GetOnState(0) != 0 && (item.MainFlag & _notUsableCategories) == 0;
+            if (item == null)
+                return false;
+
+            if (allowEquip && NpcInventoryService.IsWearable(item))
+                return true;
+
+            return item.GetOnState(0) != 0 && (item.MainFlag & _notUsableCategories) == 0;
         }
 
         private void Awake()
@@ -67,7 +83,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _container = GetComponentInParent<VobLoader>()?.Container;
             _item = _container?.PropsAs<VobItemProperties2>()?.Instance;
 
-            if (!IsUsable(_item))
+            if (!IsUsable(_item, _configService.Dev.EnableEquipItems))
             {
                 Destroy(this);
                 return;
@@ -97,6 +113,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Use()
         {
+            if (_configService.Dev.EnableEquipItems && NpcInventoryService.IsWearable(_item))
+            {
+                Equip();
+                return;
+            }
+
             var vm = _gameStateService.GothicVm;
             var oldSelf = vm.GlobalSelf;
             vm.GlobalSelf = vm.GlobalHero;
@@ -120,6 +142,35 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 Consume();
         }
 
+        /// <summary>
+        /// The worn item moves from the world (our hands) into the hero's inventory - like putting it into the backpack -
+        /// and gets equipped. Taking it out of the backpack again unequips it (VRBackpack).
+        /// </summary>
+        private void Equip()
+        {
+            var hero = _playerService.HeroContainer;
+            var vobItem = _container.VobAs<IItem>();
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+
+            // Items held in a hand already count as inventory (VRPlayerService.SetGrab/UnsetGrab). Release it first,
+            // which takes it out of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
+            ReleaseFromHands();
+
+            _saveGameService.UntrackLooseItem(_container);
+            _playerService.AddItem(instanceName, Mathf.Max(1, vobItem.Amount));
+            _npcInventoryService.EquipItemWithEffects(hero.Instance, _item);
+
+            // Destroys our GameObject (and this component).
+            _vobService.RemoveWorldItem(_container);
+        }
+
+        private void ReleaseFromHands()
+        {
+            var grabbable = GetComponent<HVRGrabbable>();
+            if (grabbable != null && grabbable.IsBeingHeld)
+                grabbable.ForceRelease();
+        }
+
         private bool IsConsumedOnUse()
         {
             if (string.IsNullOrEmpty(_item.SchemeName))
@@ -134,14 +185,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Consume()
         {
-            if (_container.Vob is IItem vobItem && vobItem.Amount > 1)
+            var item = _container.VobAs<IItem>();
+            var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+
+            if (item.Amount > 1)
             {
-                vobItem.Amount--;
-                Logger.Log($"[VRItemUser] {_item.Name} used, remaining={vobItem.Amount}", LogCat.VR);
+                item.Amount--;
+                // The held stack counts as inventory (added with its full amount on grab, removed with its then-current
+                // amount on release) - take the used one out now, or it stays in the inventory as a ghost.
+                var grabbable = GetComponent<HVRGrabbable>();
+                if (grabbable != null && grabbable.IsBeingHeld)
+                    _playerService.RemoveItem(instanceName, 1);
+
+                Logger.Log($"[VRItemUser] {_item.Name} used, remaining={item.Amount}", LogCat.VR);
                 return;
             }
 
             Logger.Log($"[VRItemUser] {_item.Name} used up", LogCat.VR);
+            // Release first (removes it from the inventory like any dropped item), then destroy.
+            ReleaseFromHands();
             _vobService.RemoveWorldItem(_container);
         }
     }

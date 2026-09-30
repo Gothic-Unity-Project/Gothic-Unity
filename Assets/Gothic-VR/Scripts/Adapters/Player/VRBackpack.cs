@@ -8,7 +8,10 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
+using Gothic.Core.Extensions;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
@@ -47,6 +50,9 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
+
+        private const string _equippedLabelName = "EquippedLabel";
 
         
         private void Start()
@@ -143,8 +149,24 @@ namespace Gothic.VR.Adapters.Player
             _saveGameService.TrackLooseItem(vobContainer);
 
             _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            UnequipIfLastOneTakenOut(vobContainer);
 
             UpdateInventoryView();
+        }
+
+        /// <summary>
+        /// Equipped items live in the backpack. Taking the last one of them out means taking it off.
+        /// </summary>
+        private void UnequipIfLastOneTakenOut(VobContainer vobContainer)
+        {
+            var item = vobContainer.GetItemInstance();
+            if (item == null)
+                return;
+
+            var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();
+            var stillOwned = _playerService.GetInventory(category).Any(i => i.Name.EqualsIgnoreCase(vobContainer.Vob.Name) && i.Amount > 0);
+            if (!stillOwned)
+                _npcInventoryService.UnequipItemWithEffects(_playerService.HeroContainer.Instance, item);
         }
         
         public void OnPrevPageClick()
@@ -193,6 +215,10 @@ namespace Gothic.VR.Adapters.Player
         private void UpdateInventoryView()
         {
             var inventory = _playerService.GetInventory(_selectedCategory);
+
+            // Equipped items first (stable order otherwise), so they're always on the first page with their [E] badge.
+            var hero = _playerService.HeroContainer.Instance;
+            inventory = inventory.OrderByDescending(i => _npcInventoryService.IsEquipped(hero, i.Name)).ToList();
 
             // Subtract amount of held items from inventory
             SubtractItemFromHand(inventory, _vrPlayerService.GrabbedItemLeft);
@@ -243,6 +269,10 @@ namespace Gothic.VR.Adapters.Player
         {
             foreach (var socket in _socketContainer.Sockets)
             {
+                var label = socket.transform.Find(_equippedLabelName);
+                if (label != null)
+                    Destroy(label.gameObject);
+
                 // Nothing inside socket
                 if (!socket.IsGrabbing)
                     continue;
@@ -273,8 +303,44 @@ namespace Gothic.VR.Adapters.Player
                 });
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
-                _socketContainer.TryAddGrabbable(vobContainer.Go.GetComponentInChildren<HVRGrabbable>());
+                var grabbable = vobContainer.Go.GetComponentInChildren<HVRGrabbable>();
+                _socketContainer.TryAddGrabbable(grabbable);
+
+                if (_npcInventoryService.IsEquipped(_playerService.HeroContainer.Instance, item.Name))
+                {
+                    var socket = _socketContainer.Sockets.FirstOrDefault(s => s.GrabbedTarget == grabbable);
+                    if (socket != null)
+                        AddEquippedLabel(socket.transform);
+                }
             }
+        }
+
+        /// <summary>
+        /// Same [E] badge as in the NPC loot panel (VRNpcLoot).
+        /// </summary>
+        private void AddEquippedLabel(Transform socket)
+        {
+            const float worldScale = 0.013f;
+            const float worldOffsetUp = 0.06f;
+
+            var labelGo = new GameObject(_equippedLabelName);
+            labelGo.transform.SetParent(socket, false);
+            labelGo.transform.position = socket.position + socket.up * worldOffsetUp;
+            labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
+
+            var tmp = labelGo.AddComponent<TextMeshPro>();
+            var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (font != null)
+                tmp.font = font;
+            tmp.text = "[E]";
+            tmp.fontSize = 12;
+            tmp.color = new Color(1f, 0.65f, 0f, 1f);
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            tmp.fontStyle = FontStyles.Bold;
+
+            // Always readable, however the backpack is held.
+            labelGo.AddComponent<Gothic.VR.Adapters.UI.VRBillboard>();
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)

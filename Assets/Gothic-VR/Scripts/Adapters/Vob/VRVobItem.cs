@@ -216,7 +216,7 @@ namespace Gothic.VR.Adapters.Vob
         private void TryPrepareItemUse()
         {
             var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
-            if (!Adapters.Vob.VobItem.VRItemUser.IsUsable(item))
+            if (!Adapters.Vob.VobItem.VRItemUser.IsUsable(item, _configService.Dev.EnableEquipItems))
                 return;
 
             if (GetComponent<Adapters.Vob.VobItem.VRItemUser>() == null)

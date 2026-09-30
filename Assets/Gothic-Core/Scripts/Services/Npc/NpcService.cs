@@ -257,7 +257,15 @@ namespace Gothic.Core.Services.Npc
             if (data.Armor >= 0)
             {
                 var armorData = _vmCacheService.TryGetItemData(data.Armor);
-                props.EquippedItems.Add(_vmCacheService.TryGetItemData(data.Armor));
+
+                // Mdl_SetVisualBody(..., armorInstance) equips the armor in the engine - incl. its protection.
+                // Most NPCs (and test heroes like PC_Rockefeller) get their armor this way, not via EquipItem().
+                // Same armor again (re-dressing): the slot conflict unequips + re-equips it, so nothing is doubled.
+                if (_configService.Dev.EnableScriptEquipEffects && armorData != null)
+                    _npcInventoryService.EquipItemWithEffects(data.Npc, armorData);
+                else
+                    props.EquippedItems.Add(armorData);
+
                 props.MdmName = armorData.VisualChange;
             }
             else

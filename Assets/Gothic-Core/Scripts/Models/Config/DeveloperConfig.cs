@@ -378,8 +378,8 @@ namespace Gothic.Core.Models.Config
         public bool HideHealthBar { get; internal set; }
 
 
-        [Separator("TODO TEST ME V1s and MVPs", true)]
-        [Tooltip("V1: While the backpack is held in a hand, its opening gently pulls nearby world items. " +
+        [Separator("VR gameplay", true)]
+        [Tooltip("While the backpack is held in a hand, its bottom opening gently pulls nearby world items. " +
                  "An item staying inside the opening for BackpackVacuumStoreSeconds gets stored.")]
         public bool EnableBackpackVacuum = true;
 
@@ -391,11 +391,22 @@ namespace Gothic.Core.Models.Config
         [Range(0.5f, 10f)]
         public float BackpackVacuumStoreSeconds = 3f;
 
-        [Tooltip("V1: Backpack in one hand + item in the other hand shows a popup with the item's name, amount " +
-                 "and Gothic inventory description (C_Item text[]/count[]).")]
+        [Tooltip("When the hero gets knocked out, weapons held in VR hands are dropped (vanilla: hero drops readied weapon).")]
+        public bool EnableHeroDropsWeaponsOnKnockout = true;
+
+
+        [Separator("TODO TEST ME V1s and MVPs", true)]
+        [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
+                 "with the item's name, amount and Gothic inventory description (C_Item text[]/count[]).")]
         public bool EnableItemDetailsPopup = true;
 
-        [Tooltip("MVP: When the hero gets knocked out, weapons held in VR hands are dropped (vanilla: hero drops readied weapon).")]
-        public bool EnableHeroDropsWeaponsOnKnockout = true;
+        [Tooltip("V1: Grab armor/amulet/ring/belt with both hands + trigger (R) -> it's stored in the backpack and equipped " +
+                 "(protection + on_equip). Equipped items are listed first in the backpack with an [E] badge; " +
+                 "taking the last one out of the backpack unequips it.")]
+        public bool EnableEquipItems = true;
+
+        [Tooltip("V1: Daedalus EquipItem() applies protection[] + on_equip like the engine. Without it, NPC armor " +
+                 "(and the hero's script-equipped starting armor) protects nothing. Changes NPC combat balance!")]
+        public bool EnableScriptEquipEffects = true;
     }
 }
