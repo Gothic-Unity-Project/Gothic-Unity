@@ -108,6 +108,19 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         {
             if (_statusType != StatusType.Health) return;
 
+            // Loading a save can replace the hero's container. A cached one would keep showing the old HP forever
+            // (e.g. 1 HP after loading a save with full health) - so the player's bar always asks for the current hero.
+            if (_isPlayer && _owner != null)
+            {
+                var currentHero = _npcService.GetHeroContainer();
+                if (currentHero != null && currentHero != _owner)
+                {
+                    Logger.Log($"[StatusBarAdapter] '{name}' hero container changed (save loaded?) - rebinding.", LogCat.Ui);
+                    _owner = currentHero;
+                    _lastHitPoints = int.MinValue;
+                }
+            }
+
             if (_owner == null)
             {
                 // The player's bar is a distinct prefab instance (_isPlayer), not nested under the NPC
