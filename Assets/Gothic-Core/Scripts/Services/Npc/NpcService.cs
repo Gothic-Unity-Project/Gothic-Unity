@@ -279,7 +279,10 @@ namespace Gothic.Core.Services.Npc
             var newValue = vob.GetAttribute(attributeId) + value;
 
             // Clamp paired attributes (HP ↔ HP_MAX, Mana ↔ Mana_MAX): max is at attributeId+1 by G1 convention.
-            if (attributeId % 2 == 0 && attributeId + 1 < vob.Attributes.Count)
+            // Only those two! Strength (4) is followed by Dexterity (5), which isn't its max - clamping it there made
+            // e.g. an amulet's +10 strength do nothing while the -10 on unequip still applied.
+            var isPairedWithMax = attributeId == (int)NpcAttribute.HitPoints || attributeId == (int)NpcAttribute.Mana;
+            if (isPairedWithMax && attributeId + 1 < vob.Attributes.Count)
             {
                 var max = vob.GetAttribute(attributeId + 1);
                 if (max > 0)
