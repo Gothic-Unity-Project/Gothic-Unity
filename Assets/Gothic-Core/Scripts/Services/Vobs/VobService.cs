@@ -464,6 +464,9 @@ namespace Gothic.Core.Services.Vobs
 
             var container = CreateContainerWithLoader(vob);
             CreateVobNow(container);
+            // It's a regular world item from now on. Without a culling entry, grabbing it logs
+            // "Couldn't find object in Culling list" and its position updates aren't tracked.
+            _vobMeshCullingService.AddCullingEntry(container);
             _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
 
             // Add a solid BoxCollider so the existing Rigidbody has something to rest on world geometry.
@@ -538,6 +541,7 @@ namespace Gothic.Core.Services.Vobs
         public void RemoveWorldItem(VobContainer container)
         {
             Logger.Log($"[VobService] RemoveWorldItem: destroying '{container.Vob.Name}' GO", LogCat.Vob);
+            _vobMeshCullingService.RemoveCullingEntry(container);
             _multiTypeCacheService.VobCache.Remove(container);
             _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
             Object.Destroy(container.Go);
