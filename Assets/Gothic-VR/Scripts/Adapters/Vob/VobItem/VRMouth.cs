@@ -33,6 +33,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
 
         
         // Do not eat them twice during destroy time.
@@ -137,13 +138,31 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _objectsInDestroyGracePeriod.Remove(go);
 
+            // Items held in a hand count as inventory (VRPlayerService.SetGrab/UnsetGrab): added with the full amount on
+            // grab, removed with the then-current amount on release. Keep that in sync, or eaten food stays as a ghost.
+#if GOTHIC_HVR_INSTALLED
+            var grabbable = go.GetComponentInChildren<HurricaneVR.Framework.Core.HVRGrabbable>();
+            var isHeld = grabbable != null && grabbable.IsBeingHeld;
+#else
+            var isHeld = false;
+#endif
+
             var vobItem = go.GetComponent<VobLoader>()?.Container.VobAs<IItem>();
             if (vobItem != null && vobItem.Amount > 1)
             {
                 vobItem.Amount--;
+                if (isHeld)
+                    _playerService.RemoveItem(!string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name, 1);
+
                 Logger.Log($"[VRMouth] Stack decremented: {go.name} remaining={vobItem.Amount}", LogCat.VR);
                 yield break;
             }
+
+#if GOTHIC_HVR_INSTALLED
+            // Release first - that removes it from the inventory like any dropped item.
+            if (isHeld)
+                grabbable.ForceRelease();
+#endif
 
             Destroy(go);
         }
