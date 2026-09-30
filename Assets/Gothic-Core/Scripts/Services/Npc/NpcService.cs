@@ -262,7 +262,7 @@ namespace Gothic.Core.Services.Npc
                 // Most NPCs (and test heroes like PC_Rockefeller) get their armor this way, not via EquipItem().
                 // Same armor again (re-dressing): the slot conflict unequips + re-equips it, so nothing is doubled.
                 if (_configService.Dev.EnableScriptEquipEffects && armorData != null)
-                    _npcInventoryService.EquipItemWithEffects(data.Npc, armorData);
+                    _npcInventoryService.EquipItemWithEffects(data.Npc, armorData, deferItemFunctions: true);
                 else
                     props.EquippedItems.Add(armorData);
 

@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
@@ -21,6 +23,10 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
+
+        // on_equip/on_unequip of script equips, run after the current instance initialization finished.
+        private readonly List<(NpcInstance npc, ItemInstance item, int function)> _deferredItemFunctions = new();
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
@@ -32,7 +38,7 @@ namespace Gothic.Core.Services.Npc
             // Without it, every NPC's armor (and the hero's starting armor) protected nothing.
             if (_configService.Dev.EnableScriptEquipEffects && itemData != null)
             {
-                EquipItemWithEffects(npc, itemData);
+                EquipItemWithEffects(npc, itemData, deferItemFunctions: true);
                 return;
             }
 
@@ -43,16 +49,22 @@ namespace Gothic.Core.Services.Npc
         /// Equip like the engine does: free the slot first (armor, amulet, belt, rings),
         /// add the item's protection[] values and call its on_equip (e.g. amulet attribute bonuses).
         /// </summary>
-        public void EquipItemWithEffects(NpcInstance npc, ItemInstance item)
+        /// <param name="deferItemFunctions">
+        /// TRUE for equips coming from Daedalus externals (EquipItem, Mdl_SetVisualBody). They run *inside* an instance
+        /// initialization - calling on_equip there nests a VM call into the running constructor (e.g. with GlobalHero not
+        /// set yet). A failing nested call aborted the whole constructor: PC_Rockefeller lost all talents and items.
+        /// The functions run next frame instead. Save/load: that's before saved attributes are restored, which overwrite them.
+        /// </param>
+        public void EquipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false)
         {
             var props = npc.GetUserData().Props;
 
             foreach (var conflicting in GetConflictingEquippedItems(props.EquippedItems, item).ToList())
-                UnequipItemWithEffects(npc, conflicting);
+                UnequipItemWithEffects(npc, conflicting, deferItemFunctions);
 
             props.EquippedItems.Add(item);
             ApplyItemProtection(npc, item, 1);
-            CallItemFunction(npc, item, item.OnEquip);
+            RunItemFunction(npc, item, item.OnEquip, deferItemFunctions);
 
             Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} equipped '{item.Name}'", LogCat.Npc);
         }
@@ -60,7 +72,7 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Counterpart of EquipItemWithEffects(). Returns false if the item wasn't equipped.
         /// </summary>
-        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item)
+        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false)
         {
             var props = npc.GetUserData().Props;
             var equipped = props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
@@ -69,7 +81,7 @@ namespace Gothic.Core.Services.Npc
 
             props.EquippedItems.Remove(equipped);
             ApplyItemProtection(npc, equipped, -1);
-            CallItemFunction(npc, equipped, equipped.OnUnEquip);
+            RunItemFunction(npc, equipped, equipped.OnUnEquip, deferItemFunctions);
 
             Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} unequipped '{equipped.Name}'", LogCat.Npc);
             return true;
@@ -130,6 +142,32 @@ namespace Gothic.Core.Services.Npc
                 npc.SetProtection((DamageType)i, newValue);
                 vob?.SetProtection(i, newValue);
             }
+        }
+
+        private void RunItemFunction(NpcInstance npc, ItemInstance item, int function, bool defer)
+        {
+            if (function <= 0)
+                return;
+
+            if (!defer)
+            {
+                CallItemFunction(npc, item, function);
+                return;
+            }
+
+            _deferredItemFunctions.Add((npc, item, function));
+            if (_deferredItemFunctions.Count == 1)
+                _unityMonoService.StartCoroutine(RunDeferredItemFunctions());
+        }
+
+        private IEnumerator RunDeferredItemFunctions()
+        {
+            yield return null;
+
+            var pending = _deferredItemFunctions.ToList();
+            _deferredItemFunctions.Clear();
+            foreach (var (npc, item, function) in pending)
+                CallItemFunction(npc, item, function);
         }
 
         private void CallItemFunction(NpcInstance npc, ItemInstance item, int function)
