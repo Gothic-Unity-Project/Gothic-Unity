@@ -376,5 +376,26 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("Hide the health bar for the player character.")]
         public bool HideHealthBar { get; internal set; }
+
+
+        [Separator("TODO TEST ME V1s and MVPs", true)]
+        [Tooltip("V1: While the backpack is held in a hand, its opening gently pulls nearby world items. " +
+                 "An item staying inside the opening for BackpackVacuumStoreSeconds gets stored.")]
+        public bool EnableBackpackVacuum = true;
+
+        [Tooltip("Pull radius around the backpack opening in meters.")]
+        [Range(0.2f, 3f)]
+        public float BackpackVacuumRadius = 1.2f;
+
+        [Tooltip("Seconds an item has to stay inside the backpack opening before it's stored.")]
+        [Range(0.5f, 10f)]
+        public float BackpackVacuumStoreSeconds = 3f;
+
+        [Tooltip("V1: Backpack in one hand + item in the other hand shows a popup with the item's name, amount " +
+                 "and Gothic inventory description (C_Item text[]/count[]).")]
+        public bool EnableItemDetailsPopup = true;
+
+        [Tooltip("MVP: When the hero gets knocked out, weapons held in VR hands are dropped (vanilla: hero drops readied weapon).")]
+        public bool EnableHeroDropsWeaponsOnKnockout = true;
     }
 }

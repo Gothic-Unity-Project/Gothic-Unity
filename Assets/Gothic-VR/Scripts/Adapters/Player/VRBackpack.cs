@@ -52,6 +52,14 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+
+            // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum.
+            if (GetComponent<VRBackpackVacuum>() == null)
+                gameObject.AddComponent<VRBackpackVacuum>();
+
+            // V1, toggled at runtime via DeveloperConfig.EnableItemDetailsPopup.
+            if (GetComponent<VRItemDetailsPopup>() == null)
+                gameObject.AddComponent<VRItemDetailsPopup>();
         }
 
         private void Init()
