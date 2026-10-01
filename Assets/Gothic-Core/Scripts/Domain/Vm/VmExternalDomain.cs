@@ -919,9 +919,17 @@ namespace Gothic.Core.Domain.Vm
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
-            Logger.Log($"[PrintScreen] {message}", LogCat.Dialog);
+            // Some scripts print every AI tick (G2 with PC_Rockefeller: "Stimme: 14", "KEIN HERO!", ...) - log a text
+            // only once per 10 s.
+            if (!_printScreenLogTimes.TryGetValue(message, out var lastLog) || UnityEngine.Time.time - lastLog > 10f)
+            {
+                _printScreenLogTimes[message] = UnityEngine.Time.time;
+                Logger.Log($"[PrintScreen] {message}", LogCat.Dialog);
+            }
             GlobalEventDispatcher.ScriptPrintScreen.Invoke(message, posY, seconds);
         }
+
+        private readonly System.Collections.Generic.Dictionary<string, float> _printScreenLogTimes = new();
 
         /// <summary>
         /// Top-of-screen message, e.g. PLAYER_MOB_MISSING_ITEM's "missing item" text.

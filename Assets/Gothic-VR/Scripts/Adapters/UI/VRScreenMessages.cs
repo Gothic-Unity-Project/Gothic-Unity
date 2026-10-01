@@ -12,6 +12,8 @@ namespace Gothic.VR.Adapters.UI
     /// V1 (DeveloperConfig.EnableScreenMessages): Gothic's PrintScreen texts ("New log entry", "1 item received", ...)
     /// shown as a small HUD in front of the VR head, plus Snd_Play 2D sounds ("LogEntry").
     /// Lines stack downwards, each disappears after its own time. Drawn on top of the world (ignores depth).
+    /// The same text again only extends its line - like the engine, where a repeated PrintScreen draws over itself.
+    /// Scripts can print every AI tick (G2 with PC_Rockefeller) - a new line + materials per call made the game lag.
     /// </summary>
     public class VRScreenMessages : MonoBehaviour
     {
@@ -26,6 +28,8 @@ namespace Gothic.VR.Adapters.UI
         private static readonly int _guiZTestModeId = Shader.PropertyToID("unity_GUIZTestMode");
 
         private static VRScreenMessages _instance;
+        private static Material _backgroundMaterial;
+        private static Material _textMaterial;
 
         private readonly List<(TMP_Text text, float hideAt)> _lines = new();
         private AudioService _audioService;
@@ -78,6 +82,15 @@ namespace Gothic.VR.Adapters.UI
 
         private void AddLine(string message, int seconds)
         {
+            var hideAt = Time.time + Mathf.Max(_minSeconds, seconds);
+            for (var i = 0; i < _lines.Count; i++)
+            {
+                if (_lines[i].text.text != message)
+                    continue;
+                _lines[i] = (_lines[i].text, Mathf.Max(_lines[i].hideAt, hideAt));
+                return;
+            }
+
             if (_lines.Count >= _maxLines)
                 RemoveLine(0);
 
@@ -86,9 +99,12 @@ namespace Gothic.VR.Adapters.UI
 
             var background = textGo.AddComponent<Image>();
             background.color = new Color(0f, 0f, 0f, 0.55f);
-            var backgroundMaterial = new Material(background.material);
-            backgroundMaterial.SetInt(_guiZTestModeId, (int)CompareFunction.Always);
-            background.material = backgroundMaterial;
+            if (_backgroundMaterial == null)
+            {
+                _backgroundMaterial = new Material(background.material);
+                _backgroundMaterial.SetInt(_guiZTestModeId, (int)CompareFunction.Always);
+            }
+            background.material = _backgroundMaterial;
 
             var labelGo = new GameObject("_Text");
             labelGo.transform.SetParent(textGo.transform, false);
@@ -101,7 +117,13 @@ namespace Gothic.VR.Adapters.UI
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.text = message;
-            text.fontMaterial.SetInt(_guiZTestModeId, (int)CompareFunction.Always);
+            // fontMaterial would create a material copy per line - share one.
+            if (_textMaterial == null)
+            {
+                _textMaterial = new Material(text.fontSharedMaterial);
+                _textMaterial.SetInt(_guiZTestModeId, (int)CompareFunction.Always);
+            }
+            text.fontSharedMaterial = _textMaterial;
 
             var labelRt = text.rectTransform;
             labelRt.anchorMin = Vector2.zero;
@@ -115,7 +137,7 @@ namespace Gothic.VR.Adapters.UI
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(text.GetPreferredValues(message).x + 24f, _lineHeight - 4f);
 
-            _lines.Add((text, Time.time + Mathf.Max(_minSeconds, seconds)));
+            _lines.Add((text, hideAt));
             LayoutLines();
         }
 
