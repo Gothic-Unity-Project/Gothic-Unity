@@ -163,6 +163,13 @@ namespace Gothic.Core.Services.Npc
             if (otherContainer != null && otherContainer.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return false;
 
+            // A seated NPC's root faces its mob slot direction (into the bench) - his field of view pointed away from
+            // the hero in front of him, so B_AssessTalk made him stand up for every talk. Line of sight only.
+            var selfContainer = self?.GetUserData();
+            if (_configService.Dev.EnableMobSeatFix && selfContainer?.PrefabProps?.CurrentInteractable != null &&
+                selfContainer.Props.CurrentInteractableStateId >= 0)
+                fov = 360f;
+
             return _npcHelperService.CanSeeNpc(self, other, freeLOS, fov);
         }
 
@@ -189,6 +196,23 @@ namespace Gothic.Core.Services.Npc
             if (container.Props.CurrentAction is AttackPlayAni &&
                 (VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.Mage)
                 return;
+
+            // DeveloperConfig.EnableMobSeatFix: like the engine, clearing the queue doesn't break a mob pose.
+            // B_AssessTalk clears it right before ZS_Talk: StopAllAnimations popped seated NPCs to standing inside
+            // the bench. A running sit-down/stand-up transition finishes (OpenGothic/G1: sit down, then stand up),
+            // a seated NPC keeps sitting - ZS_Talk(..., 0) talks seated, ZS_Talk(..., 1) stands up via the old
+            // state's _End (AI_UseMob(BENCH, -1)).
+            if (_configService.Dev.EnableMobSeatFix)
+            {
+                if (container.Props.CurrentAction is UseMob)
+                    return;
+
+                if (container.PrefabProps?.CurrentInteractable != null && container.Props.CurrentInteractableStateId >= 0)
+                {
+                    container.Props.CurrentAction = new None(new AnimationAction(), container);
+                    return;
+                }
+            }
 
             // If an UndrawWeapon is mid-animation when the queue is cleared, sheath the weapon
             // immediately so the mesh isn't left orphaned in the hand slot.
@@ -334,6 +358,18 @@ namespace Gothic.Core.Services.Npc
             container.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             if (wasUnconscious)
                 container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "T_Wounded_2_Stand"), container));
+
+            // G1 docs: AI_StandUp plays the back transitions of a mob (S1 -> S0 -> Stand), only AI_StandUpQuick pops.
+            // E.g. ZS_Talk with a seated NPC that can't see the hero - he got yanked up inside the bench before.
+            var mob = container.PrefabProps?.CurrentInteractable;
+            // Not when the script already queued the back transition (e.g. ZS_SitAround_End: AI_UseMob(BENCH, -1)).
+            if (_configService.Dev.EnableMobSeatFix && mob != null && container.Props.CurrentInteractableStateId >= 0 &&
+                !container.Props.AnimationQueue.OfType<UseMob>().Any())
+            {
+                container.Props.AnimationQueue.Enqueue(new UseMob(
+                    new AnimationAction(mob.Props.GetVisualScheme(), -1), container));
+            }
+
             container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
         }
 

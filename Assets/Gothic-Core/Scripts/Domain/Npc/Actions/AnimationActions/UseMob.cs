@@ -49,6 +49,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _destination = _slotGo.transform.position;
                 IsDestReached = true;
 
+                // Something (ClearState, AI_StandUp) may have reset it - B_AssessTalk checks BS_SIT to talk seated.
+                if (ConfigService.Dev.EnableMobSeatFix && TargetState >= 0)
+                    SetBodyState();
+
                 StartMobUseAnimation();
                 return;
             }
