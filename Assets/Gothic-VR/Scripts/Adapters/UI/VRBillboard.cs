@@ -18,9 +18,25 @@ namespace Gothic.VR.Adapters.UI
             }
         }
 
-        // FIXME - VRDialog and VRSubtitles calls this even, when deactivated. We need to fix it as this calculation isn't needed every frame when invisiblew!
-        private void Update()
+        private void OnEnable()
         {
+            Application.onBeforeRender += FaceCamera;
+        }
+
+        private void OnDisable()
+        {
+            Application.onBeforeRender -= FaceCamera;
+        }
+
+        /// <summary>
+        /// After all LateUpdates: dialogs hang below an NPC's BIP01 bone, which AnimationSystem.LateUpdate still turns
+        /// (sitting NPCs, _isSittingInverted). Rotated in Update, the dialog was turned away with the bone afterwards.
+        /// </summary>
+        private void FaceCamera()
+        {
+            if (_cameraTransform == null)
+                return;
+
             // Calculate the direction to look at
             var directionToLookAt = _cameraTransform.position - transform.position;
 

@@ -9,6 +9,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using MyBox;
@@ -49,6 +50,7 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly ConfigService _configService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -673,7 +675,9 @@ namespace Gothic.Core.Adapters.Animations
 
         private void PrePlayAnimation(AnimationTrackInstance instance)
         {
-            if (instance.Track.InvertYAxis)
+            // DeveloperConfig.EnableMobSeatFix: the 2025 inversion turned seated NPCs around once the sit loop started
+            // (the transition into it looks right) and could stay active after standing up (walking backwards).
+            if (instance.Track.InvertYAxis && !_configService.Dev.EnableMobSeatFix)
                 _isSittingInverted = true;
         }
 

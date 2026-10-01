@@ -522,6 +522,20 @@ namespace Gothic.Core.Adapters.Npc
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
             Properties.StateTime = 0.0f;
 
+            // DeveloperConfig.EnableMobSeatFix: mob usage (sitting on a bench, ...) ends with the respawn at the routine
+            // waypoint - the routine walks there and sits down again. Before, the NPC kept its sitting state and sat in
+            // the air at the respawn point.
+            if (_configService.Dev.EnableMobSeatFix && Properties.CurrentInteractableStateId >= 0)
+            {
+                if (PrefabProps.CurrentInteractable?.Props is Gothic.Core.Adapters.Properties.Vobs.InteractiveProperties mobProps)
+                    mobProps.State = -1;
+
+                PrefabProps.CurrentInteractable = null;
+                PrefabProps.CurrentInteractableSlot = null;
+                Properties.CurrentInteractableStateId = -1;
+                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
+            }
+
             // WayNet handling
             // Nothing to do -> Even a despawned NPC (based on culling) needs to stick with its WPs/FPs.
             // Whenever re-enabled they are still attached / sit / stand at their points. Otherwise, another NPC

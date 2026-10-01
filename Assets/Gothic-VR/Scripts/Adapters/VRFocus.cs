@@ -123,9 +123,19 @@ namespace Gothic.VR.Adapters
             _isHovered = false;
         }
 
-        private void LateUpdate()
+        private void OnEnable()
         {
-            if (!_isHovered)
+            Application.onBeforeRender += UpdateNameCanvas;
+        }
+
+        /// <summary>
+        /// Runs after every LateUpdate: sitting NPCs get their BIP01 yaw inverted in AnimationSystem.LateUpdate
+        /// (_isSittingInverted). Placed in our own LateUpdate, the label was turned with that bone afterwards and
+        /// showed its mirrored back side.
+        /// </summary>
+        private void UpdateNameCanvas()
+        {
+            if (!_isHovered || _nameCanvas == null)
                 return;
 
             // Calculate direction from parent object to camera
@@ -147,6 +157,7 @@ namespace Gothic.VR.Adapters
         /// </summary>
         private void OnDisable()
         {
+            Application.onBeforeRender -= UpdateNameCanvas;
             _dynamicMaterialService.ResetAllDynamicValues(gameObject);
 
             _isHovered = false;
