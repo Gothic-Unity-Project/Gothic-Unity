@@ -275,23 +275,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             //// Fill GameObjects with Meshes from "original" Mesh
             var meshCounter = CreateSoftSkinMeshes(nodeObjects);
 
-            var attachments = GetFilteredAttachments(Mdm.Attachments);
-
-            // Fill GameObjects with Meshes from attachments
-            foreach (var subMesh in attachments)
-            {
-                var meshObj = nodeObjects.First(bone => bone.name == subMesh.Key);
-                var meshFilter = meshObj.TryAddComponent<MeshFilter>();
-                var meshRenderer = meshObj.TryAddComponent<MeshRenderer>();
-                meshRenderer.material = Constants.LoadingMaterial;
-
-                PrepareMeshFilter(meshFilter, subMesh.Value, meshRenderer, meshCounter);
-                PrepareMeshRenderer(meshRenderer, subMesh.Value);
-                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value.Materials);
-
-                // As Attachments are also just meshes, we need to increase the mesh counter for Filter's meshCache index.
-                meshCounter++;
-            }
+            CreateAttachments(nodeObjects, meshCounter);
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -357,6 +341,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var materialData = mrmData.SubMeshes[i].Material;
                 if (materialData.Texture.IsEmpty()) // No texture to add.
                 {
+                    var colorMaterial = CreateUntexturedMaterial(materialData);
+                    if (colorMaterial != null)
+                    {
+                        rend.material = colorMaterial;
+                        finalMaterials.Add(colorMaterial);
+                        continue;
+                    }
+
                     Logger.LogWarning("No texture was set for: " + materialData.Name, LogCat.Mesh);
                     continue;
                 }
@@ -726,6 +718,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return attachments;
         }
 
+        /// <summary>
+        /// Material for a color-only (untextured) Gothic material. Null = skip it (default).
+        /// </summary>
+        protected virtual Material CreateUntexturedMaterial(IMaterial materialData)
+        {
+            return null;
+        }
+
         protected virtual Texture2D GetTexture(string name)
         {
             return TextureCacheService.TryGetTexture(name);
@@ -802,6 +802,38 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             return meshCounter;
+        }
+
+        /// <summary>
+        /// Rigid meshes of the .mdm attached to bones (e.g. a hat or helmet of an armor).
+        /// </summary>
+        protected void CreateAttachments(GameObject[] nodeObjects, int meshCounter)
+        {
+            var attachments = GetFilteredAttachments(Mdm.Attachments);
+
+            // Fill GameObjects with Meshes from attachments
+            foreach (var subMesh in attachments)
+            {
+                var meshObj = GetAttachmentGo(nodeObjects.First(bone => bone.name == subMesh.Key));
+                var meshFilter = meshObj.TryAddComponent<MeshFilter>();
+                var meshRenderer = meshObj.TryAddComponent<MeshRenderer>();
+                meshRenderer.material = Constants.LoadingMaterial;
+
+                PrepareMeshFilter(meshFilter, subMesh.Value, meshRenderer, meshCounter);
+                PrepareMeshRenderer(meshRenderer, subMesh.Value);
+                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value.Materials);
+
+                // As Attachments are also just meshes, we need to increase the mesh counter for Filter's meshCache index.
+                meshCounter++;
+            }
+        }
+
+        /// <summary>
+        /// The GameObject which holds an attachment's mesh. Default: the bone itself.
+        /// </summary>
+        protected virtual GameObject GetAttachmentGo(GameObject node)
+        {
+            return node;
         }
 
         protected void SetPosAndRot(GameObject obj, Matrix4x4 matrix)

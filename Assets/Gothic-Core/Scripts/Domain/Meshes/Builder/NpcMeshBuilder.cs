@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Gothic.Core.Const;
@@ -11,6 +12,7 @@ using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
+using Material = UnityEngine.Material;
 using Vector3 = System.Numerics.Vector3;
 
 namespace Gothic.Core.Domain.Meshes.Builder
@@ -18,6 +20,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
     public class NpcMeshBuilder : AbstractMeshBuilder
     {
         [Inject] private readonly NpcArmorPositionCacheService _npcArmorCacheService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+
+        private const string _attachmentGoName = "_Attachment";
+        private static readonly HashSet<string> _loggedAttachmentMeshes = new();
 
 
         // Meter of extra hitbox reach per side around the model's bounding box.
@@ -63,6 +69,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     Object.Destroy(child.gameObject);
             }
 
+            // Attachments of the old armor (e.g. Greg's pirate hat) go with it.
+            foreach (var oldAttachment in RootGo.GetComponentsInChildren<Transform>(true))
+            {
+                if (oldAttachment.name == _attachmentGoName)
+                    Object.Destroy(oldAttachment.gameObject);
+            }
+
             // Bind poses are calculated from the bones' current pose (CreateBonesData) and written into the cached, shared
             // mesh. An animated NPC would bake its current pose into it - mangled armor for everyone wearing it.
             // Put the skeleton into its rest pose (like during the initial build) for the rebuild, then restore it.
@@ -77,7 +90,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     nodeObjects[i].transform.localPosition = Mdh.RootTranslation.ToUnityVector();
             }
 
-            CreateSoftSkinMeshes(nodeObjects);
+            var meshCounter = CreateSoftSkinMeshes(nodeObjects);
+            CreateAttachments(nodeObjects, meshCounter);
 
             for (var i = 0; i < nodeObjects.Length; i++)
                 nodeObjects[i].transform.SetLocalPositionAndRotation(animatedPositions[i], animatedRotations[i]);
@@ -137,15 +151,68 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             Dictionary<string, IMultiResolutionMesh> newAttachments = new(attachments);
 
+            // Diagnostics for armor hats/helmets (once per mesh): which bones carry attachments, with which textures.
+            if (attachments.Count > 0 && _loggedAttachmentMeshes.Add(MeshName ?? ""))
+            {
+                foreach (var attachment in attachments)
+                {
+                    var textures = string.Join(",", attachment.Value.SubMeshes.Select(s => s.Material?.Texture));
+                    Logger.Log($"[ArmorVisual] '{MeshName}' attachment on '{attachment.Key}': {textures}", LogCat.Mesh);
+                }
+            }
+
             // Only strip BIP01 HEAD when a separate head MMB file replaces it (human NPCs).
             // Monsters like Skeleton bake the skull directly into the MDM attachment — removing it
             // leaves them headless because NpcHeadMeshBuilder has nothing to load (Head="").
+            // Armors carry a placeholder head there too (e.g. Greg's KOPFTUCH) - the engine replaces it with the NPC's head.
+            // Hats are part of the armor's soft skin mesh (drawn via CreateUntexturedMaterial when color-only).
             if (!string.IsNullOrEmpty(BodyData.Head) && newAttachments.Remove("BIP01 HEAD"))
             {
                 Logger.Log("Removed default >BIP01 HEAD< attachment mesh from NPC.", LogCat.Mesh);
             }
 
             return newAttachments;
+        }
+
+        // One 1x1 texture per color - Lit/SingleMesh has no color property.
+        private static readonly Dictionary<Color32, Texture2D> _colorTextures = new();
+
+        /// <summary>
+        /// DeveloperConfig.EnableRuntimeArmorVisuals: armor parts with a color-only (untextured) material, e.g. Greg's black
+        /// captain hat (material KOPFTUCH), are drawn in their color like in the engine. Skipping them hid the part and
+        /// shifted all following materials by one sub mesh.
+        /// </summary>
+        protected override Material CreateUntexturedMaterial(IMaterial materialData)
+        {
+            if (!_configService.Dev.EnableRuntimeArmorVisuals)
+                return null;
+
+            var color = new Color32(materialData.Color.R, materialData.Color.G, materialData.Color.B, 255);
+            if (!_colorTextures.TryGetValue(color, out var texture) || texture == null)
+            {
+                texture = new Texture2D(1, 1);
+                texture.SetPixel(0, 0, color);
+                texture.Apply();
+                _colorTextures[color] = texture;
+            }
+
+            Logger.Log($"[ArmorVisual] Color-only material '{materialData.Name}' of '{MeshName}' -> {color}", LogCat.Mesh);
+            return new Material(Constants.ShaderSingleMeshLit) { mainTexture = texture };
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableRuntimeArmorVisuals: attachments go into an own child of the bone - a hat on BIP01 HEAD
+        /// would otherwise share the MeshFilter of the head mesh - and can be removed again on an armor change.
+        /// </summary>
+        protected override GameObject GetAttachmentGo(GameObject node)
+        {
+            if (!_configService.Dev.EnableRuntimeArmorVisuals)
+                return node;
+
+            var attachmentGo = new GameObject(_attachmentGoName);
+            attachmentGo.transform.SetParent(node.transform, false);
+            attachmentGo.layer = node.layer;
+            return attachmentGo;
         }
 
         /// <summary>
