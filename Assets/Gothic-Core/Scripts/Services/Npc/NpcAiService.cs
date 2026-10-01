@@ -163,14 +163,14 @@ namespace Gothic.Core.Services.Npc
             if (otherContainer != null && otherContainer.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return false;
 
-            // A seated NPC's root faces its mob slot direction (into the bench) - his field of view pointed away from
-            // the hero in front of him, so B_AssessTalk made him stand up for every talk. Line of sight only.
+            // A seated NPC's root faces its mob slot direction (into the bench) while the sit animation turned his body
+            // around - his field of view pointed away from the hero in front of him (B_AssessTalk: stand up for every
+            // talk). Look the way the body does. Seeing all around made him ignore a hero talking to his back.
             var selfContainer = self?.GetUserData();
-            if (_configService.Dev.EnableMobSeatFix && selfContainer?.PrefabProps?.CurrentInteractable != null &&
-                selfContainer.Props.CurrentInteractableStateId >= 0)
-                fov = 360f;
+            var isSeated = _configService.Dev.EnableMobSeatFix && selfContainer?.PrefabProps?.CurrentInteractable != null &&
+                           selfContainer.Props.CurrentInteractableStateId >= 0;
 
-            return _npcHelperService.CanSeeNpc(self, other, freeLOS, fov);
+            return _npcHelperService.CanSeeNpc(self, other, freeLOS, fov, isSeated);
         }
 
         public void ExtNpcClearAiQueue(NpcInstance npc)

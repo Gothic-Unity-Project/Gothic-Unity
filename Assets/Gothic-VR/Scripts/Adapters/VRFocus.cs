@@ -42,6 +42,8 @@ namespace Gothic.VR.Adapters
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
         private bool _mobActivated;
+        private const float _npcFocusBrightness = 2.5f;
+        private bool _isNpc => GetComponent<VRNpc>() != null;
 
         private void Awake()
         {
@@ -84,7 +86,8 @@ namespace Gothic.VR.Adapters
 
         public void OnHoverEnter(HVRGrabberBase _, HVRGrabbable __)
         {
-            OnHoverEnter(Constants.ShaderPropertyFocusBrightnessValue);
+            // The item brightness made highlighted NPCs glow comically - their textures are much brighter.
+            OnHoverEnter(_isNpc ? _npcFocusBrightness : Constants.ShaderPropertyFocusBrightnessValue);
         }
 
         public void OnHoverEnter(float shaderPropertyFocusBrightnessValue)
