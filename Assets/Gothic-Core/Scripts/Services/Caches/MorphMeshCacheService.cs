@@ -5,6 +5,8 @@ using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
+using Gothic.Core.Logging;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Caches
 {
@@ -96,6 +98,8 @@ namespace Gothic.Core.Services.Caches
         /// | Key is frameId
         ///        | Data is the already processed morph data (morph addition to original triangle data)
         /// </summary>
+        private readonly HashSet<string> _missingMorphMeshes = new();
+
         public List<Vector3[]> TryGetMorphData(string mmbName, string animationName)
         {
             var preparedMmbKey = GetPreparedKey(mmbName);
@@ -111,8 +115,15 @@ namespace Gothic.Core.Services.Caches
             var mmb = _resourceCacheService.TryGetMorphMesh(mmbName);
             var anim = mmb.Animations.First(anim => anim.Name.EqualsIgnoreCase(animationName));
 
-            var originalVertexMapping = _vertexMapping[preparedMmbKey];
-            var originalUnityVertexData = _unityVertices[preparedMmbKey];
+            // The head mesh wasn't registered (e.g. 'hum_head_fatbald.' in G2). Random face animations retried it every
+            // few seconds and threw thousands of KeyNotFoundExceptions - no face animation instead, warn once.
+            if (!_vertexMapping.TryGetValue(preparedMmbKey, out var originalVertexMapping) ||
+                !_unityVertices.TryGetValue(preparedMmbKey, out var originalUnityVertexData))
+            {
+                if (_missingMorphMeshes.Add(preparedMmbKey))
+                    Logger.LogWarning($"MorphMesh '{mmbName}' has no cached vertex data - its animations are skipped.", LogCat.Mesh);
+                return null;
+            }
             // Original vertex count from ZenKit data.
             var vertexCount = anim.Vertices.Count;
 

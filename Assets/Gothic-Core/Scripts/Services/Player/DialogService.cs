@@ -326,10 +326,22 @@ namespace Gothic.Core.Manager
         /// </summary>
         private void RunHeroQueueIfMobDialog(NpcContainer npcContainer)
         {
-            if (MobDialogAnchor == null || !IsHero(npcContainer) || _isHeroQueueRunning)
+            if (MobDialogAnchor == null || !IsHero(npcContainer))
                 return;
 
-            _unityMonoService.StartCoroutine(RunHeroQueue(npcContainer));
+            RunHeroQueue();
+        }
+
+        /// <summary>
+        /// Executes what scripts queued on the hero (e.g. PLAYER_MOB_MISSING_ITEM: B_Say_Overlay "$MISSINGITEM").
+        /// </summary>
+        public void RunHeroQueue()
+        {
+            var hero = _npcService.GetHeroContainer();
+            if (hero == null || _isHeroQueueRunning)
+                return;
+
+            _unityMonoService.StartCoroutine(RunHeroQueue(hero));
         }
 
         private IEnumerator RunHeroQueue(NpcContainer hero)

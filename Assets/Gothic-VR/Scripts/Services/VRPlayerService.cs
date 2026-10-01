@@ -228,6 +228,7 @@ namespace Gothic.VR.Services
                 if (item != null && _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) <= 0)
                 {
                     Logger.Log($"[MobDialog] '{loader.name}' needs '{mob.Item}'.", LogCat.Dialog);
+                    PlayMobMissingItemReaction(hero);
                     return true;
                 }
             }
@@ -251,6 +252,36 @@ namespace Gothic.VR.Services
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic printMobMissingItem): G2 scripts have PLAYER_MOB_MISSING_ITEM (missing item text +
+        /// the hero's "$MISSINGITEM" line). G1 has none - nothing to say then.
+        /// </summary>
+        private void PlayMobMissingItemReaction(Gothic.Core.Models.Container.NpcContainer hero)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbol = vm.GetSymbolByName("PLAYER_MOB_MISSING_ITEM");
+            if (symbol == null)
+                return;
+
+            hero.Props.AnimationQueue.Clear();
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = vm.GlobalHero;
+            try
+            {
+                vm.Call(symbol.Index);
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"[MobDialog] PLAYER_MOB_MISSING_ITEM failed: {e.Message}", LogCat.Dialog);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
+
+            _dialogService.RunHeroQueue();
         }
 
         /// <summary>

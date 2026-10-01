@@ -73,6 +73,8 @@ namespace Gothic.Core.Adapters.Animations.Morph
             }
             newMorph.AnimationFrameData =
                 _morphMeshCacheService.TryGetMorphData(morphMeshName, newMorph.AnimationMetadata.Name);
+            if (newMorph.AnimationFrameData == null)
+                return;
 
             // Reset if already added and playing
             if (_runningMorphs.Any(i => i.MeshName == newMorph.MeshName))
