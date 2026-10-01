@@ -34,6 +34,13 @@ namespace Gothic.VR.Adapters.UI
 
         private readonly HashSet<Graphic> _patchedGraphics = new();
         private readonly List<TMP_Text> _texts = new();
+        private CanvasGroup _canvasGroup;
+
+        /// <summary>
+        /// 0 = always visible. Otherwise hidden when farther away from the camera - on-top NPC subtitles of ambient
+        /// smalltalk showed up through every wall of a camp as tiny pixels.
+        /// </summary>
+        public float MaxVisibleDistance;
 
 
         /// <summary>
@@ -101,6 +108,8 @@ namespace Gothic.VR.Adapters.UI
 
         private void LateUpdate()
         {
+            UpdateDistanceVisibility();
+
             foreach (var text in _texts)
             {
                 if (text != null)
@@ -108,9 +117,22 @@ namespace Gothic.VR.Adapters.UI
             }
         }
 
+        private void UpdateDistanceVisibility()
+        {
+            if (MaxVisibleDistance <= 0f || Camera.main == null)
+                return;
+
+            if (_canvasGroup == null && !TryGetComponent(out _canvasGroup))
+                _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+            var isNear = Vector3.Distance(Camera.main.transform.position, transform.position) <= MaxVisibleDistance;
+            _canvasGroup.alpha = isNear ? 1f : 0f;
+        }
+
         private static void WrapSpriteAsset(TMP_Text text)
         {
-            var source = text.spriteAsset;
+            // No own sprite asset (e.g. NPC subtitle lines): TMP falls back to the default one - wrap that.
+            var source = text.spriteAsset != null ? text.spriteAsset : TMP_Settings.defaultSpriteAsset;
             if (source == null || _onTopSpriteAssets.ContainsValue(source))
                 return;
 

@@ -26,6 +26,9 @@ namespace Gothic.VR.Adapters.UI
         [SerializeField] private TMP_Text _dialogNpcNameText;
         [SerializeField] private TMP_Text _dialogText;
 
+        // On-top subtitles farther away are hidden (ambient smalltalk seen through every wall of a camp).
+        private const float _onTopMaxDistance = 12f;
+
 
         protected override void Awake()
         {
@@ -54,6 +57,15 @@ namespace Gothic.VR.Adapters.UI
             CancelInvoke(nameof(HideSubtitles));
             gameObject.SetActive(true);
             _dialogText.text = text;
+
+            // Long lines were cut by cupboards, walls or the NPC itself - same as the dialog box (VRUiOnTop).
+            if (_configService.Dev.EnableDialogAlwaysOnTop)
+            {
+                if (!TryGetComponent<VRUiOnTop>(out var onTop))
+                    onTop = gameObject.AddComponent<VRUiOnTop>();
+                onTop.MaxVisibleDistance = _onTopMaxDistance;
+                onTop.Apply();
+            }
         }
 
         public void HideSubtitles()
