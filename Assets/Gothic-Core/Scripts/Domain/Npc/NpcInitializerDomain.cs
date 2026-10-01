@@ -48,6 +48,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         
         public GameObject RootGo;
@@ -549,6 +550,9 @@ namespace Gothic.Core.Domain.Npc
                     (VmGothicEnums.ItemFlags)equippedItem.Flags);
             }
             
+            // Helmets (WEAR_HEAD, e.g. MT) sit on the head next to the body armor.
+            _npcInventoryService.RefreshHelmetVisual(npcInstance);
+
             // Some monsters have equipped weapons directly in their hands.
             if (props.CurrentItem > 0)
             {

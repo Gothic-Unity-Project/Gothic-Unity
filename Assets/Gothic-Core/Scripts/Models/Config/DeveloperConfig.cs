@@ -415,6 +415,18 @@ namespace Gothic.Core.Models.Config
                  "the VR head + Snd_Play 2D sounds (\"LogEntry\"). Read at VM start - restart the game after toggling.")]
         public bool EnableScreenMessages = true;
 
+        [Tooltip("NPCs using a mob (sitting on a bench, ...) don't turn (AI_TurnToNpc etc.), like the engine. " +
+                 "Before, a sitting NPC turned his back to the hero when talking.")]
+        public bool EnableNoTurnWhileUsingMob = true;
+
+        [Tooltip("A seated NPC's repeated AI_UseMob (routines call it again and again) no longer snaps it back to the " +
+                 "slot in front of the bench/chair - it stays where the sit animation moved it (on the seat).")]
+        public bool EnableMobSeatFix = true;
+
+        [Tooltip("AI_EquipArmor / AI_UnequipArmor / AI_EquipBestArmor + armor (un)equips at runtime swap the NPC's body " +
+                 "mesh (Greg in Lobart's clothes, Pedro's robe, ...). Also kept after save/load. Read at VM start.")]
+        public bool EnableRuntimeArmorVisuals = true;
+
 
         [Separator("TODO TEST ME V1s and MVPs", true)]
         [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
@@ -440,5 +452,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: The dialog box is never cut by walls/benches/the NPC (ignores depth). VR hands render after " +
                  "transparents so they stay visible above it for pointing.")]
         public bool EnableDialogAlwaysOnTop = true;
+
+        [Tooltip("V1: Grabbing a mob with an onStateFunc and no mover target (G2 shrines, alchemy/rune tables, " +
+                 "bookstands, ...) calls [onStateFunc]_S1 like the engine. MOBSI dialogs (AI_ProcessInfos(hero)) open " +
+                 "next to the mob.")]
+        public bool EnableMobsiDialogs = true;
     }
 }

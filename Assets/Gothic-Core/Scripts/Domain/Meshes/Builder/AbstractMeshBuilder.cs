@@ -273,40 +273,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             //// Fill GameObjects with Meshes from "original" Mesh
-            var meshCounter = 0;
-            foreach (var softSkinMesh in Mdm.Meshes)
-            {
-                var mesh = softSkinMesh.Mesh;
-
-                var meshObj = new GameObject($"ZM_{meshCounter}");
-                meshObj.SetParent(RootGo);
-
-                var meshFilter = meshObj.AddComponent<MeshFilter>();
-                var meshRenderer = meshObj.AddComponent<SkinnedMeshRenderer>();
-
-                meshRenderer.material = Constants.LoadingMaterial;
-
-                // Recalculate bbox based on current bones pose+rot when playing animations.
-                // This can become a performance issue which we need to monitor carefully.
-                // On top, the name is misleading: updateWhenOffscreen calculates the bbox at all.
-                // If not set, then no recalculation is done.
-                // @see https://docs.unity3d.com/2022.2/Documentation/Manual/class-SkinnedMeshRenderer.html
-                meshRenderer.updateWhenOffscreen = true;
-
-                // HINT: rootBone setting removed. If used, with updateWhenOffscreen e.g. a sitting animation is adding
-                //       too much bound size during animation.
-                //       Custom AnimationsSystem also played nicely when removing the rootBone.
-                // meshRenderer.rootBone = nodeObjects[0].transform;
-
-                PrepareMeshFilter(meshFilter, softSkinMesh, meshRenderer, meshCounter);
-                PrepareMeshRenderer(meshRenderer, mesh);
-
-                meshRenderer.sharedMesh = meshFilter.sharedMesh;
-
-                CreateBonesData(RootGo, nodeObjects, meshRenderer, softSkinMesh);
-
-                meshCounter++;
-            }
+            var meshCounter = CreateSoftSkinMeshes(nodeObjects);
 
             var attachments = GetFilteredAttachments(Mdm.Attachments);
 
@@ -791,6 +758,50 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             // The render queue is defined by the water shader's "Queue" tag.
             return new Material(Constants.ShaderWater);
+        }
+
+        /// <summary>
+        /// Skinned meshes of the .mdm on the given bones (ZM_0, ZM_1, ...). Returns the mesh counter for attachments.
+        /// Also used to swap an NPC's body (armor) at runtime on its existing skeleton.
+        /// </summary>
+        protected int CreateSoftSkinMeshes(GameObject[] nodeObjects)
+        {
+            var meshCounter = 0;
+            foreach (var softSkinMesh in Mdm.Meshes)
+            {
+                var mesh = softSkinMesh.Mesh;
+
+                var meshObj = new GameObject($"ZM_{meshCounter}");
+                meshObj.SetParent(RootGo);
+
+                var meshFilter = meshObj.AddComponent<MeshFilter>();
+                var meshRenderer = meshObj.AddComponent<SkinnedMeshRenderer>();
+
+                meshRenderer.material = Constants.LoadingMaterial;
+
+                // Recalculate bbox based on current bones pose+rot when playing animations.
+                // This can become a performance issue which we need to monitor carefully.
+                // On top, the name is misleading: updateWhenOffscreen calculates the bbox at all.
+                // If not set, then no recalculation is done.
+                // @see https://docs.unity3d.com/2022.2/Documentation/Manual/class-SkinnedMeshRenderer.html
+                meshRenderer.updateWhenOffscreen = true;
+
+                // HINT: rootBone setting removed. If used, with updateWhenOffscreen e.g. a sitting animation is adding
+                //       too much bound size during animation.
+                //       Custom AnimationsSystem also played nicely when removing the rootBone.
+                // meshRenderer.rootBone = nodeObjects[0].transform;
+
+                PrepareMeshFilter(meshFilter, softSkinMesh, meshRenderer, meshCounter);
+                PrepareMeshRenderer(meshRenderer, mesh);
+
+                meshRenderer.sharedMesh = meshFilter.sharedMesh;
+
+                CreateBonesData(RootGo, nodeObjects, meshRenderer, softSkinMesh);
+
+                meshCounter++;
+            }
+
+            return meshCounter;
         }
 
         protected void SetPosAndRot(GameObject obj, Matrix4x4 matrix)

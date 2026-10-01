@@ -796,6 +796,12 @@ namespace Gothic.Core.Services.World
                 else
                     Logger.LogWarning($"RestoreEquipment: equipped item '{itemName}' not found in VM, skipping", LogCat.Loading);
             }
+
+            // INIT dressed the NPC in its default armor (Mdl_SetVisualBody) - show what was saved instead
+            // (e.g. Greg in Lobart's clothes). No effects: protection was restored above.
+            var armor = npc.Props.EquippedItems.FirstOrDefault(NpcInventoryService.IsTorsoArmor);
+            _npcInventorySvc.UpdateArmorVisual(npc.Instance, armor);
+            _npcInventorySvc.RefreshHelmetVisual(npc.Instance);
         }
 
         private NpcSaveEntry CreateNpcSnapshot(string key, NpcContainer npc)

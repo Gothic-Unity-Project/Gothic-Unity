@@ -13,6 +13,9 @@ using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
+using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Services.Npc
 {
@@ -60,11 +63,16 @@ namespace Gothic.Core.Services.Npc
             var props = npc.GetUserData().Props;
 
             foreach (var conflicting in GetConflictingEquippedItems(props.EquippedItems, item).ToList())
-                UnequipItemWithEffects(npc, conflicting, deferItemFunctions);
+                UnequipItemWithEffects(npc, conflicting, deferItemFunctions, updateArmorVisual: false);
 
             props.EquippedItems.Add(item);
             ApplyItemProtection(npc, item, 1);
             RunItemFunction(npc, item, item.OnEquip, deferItemFunctions);
+
+            if (IsHelmet(item))
+                RefreshHelmetVisual(npc);
+            else if (IsArmor(item))
+                UpdateArmorVisual(npc, item);
 
             Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} equipped '{item.Name}'", LogCat.Npc);
         }
@@ -72,7 +80,8 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Counterpart of EquipItemWithEffects(). Returns false if the item wasn't equipped.
         /// </summary>
-        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false)
+        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false,
+            bool updateArmorVisual = true)
         {
             var props = npc.GetUserData().Props;
             var equipped = props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
@@ -83,8 +92,168 @@ namespace Gothic.Core.Services.Npc
             ApplyItemProtection(npc, equipped, -1);
             RunItemFunction(npc, equipped, equipped.OnUnEquip, deferItemFunctions);
 
+            if (IsHelmet(equipped))
+                RefreshHelmetVisual(npc);
+            else if (updateArmorVisual && IsArmor(equipped))
+                UpdateArmorVisual(npc, null);
+
             Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} unequipped '{equipped.Name}'", LogCat.Npc);
             return true;
+        }
+
+        /// <summary>
+        /// AI_EquipArmor: equips an armor the NPC carries (engine: nothing happens without it in the inventory).
+        /// </summary>
+        public void EquipArmorFromInventory(NpcInstance npc, ItemInstance armor)
+        {
+            if (armor == null)
+                return;
+
+            if (ExtNpcHasItems(npc, armor.Index) <= 0)
+            {
+                Logger.LogWarning($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} doesn't carry '{armor.Name}' - " +
+                                  "AI_EquipArmor ignored like in the engine.", LogCat.Npc);
+                return;
+            }
+
+            if (npc.GetUserData().Props.EquippedItems.Any(i => i.Index == armor.Index))
+                return;
+
+            EquipItemWithEffects(npc, armor);
+        }
+
+        /// <summary>
+        /// AI_UnequipArmor: takes the armor off (it stays in the inventory), the NPC shows its naked body.
+        /// </summary>
+        public void UnequipArmor(NpcInstance npc)
+        {
+            var armor = npc.GetUserData().Props.EquippedItems.FirstOrDefault(IsTorsoArmor);
+            if (armor != null)
+                UnequipItemWithEffects(npc, armor);
+        }
+
+        /// <summary>
+        /// AI_EquipBestArmor: the carried armor with the highest total protection.
+        /// </summary>
+        public void EquipBestArmor(NpcInstance npc)
+        {
+            ItemInstance best = null;
+            var bestProtection = int.MinValue;
+            foreach (var content in GetAllInventoryItems(npc))
+            {
+                var item = _vmCacheService.TryGetItemData(content.Name);
+                if (!IsTorsoArmor(item))
+                    continue;
+
+                var protection = 0;
+                for (var i = 0; i < 8; i++)
+                    protection += item.GetProtection((DamageType)i);
+
+                if (protection > bestProtection)
+                {
+                    best = item;
+                    bestProtection = protection;
+                }
+            }
+
+            EquipArmorFromInventory(npc, best);
+        }
+
+        private static bool IsArmor(ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0;
+        }
+
+        /// <summary>
+        /// C_ITEM.wear = WEAR_HEAD (2): a helmet - its own slot next to the body armor (WEAR_TORSO = 1), e.g. MT's HELM,
+        /// PALHELM. The original engine attaches its visual to the head instead of swapping the body.
+        /// </summary>
+        public static bool IsHelmet(ItemInstance item)
+        {
+            return IsArmor(item) && (item.Wear & _wearHead) != 0;
+        }
+
+        public static bool IsTorsoArmor(ItemInstance item)
+        {
+            return IsArmor(item) && (item.Wear & _wearHead) == 0;
+        }
+
+        private const int _wearHead = 2;
+        private const string _helmetHolderName = "_EquippedHelmet";
+        private static readonly string[] _helmetSlotNames = { "ZS_HELMET", "BIP01 HEAD" };
+
+        /// <summary>
+        /// Shows the equipped helmet (if any) on the NPC's head. Idempotent - also used after (lazy) mesh builds and loads.
+        /// </summary>
+        public void RefreshHelmetVisual(NpcInstance npc)
+        {
+            if (!_configService.Dev.EnableRuntimeArmorVisuals)
+                return;
+
+            var container = npc.GetUserData();
+            if (container?.Go == null || container.Vob == null || container.Vob.Player)
+                return;
+
+            var oldHolder = container.Go.FindChildRecursively(_helmetHolderName);
+            if (oldHolder != null)
+                Object.Destroy(oldHolder);
+
+            var helmet = container.Props.EquippedItems.FirstOrDefault(IsHelmet);
+            if (helmet == null || string.IsNullOrEmpty(helmet.Visual))
+                return;
+
+            GameObject slot = null;
+            foreach (var slotName in _helmetSlotNames)
+            {
+                slot = container.Go.FindChildRecursively(slotName);
+                if (slot != null)
+                    break;
+            }
+            if (slot == null)
+            {
+                Logger.LogWarning($"[ArmorVisual] No head slot on {npc.GetName(NpcNameSlot.Slot0)} for '{helmet.Visual}'.", LogCat.Npc);
+                return;
+            }
+
+            var holder = new GameObject(_helmetHolderName);
+            holder.transform.SetParent(slot.transform, false);
+            _vobService.CreateItemMesh(helmet.Index, holder);
+            Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} wears helmet '{helmet.Visual}' at {slot.name}", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableRuntimeArmorVisuals: the engine swaps the body mesh to the armor's visual_change (or back
+        /// to the naked body) whenever an armor is (un)equipped - Greg putting on Lobart's clothes, Pedro's novice robe,
+        /// Cavalorn's disguise... Not built yet (lazy loading): InitNpc picks up MdmName later.
+        /// Save/load: equipped items are saved; NpcService.RestoreEquipment re-derives MdmName from them.
+        /// The VR hero has no Gothic body - only protection/effects apply.
+        /// </summary>
+        public void UpdateArmorVisual(NpcInstance npc, ItemInstance armorOrNull)
+        {
+            if (!_configService.Dev.EnableRuntimeArmorVisuals || IsHelmet(armorOrNull))
+                return;
+
+            var container = npc.GetUserData();
+            if (container == null || container.Vob == null || container.Vob.Player)
+                return;
+
+            var props = container.Props;
+            if (string.IsNullOrEmpty(props.BodyData.Body))
+                return; // Mdl_SetVisualBody not called yet - it sets the visual itself.
+
+            var newMdm = !string.IsNullOrEmpty(armorOrNull?.VisualChange) ? armorOrNull.VisualChange : props.BodyData.Body;
+            props.BodyData.Armor = armorOrNull?.Index ?? -1;
+            if (newMdm.EqualsIgnoreCase(props.MdmName))
+                return;
+
+            props.MdmName = newMdm;
+
+            if (container.Go == null || container.PrefabProps == null || container.PrefabProps.AnimationSystem == null)
+                return;
+
+            var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay) ? props.MdhNameBase : props.MdhNameOverlay;
+            var rebuilt = _meshService.RebuildNpcBody(container.Go, newMdm, mdhName, props.BodyData);
+            Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} now wears '{newMdm}' (rebuilt={rebuilt})", LogCat.Npc);
         }
 
         public bool IsEquipped(NpcInstance npc, string itemInstanceName)
@@ -105,8 +274,9 @@ namespace Gothic.Core.Services.Npc
 
         private static IEnumerable<ItemInstance> GetConflictingEquippedItems(List<ItemInstance> equippedItems, ItemInstance item)
         {
+            // Helmets (WEAR_HEAD) and body armor (WEAR_TORSO) are separate slots.
             if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0)
-                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatArmor) != 0);
+                return equippedItems.Where(i => IsArmor(i) && IsHelmet(i) == IsHelmet(item));
 
             if (((ItemFlags)item.Flags & ItemFlags.ItemAmulet) != 0)
                 return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemAmulet) != 0);

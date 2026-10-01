@@ -51,6 +51,21 @@ namespace Gothic.Core.Services.Meshes
             return npcGo;
         }
 
+        /// <summary>
+        /// Swap the body/armor mesh of an already built NPC (runtime armor change).
+        /// </summary>
+        public bool RebuildNpcBody(GameObject npcRoot, string mdmName, string mdhName, ExtSetVisualBodyData bodyData)
+        {
+            var npcBuilder = new NpcMeshBuilder().Inject();
+            npcBuilder.SetGameObject(npcRoot);
+            npcBuilder.SetMeshName(mdmName);
+            npcBuilder.SetMdh(mdhName);
+            npcBuilder.SetMdm(mdmName);
+            npcBuilder.SetBodyData(bodyData);
+
+            return npcBuilder.RebuildBody();
+        }
+
          public GameObject CreateNpcWeapon(GameObject npcGo, ItemInstance itemData,
             VmGothicEnums.ItemFlags mainFlag, VmGothicEnums.ItemFlags flags, bool isEquipped = false)
         {

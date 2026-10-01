@@ -372,7 +372,40 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiUnequipArmor(NpcInstance npc)
         {
-            npc.GetUserData().Props.BodyData.Armor = 0;
+            if (!_configService.Dev.EnableRuntimeArmorVisuals)
+            {
+                npc.GetUserData().Props.BodyData.Armor = 0;
+                return;
+            }
+
+            QueueArmorChange(npc, 0, ChangeArmor.Mode.Unequip);
+        }
+
+        public void ExtAiEquipArmor(NpcInstance npc, int itemIndex)
+        {
+            QueueArmorChange(npc, itemIndex, ChangeArmor.Mode.Equip);
+        }
+
+        public void ExtAiEquipBestArmor(NpcInstance npc)
+        {
+            QueueArmorChange(npc, 0, ChangeArmor.Mode.EquipBest);
+        }
+
+        /// <summary>
+        /// Queued in the NPC's AI like the engine. The VR hero's AI queue isn't processed - his change runs immediately
+        /// (e.g. Pyrokar: AI_EquipArmor(hero, ITAR_KDF_L) -> protection + [E] in the backpack, no body in VR).
+        /// </summary>
+        private void QueueArmorChange(NpcInstance npc, int itemIndex, ChangeArmor.Mode mode)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            var action = new ChangeArmor(new AnimationAction(int0: itemIndex, int1: (int)mode), container);
+            if (container.Vob != null && container.Vob.Player)
+                action.Start();
+            else
+                container.Props.AnimationQueue.Enqueue(action);
         }
 
         /// <summary>

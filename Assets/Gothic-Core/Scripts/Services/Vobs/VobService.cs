@@ -222,16 +222,16 @@ namespace Gothic.Core.Services.Vobs
         /// Create item with mesh only. No special handling like grabbing etc.
         /// e.g. used for NPCs drinking beer mesh in their hand.
         /// </summary>
-        public void CreateItemMesh(int itemId, GameObject parentGo)
+        public GameObject CreateItemMesh(int itemId, GameObject parentGo)
         {
             if (itemId == -1)
             {
                 Logger.LogError("No ItemId found. Is this a bug on daedalus or our side?", LogCat.Vob);
-                return; // no item
+                return null; // no item
             }
             var item = _vmCacheService.TryGetItemData(itemId);
 
-            _initializerDomain.CreateItemMesh(item, parentGo, default);
+            return _initializerDomain.CreateItemMesh(item, parentGo, default);
         }
 
         /// <summary>

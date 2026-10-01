@@ -39,6 +39,53 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return RootGo;
         }
 
+        /// <summary>
+        /// Runtime armor change (AI_EquipArmor, EquipItem, ...): replaces the body's skinned meshes (ZM_*) with the ones
+        /// of the current .mdm on the NPC's existing skeleton. Head, weapons, colliders and the animation stay untouched.
+        /// </summary>
+        public bool RebuildBody()
+        {
+            var nodeObjects = new GameObject[Mdh.Nodes.Count];
+            for (var i = 0; i < Mdh.Nodes.Count; i++)
+            {
+                nodeObjects[i] = RootGo.FindChildRecursively(Mdh.Nodes[i].Name);
+                if (nodeObjects[i] == null)
+                {
+                    Logger.LogWarning($"[ArmorVisual] Bone '{Mdh.Nodes[i].Name}' missing on {RootGo.name} - body not rebuilt.",
+                        LogCat.Mesh);
+                    return false;
+                }
+            }
+
+            foreach (Transform child in RootGo.transform)
+            {
+                if (child.name.StartsWith("ZM_") && child.GetComponent<SkinnedMeshRenderer>() != null)
+                    Object.Destroy(child.gameObject);
+            }
+
+            // Bind poses are calculated from the bones' current pose (CreateBonesData) and written into the cached, shared
+            // mesh. An animated NPC would bake its current pose into it - mangled armor for everyone wearing it.
+            // Put the skeleton into its rest pose (like during the initial build) for the rebuild, then restore it.
+            var animatedPositions = new UnityEngine.Vector3[nodeObjects.Length];
+            var animatedRotations = new Quaternion[nodeObjects.Length];
+            for (var i = 0; i < nodeObjects.Length; i++)
+            {
+                nodeObjects[i].transform.GetLocalPositionAndRotation(out animatedPositions[i], out animatedRotations[i]);
+
+                SetPosAndRot(nodeObjects[i], Mdh.Nodes[i].Transform);
+                if (Mdh.Nodes[i].ParentIndex == -1)
+                    nodeObjects[i].transform.localPosition = Mdh.RootTranslation.ToUnityVector();
+            }
+
+            CreateSoftSkinMeshes(nodeObjects);
+
+            for (var i = 0; i < nodeObjects.Length; i++)
+                nodeObjects[i].transform.SetLocalPositionAndRotation(animatedPositions[i], animatedRotations[i]);
+
+            SetNpcMeshLayers();
+            return true;
+        }
+
         private void SetNpcMeshLayers()
         {
             foreach (var t in RootGo.GetComponentsInChildren<Transform>(true))

@@ -121,6 +121,12 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
+            if (_configService.Dev.EnableRuntimeArmorVisuals)
+            {
+                // Item as int like OpenGothic - the armor symbol usually has no initialized C_ITEM instance.
+                vm.RegisterExternal<NpcInstance, int>("AI_EquipArmor", AI_EquipArmor);
+                vm.RegisterExternal<NpcInstance>("AI_EquipBestArmor", AI_EquipBestArmor);
+            }
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM_Overlay", AI_OutputSVM_Overlay);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WhirlAround", AI_WhirlAround);
@@ -621,6 +627,16 @@ namespace Gothic.Core.Domain.Vm
         public void AI_UnequipArmor(NpcInstance npc)
         {
             _npcAiService.ExtAiUnequipArmor(npc);
+        }
+
+        public void AI_EquipArmor(NpcInstance npc, int itemIndex)
+        {
+            _npcAiService.ExtAiEquipArmor(npc, itemIndex);
+        }
+
+        public void AI_EquipBestArmor(NpcInstance npc)
+        {
+            _npcAiService.ExtAiEquipBestArmor(npc);
         }
 
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)
