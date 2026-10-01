@@ -427,21 +427,6 @@ namespace Gothic.Core.Models.Config
                  "mesh (Greg in Lobart's clothes, Pedro's robe, ...). Also kept after save/load. Read at VM start.")]
         public bool EnableRuntimeArmorVisuals = true;
 
-
-        [Separator("TODO TEST ME V1s and MVPs", true)]
-        [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
-                 "with the item's name, amount and Gothic inventory description (C_Item text[]/count[]).")]
-        public bool EnableItemDetailsPopup = true;
-
-        [Tooltip("V1: Grab armor/amulet/ring/belt with both hands + trigger (R) -> it's stored in the backpack and equipped " +
-                 "(protection + on_equip). Equipped items are listed first in the backpack with an [E] badge; " +
-                 "taking the last one out of the backpack unequips it.")]
-        public bool EnableEquipItems = true;
-
-        [Tooltip("V1: Daedalus EquipItem() applies protection[] + on_equip like the engine. Without it, NPC armor " +
-                 "(and the hero's script-equipped starting armor) protects nothing. Changes NPC combat balance!")]
-        public bool EnableScriptEquipEffects = true;
-
         [Tooltip("V1: Mobs used with a melee tool + onStateFunc (G2 treasure X marks, pickaxe) are dug up by hitting " +
                  "them 3 times with a swung melee weapon -> calls [onStateFunc]_S1 like the engine.")]
         public bool EnableDigSpots = true;
@@ -457,5 +442,64 @@ namespace Gothic.Core.Models.Config
                  "bookstands, ...) calls [onStateFunc]_S1 like the engine. MOBSI dialogs (AI_ProcessInfos(hero)) open " +
                  "next to the mob.")]
         public bool EnableMobsiDialogs = true;
+
+        [Tooltip("Crossbows (ITEM_CROSSBOW) shoot in VR: aim with the crossbow (one or both hands), trigger fires a " +
+                 "bolt (munition from the inventory, 1 per shot, 30 m/s + gravity). Engine damage (G2 DEX + damage - " +
+                 "protection). Automatic reload after 1.5 s for now.")]
+        public bool EnableVrCrossbow = true;
+
+        [Tooltip("Child vobs (doors/chests/mobs/items placed below another vob) get their own VobLoader - their VR " +
+                 "adapters read the parent's data before (InvalidCastException, 'No door or container found', broken " +
+                 "doors/chests in G2).")]
+        public bool EnableChildVobLoaders = true;
+
+        [Tooltip("Items without pre-cached colliders (morph meshes: bows, crossbows) get a box collider from their " +
+                 "mesh bounds. Before they had no collider: fell through the ground, no force grab, flew away in hands.")]
+        public bool EnableItemColliderFallback = true;
+
+
+        [Separator("TODO TEST ME V1s and MVPs", true)]
+        [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
+                 "with the item's name, amount and Gothic inventory description (C_Item text[]/count[]).")]
+        public bool EnableItemDetailsPopup = true;
+
+        [Tooltip("V1: Grab armor/amulet/ring/belt with both hands + trigger (R) -> it's stored in the backpack and equipped " +
+                 "(protection + on_equip). Equipped items are listed first in the backpack with an [E] badge; " +
+                 "taking the last one out of the backpack unequips it.")]
+        public bool EnableEquipItems = true;
+
+        [Tooltip("V1: Daedalus EquipItem() applies protection[] + on_equip like the engine. Without it, NPC armor " +
+                 "(and the hero's script-equipped starting armor) protects nothing. Changes NPC combat balance!")]
+        public bool EnableScriptEquipEffects = true;
+
+        [Tooltip("V1: NPCs/monsters in water like the engine: wading (WALKW) above the guild's knee depth, swimming at " +
+                 "the surface above chest depth if the model has swim animations - otherwise deep water is a wall " +
+                 "(monsters stop at the shore). Hero: water level resets out of water (teleport, save load) and the " +
+                 "hero is BS_SWIM/BS_DIVE for scripts (monsters stop chasing a swimming hero).")]
+        public bool EnableNpcWater = true;
+
+
+        [Tooltip("V1: Bows (ITEM_BOW) in VR: the Gothic string is replaced by our own. Hold the bow in one hand, put the " +
+                 "other empty hand to the string and hold its GRIP to draw (an arrow from the inventory is nocked), " +
+                 "release to shoot - speed/damage grow with the draw. Missed arrows/bolts lie in the world to pick up.")]
+        public bool EnableVrBows = true;
+
+        [Tooltip("V1: Projectile spells (VISUALFX CAST key with a TARGET trajectory: Firebolt, Fireball, Thunderbolt, " +
+                 "Icecube, ...) are thrown: hold the rune in one hand, hold trigger to charge, swing + release trigger to " +
+                 "throw. Soft homing towards the NPC closest to the throw direction. Other spells stay as they are.")]
+        public bool EnableThrowableSpells = true;
+
+        [Tooltip("V1: Npc_ClearAIQueue no longer restarts an NPC's running idle animation (engine: only the queue is " +
+                 "cleared). Summoned demons flapped their wings every 0.5 s (B_FullStop on each ASSESSPLAYER).")]
+        public bool EnableKeepIdleOnClearAiQueue = true;
+
+        [Tooltip("V1: PlayVideo/PlayVideoEx (chapter videos, G1 ending) play in a dark 'cinema' around the VR head: the " +
+                 "camera only renders the screen. Needs the videos as MP4 in <game>/_work/DATA/video/ (same as logos). " +
+                 "Skip: any trigger or A/X (keyboard: Space/Escape). The world keeps running. Read at VM start.")]
+        public bool EnableScriptVideos = true;
+
+
+        [Tooltip("V1: Npc_GetLookAtTarget (G2 scripts) returns the NPC set by AI_LookAtNpc. Read at VM start.")]
+        public bool EnableNpcLookAtTarget = true;
     }
 }

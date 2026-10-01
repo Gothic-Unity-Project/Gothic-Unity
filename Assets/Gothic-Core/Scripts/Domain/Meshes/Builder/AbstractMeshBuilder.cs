@@ -7,6 +7,7 @@ using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
@@ -29,6 +30,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly StaticCacheService _staticCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        // Named apart from subclasses' own _configService fields.
+        [Inject] private readonly ConfigService _builderConfigService;
 
         protected GameObject RootGo;
         protected GameObject ParentGo;
@@ -296,6 +299,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             PrepareMeshFilter(meshFilter, Mmb.Mesh, meshRenderer, 0);
             PrepareMeshRenderer(meshRenderer, Mmb.Mesh);
+
+            // Morph mesh items (bows, crossbows) never got a collider: the HVR hand grabbed "nothing" next to them
+            // and they fell through the world (crossbows from NPC loot too). Items use the cached/fallback colliders.
+            if (HasMeshCollider && _builderConfigService.Dev.EnableItemColliderFallback)
+            {
+                if (UseColliderCache)
+                    PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
+                else
+                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh);
+            }
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -640,8 +653,24 @@ namespace Gothic.Core.Domain.Meshes.Builder
         
         protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders))
+            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders) || colliders.Count == 0)
             {
+                // The pre-cached colliders are calculated from MRMs only - morph mesh items (bows, crossbows) got none:
+                // they fell through the ground, couldn't be force-grabbed and flew away when rotated in a hand.
+                // A thin capsule along the long axis, like the cached sword colliders. A box around the whole bow
+                // enclosed the holding hand - physics pushed hand and bow away ("backrooms").
+                if (_builderConfigService.Dev.EnableItemColliderFallback && mesh != null)
+                {
+                    var size = mesh.bounds.size;
+                    var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+                    var fallback = rootGo.AddComponent<CapsuleCollider>();
+                    fallback.center = mesh.bounds.center;
+                    fallback.direction = axis;
+                    fallback.height = Mathf.Max(size[axis], 0.1f);
+                    fallback.radius = 0.025f;
+                    return;
+                }
+
                 Logger.LogError($"Can't find Collider data for {MeshName}. Skipping...", LogCat.Mesh);
                 return;
             }

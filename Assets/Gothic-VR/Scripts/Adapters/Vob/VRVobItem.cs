@@ -99,6 +99,9 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(grabber, grabbable);
 
+            // One hand is enough for ranged weapons.
+            TryPrepareRangedWeapon();
+
             if (_vrPlayerService.IsDualGrabbed)
             {
                 TryShowDocument();
@@ -126,6 +129,13 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(grabber, grabbable);
+
+            // Bows/crossbows shoot as long as any hand holds them.
+            var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject || _vrPlayerService.GrabbedItemRight == gameObject;
+            if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRCrossbow>(out var crossbow))
+                Destroy(crossbow);
+            if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRBow>(out var bow))
+                Destroy(bow);
 
             // Close any open document viewer / rune caster when item is no longer dual-grabbed.
             if (!_vrPlayerService.IsDualGrabbed)
@@ -208,6 +218,25 @@ namespace Gothic.VR.Adapters.Vob
 
             if (GetComponent<Adapters.Vob.VobItem.VRRuneCaster>() == null)
                 gameObject.AddComponent<Adapters.Vob.VobItem.VRRuneCaster>();
+        }
+
+        /// <summary>
+        /// V1 (DeveloperConfig.EnableVrCrossbow / EnableVrBows): ranged weapons shoot while held (vr-ranged-spells-plan.md).
+        /// </summary>
+        private void TryPrepareRangedWeapon()
+        {
+            if (GetComponent<Adapters.Vob.VobItem.VRCrossbow>() != null || GetComponent<Adapters.Vob.VobItem.VRBow>() != null)
+                return;
+
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatFf)
+                return;
+
+            var flags = (VmGothicEnums.ItemFlags)item.Flags;
+            if (_configService.Dev.EnableVrCrossbow && flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow))
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRCrossbow>();
+            else if (_configService.Dev.EnableVrBows && flags.HasFlag(VmGothicEnums.ItemFlags.ItemBow))
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRBow>();
         }
 
         /// <summary>

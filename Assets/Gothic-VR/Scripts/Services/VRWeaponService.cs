@@ -51,6 +51,7 @@ namespace Gothic.VR.Services
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
 
         private bool _isRuneReadied;
+        private VmGothicEnums.WeaponState? _readiedRangedState;
 
         public void Init()
         {
@@ -215,8 +216,17 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// Called by VRCrossbow/VRBow (held in any hand) - null when released.
+        /// </summary>
+        public void SetRangedReadied(VmGothicEnums.WeaponState? rangedState)
+        {
+            _readiedRangedState = rangedState;
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > readied rune (VRRuneCaster sets hero.ActiveSpell) > nothing.
+        /// melee weapon in any hand > held crossbow/bow (VRCrossbow/VRBow) > readied rune (VRRuneCaster sets hero.ActiveSpell) > nothing.
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
         /// </summary>
         public void UpdateHeroWeaponState()
@@ -224,9 +234,10 @@ namespace Gothic.VR.Services
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon && _readiedRangedState.HasValue)
+                state = _readiedRangedState.Value;
             if (state == VmGothicEnums.WeaponState.NoWeapon && _isRuneReadied)
                 state = VmGothicEnums.WeaponState.Mage;
-            // TODO - Bows/crossbows (WeaponState.Bow/CBow) once VR ranged combat exists.
 
             _npcAiService.ExtSetHeroWeaponState(state);
         }

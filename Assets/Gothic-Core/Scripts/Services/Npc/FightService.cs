@@ -33,11 +33,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         public void Init()
         {
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.SpellHit.AddListener(OnSpellHit);
+            GlobalEventDispatcher.RangedHit.AddListener(OnRangedHit);
             GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
         }
 
@@ -94,6 +96,31 @@ namespace Gothic.Core.Services.Npc
                 OnHit(caster, target, pos, damageOverride: damage);
         }
 
+        /// <summary>
+        /// Engine ranged damage (OpenGothic DamageCalculator::rangeDamageValue): G2 DEX + weapon damage, G1 weapon
+        /// damage only, minus the protection of the weapon's damage type (arrows/bolts: PROT_POINT).
+        /// The hit chance roll is skipped - a VR projectile that physically hit, hit.
+        /// FIXME - G1 crit (TALENT_BOW/CROSSBOW value % chance) together with the melee talent formula.
+        /// </summary>
+        private void OnRangedHit(NpcContainer shooter, NpcContainer target, Vector3 pos,
+            (ItemInstance weapon, float damageScale) shot)
+        {
+            var (weapon, damageScale) = shot;
+            if (shooter == null || target == null || weapon == null)
+                return;
+
+            var damage = weapon.DamageTotal;
+            if (_contextGameVersionService.IsGothic2())
+                damage += shooter.Vob.GetAttribute((int)NpcAttribute.Dexterity);
+            damage = Mathf.RoundToInt(damage * Mathf.Clamp01(damageScale));
+
+            var protectionIndex = GetProtectionIndex(weapon.DamageType);
+            Logger.Log($"[FightService.RangedHit] {shooter.Instance.GetName(NpcNameSlot.Slot0)} -> " +
+                       $"{target.Instance.GetName(NpcNameSlot.Slot0)} raw={damage} prot[{protectionIndex}]", LogCat.Fight);
+
+            OnHit(shooter, target, pos, damage, protectionIndex);
+        }
+
         private string GetSpellMfxName(int spellId)
         {
             if (spellId < 0) return null;
@@ -118,7 +145,8 @@ namespace Gothic.Core.Services.Npc
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __) =>
             OnHit(attacker, target, __, damageOverride: null);
 
-        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, int? damageOverride)
+        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, int? damageOverride,
+            int overrideProtectionIndex = (int)DamageType.Fire)
         {
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
@@ -151,7 +179,7 @@ namespace Gothic.Core.Services.Npc
             }
 
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            if (OnHitUpdateHealth(attacker, target, damageOverride))
+            if (OnHitUpdateHealth(attacker, target, damageOverride, overrideProtectionIndex))
             {
                 if (!isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 {
@@ -536,7 +564,8 @@ namespace Gothic.Core.Services.Npc
         /// Handles health changes.
         /// Returns true if Npc/Monster is dead.
         /// </summary>
-        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target, int? damageOverride = null)
+        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target, int? damageOverride = null,
+            int overrideProtectionIndex = (int)DamageType.Fire)
         {
             // FIXME - Talent/skill level (e.g. 1H skill) is not factored in yet.
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
@@ -545,8 +574,9 @@ namespace Gothic.Core.Services.Npc
             int damage;
             if (damageOverride.HasValue)
             {
-                // Spell damage bypasses weapon formula — protection still applies.
-                var protection = target.Vob.GetProtection((int)DamageType.Fire); // FIXME: use spell damage type
+                // Spell/ranged damage bypasses the melee weapon formula — protection still applies.
+                // FIXME: spells use their own damage type (overrideProtectionIndex stays Fire for them).
+                var protection = target.Vob.GetProtection(overrideProtectionIndex);
                 damage = protection < 0 ? 0 : Mathf.Max(0, damageOverride.Value - protection);
             }
             else

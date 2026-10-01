@@ -85,6 +85,16 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, int> SpellHit = new();
 
         /// <summary>
+        /// Arrow/bolt hit (VR crossbow/bow projectiles).
+        /// NpcContainer - shooter
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// (weapon, damageScale) - the ranged weapon (damage, damage type) + scale (VR bow: partly drawn string),
+        ///                         1 = engine damage. A tuple: UnityEvent takes at most 4 arguments.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, (ZenKit.Daedalus.ItemInstance weapon, float damageScale)> RangedHit = new();
+
+        /// <summary>
         /// NpcContainer - who performs the finishing move (attacker)
         /// NpcContainer - who is executed (unconscious target)
         /// </summary>
@@ -115,6 +125,11 @@ namespace Gothic.Core
         /// Daedalus Snd_Play - a non-positional (2D) sound like "LogEntry".
         /// </summary>
         public static readonly UnityEvent<string> ScriptSoundPlay = new();
+
+        /// <summary>
+        /// PlayVideo/PlayVideoEx from Daedalus (chapter videos, G1 ending "Extro.bik"). string = video file name.
+        /// </summary>
+        public static readonly UnityEvent<string> ScriptPlayVideo = new();
 
 
         // LockPicking events

@@ -226,11 +226,35 @@ namespace Gothic.Core.Domain.Vobs
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
-            
+
+            if (!isRootVob)
+                EnsureOwnVobLoader(vob, go);
+
             foreach (var childVob in vob.Children)
             {
                 InitVob(childVob, go, worldPosition, false);
             }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableChildVobLoaders: child vobs are created inside their parent's GO without a VobLoader of
+        /// their own. Their adapters (VRVobContainer, VRVobContainerPhysicsChest, door lock picking, VRFocus) call
+        /// GetComponentInParent<VobLoader>() and got the PARENT's vob (often an unnamed zCVob) - InvalidCastExceptions,
+        /// "No door or container found for ><", doors/chests that don't work (G2 Xardas' tower).
+        /// </summary>
+        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go)
+        {
+            if (!_configService.Dev.EnableChildVobLoaders || vob is not (IInteractiveObject or IItem))
+                return;
+
+            var loader = go.GetComponentInParent<VobLoader>();
+            if (loader != null && loader.Container?.Vob == vob)
+                return;
+
+            var ownLoader = go.AddComponent<VobLoader>();
+            ownLoader.Container = new VobContainer(vob) { Go = go };
+            ownLoader.IsLoaded = true;
+            Logger.Log($"[ChildVob] '{vob.Name}' ({vob.Type}) under '{loader?.Container?.Vob?.Name}' got its own VobLoader.", LogCat.Vob);
         }
 
         public void SetPosAndRot(GameObject obj, System.Numerics.Vector3 position, Matrix3x3 rotation)

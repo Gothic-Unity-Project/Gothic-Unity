@@ -438,17 +438,17 @@ namespace Gothic.Core.Services.Vobs
         /// <summary>
         /// Spawns an item VOB at a given world position with physics — used for weapon drops on NPC death/knockout.
         /// </summary>
-        public void DropItemAtPosition(int symbolIndex, Vector3 worldPosition)
+        public VobContainer DropItemAtPosition(int symbolIndex, Vector3 worldPosition)
         {
             var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
             if (!_configService.Dev.EnableVOBs || (!activeTypes.IsEmpty() && activeTypes.Contains(VirtualObjectType.oCItem)))
-                return;
+                return null;
 
             var sym = _gameStateService.GothicVm.GetSymbolByIndex(symbolIndex);
             if (sym == null)
             {
                 Logger.LogWarning($"[VobService] DropItemAtPosition: no symbol at index {symbolIndex}", LogCat.Vob);
-                return;
+                return null;
             }
 
             Logger.Log($"[VobService] DropItemAtPosition: '{sym.Name}' at {worldPosition}", LogCat.Vob);
@@ -488,6 +488,8 @@ namespace Gothic.Core.Services.Vobs
                     rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                 }
             }
+
+            return container;
         }
 
         /// <summary>
