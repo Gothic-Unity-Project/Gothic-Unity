@@ -304,8 +304,9 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.oCMobDoor:
                     var visualName = vob.Visual?.Name;
+                    // G2 beds are named BEDHIGH_NW_..., not only BED_... (they were built as doors - no focus, no use).
                     var isBed = !visualName.IsNullOrEmpty()
-                                && visualName.Split('_')[0].EqualsIgnoreCase("BED");
+                                && visualName.StartsWithIgnoreCase("BED");
                     go = isBed
                         ? _resourceCacheService.TryGetPrefabObject(PrefabType.VobBed, name: name, parent: parent)
                         : _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
