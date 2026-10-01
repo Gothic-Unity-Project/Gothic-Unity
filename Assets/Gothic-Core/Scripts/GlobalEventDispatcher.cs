@@ -95,6 +95,27 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
+        /// <summary>
+        /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
+        /// NpcContainer - whose inventory lost the item
+        /// int - item instance index
+        /// int - amount
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, int, int> ScriptRemovedInvItems = new();
+
+        /// <summary>
+        /// Daedalus PrintScreen/AI_PrintScreen ("New log entry", "1 item received", ...).
+        /// string - text
+        /// int - posY in percent of the screen (-1 = centered)
+        /// int - seconds to show
+        /// </summary>
+        public static readonly UnityEvent<string, int, int> ScriptPrintScreen = new();
+
+        /// <summary>
+        /// Daedalus Snd_Play - a non-positional (2D) sound like "LogEntry".
+        /// </summary>
+        public static readonly UnityEvent<string> ScriptSoundPlay = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick

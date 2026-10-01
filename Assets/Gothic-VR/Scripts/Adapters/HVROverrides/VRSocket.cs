@@ -30,7 +30,7 @@ namespace Gothic.VR.Adapters.HVROverrides
         /// Rig layout: TechDemoXRRigOpenXR/{PlayerController, Waist/Holsters, BackPack, ...}.
         /// The holsters aren't below PlayerController, so we check against its parent (the rig root).
         /// </summary>
-        private bool IsPlayerSocket()
+        public bool IsPlayerSocket()
         {
             if (_isPlayerSocket.HasValue)
                 return _isPlayerSocket.Value;

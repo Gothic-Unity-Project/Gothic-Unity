@@ -403,6 +403,18 @@ namespace Gothic.Core.Models.Config
                  "B_AssessCaster only reacts to offensive (SPELL_BAD) spells.")]
         public bool EnableCasterPerception = true;
 
+        [Tooltip("When a script takes an item from the hero (B_GiveInvItems in a dialog), surplus physical copies " +
+                 "in VR hands/holsters are removed too (not only the inventory count).")]
+        public bool EnableScriptRemovesHeldItems = true;
+
+        [Tooltip("Swampweed joints (scheme JOINT) can be smoked at the VR mouth: smoke sound + LIGHTSMOKE puffs, " +
+                 "on_state[0] like the engine, joint used up.")]
+        public bool EnableSmoking = true;
+
+        [Tooltip("PrintScreen/AI_PrintScreen (\"New log entry\", \"1 item received\", ...) shown as a HUD in front of " +
+                 "the VR head + Snd_Play 2D sounds (\"LogEntry\"). Read at VM start - restart the game after toggling.")]
+        public bool EnableScreenMessages = true;
+
 
         [Separator("TODO TEST ME V1s and MVPs", true)]
         [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
@@ -424,5 +436,9 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("Dig spots only react to their own tool (vanilla: pickaxe). Off = any melee weapon (easier testing).")]
         public bool DigSpotsRequireTool;
+
+        [Tooltip("V1: The dialog box is never cut by walls/benches/the NPC (ignores depth). VR hands render after " +
+                 "transparents so they stay visible above it for pointing.")]
+        public bool EnableDialogAlwaysOnTop = true;
     }
 }

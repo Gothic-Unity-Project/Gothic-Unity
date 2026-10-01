@@ -11,6 +11,8 @@ using Gothic.Core.Services.Context;
 using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Adapters.UI;
+using Gothic.Core.Manager;
 using HurricaneVR.Framework.Core.UI;
 using HurricaneVRExtensions.Simulator;
 using Reflex.Attributes;
@@ -26,6 +28,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly AudioService _audioService;
 
         private const string _contextName = "VR";
 
@@ -36,6 +39,11 @@ namespace Gothic.VR.Services.Context
             this.Inject();
 
             _vrWeaponService.Init();
+
+            GlobalEventDispatcher.ScriptPrintScreen.AddListener((message, _, seconds) =>
+                VRScreenMessages.ShowMessage(_audioService, message, seconds));
+            GlobalEventDispatcher.ScriptSoundPlay.AddListener(soundName =>
+                VRScreenMessages.PlaySound(_audioService, soundName));
             
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>

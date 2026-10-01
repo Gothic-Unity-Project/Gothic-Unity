@@ -1,5 +1,12 @@
 #if GOTHIC_HVR_INSTALLED
+using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Vobs;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.Player;
+using ZenKit.Vobs;
 using Gothic.Core.Adapters.Vob.Item;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
@@ -36,6 +43,9 @@ namespace Gothic.VR.Services
         [Inject] private PlayerService _playerService;
         [Inject] private NpcAiService _npcAiService;
         [Inject] private ConfigService _configService;
+        [Inject] private GameStateService _gameStateService;
+        [Inject] private NpcInventoryService _npcInventoryService;
+        [Inject] private VobService _vobService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -48,6 +58,96 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.FightWindowAttack.AddListener(OnAttackWindowStart);
             GlobalEventDispatcher.FightWindowInitial.AddListener(OnAttackWindowEnd);
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
+            GlobalEventDispatcher.ScriptRemovedInvItems.AddListener(OnScriptRemovedInvItems);
+        }
+
+        /// <summary>
+        /// V1 (DeveloperConfig.EnableScriptRemovesHeldItems): items in VR hands and body holsters count as hero
+        /// inventory. When a script takes them (B_GiveInvItems in a dialog, Npc_RemoveInvItems), the physical copies
+        /// must vanish too - otherwise the hero keeps e.g. Lobart's clothes in a holster after handing them over.
+        /// Only surplus copies (more physical than the inventory still has) are removed. Backpack sockets are skipped:
+        /// the backpack refills from the inventory anyway.
+        /// </summary>
+        private void OnScriptRemovedInvItems(NpcContainer npc, int itemIndex, int amount)
+        {
+            if (!_configService.Dev.EnableScriptRemovesHeldItems)
+                return;
+            var hero = _playerService.HeroContainer;
+            if (npc == null || hero == null || npc != hero)
+                return;
+
+            var itemName = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)?.Name;
+            if (itemName == null)
+                return;
+
+            var remaining = _npcInventoryService.ExtNpcHasItems(hero.Instance, itemIndex);
+
+            var socketed = new List<(VRSocket socket, VobContainer container)>();
+            foreach (var socket in Object.FindObjectsByType<VRSocket>(FindObjectsSortMode.None))
+            {
+                if (socket.GrabbedTarget == null || !socket.IsPlayerSocket() ||
+                    socket.GetComponentInParent<VRBackpack>(true) != null)
+                    continue;
+
+                var container = socket.GrabbedTarget.GetComponentInParent<VobLoader>(true)?.Container;
+                if (IsSameItem(container, itemName))
+                    socketed.Add((socket, container));
+            }
+
+            var held = new List<(HVRHandGrabber hand, VobContainer container)>();
+            foreach (var hand in Object.FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None))
+            {
+                var container = hand.GrabbedTarget?.GetComponentInParent<VobLoader>()?.Container;
+                if (IsSameItem(container, itemName) && !held.Exists(h => h.container == container))
+                    held.Add((hand, container));
+            }
+
+            var surplus = socketed.Sum(s => GetAmount(s.container)) + held.Sum(h => GetAmount(h.container)) - remaining;
+            if (surplus <= 0)
+                return;
+
+            Logger.Log($"[VRWeaponService] Script took {amount}x '{itemName}' - removing {surplus} physical cop(y/ies) " +
+                       $"from holsters/hands (inventory left: {remaining}).", LogCat.VR);
+
+            // Holsters first - a script taking an item rarely means the one the player is actively holding.
+            foreach (var (socket, container) in socketed)
+            {
+                if (surplus <= 0)
+                    return;
+                surplus -= GetAmount(container);
+                socket.ForceRelease();
+                _vobService.RemoveWorldItem(container);
+            }
+
+            foreach (var (_, container) in held)
+            {
+                if (surplus <= 0)
+                    return;
+                surplus -= GetAmount(container);
+
+                // Releasing from the hand subtracts the item from the inventory (VRPlayerService.UnsetGrab), but the
+                // script already did that. Add it back first so the release doesn't remove it twice.
+                _playerService.AddItem(itemName, GetAmount(container));
+                foreach (var hand in Object.FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None))
+                {
+                    if (hand.GrabbedTarget?.GetComponentInParent<VobLoader>()?.Container == container)
+                        hand.ForceRelease();
+                }
+                _vobService.RemoveWorldItem(container);
+            }
+        }
+
+        private static bool IsSameItem(VobContainer container, string itemName)
+        {
+            if (container?.Vob is not IItem item)
+                return false;
+            var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+            return instanceName.EqualsIgnoreCase(itemName);
+        }
+
+        private static int GetAmount(VobContainer container)
+        {
+            return Mathf.Max(1, ((IItem)container.Vob).Amount);
         }
 
         /// <summary>
