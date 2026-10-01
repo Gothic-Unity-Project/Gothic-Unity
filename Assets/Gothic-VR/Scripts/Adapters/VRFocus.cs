@@ -5,6 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Extensions;
+using Gothic.VR.Adapters.Vob;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
@@ -31,6 +32,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
 
         private static Camera _mainCamera;
 
@@ -63,6 +65,14 @@ namespace Gothic.VR.Adapters
             var grabbable = GetComponent<HVRGrabbable>();
             grabbable?.Grabbed.AddListener(OnGrabbed);
             grabbable?.Released.AddListener(OnReleased);
+
+            // V1: mobs used with a melee tool (e.g. G2 treasure X marks + pickaxe) can be dug up by hitting them.
+            if (_configService.Dev.EnableDigSpots &&
+                VRDigSpot.IsDigSpot(GetComponentInParent<VobLoader>()?.Container, _vmCacheService) &&
+                GetComponent<VRDigSpot>() == null)
+            {
+                gameObject.AddComponent<VRDigSpot>();
+            }
         }
 
         private void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)

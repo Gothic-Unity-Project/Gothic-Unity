@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Caches;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Services;
@@ -788,6 +789,69 @@ namespace Gothic.Core.Domain.Vobs
             return go;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDigSpots: G2's treasure X marks (TREASURE_ADDON_01.ASC) are a single attachment mesh with
+        /// an untextured, color-only material. MeshService skips texture-less models (on purpose for G1's empty ones like
+        /// the harp or WASH_SLOT), so the X - and with it its VRFocus/VRDigSpot - got destroyed: invisible and not
+        /// diggable. Mobs used with a tool that have an onStateFunc are kept with a simple red X instead.
+        /// </summary>
+        private bool TryKeepAsDigSpotPlaceholder(IVirtualObject vob, GameObject go, GameObject parent)
+        {
+            if (!_configService.Dev.EnableDigSpots || go == null)
+                return false;
+            if (vob is not IInteractiveObject mob || vob is IContainer || vob is IDoor ||
+                mob.Item.IsNullOrEmpty() || mob.OnStateChangeFunction.IsNullOrEmpty())
+                return false;
+
+            go.name = vob.GetVisualName();
+            if (parent != null)
+                go.transform.SetParent(parent.transform, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+
+            // In G2 the X is a child of the RAKEPLACE decal, which (WIP EnableDecalVisuals) applies the vob's
+            // position+rotation a second time below its already placed loader. Snap to the loader, upright.
+            var loader = go.GetComponentInParent<VobLoader>();
+            if (loader != null)
+                go.transform.SetPositionAndRotation(loader.transform.position,
+                    Quaternion.Euler(0f, loader.transform.eulerAngles.y, 0f));
+
+            // Child vobs have no VobLoader/VobContainer of their own - GetComponentInParent<VobLoader>() found the
+            // decal's loader, so VRFocus/VRDigSpot saw a zCVob instead of this mob. Give the X its own one.
+            if (loader == null || loader.Container?.Vob != vob)
+            {
+                var ownLoader = go.AddComponent<VobLoader>();
+                ownLoader.Container = new VobContainer(vob) { Go = go };
+                ownLoader.IsLoaded = true;
+            }
+
+            // Two crossed red planks, roughly the size of the original X.
+            CreateDigSpotPlank(go, 45f);
+            CreateDigSpotPlank(go, -45f);
+
+            Logger.Log($"[DigSpot] '{vob.Name}' has no textured mesh ({vob.GetVisualName()}) - using a placeholder X.", LogCat.Vob);
+            return true;
+        }
+
+        private static void CreateDigSpotPlank(GameObject parent, float yaw)
+        {
+            var plank = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            plank.name = "DigSpotPlaceholder";
+            plank.transform.SetParent(parent.transform, false);
+            plank.transform.localPosition = new Vector3(0f, 0.03f, 0f);
+            plank.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            plank.transform.localScale = new Vector3(0.9f, 0.05f, 0.12f);
+
+            // Only visual - VRDigSpot compares bounds, no physics needed.
+            Object.Destroy(plank.GetComponent<Collider>());
+
+            var renderer = plank.GetComponent<Renderer>();
+            var red = new Color(0.6f, 0.05f, 0.05f);
+            renderer.material.color = red;
+            if (renderer.material.HasProperty("_BaseColor"))
+                renderer.material.SetColor("_BaseColor", red);
+        }
+
         private GameObject CreateDefaultMesh(IVirtualObject vob, GameObject parent)
         {
             var go = GetPrefab(vob);
@@ -808,6 +872,9 @@ namespace Gothic.Core.Domain.Vobs
                 // A few objects are broken and have no meshes. We need to destroy them immediately again.
                 if (ret == null)
                 {
+                    if (TryKeepAsDigSpotPlaceholder(vob, go, parent))
+                        return go;
+
                     Object.Destroy(go);
                 }
 
