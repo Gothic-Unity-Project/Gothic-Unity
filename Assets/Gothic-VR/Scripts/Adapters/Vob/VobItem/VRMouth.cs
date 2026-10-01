@@ -11,6 +11,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Meshes;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -34,6 +36,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly MeshService _meshService;
 
         
         // Do not eat them twice during destroy time.
@@ -66,17 +70,57 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _objectsInDestroyGracePeriod.Add(rootGo);
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));
+
+            if (IsSmokable(item))
+                StartCoroutine(ExhaleSmoke(item, destroyTime));
+        }
+
+        /// <summary>
+        /// V1 (DeveloperConfig.EnableSmoking): swampweed joints (scheme JOINT, ITEM_KAT_NONE) are smoked at the mouth like
+        /// food is eaten: the SFX of t_JOINT_S0_2_Stand (SMOKE_JOINT) plays, on_state[0] runs (XP/effects) and the joint is
+        /// used up (that animation ends with DEF_DESTROY_ITEM). Data driven - mods with own JOINT items work the same.
+        /// </summary>
+        private bool IsSmokable(ItemInstance item)
+        {
+            return _configService.Dev.EnableSmoking && item.SchemeName.EqualsIgnoreCase("JOINT");
+        }
+
+        /// <summary>
+        /// The animation's own particle effect (LIGHTSMOKE) puffed out in front of the VR head.
+        /// </summary>
+        private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds)
+        {
+            var pfxName = TryGetUseAnimation(item)?.ParticleEffects.FirstOrDefault()?.Name;
+            if (string.IsNullOrEmpty(pfxName))
+            {
+                Logger.LogWarning($"[VRMouth] No smoke PFX in 't_{item.SchemeName}_S0_2_Stand'.", LogCat.VR);
+                yield break;
+            }
+
+            // Two puffs like the animation (one while inhaling, one at the end).
+            for (var puff = 0; puff < 2; puff++)
+            {
+                yield return new WaitForSeconds(inhaleSeconds / 2f);
+
+                var head = Camera.main != null ? Camera.main.transform : transform;
+                var pos = transform.position + head.forward * 0.12f;
+                var pfx = _meshService.CreateVobPfx(pfxName, pos, Quaternion.LookRotation(head.forward),
+                    destroyAfterPlay: true);
+                if (pfx == null)
+                    Logger.LogWarning($"[VRMouth] Smoke PFX '{pfxName}' couldn't be created.", LogCat.VR);
+            }
         }
 
         private bool TryGetItemToEat(GameObject go, out ItemInstance item)
         {
-            item = go.GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            item = (go.GetComponentInParent<VobLoader>()?.Container?.Props as VobItemProperties2)?.Instance;
             
             if (item == null || item.Type != DaedalusInstanceType.Item)
                 return false;
 
             var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
-            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatFood && mainFlag != VmGothicEnums.ItemFlags.ItemKatPotions)
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatFood && mainFlag != VmGothicEnums.ItemFlags.ItemKatPotions &&
+                !IsSmokable(item))
                 return false;
 
 #if GOTHIC_HVR_INSTALLED
@@ -94,12 +138,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             clip = null;
 
-            var mds = _resourceCacheService.TryGetModelScript("Humans");
-            if (mds == null)
-                return false;
-
             var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
-            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
+            var anim = TryGetUseAnimation(item);
             if (anim == null)
             {
                 Logger.LogWarning($"Humans.mds: '{animationName}' animation not found. Eating/drinking sound skipped.", LogCat.VR);
@@ -125,6 +165,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return false;
 
             return true;
+        }
+
+        [CanBeNull]
+        private IAnimation TryGetUseAnimation(ItemInstance item)
+        {
+            var mds = _resourceCacheService.TryGetModelScript("Humans");
+            var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
+            return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
         }
 
         private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay)
@@ -169,7 +217,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void CallOnState(GameObject go)
         {
-            var item = go.GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            var item = (go.GetComponentInParent<VobLoader>()?.Container?.Props as VobItemProperties2)?.Instance;
             if (item == null)
                 return;
 
