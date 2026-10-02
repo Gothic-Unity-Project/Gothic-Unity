@@ -130,12 +130,14 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(grabber, grabbable);
 
-            // Bows/crossbows shoot as long as any hand holds them.
+            // Bows/crossbows shoot as long as any hand holds them. Removed immediately: a release + grab in the same
+            // frame (holster -> hand, hand -> hand) found the component still pending destruction and added no new
+            // one - the bow ended up without its string.
             var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject || _vrPlayerService.GrabbedItemRight == gameObject;
             if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRCrossbow>(out var crossbow))
-                Destroy(crossbow);
+                DestroyImmediate(crossbow);
             if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRBow>(out var bow))
-                Destroy(bow);
+                DestroyImmediate(bow);
 
             // Close any open document viewer / rune caster when item is no longer dual-grabbed.
             if (!_vrPlayerService.IsDualGrabbed)
