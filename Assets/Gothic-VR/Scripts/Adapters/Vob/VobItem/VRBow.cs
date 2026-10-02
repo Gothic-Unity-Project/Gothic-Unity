@@ -26,7 +26,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// its own string triangles are cut out and replaced by our string (top limb tip -> nock -> bottom limb tip).
     /// - Hold the bow in one hand. Put the other, empty hand to the string and hold its grip to draw. VRBowStringFilter
     ///   stops HVR from grabbing the bow with that hand. An arrow (the bow's munition) is nocked if the hero has one.
-    /// - Release the grip to shoot: speed and damage grow with the draw (VRRangedService, RangedHit).
+    /// - The other hand can also grab the bow itself (limbs/grip) to hold it with both hands - only near the string it
+    ///   draws instead.
+    /// - Release the grip to shoot along the line drawing hand -> bow hand: speed and damage grow with the draw.
     /// - If the bow has its Gothic morph animation (S_SHOOT), the limbs bend with the draw.
     /// Everything is calibrated from the mesh (tips = ends of the long axis, grip = farthest vertex from the string).
     /// </summary>
@@ -195,6 +197,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void Release()
         {
             var tension = _tension;
+            // Before _isDrawing=false - afterwards GetAimWorld() is the mesh grip and the aim was always the same.
+            var direction = (GetAimWorld() - _nockWorld).normalized;
             _isDrawing = false;
             _tension = 0f;
             ApplyBend(0f);
@@ -208,7 +212,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _vrRangedService.ConsumeAmmo(hero, _munition);
 
-            var direction = (GetGripWorld() - _nockWorld).normalized;
             var speed = Mathf.Lerp(_minSpeed, VRRangedService.ProjectileSpeed, tension);
             var damageScale = Mathf.Lerp(_minDamageScale, 1f, tension);
             var arrow = _arrow;
@@ -269,7 +272,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_arrow == null)
                 return;
 
-            var direction = GetGripWorld() - _nockWorld;
+            var direction = GetAimWorld() - _nockWorld;
             if (direction.sqrMagnitude < 0.0001f)
                 return;
             _arrow.transform.SetPositionAndRotation(_nockWorld, Quaternion.LookRotation(direction));
@@ -322,6 +325,38 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         private Vector3 GetGripWorld() => _meshFilter.transform.TransformPoint(_localGrip);
+
+        /// <summary>
+        /// The arrow points from the drawing hand through the hand holding the bow (where the player aims), not
+        /// through the mesh's grip vertex - Gothic bow meshes are held at different spots.
+        /// </summary>
+        private Vector3 GetAimWorld()
+        {
+            if (!_isDrawing)
+                return GetGripWorld();
+
+            var bowSide = _drawHand == HVRHandSide.Left ? HVRHandSide.Right : HVRHandSide.Left;
+            var bowHand = _vrPlayerService.GetHandModelGo(bowSide);
+            return bowHand != null ? bowHand.transform.position : GetGripWorld();
+        }
+
+        /// <summary>
+        /// VRBowStringFilter: a hand closer to the string than to the bow's grip draws, otherwise it grabs the bow.
+        /// </summary>
+        public bool IsAtString(Vector3 position)
+        {
+            if (_meshFilter == null)
+                return false;
+
+            var vertices = _currentVertices ?? _restVertices;
+            var meshTransform = _meshFilter.transform;
+            var top = meshTransform.TransformPoint(vertices[_tipTopIndex]);
+            var bottom = meshTransform.TransformPoint(vertices[_tipBottomIndex]);
+            var nock = GetRestNockWorld();
+            var toString = Mathf.Min(DistanceToSegment(position, top, nock, out _),
+                DistanceToSegment(position, nock, bottom, out _));
+            return toString < _grabStringDistance && toString < Vector3.Distance(position, GetGripWorld());
+        }
 
         /// <summary>
         /// Finds the bow mesh, the limb tips (ends of the long axis), the grip (farthest from the string) and cuts the
