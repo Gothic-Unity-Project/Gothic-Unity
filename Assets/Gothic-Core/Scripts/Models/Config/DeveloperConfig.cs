@@ -457,6 +457,19 @@ namespace Gothic.Core.Models.Config
                  "mesh bounds. Before they had no collider: fell through the ground, no force grab, flew away in hands.")]
         public bool EnableItemColliderFallback = true;
 
+        [Tooltip("Npc_ClearAIQueue no longer restarts an NPC's running idle animation (engine: only the queue is " +
+                 "cleared). Summoned demons flapped their wings every 0.5 s (B_FullStop on each ASSESSPLAYER).")]
+        public bool EnableKeepIdleOnClearAiQueue = true;
+
+        [Tooltip("PlayVideo/PlayVideoEx (intro/chapter videos, G1 ending) play in a dark 'cinema' in front of the VR " +
+                 "head. Original .bik files are decoded by BinkPlayer (an MP4 with the same name wins). The world is " +
+                 "paused meanwhile. Skip: any trigger or A/X (keyboard: Space/Escape). Read at VM start.")]
+        public bool EnableScriptVideos = true;
+
+        [Tooltip("The VR hero's body state follows its movement on land (BS_STAND/BS_WALK/BS_RUN) like the " +
+                 "engine. Scripts need it: ZS_Attack gives up a chase ('$RUNCOWARD') only while the target runs.")]
+        public bool EnableHeroMoveBodyState = true;
+
 
         [Separator("TODO TEST ME V1s and MVPs", true)]
         [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
@@ -478,26 +491,19 @@ namespace Gothic.Core.Models.Config
                  "hero is BS_SWIM/BS_DIVE for scripts (monsters stop chasing a swimming hero).")]
         public bool EnableNpcWater = true;
 
-
         [Tooltip("V1: Bows (ITEM_BOW) in VR: the Gothic string is replaced by our own. Hold the bow in one hand, put the " +
                  "other empty hand to the string and hold its GRIP to draw (an arrow from the inventory is nocked), " +
                  "release to shoot - speed/damage grow with the draw. Missed arrows/bolts lie in the world to pick up.")]
         public bool EnableVrBows = true;
 
+        [Tooltip("V1: A crossbow needs both hands on it to shoot - from 60 % crossbow (G1: also talent master) it " +
+                 "shoots one-handed (e.g. sword in the other hand).")]
+        public bool EnableCrossbowMasterOneHand = true;
+
         [Tooltip("V1: Projectile spells (VISUALFX CAST key with a TARGET trajectory: Firebolt, Fireball, Thunderbolt, " +
                  "Icecube, ...) are thrown: hold the rune in one hand, hold trigger to charge, swing + release trigger to " +
                  "throw. Soft homing towards the NPC closest to the throw direction. Other spells stay as they are.")]
         public bool EnableThrowableSpells = true;
-
-        [Tooltip("V1: Npc_ClearAIQueue no longer restarts an NPC's running idle animation (engine: only the queue is " +
-                 "cleared). Summoned demons flapped their wings every 0.5 s (B_FullStop on each ASSESSPLAYER).")]
-        public bool EnableKeepIdleOnClearAiQueue = true;
-
-        [Tooltip("V1: PlayVideo/PlayVideoEx (chapter videos, G1 ending) play in a dark 'cinema' around the VR head: the " +
-                 "camera only renders the screen. Needs the videos as MP4 in <game>/_work/DATA/video/ (same as logos). " +
-                 "Skip: any trigger or A/X (keyboard: Space/Escape). The world keeps running. Read at VM start.")]
-        public bool EnableScriptVideos = true;
-
 
         [Tooltip("V1: Npc_GetLookAtTarget (G2 scripts) returns the NPC set by AI_LookAtNpc. Read at VM start.")]
         public bool EnableNpcLookAtTarget = true;

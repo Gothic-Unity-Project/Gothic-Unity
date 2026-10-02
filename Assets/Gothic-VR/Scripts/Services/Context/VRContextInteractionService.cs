@@ -8,6 +8,7 @@ using Gothic.Core.Models.Config;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
@@ -29,6 +30,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly VideoService _videoService;
 
         private const string _contextName = "VR";
 
@@ -44,6 +46,7 @@ namespace Gothic.VR.Services.Context
                 VRScreenMessages.ShowMessage(_audioService, message, seconds));
             GlobalEventDispatcher.ScriptSoundPlay.AddListener(soundName =>
                 VRScreenMessages.PlaySound(_audioService, soundName));
+            GlobalEventDispatcher.ScriptPlayVideo.AddListener(fileName => VRCinema.Play(_videoService, fileName));
             
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
