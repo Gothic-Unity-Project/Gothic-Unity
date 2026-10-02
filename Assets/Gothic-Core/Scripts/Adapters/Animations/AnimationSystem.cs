@@ -549,6 +549,24 @@ namespace Gothic.Core.Adapters.Animations
             return false;
         }
 
+        /// <summary>
+        /// Only the idle loop runs (ignoring tracks blending out) - nothing to stop.
+        /// </summary>
+        public bool IsPlayingOnlyIdle()
+        {
+            var idleName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, NpcData);
+            var hasIdle = false;
+            foreach (var instance in _trackInstances)
+            {
+                if (instance.State is AnimationState.BlendOut or AnimationState.Stop)
+                    continue;
+                if (!instance.Track.MatchesName(idleName))
+                    return false;
+                hasIdle = true;
+            }
+            return hasIdle;
+        }
+
         public bool PlayIdleAnimation()
         {
             return PlayAnimation(_animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, NpcData));

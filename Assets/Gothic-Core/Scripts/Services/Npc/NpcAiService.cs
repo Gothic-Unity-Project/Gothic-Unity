@@ -220,6 +220,14 @@ namespace Gothic.Core.Services.Npc
                 activeUndraw.SheathImmediately();
 
             container.Props.CurrentAction = new None(new AnimationAction(), container);
+
+            // DeveloperConfig.EnableKeepIdleOnClearAiQueue: the engine only clears the queue, the animation keeps
+            // running. Summoned monsters call B_FullStop every 0.5 s (B_SummonedByPC_AssessSC) - restarting the idle
+            // played the demon's wing flap (frame 8 of s_FistRun) twice a second and snapped the pose to rest.
+            if (_configService.Dev.EnableKeepIdleOnClearAiQueue &&
+                container.PrefabProps?.AnimationSystem != null && container.PrefabProps.AnimationSystem.IsPlayingOnlyIdle())
+                return;
+
             container.PrefabProps?.AnimationSystem?.StopAllAnimations();
         }
 
