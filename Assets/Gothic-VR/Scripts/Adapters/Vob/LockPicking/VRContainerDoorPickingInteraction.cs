@@ -95,10 +95,27 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
-            // FIXME - Check if LockPick is in any hand. Otherwise its "flying" around and needs to be ignored.
+            // Only a lock pick held in a hand picks the lock - one lying around (e.g. in a chest next to the door)
+            // has no hand to track and threw every frame.
+            Transform holdingHand;
+            if (IsHeldItem(_vrPlayerService.GrabbedItemLeft, other.gameObject))
+            {
+                holdingHand = _vrPlayerService.GrabbedItemLeft.transform;
+                _handSide = HVRHandSide.Left;
+            }
+            else if (IsHeldItem(_vrPlayerService.GrabbedItemRight, other.gameObject))
+            {
+                holdingHand = _vrPlayerService.GrabbedItemRight.transform;
+                _handSide = HVRHandSide.Right;
+            }
+            else
+            {
+                return;
+            }
 
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
+            _hapticsService.Vibrate(_handSide, VrHapticsService.VibrationType.Info);
 
             // For later event usage.
             _lockPick = other.gameObject.GetComponentInParent<VobLoader>().Container;
@@ -106,24 +123,15 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             var lockPickProperties = other.gameObject.GetComponentInParent<VRLockPickProperties>();
             lockPickProperties.IsInsideLock = true;
             lockPickProperties.ActiveContainerDoorPicking = this;
+            lockPickProperties.HoldingHand = holdingHand;
+        }
 
-
-            if (_vrPlayerService.GrabbedItemLeft != null && _vrPlayerService.GrabbedItemLeft.GetComponentInChildren<VRLockPickInteraction>().gameObject == other.gameObject)
-            {
-                lockPickProperties.HoldingHand = _vrPlayerService.GrabbedItemLeft.transform;
-                _handSide = HVRHandSide.Left;
-                _hapticsService.Vibrate(HVRHandSide.Left, VrHapticsService.VibrationType.Info);
-            }
-            else if (_vrPlayerService.GrabbedItemRight != null && _vrPlayerService.GrabbedItemRight.GetComponentInChildren<VRLockPickInteraction>().gameObject == other.gameObject)
-            {
-                lockPickProperties.HoldingHand = _vrPlayerService.GrabbedItemRight.transform;
-                _handSide = HVRHandSide.Right;
-                _hapticsService.Vibrate(HVRHandSide.Right, VrHapticsService.VibrationType.Info);
-            }
-            else
-            {
-                Logger.LogError($"VRDoorLockInteraction: No hand found for grabbed object >{other.gameObject.name}<.", LogCat.VR);
-            }
+        private static bool IsHeldItem(GameObject heldItem, GameObject lockInteraction)
+        {
+            if (heldItem == null)
+                return false;
+            var interaction = heldItem.GetComponentInChildren<VRLockPickInteraction>();
+            return interaction != null && interaction.gameObject == lockInteraction;
         }
 
         private void OnTriggerExit(Collider other)
