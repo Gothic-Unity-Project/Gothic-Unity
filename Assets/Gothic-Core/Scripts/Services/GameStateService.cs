@@ -23,6 +23,7 @@ namespace Gothic.Core.Services
         public DaedalusVm MenuVm;
         public DaedalusVm SfxVm; // Sound FX
         public DaedalusVm PfxVm; // Particle FX
+        public DaedalusVm VfxVm; // Visual FX (spell effects: spellFX_*)
 
         // Lookup optimized WayNet data
         public readonly Dictionary<string, WayPoint> WayPoints = new();

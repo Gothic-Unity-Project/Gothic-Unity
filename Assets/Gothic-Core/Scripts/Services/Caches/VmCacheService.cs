@@ -20,6 +20,8 @@ namespace Gothic.Core.Services.Caches
         private readonly Dictionary<int, SvmInstance> _svmDataCache = new();
         private readonly Dictionary<string, SfxModel> _sfxDataCache = new();
         private readonly Dictionary<string, ParticleEffectInstance> _pfxDataCache = new();
+        private readonly Dictionary<string, EffectBaseInstance> _vfxDataCache = new();
+        private readonly Dictionary<string, ParticleEffectEmitKeyInstance> _vfxEmitKeyCache = new();
         private readonly Dictionary<int, SpellInstance> _spellDataCache = new();
 
         /// <summary>
@@ -186,6 +188,54 @@ namespace Gothic.Core.Services.Caches
 
             _pfxDataCache[preparedKey] = newData;
 
+            return newData;
+        }
+
+        /// <summary>
+        /// Spell effect from VISUALFX.DAT (C_VisualFX, e.g. spellFX_Fireball). Null if missing.
+        /// </summary>
+        public EffectBaseInstance TryGetVfxData(string key)
+        {
+            var preparedKey = GetPreparedKey(key);
+            if (_vfxDataCache.TryGetValue(preparedKey, out var data))
+                return data;
+
+            EffectBaseInstance newData = null;
+            try
+            {
+                if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
+                    newData = _gameStateService.VfxVm.InitInstance<EffectBaseInstance>(preparedKey);
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
+            _vfxDataCache[preparedKey] = newData;
+            return newData;
+        }
+
+        /// <summary>
+        /// Key of a spell effect from VISUALFX.DAT (C_ParticleFXEmitKey, e.g. spellFX_Fireball_KEY_CAST). Null if missing.
+        /// </summary>
+        public ParticleEffectEmitKeyInstance TryGetVfxEmitKey(string key)
+        {
+            var preparedKey = GetPreparedKey(key);
+            if (_vfxEmitKeyCache.TryGetValue(preparedKey, out var data))
+                return data;
+
+            ParticleEffectEmitKeyInstance newData = null;
+            try
+            {
+                if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
+                    newData = _gameStateService.VfxVm.InitInstance<ParticleEffectEmitKeyInstance>(preparedKey);
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
+            _vfxEmitKeyCache[preparedKey] = newData;
             return newData;
         }
 

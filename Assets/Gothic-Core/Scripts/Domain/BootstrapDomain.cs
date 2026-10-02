@@ -167,6 +167,7 @@ namespace Gothic.Core.Domain
             _gameStateService.MenuVm = _resourceCacheService.TryGetDaedalusVm("MENU");
             _gameStateService.SfxVm = _resourceCacheService.TryGetDaedalusVm("SFX");
             _gameStateService.PfxVm = _resourceCacheService.TryGetDaedalusVm("PARTICLEFX");
+            _gameStateService.VfxVm = _resourceCacheService.TryGetDaedalusVm("VISUALFX");
         }
 
         /// <summary>

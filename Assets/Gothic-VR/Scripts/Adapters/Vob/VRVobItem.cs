@@ -160,10 +160,11 @@ namespace Gothic.VR.Adapters.Vob
                 {
                     // During telekinesis, keep the caster alive while one hand still holds the rune —
                     // the freed hand needs to grab the distant item. Destroy when both hands are clear.
+                    // Throwable spells (DeveloperConfig.EnableThrowableSpells) are held in one hand by design.
                     var runeStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject
                                      || _vrPlayerService.GrabbedItemRight == gameObject;
                     var keepAlive = runeStillHeld
-                        && (_vrPlayerService.IsTelekinesisActive || caster.IsTargetingActive);
+                        && (_vrPlayerService.IsTelekinesisActive || caster.IsTargetingActive || caster.IsThrowable);
                     if (!keepAlive)
                         Destroy(caster);
                 }
