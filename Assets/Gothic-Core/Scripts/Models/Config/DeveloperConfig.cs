@@ -470,6 +470,14 @@ namespace Gothic.Core.Models.Config
                  "engine. Scripts need it: ZS_Attack gives up a chase ('$RUNCOWARD') only while the target runs.")]
         public bool EnableHeroMoveBodyState = true;
 
+        [Tooltip("A crossbow needs both hands on it to shoot - from 60 % crossbow (G1: also talent master) it " +
+                 "shoots one-handed (e.g. sword in the other hand).")]
+        public bool EnableCrossbowMasterOneHand = true;
+
+        [Tooltip("NPCs give up chasing the running hero twice as fast (~15 s instead of 30 s): ZS_Attack_Loop's " +
+                 "state time runs double while it chases the running hero. Needs EnableHeroMoveBodyState.")]
+        public bool EnableFasterChaseGiveUp = true;
+
 
         [Separator("TODO TEST ME V1s and MVPs", true)]
         [Tooltip("V2: Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
@@ -495,10 +503,6 @@ namespace Gothic.Core.Models.Config
                  "other empty hand to the string and hold its GRIP to draw (an arrow from the inventory is nocked), " +
                  "release to shoot - speed/damage grow with the draw. Missed arrows/bolts lie in the world to pick up.")]
         public bool EnableVrBows = true;
-
-        [Tooltip("V1: A crossbow needs both hands on it to shoot - from 60 % crossbow (G1: also talent master) it " +
-                 "shoots one-handed (e.g. sword in the other hand).")]
-        public bool EnableCrossbowMasterOneHand = true;
 
         [Tooltip("V1: Projectile spells (VISUALFX CAST key with a TARGET trajectory: Firebolt, Fireball, Thunderbolt, " +
                  "Icecube, ...) are thrown: hold the rune in one hand, hold trigger to charge, swing + release trigger to " +

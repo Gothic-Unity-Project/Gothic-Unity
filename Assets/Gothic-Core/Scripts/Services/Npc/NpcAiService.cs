@@ -463,7 +463,34 @@ namespace Gothic.Core.Services.Npc
                 return int.MaxValue;
             }
 
-            return (int)npc.GetUserData().Props.StateTime;
+            var props = npc.GetUserData().Props;
+            if (IsChasingRunningHero(props))
+                return (int)(props.StateTime * _chaseStateTimeScale);
+
+            return (int)props.StateTime;
+        }
+
+        // ZS_Attack_Loop counts a pursuit loop every 'Npc_GetStateTime > 2' (3 s, int) and gives up after
+        // HAI_TIME_FOLLOW (10) loops = 30 s of running away. Twice as fast feels right in VR.
+        private const float _chaseStateTimeScale = 2f;
+        private int _zsAttackLoopIndex = -2;
+
+        /// <summary>
+        /// DeveloperConfig.EnableFasterChaseGiveUp: an NPC in ZS_Attack chasing the running hero.
+        /// </summary>
+        private bool IsChasingRunningHero(NpcProperties props)
+        {
+            if (!_configService.Dev.EnableFasterChaseGiveUp)
+                return false;
+
+            if (_zsAttackLoopIndex == -2)
+                _zsAttackLoopIndex = _gameStateService.GothicVm.GetSymbolByName("ZS_ATTACK_LOOP")?.Index ?? -1;
+            if (_zsAttackLoopIndex < 0 || props.StateLoop != _zsAttackLoopIndex)
+                return false;
+
+            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
+            return props.TargetNpc != null && hero != null && props.TargetNpc.Index == hero.Index &&
+                   hero.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsRun;
         }
 
         public void ExtNpcSetStateTime(NpcInstance npc, int seconds)

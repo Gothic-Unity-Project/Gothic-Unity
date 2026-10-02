@@ -6,6 +6,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.ControllerInput;
@@ -32,6 +33,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRRangedService _vrRangedService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly ConfigService _configService;
+
+        private const int _crossbowTalent = 4; // NPC_TALENT_CROSSBOW
+        private const int _masterSkill = 2;
+        private const int _oneHandPercent = 60;
 
         private const float _reloadSeconds = 1.5f;
         private const string _shootSfx = "CrossbowShoot";
@@ -121,6 +127,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (HVRController.GetButtonState(side, HVRButtons.Trigger).JustActivated)
                 {
                     handSide = side;
+                    if (IsTwoHandsRequired() && !_vrPlayerService.IsDualGrabbed)
+                    {
+                        // Too heavy for one hand - hold it with both (a crossbow master shoots one-handed).
+                        _hapticsService.Vibrate(side, VrHapticsService.VibrationType.Warning);
+                        return false;
+                    }
                     return true;
                 }
             }
@@ -154,6 +166,27 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _reloadTimer = _reloadSeconds;
             PlaySfx(_shootSfx);
             _hapticsService.Vibrate(handSide, VrHapticsService.VibrationType.Success);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableCrossbowMasterOneHand: only a trained crossbowman shoots with one hand (sword in the other).
+        /// G1/mods: crossbow talent skill "master" or 60 %+; G2: crossbow hitchance 60 %+.
+        /// </summary>
+        private bool IsTwoHandsRequired()
+        {
+            if (!_configService.Dev.EnableCrossbowMasterOneHand)
+                return false;
+
+            var hero = _npcService.GetHeroContainer();
+            if (hero == null)
+                return false;
+
+            var talent = hero.Vob.GetTalent(_crossbowTalent);
+            var percent = _configService.Dev.GameVersion == ZenKit.GameVersion.Gothic2
+                ? hero.Instance.GetHitChance((ZenKit.Daedalus.NpcTalent)_crossbowTalent)
+                : talent?.Value ?? 0;
+            var isMaster = (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;
+            return !isMaster;
         }
 
         /// <summary>
