@@ -79,7 +79,7 @@ namespace Gothic.Core.Services.Npc
             // That's pure Daedalus content dispatched by spell ID, so it covers every "bad" spell
             // (Sleep, Icecube, Fear, Charm, Berzerk, ChainLightning...) without any C# per-spell
             // logic, and works identically for G1/G2 since it's just a symbol lookup by name.
-            if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead && !IsOwnSummonHit(caster, target))
             {
                 _npcAiService.ExecutePerception(
                     VmGothicEnums.PerceptionType.AssessMagic,
@@ -219,8 +219,25 @@ namespace Gothic.Core.Services.Npc
 
         /// Fire PERC_ASSESSDAMAGE on the target so it reacts (B_MM_ReactToDamage / B_AssessDamage),
         /// then broadcast PERC_ASSESSOTHERSDAMAGE to nearby NPCs so allies join the fight.
+        /// <summary>
+        /// DeveloperConfig.EnableSummonIgnoresMasterHits: the summoner hits its own summon (weapon, spell, arrow).
+        /// </summary>
+        private bool IsOwnSummonHit(NpcContainer attacker, NpcContainer target)
+        {
+            return _configService.Dev.EnableSummonIgnoresMasterHits && target?.SummonedBy != null &&
+                   attacker?.Instance != null && target.SummonedBy.Index == attacker.Instance.Index;
+        }
+
         private void BroadcastDamagePerceptions(NpcContainer attacker, NpcContainer target)
         {
+            // DeveloperConfig.EnableSummonIgnoresMasterHits: a summon is a training dummy for its own summoner -
+            // it takes the damage but neither it nor bystanders turn on the summoner.
+            if (IsOwnSummonHit(attacker, target))
+            {
+                Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} ignores the hit of its summoner", LogCat.Fight);
+                return;
+            }
+
             // Skip on a target that just died from this hit: its registered AssessDamage handler
             // (e.g. ZS_MM_Attack, shared by monsters/summons) unconditionally calls AI_StandUp,
             // which resets BodyState back to BsStand and undoes the death we just set above.
