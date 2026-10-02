@@ -7,6 +7,7 @@ using Logger = Gothic.Core.Logging.Logger;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -20,6 +21,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly NpcNavMeshService _npcNavMeshService;
 
         private FightAiMove _move => (FightAiMove)Action.Int0;
         private NpcContainer _enemy => Action.Instance0.GetUserData();
@@ -37,6 +39,20 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private const float _heroStopResetDelay = 2f;
         private const float _heroRunSpeedThreshold = 2f;
 
+        // Swimming (DeveloperConfig.EnableNpcWater): no attacks, only swimming after the target.
+        private const string _swimIdleAnimName = "S_SWIM";
+        private const string _swimForwardAnimName = "S_SWIMF";
+        private const float _swimWaitSeconds = 0.5f;
+        private string _swimAnimName;
+
+        // NavMesh steering while running (DeveloperConfig.EnableNpcNavMesh), recalculated a few times per second.
+        private const float _pathUpdateInterval = 0.2f;
+        private const float _unreachableStopDistance = 0.6f;
+        private float _nextPathUpdateTime;
+        private bool _hasSteerPoint;
+        private Vector3 _steerPoint;
+        private bool _isTargetReachable = true;
+
 
         public AttackPlayAni(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -49,11 +65,47 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 IsFinishedFlag = true;
                 return;
             }
+
+            if (IsSwimming())
+            {
+                StartSwimming();
+                return;
+            }
             base.Start();
+        }
+
+        private bool IsSwimming()
+        {
+            return _configService.Dev.EnableNpcWater &&
+                   Vob.AiHuman?.WaterLevel == (int)ZenGineConst.WaterLevel.Chest;
+        }
+
+        /// <summary>
+        /// In water the engine has no fight moves: a swimming monster/NPC only follows its target (until it stands on
+        /// ground again). Run = swim towards it, every other move = tread water facing it.
+        /// </summary>
+        private void StartSwimming()
+        {
+            _swimAnimName = _move == FightAiMove.Run ? _swimForwardAnimName : _swimIdleAnimName;
+            if (!PrefabProps.AnimationSystem.IsPlaying(_swimAnimName) &&
+                !PrefabProps.AnimationSystem.PlayAnimation(_swimAnimName))
+            {
+                IsFinishedFlag = true;
+                return;
+            }
+            ActionEndEventTime = _move == FightAiMove.Run
+                ? PrefabProps.AnimationSystem.GetAnimationDuration(_swimAnimName)
+                : _swimWaitSeconds;
         }
 
         public override void Tick()
         {
+            if (_swimAnimName != null)
+            {
+                SwimTick();
+                return;
+            }
+
             base.Tick();
 
             if (IsFinishedFlag)
@@ -122,6 +174,29 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
         }
 
+        private void SwimTick()
+        {
+            // AbstractAnimationAction's timer (ActionEndEventTime) - PlayAni's blend-out check is for String0.
+            base.Tick();
+            if (IsFinishedFlag)
+                return;
+
+            if (_move == FightAiMove.Run)
+            {
+                RunTick();
+                return;
+            }
+
+            var direction = _enemyTransform.position - NpcGo.transform.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.001f)
+                return;
+
+            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            NpcGo.transform.rotation = Quaternion.RotateTowards(NpcGo.transform.rotation,
+                Quaternion.LookRotation(direction), Time.deltaTime * GameStateService.GuildValues.GetTurnSpeed(guild));
+        }
+
         private void HandleCombatRotation()
         {
             var myPos = NpcGo.transform.position;
@@ -185,8 +260,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Already close enough — stop immediately.
             if (toTarget.magnitude <= stopDistance)
             {
-                PrefabProps.AnimationSystem.StopAllAnimations();
-                IsFinishedFlag = true;
+                StopRunning();
                 return;
             }
 
@@ -200,18 +274,32 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             if (distance <= arrivalThreshold)
             {
-                PrefabProps.AnimationSystem.StopAllAnimations();
-                IsFinishedFlag = true;
+                StopRunning();
                 return;
             }
 
-            // Rotate toward actual enemy while running (not toward the offset approach point).
+            // Rotate toward actual enemy while running (not toward the offset approach point) - or along the NavMesh path
+            // around obstacles. An unreachable enemy (on a rock, down a cliff): stop at the closest point, don't jump.
+            var runDirection = toTarget;
+            if (TryGetSteerDirection(myPosition, targetPosition, out var steerDirection))
+            {
+                if (!_isTargetReachable && steerDirection.magnitude < _unreachableStopDistance)
+                {
+                    StopRunning();
+                    return;
+                }
+                runDirection = steerDirection;
+            }
+
             var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
-            NpcGo.transform.rotation = Quaternion.RotateTowards(
-                NpcGo.transform.rotation,
-                Quaternion.LookRotation(toTarget),
-                Time.deltaTime * turnSpeed);
+            if (runDirection.sqrMagnitude > 0.0001f)
+            {
+                NpcGo.transform.rotation = Quaternion.RotateTowards(
+                    NpcGo.transform.rotation,
+                    Quaternion.LookRotation(runDirection),
+                    Time.deltaTime * turnSpeed);
+            }
 
             // Give-up: track hero speed via position delta. If hero is running, accumulate
             // _chaseTimer. Only reset it after hero has been stationary for 2s.
@@ -250,6 +338,44 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 Props.CurrentLoopState = NpcProperties.LoopState.End;
                 IsFinishedFlag = true;
             }
+        }
+
+        /// <summary>
+        /// End of a run move. A swimmer treads water instead of dropping into the rest pose.
+        /// </summary>
+        private void StopRunning()
+        {
+            if (_swimAnimName != null)
+            {
+                PrefabProps.AnimationSystem.StopAnimation(_swimForwardAnimName);
+                PrefabProps.AnimationSystem.PlayAnimation(_swimIdleAnimName);
+            }
+            else
+            {
+                PrefabProps.AnimationSystem.StopAllAnimations();
+            }
+            IsFinishedFlag = true;
+        }
+
+        /// <summary>
+        /// Horizontal direction to the next NavMesh corner. False without a usable NavMesh - run straight then.
+        /// </summary>
+        private bool TryGetSteerDirection(Vector3 myPosition, Vector3 targetPosition, out Vector3 direction)
+        {
+            direction = Vector3.zero;
+            if (Time.time >= _nextPathUpdateTime)
+            {
+                _nextPathUpdateTime = Time.time + _pathUpdateInterval;
+                _hasSteerPoint = _npcNavMeshService.TryGetSteerPoint(NpcContainer, targetPosition, out _steerPoint,
+                    out _isTargetReachable);
+            }
+
+            if (!_hasSteerPoint)
+                return false;
+
+            direction = _steerPoint - myPosition;
+            direction.y = 0f;
+            return true;
         }
 
         private void StrafeTick()

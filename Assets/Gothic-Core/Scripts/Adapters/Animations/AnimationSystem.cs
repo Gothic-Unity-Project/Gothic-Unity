@@ -51,6 +51,7 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -76,6 +77,8 @@ namespace Gothic.Core.Adapters.Animations
         private CapsuleCollider _walkCapsule;
         private float _walkCapsuleBaseRadius;
         private float _restRootHeight;
+        // Height of the root bone above the feet in the rest pose (NpcGo sits at feet + this).
+        public float RestRootHeight => _restRootHeight;
         private Transform _rootBone;
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
@@ -742,6 +745,10 @@ namespace Gothic.Core.Adapters.Animations
             // Y component equal to speed * sin(pitch), which floats the NPC upward while walking.
             var yawRotation = Quaternion.Euler(0f, Go.transform.eulerAngles.y, 0f);
             var worldMove = yawRotation * finalMovement;
+
+            // Deep water stops non-swimmers, swimmers float at the surface (DeveloperConfig.EnableNpcWater).
+            worldMove = _npcWaterService.ApplyWater(NpcData, worldMove, _restRootHeight,
+                _rootBone != null ? _rootBone.localPosition.y : 0f);
 
             // Log if anything has Y — rate-limited to once per second.
             if ((Mathf.Abs(finalMovement.y) > 0.0001f || Mathf.Abs(worldMove.y) > 0.0001f)

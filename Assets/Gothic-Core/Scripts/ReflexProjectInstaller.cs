@@ -70,6 +70,8 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(GameTimeService));
             containerBuilder.AddSingleton(typeof(MeshService));
             containerBuilder.AddSingleton(typeof(AnimationService));
+            containerBuilder.AddSingleton(typeof(NpcWaterService));
+            containerBuilder.AddSingleton(typeof(NpcNavMeshService));
 
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));

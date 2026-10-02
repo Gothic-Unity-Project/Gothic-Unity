@@ -511,5 +511,14 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("V1: Npc_GetLookAtTarget (G2 scripts) returns the NPC set by AI_LookAtNpc. Read at VM start.")]
         public bool EnableNpcLookAtTarget = true;
+
+        [Tooltip("V1: Hitting your own summon (demon, skeleton, ...) damages it, but it doesn't attack you back and " +
+                 "nobody else reacts to it - a training dummy only for its summoner.")]
+        public bool EnableSummonIgnoresMasterHits = true;
+
+        [Tooltip("V1: Chasing NPCs run along a NavMesh (built at runtime around the hero from world + vob colliders, " +
+                 "Gothic STEP_HEIGHT/SLIDE_ANGLE): around obstacles, and they stop at ledges/drops instead of running " +
+                 "off the world. Routines still walk the waynet.")]
+        public bool EnableNpcNavMesh = true;
     }
 }

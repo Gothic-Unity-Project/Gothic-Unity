@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
@@ -470,8 +471,11 @@ namespace Gothic.Core.Services.Npc
 
             var weaponStateString = GetWeaponAnimationPrefix(overrideWeaponState ?? fightMode);
 
-            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            var walkMode = GetWaterWalkMode(npc, weaponStateString);
             var walkModeString = GetWalkModeString(walkMode);
+            // Swimming/diving animations exist only once, without weapon variants (S_SWIM, T_SWIMTURNL, ...).
+            if (walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                weaponStateString = string.Empty;
             var animationName = type switch
             {
                 VmGothicEnums.AnimationType.Idle => GetIdleAnimationName(weaponStateString, walkModeString),
@@ -551,6 +555,29 @@ namespace Gothic.Core.Services.Npc
             }
 
             return animationName;
+        }
+
+        /// <summary>
+        /// The engine picks the water animations itself, AI_SetWalkMode only says walk/run (DeveloperConfig.EnableNpcWater,
+        /// level set by NpcWaterService). Only if the model has them - most monsters have no wading loop.
+        /// </summary>
+        private VmGothicEnums.WalkMode GetWaterWalkMode(NpcContainer npc, string weaponStateString)
+        {
+            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            if (npc.Vob.Player || walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                return walkMode;
+
+            switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
+            {
+                case ZenGineConst.WaterLevel.Chest
+                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Swim;
+                case ZenGineConst.WaterLevel.Knee
+                    when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Water;
+                default:
+                    return walkMode;
+            }
         }
 
         private string GetWalkModeString(VmGothicEnums.WalkMode walkMode)

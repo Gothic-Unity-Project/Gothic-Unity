@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Logging;
@@ -226,6 +227,11 @@ namespace Gothic.Core.Services.Npc
             // played the demon's wing flap (frame 8 of s_FistRun) twice a second and snapped the pose to rest.
             if (_configService.Dev.EnableKeepIdleOnClearAiQueue &&
                 container.PrefabProps?.AnimationSystem != null && container.PrefabProps.AnimationSystem.IsPlayingOnlyIdle())
+                return;
+
+            // DeveloperConfig.EnableNpcWater: a swimmer keeps swimming. ZS_Attack_Loop clears the queue every ~2 s - the
+            // rest pose (T-pose) flashed between the swim loops of a fighting NPC in water.
+            if (_configService.Dev.EnableNpcWater && container.Vob?.AiHuman?.WaterLevel == (int)ZenGineConst.WaterLevel.Chest)
                 return;
 
             container.PrefabProps?.AnimationSystem?.StopAllAnimations();

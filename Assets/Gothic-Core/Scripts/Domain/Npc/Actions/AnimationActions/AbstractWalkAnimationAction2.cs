@@ -10,11 +10,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         protected Transform NpcTransform => NpcGo.transform;
         protected bool IsDestReached;
+        // Only NpcWaterService sets Chest for NPCs - and only for models with swim animations.
+        private bool IsSwimming => Vob.AiHuman.WaterLevel == (int)ZenGineConst.WaterLevel.Chest;
 
         // Name of the animation StartWalk() actually played. StopWalk() must stop exactly this one:
         // recalculating the name would stop the wrong animation when walk/fight mode changed mid-walk
         // (e.g. via an immediately executed AI_SetWalkmode), leaving the walk loop sliding the NPC forever.
         private string _startedWalkAnimationName;
+        // Water level the walk animation was picked for (wading/swimming loops differ, see NpcWaterService).
+        private int _startedWaterLevel;
 
         protected AbstractWalkAnimationAction2(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -62,6 +66,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            RefreshWalkAnimationForWater();
+
             if (IsDestinationReached())
                 OnDestinationReached();
             // Do not rotate when a destination is reached this frame. Either rotate next frame (e.g. GoToWP.nextRoute) or stop it fully.
@@ -77,7 +83,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Props.BodyState = walkMode == VmGothicEnums.WalkMode.Walk
                 ? VmGothicEnums.BodyState.BsWalk
                 : VmGothicEnums.BodyState.BsRun;
+            if (IsSwimming)
+                Props.BodyState = VmGothicEnums.BodyState.BsSwim;
 
+            _startedWaterLevel = Vob.AiHuman.WaterLevel;
             _startedWalkAnimationName = AnimationService.GetAnimationName(VmGothicEnums.AnimationType.Move, NpcContainer);
             PrefabProps.AnimationSystem.PlayAnimation(_startedWalkAnimationName);
         }
@@ -85,12 +94,24 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         protected virtual void StopWalk()
         {
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
-            Props.BodyState = VmGothicEnums.BodyState.BsStand;
+            Props.BodyState = IsSwimming ? VmGothicEnums.BodyState.BsSwim : VmGothicEnums.BodyState.BsStand;
 
             if (_startedWalkAnimationName != null)
             {
                 PrefabProps.AnimationSystem.StopAnimation(_startedWalkAnimationName);
             }
+        }
+
+        /// <summary>
+        /// Walked into (or out of) water mid-walk: wade/swim loop instead of the walk loop and back.
+        /// </summary>
+        private void RefreshWalkAnimationForWater()
+        {
+            if (_startedWalkAnimationName == null || IsDestReached || Vob.AiHuman.WaterLevel == _startedWaterLevel)
+                return;
+
+            PrefabProps.AnimationSystem.StopAnimation(_startedWalkAnimationName);
+            StartWalk();
         }
 
         private bool IsDestinationReached()
