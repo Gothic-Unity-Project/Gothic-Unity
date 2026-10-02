@@ -83,6 +83,8 @@ namespace Gothic.Core
         /// int          - total spell damage (SPL_DAMAGE_* * level, already calculated)
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, int> SpellHit = new();
+        // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
+        public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
 
         /// <summary>
         /// Arrow/bolt hit (VR crossbow/bow projectiles).

@@ -39,8 +39,30 @@ namespace Gothic.Core.Services.Npc
         {
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.SpellHit.AddListener(OnSpellHit);
+            GlobalEventDispatcher.FallDamage.AddListener(OnFallDamage);
             GlobalEventDispatcher.RangedHit.AddListener(OnRangedHit);
             GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableNpcJumpAndFall: fall damage (NpcJumpFall). Like the engine a fall can kill.
+        /// </summary>
+        private void OnFallDamage(NpcContainer npc, int damage)
+        {
+            if (npc?.Vob == null || npc.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                return;
+
+            var hitPoints = npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) - damage;
+            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, hitPoints);
+            npc.Instance.SetAttribute(NpcAttribute.HitPoints, hitPoints);
+            Logger.Log($"[FightService] {npc.Instance.GetName(NpcNameSlot.Slot0)} fall damage {damage} -> HP {hitPoints}", LogCat.Fight);
+
+            if (hitPoints > 0)
+                return;
+
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+            OnDyingChangeAnimation(npc);
+            OnNpcDied(npc, npc);
         }
 
         private void OnSpellHit(NpcContainer caster, NpcContainer target, Vector3 pos, int damage)

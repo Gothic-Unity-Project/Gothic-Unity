@@ -746,6 +746,8 @@ namespace Gothic.Core.Adapters.Animations
             var yawRotation = Quaternion.Euler(0f, Go.transform.eulerAngles.y, 0f);
             var worldMove = yawRotation * finalMovement;
 
+            worldMove = SlideAlongWalls(worldMove);
+
             // Deep water stops non-swimmers, swimmers float at the surface (DeveloperConfig.EnableNpcWater).
             worldMove = _npcWaterService.ApplyWater(NpcData, worldMove, _restRootHeight,
                 _rootBone != null ? _rootBone.localPosition.y : 0f);
@@ -759,6 +761,35 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             Go.transform.localPosition += worldMove;
+        }
+
+        private const float _wallProbeRadius = 0.3f;
+        private const float _wallMinNormalY = 0.5f;
+
+        /// <summary>
+        /// DeveloperConfig.EnableNpcWallCollision: root motion moves the NPC transform directly (kinematic while
+        /// walking) - fast runners (scavengers) went into rocks and fell below the world. A sphere at hip height probes
+        /// the move; against a wall only the part along the wall stays. Floors/slopes (normal up) don't block.
+        /// </summary>
+        private Vector3 SlideAlongWalls(Vector3 worldMove)
+        {
+            // Mob interactions (benches, beds, ...) walk the NPC into the mob on purpose.
+            if (!_configService.Dev.EnableNpcWallCollision || _restRootHeight <= 0f || PrefabProps.CurrentInteractable != null)
+                return worldMove;
+
+            var horizontal = new Vector3(worldMove.x, 0f, worldMove.z);
+            var distance = horizontal.magnitude;
+            if (distance < 0.0001f)
+                return worldMove;
+
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (!Physics.SphereCast(Go.transform.position, radius, horizontal / distance, out var hit, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+                return worldMove;
+
+            var wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+            var slide = Vector3.ProjectOnPlane(horizontal, wallNormal);
+            return new Vector3(slide.x, worldMove.y, slide.z);
         }
 
         private void ApplyFinalRotation()

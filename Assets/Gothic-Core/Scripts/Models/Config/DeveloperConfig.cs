@@ -520,5 +520,14 @@ namespace Gothic.Core.Models.Config
                  "Gothic STEP_HEIGHT/SLIDE_ANGLE): around obstacles, and they stop at ledges/drops instead of running " +
                  "off the world. Routines still walk the waynet.")]
         public bool EnableNpcNavMesh = true;
+
+        [Tooltip("V1: NPCs fall off ledges (S_FALLDN/S_FALL, no steering in the air, landing animation, fall damage " +
+                 "from FALLDOWN_HEIGHT/FALLDOWN_DAMAGE) and chasing NPCs climb ledges up to JUMPMID_HEIGHT with the " +
+                 "JumpUpLow/JumpUpMid animations (only models that have them).")]
+        public bool EnableNpcJumpAndFall = true;
+
+        [Tooltip("V1: NPCs slide along walls/rocks instead of walking into them (sphere probe at hip height). Fast " +
+                 "monsters ran through rocks and fell below the world.")]
+        public bool EnableNpcWallCollision = true;
     }
 }
