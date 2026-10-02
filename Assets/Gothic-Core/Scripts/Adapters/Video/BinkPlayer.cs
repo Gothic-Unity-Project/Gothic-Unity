@@ -24,6 +24,9 @@ namespace Gothic.Core.Adapters.Video
         private class DecodedFrame
         {
             public int Index;
+            // Position (sample frames) in the audio stream where this frame's audio starts - the frame is shown when
+            // that sample is heard. Exact even if a frame's audio packet isn't 1/fps long (e.g. pre-roll).
+            public long AudioStart;
             public readonly byte[][] Planes = new byte[3][];
         }
 
@@ -39,11 +42,23 @@ namespace Gothic.Core.Adapters.Video
         private readonly Stack<DecodedFrame> _pool = new();
         private float _startTime;
 
-        // The audio clock moves in steps of one audio buffer (~50-90 ms, longer than a video frame) - showing frames by
-        // it directly played them in bursts. The video clock runs on real time and is pulled towards the audio clock.
-        private const double _clockResyncSeconds = 0.15;
-        private const double _clockCorrection = 0.05;
+        // The video clock runs on real time and is pulled gently towards the audio play head (AudioSource.timeSamples).
+        // Counting the samples Unity pulled from OnAudioRead was ~280 ms ahead and jumpy (it reads big chunks ahead):
+        // the clock re-synced every second and skipped 12-18 frames per second. Hard re-sync only after a real hiccup.
+        private const double _clockResyncSeconds = 1.0;
+        private const double _clockCorrectionPerSecond = 0.5;
         private double _videoClock;
+        // timeSamples is the position handed to the mixer - it's heard after the DSP buffers. The picture waits for it
+        // (video was slightly ahead of the sound).
+        private double _audioOutputLatency;
+
+        // Diagnostics: once per second how many frames were shown/skipped and how full the decoded queue was.
+        private const float _statsIntervalSeconds = 1f;
+        private float _statsTime;
+        private int _statsShown;
+        private int _statsSkipped;
+        private int _statsMinQueue = int.MaxValue;
+        private double _statsMaxDrift;
         private bool _isFinished;
 
         private Thread _decoderThread;
@@ -59,6 +74,8 @@ namespace Gothic.Core.Adapters.Video
         private int _ringRead;
         private int _ringCount;
         private long _samplesPlayed;
+        private long _audioPushedFrames; // decoder thread
+        private const int _loggedAudioPackets = 3;
         private int _sampleRate;
         private int _channels;
         private bool _hasAudio;
@@ -153,6 +170,11 @@ namespace Gothic.Core.Adapters.Video
             var clip = AudioClip.Create("Bink", lengthFrames, _channels, _sampleRate, true, OnAudioRead);
             _audioSource.clip = clip;
             _audioSource.loop = false;
+
+            AudioSettings.GetDSPBufferSize(out var bufferLength, out var bufferCount);
+            _audioOutputLatency = (double)bufferLength * bufferCount / AudioSettings.outputSampleRate;
+            Logger.Log($"[BinkPlayer] Audio output latency {_audioOutputLatency * 1000:F0} ms " +
+                       $"({bufferCount} x {bufferLength} samples @ {AudioSettings.outputSampleRate} Hz)", LogCat.Loading);
         }
 
         private void Update()
@@ -223,8 +245,16 @@ namespace Gothic.Core.Adapters.Video
                         Buffer.BlockCopy(source, 0, decoded.Planes[plane], 0, source.Length);
                     }
 
+                    decoded.AudioStart = _audioPushedFrames;
                     if (_hasAudio)
-                        PushAudio(frame.Audio[0]);
+                    {
+                        var samples = frame.Audio[0];
+                        PushAudio(samples);
+                        _audioPushedFrames += samples.Count / _channels;
+                        if (decoded.Index < _loggedAudioPackets)
+                            Logger.Log($"[BinkPlayer] frame {decoded.Index}: audio {samples.Count / _channels} samples " +
+                                       $"(1/fps = {_sampleRate / _fps:F0})", LogCat.Loading);
+                    }
 
                     lock (_frameLock)
                         _decoded.Enqueue(decoded);
@@ -256,21 +286,32 @@ namespace Gothic.Core.Adapters.Video
             if (_hasAudio && !_isAudioStarted)
                 return;
 
-            var targetIndex = (int)(GetPlaybackTime() * _fps);
+            var playbackTime = GetPlaybackTime();
+            var targetIndex = (int)(playbackTime * _fps);
+            // With sound: the frame whose audio is being heard. Behind -> older frames are skipped, ahead -> it waits.
+            var heardSample = (long)(playbackTime * _sampleRate);
             DecodedFrame toShow = null;
             lock (_frameLock)
             {
-                while (_decoded.Count > 0 && _decoded.Peek().Index <= targetIndex)
+                _statsMinQueue = Math.Min(_statsMinQueue, _decoded.Count);
+                while (_decoded.Count > 0 && (_hasAudio
+                           ? _decoded.Peek().AudioStart <= heardSample
+                           : _decoded.Peek().Index <= targetIndex))
                 {
                     if (toShow != null)
+                    {
                         _pool.Push(toShow);
+                        _statsSkipped++;
+                    }
                     toShow = _decoded.Dequeue();
                 }
             }
+            LogStats(targetIndex);
 
             if (toShow == null)
                 return;
 
+            _statsShown++;
             for (var plane = 0; plane < 3; plane++)
             {
                 _textures[plane].LoadRawTextureData(toShow.Planes[plane]);
@@ -281,9 +322,28 @@ namespace Gothic.Core.Adapters.Video
                 _pool.Push(toShow);
         }
 
+        private void LogStats(int targetIndex)
+        {
+            _statsTime += Time.unscaledDeltaTime;
+            if (_statsTime < _statsIntervalSeconds)
+                return;
+
+            Logger.Log($"[BinkPlayer] frame {targetIndex}: shown={_statsShown} skipped={_statsSkipped} " +
+                       $"minQueue={_statsMinQueue} maxDrift={_statsMaxDrift * 1000:F0} ms " +
+                       $"latency={_audioOutputLatency * 1000:F0} ms " +
+                       $"fps(render)={1f / Mathf.Max(Time.unscaledDeltaTime, 0.0001f):F0}", LogCat.Loading);
+            _statsTime = 0f;
+            _statsShown = 0;
+            _statsSkipped = 0;
+            _statsMinQueue = int.MaxValue;
+            _statsMaxDrift = 0;
+        }
+
         private double GetPlaybackTime()
         {
-            return _hasAudio ? _videoClock : Time.unscaledTime - _startTime;
+            return _hasAudio
+                ? Math.Max(0.0, _videoClock - _audioOutputLatency)
+                : Time.unscaledTime - _startTime;
         }
 
         private void UpdateVideoClock()
@@ -292,15 +352,24 @@ namespace Gothic.Core.Adapters.Video
                 return;
 
             double audioTime;
-            lock (_audioLock)
-                audioTime = (double)_samplesPlayed / (_sampleRate * _channels);
+            if (_audioSource.isPlaying)
+            {
+                audioTime = (double)_audioSource.timeSamples / _sampleRate;
+            }
+            else
+            {
+                lock (_audioLock)
+                    audioTime = (double)_samplesPlayed / (_sampleRate * _channels);
+            }
 
-            _videoClock += Time.unscaledDeltaTime;
+            var deltaTime = Time.unscaledDeltaTime;
+            _videoClock += deltaTime;
             var drift = audioTime - _videoClock;
+            _statsMaxDrift = Math.Max(_statsMaxDrift, Math.Abs(drift));
             if (Math.Abs(drift) > _clockResyncSeconds)
                 _videoClock = audioTime;
             else
-                _videoClock += drift * _clockCorrection;
+                _videoClock += drift * Math.Min(1.0, _clockCorrectionPerSecond * deltaTime);
         }
 
         private void PushAudio(List<float> samples)
