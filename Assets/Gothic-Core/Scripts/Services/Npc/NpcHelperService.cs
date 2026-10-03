@@ -174,6 +174,12 @@ namespace Gothic.Core.Services.Npc
                 .OrderBy(i => (i.Go.transform.position - npcPos).sqrMagnitude) // get nearest
                 .FirstOrDefault();
 
+            // Diagnostics (berzerk picks a victim without the player): rare call, logged.
+            if (!detectPlayer)
+                Logger.Log($"[Wld_DetectNpcEx] {npcInstance.GetName(NpcNameSlot.Slot0)} (no player, state {aiState}, " +
+                           $"guild {guild}, range {sensesRangeMeters:F0} m): " +
+                           $"{foundNpc?.Instance.GetName(NpcNameSlot.Slot0) ?? "nobody"}", LogCat.Ai);
+
             // without this Dialog box stops and breaks the entire NPC logic
             if (foundNpc == null)
             {

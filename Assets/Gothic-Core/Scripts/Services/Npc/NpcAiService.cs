@@ -678,8 +678,10 @@ namespace Gothic.Core.Services.Npc
             // Vm.GlobalHero — if a mod's hero init script (or anything else) calls Npc_IsPlayer during
             // that window, GlobalHero is still null. No global hero assigned yet means npc can't be
             // "the player" in any meaningful sense yet either.
+            // npc is NULL too: Daedalus evaluates every operand of &&, so ZS_Berzerk_Loop's
+            // "Hlp_IsValidNpc(other) && ... && !Npc_IsPlayer(other)" calls it with no target - the NRE killed the loop.
             var globalHero = _gameStateService.GothicVm.GlobalHero;
-            return globalHero != null && npc.Index == globalHero.Index;
+            return npc != null && globalHero != null && npc.Index == globalHero.Index;
         }
 
         public ItemInstance ExtGetEquippedArmor(NpcInstance npc)
@@ -804,6 +806,9 @@ namespace Gothic.Core.Services.Npc
 
             if (target == null)
             {
+                // Engine: other = the target, NULL without one - a stale other passed Hlp_IsValidNpc (ZS_Berzerk).
+                if (_configService.Dev.EnableNpcTargetIsEnemy)
+                    _gameStateService.GothicVm.GlobalOther = null;
                 return false;
             }
 
@@ -814,7 +819,11 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtSetTarget(NpcInstance npc, NpcInstance target)
         {
-            npc.GetUserData().Props.TargetNpc = target;
+            var props = npc.GetUserData().Props;
+            props.TargetNpc = target;
+            // Engine: the target is the enemy AI_Attack fights (berzerk picks another NPC).
+            if (target != null && _configService.Dev.EnableNpcTargetIsEnemy)
+                props.EnemyNpc = target;
         }
 
         public int ExtGetNextTarget(NpcInstance npc)

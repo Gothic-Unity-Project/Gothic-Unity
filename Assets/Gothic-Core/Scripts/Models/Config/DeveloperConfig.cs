@@ -538,6 +538,11 @@ namespace Gothic.Core.Models.Config
                  "monsters ran through rocks and fell below the world.")]
         public bool EnableNpcWallCollision = true;
 
+        [Tooltip("V1: A state started via AI_StartState without a _Loop function ends at once like in the engine " +
+                 "(ZS_HealSelf after a fight) - NPCs walk back to their routine after giving up a chase instead of " +
+                 "standing where they stopped.")]
+        public bool EnableLooplessStatesEnd = true;
+
         [Tooltip("V1: Small missing externals: Npc_HasReadiedWeapon (G1 orc AI sees drawn weapons), " +
                  "Npc_GetGuildAttitude, Npc_IsDrawingWeapon (G2), ExitGame/ExitSession (endings: quit after the " +
                  "credits), Mdl_ApplyOverlayMDSTimed (speed potions make the VR hero faster). Only registered if the " +
@@ -580,6 +585,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Important dialogs are checked in their nr order like the engine (Baal Cadar: SleepSpell nr 1 " +
                  "before NoTalk nr 2 - he walked up for the sleep spell, then offered NoTalk, forever).")]
         public bool EnableImportantInfoOrder = true;
+
+        [Tooltip("V1: Npc_SetTarget is the NPC's enemy (AI_Attack attacks it) and Npc_GetTarget without a target sets " +
+                 "other to NULL like the engine. Berzerk victims attacked the caster instead of the NPC they picked.")]
+        public bool EnableNpcTargetIsEnemy = true;
 
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;

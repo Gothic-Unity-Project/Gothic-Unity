@@ -173,6 +173,16 @@ namespace Gothic.Core.Adapters.Npc
                     case NpcProperties.LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
                         {
+                            // DeveloperConfig.EnableLooplessStatesEnd: like the engine, a state started via AI_StartState
+                            // without _Loop (ZS_HealSelf -> ZS_HealSelfMana after a fight) ends at once and the NPC goes
+                            // back to its routine (TA state walks to self.wp). Restarting it kept the NPC standing
+                            // where it gave up a chase. The daily routine state / a monster's start state still restart.
+                            if (_configService.Dev.EnableLooplessStatesEnd && !IsDailyState(Vob.CurrentStateIndex))
+                            {
+                                Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                                return;
+                            }
+
                             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
                             return;
                         }
@@ -181,7 +191,10 @@ namespace Gothic.Core.Adapters.Npc
                         
                         // Some ZS_*_Loop return !=0 when they want to quit.
                         if (loopResponse != _daedalusLoopContinue)
+                        {
                             Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                            LogStateLoopEnded();
+                        }
                         
                         break;
                     case NpcProperties.LoopState.End:
@@ -209,6 +222,22 @@ namespace Gothic.Core.Adapters.Npc
                 Logger.LogEditor($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 PlayNextAnimation(Properties.AnimationQueue.Dequeue());
             }
+        }
+
+        /// <summary>
+        /// Diagnostics: a non-daily state whose loop ended (berzerk ended at once) - which state, after how long.
+        /// </summary>
+        private void LogStateLoopEnded()
+        {
+            if (IsDailyState(Vob.CurrentStateIndex))
+                return;
+            Logger.Log($"[AiLoop] {NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)}: {Vob.CurrentStateName} loop ended " +
+                       $"(state time {Properties.StateTime:F1} s, active {Properties.IsStateTimeActive})", LogCat.Ai);
+        }
+
+        private bool IsDailyState(int stateIndex)
+        {
+            return stateIndex == Properties.RoutineCurrent?.Action || stateIndex == NpcInstance.StartAiState;
         }
 
         private int CallAiFunction(int symbolIndex)
