@@ -548,5 +548,29 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: The hero's own body (current armor) is visible under the VR head - torso, legs and arms reaching " +
                  "for the VR hands (simple IK). The model's hands and head are hidden, the HVR hands stay.")]
         public bool EnableVrHeroBody = true;
+
+        [Tooltip("V1: Particle effects of animations (*eventPFX/*eventPFXStop in the MDS): joint smoke of smoking NPCs, " +
+                 "bubbles, teleport rings of scrolls, ... attached to their bone. Before they were only logged.")]
+        public bool EnableAnimationPfx = true;
+
+        [Tooltip("V1: Spells show their VISUALFX effects around the caster: invest effects on the body/hand " +
+                 "(emFXInvestOrigin_S, teleport ring, transformation glow) and the cast effect (emCreateFXID of the CAST " +
+                 "key: fire rain, teleport flash, transformation cloud).")]
+        public bool EnableSpellBodyFx = true;
+
+        [Tooltip("V1: Particle emission like Gothic. One-shot effects (explosions, spell hits, pickaxe sparks) emit " +
+                 "ppsValue per second for ppsScaleKeys/ppsFps seconds and live until their particles are gone (they were " +
+                 "/100 and destroyed after 1 s - nothing visible). Looping effects emit at least min(ppsValue, 10) per " +
+                 "second (LIGHTSMOKE: 5 pps gave nothing). Sub emitters (ppsCreateEm_S: fireball sparks, fire rain " +
+                 "ground) are created too.")]
+        public bool EnablePfxMinimumEmission = true;
+
+        [Tooltip("V1: NPCs holding an item in a state (joint, beer, potion, ...) play its random animations now and then " +
+                 "like the engine (t_<SCHEME>_Random_1..n: taking a drag with smoke, a sip, ...).")]
+        public bool EnableItemRandomAnis = true;
+
+        [Tooltip("V1: Wld_PlayEffect (scripts play VISUALFX at an NPC/vob - G2 uses it a lot, G1 the Sleeper's " +
+                 "fireball): the effect, its sound and emFXCreate_S chain at the origin.")]
+        public bool EnableWldPlayEffect = true;
     }
 }

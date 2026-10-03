@@ -68,6 +68,7 @@ namespace Gothic.Core.Models.Animations
         public List<IEventTag> EventTags;
         public List<IEventSoundEffect> SoundEffects;
         public List<IEventParticleEffect> ParticleEffects;
+        public List<IEventParticleEffectStop> ParticleEffectsStop;
         public List<IEventMorphAnimation> MorphAnimations;
 
         /// <summary>

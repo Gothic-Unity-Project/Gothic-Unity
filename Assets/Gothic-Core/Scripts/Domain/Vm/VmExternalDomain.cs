@@ -33,6 +33,7 @@ namespace Gothic.Core.Domain.Vm
     public class VmExternalDomain
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.Meshes.ParticleService _particleService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcHelperService _npcHelperService;
@@ -291,6 +292,10 @@ namespace Gothic.Core.Domain.Vm
 
             if (_configService.Dev.EnableQuickWinExternals)
                 RegisterQuickWinExternals(vm);
+
+            if (_configService.Dev.EnableWldPlayEffect && vm.GetSymbolByName("Wld_PlayEffect") != null)
+                vm.RegisterExternal<string, DaedalusInstance, DaedalusInstance, int, int, int, int>("Wld_PlayEffect",
+                    Wld_PlayEffect);
 
             // Transformation scrolls (Spell_Logic_Trf_*): the monster instance the hero becomes (VRTransformService).
             if (_configService.Dev.EnableVrTransformations && vm.GetSymbolByName("Npc_SetActiveSpellInfo") != null)
@@ -998,6 +1003,21 @@ namespace Gothic.Core.Domain.Vm
         {
             Logger.Log($"[{externalName}] The game ends after the queued videos.", LogCat.Dialog);
             GlobalEventDispatcher.ScriptExitGame.Invoke();
+        }
+
+        /// <summary>
+        /// The VISUALFX at the origin NPC (hips height). Projectiles (bIsProjectile) and damage aren't simulated -
+        /// the effect plays at the origin.
+        /// </summary>
+        public void Wld_PlayEffect(string effect, DaedalusInstance origin, DaedalusInstance target, int effectLevel,
+            int damage, int damageType, int isProjectile)
+        {
+            var originGo = (origin as NpcInstance)?.GetUserData()?.Go;
+            Logger.Log($"[Wld_PlayEffect] {effect} at {(originGo != null ? originGo.name : "-")} (level {effectLevel}, " +
+                       $"projectile {isProjectile})", LogCat.Vob);
+            if (originGo == null)
+                return;
+            _particleService.PlayVisualFx(effect, originGo.transform.position, originGo.transform);
         }
 
         public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)

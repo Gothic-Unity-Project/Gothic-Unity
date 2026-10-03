@@ -51,6 +51,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly ParticleService _particleService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -61,6 +62,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly VRTransformService _vrTransformService;
         private const string _transformName = "Transform";
+        // DeveloperConfig.EnableSpellBodyFx: VISUALFX effects at the body/hand while charging and when cast.
+        private readonly System.Collections.Generic.List<GameObject> _bodyFxGos = new();
+        private const float _bodyFxHeight = 1f; // BIP01 above the feet
+        private const float _bodyFxFadeSeconds = 2f;
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
@@ -155,6 +160,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isCasting = false;
 
             DestroySpellVfx();
+            DestroyBodyFx();
             StopInvestSound();
             if (_investAudioSource != null)
                 Destroy(_investAudioSource);
@@ -223,6 +229,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _manaInvested = 0;
                 _manaTickTimer = _manaTickInterval;
 
+                SpawnInvestFx(true);
+
                 // Like the engine: NPCs notice the casting (B_AssessCaster -> reacts to offensive spells only).
                 if (_configService.Dev.EnableCasterPerception)
                     _npcAiService.SendHeroCasterPerception();
@@ -250,6 +258,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 Logger.Log("[VRRuneCaster] Out of mana — spell cancelled", LogCat.VR);
                 StopInvestSound();
                 DestroySpellVfx();
+                DestroyBodyFx();
                 _isCasting = false;
                 _castThisGrab = true;
                 return;
@@ -317,7 +326,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             StopInvestSound();
             DestroySpellVfx();
+            DestroyBodyFx();
             PlayCastSound(_item.Spell);
+            if (applyEffect)
+                SpawnCastFx();
 
             if (applyEffect)
             {
@@ -354,6 +366,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                         // For AOE spells FightService.OnSpellHit ignores this single target anyway and
                         // fans out to everyone in range of the caster.
                         GlobalEventDispatcher.SpellHit.Invoke(hero, _spellTarget, _spellTarget.Go.transform.position, spellDmg);
+                        // Not thrown - the hit effect (emFXCollDyn_S: ice block, fear, ...) appears on the target.
+                        if (_configService.Dev.EnableSpellBodyFx)
+                            SpawnCollideFx(_meshService, _vmCacheService, _audioService, _particleService,
+                                _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmFxCollDynS, _manaInvested,
+                                _spellTarget.Go.transform.position, Vector3.zero);
                     }
                     else if (isAoe)
                     {
@@ -493,6 +510,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     // Default (Local) ignores the parent's scale - the invest level size wouldn't show.
                     main.scalingMode = ParticleSystemScalingMode.Hierarchy;
                     main.startSpeed = new ParticleSystem.MinMaxCurve(0f, 0.05f);
+                    var velocity = ps.velocityOverLifetime;
+                    velocity.enabled = false;
                     // Gothic INIT spell PFX use ppsValue=500 but our builder divides by 100 → only 5/s.
                     // With 0.15s lifetime that's <1 particle visible — boost emission for VR first-person.
                     var emission = ps.emission;
@@ -502,6 +521,93 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 var parentName = _spellVfxGo.transform.parent != null ? _spellVfxGo.transform.parent.name : "none";
                 Logger.Log($"[VRRuneCaster] spell VFX '{pfxName}' on {parentName}", LogCat.VR);
             }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableSpellBodyFx: VISUALFX effects while charging - emFXInvestOrigin_S on the body (teleport:
+        /// MFX_TELEPORT_INVEST + its ring, fire rain: INVESTGLOW) and the first invest key (transformation: ORIGIN in the
+        /// hand + GLOW around it). They stay until the spell is cast or cancelled.
+        /// </summary>
+        private void SpawnInvestFx(bool isHandKeyUsed)
+        {
+            if (!_configService.Dev.EnableSpellBodyFx)
+                return;
+            var mfxName = GetSpellMfxName(_item.Spell);
+            if (mfxName == null)
+                return;
+
+            SpawnFxChain(_vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmFxInvestOriginS, true);
+
+            var investKey = _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_INVEST_1");
+            // Throwables swap the hand effect per invest level themselves (NextInvestLevel).
+            if (isHandKeyUsed && !string.IsNullOrEmpty(investKey?.VisNameS))
+                SpawnSpellVfx(_runeHandSide, investKey.VisNameS);
+            SpawnFxChain(investKey?.EmCreateFxId, true);
+        }
+
+        /// <summary>
+        /// The CAST key's emCreateFXID: fire rain around the caster, teleport flash, transformation cloud.
+        /// </summary>
+        private void SpawnCastFx()
+        {
+            if (!_configService.Dev.EnableSpellBodyFx)
+                return;
+            var mfxName = GetSpellMfxName(_item.Spell);
+            if (mfxName == null)
+                return;
+            SpawnFxChain(_vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_CAST")?.EmCreateFxId, false);
+        }
+
+        /// <summary>
+        /// One VISUALFX instance (+ its emFXCreate_S chain, ParticleService): at the hand for ZS_*HAND origins, otherwise
+        /// at the body (BIP01, about hip height). Charging effects stay (looping, following), cast effects end on their
+        /// own. The spell's own cast sound already plays (PlayCastSound).
+        /// </summary>
+        private void SpawnFxChain(string fxName, bool isWhileInvesting)
+        {
+            var fx = string.IsNullOrEmpty(fxName) ? null : _vmCacheService.TryGetVfxData(fxName);
+            if (fx == null)
+                return;
+
+            var hero = _npcService.GetHeroContainer();
+            var isHandOrigin = fx.EmTrjOriginNode != null &&
+                               fx.EmTrjOriginNode.Contains("HAND", System.StringComparison.OrdinalIgnoreCase);
+            // The spell comes from the throwing hand (throwables), otherwise from the rune hand.
+            var handGo = _vrPlayerService.GetHandModelGo(IsThrowable ? _throwHandSide : _runeHandSide);
+            // An aimed spell's cast effect appears at its victim (fear: the face above the target, not the caster).
+            var target = !isWhileInvesting && _spellTarget?.Go != null ? _spellTarget.Go.transform : null;
+            Transform origin;
+            if (target != null)
+                origin = target;
+            else if (isHandOrigin && handGo != null)
+                origin = handGo.transform;
+            else if (hero?.Go != null)
+                origin = hero.Go.transform;
+            else
+                return;
+
+            var position = origin == handGo?.transform || origin == target
+                ? origin.position
+                : origin.position + Vector3.up * _bodyFxHeight;
+            var created = _particleService.PlayVisualFx(fxName, position, isWhileInvesting ? origin : null,
+                isWhileInvesting, $"MFX_{GetSpellMfxName(_item.Spell)}_Cast");
+            if (isWhileInvesting)
+                _bodyFxGos.AddRange(created);
+            var at = target != null ? "target" : isHandOrigin ? "hand" : "body";
+            Logger.Log($"[VRRuneCaster] Spell FX {fxName} at {at} ({created.Count} PFX)", LogCat.VR);
+        }
+
+        private void DestroyBodyFx()
+        {
+            foreach (var fxGo in _bodyFxGos)
+            {
+                if (fxGo == null)
+                    continue;
+                foreach (var ps in fxGo.GetComponentsInChildren<ParticleSystem>(true))
+                    ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                Destroy(fxGo, _bodyFxFadeSeconds);
+            }
+            _bodyFxGos.Clear();
         }
 
         private void DestroySpellVfx()
@@ -621,6 +727,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             StartInvestSound(_item.Spell);
             SpawnSpellVfx(handSide);
+            SpawnInvestFx(false);
 
             if (_configService.Dev.EnableCasterPerception)
                 _npcAiService.SendHeroCasterPerception();
@@ -690,6 +797,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             Logger.Log($"[VRRuneCaster] Throw cancelled ({reason}) at level {_manaInvested}", LogCat.VR);
             StopInvestSound();
             DestroySpellVfx();
+            DestroyBodyFx();
             _isCasting = false;
             _isThrowCharged = false;
         }
@@ -813,18 +921,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var meshService = _meshService;
             var vmCacheService = _vmCacheService;
             var audioService = _audioService;
+            var particleService = _particleService;
             var baseFx = vmCacheService.TryGetVfxData($"spellFX_{mfxName}");
 
             projectile.OnNpcHit = (npc, position, normal) =>
             {
                 Logger.Log($"[VRRuneCaster] {mfxName} hit {npc.Instance.GetName(NpcNameSlot.Slot0)} (level {level}, dmg {damage})", LogCat.VR);
                 GlobalEventDispatcher.SpellHit.Invoke(hero, npc, position, damage);
-                SpawnCollideFx(meshService, vmCacheService, audioService, baseFx?.EmFxCollDynS, investLevel, position, normal);
+                SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollDynS, investLevel, position, normal);
                 Destroy(projectileGo);
             };
             projectile.OnWorldHit = (position, normal) =>
             {
-                SpawnCollideFx(meshService, vmCacheService, audioService, baseFx?.EmFxCollStatS, investLevel, position, normal);
+                SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollStatS, investLevel, position, normal);
                 Destroy(projectileGo);
             };
             projectile.OnExpired = () => Destroy(projectileGo);
@@ -838,7 +947,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// has keys (spellFX_Fireball_COLLIDE_KEY_INVEST_1..4).
         /// </summary>
         private static void SpawnCollideFx(MeshService meshService, VmCacheService vmCacheService,
-            AudioService audioService, string fxName, int level, Vector3 position, Vector3 normal)
+            AudioService audioService, ParticleService particleService, string fxName, int level, Vector3 position,
+            Vector3 normal)
         {
             if (string.IsNullOrEmpty(fxName))
                 return;
@@ -865,6 +975,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (clip != null)
                     AudioSource.PlayClipAtPoint(clip, position);
             }
+
+            // emFXCreate_S of the collide effect (e.g. fire storm: SPREAD -> burning area).
+            if (!string.IsNullOrEmpty(fx?.EmFxCreateS))
+                particleService.PlayVisualFx(fx.EmFxCreateS, position);
         }
 
         /// <summary>

@@ -28,6 +28,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     {
         // e.g. t_Potion_S0_2_Stand
         private const string _animationSchemeWithSfx = "t_{0}_S0_2_Stand";
+        private const float _smokePuffSeconds = 1.5f;
+        private const float _smokeFadeSeconds = 9f;
+        private const float _smokeExhaleSpeed = 0.35f;
+        private const float _smokeRiseSpeed = 0.1f;
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -103,12 +107,40 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 yield return new WaitForSeconds(inhaleSeconds / 2f);
 
                 var head = Camera.main != null ? Camera.main.transform : transform;
-                var pos = transform.position + head.forward * 0.12f;
+                var pos = transform.position + head.forward * 0.2f;
                 var pfx = _meshService.CreateVobPfx(pfxName, pos, Quaternion.LookRotation(head.forward),
                     destroyAfterPlay: true);
                 if (pfx == null)
+                {
                     Logger.LogWarning($"[VRMouth] Smoke PFX '{pfxName}' couldn't be created.", LogCat.VR);
+                    continue;
+                }
+
+                // LIGHTSMOKE loops - one puff, then it drifts away (like the animation's *eventPFXStop). Blown forward
+                // and a bit up - straight up it left the view at once.
+                var smokeRoot = pfx.transform.parent != null ? pfx.transform.parent.gameObject : pfx;
+                foreach (var particleSystem in smokeRoot.GetComponentsInChildren<ParticleSystem>())
+                {
+                    var exhale = head.forward * _smokeExhaleSpeed + Vector3.up * _smokeRiseSpeed;
+                    var velocity = particleSystem.velocityOverLifetime;
+                    velocity.enabled = true;
+                    velocity.space = ParticleSystemSimulationSpace.World;
+                    velocity.x = new ParticleSystem.MinMaxCurve(exhale.x * 0.7f, exhale.x);
+                    velocity.y = new ParticleSystem.MinMaxCurve(exhale.y * 0.7f, exhale.y);
+                    velocity.z = new ParticleSystem.MinMaxCurve(exhale.z * 0.7f, exhale.z);
+                }
+                StartCoroutine(StopSmoke(smokeRoot));
             }
+        }
+
+        private IEnumerator StopSmoke(GameObject smoke)
+        {
+            yield return new WaitForSeconds(_smokePuffSeconds);
+            if (smoke == null)
+                yield break;
+            foreach (var particleSystem in smoke.GetComponentsInChildren<ParticleSystem>())
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            Destroy(smoke, _smokeFadeSeconds);
         }
 
         private bool TryGetItemToEat(GameObject go, out ItemInstance item)

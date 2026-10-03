@@ -142,6 +142,7 @@ namespace Gothic.Core.Services.Npc
                     SoundEffects = source.SoundEffects,
                     ParticleEffects = source.ParticleEffects,
                     MorphAnimations = source.MorphAnimations,
+                    ParticleEffectsStop = source.ParticleEffectsStop,
                     HasEvents = source.HasEvents,
                     IsMoving = source.IsMoving,
                     MovementSpeed = -source.MovementSpeed
@@ -154,7 +155,6 @@ namespace Gothic.Core.Services.Npc
         }
 
         private const string _reversedSuffix = "_REVERSED";
-
 
         private AnimationTrack GetTrack(string animName, string mdsName)
         {
@@ -284,7 +284,9 @@ namespace Gothic.Core.Services.Npc
                 EventTags = bakedSource?.EventTags ?? anim.EventTags.Select(i => i.Cache()).ToList(),
                 SoundEffects = bakedSource?.SoundEffects ?? anim.SoundEffects.Select(i => i.Cache()).ToList(),
                 ParticleEffects = bakedSource?.ParticleEffects ?? anim.ParticleEffects.Select(i => i.Cache()).ToList(),
-                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList()
+                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList(),
+                ParticleEffectsStop = bakedSource?.ParticleEffectsStop ??
+                                      anim.ParticleEffectsStop.Select(i => i.Cache()).ToList()
             };
 
             // Looping if this == next. If an alias is used, we expect the same alias being selected.
@@ -292,7 +294,8 @@ namespace Gothic.Core.Services.Npc
 
             // Cached so the per-frame event scan can skip the vast majority of tracks without any events.
             track.HasEvents = track.EventTags.Count > 0 || track.SoundEffects.Count > 0 ||
-                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0;
+                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0 ||
+                              track.ParticleEffectsStop.Count > 0;
 
             track.InvertYAxis = _animationsToInvertYAxis.Contains(track.Name);
 

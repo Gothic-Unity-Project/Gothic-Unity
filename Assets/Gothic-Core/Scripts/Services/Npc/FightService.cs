@@ -32,6 +32,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _fightConfigService;
+        [Inject] private readonly Gothic.Core.Services.Meshes.ParticleService _particleService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
@@ -85,6 +87,9 @@ namespace Gothic.Core.Services.Npc
                         continue;
 
                     ApplySpellHit(caster, candidate, candidate.Go.transform.position, damage);
+                    // DeveloperConfig.EnableSpellBodyFx: the spell's hit effect on everyone it reaches (ice wave: ice).
+                    if (_fightConfigService.Dev.EnableSpellBodyFx)
+                        _particleService.PlaySpellHitFx(mfxName, candidate);
                 }
                 return;
             }

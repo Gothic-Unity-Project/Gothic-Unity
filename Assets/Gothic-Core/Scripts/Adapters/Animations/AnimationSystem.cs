@@ -52,6 +52,19 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly NpcWaterService _npcWaterService;
+        [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
+        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
+
+        // Item states (smoking, drinking): the engine's random item animations every few seconds.
+        private const float _itemRandomAniMinSeconds = 6f;
+        private const float _itemRandomAniMaxSeconds = 14f;
+        private const int _maxItemRandomAnis = 4;
+        private float _nextItemRandomAniTime;
+
+        // *eventPFX effects that run until their *eventPFXStop (same index). Safety: gone after this time anyway.
+        private readonly Dictionary<int, GameObject> _activePfx = new();
+        private const float _pfxMaxSeconds = 12f;
+        private const float _pfxFadeSeconds = 8f;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -431,6 +444,7 @@ namespace Gothic.Core.Adapters.Animations
         public void DisableObject()
         {
             _trackInstances.Clear();
+            StopAllPfx();
 
             // Forget the last animated pose - the NPC restarts from an idle rest state when culled in again.
             if (_posePositions.IsCreated)
@@ -677,6 +691,8 @@ namespace Gothic.Core.Adapters.Animations
                 }
             }
 
+            UpdateItemRandomAni();
+
             // Feed the updated clocks and blend weights into the animation job. Posing itself happens there.
             UpdateJobData();
 
@@ -890,16 +906,121 @@ namespace Gothic.Core.Adapters.Animations
             }
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableItemRandomAnis: in an item state (AI_UseItemToState, e.g. s_JOINT_S0) the engine plays
+        /// t_<SCHEME>_Random_1..n now and then - smoking NPCs take a drag (with its smoke PFX), drinkers sip.
+        /// </summary>
+        private void UpdateItemRandomAni()
+        {
+            if (!_configService.Dev.EnableItemRandomAnis || !Properties.HasItemEquipped ||
+                Properties.CurrentItem < 0 || Properties.ItemAnimationState < 0)
+            {
+                _nextItemRandomAniTime = 0f;
+                return;
+            }
+
+            if (_nextItemRandomAniTime <= 0f)
+            {
+                _nextItemRandomAniTime = Time.time + UnityEngine.Random.Range(_itemRandomAniMinSeconds,
+                    _itemRandomAniMaxSeconds);
+                return;
+            }
+            if (Time.time < _nextItemRandomAniTime)
+                return;
+            _nextItemRandomAniTime = 0f;
+
+            var scheme = _vmCacheService.TryGetItemData(Properties.CurrentItem)?.SchemeName;
+            if (string.IsNullOrEmpty(scheme))
+                return;
+
+            var candidates = new List<string>();
+            for (var i = 1; i <= _maxItemRandomAnis; i++)
+            {
+                var name = $"T_{scheme}_RANDOM_{i}";
+                if (IsPlaying(name))
+                    return; // still taking the last drag
+                if (_animationService.GetTrack(name, Properties.MdsNameBase, Properties.MdsNameOverlay) != null)
+                    candidates.Add(name);
+            }
+            if (candidates.Count > 0)
+                PlayAnimation(candidates[UnityEngine.Random.Range(0, candidates.Count)]);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableAnimationPfx: *eventPFX (frame, index, name, bone, ATTACH) creates the effect at the
+        /// bone (following it if attached), *eventPFXStop (frame, index) lets it fade out. Joint smoke, bubbles, ...
+        /// </summary>
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
         {
+            var stops = trackInstance.GetPendingParticleEffectStops();
+            if (stops != null)
+            {
+                foreach (var stop in stops)
+                    StopPfx(stop.Index);
+            }
+
             var pfxEvents = trackInstance.GetPendingParticleEffects();
-            if (pfxEvents == null)
+            if (pfxEvents == null || !_configService.Dev.EnableAnimationPfx)
                 return;
 
             foreach (var pfx in pfxEvents)
             {
-                Logger.LogWarning($"Particle Effects are not yet supported. {pfx.Name}", LogCat.Animation);
+                var bone = FindBone(pfx.Position) ?? Go.transform;
+                var pfxGo = pfx.Attached
+                    ? _meshService.CreateVobPfx(pfx.Name, parent: bone.gameObject, destroyAfterPlay: true)
+                    : _meshService.CreateVobPfx(pfx.Name, bone.position, bone.rotation, destroyAfterPlay: true);
+                if (pfxGo == null)
+                {
+                    Logger.LogWarning($"[AnimationPfx] {pfx.Name} couldn't be created ({trackInstance.AnimationName}).",
+                        LogCat.Animation);
+                    continue;
+                }
+
+                var parent = pfxGo.transform.parent;
+                var root = parent != null && parent != bone ? parent.gameObject : pfxGo;
+                foreach (var particleSystem in root.GetComponentsInChildren<ParticleSystem>())
+                {
+                    var main = particleSystem.main;
+                    main.simulationSpace = ParticleSystemSimulationSpace.World;
+                }
+                if (pfx.Index != 0)
+                {
+                    StopPfx(pfx.Index);
+                    _activePfx[pfx.Index] = root;
+                }
+                Destroy(root, _pfxMaxSeconds);
             }
+        }
+
+        private void StopPfx(int index)
+        {
+            if (!_activePfx.Remove(index, out var pfxGo) || pfxGo == null)
+                return;
+
+            foreach (var particleSystem in pfxGo.GetComponentsInChildren<ParticleSystem>())
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            Destroy(pfxGo, _pfxFadeSeconds);
+        }
+
+        private void StopAllPfx()
+        {
+            foreach (var index in _activePfx.Keys.ToList())
+                StopPfx(index);
+        }
+
+        /// <summary>
+        /// MDS bone names differ in case from the bone GameObjects ("Bip01 Head" vs "BIP01 HEAD").
+        /// </summary>
+        private Transform FindBone(string boneName)
+        {
+            if (string.IsNullOrEmpty(boneName))
+                return null;
+            foreach (var child in Go.GetComponentsInChildren<Transform>())
+            {
+                if (child.name.EqualsIgnoreCase(boneName))
+                    return child;
+            }
+            return null;
         }
 
         private void ApplyMorphEvents(AnimationTrackInstance trackInstance)
