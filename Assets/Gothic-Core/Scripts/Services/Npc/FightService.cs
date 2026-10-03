@@ -220,7 +220,10 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target);
                 }
-                else if (IsHuman(target) && (attacker.PrefabProps != null && attacker.PrefabProps.IsHero() || IsPartyMember(attacker)))
+                // DeveloperConfig.EnableGuardsStopBerzerk: a berzerk NPC is stopped, not killed.
+                else if (IsHuman(target) &&
+                         (attacker.PrefabProps != null && attacker.PrefabProps.IsHero() || IsPartyMember(attacker) ||
+                          (_configService.Dev.EnableGuardsStopBerzerk && IsBerzerk(target))))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
                     OnNpcKnockedOut(target, attacker);
@@ -255,8 +258,76 @@ namespace Gothic.Core.Services.Npc
                    attacker?.Instance != null && target.SummonedBy.Index == attacker.Instance.Index;
         }
 
+        // HAI_DIST_HELPATTACKEDCHARGES-like: guards in this range step in.
+        private const float _guardsHelpRange = 15f;
+
+        private static bool IsBerzerk(NpcContainer npc)
+        {
+            return npc?.Vob != null && npc.Vob.CurrentStateName.EqualsIgnoreCase("ZS_Berzerk");
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableGuardsStopBerzerk: guards near a berzerk NPC attack it to stop it - it is knocked out,
+        /// not killed (it isn't hostile to them, so ZS_Attack_End doesn't finish it). Vanilla G1 let it rage: guards
+        /// only protect charges from non-friends (B_AssessFightSound, "friendly fire"). G1 only (C_NpcIsGuard).
+        /// </summary>
+        private void CallGuardsAgainstBerzerk(NpcContainer berzerker)
+        {
+            if (!_configService.Dev.EnableGuardsStopBerzerk || !IsBerzerk(berzerker))
+                return;
+
+            var vm = _gameStateService.GothicVm;
+            var attackState = vm.GetSymbolByName("ZS_Attack");
+            if (attackState == null || vm.GetSymbolByName("C_NpcIsGuard") == null)
+                return;
+
+            var berzerkerPosition = berzerker.Go.transform.position;
+            foreach (var guard in _multiTypeCacheService.NpcCache)
+            {
+                if (guard == berzerker || guard.Props == null || guard.Go == null || guard.Vob == null ||
+                    guard.PrefabProps == null || guard.PrefabProps.IsHero())
+                    continue;
+                if (guard.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                    continue;
+                if (IsBerzerk(guard) || guard.Vob.CurrentStateName.EqualsIgnoreCase("ZS_Attack"))
+                    continue;
+                if ((guard.Go.transform.position - berzerkerPosition).sqrMagnitude > _guardsHelpRange * _guardsHelpRange)
+                    continue;
+
+                int isGuard;
+                try
+                {
+                    isGuard = vm.Call<int, NpcInstance>("C_NpcIsGuard", guard.Instance);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogWarning($"[FightService] C_NpcIsGuard failed: {e.Message}", LogCat.Fight);
+                    return;
+                }
+                if (isGuard == 0)
+                    continue;
+
+                guard.Props.EnemyNpc = berzerker.Instance;
+                guard.Props.TargetNpc = berzerker.Instance;
+
+                var oldSelf = vm.GlobalSelf;
+                var oldOther = vm.GlobalOther;
+                vm.GlobalSelf = guard.Instance;
+                vm.GlobalOther = berzerker.Instance;
+                _npcAiService.ExtAiDrawWeapon(guard.Instance);
+                _npcAiService.ExtAiStartState(guard.Instance, attackState.Index, false, "");
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+
+                Logger.Log($"[FightService] {guard.Instance.GetName(NpcNameSlot.Slot0)} stops the berzerk " +
+                           $"{berzerker.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            }
+        }
+
         private void BroadcastDamagePerceptions(NpcContainer attacker, NpcContainer target)
         {
+            CallGuardsAgainstBerzerk(attacker);
+
             // DeveloperConfig.EnableSummonIgnoresMasterHits: a summon is a training dummy for its own summoner -
             // it takes the damage but neither it nor bystanders turn on the summoner.
             if (IsOwnSummonHit(attacker, target))

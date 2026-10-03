@@ -612,6 +612,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Wld_DetectNpc(Ex) never returns a dead NPC like the engine (berzerk attacked a corpse).")]
         public bool EnableDetectNpcSkipsDead = true;
 
+        [Tooltip("V1 (G1): guards near a berzerk NPC that hits someone attack it to stop it - knocked out, not killed. " +
+                 "Vanilla let it rage (friendly fire between friends).")]
+        public bool EnableGuardsStopBerzerk = true;
+
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;
 
