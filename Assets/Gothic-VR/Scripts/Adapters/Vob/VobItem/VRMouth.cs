@@ -33,7 +33,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
-        private const int _smokePuffs = 4;
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -75,10 +74,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 Logger.LogWarning("No SFX for eating/drinking item found. Removing item anyways after 1 second.", LogCat.VR);
 
             _objectsInDestroyGracePeriod.Add(rootGo);
-            StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));
+            // Smoking: a drag first, then the sound and the smoke (DeveloperConfig.SmokeStartDelay).
+            var startDelay = IsSmokable(item) ? Mathf.Max(0f, _configService.Dev.SmokeStartDelay) : 0f;
+            StartCoroutine(ConsumeObject(rootGo, clip, destroyTime, startDelay));
 
             if (IsSmokable(item))
-                StartCoroutine(ExhaleSmoke(item, destroyTime));
+                StartCoroutine(ExhaleSmoke(item, destroyTime, startDelay));
         }
 
         /// <summary>
@@ -94,8 +95,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// The animation's own particle effect (LIGHTSMOKE) puffed out in front of the VR head.
         /// </summary>
-        private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds)
+        private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds, float startDelay)
         {
+            var puffs = Mathf.Max(1, _configService.Dev.SmokePuffs);
+            if (startDelay > 0f)
+                yield return new WaitForSeconds(startDelay);
+
             var pfxName = TryGetUseAnimation(item)?.ParticleEffects.FirstOrDefault()?.Name;
             if (string.IsNullOrEmpty(pfxName))
             {
@@ -104,10 +109,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             // Puffs spread over the smoking sound - the first one right with it (it came only after a pause).
-            for (var puff = 0; puff < _smokePuffs; puff++)
+            for (var puff = 0; puff < puffs; puff++)
             {
                 if (puff > 0)
-                    yield return new WaitForSeconds(inhaleSeconds / _smokePuffs);
+                    yield return new WaitForSeconds(inhaleSeconds / puffs);
 
                 var head = Camera.main != null ? Camera.main.transform : transform;
                 var pos = transform.position + head.forward * 0.2f;
@@ -211,8 +216,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
         }
 
-        private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay)
+        private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay,
+            float startDelay = 0f)
         {
+            if (startDelay > 0f)
+                yield return new WaitForSeconds(startDelay);
             if (clip != null)
                 _mouthAudio.PlayOneShot(clip);
 

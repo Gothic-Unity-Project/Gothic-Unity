@@ -411,6 +411,14 @@ namespace Gothic.Core.Models.Config
                  "on_state[0] like the engine, joint used up.")]
         public bool EnableSmoking = true;
 
+        [Tooltip("Smoke puffs of one joint (at least 1), spread over the smoking sound.")]
+        [Min(1)]
+        public int SmokePuffs = 4;
+
+        [Tooltip("Seconds from putting the joint to the mouth until the smoking sound and the first puff (taking a drag).")]
+        [Min(0f)]
+        public float SmokeStartDelay = 1.5f;
+
         [Tooltip("PrintScreen/AI_PrintScreen (\"New log entry\", \"1 item received\", ...) shown as a HUD in front of " +
                  "the VR head + Snd_Play 2D sounds (\"LogEntry\"). Read at VM start - restart the game after toggling.")]
         public bool EnableScreenMessages = true;
