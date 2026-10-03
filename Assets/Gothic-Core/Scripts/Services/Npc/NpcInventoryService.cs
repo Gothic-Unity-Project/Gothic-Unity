@@ -234,7 +234,8 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             var container = npc.GetUserData();
-            if (container == null || container.Vob == null || container.Vob.Player)
+            // The VR hero has no Gothic body - except the VR body (EnableVrHeroBody), which follows props.MdmName.
+            if (container == null || container.Vob == null || (container.Vob.Player && !_configService.Dev.EnableVrHeroBody))
                 return;
 
             var props = container.Props;

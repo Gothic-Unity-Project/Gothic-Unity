@@ -238,7 +238,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             var bounds = Mdh.BoundingBox.ToUnityBounds();
             bounds.Expand(_hitboxPadding * 2f); // Expand() adds the amount to size, so we grow by padding per side.
-            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>().SetDimension(bounds);
+            // Visual-only bodies (VR hero body) aren't built from the NPC prefab - no hitbox there.
+            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>()?.SetDimension(bounds);
         }
     }
 }

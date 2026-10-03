@@ -47,6 +47,12 @@ namespace Gothic.VR.Services.Context
             GlobalEventDispatcher.ScriptSoundPlay.AddListener(soundName =>
                 VRScreenMessages.PlaySound(_audioService, soundName));
             GlobalEventDispatcher.ScriptPlayVideo.AddListener(fileName => VRCinema.Play(_videoService, fileName));
+            // DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head (one per world scene).
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
+            {
+                if (_configService.Dev.EnableVrHeroBody)
+                    new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
+            });
             
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>

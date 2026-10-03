@@ -534,5 +534,9 @@ namespace Gothic.Core.Models.Config
                  "attack sounds), the VR camera goes down to its eyes, the hero's guild is the monster's. The casting hand " +
                  "holds an orb with a live picture of the body; its trigger transforms back. The other trigger attacks.")]
         public bool EnableVrTransformations = true;
+
+        [Tooltip("V1: The hero's own body (current armor) is visible under the VR head - torso, legs and arms reaching " +
+                 "for the VR hands (simple IK). The model's hands and head are hidden, the HVR hands stay.")]
+        public bool EnableVrHeroBody = true;
     }
 }
