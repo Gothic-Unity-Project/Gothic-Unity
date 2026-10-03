@@ -293,6 +293,10 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.EnableVrTransformations && vm.GetSymbolByName("Npc_SetActiveSpellInfo") != null)
                 vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
 
+            // G2 only - registering an external the scripts don't declare throws "Symbol not found" (G1/MT).
+            if (_configService.Dev.EnableNpcLookAtTarget && vm.GetSymbolByName("Npc_GetLookAtTarget") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_GetLookAtTarget", Npc_GetLookAtTarget);
+
             // Day Routine
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
             vm.RegisterExternal<NpcInstance, int, int, int, string>("TA", Ta);
@@ -935,6 +939,12 @@ namespace Gothic.Core.Domain.Vm
             if (container != null)
                 container.ActiveSpellInfo = info;
             return LogInstantExternal(nameof(Npc_SetActiveSpellInfo), 0, npc, info);
+        }
+
+        public NpcInstance Npc_GetLookAtTarget(NpcInstance npc)
+        {
+            var target = npc?.GetUserData()?.Props.LookAtTarget;
+            return LogInstantExternal(nameof(Npc_GetLookAtTarget), target, npc);
         }
 
         /// <summary>

@@ -15,6 +15,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             PrefabProps.AnimationHeadHandler.StartLookAt(_otherHead);
+            Props.LookAtTarget = Action.Instance0;
 
             IsFinishedFlag = true;
         }
