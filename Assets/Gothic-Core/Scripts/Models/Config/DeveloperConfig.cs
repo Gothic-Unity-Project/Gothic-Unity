@@ -383,9 +383,10 @@ namespace Gothic.Core.Models.Config
                  "An item staying inside the opening for BackpackVacuumStoreSeconds gets stored.")]
         public bool EnableBackpackVacuum = true;
 
-        [Tooltip("V1: Looting an NPC also spawns its backpack next to it - a tinted copy of the hero's backpack with " +
-                 "the same categories and pages, in sync with the loot sockets. Gone when the loot closes.")]
-        public bool EnableNpcLootBackpack = true;
+        [Tooltip("How an NPC's loot is shown: Sockets - the row of loot sockets at the NPC, Backpack - the NPC's backpack " +
+                 "lying next to it (a tinted copy of the hero's, categories and pages), Both - in sync. Gone when the " +
+                 "loot closes.")]
+        public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Both;
 
         [Tooltip("Pull radius around the backpack opening in meters.")]
         [Range(0.2f, 3f)]

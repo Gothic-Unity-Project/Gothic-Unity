@@ -10,6 +10,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
@@ -95,15 +96,20 @@ namespace Gothic.VR.Adapters
             _isOpen = true;
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             PlayOpenSound();
-            CreateSockets();
-            StartCoroutine(FillSockets());
 
-            if (_configService.Dev.EnableNpcLootBackpack)
+            // DeveloperConfig.NpcLootMode: loot sockets, the NPC's backpack, or both.
+            var lootMode = _configService.Dev.NpcLootMode;
+            if (lootMode != DeveloperConfigEnums.NpcLootMode.Backpack)
+            {
+                CreateSockets();
+                StartCoroutine(FillSockets());
+            }
+            if (lootMode != DeveloperConfigEnums.NpcLootMode.Sockets)
                 SpawnLootBackpack(npc);
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableNpcLootBackpack: the NPC's items in a tinted copy of the hero's backpack (categories,
+        /// DeveloperConfig.NpcLootMode Backpack/Both: the NPC's items in a tinted copy of the hero's backpack (categories,
         /// pages) lying next to the NPC - next to the loot sockets, both stay in sync (NpcInventoryChanged).
         /// </summary>
         private void SpawnLootBackpack(NpcContainer npc)
