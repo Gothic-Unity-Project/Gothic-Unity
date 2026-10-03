@@ -14,6 +14,10 @@ using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.UI;
 using Gothic.Core.Manager;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using ZenKit.Vobs;
 using HurricaneVR.Framework.Core.UI;
 using HurricaneVRExtensions.Simulator;
 using Reflex.Attributes;
@@ -21,12 +25,17 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using Gothic.Core.Logging;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
 {
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly AudioService _audioService;
@@ -169,10 +178,45 @@ namespace Gothic.VR.Services.Context
 
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
+            // DeveloperConfig.EnableTeleportKeepsHeldItems: what the hands hold goes into the backpack first - a held
+            // rune stayed at the old place (or vanished) and the hero stayed in magic mode.
+            if (_configService.Dev.EnableTeleportKeepsHeldItems)
+                StoreHeldItemsInBackpack();
+
             _playerController.Teleporter.Teleport(position);
-            
+
             // Changing the rotation inside HVRTeleporter didn't work for y-axis. Therefore, setting it now.
             _playerController.transform.rotation = rotation;
+        }
+
+        /// <summary>
+        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
+        /// the world item.
+        /// </summary>
+        private void StoreHeldItemsInBackpack()
+        {
+            // A rune held with both hands is one item - stored once.
+            var stored = new System.Collections.Generic.HashSet<Object>();
+            foreach (var hand in new[] { _playerController.LeftHand, _playerController.RightHand })
+            {
+                var grabbable = hand != null ? hand.GrabbedTarget : null;
+                if (grabbable == null || !stored.Add(grabbable))
+                    continue;
+                var container = grabbable != null ? grabbable.GetComponentInParent<VobLoader>()?.Container : null;
+                var item = container?.VobAs<IItem>();
+                if (item == null)
+                    continue;
+
+                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
+                grabbable.ForceRelease();
+
+                var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                _saveGameService.UntrackLooseItem(container);
+                _playerService.AddItem(instanceName, Mathf.Max(1, item.Amount));
+                _vobService.RemoveWorldItem(container);
+                Logger.Log($"[Teleport] {hand.name}: {instanceName} x{Mathf.Max(1, item.Amount)} put into the backpack",
+                    LogCat.VR);
+            }
         }
 
         public void InitUIInteraction()

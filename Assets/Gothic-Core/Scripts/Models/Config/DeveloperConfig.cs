@@ -593,6 +593,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;
 
+        [Tooltip("V1: Teleports put what the VR hands hold into the backpack (a held rune stayed at the old place " +
+                 "and the hero stayed in magic mode). A rune more than 1.5 m away from both hands is released.")]
+        public bool EnableTeleportKeepsHeldItems = true;
+
         [Tooltip("V1: Torches (ITEM_TORCH) are lit and put out with the trigger of the hand holding them (R in the " +
                  "simulator): fire PFX on the tip + light, like ItLsTorchBurning. Not saved (they start unlit).")]
         public bool EnableVrTorch = true;

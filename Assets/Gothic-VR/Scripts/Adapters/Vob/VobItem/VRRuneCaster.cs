@@ -178,6 +178,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
+            ReleaseIfLostFromHands();
             if (_item == null || _castThisGrab) return;
 
             // No casting while knocked out.
@@ -270,6 +271,33 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 FinalizeCast(applyEffect: result == _splSendcast);
             }
         }
+
+        /// <summary>
+        /// DeveloperConfig.EnableTeleportKeepsHeldItems: a rune flung away from the hands (teleport, physics) still
+        /// counted as held - the hero stayed in magic mode and NPCs answered it. Released, the normal release path
+        /// readies it off.
+        /// </summary>
+        private void ReleaseIfLostFromHands()
+        {
+            if (!_configService.Dev.EnableTeleportKeepsHeldItems)
+                return;
+
+            var left = _vrPlayerService.GetHandModelGo(HVRHandSide.Left);
+            var right = _vrPlayerService.GetHandModelGo(HVRHandSide.Right);
+            var nearest = Mathf.Min(
+                left != null ? Vector3.Distance(left.transform.position, transform.position) : float.MaxValue,
+                right != null ? Vector3.Distance(right.transform.position, transform.position) : float.MaxValue);
+            if (nearest < _maxHeldDistance)
+                return;
+
+            var grabbable = GetComponent<HurricaneVR.Framework.Core.HVRGrabbable>();
+            if (grabbable == null || !grabbable.IsBeingHeld)
+                return;
+            Logger.LogWarning($"[VRRuneCaster] Rune {nearest:F1} m away from the hands - released.", LogCat.VR);
+            grabbable.ForceRelease();
+        }
+
+        private const float _maxHeldDistance = 1.5f;
 
         /// <summary>
         /// Throttle to one mana tick per interval — mirrors Gothic's C++ magic tick rate.
