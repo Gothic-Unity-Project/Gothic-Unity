@@ -171,13 +171,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 grabbable.ForceRelease();
         }
 
-        private bool IsConsumedOnUse()
+        private bool IsConsumedOnUse() => IsConsumedOnUse(_item, _resourceCacheService);
+
+        /// <summary>
+        /// Used up like in the engine: the end animation of the item's scheme (t_[Scheme]_S0_2_Stand) fires
+        /// DEF_DESTROY_ITEM - e.g. MAPSEALED (sealed letters, G2 pouches). Also used by documents (VRVobItem).
+        /// </summary>
+        public static bool IsConsumedOnUse(ItemInstance item, ResourceCacheService resourceCacheService)
         {
-            if (string.IsNullOrEmpty(_item.SchemeName))
+            if (string.IsNullOrEmpty(item?.SchemeName))
                 return false;
 
-            var animationName = string.Format(_useEndAnimationScheme, _item.SchemeName);
-            var anim = _resourceCacheService.TryGetModelScript("Humans")?.Animations
+            var animationName = string.Format(_useEndAnimationScheme, item.SchemeName);
+            var anim = resourceCacheService.TryGetModelScript("Humans")?.Animations
                 .FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
 
             return anim != null && anim.EventTags.Any(i => i.Type == EventType.ItemDestroy);

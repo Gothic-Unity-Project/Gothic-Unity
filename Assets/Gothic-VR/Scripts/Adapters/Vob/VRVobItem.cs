@@ -33,6 +33,13 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly DocService _docService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+
+        // DeveloperConfig.EnableDocConsumeOnClose: a sealed letter (MAPSEALED) is used up when it's read - but only
+        // when the reading ends (one hand lets go), not while it's still in front of the player.
+        private bool _isConsumedOnDocClose;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -151,6 +158,13 @@ namespace Gothic.VR.Adapters.Vob
                         Destroy(child.gameObject);
                 }
 
+                if (_isConsumedOnDocClose)
+                {
+                    _isConsumedOnDocClose = false;
+                    ConsumeDocument();
+                    return;
+                }
+
                 var itemUser = GetComponent<Adapters.Vob.VobItem.VRItemUser>();
                 if (itemUser != null)
                     Destroy(itemUser);
@@ -197,6 +211,11 @@ namespace Gothic.VR.Adapters.Vob
             {
                 vm.Call(onStateIndex);
                 Logger.Log($"[VRVobItem] Called on_state[0] for doc item {item.Name}", LogCat.VR);
+
+                // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
+                if (_configService.Dev.EnableDocConsumeOnClose &&
+                    Adapters.Vob.VobItem.VRItemUser.IsConsumedOnUse(item, _resourceCacheService))
+                    _isConsumedOnDocClose = true;
             }
             catch (Exception e)
             {
@@ -207,6 +226,33 @@ namespace Gothic.VR.Adapters.Vob
             {
                 vm.GlobalSelf = oldSelf;
             }
+        }
+
+        /// <summary>
+        /// The read sealed document is used up: one of a stack, or the whole item (released from the other hand first,
+        /// which also takes it out of the inventory like a dropped item).
+        /// </summary>
+        private void ConsumeDocument()
+        {
+            var container = GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
+                return;
+
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            if (vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                if (GetComponent<HVRGrabbable>()?.IsBeingHeld == true)
+                    _playerService.RemoveItem(instanceName, 1);
+                Logger.Log($"[VRVobItem] {instanceName} read - one used up, remaining={vobItem.Amount}", LogCat.VR);
+                return;
+            }
+
+            Logger.Log($"[VRVobItem] {instanceName} read - used up", LogCat.VR);
+            var grabbable = GetComponent<HVRGrabbable>();
+            if (grabbable != null && grabbable.IsBeingHeld)
+                grabbable.ForceRelease();
+            _vobService.RemoveWorldItem(container);
         }
 
         private void TryCastSpell()

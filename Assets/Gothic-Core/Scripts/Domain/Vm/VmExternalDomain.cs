@@ -289,6 +289,9 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.EnableScriptVideos)
                 RegisterPlayVideo(vm);
 
+            if (_configService.Dev.EnableQuickWinExternals)
+                RegisterQuickWinExternals(vm);
+
             // Transformation scrolls (Spell_Logic_Trf_*): the monster instance the hero becomes (VRTransformService).
             if (_configService.Dev.EnableVrTransformations && vm.GetSymbolByName("Npc_SetActiveSpellInfo") != null)
                 vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
@@ -933,12 +936,108 @@ namespace Gothic.Core.Domain.Vm
             return 1;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableQuickWinExternals: small externals the scripts use a lot (research-2026-10-02.md).
+        /// Only registered if the game/mod declares them.
+        /// </summary>
+        private void RegisterQuickWinExternals(DaedalusVm vm)
+        {
+            // G1: 24 uses - orc AI (ZS_Orc_Attack/WatchFight/AssessWarn) never saw a drawn weapon.
+            if (vm.GetSymbolByName("Npc_HasReadiedWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedWeapon", Npc_HasReadiedWeapon);
+            if (vm.GetSymbolByName("Npc_GetGuildAttitude") != null)
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetGuildAttitude", Npc_GetGuildAttitude);
+            // G2: B_AssessFighter etc.
+            if (vm.GetSymbolByName("Npc_IsDrawingWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingWeapon", Npc_IsDrawingWeapon);
+
+            // Speed potions (Potions.d: HUMANS_SPRINT.MDS for Time_Haste ms). Declared VAR FLOAT, but the scripts pass
+            // INT constants (Time_Haste1) - the stack holds an int, popping a float fails.
+            if (vm.GetSymbolByName("Mdl_ApplyOverlayMDSTimed") != null)
+                vm.RegisterExternal<NpcInstance, string, int>("Mdl_ApplyOverlayMDSTimed", Mdl_ApplyOverlayMDSTimed);
+
+            // Endings: G1 DIA_EXTRO_AVI (Extro/PlayerOut/Credits videos + ExitGame), G2 ExitSession.
+            RegisterExitExternal(vm, "ExitGame");
+            RegisterExitExternal(vm, "ExitSession");
+        }
+
+        /// <summary>
+        /// The VR hero has no animations - a timed overlay (sprint potion) speeds up the VR movement instead. NPCs get the
+        /// overlay like Mdl_ApplyOverlayMds (FIXME: not removed after the time yet - Mdl_RemoveOverlayMDS is a stub).
+        /// </summary>
+        public void Mdl_ApplyOverlayMDSTimed(NpcInstance npc, string overlayName, int timeTicks)
+        {
+            var seconds = timeTicks / 1000f;
+            if (npc != null && npc.Index == ((NpcInstance)_gameStateService.GothicVm.GlobalHero)?.Index)
+            {
+                Logger.Log($"[Mdl_ApplyOverlayMDSTimed] Hero: {overlayName} for {seconds:F0} s", LogCat.Npc);
+                GlobalEventDispatcher.ScriptHeroOverlayTimed.Invoke(overlayName, seconds);
+                return;
+            }
+
+            Mdl_ApplyOverlayMds(npc, overlayName);
+        }
+
+        private void RegisterExitExternal(DaedalusVm vm, string name)
+        {
+            var symbol = vm.GetSymbolByName(name);
+            if (symbol == null)
+                return;
+
+            if (symbol.HasReturn)
+                vm.RegisterExternal<int>(name, () =>
+                {
+                    ExitGame(name);
+                    return 0;
+                });
+            else
+                vm.RegisterExternal(name, () => ExitGame(name));
+        }
+
+        private void ExitGame(string externalName)
+        {
+            Logger.Log($"[{externalName}] The game ends after the queued videos.", LogCat.Dialog);
+            GlobalEventDispatcher.ScriptExitGame.Invoke();
+        }
+
         public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)
         {
             var container = npc?.GetUserData();
             if (container != null)
                 container.ActiveSpellInfo = info;
             return LogInstantExternal(nameof(Npc_SetActiveSpellInfo), 0, npc, info);
+        }
+
+        /// <summary>
+        /// Engine: any weapon in the hands - melee, ranged or magic (not fists).
+        /// </summary>
+        public int Npc_HasReadiedWeapon(NpcInstance npc)
+        {
+            var fightMode = (VmGothicEnums.WeaponState)(npc?.GetUserData()?.Vob.FightMode ?? 0);
+            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
+                or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow or VmGothicEnums.WeaponState.Mage);
+            return LogInstantExternal(nameof(Npc_HasReadiedWeapon), ret, npc);
+        }
+
+        /// <summary>
+        /// Attitude between the guilds of both NPCs (= Wld_GetGuildAttitude(self.guild, other.guild)).
+        /// </summary>
+        public int Npc_GetGuildAttitude(NpcInstance self, NpcInstance other)
+        {
+            if (self == null || other == null)
+                return LogInstantExternal(nameof(Npc_GetGuildAttitude), 0, self, other);
+            var ret = Wld_GetGuildAttitude(self.Guild, other.Guild);
+            return LogInstantExternal(nameof(Npc_GetGuildAttitude), ret, self, other);
+        }
+
+        /// <summary>
+        /// G2: the NPC is drawing its weapon right now (AI_DrawWeapon running).
+        /// </summary>
+        public int Npc_IsDrawingWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(npc?.GetUserData()?.Props.CurrentAction is
+                Gothic.Core.Domain.Npc.Actions.AnimationActions.DrawWeapon);
+            return LogInstantExternal(nameof(Npc_IsDrawingWeapon), ret, npc);
         }
 
         public NpcInstance Npc_GetLookAtTarget(NpcInstance npc)

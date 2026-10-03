@@ -530,6 +530,16 @@ namespace Gothic.Core.Models.Config
                  "monsters ran through rocks and fell below the world.")]
         public bool EnableNpcWallCollision = true;
 
+        [Tooltip("V1: Small missing externals: Npc_HasReadiedWeapon (G1 orc AI sees drawn weapons), " +
+                 "Npc_GetGuildAttitude, Npc_IsDrawingWeapon (G2), ExitGame/ExitSession (endings: quit after the " +
+                 "credits), Mdl_ApplyOverlayMDSTimed (speed potions make the VR hero faster). Only registered if the " +
+                 "scripts declare them.")]
+        public bool EnableQuickWinExternals = true;
+
+        [Tooltip("V1: Documents that are used up when read (MAPSEALED - the G1 sealed letter to the fire mages) vanish " +
+                 "when the reading ends (one hand lets go). Before, the sealed letter stayed in the hand.")]
+        public bool EnableDocConsumeOnClose = true;
+
         [Tooltip("V1: Transformation scrolls: the hero becomes the monster - it follows the player without AI (walk/run/" +
                  "attack sounds), the VR camera goes down to its eyes, the hero's guild is the monster's. The casting hand " +
                  "holds an orb with a live picture of the body; its trigger transforms back. The other trigger attacks.")]

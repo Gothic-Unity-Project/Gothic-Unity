@@ -53,6 +53,7 @@ namespace Gothic.VR.Services.Context
                 if (_configService.Dev.EnableVrHeroBody)
                     new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
             });
+            GlobalEventDispatcher.ScriptExitGame.AddListener(VRCinema.QuitAfterVideos);
             
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>

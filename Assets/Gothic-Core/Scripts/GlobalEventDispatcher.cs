@@ -132,6 +132,10 @@ namespace Gothic.Core
         /// PlayVideo/PlayVideoEx from Daedalus (chapter videos, G1 ending "Extro.bik"). string = video file name.
         /// </summary>
         public static readonly UnityEvent<string> ScriptPlayVideo = new();
+        // ExitGame (G1 ending) / ExitSession (G2 ending): the game ends after the queued videos (credits).
+        public static readonly UnityEvent ScriptExitGame = new();
+        // Mdl_ApplyOverlayMDSTimed on the hero (overlay name, seconds) - e.g. speed potions (HUMANS_SPRINT.MDS).
+        public static readonly UnityEvent<string, float> ScriptHeroOverlayTimed = new();
 
 
         // LockPicking events

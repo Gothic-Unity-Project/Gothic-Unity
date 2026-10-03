@@ -34,6 +34,7 @@ namespace Gothic.VR.Adapters.UI
         private const float _teleportDistance = 5f;
 
         private static VRCinema _instance;
+        private static bool _isQuitAfterVideos;
         private readonly Queue<string> _queue = new();
 
         private Camera _camera;
@@ -70,6 +71,29 @@ namespace Gothic.VR.Adapters.UI
             _instance._queue.Enqueue(path);
             if (!_instance._isRunning)
                 _instance.PlayNext();
+        }
+
+        /// <summary>
+        /// ExitGame/ExitSession (ending): quit once the queued videos (Extro, Credits) are over - right away if none play.
+        /// </summary>
+        public static void QuitAfterVideos()
+        {
+            if (_instance != null && _instance._isRunning)
+            {
+                _isQuitAfterVideos = true;
+                return;
+            }
+            Quit();
+        }
+
+        private static void Quit()
+        {
+            Logger.Log("[VRCinema] Game ended (ExitGame/ExitSession) - quitting.", LogCat.VR);
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         private static string FindVideo(VideoService videoService, string fileName)
@@ -289,6 +313,12 @@ namespace Gothic.VR.Adapters.UI
             Destroy(gameObject);
             _instance = null;
             Logger.Log("[VRCinema] Closed", LogCat.VR);
+
+            if (_isQuitAfterVideos)
+            {
+                _isQuitAfterVideos = false;
+                Quit();
+            }
         }
     }
 }
