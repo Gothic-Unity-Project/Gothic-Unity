@@ -366,6 +366,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         break;
                 }
 
+                // Soft particles (smoke, fog) are mostly below 50 % alpha - the alpha test (cutoff 0.5) of the material
+                // modes discarded them completely: 38 smoke particles, nothing visible.
+                if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
+                {
+                    rendererModule.material.DisableKeyword("_ALPHATEST_ON");
+                    rendererModule.material.SetFloat("_Cutoff", 0f);
+                }
+
                 // makes the material render both faces
                 rendererModule.material.SetInt("_Cull", (int)CullMode.Off);
 

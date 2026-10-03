@@ -33,6 +33,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
+        private const int _smokePuffs = 4;
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -102,10 +103,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 yield break;
             }
 
-            // Two puffs like the animation (one while inhaling, one at the end).
-            for (var puff = 0; puff < 2; puff++)
+            // Puffs spread over the smoking sound - the first one right with it (it came only after a pause).
+            for (var puff = 0; puff < _smokePuffs; puff++)
             {
-                yield return new WaitForSeconds(inhaleSeconds / 2f);
+                if (puff > 0)
+                    yield return new WaitForSeconds(inhaleSeconds / _smokePuffs);
 
                 var head = Camera.main != null ? Camera.main.transform : transform;
                 var pos = transform.position + head.forward * 0.2f;
