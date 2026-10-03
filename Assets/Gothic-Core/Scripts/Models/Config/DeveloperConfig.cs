@@ -605,6 +605,12 @@ namespace Gothic.Core.Models.Config
                  "fought with fists).")]
         public bool EnableAiAttackDrawsWeapon = true;
 
+        [Tooltip("V1: AI_ContinueRoutine puts a drawn weapon away first (after berzerk an NPC kept it drawn).")]
+        public bool EnableRoutineHolstersWeapon = true;
+
+        [Tooltip("V1: Wld_DetectNpc(Ex) never returns a dead NPC like the engine (berzerk attacked a corpse).")]
+        public bool EnableDetectNpcSkipsDead = true;
+
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;
 

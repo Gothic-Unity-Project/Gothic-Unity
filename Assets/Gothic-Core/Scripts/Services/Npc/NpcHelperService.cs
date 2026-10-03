@@ -33,6 +33,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -163,6 +164,9 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => i.Props != null) // ignore empty (safe check)
                 .Where(i => i.Go != null) // ignore empty (safe check)
                 .Where(i => i.Instance.Index != npcInstance.Index) // ignore self
+                // Engine (OpenGothic wld_detectnpcex): never the dead - a berzerk guard picked a corpse every frame.
+                .Where(i => !_configService.Dev.EnableDetectNpcSkipsDead ||
+                            i.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 .Where(i => detectPlayer ||
                             globalHeroIndex == null ||
                             i.Instance.Index != globalHeroIndex) // if we don't detect player, then skip it

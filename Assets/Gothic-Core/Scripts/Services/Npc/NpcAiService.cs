@@ -814,6 +814,9 @@ namespace Gothic.Core.Services.Npc
 
             // Npc_GetTarget() also fills >other< with the target - scripts use it immediately afterwards.
             _gameStateService.GothicVm.GlobalOther = target;
+            // ...and AI_Attack after it fights this target, not a stale enemy (a berzerk guard hit the hero).
+            if (_configService.Dev.EnableNpcTargetIsEnemy)
+                npc.GetUserData().Props.EnemyNpc = target;
             return true;
         }
 

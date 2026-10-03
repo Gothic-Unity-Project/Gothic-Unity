@@ -270,6 +270,17 @@ namespace Gothic.Core.Services.Npc
             // which resets BodyState back to BsStand and undoes the death we just set above.
             if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
             {
+                // Diagnostics (a berzerk victim didn't fight back): which damage reaction the victim has in its state.
+                if (!target.PrefabProps.IsHero())
+                {
+                    var percFunction = target.Props.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessDamage,
+                        out var percIndex) && percIndex >= 0
+                        ? _gameStateService.GothicVm.GetSymbolByIndex(percIndex)?.Name ?? percIndex.ToString()
+                        : "none";
+                    Logger.Log($"[FightService.Perc] AssessDamage on {target.Instance.GetName(NpcNameSlot.Slot0)} " +
+                               $"(state {target.Vob.CurrentStateName}) by {attacker.Instance.GetName(NpcNameSlot.Slot0)}: {percFunction}",
+                        LogCat.Fight);
+                }
                 _npcAiService.ExecutePerception(
                     VmGothicEnums.PerceptionType.AssessDamage,
                     target.Props, target.Instance,
