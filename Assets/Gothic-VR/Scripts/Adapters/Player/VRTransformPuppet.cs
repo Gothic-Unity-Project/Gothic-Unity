@@ -385,7 +385,8 @@ namespace Gothic.VR.Adapters.Player
 
             string animation;
             // Jumping/falling (the player isn't on the ground): the monster's fall animation.
-            var fall = _playerController != null && !_playerController.IsGrounded && !IsInWater()
+            var isOnLand = !IsInWater() && _waterDepth <= 0f;
+            var fall = _playerController != null && !_playerController.IsGrounded && isOnLand
                 ? _animationService.GetAnimationName(VmGothicEnums.AnimationType.Fall, _monster)
                 : null;
             if (fall != null && _animationService.GetTrack(fall, _monster.Props.MdsNameBase, _monster.Props.MdsNameOverlay) != null)
@@ -402,8 +403,11 @@ namespace Gothic.VR.Adapters.Player
             }
             else if (speed < _walkSpeed)
             {
-                if (UpdateIdleVariation(animationSystem))
+                // No scratching/pecking in water.
+                if (_waterDepth <= 0f && UpdateIdleVariation(animationSystem))
                     return;
+                if (_waterDepth > 0f)
+                    StopIdleVariation(animationSystem);
                 animation = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, _monster);
             }
             else
