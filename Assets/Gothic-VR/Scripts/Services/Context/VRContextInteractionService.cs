@@ -219,6 +219,23 @@ namespace Gothic.VR.Services.Context
             }
         }
 
+        public void KeepPlayerWithin(Vector3 center, float radius)
+        {
+            var controller = _playerController.CharacterController;
+            if (controller == null)
+                return;
+
+            var position = _playerController.transform.position;
+            var offset = position - center;
+            offset.y = 0f;
+            if (offset.magnitude <= radius)
+                return;
+
+            var delta = center + offset.normalized * radius - position;
+            delta.y = 0f;
+            controller.Move(delta);
+        }
+
         public void InitUIInteraction()
         {
             // Find all ui canvases and add to HVR Input module (To activate red laser pointer for clicking/grabbing)

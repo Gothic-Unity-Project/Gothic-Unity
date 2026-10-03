@@ -15,6 +15,11 @@ namespace Gothic.Core.Services.Context
         void SetSwimmingControls();
         void SetDivingControls();
         void TeleportPlayerTo(Vector3 position, Quaternion rotation = default);
+
+        /// <summary>
+        /// Pushes the player back onto the circle around center when they walked out of it (dialog bubble).
+        /// </summary>
+        void KeepPlayerWithin(Vector3 center, float radius);
         void InitUIInteraction();
         void IntroduceChapter(string chapter, string text, string texture, string wav, int time);
         void DisableMenus();

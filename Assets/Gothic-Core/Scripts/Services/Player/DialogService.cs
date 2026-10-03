@@ -39,6 +39,11 @@ namespace Gothic.Core.Manager
         public GameObject MobDialogAnchor { get; private set; }
 
         private const float _heroQueueActionTimeout = 30f;
+
+        /// <summary>
+        /// The dialog box shows the choices (nobody talks) - only then the hero can leave the dialog bubble.
+        /// </summary>
+        private bool _isChoosing;
         private bool _isHeroQueueRunning;
         
         
@@ -117,6 +122,7 @@ namespace Gothic.Core.Manager
             {
                 _contextDialogService.FillDialog(npcContainer.Instance, _gameStateService.Dialogs.CurrentOptions);
                 _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
+                _isChoosing = true;
             }
             // There is at least one important entry, the NPC wants to talk to the hero about.
             else if (initialDialogStarting && TryGetImportant(npcContainer, out var infoInstance))
@@ -165,6 +171,7 @@ namespace Gothic.Core.Manager
 
                 _contextDialogService.FillDialog(npcContainer.Instance, selectableDialogs);
                 _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
+                _isChoosing = true;
             }
         }
 
@@ -353,21 +360,29 @@ namespace Gothic.Core.Manager
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableDialogFreeMovement: the hero can walk during a dialog - walking away ends it.
+        /// DeveloperConfig.EnableDialogFreeMovement: the hero walks freely inside the dialog bubble. While somebody
+        /// talks, the bubble's edge holds the hero back (skip the line first) - the NPC finished its whole answer
+        /// after the hero had run away. With the choices shown, leaving the bubble ends the dialog.
         /// </summary>
         private IEnumerator StopDialogWhenHeroLeaves(NpcContainer npcContainer)
         {
-            var wait = new WaitForSeconds(0.25f);
             while (_gameStateService.Dialogs.IsInDialog && _gameStateService.Dialogs.CurrentDialogNpc == npcContainer)
             {
                 if (!IsHeroInDialogRange(npcContainer))
                 {
-                    Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero walked away - dialog ended",
-                        LogCat.Dialog);
-                    StopDialog(npcContainer);
-                    yield break;
+                    if (_isChoosing)
+                    {
+                        Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero walked away - " +
+                                   "dialog ended", LogCat.Dialog);
+                        StopDialog(npcContainer);
+                        yield break;
+                    }
+
+                    // A little inside the edge, so the hero isn't held right at the stop distance.
+                    _contextInteractionService.KeepPlayerWithin(GetDialogGo(npcContainer).transform.position,
+                        _configService.Dev.DialogMaxDistance - 0.2f);
                 }
-                yield return wait;
+                yield return null;
             }
         }
 
@@ -477,6 +492,7 @@ namespace Gothic.Core.Manager
             _contextInteractionService.UnlockPlayer();
 
             _contextDialogService.HideDialog();
+            _isChoosing = false;
             _contextDialogService.EndDialog();
 
             // EndDialog moved the dialog box away from the anchor - it can go now.
@@ -511,6 +527,7 @@ namespace Gothic.Core.Manager
         private void CallInformation(NpcContainer npcContainer, int information)
         {
             _contextDialogService.HideDialog();
+            _isChoosing = false;
 
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
