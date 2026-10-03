@@ -293,6 +293,9 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.EnableQuickWinExternals)
                 RegisterQuickWinExternals(vm);
 
+            if (_configService.Dev.EnableAiFlee && vm.GetSymbolByName("AI_Flee") != null)
+                vm.RegisterExternal<NpcInstance>("AI_Flee", AI_Flee);
+
             if (_configService.Dev.EnableWldPlayEffect && vm.GetSymbolByName("Wld_PlayEffect") != null)
                 vm.RegisterExternal<string, DaedalusInstance, DaedalusInstance, int, int, int, int>("Wld_PlayEffect",
                     Wld_PlayEffect);
@@ -1018,6 +1021,20 @@ namespace Gothic.Core.Domain.Vm
             if (originGo == null)
                 return;
             _particleService.PlayVisualFx(effect, originGo.transform.position, originGo.transform);
+        }
+
+        /// <summary>
+        /// Runs away from the NPC's enemy (target, or other) - ZS_Flee_Loop calls it every loop.
+        /// </summary>
+        public void AI_Flee(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+            var enemy = container.Props.EnemyNpc ?? container.Props.TargetNpc ??
+                        _gameStateService.GothicVm.GlobalOther as NpcInstance;
+            container.Props.AnimationQueue.Enqueue(new Gothic.Core.Domain.Npc.Actions.AnimationActions.Flee(
+                new Gothic.Core.Domain.Npc.Actions.AnimationAction(instance0: enemy), container));
         }
 
         public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)

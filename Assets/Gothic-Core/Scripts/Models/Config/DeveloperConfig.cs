@@ -573,6 +573,9 @@ namespace Gothic.Core.Models.Config
                  "before NoTalk nr 2 - he walked up for the sleep spell, then offered NoTalk, forever).")]
         public bool EnableImportantInfoOrder = true;
 
+        [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
+        public bool EnableAiFlee = true;
+
         [Tooltip("V1: Torches (ITEM_TORCH) are lit and put out with the trigger of the hand holding them (R in the " +
                  "simulator): fire PFX on the tip + light, like ItLsTorchBurning. Not saved (they start unlit).")]
         public bool EnableVrTorch = true;
