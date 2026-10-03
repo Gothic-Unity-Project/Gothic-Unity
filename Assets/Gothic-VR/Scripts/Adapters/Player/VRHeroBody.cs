@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -18,15 +19,17 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// V1 (DeveloperConfig.EnableVrHeroBody): the hero's own body (current armor) under the VR head - torso, legs and
     /// arms. The hands stay the HVR hands: the model's hands and head are hidden (bones scaled to ~0), its arms reach
-    /// for the HVR hands with a two-bone IK (elbows down and out). Rebuilt when the armor changes, hidden while the hero
-    /// is transformed (VRTransformService). No animations, no colliders. Not saved (rebuilt from the hero's visual).
-    /// Backpack in a hand: the sleeves are "rolled up" - the armor's forearms shrink to the elbow and a naked body copy
-    /// (same pose, inside the armor) shows its bare forearms, so the backpack's slots aren't hidden by the sleeves.
+    /// for the HVR hands with a two-bone IK (elbows down and out), the forearms roll with the hands. Legs and torso play
+    /// the hero's Gothic animations (VRHeroBodyAnimator). Rebuilt when the armor changes, hidden while the hero is
+    /// transformed (VRTransformService). No colliders. Not saved (rebuilt from the hero's visual).
+    /// Backpack in a hand: the sleeves are "rolled up" - the armor's forearms are cut off and the bare forearms of the
+    /// hero's naked body mesh are skinned to the same skeleton instead, so the backpack's slots aren't hidden.
     /// </summary>
     public class VRHeroBody : MonoBehaviour
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VRTransformService _vrTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
@@ -48,26 +51,55 @@ namespace Gothic.VR.Adapters.Player
         private const float _neckBelowEyes = 0.12f;
 
         // The body turns with the head only beyond this angle (looking around/down doesn't twist the arms), smoothly.
-        private const float _bodyTurnDeadzone = 50f;
-        private const float _bodyTurnSpeed = 360f;
+        private const float _bodyTurnDeadzone = 35f;
+        private const float _bodyTurnSpeed = 540f;
         private Vector3 _bodyForward = Vector3.forward;
         private bool _hasBodyForward;
-        // The backpack's slots are in front of the chest - the body would hide them.
         private HurricaneVR.Framework.Core.HVRGrabbable _backpack;
         private VRPlayerController _playerController;
         private readonly List<Renderer> _renderers = new();
 
-        // Rolled-up sleeves: naked body copy following the armor skeleton (bone pairs armor -> naked).
-        private GameObject _nakedBody;
-        private readonly List<Renderer> _nakedRenderers = new();
-        private readonly List<(Transform armor, Transform naked)> _nakedBones = new();
+        // Rolled-up sleeves: armor meshes without forearms + bare forearms (naked body mesh) on the armor skeleton.
+        private readonly List<(SkinnedMeshRenderer renderer, Mesh full, Mesh sleeveless)> _sleeveMeshes = new();
+        private readonly List<SkinnedMeshRenderer> _bareForearms = new();
+        private readonly List<Mesh> _createdMeshes = new();
+        private bool _areSleevesRolledUp;
+        // Bare forearm: triangles weighted on average more than this to forearm/hand/finger bones. The armor loses every
+        // triangle with a vertex above the lower limit - otherwise sleeve spikes stretch from the elbow to the wrist.
+        private const float _forearmWeightThreshold = 0.5f;
+        private const float _sleeveCutWeightThreshold = 0.2f;
+        // Shape cut: arm vertices from 10 % of the forearm (past the elbow) to beyond the wrist, within this radius.
+        private const float _sleeveShapeStart = 0.1f;
+        private const float _sleeveShapeEnd = 1.3f;
+        private const float _sleeveShapeRadius = 0.12f;
+
         private readonly ArmIk _leftArm = new("L");
         private readonly ArmIk _rightArm = new("R");
+
+        // Legs/torso animation (V2).
+        private VRHeroBodyAnimator _animator;
+        private float _lastBodyYaw;
+        private float _bodyYawSpeed;
+        private float _standingScale;
+        private const float _idleSpeed = 0.15f;
+        private const float _runSpeed = 1.6f;
+        private const float _turnAnimationSpeed = 60f; // degrees per second
+        private const float _backwardsShare = 0.5f;
+        private const string _idleAnimation = "S_RUN";
+        private const string _walkAnimation = "S_WALKL";
+        private const string _runAnimation = "S_RUNL";
+        private const string _walkBackAnimation = "S_WALKBL";
+        private const string _fallAnimation = "S_FALLDN";
 
 
         private void Awake()
         {
             gameObject.Inject();
+        }
+
+        private void OnDestroy()
+        {
+            DestroyCreatedMeshes();
         }
 
         private void LateUpdate()
@@ -85,9 +117,12 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var isVisible = !_vrTransformService.IsTransformed;
-            var isSleeveRolledUp = isVisible && _nakedBody != null && IsBackpackInHand();
-            SetRenderersEnabled(_renderers, isVisible);
-            SetRenderersEnabled(_nakedRenderers, isSleeveRolledUp);
+            foreach (var r in _renderers)
+            {
+                if (r != null && r.enabled != isVisible)
+                    r.enabled = isVisible;
+            }
+            SetSleevesRolledUp(isVisible && IsBackpackInHand());
             if (!isVisible)
                 return;
 
@@ -98,50 +133,94 @@ namespace Gothic.VR.Adapters.Player
 
             _playerController ??= _contextInteractionService.GetCurrentPlayerController()?.GetComponent<VRPlayerController>();
             var feetY = _playerController != null ? _playerController.transform.position.y : head.position.y - _modelHeadHeight;
-            var scale = Mathf.Clamp((head.position.y - feetY) / _modelHeadHeight, _minScale, _maxScale);
+            // Crouching (sneaking) lowers the head, not the body size - keep the standing scale then.
+            var isCrouching = _playerController != null && _playerController.IsCrouching;
+            if (!isCrouching || _standingScale <= 0f)
+                _standingScale = Mathf.Clamp((head.position.y - feetY) / _modelHeadHeight, _minScale, _maxScale);
+            var scale = _standingScale;
             _body.transform.localScale = Vector3.one * scale;
             _body.transform.SetPositionAndRotation(
                 new Vector3(head.position.x, feetY, head.position.z) - forward * (_torsoBackOffset * scale),
                 Quaternion.LookRotation(forward));
 
-            // The neck right under the goggles, whatever the model's root/bone layout is.
+            UpdateAnimation(scale, isCrouching);
+
+            // The neck right under the goggles, whatever the model's root/bone layout or animation pose is.
             if (_headBone != null)
                 _body.transform.position += Vector3.up *
                                             (head.position.y - _neckBelowEyes * scale - _headBone.position.y);
 
             _leftArm.Solve(_vrPlayerService.GetHandModelGo(HVRHandSide.Left), _body.transform);
             _rightArm.Solve(_vrPlayerService.GetHandModelGo(HVRHandSide.Right), _body.transform);
-
-            if (isSleeveRolledUp)
-                RollUpSleeves();
-        }
-
-        private static void SetRenderersEnabled(List<Renderer> renderers, bool isEnabled)
-        {
-            foreach (var r in renderers)
-            {
-                if (r != null && r.enabled != isEnabled)
-                    r.enabled = isEnabled;
-            }
         }
 
         /// <summary>
-        /// The naked copy takes the armor's pose (after the IK), then the armor's forearms collapse to the elbows - only
-        /// the bare forearms of the naked body stick out of the armor. Reset by the next ArmIk.Solve.
+        /// Legs and torso like the hero in Gothic: idle, walk/run (played at the real speed - no sliding feet), walking
+        /// backwards, strafing, turning on the spot, falling.
         /// </summary>
-        private void RollUpSleeves()
+        private void UpdateAnimation(float scale, bool isCrouching)
         {
-            _nakedBody.transform.SetPositionAndRotation(_body.transform.position, _body.transform.rotation);
-            _nakedBody.transform.localScale = _body.transform.localScale;
-            foreach (var (armor, naked) in _nakedBones)
+            if (_animator == null || !_animator.IsValid)
+                return;
+
+            var yaw = _body.transform.eulerAngles.y;
+            if (Time.deltaTime > 0f)
+                _bodyYawSpeed = Mathf.Lerp(_bodyYawSpeed, Mathf.DeltaAngle(_lastBodyYaw, yaw) / Time.deltaTime, 0.3f);
+            _lastBodyYaw = yaw;
+
+            var velocity = _playerController != null ? _playerController.CharacterController.velocity : Vector3.zero;
+            var horizontal = new Vector3(velocity.x, 0f, velocity.z);
+            var speed = horizontal.magnitude;
+            var local = _body.transform.InverseTransformDirection(horizontal);
+
+            var bodyState = _npcService.GetHeroContainer()?.Props.BodyState;
+            var isMoving = speed >= _idleSpeed;
+            var isBackwards = local.z < -_backwardsShare * speed;
+
+            string animation;
+            if (bodyState == VmGothicEnums.BodyState.BsSwim)
+                animation = !isMoving ? "S_SWIM" : isBackwards ? "S_SWIMB" : "S_SWIMF";
+            else if (bodyState == VmGothicEnums.BodyState.BsDive)
+                animation = isMoving ? "S_DIVEF" : "S_DIVE";
+            else if (_playerController != null && !_playerController.IsGrounded && velocity.y < -1f &&
+                _animator.HasAnimation(_fallAnimation))
+                animation = _fallAnimation;
+            else if (isCrouching)
+                animation = !isMoving ? "S_SNEAK" : isBackwards ? "S_SNEAKBL" : "S_SNEAKL";
+            else if (speed < _idleSpeed)
+                animation = Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed
+                    ? (_bodyYawSpeed < 0f ? "T_RUNTURNL" : "T_RUNTURNR")
+                    : _idleAnimation;
+            else if (isBackwards)
+                animation = _animator.HasAnimation(_walkBackAnimation)
+                    ? _walkBackAnimation
+                    : _animationService.GetReversedAnimationName(_walkAnimation, _animator.MdsBase, _animator.MdsOverlay);
+            else if (Mathf.Abs(local.x) > Mathf.Abs(local.z))
+                animation = speed >= _runSpeed
+                    ? (local.x < 0f ? "T_RUNSTRAFEL" : "T_RUNSTRAFER")
+                    : (local.x < 0f ? "T_WALKSTRAFEL" : "T_WALKSTRAFER");
+            else
+                animation = speed >= _runSpeed ? _runAnimation : _walkAnimation;
+
+            if (!_animator.HasAnimation(animation))
             {
-                armor.GetLocalPositionAndRotation(out var position, out var rotation);
-                naked.SetLocalPositionAndRotation(position, rotation);
-                naked.localScale = armor.localScale;
+                // e.g. no sneaking backwards: the forward loop played back to front.
+                var forwardLoop = animation != null && animation.EndsWith("BL")
+                    ? animation.Substring(0, animation.Length - 2) + "L"
+                    : null;
+                animation = forwardLoop != null && _animator.HasAnimation(forwardLoop)
+                    ? _animationService.GetReversedAnimationName(forwardLoop, _animator.MdsBase, _animator.MdsOverlay)
+                    : null;
+                animation ??= speed < _idleSpeed ? _idleAnimation : _walkAnimation;
             }
 
-            _leftArm.CollapseForearm();
-            _rightArm.CollapseForearm();
+            // Walk/run loops at the real speed, so the feet don't slide.
+            var animationSpeed = _animator.GetMovementSpeed(animation) * scale;
+            var playbackSpeed = animationSpeed > 0.1f && speed >= _idleSpeed
+                ? Mathf.Clamp(speed / animationSpeed, 0.5f, 2f)
+                : 1f;
+            _animator.Play(animation, playbackSpeed);
+            _animator.Update(Time.deltaTime);
         }
 
         /// <summary>
@@ -187,6 +266,25 @@ namespace Gothic.VR.Adapters.Player
             return _backpack.IsHandGrabbed;
         }
 
+        private void SetSleevesRolledUp(bool isRolledUp)
+        {
+            isRolledUp &= _bareForearms.Count > 0;
+            if (isRolledUp == _areSleevesRolledUp)
+                return;
+
+            _areSleevesRolledUp = isRolledUp;
+            foreach (var (renderer, full, sleeveless) in _sleeveMeshes)
+            {
+                if (renderer != null)
+                    renderer.sharedMesh = isRolledUp ? sleeveless : full;
+            }
+            foreach (var forearm in _bareForearms)
+            {
+                if (forearm != null)
+                    forearm.enabled = isRolledUp;
+            }
+        }
+
         /// <summary>
         /// (Re)builds the body when the hero's visual (armor) changed.
         /// </summary>
@@ -203,11 +301,11 @@ namespace Gothic.VR.Adapters.Player
 
             if (_body != null)
                 Destroy(_body);
-            if (_nakedBody != null)
-                Destroy(_nakedBody);
+            DestroyCreatedMeshes();
             _renderers.Clear();
-            _nakedRenderers.Clear();
-            _nakedBones.Clear();
+            _sleeveMeshes.Clear();
+            _bareForearms.Clear();
+            _areSleevesRolledUp = false;
 
             var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay) ? props.MdhNameBase : props.MdhNameOverlay;
             var root = new GameObject("_VRHeroBody");
@@ -249,47 +347,232 @@ namespace Gothic.VR.Adapters.Player
 
             _leftArm.Bind(bones);
             _rightArm.Bind(bones);
-            BuildNakedBody(props, mdhName, bones);
-            Logger.Log($"[VRHeroBody] Built {props.MdmName} (head height {_modelHeadHeight:F2} m).", LogCat.VR);
+            BuildSleeves(props, mdhName, bones);
+
+            _animator = new VRHeroBodyAnimator(_animationService, props.MdsNameBase, props.MdsNameOverlay, bones);
+            Logger.Log($"[VRHeroBody] Built {props.MdmName} (head height {_modelHeadHeight:F2} m, " +
+                       $"animated: {_animator.IsValid}, bare forearms: {_bareForearms.Count}).", LogCat.VR);
         }
 
         /// <summary>
-        /// The same hero without armor (body mesh of Mdl_SetVisualBody), hidden until the sleeves are rolled up.
+        /// Sleeveless copies of the armor meshes and the forearms of the naked body (Mdl_SetVisualBody), skinned to the
+        /// armor's skeleton - they stretch and roll with the IK like the armor did.
         /// </summary>
-        private void BuildNakedBody(Gothic.Core.Adapters.Properties.NpcProperties props, string mdhName,
+        private void BuildSleeves(Gothic.Core.Adapters.Properties.NpcProperties props, string mdhName,
             Dictionary<string, Transform> armorBones)
         {
             if (props.MdmName.EqualsIgnoreCase(props.BodyData.Body))
                 return; // no armor - nothing to roll up
 
-            var root = new GameObject("_VRHeroBodyNaked");
+            var nakedRoot = new GameObject("_VRHeroBodyNaked");
+            GameObject naked;
             try
             {
-                _nakedBody = _meshService.CreateNpc(root.name, props.BodyData.Body, mdhName, props.BodyData, root: root);
+                naked = _meshService.CreateNpc(nakedRoot.name, props.BodyData.Body, mdhName, props.BodyData,
+                    root: nakedRoot) ?? nakedRoot;
             }
             catch (System.Exception e)
             {
                 Logger.LogWarning($"[VRHeroBody] Can't build the naked body ({props.BodyData.Body}): {e.Message}", LogCat.VR);
-                Destroy(root);
+                Destroy(nakedRoot);
                 return;
             }
 
-            _nakedBody ??= root;
-            _nakedBody.transform.SetParent(transform, false);
-            foreach (var collider in _nakedBody.GetComponentsInChildren<Collider>(true))
-                Destroy(collider);
-            _nakedRenderers.AddRange(_nakedBody.GetComponentsInChildren<Renderer>(true));
-            foreach (var r in _nakedRenderers)
+            foreach (var nakedRenderer in naked.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                r.enabled = false;
+                var forearmMesh = FilterForearmTriangles(nakedRenderer.sharedMesh, nakedRenderer.bones, true);
+                if (forearmMesh == null)
+                    continue;
+
+                // Same place relative to the root as in the naked body (the bind poses are relative to it).
+                var relative = naked.transform.worldToLocalMatrix * nakedRenderer.transform.localToWorldMatrix;
+                var forearmGo = new GameObject("_BareForearms");
+                forearmGo.transform.SetParent(_body.transform, false);
+                forearmGo.transform.SetLocalPositionAndRotation(relative.GetPosition(), relative.rotation);
+                forearmGo.transform.localScale = relative.lossyScale;
+
+                var bones = new Transform[nakedRenderer.bones.Length];
+                for (var i = 0; i < bones.Length; i++)
+                {
+                    var nakedBone = nakedRenderer.bones[i];
+                    if (nakedBone != null)
+                        armorBones.TryGetValue(nakedBone.name.ToUpperInvariant(), out bones[i]);
+                }
+
+                var forearm = forearmGo.AddComponent<SkinnedMeshRenderer>();
+                forearm.sharedMesh = forearmMesh;
+                forearm.sharedMaterials = nakedRenderer.sharedMaterials;
+                forearm.bones = bones;
+                if (nakedRenderer.rootBone != null &&
+                    armorBones.TryGetValue(nakedRenderer.rootBone.name.ToUpperInvariant(), out var rootBone))
+                    forearm.rootBone = rootBone;
+                forearm.updateWhenOffscreen = true;
+                forearm.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                forearm.enabled = false;
+                _bareForearms.Add(forearm);
+            }
+            Destroy(nakedRoot);
+
+            if (_bareForearms.Count == 0)
+                return;
+
+            foreach (var armorRenderer in _body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (_bareForearms.Contains(armorRenderer))
+                    continue;
+                var sleeveless = FilterForearmTriangles(armorRenderer.sharedMesh, armorRenderer.bones, false,
+                    GetForearmSegments());
+                if (sleeveless != null)
+                    _sleeveMeshes.Add((armorRenderer, armorRenderer.sharedMesh, sleeveless));
+            }
+        }
+
+        /// <summary>
+        /// Elbow -> wrist of both arms in the rest pose, in the body's space (= the mesh space while it's built).
+        /// </summary>
+        private List<(Vector3 elbow, Vector3 wrist)> GetForearmSegments()
+        {
+            var segments = new List<(Vector3, Vector3)>();
+            foreach (var arm in new[] { _leftArm, _rightArm })
+            {
+                if (arm.Fore != null && arm.Hand != null)
+                    segments.Add((_body.transform.InverseTransformPoint(arm.Fore.position),
+                        _body.transform.InverseTransformPoint(arm.Hand.position)));
+            }
+            return segments;
+        }
+
+        /// <summary>
+        /// Arm vertex (any weight on an arm bone) along a forearm: sleeve parts weighted to the upper arm only stick out
+        /// straight from the bent elbow - cut by shape, not only by weight.
+        /// </summary>
+        private static bool IsAlongForearm(Vector3 vertex, List<(Vector3 elbow, Vector3 wrist)> segments)
+        {
+            foreach (var (elbow, wrist) in segments)
+            {
+                var forearm = wrist - elbow;
+                var lengthSqr = forearm.sqrMagnitude;
+                if (lengthSqr < 1e-6f)
+                    continue;
+                var t = Vector3.Dot(vertex - elbow, forearm) / lengthSqr;
+                if (t < _sleeveShapeStart || t > _sleeveShapeEnd)
+                    continue;
+                if (Vector3.Distance(vertex, elbow + forearm * t) < _sleeveShapeRadius)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Copy of the mesh with only the forearm triangles (keepForearms) or without them. Null if nothing is left or
+        /// the mesh can't be read.
+        /// </summary>
+        private Mesh FilterForearmTriangles(Mesh mesh, Transform[] bones, bool keepForearms,
+            List<(Vector3 elbow, Vector3 wrist)> forearmSegments = null)
+        {
+            if (mesh == null || !mesh.isReadable || bones == null)
+                return null;
+
+            var isForearmBone = new bool[bones.Length];
+            var isArmBone = new bool[bones.Length];
+            for (var i = 0; i < bones.Length; i++)
+            {
+                isForearmBone[i] = bones[i] != null && IsForearmBone(bones[i].name);
+                isArmBone[i] = bones[i] != null && (isForearmBone[i] || bones[i].name.ContainsIgnoreCase("ARM"));
             }
 
-            foreach (var naked in _nakedBody.GetComponentsInChildren<Transform>(true))
+            var weights = mesh.boneWeights;
+            if (weights.Length != mesh.vertexCount)
+                return null;
+
+            float ForearmWeight(int vertex)
             {
-                if (naked != _nakedBody.transform && armorBones.TryGetValue(naked.name.ToUpperInvariant(), out var armor))
-                    _nakedBones.Add((armor, naked));
+                var w = weights[vertex];
+                return Weight(w.boneIndex0, w.weight0) + Weight(w.boneIndex1, w.weight1) +
+                       Weight(w.boneIndex2, w.weight2) + Weight(w.boneIndex3, w.weight3);
             }
+
+            float Weight(int boneIndex, float weight) =>
+                boneIndex >= 0 && boneIndex < isForearmBone.Length && isForearmBone[boneIndex] ? weight : 0f;
+
+            // Armor only: sleeve vertices by shape (see IsAlongForearm).
+            var vertices = forearmSegments != null ? mesh.vertices : null;
+            var shapeCut = 0;
+            bool IsSleeveVertex(int vertex)
+            {
+                if (ForearmWeight(vertex) > _sleeveCutWeightThreshold)
+                    return true;
+                if (vertices == null)
+                    return false;
+                var w = weights[vertex];
+                var isArm = IsArm(w.boneIndex0, w.weight0) || IsArm(w.boneIndex1, w.weight1) ||
+                            IsArm(w.boneIndex2, w.weight2) || IsArm(w.boneIndex3, w.weight3);
+                return isArm && IsAlongForearm(vertices[vertex], forearmSegments);
+            }
+
+            bool IsArm(int boneIndex, float weight) =>
+                weight > 0f && boneIndex >= 0 && boneIndex < isArmBone.Length && isArmBone[boneIndex];
+
+            var copy = Instantiate(mesh);
+            copy.name = mesh.name + (keepForearms ? "_Forearms" : "_Sleeveless");
+            var keptTriangles = 0;
+            for (var subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
+            {
+                var triangles = mesh.GetTriangles(subMesh);
+                var kept = new List<int>(triangles.Length);
+                for (var i = 0; i + 2 < triangles.Length; i += 3)
+                {
+                    bool isForearm;
+                    if (keepForearms)
+                    {
+                        isForearm = (ForearmWeight(triangles[i]) + ForearmWeight(triangles[i + 1]) +
+                                     ForearmWeight(triangles[i + 2])) / 3f > _forearmWeightThreshold;
+                    }
+                    else
+                    {
+                        var byWeight = Mathf.Max(ForearmWeight(triangles[i]), ForearmWeight(triangles[i + 1]),
+                            ForearmWeight(triangles[i + 2])) > _sleeveCutWeightThreshold;
+                        isForearm = byWeight || IsSleeveVertex(triangles[i]) || IsSleeveVertex(triangles[i + 1]) ||
+                                    IsSleeveVertex(triangles[i + 2]);
+                        if (isForearm && !byWeight)
+                            shapeCut++;
+                    }
+                    if (isForearm != keepForearms)
+                        continue;
+                    kept.Add(triangles[i]);
+                    kept.Add(triangles[i + 1]);
+                    kept.Add(triangles[i + 2]);
+                }
+                copy.SetTriangles(kept, subMesh);
+                keptTriangles += kept.Count / 3;
+            }
+
+            if (!keepForearms)
+                Logger.Log($"[VRHeroBody] Sleeveless {mesh.name}: {keptTriangles} of {mesh.triangles.Length / 3} " +
+                           $"triangles kept ({shapeCut} cut by shape).", LogCat.VR);
+            if (keptTriangles == 0)
+            {
+                Destroy(copy);
+                return null;
+            }
+            _createdMeshes.Add(copy);
+            return copy;
+        }
+
+        private static bool IsForearmBone(string boneName)
+        {
+            var upper = boneName.ToUpperInvariant();
+            return upper.Contains("FOREARM") || upper.Contains(" HAND") || upper.Contains("FINGER");
+        }
+
+        private void DestroyCreatedMeshes()
+        {
+            foreach (var mesh in _createdMeshes)
+            {
+                if (mesh != null)
+                    Destroy(mesh);
+            }
+            _createdMeshes.Clear();
         }
 
         /// <summary>
@@ -297,6 +580,7 @@ namespace Gothic.VR.Adapters.Player
         /// the outside. The wrist always ends exactly at the HVR hand (the model's hand is hidden): out of reach the arm
         /// is stretched, tapered - 40 % of the missing length in the upper arm, 60 % in the forearm, so the most
         /// stretch sits near the wrist (skinned vertices between the moved joints stretch, the shoulder stays).
+        /// The forearm rolls around its axis like the HVR hand (palms of both models aligned).
         /// </summary>
         private class ArmIk
         {
@@ -306,8 +590,19 @@ namespace Gothic.VR.Adapters.Player
             private Transform _upper;
             private Transform _fore;
             private Transform _hand;
+            public Transform Fore => _fore;
+            public Transform Hand => _hand;
             private Vector3 _foreRestLocal;
             private Vector3 _handRestLocal;
+
+            // Palm side of the model's hand (towards its item slot ZS_*HAND, across the fingers) in the forearm's space.
+            private Vector3 _modelPalmLocal;
+            private bool _hasModelPalm;
+            // HVR hand model: its pivot sits at the knuckles - the wrist is the bone the fingers hang on ("RHand 1"),
+            // the palm transform's forward points out of the palm.
+            private GameObject _hvrHand;
+            private Transform _hvrWrist;
+            private Transform _hvrPalm;
 
             public ArmIk(string side)
             {
@@ -324,16 +619,50 @@ namespace Gothic.VR.Adapters.Player
 
                 _foreRestLocal = _fore.localPosition;
                 _handRestLocal = _hand.localPosition;
+                BindModelPalm(bones);
                 _hand.localScale = Vector3.one * _hiddenBoneScale;
             }
 
             /// <summary>
-            /// Rolled-up sleeve: the forearm's vertices shrink into the elbow (undone by the next Solve).
+            /// Gothic hands have one finger bone (FINGER0) and the item slot in the palm (ZS_RIGHTHAND/ZS_LEFTHAND).
             /// </summary>
-            public void CollapseForearm()
+            private void BindModelPalm(Dictionary<string, Transform> bones)
             {
-                if (_fore != null)
-                    _fore.localScale = Vector3.one * _hiddenBoneScale;
+                _hasModelPalm = false;
+                var slotName = _side == "L" ? "ZS_LEFTHAND" : "ZS_RIGHTHAND";
+                if (!bones.TryGetValue($"BIP01 {_side} FINGER0", out var finger) ||
+                    !bones.TryGetValue(slotName, out var slot))
+                {
+                    Logger.LogWarning($"[VRHeroBody] {_side} hand: no FINGER0/{slotName} - the forearm won't roll.",
+                        LogCat.VR);
+                    return;
+                }
+
+                var palm = Vector3.ProjectOnPlane(slot.position - _hand.position, finger.position - _hand.position);
+                if (palm.sqrMagnitude < 1e-8f)
+                    return;
+                _modelPalmLocal = _fore.InverseTransformDirection(palm.normalized);
+                _hasModelPalm = true;
+            }
+
+            private void FindHvrBones(GameObject target)
+            {
+                if (_hvrHand == target)
+                    return;
+
+                _hvrHand = target;
+                _hvrWrist = null;
+                _hvrPalm = null;
+                foreach (var child in target.GetComponentsInChildren<Transform>(true))
+                {
+                    var name = child.name.ToLowerInvariant();
+                    if (_hvrWrist == null && name.Contains("finger") && child.parent != null)
+                        _hvrWrist = child.parent;
+                    if (_hvrPalm == null && name.Contains("palm"))
+                        _hvrPalm = child;
+                }
+                Logger.Log($"[VRHeroBody] {_side} HVR hand: wrist={_hvrWrist?.name ?? "none"}, " +
+                           $"palm={_hvrPalm?.name ?? "none"}", LogCat.VR);
             }
 
             public void Solve(GameObject target, Transform body)
@@ -341,8 +670,7 @@ namespace Gothic.VR.Adapters.Player
                 if (target == null || _upper == null || _fore == null || _hand == null)
                     return;
 
-                // Last frame's stretch / rolled-up sleeve must not add up.
-                _fore.localScale = Vector3.one;
+                // Last frame's stretch must not add up.
                 _fore.localPosition = _foreRestLocal;
                 _hand.localPosition = _handRestLocal;
 
@@ -352,8 +680,9 @@ namespace Gothic.VR.Adapters.Player
                 if (upperLength <= 0f || foreLength <= 0f)
                     return;
 
+                FindHvrBones(target);
                 var shoulder = _upper.position;
-                var wrist = target.transform.position;
+                var wrist = _hvrWrist != null ? _hvrWrist.position : target.transform.position;
                 var toTarget = wrist - shoulder;
                 var distance = Mathf.Max(toTarget.magnitude, 0.05f);
                 var direction = toTarget / distance;
@@ -381,7 +710,31 @@ namespace Gothic.VR.Adapters.Player
                 _upper.rotation = Quaternion.FromToRotation(_fore.position - shoulder, elbow - shoulder) * _upper.rotation;
                 _fore.position = elbow;
                 _fore.rotation = Quaternion.FromToRotation(_hand.position - elbow, wrist - elbow) * _fore.rotation;
+                RollForearm(elbow, wrist);
                 _hand.position = wrist;
+            }
+
+            /// <summary>
+            /// Twist around the forearm axis so the model's palm faces like the HVR palm - the wrist follows the
+            /// hand's rotation.
+            /// </summary>
+            private void RollForearm(Vector3 elbow, Vector3 wrist)
+            {
+                if (!_hasModelPalm || _hvrPalm == null)
+                    return;
+
+                var axis = wrist - elbow;
+                if (axis.sqrMagnitude < 1e-6f)
+                    return;
+                axis.Normalize();
+
+                var current = Vector3.ProjectOnPlane(_fore.TransformDirection(_modelPalmLocal), axis);
+                var wanted = Vector3.ProjectOnPlane(_hvrPalm.forward, axis);
+                if (current.sqrMagnitude < 1e-6f || wanted.sqrMagnitude < 1e-6f)
+                    return;
+
+                var angle = Vector3.SignedAngle(current, wanted, axis);
+                _fore.rotation = Quaternion.AngleAxis(angle, axis) * _fore.rotation;
             }
         }
     }

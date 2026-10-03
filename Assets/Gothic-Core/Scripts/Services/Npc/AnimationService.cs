@@ -97,6 +97,65 @@ namespace Gothic.Core.Services.Npc
             return track;
         }
 
+        /// <summary>
+        /// The animation played back to front (e.g. a walk loop as walking backwards for models without a backwards
+        /// walk). Registered next to the real tracks under "{animName}_REVERSED" - share the baked samples, root motion
+        /// runs the other way. Returns the name to play, or null if the animation doesn't exist.
+        /// </summary>
+        public string GetReversedAnimationName(string animName, string mdsBase, string mdsOverlay)
+        {
+            var reversedName = animName + _reversedSuffix;
+            foreach (var mdsName in new[] { mdsOverlay, mdsBase })
+            {
+                if (mdsName == null)
+                    continue;
+
+                var mdsTracks = GetMdsTrackCache(mdsName);
+                if (mdsTracks.TryGetValue(reversedName, out var cached) && cached != null)
+                    return reversedName;
+
+                var source = GetTrack(animName, mdsName);
+                if (source == null)
+                    continue;
+
+                var reversed = new AnimationTrack
+                {
+                    TrackType = AnimationTrack.Type.Alias,
+                    Name = source.Name,
+                    AliasName = reversedName,
+                    Layer = source.Layer,
+                    NextAni = source.IsLooping ? reversedName : source.NextAni,
+                    BlendIn = source.BlendIn,
+                    BlendOut = source.BlendOut,
+                    Flags = source.Flags,
+                    Direction = source.Direction == AnimationDirection.Backward
+                        ? AnimationDirection.Forward
+                        : AnimationDirection.Backward,
+                    IsLooping = source.IsLooping,
+                    FirstFrame = source.FirstFrame,
+                    FrameCount = source.FrameCount,
+                    Fps = source.Fps,
+                    FpsSource = source.FpsSource,
+                    Duration = source.Duration,
+                    FrameTime = source.FrameTime,
+                    EventTags = source.EventTags,
+                    SoundEffects = source.SoundEffects,
+                    ParticleEffects = source.ParticleEffects,
+                    MorphAnimations = source.MorphAnimations,
+                    HasEvents = source.HasEvents,
+                    IsMoving = source.IsMoving,
+                    MovementSpeed = -source.MovementSpeed
+                };
+                reversed.ShareBakedSamples(source);
+                mdsTracks[reversedName] = reversed;
+                return reversedName;
+            }
+            return null;
+        }
+
+        private const string _reversedSuffix = "_REVERSED";
+
+
         private AnimationTrack GetTrack(string animName, string mdsName)
         {
             if (mdsName == null)
