@@ -28,7 +28,9 @@ namespace Gothic.VR.Adapters.Player
 
         public bool IsValid => _nodeBones != null;
         public string MdsBase => _mdsBase;
-        public string MdsOverlay => _mdsOverlay;
+        public string MdsOverlay => OverlayOverride ?? _mdsOverlay;
+        // A timed overlay of the hero (speed potion: HUMANS_SPRINT.MDS) - its animations come first while it's set.
+        public string OverlayOverride;
 
         private class Layer
         {
@@ -36,6 +38,8 @@ namespace Gothic.VR.Adapters.Player
             public float Time;
             public float Speed;
             public float Weight;
+            // One-shot steps (t_RunStrafeL, t_RunTurnL) repeated while the movement lasts.
+            public bool IsForcedLoop;
         }
 
 
@@ -75,13 +79,13 @@ namespace Gothic.VR.Adapters.Player
         public bool HasAnimation(string animationName) => GetTrack(animationName) != null;
 
         private AnimationTrack GetTrack(string animationName) =>
-            animationName == null ? null : _animationService.GetTrack(animationName, _mdsBase, _mdsOverlay);
+            animationName == null ? null : _animationService.GetTrack(animationName, _mdsBase, MdsOverlay);
 
         /// <summary>
         /// Crossfades to the animation (if not already the current one). Speed scales the playback, e.g. to the real
         /// walking speed so the feet don't slide.
         /// </summary>
-        public bool Play(string animationName, float speed = 1f)
+        public bool Play(string animationName, float speed = 1f, bool isForcedLoop = false)
         {
             var track = GetTrack(animationName);
             if (track == null)
@@ -90,10 +94,14 @@ namespace Gothic.VR.Adapters.Player
             if (_layers.Count > 0 && _layers[^1].Track == track)
             {
                 _layers[^1].Speed = speed;
+                _layers[^1].IsForcedLoop = isForcedLoop;
                 return true;
             }
 
-            _layers.Add(new Layer { Track = track, Speed = speed, Weight = _layers.Count == 0 ? 1f : 0f });
+            _layers.Add(new Layer
+            {
+                Track = track, Speed = speed, Weight = _layers.Count == 0 ? 1f : 0f, IsForcedLoop = isForcedLoop
+            });
             return true;
         }
 
@@ -124,7 +132,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 var track = layer.Track;
                 layer.Time += deltaTime * layer.Speed;
-                layer.Time = track.IsLooping
+                layer.Time = track.IsLooping || layer.IsForcedLoop
                     ? Mathf.Repeat(layer.Time, track.Duration)
                     : Mathf.Min(layer.Time, track.Duration);
             }

@@ -64,14 +64,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly List<SkinnedMeshRenderer> _bareForearms = new();
         private readonly List<Mesh> _createdMeshes = new();
         private bool _areSleevesRolledUp;
-        // Bare forearm: triangles weighted on average more than this to forearm/hand/finger bones. The armor loses every
-        // triangle with a vertex above the lower limit - otherwise sleeve spikes stretch from the elbow to the wrist.
-        private const float _forearmWeightThreshold = 0.5f;
-        private const float _sleeveCutWeightThreshold = 0.2f;
-        // Shape cut: arm vertices from 10 % of the forearm (past the elbow) to beyond the wrist, within this radius.
-        private const float _sleeveShapeStart = 0.1f;
-        private const float _sleeveShapeEnd = 1.3f;
-        private const float _sleeveShapeRadius = 0.12f;
+        // Triangles weighted on average more than this to a part (hand, forearm) belong to it (see CutArms).
+        private const float _armCutWeight = 0.5f;
 
         private readonly ArmIk _leftArm = new("L");
         private readonly ArmIk _rightArm = new("R");
@@ -145,10 +139,13 @@ namespace Gothic.VR.Adapters.Player
 
             UpdateAnimation(scale, isCrouching);
 
-            // The neck right under the goggles, whatever the model's root/bone layout or animation pose is.
+            // The neck right under the goggles (and a bit behind them), whatever the model's root/bone layout or animation
+            // pose is - sneaking leans the torso forward, it must not come into the view.
             if (_headBone != null)
-                _body.transform.position += Vector3.up *
-                                            (head.position.y - _neckBelowEyes * scale - _headBone.position.y);
+            {
+                var neck = head.position - Vector3.up * (_neckBelowEyes * scale) - forward * (_torsoBackOffset * scale);
+                _body.transform.position += neck - _headBone.position;
+            }
 
             _leftArm.Solve(_vrPlayerService.GetHandModelGo(HVRHandSide.Left), _body.transform);
             _rightArm.Solve(_vrPlayerService.GetHandModelGo(HVRHandSide.Right), _body.transform);
@@ -162,6 +159,7 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_animator == null || !_animator.IsValid)
                 return;
+            _animator.OverlayOverride = _playerController != null ? _playerController.SpeedOverlay : null;
 
             var yaw = _body.transform.eulerAngles.y;
             if (Time.deltaTime > 0f)
@@ -219,7 +217,9 @@ namespace Gothic.VR.Adapters.Player
             var playbackSpeed = animationSpeed > 0.1f && speed >= _idleSpeed
                 ? Mathf.Clamp(speed / animationSpeed, 0.5f, 2f)
                 : 1f;
-            _animator.Play(animation, playbackSpeed);
+            // Gothic has no strafe/turn loops, only single steps (t_*) - repeated while moving sideways/turning.
+            var isStep = animation.StartsWith("T_", System.StringComparison.OrdinalIgnoreCase);
+            _animator.Play(animation, playbackSpeed, isStep);
             _animator.Update(Time.deltaTime);
         }
 
@@ -335,6 +335,15 @@ namespace Gothic.VR.Adapters.Player
             foreach (var bone in _body.GetComponentsInChildren<Transform>(true))
                 bones.TryAdd(bone.name.ToUpperInvariant(), bone);
 
+            // The HVR hands replace the model's hands: cut out of the mesh. Collapsing the hand bone pulled the wrist
+            // ring into one point - the forearm became a spike.
+            foreach (var skinned in _body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var withoutHands = CutArms(skinned.sharedMesh, skinned.bones, ArmCut.WithoutHands);
+                if (withoutHands != null)
+                    skinned.sharedMesh = withoutHands;
+            }
+
             // Height of the model in its rest pose: head bone above its lowest foot bone.
             if (bones.TryGetValue(_headBoneName, out _headBone))
             {
@@ -380,7 +389,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var nakedRenderer in naked.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
-                var forearmMesh = FilterForearmTriangles(nakedRenderer.sharedMesh, nakedRenderer.bones, true);
+                var forearmMesh = CutArms(nakedRenderer.sharedMesh, nakedRenderer.bones, ArmCut.Forearms);
                 if (forearmMesh == null)
                     continue;
 
@@ -420,101 +429,57 @@ namespace Gothic.VR.Adapters.Player
             {
                 if (_bareForearms.Contains(armorRenderer))
                     continue;
-                var sleeveless = FilterForearmTriangles(armorRenderer.sharedMesh, armorRenderer.bones, false,
-                    GetForearmSegments());
+                var sleeveless = CutArms(armorRenderer.sharedMesh, armorRenderer.bones, ArmCut.Sleeveless);
                 if (sleeveless != null)
                     _sleeveMeshes.Add((armorRenderer, armorRenderer.sharedMesh, sleeveless));
             }
         }
 
-        /// <summary>
-        /// Elbow -> wrist of both arms in the rest pose, in the body's space (= the mesh space while it's built).
-        /// </summary>
-        private List<(Vector3 elbow, Vector3 wrist)> GetForearmSegments()
+        private enum ArmCut
         {
-            var segments = new List<(Vector3, Vector3)>();
-            foreach (var arm in new[] { _leftArm, _rightArm })
-            {
-                if (arm.Fore != null && arm.Hand != null)
-                    segments.Add((_body.transform.InverseTransformPoint(arm.Fore.position),
-                        _body.transform.InverseTransformPoint(arm.Hand.position)));
-            }
-            return segments;
+            // The whole body without the model's hands (the HVR hands are shown).
+            WithoutHands,
+            // Only the forearms (naked body: rolled-up sleeves).
+            Forearms,
+            // Everything but forearms and hands (armor with rolled-up sleeves).
+            Sleeveless
         }
 
         /// <summary>
-        /// Arm vertex (any weight on an arm bone) along a forearm: sleeve parts weighted to the upper arm only stick out
-        /// straight from the bent elbow - cut by shape, not only by weight.
+        /// Copy of the mesh cut by the bone weights of its triangles (average of the 3 vertices, 50 % limit - the bare
+        /// forearms and the sleeveless armor meet without gap or overlap). Null if nothing is left or the mesh can't be
+        /// read.
         /// </summary>
-        private static bool IsAlongForearm(Vector3 vertex, List<(Vector3 elbow, Vector3 wrist)> segments)
-        {
-            foreach (var (elbow, wrist) in segments)
-            {
-                var forearm = wrist - elbow;
-                var lengthSqr = forearm.sqrMagnitude;
-                if (lengthSqr < 1e-6f)
-                    continue;
-                var t = Vector3.Dot(vertex - elbow, forearm) / lengthSqr;
-                if (t < _sleeveShapeStart || t > _sleeveShapeEnd)
-                    continue;
-                if (Vector3.Distance(vertex, elbow + forearm * t) < _sleeveShapeRadius)
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Copy of the mesh with only the forearm triangles (keepForearms) or without them. Null if nothing is left or
-        /// the mesh can't be read.
-        /// </summary>
-        private Mesh FilterForearmTriangles(Mesh mesh, Transform[] bones, bool keepForearms,
-            List<(Vector3 elbow, Vector3 wrist)> forearmSegments = null)
+        private Mesh CutArms(Mesh mesh, Transform[] bones, ArmCut cut)
         {
             if (mesh == null || !mesh.isReadable || bones == null)
                 return null;
 
             var isForearmBone = new bool[bones.Length];
-            var isArmBone = new bool[bones.Length];
+            var isHandBone = new bool[bones.Length];
             for (var i = 0; i < bones.Length; i++)
             {
-                isForearmBone[i] = bones[i] != null && IsForearmBone(bones[i].name);
-                isArmBone[i] = bones[i] != null && (isForearmBone[i] || bones[i].name.ContainsIgnoreCase("ARM"));
+                var name = bones[i] != null ? bones[i].name.ToUpperInvariant() : string.Empty;
+                isForearmBone[i] = name.Contains("FOREARM");
+                isHandBone[i] = name.Contains(" HAND") || name.Contains("FINGER");
             }
 
             var weights = mesh.boneWeights;
             if (weights.Length != mesh.vertexCount)
                 return null;
 
-            float ForearmWeight(int vertex)
+            float WeightOf(int vertex, bool[] isBone)
             {
                 var w = weights[vertex];
-                return Weight(w.boneIndex0, w.weight0) + Weight(w.boneIndex1, w.weight1) +
-                       Weight(w.boneIndex2, w.weight2) + Weight(w.boneIndex3, w.weight3);
+                return Of(w.boneIndex0, w.weight0) + Of(w.boneIndex1, w.weight1) +
+                       Of(w.boneIndex2, w.weight2) + Of(w.boneIndex3, w.weight3);
+
+                float Of(int boneIndex, float weight) =>
+                    boneIndex >= 0 && boneIndex < isBone.Length && isBone[boneIndex] ? weight : 0f;
             }
-
-            float Weight(int boneIndex, float weight) =>
-                boneIndex >= 0 && boneIndex < isForearmBone.Length && isForearmBone[boneIndex] ? weight : 0f;
-
-            // Armor only: sleeve vertices by shape (see IsAlongForearm).
-            var vertices = forearmSegments != null ? mesh.vertices : null;
-            var shapeCut = 0;
-            bool IsSleeveVertex(int vertex)
-            {
-                if (ForearmWeight(vertex) > _sleeveCutWeightThreshold)
-                    return true;
-                if (vertices == null)
-                    return false;
-                var w = weights[vertex];
-                var isArm = IsArm(w.boneIndex0, w.weight0) || IsArm(w.boneIndex1, w.weight1) ||
-                            IsArm(w.boneIndex2, w.weight2) || IsArm(w.boneIndex3, w.weight3);
-                return isArm && IsAlongForearm(vertices[vertex], forearmSegments);
-            }
-
-            bool IsArm(int boneIndex, float weight) =>
-                weight > 0f && boneIndex >= 0 && boneIndex < isArmBone.Length && isArmBone[boneIndex];
 
             var copy = Instantiate(mesh);
-            copy.name = mesh.name + (keepForearms ? "_Forearms" : "_Sleeveless");
+            copy.name = $"{mesh.name}_{cut}";
             var keptTriangles = 0;
             for (var subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
             {
@@ -522,22 +487,17 @@ namespace Gothic.VR.Adapters.Player
                 var kept = new List<int>(triangles.Length);
                 for (var i = 0; i + 2 < triangles.Length; i += 3)
                 {
-                    bool isForearm;
-                    if (keepForearms)
+                    var hand = (WeightOf(triangles[i], isHandBone) + WeightOf(triangles[i + 1], isHandBone) +
+                                WeightOf(triangles[i + 2], isHandBone)) / 3f;
+                    var forearm = (WeightOf(triangles[i], isForearmBone) + WeightOf(triangles[i + 1], isForearmBone) +
+                                   WeightOf(triangles[i + 2], isForearmBone)) / 3f;
+                    var isKept = cut switch
                     {
-                        isForearm = (ForearmWeight(triangles[i]) + ForearmWeight(triangles[i + 1]) +
-                                     ForearmWeight(triangles[i + 2])) / 3f > _forearmWeightThreshold;
-                    }
-                    else
-                    {
-                        var byWeight = Mathf.Max(ForearmWeight(triangles[i]), ForearmWeight(triangles[i + 1]),
-                            ForearmWeight(triangles[i + 2])) > _sleeveCutWeightThreshold;
-                        isForearm = byWeight || IsSleeveVertex(triangles[i]) || IsSleeveVertex(triangles[i + 1]) ||
-                                    IsSleeveVertex(triangles[i + 2]);
-                        if (isForearm && !byWeight)
-                            shapeCut++;
-                    }
-                    if (isForearm != keepForearms)
+                        ArmCut.WithoutHands => hand <= _armCutWeight,
+                        ArmCut.Forearms => hand <= _armCutWeight && forearm + hand > _armCutWeight,
+                        _ => forearm + hand <= _armCutWeight
+                    };
+                    if (!isKept)
                         continue;
                     kept.Add(triangles[i]);
                     kept.Add(triangles[i + 1]);
@@ -547,9 +507,7 @@ namespace Gothic.VR.Adapters.Player
                 keptTriangles += kept.Count / 3;
             }
 
-            if (!keepForearms)
-                Logger.Log($"[VRHeroBody] Sleeveless {mesh.name}: {keptTriangles} of {mesh.triangles.Length / 3} " +
-                           $"triangles kept ({shapeCut} cut by shape).", LogCat.VR);
+            Logger.Log($"[VRHeroBody] {copy.name}: {keptTriangles} of {mesh.triangles.Length / 3} triangles.", LogCat.VR);
             if (keptTriangles == 0)
             {
                 Destroy(copy);
@@ -557,12 +515,6 @@ namespace Gothic.VR.Adapters.Player
             }
             _createdMeshes.Add(copy);
             return copy;
-        }
-
-        private static bool IsForearmBone(string boneName)
-        {
-            var upper = boneName.ToUpperInvariant();
-            return upper.Contains("FOREARM") || upper.Contains(" HAND") || upper.Contains("FINGER");
         }
 
         private void DestroyCreatedMeshes()
@@ -577,8 +529,8 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// Analytic two-bone IK: upper arm + forearm reach for the HVR hand, the elbow bends towards a hint below and to
-        /// the outside. The wrist always ends exactly at the HVR hand (the model's hand is hidden): out of reach the arm
-        /// is stretched, tapered - 40 % of the missing length in the upper arm, 60 % in the forearm, so the most
+        /// the outside. The wrist always ends at the HVR wrist (the model's hands are cut out of the mesh): out of reach
+        /// the arm is stretched, tapered - 40 % of the missing length in the upper arm, 60 % in the forearm, so the most
         /// stretch sits near the wrist (skinned vertices between the moved joints stretch, the shoulder stays).
         /// The forearm rolls around its axis like the HVR hand (palms of both models aligned).
         /// </summary>
@@ -590,8 +542,6 @@ namespace Gothic.VR.Adapters.Player
             private Transform _upper;
             private Transform _fore;
             private Transform _hand;
-            public Transform Fore => _fore;
-            public Transform Hand => _hand;
             private Vector3 _foreRestLocal;
             private Vector3 _handRestLocal;
 
@@ -620,7 +570,6 @@ namespace Gothic.VR.Adapters.Player
                 _foreRestLocal = _fore.localPosition;
                 _handRestLocal = _hand.localPosition;
                 BindModelPalm(bones);
-                _hand.localScale = Vector3.one * _hiddenBoneScale;
             }
 
             /// <summary>
