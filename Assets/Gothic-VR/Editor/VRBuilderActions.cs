@@ -46,8 +46,16 @@ namespace Gothic.VR.Editor
         private static void GenericBuild(string[] scenes, string targetPath, BuildTargetGroup buildTargetGroup,
             BuildTarget buildTarget, BuildOptions buildOptions)
         {
-            // Set the target platform for the build
-            EditorUserBuildSettings.SwitchActiveBuildTarget(buildTargetGroup, buildTarget);
+            // Switching the platform recompiles the scripts. Building in the same call failed in Unity 6 with
+            // "Unable to build with the current configuration" (Addressables/SBP sees the build profile as not ready).
+            // CI starts with -buildTarget, so the platform already matches there.
+            if (EditorUserBuildSettings.activeBuildTarget != buildTarget)
+            {
+                EditorUserBuildSettings.SwitchActiveBuildTarget(buildTargetGroup, buildTarget);
+                Debug.LogWarning($"Switched the platform to {buildTarget}. Wait for the compilation to finish and start " +
+                                 "the build again.");
+                return;
+            }
 
             // Set BuildPlayerOptions
             var options = new BuildPlayerOptions
