@@ -1,5 +1,6 @@
 #if GOTHIC_HVR_INSTALLED
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -34,6 +35,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
         private const int _puppetLayer = 13; // PlayerPuppet
         private const float _walkSpeed = 0.2f;
@@ -65,6 +67,11 @@ namespace Gothic.VR.Adapters.Player
         private float _yawSpeed;
         // Attack while running: the monster's running attack (MDS t_FistAttackMove), standing: s_FistAttack.
         private const string _runAttackAnimation = "T_FISTATTACKMOVE";
+        // Moving more backwards than this (share of the speed) plays the backwards walk instead of a moonwalk.
+        private const float _backwardsShare = 0.5f;
+        private readonly System.Collections.Generic.Dictionary<string, string> _moveAnimations = new();
+        private readonly System.Collections.Generic.Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
+        private VmGothicEnums.WalkMode? _specialWalkMode;
 
         // PiP: camera above and to the side, whole body in the picture (see research-2026-10-03.md).
         private const int _pipResolution = 256;
@@ -84,6 +91,24 @@ namespace Gothic.VR.Adapters.Player
         private VRPlayerController _playerController;
         private float _originalCameraYOffset;
         private bool _hasCameraOffset;
+        // Camera offset at the monster's eyes (LowerCamera) and its eye height above its feet.
+        private float _transformedCameraYOffset;
+        private float _eyeHeight;
+
+        // Water: VR swimming starts at human chest depth - a wolf is under water long before. The puppet checks the
+        // depth itself: water above this part of its eye height = it swims at the surface, the camera rises with it.
+        private const float _swimDepthShare = 0.6f;
+        private const float _swimEndDepthShare = 0.4f;
+        private const float _wadeDepthShare = 0.25f;
+        private float _waterDepth;
+        private const float _waterGraceSeconds = 1f;
+        private float _lastWaterY;
+        private float _lastWaterTime = -999f;
+        private const float _swimRootDepthShare = 0.25f;
+        private const float _eyeAboveSurface = 0.15f;
+        private const float _swimCameraLiftSpeed = 1.5f;
+        private bool _isSwimming;
+        private float _swimCameraLift;
 
         private string _currentAnimation;
         private float _attackCooldown;
@@ -182,7 +207,17 @@ namespace Gothic.VR.Adapters.Player
             var x = head != null ? head.position.x : _playerController.transform.position.x;
             var z = head != null ? head.position.z : _playerController.transform.position.z;
             var restHeight = _monster.PrefabProps.AnimationSystem.RestRootHeight;
-            _monster.Go.transform.position = new Vector3(x, feetY + restHeight, z);
+            var rootY = feetY + restHeight;
+            _isSwimming = IsPuppetSwimming(x, z, feetY, out var waterY);
+            if (_isSwimming)
+            {
+                // The swim loops pull the root bone down themselves (like NpcWaterService) - compensated, so the back
+                // stays at the surface.
+                var rootBoneOffset = _monster.PrefabProps.Bip01 != null ? _monster.PrefabProps.Bip01.localPosition.y : 0f;
+                rootY = Mathf.Max(rootY, waterY - restHeight * _swimRootDepthShare - rootBoneOffset);
+            }
+            _monster.Go.transform.position = new Vector3(x, rootY, z);
+            UpdateSwimCamera(feetY, waterY);
             if (head != null)
             {
                 var forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
@@ -198,6 +233,44 @@ namespace Gothic.VR.Adapters.Player
             _hasLastYaw = true;
 
             UpdatePip();
+        }
+
+        /// <summary>
+        /// Deep enough to swim, with hysteresis: starts above 60 % of the eye height, ends below 40 %. A plant or a rock
+        /// between the bottom and the surface hides the water for a moment - the last surface is kept for a second.
+        /// </summary>
+        private bool IsPuppetSwimming(float x, float z, float feetY, out float waterY)
+        {
+            if (_npcWaterService.TryGetWaterSurface(new Vector3(x, feetY + 1f, z), out var groundY, out waterY))
+            {
+                _lastWaterY = waterY;
+                _lastWaterTime = Time.time;
+                var depth = waterY - Mathf.Min(groundY, feetY);
+                _waterDepth = depth;
+                var limit = _eyeHeight * (_isSwimming ? _swimEndDepthShare : _swimDepthShare);
+                return depth > limit;
+            }
+
+            waterY = _lastWaterY;
+            var isInGrace = Time.time - _lastWaterTime < _waterGraceSeconds;
+            if (!isInGrace)
+                _waterDepth = 0f;
+            return _isSwimming && isInGrace;
+        }
+
+        /// <summary>
+        /// Swimming: the eyes stay just above the surface (the VR body walks on the bottom until human chest depth).
+        /// </summary>
+        private void UpdateSwimCamera(float feetY, float waterY)
+        {
+            if (!_hasCameraOffset)
+                return;
+
+            var wantedLift = _isSwimming ? Mathf.Max(0f, waterY + _eyeAboveSurface - (feetY + _eyeHeight)) : 0f;
+            if (Mathf.Approximately(wantedLift, _swimCameraLift))
+                return;
+            _swimCameraLift = Mathf.MoveTowards(_swimCameraLift, wantedLift, _swimCameraLiftSpeed * Time.deltaTime);
+            _playerController.CameraRig.CameraYOffset = _transformedCameraYOffset + _swimCameraLift;
         }
 
         /// <summary>
@@ -275,7 +348,9 @@ namespace Gothic.VR.Adapters.Player
             var currentEyeHeight = Camera.main.transform.position.y - _playerController.transform.position.y;
             var rig = _playerController.CameraRig;
             _originalCameraYOffset = rig.CameraYOffset;
-            rig.CameraYOffset += Mathf.Clamp(eyeHeight, 0.2f, 3f) - currentEyeHeight;
+            _eyeHeight = Mathf.Clamp(eyeHeight, 0.2f, 3f);
+            rig.CameraYOffset += _eyeHeight - currentEyeHeight;
+            _transformedCameraYOffset = rig.CameraYOffset;
             _hasCameraOffset = true;
         }
 
@@ -289,9 +364,28 @@ namespace Gothic.VR.Adapters.Player
             if (_attackCooldown > 0f)
                 return;
 
+            // The puppet's own AnimationSystem guesses a water level from its root motion (it swam while wading) - our
+            // depth check decides.
+            // Swimming without swim loops (wolves, dogs - in Gothic they can't swim): their wading loop (s_*WalkWL)
+            // as paddling. Shallower water: wading (Knee), if the model has it.
+            var canSwim = HasTrack("S_SWIM") && HasTrack("S_SWIMF");
+            _monster.Vob.AiHuman.WaterLevel = (int)(_isSwimming && canSwim
+                ? ZenGineConst.WaterLevel.Chest
+                : _isSwimming || _waterDepth > _eyeHeight * _wadeDepthShare
+                    ? ZenGineConst.WaterLevel.Knee
+                    : ZenGineConst.WaterLevel.Normal);
+
+            // Swimming/diving and crouching (sneaking) - if the monster has those loops.
+            _specialWalkMode = GetSpecialWalkMode();
+            if (_specialWalkMode != null)
+                _monster.Vob.AiHuman.WalkMode = (int)_specialWalkMode.Value;
+            else if ((VmGothicEnums.WalkMode)_monster.Vob.AiHuman.WalkMode is VmGothicEnums.WalkMode.Swim
+                     or VmGothicEnums.WalkMode.Dive or VmGothicEnums.WalkMode.Sneak)
+                _monster.Vob.AiHuman.WalkMode = (int)VmGothicEnums.WalkMode.Walk;
+
             string animation;
             // Jumping/falling (the player isn't on the ground): the monster's fall animation.
-            var fall = _playerController != null && !_playerController.IsGrounded
+            var fall = _playerController != null && !_playerController.IsGrounded && !IsInWater()
                 ? _animationService.GetAnimationName(VmGothicEnums.AnimationType.Fall, _monster)
                 : null;
             if (fall != null && _animationService.GetTrack(fall, _monster.Props.MdsNameBase, _monster.Props.MdsNameOverlay) != null)
@@ -299,7 +393,7 @@ namespace Gothic.VR.Adapters.Player
                 StopIdleVariation(animationSystem);
                 animation = fall;
             }
-            else if (speed < _walkSpeed && Mathf.Abs(_yawSpeed) >= _turnAnimationSpeed)
+            else if (speed < _walkSpeed && Mathf.Abs(_yawSpeed) >= _turnAnimationSpeed && _specialWalkMode == null)
             {
                 StopIdleVariation(animationSystem);
                 animation = _animationService.GetAnimationName(_yawSpeed < 0f
@@ -315,8 +409,7 @@ namespace Gothic.VR.Adapters.Player
             else
             {
                 StopIdleVariation(animationSystem);
-                _monster.Vob.AiHuman.WalkMode = (int)(speed >= _runSpeed ? VmGothicEnums.WalkMode.Run : VmGothicEnums.WalkMode.Walk);
-                animation = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Move, _monster);
+                animation = GetMoveAnimation(velocity, speed);
             }
 
             if (animation == _currentAnimation && animationSystem.IsPlaying(animation))
@@ -327,6 +420,119 @@ namespace Gothic.VR.Adapters.Player
             animationSystem.PlayAnimation(animation);
             _currentAnimation = animation;
         }
+
+        /// <summary>
+        /// Like Gothic: the monster keeps facing where you look - walking backwards plays its backwards walk (or the walk
+        /// loop played back to front if the model has none), sideways its strafe loop if it has one.
+        /// </summary>
+        private string GetMoveAnimation(Vector3 velocity, float speed)
+        {
+            var local = _monster.Go.transform.InverseTransformDirection(new Vector3(velocity.x, 0f, velocity.z));
+            var isBackwards = local.z < -_backwardsShare * speed;
+            var isSideways = !isBackwards && Mathf.Abs(local.x) > Mathf.Abs(local.z);
+
+            if (_specialWalkMode != null)
+            {
+                var loop = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Move, _monster);
+                if (!isBackwards || _specialWalkMode != VmGothicEnums.WalkMode.Sneak)
+                    return loop;
+                return GetCachedMoveAnimation(VmGothicEnums.AnimationType.MoveBack, () =>
+                    _animationService.GetReversedAnimationName(loop, _monster.Props.MdsNameBase,
+                        _monster.Props.MdsNameOverlay) ?? loop);
+            }
+
+            // Nobody runs backwards in Gothic.
+            _monster.Vob.AiHuman.WalkMode = (int)(speed >= _runSpeed && !isBackwards
+                ? VmGothicEnums.WalkMode.Run
+                : VmGothicEnums.WalkMode.Walk);
+            var forward = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Move, _monster);
+
+            if (isBackwards)
+            {
+                return GetCachedMoveAnimation(VmGothicEnums.AnimationType.MoveBack, () =>
+                {
+                    var back = _animationService.GetAnimationName(VmGothicEnums.AnimationType.MoveBack, _monster);
+                    if (HasTrack(back))
+                        return back;
+                    return _animationService.GetReversedAnimationName(forward, _monster.Props.MdsNameBase,
+                        _monster.Props.MdsNameOverlay) ?? forward;
+                });
+            }
+
+            if (isSideways)
+            {
+                var type = local.x < 0f ? VmGothicEnums.AnimationType.MoveL : VmGothicEnums.AnimationType.MoveR;
+                var strafe = GetCachedMoveAnimation(type, () =>
+                {
+                    var name = _animationService.GetAnimationName(type, _monster);
+                    return HasTrack(name) ? name : null;
+                });
+                if (strafe != null)
+                    return strafe;
+            }
+            return forward;
+        }
+
+        /// <summary>
+        /// Resolved once per type and walk mode: a missing animation logs a fallback warning on every lookup.
+        /// </summary>
+        private string GetCachedMoveAnimation(VmGothicEnums.AnimationType type, System.Func<string> resolve)
+        {
+            var key = $"{type}|{_monster.Vob.AiHuman.WalkMode}";
+            if (!_moveAnimations.TryGetValue(key, out var animation))
+            {
+                animation = resolve();
+                _moveAnimations[key] = animation;
+                Logger.Log($"[VRTransform] {type} ({(VmGothicEnums.WalkMode)_monster.Vob.AiHuman.WalkMode}): " +
+                           $"{animation ?? "none"}", LogCat.VR);
+            }
+            return animation;
+        }
+
+        private bool IsInWater()
+        {
+            var bodyState = _npcService.GetHeroContainer()?.Props.BodyState;
+            return _isSwimming || bodyState is VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive;
+        }
+
+        /// <summary>
+        /// Swim/Dive while the hero swims/dives, Sneak while crouching - only if the monster has the move loop for it
+        /// (most monsters can't swim or sneak), checked once per mode.
+        /// </summary>
+        private VmGothicEnums.WalkMode? GetSpecialWalkMode()
+        {
+            var bodyState = _npcService.GetHeroContainer()?.Props.BodyState;
+            VmGothicEnums.WalkMode? wanted = bodyState == VmGothicEnums.BodyState.BsDive
+                ? VmGothicEnums.WalkMode.Dive
+                : _isSwimming || bodyState == VmGothicEnums.BodyState.BsSwim
+                    ? VmGothicEnums.WalkMode.Swim
+                    : _playerController != null && _playerController.IsCrouching
+                        ? VmGothicEnums.WalkMode.Sneak
+                        : null;
+            if (wanted == null)
+                return null;
+
+            if (!_supportedWalkModes.TryGetValue(wanted.Value, out var isSupported))
+            {
+                var previous = _monster.Vob.AiHuman.WalkMode;
+                _monster.Vob.AiHuman.WalkMode = (int)wanted.Value;
+                var loop = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Move, _monster);
+                _monster.Vob.AiHuman.WalkMode = previous;
+                isSupported = HasTrack(loop);
+                _supportedWalkModes[wanted.Value] = isSupported;
+                Logger.Log($"[VRTransform] {wanted.Value}: {(isSupported ? loop : "not in the model")}", LogCat.VR);
+            }
+
+            // Diving without dive loops: swim instead.
+            if (!isSupported && wanted == VmGothicEnums.WalkMode.Dive)
+                return _supportedWalkModes.TryGetValue(VmGothicEnums.WalkMode.Swim, out var canSwim) && canSwim
+                    ? VmGothicEnums.WalkMode.Swim
+                    : null;
+            return isSupported ? wanted : null;
+        }
+
+        private bool HasTrack(string animation) =>
+            _animationService.GetTrack(animation, _monster.Props.MdsNameBase, _monster.Props.MdsNameOverlay) != null;
 
         /// <summary>
         /// True while a random idle animation plays (the normal idle waits).

@@ -168,6 +168,12 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// Water surface and ground at the position (VR transformation puppet: swims at the surface).
+        /// </summary>
+        public bool TryGetWaterSurface(Vector3 position, out float groundY, out float waterY) =>
+            TryGetWater(position, position.y, out groundY, out waterY);
+
+        /// <summary>
         /// Ground below the position and the water surface above that ground - only if nothing solid lies in between
         /// (caves below lakes).
         /// </summary>
