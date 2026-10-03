@@ -484,6 +484,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (handGo == null) return;
             var pfxName = pfxNameOverride ?? $"MFX_{mfxName.ToUpper()}_INIT";
             var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            // The spell's own VISUALFX visual before the generic fallbacks: MFX_ICEWAVE_INIT doesn't exist, spellFX_Icewave
+            // uses MFX_IceCUBE_INIT (a fireball was shown in the hand).
+            if (pfxLeaf == null && pfxNameOverride == null)
+            {
+                var ownVisuals = new[]
+                {
+                    _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.VisNameS,
+                    _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_INIT")?.VisNameS
+                };
+                foreach (var visName in ownVisuals)
+                {
+                    if (string.IsNullOrEmpty(visName))
+                        continue;
+                    pfxName = visName;
+                    pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                    if (pfxLeaf != null)
+                        break;
+                }
+            }
             if (pfxLeaf == null)
             {
                 pfxName = "MFX_FIREBALL_INIT";
