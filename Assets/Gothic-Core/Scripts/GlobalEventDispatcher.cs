@@ -116,6 +116,13 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, int, int> ScriptRemovedInvItems = new();
 
         /// <summary>
+        /// An inventory view (NPC loot sockets, NPC backpack, trade counter) changed an NPC's items - the other views
+        /// showing the same NPC refresh.
+        /// NpcContainer - whose inventory changed
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
+
+        /// <summary>
         /// Daedalus PrintScreen/AI_PrintScreen ("New log entry", "1 item received", ...).
         /// string - text
         /// int - posY in percent of the screen (-1 = centered)

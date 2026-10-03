@@ -5,11 +5,13 @@ using System.Linq;
 using Assets.HurricaneVR.Framework.Shared.Utilities;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
@@ -21,6 +23,7 @@ using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Sockets;
+using HurricaneVR.Framework.Core.UI;
 using HurricaneVR.Framework.Core.Utils;
 using Reflex.Attributes;
 using TMPro;
@@ -29,6 +32,10 @@ using ZenKit.Vobs;
 
 namespace Gothic.VR.Adapters.Player
 {
+    /// <summary>
+    /// Inventory view with 9 sockets, categories and pages. The hero's backpack by default; the same prefab is spawned
+    /// as an NPC's loot backpack (SetNpcOwner) - tinted, showing and changing the NPC's items.
+    /// </summary>
     [RequireComponent(typeof(HVRSocketable))]
     public class VRBackpack : MonoBehaviour
     {
@@ -41,6 +48,10 @@ namespace Gothic.VR.Adapters.Player
         private int _totalPages;
         private VmGothicEnums.InvCats _selectedCategory =  VmGothicEnums.InvCats.InvWeapon;
         private bool _tempIgnoreSocketing;
+        private IInventoryOwner _owner;
+        private Coroutine _refresh;
+        private bool _isRefreshDirty;
+        private static readonly Color _npcBackpackTint = new(0.55f, 0.75f, 1f);
         
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly PlayerService _playerService;
@@ -54,13 +65,103 @@ namespace Gothic.VR.Adapters.Player
 
         private const string _equippedLabelName = "EquippedLabel";
 
+        private IInventoryOwner Owner => _owner ??= new PlayerInventoryOwner();
+
+        public bool IsNpcBackpack => _owner != null && !_owner.IsHero;
+
+        /// <summary>
+        /// Turns this backpack into the loot backpack of an NPC (call right after spawning it).
+        /// </summary>
+        public void SetNpcOwner(NpcContainer npc)
+        {
+            _owner = new NpcInventoryOwner(npc);
+            GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
+
+            // The prefab's GrabColliders hold one empty entry: that turns on HVR's grab collider filter, which then lets
+            // no collider through - the hero's backpack is only taken from the shoulder socket, a loot backpack lies
+            // on the ground and couldn't be grabbed (nor force grabbed).
+            var grabbable = GetComponent<HVRGrabbable>();
+            if (grabbable != null)
+            {
+                grabbable.GrabColliders = System.Array.Empty<Collider>();
+                grabbable.SetupGrabColliders();
+            }
+            Tint(_npcBackpackTint);
+            RegisterUiCanvases();
+            Init();
+            UpdateInventoryView();
+        }
+
+        /// <summary>
+        /// Removes a spawned NPC backpack (and its prefab root) without its socketed items counting as taken out.
+        /// </summary>
+        public void Despawn(GameObject spawnedRoot)
+        {
+            if (_refresh != null)
+                StopCoroutine(_refresh);
+            _tempIgnoreSocketing = true;
+            ClearSockets();
+            this.ExecuteNextUpdate(() =>
+            {
+                // A stopped refresh left the draw sounds off.
+                _vrWeaponService.DrawSoundsActive = true;
+                Destroy(spawnedRoot != null ? spawnedRoot : gameObject);
+            });
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.NpcInventoryChanged.RemoveListener(OnNpcInventoryChanged);
+            GlobalEventDispatcher.ZenKitBootstrapped.RemoveListener(Init);
+
+            if (IsNpcBackpack && HVRInputModule.Instance != null)
+            {
+                foreach (var canvas in GetComponentsInChildren<Canvas>(true))
+                    HVRInputModule.Instance.RemoveCanvas(canvas);
+            }
+        }
+
+        /// <summary>
+        /// The UI laser only hits canvases HVRInputModule knows - they are collected once when the world loads
+        /// (InitUIInteraction), a spawned loot backpack's page/category buttons weren't clickable.
+        /// </summary>
+        private void RegisterUiCanvases()
+        {
+            if (HVRInputModule.Instance == null)
+                return;
+            foreach (var canvas in GetComponentsInChildren<Canvas>(true))
+                HVRInputModule.Instance.AddCanvas(canvas);
+        }
+
+        private void OnNpcInventoryChanged(NpcContainer npc)
+        {
+            if (_owner != null && npc == _owner.Npc)
+                UpdateInventoryView();
+        }
+
+        private void Tint(Color tint)
+        {
+            foreach (var meshRenderer in GetComponentsInChildren<Renderer>(true))
+            {
+                if (meshRenderer.GetComponent<TMP_Text>() != null)
+                    continue;
+                foreach (var material in meshRenderer.materials)
+                {
+                    if (material.HasProperty("_BaseColor"))
+                        material.SetColor("_BaseColor", material.GetColor("_BaseColor") * tint);
+                    else if (material.HasProperty("_Color"))
+                        material.color *= tint;
+                }
+            }
+        }
+
         
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
 
-            // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum.
-            if (GetComponent<VRBackpackVacuum>() == null)
+            // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum. Not for an NPC's loot backpack.
+            if (!IsNpcBackpack && GetComponent<VRBackpackVacuum>() == null)
                 gameObject.AddComponent<VRBackpackVacuum>();
 
             // V1, toggled at runtime via DeveloperConfig.EnableItemDetailsPopup.
@@ -117,9 +218,11 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _vobService.UntrackVobFromCache(vobContainer);
 
-            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            Owner.Add(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
-            UpdateInventoryView();
+            // An NPC owner fires NpcInventoryChanged, which refreshes us.
+            if (!IsNpcBackpack)
+                UpdateInventoryView();
         }
 
         /// <summary>
@@ -148,25 +251,11 @@ namespace Gothic.VR.Adapters.Player
             _saveGameService.CurrentWorldData.Vobs.Add(vobContainer.Vob);
             _saveGameService.TrackLooseItem(vobContainer);
 
-            _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
-            UnequipIfLastOneTakenOut(vobContainer);
+            // Taking the last one of an equipped item out takes it off (IInventoryOwner.Remove).
+            Owner.Remove(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
-            UpdateInventoryView();
-        }
-
-        /// <summary>
-        /// Equipped items live in the backpack. Taking the last one of them out means taking it off.
-        /// </summary>
-        private void UnequipIfLastOneTakenOut(VobContainer vobContainer)
-        {
-            var item = vobContainer.GetItemInstance();
-            if (item == null)
-                return;
-
-            var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();
-            var stillOwned = _playerService.GetInventory(category).Any(i => i.Name.EqualsIgnoreCase(vobContainer.Vob.Name) && i.Amount > 0);
-            if (!stillOwned)
-                _npcInventoryService.UnequipItemWithEffects(_playerService.HeroContainer.Instance, item);
+            if (!IsNpcBackpack)
+                UpdateInventoryView();
         }
         
         public void OnPrevPageClick()
@@ -214,19 +303,28 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateInventoryView()
         {
-            var inventory = _playerService.GetInventory(_selectedCategory);
+            // A refresh is still re-stacking the sockets: run once more after it (two at once doubled the items).
+            if (_refresh != null)
+            {
+                _isRefreshDirty = true;
+                return;
+            }
+
+            var inventory = Owner.GetInventory(_selectedCategory);
 
             // Equipped items first (stable order otherwise), so they're always on the first page with their [E] badge.
-            var hero = _playerService.HeroContainer.Instance;
-            inventory = inventory.OrderByDescending(i => _npcInventoryService.IsEquipped(hero, i.Name)).ToList();
+            inventory = inventory.OrderByDescending(i => Owner.IsEquipped(i.Name)).ToList();
 
-            // Subtract amount of held items from inventory
-            SubtractItemFromHand(inventory, _vrPlayerService.GrabbedItemLeft);
-            SubtractItemFromHand(inventory, _vrPlayerService.GrabbedItemRight);
+            // Subtract amount of held items from inventory - they count as the hero's inventory (VRPlayerService).
+            if (Owner.IsHero)
+            {
+                SubtractItemFromHand(inventory, _vrPlayerService.GrabbedItemLeft);
+                SubtractItemFromHand(inventory, _vrPlayerService.GrabbedItemRight);
+            }
 
             UpdateCategoryText();
             UpdatePagerText(inventory);
-            StartCoroutine(UpdateSockets(inventory));
+            _refresh = StartCoroutine(UpdateSockets(inventory));
         }
 
         private void UpdateCategoryText()
@@ -263,6 +361,13 @@ namespace Gothic.VR.Adapters.Player
 
             _tempIgnoreSocketing = false;
             _vrWeaponService.DrawSoundsActive = true;
+
+            _refresh = null;
+            if (_isRefreshDirty)
+            {
+                _isRefreshDirty = false;
+                UpdateInventoryView();
+            }
         }
 
         private void ClearSockets()
@@ -306,7 +411,7 @@ namespace Gothic.VR.Adapters.Player
                 var grabbable = vobContainer.Go.GetComponentInChildren<HVRGrabbable>();
                 _socketContainer.TryAddGrabbable(grabbable);
 
-                if (_npcInventoryService.IsEquipped(_playerService.HeroContainer.Instance, item.Name))
+                if (Owner.IsEquipped(item.Name))
                 {
                     var socket = _socketContainer.Sockets.FirstOrDefault(s => s.GrabbedTarget == grabbable);
                     if (socket != null)

@@ -283,7 +283,8 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_backpack == null)
             {
-                var backpack = FindFirstObjectByType<VRBackpack>();
+                var backpack = System.Linq.Enumerable.FirstOrDefault(
+                    FindObjectsByType<VRBackpack>(FindObjectsSortMode.None), b => !b.IsNpcBackpack);
                 if (backpack == null)
                     return false;
                 _backpack = backpack.GetComponentInParent<HurricaneVR.Framework.Core.HVRGrabbable>() ??

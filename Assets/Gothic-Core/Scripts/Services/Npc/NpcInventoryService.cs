@@ -4,6 +4,7 @@ using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
@@ -255,6 +256,40 @@ namespace Gothic.Core.Services.Npc
             var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay) ? props.MdhNameBase : props.MdhNameOverlay;
             var rebuilt = _meshService.RebuildNpcBody(container.Go, newMdm, mdhName, props.BodyData);
             Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} now wears '{newMdm}' (rebuilt={rebuilt})", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// An equipped weapon taken from an NPC (loot, NPC backpack): off the equipped list and its mesh off the body
+        /// (holster slot, or the hand for NPCs that went down mid-draw).
+        /// </summary>
+        public void RemoveEquippedWeapon(NpcContainer npc, string itemInstanceName)
+        {
+            var item = _vmCacheService.TryGetItemData(itemInstanceName);
+            var equipped = item == null ? null : npc.Props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
+            if (equipped == null)
+                return;
+
+            npc.Props.EquippedItems.Remove(equipped);
+
+            var mainFlag = (ItemFlags)equipped.MainFlag;
+            var flags = (ItemFlags)equipped.Flags;
+            string holsterSlot;
+            if (mainFlag == ItemFlags.ItemKatNf)
+                holsterSlot = flags.HasFlag(ItemFlags.Item2HdAxe) || flags.HasFlag(ItemFlags.Item2HdSwd)
+                    ? "ZS_LONGSWORD" : "ZS_SWORD";
+            else if (mainFlag == ItemFlags.ItemKatFf)
+                holsterSlot = flags.HasFlag(ItemFlags.ItemCrossbow) ? "ZS_CROSSBOW" : "ZS_BOW";
+            else
+                return;
+
+            foreach (var slotName in new[] { holsterSlot, "ZS_RIGHTHAND" })
+            {
+                var slotGo = npc.Go.FindChildRecursively(slotName);
+                if (slotGo == null || slotGo.transform.childCount == 0)
+                    continue;
+                Object.Destroy(slotGo.transform.GetChild(0).gameObject);
+                return;
+            }
         }
 
         public bool IsEquipped(NpcInstance npc, string itemInstanceName)
