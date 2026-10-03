@@ -106,8 +106,9 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(grabber, grabbable);
 
-            // One hand is enough for ranged weapons.
+            // One hand is enough for ranged weapons and torches.
             TryPrepareRangedWeapon();
+            TryPrepareTorch();
 
             if (_vrPlayerService.IsDualGrabbed)
             {
@@ -253,6 +254,18 @@ namespace Gothic.VR.Adapters.Vob
             if (grabbable != null && grabbable.IsBeingHeld)
                 grabbable.ForceRelease();
             _vobService.RemoveWorldItem(container);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrTorch: torches (ITEM_TORCH) get lit/put out with the trigger (VRTorch).
+        /// </summary>
+        private void TryPrepareTorch()
+        {
+            if (!_configService.Dev.EnableVrTorch || GetComponent<Adapters.Vob.VobItem.VRTorch>() != null)
+                return;
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item != null && ((int)item.Flags & (int)VmGothicEnums.ItemFlags.ItemTorch) != 0)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRTorch>();
         }
 
         private void TryCastSpell()

@@ -573,6 +573,10 @@ namespace Gothic.Core.Models.Config
                  "before NoTalk nr 2 - he walked up for the sleep spell, then offered NoTalk, forever).")]
         public bool EnableImportantInfoOrder = true;
 
+        [Tooltip("V1: Torches (ITEM_TORCH) are lit and put out with the trigger of the hand holding them (R in the " +
+                 "simulator): fire PFX on the tip + light, like ItLsTorchBurning. Not saved (they start unlit).")]
+        public bool EnableVrTorch = true;
+
         [Tooltip("V1: Wld_PlayEffect (scripts play VISUALFX at an NPC/vob - G2 uses it a lot, G1 the Sleeper's " +
                  "fireball): the effect, its sound and emFXCreate_S chain at the origin.")]
         public bool EnableWldPlayEffect = true;
