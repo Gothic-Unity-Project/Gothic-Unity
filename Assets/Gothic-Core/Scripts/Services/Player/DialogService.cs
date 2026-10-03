@@ -27,6 +27,7 @@ namespace Gothic.Core.Manager
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextDialogService _contextDialogService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
@@ -146,7 +147,11 @@ namespace Gothic.Core.Manager
         /// </summary>
         private bool TryGetImportant(NpcContainer npcContainer, out InfoInstance item)
         {
-            foreach (var dialog in npcContainer.Props.Dialogs)
+            // DeveloperConfig.EnableImportantInfoOrder: the engine checks them by nr (lowest first).
+            var dialogs = _configService.Dev.EnableImportantInfoOrder
+                ? npcContainer.Props.Dialogs.OrderBy(d => d.Nr)
+                : (IEnumerable<InfoInstance>)npcContainer.Props.Dialogs;
+            foreach (var dialog in dialogs)
             {
                 // Dialog is not important.
                 if (dialog.Important != 1)

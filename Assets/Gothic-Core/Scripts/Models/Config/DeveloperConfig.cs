@@ -569,6 +569,10 @@ namespace Gothic.Core.Models.Config
                  "like the engine (t_<SCHEME>_Random_1..n: taking a drag with smoke, a sip, ...).")]
         public bool EnableItemRandomAnis = true;
 
+        [Tooltip("V1: Important dialogs are checked in their nr order like the engine (Baal Cadar: SleepSpell nr 1 " +
+                 "before NoTalk nr 2 - he walked up for the sleep spell, then offered NoTalk, forever).")]
+        public bool EnableImportantInfoOrder = true;
+
         [Tooltip("V1: Wld_PlayEffect (scripts play VISUALFX at an NPC/vob - G2 uses it a lot, G1 the Sleeper's " +
                  "fireball): the effect, its sound and emFXCreate_S chain at the origin.")]
         public bool EnableWldPlayEffect = true;
