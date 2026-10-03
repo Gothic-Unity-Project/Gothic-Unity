@@ -91,6 +91,22 @@ namespace Gothic.VR.Adapters.Player
         private const string _fallAnimation = "S_FALLDN";
 
 
+        /// <summary>
+        /// The body's skinned mesh - spell effects with shpType MESH emit from it (teleport silhouette).
+        /// </summary>
+        public SkinnedMeshRenderer BodyRenderer
+        {
+            get
+            {
+                foreach (var r in _renderers)
+                {
+                    if (r is SkinnedMeshRenderer skinned && r.enabled)
+                        return skinned;
+                }
+                return null;
+            }
+        }
+
         private void Awake()
         {
             gameObject.Inject();

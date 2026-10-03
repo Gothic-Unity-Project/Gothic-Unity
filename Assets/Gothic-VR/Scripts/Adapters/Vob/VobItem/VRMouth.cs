@@ -32,6 +32,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeFadeSeconds = 9f;
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
+        private const int _smokePuffParticles = 12;
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -128,6 +129,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     velocity.x = new ParticleSystem.MinMaxCurve(exhale.x * 0.7f, exhale.x);
                     velocity.y = new ParticleSystem.MinMaxCurve(exhale.y * 0.7f, exhale.y);
                     velocity.z = new ParticleSystem.MinMaxCurve(exhale.z * 0.7f, exhale.z);
+                    particleSystem.Emit(_smokePuffParticles);
                 }
                 StartCoroutine(StopSmoke(smokeRoot));
             }

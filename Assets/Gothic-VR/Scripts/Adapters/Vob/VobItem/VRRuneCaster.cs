@@ -576,10 +576,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var handGo = _vrPlayerService.GetHandModelGo(IsThrowable ? _throwHandSide : _runeHandSide);
             // An aimed spell's cast effect appears at its victim (fear: the face above the target, not the caster).
             var target = !isWhileInvesting && _spellTarget?.Go != null ? _spellTarget.Go.transform : null;
+            // Area spells spread from the caster, wherever the VR hand is (ice wave, fire rain).
+            var mfxName = GetSpellMfxName(_item.Spell);
+            var isAreaSpell = !isWhileInvesting && mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName);
             Transform origin;
             if (target != null)
                 origin = target;
-            else if (isHandOrigin && handGo != null)
+            else if (isHandOrigin && handGo != null && !isAreaSpell)
                 origin = handGo.transform;
             else if (hero?.Go != null)
                 origin = hero.Go.transform;
@@ -589,8 +592,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var position = origin == handGo?.transform || origin == target
                 ? origin.position
                 : origin.position + Vector3.up * _bodyFxHeight;
+            // shpType MESH effects glow on the VR body (teleport silhouette).
+            var bodyMesh = FindFirstObjectByType<Gothic.VR.Adapters.Player.VRHeroBody>()?.BodyRenderer;
             var created = _particleService.PlayVisualFx(fxName, position, isWhileInvesting ? origin : null,
-                isWhileInvesting, $"MFX_{GetSpellMfxName(_item.Spell)}_Cast");
+                isWhileInvesting, $"MFX_{mfxName}_Cast", bodyMesh);
             if (isWhileInvesting)
                 _bodyFxGos.AddRange(created);
             var at = target != null ? "target" : isHandOrigin ? "hand" : "body";

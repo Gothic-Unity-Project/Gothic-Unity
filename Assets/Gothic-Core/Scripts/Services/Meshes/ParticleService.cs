@@ -20,6 +20,8 @@ namespace Gothic.Core.Services.Meshes
 
         private const int _maxFxChainDepth = 3;
         private const string _defaultBloodEmitter = "PFX_BLOOD";
+        // Gothic's 4 cm drops are hard to see in VR.
+        private const float _bloodSizeScale = 2.5f;
         private const float _oneShotFxSeconds = 5f;
 
         public void Init()
@@ -33,15 +35,15 @@ namespace Gothic.Core.Services.Meshes
         /// until the caller destroys the returned roots. Camera effects (FX_EarthQuake, ...) are skipped.
         /// </summary>
         public List<GameObject> PlayVisualFx(string fxName, Vector3 position, Transform follow = null,
-            bool isLooping = false, string skippedSfx = null)
+            bool isLooping = false, string skippedSfx = null, SkinnedMeshRenderer ownerMesh = null)
         {
             var created = new List<GameObject>();
-            PlayVisualFx(fxName, position, follow, isLooping, skippedSfx, created, 0);
+            PlayVisualFx(fxName, position, follow, isLooping, skippedSfx, ownerMesh, created, 0);
             return created;
         }
 
         private void PlayVisualFx(string fxName, Vector3 position, Transform follow, bool isLooping, string skippedSfx,
-            List<GameObject> created, int depth)
+            SkinnedMeshRenderer ownerMesh, List<GameObject> created, int depth)
         {
             if (string.IsNullOrEmpty(fxName) || depth > _maxFxChainDepth ||
                 fxName.StartsWith("FX_", StringComparison.OrdinalIgnoreCase))
@@ -59,7 +61,8 @@ namespace Gothic.Core.Services.Meshes
                 anchor.transform.SetPositionAndRotation(position, Quaternion.identity);
                 if (follow != null)
                     anchor.transform.SetParent(follow, true);
-                var pfxGo = _meshService.CreateVobPfx(fx.VisNameS, parent: anchor, destroyAfterPlay: !isLooping);
+                var pfxGo = _meshService.CreateVobPfx(fx.VisNameS, parent: anchor, destroyAfterPlay: !isLooping,
+                    isFullRate: true);
                 if (pfxGo == null)
                 {
                     UnityEngine.Object.Destroy(anchor);
@@ -77,8 +80,10 @@ namespace Gothic.Core.Services.Meshes
                     }
                     else
                     {
-                        UnityEngine.Object.Destroy(anchor, Mathf.Max(fx.EmFxLifespan, _oneShotFxSeconds));
+                        // Until its last particle is gone (fire rain: 6.5 s of rain + 2.3 s falling - it was cut at 5 s).
+                        UnityEngine.Object.Destroy(anchor, Mathf.Max(fx.EmFxLifespan, GetPlaySeconds(anchor)));
                     }
+                    UseOwnerMesh(fx.VisNameS, anchor, ownerMesh);
                     created.Add(anchor);
                 }
             }
@@ -91,7 +96,39 @@ namespace Gothic.Core.Services.Meshes
                     AudioSource.PlayClipAtPoint(clip, position);
             }
 
-            PlayVisualFx(fx.EmFxCreateS, position, follow, isLooping, skippedSfx, created, depth + 1);
+            PlayVisualFx(fx.EmFxCreateS, position, follow, isLooping, skippedSfx, ownerMesh, created, depth + 1);
+        }
+
+        private static float GetPlaySeconds(GameObject root)
+        {
+            var seconds = _oneShotFxSeconds;
+            foreach (var particleSystem in root.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = particleSystem.main;
+                seconds = Mathf.Max(seconds, main.duration + main.startLifetime.constantMax);
+            }
+            return seconds;
+        }
+
+        /// <summary>
+        /// shpType MESH: Gothic emits from the caster's body (teleport: the glowing silhouette) - the owner's skinned
+        /// mesh if there is one.
+        /// </summary>
+        private void UseOwnerMesh(string pfxName, GameObject root, SkinnedMeshRenderer ownerMesh)
+        {
+            if (ownerMesh == null || !"MESH".Equals(_vmCacheService.TryGetPfxData(pfxName)?.ShpTypeS,
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+
+            foreach (var particleSystem in root.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var shape = particleSystem.shape;
+                shape.shapeType = ParticleSystemShapeType.SkinnedMeshRenderer;
+                shape.skinnedMeshRenderer = ownerMesh;
+                shape.position = Vector3.zero;
+                var main = particleSystem.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+            }
         }
 
         /// <summary>
@@ -127,7 +164,16 @@ namespace Gothic.Core.Services.Meshes
                 emitter = _defaultBloodEmitter;
 
             // Create particle effect at the hit position
-            _meshService.CreateVobPfx(emitter, position, Quaternion.identity, parent: target.Go, destroyAfterPlay: true);
+            var bloodGo = _meshService.CreateVobPfx(emitter, position, Quaternion.identity, parent: target.Go,
+                destroyAfterPlay: true);
+            if (bloodGo == null)
+                return;
+            foreach (var particleSystem in bloodGo.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = particleSystem.main;
+                main.startSizeMultiplier *= _bloodSizeScale;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+            }
         }
     }
 }

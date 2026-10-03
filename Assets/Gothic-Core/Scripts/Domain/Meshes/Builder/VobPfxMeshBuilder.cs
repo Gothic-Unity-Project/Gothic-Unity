@@ -112,6 +112,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private const float _minimumEmissionRate = 10f;
         private const float _maxBurstEmissionRate = 2000f;
         private const float _minBurstSeconds = 0.5f;
+        private const float _maxLoopEmissionRate = 500f;
+        private const float _gothicGravityScale = 10000f; // cm/ms^2 -> m/s^2
+        private bool _isFullRate;
         // Share of the particle's lifetime its trail lasts (trlFadeSpeed fades them fast in Gothic).
         private const float _trailLifetime = 0.15f;
         private static readonly System.Collections.Generic.HashSet<string> _loggedPfx = new();
@@ -136,6 +139,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public void SetDestroyAfterPlay(bool destroyAfterPlay)
         {
             _destroyAfterPlay = destroyAfterPlay;
+        }
+
+        /// <summary>
+        /// Spell/visual effects: looping ones emit their full ppsValue (the /100 was tuned for world fires).
+        /// </summary>
+        public void SetFullRate(bool isFullRate)
+        {
+            _isFullRate = isFullRate;
         }
         
         public override GameObject Build()
@@ -163,9 +174,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 // Gravity values in Gothic are very small (e.g., -0.0003)
                 // Multiplying by 1k - Blood effects for Zombies are spreading good then.
-                gravityX = float.Parse(gravity[0]) * 10;
-                gravityY = float.Parse(gravity[1]) * 10;
-                gravityZ = float.Parse(gravity[2]) * 10;
+                var gravityScale = _pfxConfigService.Dev.EnablePfxMinimumEmission ? _gothicGravityScale : 10f;
+                gravityX = float.Parse(gravity[0]) * gravityScale;
+                gravityY = float.Parse(gravity[1]) * gravityScale;
+                gravityZ = float.Parse(gravity[2]) * gravityScale;
             }
 
             // Main module
@@ -229,6 +241,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // DeveloperConfig.EnablePfxMinimumEmission: low-rate effects (LIGHTSMOKE: 5 pps) emitted nothing.
                 if (_isGothicBurst)
                     scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxBurstEmissionRate);
+                else if (_isFullRate && _pfxConfigService.Dev.EnablePfxMinimumEmission)
+                    scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxLoopEmissionRate);
                 else if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
                     scaledEmissionRate = Mathf.Max(scaledEmissionRate, Mathf.Min(pfx.PpsValue, _minimumEmissionRate));
                 
@@ -394,7 +408,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         shapeModule.shapeType = ParticleSystemShapeType.Box;
                         break;
                     case "MESH":
-                        shapeModule.shapeType = ParticleSystemShapeType.Mesh;
+                        shapeModule.shapeType = _pfxConfigService.Dev.EnablePfxMinimumEmission
+                            ? ParticleSystemShapeType.Sphere
+                            : ParticleSystemShapeType.Mesh;
                         break;
                     case "POINT":
                         shapeModule.shapeType = ParticleSystemShapeType.Sphere;
@@ -438,7 +454,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
 
                 // Apply direction mode and angle variations
-                if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
+                if (pfx.DirModeS.EqualsIgnoreCase("RAND") && _pfxConfigService.Dev.EnablePfxMinimumEmission)
+                {
+                    shapeModule.randomDirectionAmount = 1f;
+                }
+                else if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
                 {
                     // For random direction with angle spread, use Sphere shape to emit in all directions
                     // The velocity variations will be handled by start speed and velocity over lifetime
