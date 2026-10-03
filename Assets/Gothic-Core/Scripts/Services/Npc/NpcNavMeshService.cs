@@ -66,6 +66,9 @@ namespace Gothic.Core.Services.Npc
         private readonly NavMeshPath _path = new();
         private readonly List<NavMeshLinkInstance> _ladderLinks = new();
         private readonly List<(Vector3 bottom, Vector3 top)> _ladders = new();
+        // Per ladder (same index): where an NPC stands on it (in front of the rungs, open side) and where it looks.
+        private readonly List<(Vector3 column, Vector3 facing)> _ladderStances = new();
+        private const float _ladderStandOff = 0.3f;
         private bool _isUpdateLoopRunning;
 
 
@@ -97,6 +100,67 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// Where to climb the ladder with these ends (from TryGetLadder/TryFindLadderRoute): column = a point in front of
+        /// the rungs (only X/Z matter), facing = towards the rungs.
+        /// </summary>
+        public bool TryGetLadderStance(Vector3 ladderStart, Vector3 ladderEnd, out Vector3 column, out Vector3 facing)
+        {
+            for (var i = 0; i < _ladders.Count; i++)
+            {
+                var (bottom, top) = _ladders[i];
+                if ((bottom == ladderStart && top == ladderEnd) || (bottom == ladderEnd && top == ladderStart))
+                {
+                    (column, facing) = _ladderStances[i];
+                    return true;
+                }
+            }
+
+            column = facing = Vector3.zero;
+            return false;
+        }
+
+        /// <summary>
+        /// The ladder mesh's thinnest horizontal axis is the rungs' normal; the NPC stands on the side of the lower
+        /// NavMesh end (the wall is behind the ladder).
+        /// </summary>
+        private static (Vector3 column, Vector3 facing) GetLadderStance(GameObject ladder, Bounds bounds, Vector3 bottom)
+        {
+            var center = new Vector3(bounds.center.x, 0f, bounds.center.z);
+            var normal = Vector3.zero;
+            var meshFilter = ladder.GetComponentInChildren<MeshFilter>();
+            if (meshFilter != null && meshFilter.sharedMesh != null)
+            {
+                var size = meshFilter.sharedMesh.bounds.size;
+                var axisTransform = meshFilter.transform;
+                var x = axisTransform.TransformVector(new Vector3(size.x, 0f, 0f));
+                var y = axisTransform.TransformVector(new Vector3(0f, size.y, 0f));
+                var z = axisTransform.TransformVector(new Vector3(0f, 0f, size.z));
+                // Of the three local axes, the most horizontal and shortest one.
+                var best = float.MaxValue;
+                foreach (var axis in new[] { x, y, z })
+                {
+                    var flat = new Vector3(axis.x, 0f, axis.z);
+                    if (flat.magnitude < axis.magnitude * 0.5f)
+                        continue; // mostly vertical - the ladder's length
+                    if (axis.magnitude < best)
+                    {
+                        best = axis.magnitude;
+                        normal = flat.normalized;
+                    }
+                }
+            }
+            if (normal == Vector3.zero)
+            {
+                normal = new Vector3(bottom.x, 0f, bottom.z) - center;
+                normal = normal.sqrMagnitude > 0.0001f ? normal.normalized : Vector3.forward;
+            }
+            if (Vector3.Dot(new Vector3(bottom.x, 0f, bottom.z) - center, normal) < 0f)
+                normal = -normal;
+
+            return (center + normal * _ladderStandOff, -normal);
+        }
+
+        /// <summary>
         /// A ladder link between the NPC and the next path corner (bottom->top or top->bottom).
         /// </summary>
         public bool TryGetLadder(Vector3 from, Vector3 to, out Vector3 ladderStart, out Vector3 ladderEnd)
@@ -124,6 +188,39 @@ namespace Gothic.Core.Services.Npc
         }
 
         private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
+
+        private const float _ladderRouteSearchDistance = 8f;
+        private const float _ladderEndHeightTolerance = 1.5f;
+        private const float _ladderDestinationHeightTolerance = 2.5f;
+
+        /// <summary>
+        /// Waynet walking (like the engine): the next waypoint is on another height and a ladder nearby connects the
+        /// NPC's height with the waypoint's - returns its end at the NPC's side (walk there) and the other end.
+        /// </summary>
+        public bool TryFindLadderRoute(Vector3 feetPosition, Vector3 destination, out Vector3 ladderStart,
+            out Vector3 ladderEnd)
+        {
+            ladderStart = ladderEnd = Vector3.zero;
+            var bestDistance = _ladderRouteSearchDistance;
+            var isUp = destination.y > feetPosition.y;
+            foreach (var (bottom, top) in _ladders)
+            {
+                var near = isUp ? bottom : top;
+                var far = isUp ? top : bottom;
+                if (Mathf.Abs(near.y - feetPosition.y) > _ladderEndHeightTolerance ||
+                    Mathf.Abs(far.y - destination.y) > _ladderDestinationHeightTolerance)
+                    continue;
+
+                var distance = FlatDistance(feetPosition, near);
+                if (distance >= bestDistance)
+                    continue;
+
+                bestDistance = distance;
+                ladderStart = near;
+                ladderEnd = far;
+            }
+            return bestDistance < _ladderRouteSearchDistance;
+        }
 
         /// <summary>
         /// Where a chasing NPC should run to reach the target: the next corner of the NavMesh path.
@@ -272,6 +369,7 @@ namespace Gothic.Core.Services.Npc
 
                 _ladderLinks.Add(instance);
                 _ladders.Add((bottomHit.position, topHit.position));
+                _ladderStances.Add(GetLadderStance(vob.Go, bounds, bottomHit.position));
             }
         }
 
@@ -284,6 +382,7 @@ namespace Gothic.Core.Services.Npc
             }
             _ladderLinks.Clear();
             _ladders.Clear();
+            _ladderStances.Clear();
         }
 
         /// <summary>

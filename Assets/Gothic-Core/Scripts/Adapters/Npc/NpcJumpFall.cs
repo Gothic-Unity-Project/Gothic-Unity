@@ -30,6 +30,7 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly NpcNavMeshService _npcNavMeshService;
 
         private const float _gravity = 9.81f;
         private const float _maxFallSpeedH = 6f;
@@ -48,7 +49,13 @@ namespace Gothic.Core.Adapters.Npc
         private const float _ladderSpeed = 1.5f;
         private const float _ladderExtraSeconds = 0.6f;
         private const float _dropProbeDistance = 1f;
-        private static readonly string[] _ladderAnimations = { "S_LADDER", "S_JUMPUPMID" };
+        // HUMANS.MDS: one climb cycle t_Ladder_S0_2_S1 (frames 15-45), down = the same played backwards (aliases R).
+        private static readonly string[] _ladderUp = { "T_LADDER_STAND_2_S0", "T_LADDER_S0_2_S1", "T_LADDER_S1_2_STAND" };
+        private static readonly string[] _ladderDown = { "T_LADDER_STAND_2_S1", "T_LADDER_S1_2_S0", "T_LADDER_S0_2_STAND" };
+        // Fallback if the climb cycle doesn't lift the root bone itself (0.9 climbed a few cycles too many).
+        private const float _ladderMetersPerCycle = 1.2f;
+        // Unloaded vobs (bridges, platforms) far from the hero have no colliders yet - nobody falls through them there.
+        private const float _fallCheckMaxHeroDistance = 40f;
 
         private enum State
         {
@@ -78,6 +85,20 @@ namespace Gothic.Core.Adapters.Npc
         private float _stateDuration;
         private Vector3 _climbFrom;
         private Vector3 _climbTo;
+        // Ladders: step to the ladder during the first animation, change height only during the climb cycles, step off
+        // during the last one (start/end as parts of the whole climb).
+        private bool _isLadder;
+        private static bool _hasLoggedLadderCycle;
+        private Vector3 _ladderColumn;
+        private float _ladderRiseStart;
+        private float _ladderRiseEnd;
+        // The climb animations lift the root bone themselves (pose offset): per animation the NPC's base height, so each
+        // one starts where the previous one ended - no double lift ("hiccup"). Null: no usable root lift (plain lerp).
+        private float[] _ladderBases;
+        private float[] _ladderBlendIns;
+        // What's left to the ladder's end after the last animation - spread over the whole climb.
+        private float _ladderEndError;
+        private const float _ladderMaxEndError = 1.5f;
 
         public bool IsBusy => _state != State.None;
 
@@ -151,7 +172,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private void CheckFall()
         {
-            if (!_hasPreviousPosition || RestHeight <= 0f || !CanMove())
+            if (!_hasPreviousPosition || RestHeight <= 0f || !CanMove() || !IsNearHero())
                 return;
 
             // Only NPCs that move walk off a ledge (an idle NPC on a vob that isn't loaded yet must not drop).
@@ -166,6 +187,14 @@ namespace Gothic.Core.Adapters.Npc
                 return;
 
             StartFall(moved / Mathf.Max(Time.deltaTime, 0.001f));
+        }
+
+        private bool IsNearHero()
+        {
+            var hero = _gameStateService.GothicVm?.GlobalHero as ZenKit.Daedalus.NpcInstance;
+            var heroGo = hero?.GetUserData()?.Go;
+            return heroGo != null &&
+                   Vector3.Distance(heroGo.transform.position, transform.position) < _fallCheckMaxHeroDistance;
         }
 
         private void StartFall(Vector3 velocityH)
@@ -314,6 +343,7 @@ namespace Gothic.Core.Adapters.Npc
             _npc.PrefabProps.AnimationSystem.StopAllAnimations();
             transform.rotation = Quaternion.LookRotation(direction);
             _npc.Props.BodyState = VmGothicEnums.BodyState.BsJump;
+            _isLadder = false;
             StartSequence(State.Climbing, sequence);
 
             Logger.Log($"[NpcJumpFall] {_npc.Go.name} climbs a {height:F2} m ledge.", LogCat.Ai);
@@ -328,11 +358,33 @@ namespace Gothic.Core.Adapters.Npc
             if (!_configService.Dev.EnableNpcJumpAndFall || IsBusy || RestHeight <= 0f || !CanMove())
                 return false;
 
-            var animation = System.Array.Find(_ladderAnimations, HasTrack);
+            var isUp = ladderEnd.y > ladderStart.y;
+            var names = isUp ? _ladderUp : _ladderDown;
+            var cycles = Mathf.Max(1, Mathf.RoundToInt(GetLadderClimbHeight(ladderStart, ladderEnd) /
+                                                       GetLadderMetersPerCycle()));
+            var sequence = new System.Collections.Generic.List<string> { names[0] };
+            for (var i = 0; i < cycles; i++)
+                sequence.Add(names[1]);
+            sequence.Add(names[2]);
+
             _climbFrom = transform.position;
             _climbTo = ladderEnd + Vector3.up * RestHeight;
-
-            var flat = ladderEnd - ladderStart;
+            _isLadder = true;
+            Vector3 flat;
+            if (_npcNavMeshService.TryGetLadderStance(ladderStart, ladderEnd, out var column, out var facing))
+            {
+                // In front of the rungs, looking at them - up and down at the same spot (like the engine).
+                _ladderColumn = new Vector3(column.x, 0f, column.z);
+                flat = facing;
+            }
+            else
+            {
+                var middle = (ladderStart + ladderEnd) * 0.5f;
+                _ladderColumn = new Vector3(middle.x, 0f, middle.z);
+                var bottom = isUp ? ladderStart : ladderEnd;
+                var top = isUp ? ladderEnd : ladderStart;
+                flat = top - bottom;
+            }
             flat.y = 0f;
             if (flat.sqrMagnitude > 0.0001f)
                 transform.rotation = Quaternion.LookRotation(flat);
@@ -340,8 +392,20 @@ namespace Gothic.Core.Adapters.Npc
             _physicsService.DisablePhysicsForNpc(_npc.PrefabProps);
             _npc.PrefabProps.AnimationSystem.StopAllAnimations();
             _npc.Props.BodyState = VmGothicEnums.BodyState.BsClimb;
-            StartSequence(State.Climbing, animation != null ? new[] { animation } : System.Array.Empty<string>());
-            _stateDuration = Mathf.Abs(ladderEnd.y - ladderStart.y) / _ladderSpeed + _ladderExtraSeconds;
+            StartSequence(State.Climbing, sequence.ToArray());
+            // Without the animations (other models): a plain climb at ladder speed.
+            if (_stateDuration <= _climbMinSeconds)
+            {
+                _stateDuration = Mathf.Abs(ladderEnd.y - ladderStart.y) / _ladderSpeed + _ladderExtraSeconds;
+                _ladderRiseStart = 0.1f;
+                _ladderRiseEnd = 0.9f;
+            }
+            else
+            {
+                _ladderRiseStart = Mathf.Clamp01(_sequenceDurations[0] / _stateDuration);
+                _ladderRiseEnd = Mathf.Clamp(1f - _sequenceDurations[^1] / _stateDuration, _ladderRiseStart + 0.01f, 1f);
+            }
+            PrepareLadderBases();
 
             Logger.Log($"[NpcJumpFall] {_npc.Go.name} takes a ladder ({ladderStart.y:F1} -> {ladderEnd.y:F1}).", LogCat.Ai);
             return true;
@@ -373,12 +437,129 @@ namespace Gothic.Core.Adapters.Npc
         {
             TickSequence();
 
-            // Up first, then forward onto the ledge.
             var t = Mathf.Clamp01(_stateTime / _stateDuration);
+            if (_isLadder)
+            {
+                TickLadder(t);
+                return;
+            }
+
+            // Up first, then forward onto the ledge.
             var rise = Mathf.Clamp01(t / _climbRisePart);
             var forward = Mathf.Clamp01((t - _climbRisePart * 0.5f) / (1f - _climbRisePart * 0.5f));
             var horizontal = Vector3.Lerp(new Vector3(_climbFrom.x, 0f, _climbFrom.z), new Vector3(_climbTo.x, 0f, _climbTo.z), forward);
             transform.position = new Vector3(horizontal.x, Mathf.Lerp(_climbFrom.y, _climbTo.y, rise), horizontal.z);
+
+            if (t >= 1f)
+                Finish();
+        }
+
+        /// <summary>
+        /// Height the climb cycles have to cover: the whole ladder minus what getting on and off lift already.
+        /// </summary>
+        private float GetLadderClimbHeight(Vector3 ladderStart, Vector3 ladderEnd)
+        {
+            var height = Mathf.Abs(ladderEnd.y - ladderStart.y);
+            var transitions = Mathf.Abs(RootHeightChange(_ladderUp[0])) + Mathf.Abs(RootHeightChange(_ladderUp[2]));
+            return transitions < height * 0.5f ? height - transitions : height;
+        }
+
+        /// <summary>
+        /// One t_Ladder_S0_2_S1 cycle lifts the root this far in HUMANS.MDS (fallback if the track has no root lift).
+        /// </summary>
+        private float GetLadderMetersPerCycle()
+        {
+            var perCycle = Mathf.Abs(RootHeightChange(_ladderUp[1]));
+            if (!_hasLoggedLadderCycle)
+            {
+                _hasLoggedLadderCycle = true;
+                Logger.Log($"[NpcJumpFall] Ladder cycle lifts {perCycle:F2} m (getting on " +
+                           $"{RootHeightChange(_ladderUp[0]):F2}, off {RootHeightChange(_ladderUp[2]):F2}).", LogCat.Ai);
+            }
+            return perCycle > 0.2f ? perCycle : _ladderMetersPerCycle;
+        }
+
+        private float RootHeightChange(string animation) =>
+            _animationService.GetRootHeightChange(animation, _npc.Props.MdsNameBase, _npc.Props.MdsNameOverlay);
+
+        /// <summary>
+        /// base[i] + firstOffset[i] = base[i-1] + lastOffset[i-1]: every animation continues at the height the previous
+        /// one left the body. Starts at the NPC's own height.
+        /// </summary>
+        private void PrepareLadderBases()
+        {
+            _ladderBases = null;
+            if (_sequence == null || _sequence.Length == 0)
+                return;
+
+            var bases = new float[_sequence.Length];
+            var blendIns = new float[_sequence.Length];
+            var baseY = _climbFrom.y;
+            float? previousLast = null;
+            for (var i = 0; i < _sequence.Length; i++)
+            {
+                if (_sequenceDurations[i] <= 0f ||
+                    !_animationService.TryGetRootHeightOffsets(_sequence[i], _npc.Props.MdsNameBase,
+                        _npc.Props.MdsNameOverlay, out var first, out var last))
+                {
+                    bases[i] = baseY;
+                    continue;
+                }
+
+                if (previousLast != null)
+                    baseY += previousLast.Value - first;
+                bases[i] = baseY;
+                blendIns[i] = _animationService.GetTrack(_sequence[i], _npc.Props.MdsNameBase,
+                    _npc.Props.MdsNameOverlay)?.BlendIn ?? 0f;
+                previousLast = last;
+            }
+
+            if (previousLast == null)
+                return;
+            var endError = _climbTo.y - (baseY + previousLast.Value);
+            if (Mathf.Abs(endError) > _ladderMaxEndError)
+            {
+                Logger.LogWarning($"[NpcJumpFall] Ladder root lift doesn't fit ({endError:F2} m off) - plain climb.",
+                    LogCat.Ai);
+                return;
+            }
+
+            _ladderBases = bases;
+            _ladderBlendIns = blendIns;
+            _ladderEndError = endError;
+        }
+
+        /// <summary>
+        /// Base height of the running animation. While it blends in, the pose offset still blends from the previous
+        /// animation's - the base moves along, so the body doesn't hop.
+        /// </summary>
+        private float GetLadderBaseY(float t)
+        {
+            var index = Mathf.Clamp(_sequenceIndex, 0, _ladderBases.Length - 1);
+            var baseY = _ladderBases[index];
+            if (index > 0 && _ladderBlendIns[index] > 0f)
+                baseY = Mathf.Lerp(_ladderBases[index - 1], baseY, Mathf.Clamp01(_sequenceTime / _ladderBlendIns[index]));
+            return baseY + _ladderEndError * t;
+        }
+
+        /// <summary>
+        /// Onto the ladder (first animation), up/down along it (climb cycles), off it (last animation).
+        /// </summary>
+        private void TickLadder(float t)
+        {
+            var fromFlat = new Vector3(_climbFrom.x, 0f, _climbFrom.z);
+            var toFlat = new Vector3(_climbTo.x, 0f, _climbTo.z);
+            Vector3 horizontal;
+            if (t < _ladderRiseStart)
+                horizontal = Vector3.Lerp(fromFlat, _ladderColumn, t / _ladderRiseStart);
+            else if (t <= _ladderRiseEnd)
+                horizontal = _ladderColumn;
+            else
+                horizontal = Vector3.Lerp(_ladderColumn, toFlat, (t - _ladderRiseEnd) / Mathf.Max(1f - _ladderRiseEnd, 0.001f));
+
+            var rise = Mathf.Clamp01((t - _ladderRiseStart) / (_ladderRiseEnd - _ladderRiseStart));
+            var y = _ladderBases != null ? GetLadderBaseY(t) : Mathf.Lerp(_climbFrom.y, _climbTo.y, rise);
+            transform.position = new Vector3(horizontal.x, y, horizontal.z);
 
             if (t >= 1f)
                 Finish();
@@ -398,7 +579,8 @@ namespace Gothic.Core.Adapters.Npc
                 _stateDuration += _sequenceDurations[i];
             }
 
-            if (state == State.Climbing)
+            // Ledges: short; ladders (more than 3 animations) take as long as their climb cycles.
+            if (state == State.Climbing && animations.Length <= 3)
                 _stateDuration = Mathf.Clamp(_stateDuration, _climbMinSeconds, _climbMaxSeconds);
 
             _sequenceIndex = -1;
@@ -431,12 +613,17 @@ namespace Gothic.Core.Adapters.Npc
 
         private void Finish()
         {
+            // Ladder: off it exactly at its end point (the base height + last pose offset left it mid-air/inside).
+            if (_isLadder && _state == State.Climbing)
+                transform.position = _climbTo;
+
             if (_sequence != null && _sequenceIndex >= 0 && _sequenceIndex < _sequence.Length)
                 _npc.PrefabProps.AnimationSystem.StopAnimation(_sequence[_sequenceIndex]);
             if (_fallAnimName != null)
                 _npc.PrefabProps.AnimationSystem.StopAnimation(_fallAnimName);
 
             _state = State.None;
+            _isLadder = false;
             _sequence = null;
             _fallAnimName = null;
             if (_npc.Props.BodyState is VmGothicEnums.BodyState.BsFall or VmGothicEnums.BodyState.BsJump

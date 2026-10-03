@@ -156,6 +156,41 @@ namespace Gothic.Core.Services.Npc
 
         private const string _reversedSuffix = "_REVERSED";
 
+        /// <summary>
+        /// How far the animation lifts the root bone from its first to its last frame (e.g. one ladder climb cycle).
+        /// 0 if unknown.
+        /// </summary>
+        public float GetRootHeightChange(string animName, string mdsBase, string mdsOverlay)
+        {
+            return TryGetRootHeightOffsets(animName, mdsBase, mdsOverlay, out var first, out var last) ? last - first : 0f;
+        }
+
+        /// <summary>
+        /// Root bone height offset (from the rest height) at the first and last played frame - the pose offset
+        /// AnimationSystem applies on top of the NPC's position (reversed tracks start at their last baked frame).
+        /// </summary>
+        public bool TryGetRootHeightOffsets(string animName, string mdsBase, string mdsOverlay, out float first,
+            out float last)
+        {
+            first = last = 0f;
+            var track = GetTrack(animName, mdsBase, mdsOverlay);
+            var skeleton = GetSkeleton(mdsBase);
+            if (track == null || skeleton == null || track.BakedFrameCount < 2 || !track.Positions.IsCreated)
+                return false;
+
+            for (var bone = 0; bone < track.BoneCount; bone++)
+            {
+                if (track.BoneToNode[bone] != skeleton.RootNodeIndex)
+                    continue;
+                first = track.Positions[bone].y;
+                last = track.Positions[(track.BakedFrameCount - 1) * track.BoneCount + bone].y;
+                if (track.Direction == AnimationDirection.Backward)
+                    (first, last) = (last, first);
+                return true;
+            }
+            return false;
+        }
+
         private AnimationTrack GetTrack(string animName, string mdsName)
         {
             if (mdsName == null)
