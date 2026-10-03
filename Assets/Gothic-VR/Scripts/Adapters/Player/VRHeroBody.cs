@@ -66,6 +66,9 @@ namespace Gothic.VR.Adapters.Player
         private bool _areSleevesRolledUp;
         // Triangles weighted on average more than this to a part (hand, forearm) belong to it (see CutArms).
         private const float _armCutWeight = 0.5f;
+        private const float _bareForearmWeight = 0.3f;
+        // Armor triangles reaching this far into the forearm stay (a short overlap with the bare forearm).
+        private const float _sleeveKeepWeight = 0.75f;
 
         private readonly ArmIk _leftArm = new("L");
         private readonly ArmIk _rightArm = new("R");
@@ -75,6 +78,8 @@ namespace Gothic.VR.Adapters.Player
         private float _lastBodyYaw;
         private float _bodyYawSpeed;
         private float _standingScale;
+        private const float _swimCrawlFullSpeed = 0.8f;
+        private const float _swimCrawlMaxWeight = 0.8f;
         private const float _idleSpeed = 0.15f;
         private const float _runSpeed = 1.6f;
         private const float _turnAnimationSpeed = 60f; // degrees per second
@@ -176,8 +181,15 @@ namespace Gothic.VR.Adapters.Player
             var isBackwards = local.z < -_backwardsShare * speed;
 
             string animation;
+            // Swimming: floating upright (s_Swim), the crawl (s_SwimF) only blended in with the speed - slowly, so the
+            // legs come up towards the surface instead of jumping behind the camera.
+            var swimCrawl = bodyState == VmGothicEnums.BodyState.BsSwim && isMoving && !isBackwards
+                ? Mathf.Clamp01(speed / _swimCrawlFullSpeed) * _swimCrawlMaxWeight
+                : 0f;
+            _animator.SetOverlay("S_SWIMF", swimCrawl);
+
             if (bodyState == VmGothicEnums.BodyState.BsSwim)
-                animation = !isMoving ? "S_SWIM" : isBackwards ? "S_SWIMB" : "S_SWIMF";
+                animation = isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
             else if (bodyState == VmGothicEnums.BodyState.BsDive)
                 animation = isMoving ? "S_DIVEF" : "S_DIVE";
             else if (_playerController != null && !_playerController.IsGrounded && velocity.y < -1f &&
@@ -478,6 +490,8 @@ namespace Gothic.VR.Adapters.Player
                     boneIndex >= 0 && boneIndex < isBone.Length && isBone[boneIndex] ? weight : 0f;
             }
 
+            float SleeveWeight(int vertex) => WeightOf(vertex, isForearmBone) + WeightOf(vertex, isHandBone);
+
             var copy = Instantiate(mesh);
             copy.name = $"{mesh.name}_{cut}";
             var keptTriangles = 0;
@@ -494,8 +508,11 @@ namespace Gothic.VR.Adapters.Player
                     var isKept = cut switch
                     {
                         ArmCut.WithoutHands => hand <= _armCutWeight,
-                        ArmCut.Forearms => hand <= _armCutWeight && forearm + hand > _armCutWeight,
-                        _ => forearm + hand <= _armCutWeight
+                        // A bit up into the armor - the cut sleeve overlaps it, no gap at the elbow.
+                        ArmCut.Forearms => hand <= _armCutWeight && forearm + hand > _bareForearmWeight,
+                        // No triangle with a forearm vertex: it stuck out straight from the bent elbow (spikes).
+                        _ => Mathf.Max(SleeveWeight(triangles[i]), SleeveWeight(triangles[i + 1]),
+                            SleeveWeight(triangles[i + 2])) <= _sleeveKeepWeight
                     };
                     if (!isKept)
                         continue;
@@ -507,6 +524,9 @@ namespace Gothic.VR.Adapters.Player
                 keptTriangles += kept.Count / 3;
             }
 
+            if (cut == ArmCut.Sleeveless)
+                MoveForearmWeightsToUpperArm(copy, bones, isForearmBone, isHandBone);
+
             Logger.Log($"[VRHeroBody] {copy.name}: {keptTriangles} of {mesh.triangles.Length / 3} triangles.", LogCat.VR);
             if (keptTriangles == 0)
             {
@@ -515,6 +535,46 @@ namespace Gothic.VR.Adapters.Player
             }
             _createdMeshes.Add(copy);
             return copy;
+        }
+
+        /// <summary>
+        /// Rolled-up sleeve: the elbow vertices that stay are partly weighted to the forearm - stretched by the IK they
+        /// became spikes towards the wrist. Their forearm/hand weight goes to the bone above (upper arm): the sleeve
+        /// ends rigid at the elbow.
+        /// </summary>
+        private static void MoveForearmWeightsToUpperArm(Mesh mesh, Transform[] bones, bool[] isForearmBone,
+            bool[] isHandBone)
+        {
+            var target = new int[bones.Length];
+            for (var i = 0; i < bones.Length; i++)
+            {
+                target[i] = i;
+                if (!isForearmBone[i] && !isHandBone[i])
+                    continue;
+                // Nearest ancestor that is neither forearm nor hand (BIP01 x UPPERARM).
+                for (var parent = bones[i].parent; parent != null; parent = parent.parent)
+                {
+                    var index = System.Array.IndexOf(bones, parent);
+                    if (index >= 0 && !isForearmBone[index] && !isHandBone[index])
+                    {
+                        target[i] = index;
+                        break;
+                    }
+                }
+            }
+
+            int Remap(int boneIndex) => boneIndex >= 0 && boneIndex < target.Length ? target[boneIndex] : boneIndex;
+            var weights = mesh.boneWeights;
+            for (var v = 0; v < weights.Length; v++)
+            {
+                var w = weights[v];
+                w.boneIndex0 = Remap(w.boneIndex0);
+                w.boneIndex1 = Remap(w.boneIndex1);
+                w.boneIndex2 = Remap(w.boneIndex2);
+                w.boneIndex3 = Remap(w.boneIndex3);
+                weights[v] = w;
+            }
+            mesh.boneWeights = weights;
         }
 
         private void DestroyCreatedMeshes()

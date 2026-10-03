@@ -25,6 +25,9 @@ namespace Gothic.VR.Adapters.Player
         private readonly Transform[] _nodeBones;
         private readonly int _rootNodeIndex;
         private readonly List<Layer> _layers = new();
+        private Layer _overlay;
+        private float _overlayTargetWeight;
+        private const float _overlayBlendTime = 1.5f;
 
         public bool IsValid => _nodeBones != null;
         public string MdsBase => _mdsBase;
@@ -139,6 +142,41 @@ namespace Gothic.VR.Adapters.Player
 
             for (var i = 0; i < _layers.Count; i++)
                 ApplyLayer(_layers[i], i == 0 ? 1f : _layers[i].Weight);
+
+            UpdateOverlay(deltaTime);
+        }
+
+        /// <summary>
+        /// A second animation blended over the main one at a slowly changing weight (swimming: the crawl over the
+        /// floating pose - the legs rise towards the surface the faster you swim, instead of snapping behind you).
+        /// </summary>
+        public void SetOverlay(string animationName, float weight)
+        {
+            var track = GetTrack(animationName);
+            if (track != null && _overlay?.Track != track)
+            {
+                if (_overlay == null || _overlay.Weight <= 0f)
+                    _overlay = new Layer { Track = track, Speed = 1f };
+                else
+                    _overlay.Track = track;
+            }
+            _overlayTargetWeight = track != null ? Mathf.Clamp01(weight) : 0f;
+        }
+
+        private void UpdateOverlay(float deltaTime)
+        {
+            if (_overlay == null)
+                return;
+
+            _overlay.Weight = Mathf.MoveTowards(_overlay.Weight, _overlayTargetWeight, deltaTime / _overlayBlendTime);
+            if (_overlay.Weight <= 0f && _overlayTargetWeight <= 0f)
+            {
+                _overlay = null;
+                return;
+            }
+
+            _overlay.Time = Mathf.Repeat(_overlay.Time + deltaTime, _overlay.Track.Duration);
+            ApplyLayer(_overlay, _overlay.Weight);
         }
 
         /// <summary>
