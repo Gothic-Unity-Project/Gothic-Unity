@@ -573,9 +573,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return FightConst.RangedAttackReachMeters * _configService.Dev.RangedCombatRangeMultiplier;
 
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
-            var item = VmCacheService.TryGetItemData(Props.CurrentItem);
+            // Fists / no weapon: CurrentItem is the last used item (a novice's joint, range 0) - fist range instead.
+            // Reach was 0.3 m and every punch of a berzerk victim missed.
+            var isMeleeWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
+            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
             var weaponRange = item?.Range ?? GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-            return (baseRange + weaponRange) / 100f;
+            // Same minimum as Attack.GetAttackRange(): the fight AI attacks from there, so the hit must connect there.
+            return Mathf.Max((baseRange + weaponRange) / 100f, 1.5f);
         }
     }
 }

@@ -586,9 +586,20 @@ namespace Gothic.Core.Models.Config
                  "before NoTalk nr 2 - he walked up for the sleep spell, then offered NoTalk, forever).")]
         public bool EnableImportantInfoOrder = true;
 
+        [Tooltip("V1: The hero isn't frozen during dialogs. A dialog doesn't start farther than DialogMaxDistance from " +
+                 "the NPC (come closer) and ends when the hero walks away.")]
+        public bool EnableDialogFreeMovement = true;
+
+        [Tooltip("Meters: the farthest distance between the hero and the NPC for a dialog (EnableDialogFreeMovement).")]
+        public float DialogMaxDistance = 5f;
+
         [Tooltip("V1: Npc_SetTarget is the NPC's enemy (AI_Attack attacks it) and Npc_GetTarget without a target sets " +
                  "other to NULL like the engine. Berzerk victims attacked the caster instead of the NPC they picked.")]
         public bool EnableNpcTargetIsEnemy = true;
+
+        [Tooltip("V1: AI_Attack without a drawn weapon draws the melee weapon first like the engine (berzerk victims " +
+                 "fought with fists).")]
+        public bool EnableAiAttackDrawsWeapon = true;
 
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;

@@ -42,6 +42,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            // DeveloperConfig.EnableAiAttackDrawsWeapon: like the engine (OpenGothic Npc::implAttack, "vanilla behavior,
+            // required for orcs in G1 orcgraveyard"), AI_Attack without a drawn weapon draws the melee weapon first -
+            // a berzerk victim fought with fists. The next AI_Attack of the loop fights with it.
+            if (_configService.Dev.EnableAiAttackDrawsWeapon &&
+                (VmGothicEnums.WeaponState)Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon)
+            {
+                _npcAiService.ExtAiDrawWeapon(NpcInstance);
+                IsFinishedFlag = true;
+                return;
+            }
+
             var aiFunctionTemplate = FindAiFunctionTemplate();
             // Null when the FIGHT VM couldn't be loaded at all (e.g. a mod DAT ZenKit can't parse and
             // no loose fallback existed — see ResourceCacheService.TryGetDaedalusVm). Plain Attack
@@ -191,8 +202,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
-            // If NPC has a weapon equipped, use its range; otherwise fall back to fist range.
-            var item = VmCacheService.TryGetItemData(Props.CurrentItem);
+            // If NPC has a weapon drawn, use its range; otherwise fall back to fist range (CurrentItem can be the
+            // last used item, e.g. a joint).
+            var isMeleeWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
+            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
             float weaponRange;
             if (item != null)
             {

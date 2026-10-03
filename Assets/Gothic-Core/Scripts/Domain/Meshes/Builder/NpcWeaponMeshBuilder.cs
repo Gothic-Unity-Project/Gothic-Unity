@@ -49,16 +49,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
             else
             {
-                switch ((VmGothicEnums.ItemFlags)_itemData.Flags)
-                {
-                    case VmGothicEnums.ItemFlags.Item2HdAxe:
-                    case VmGothicEnums.ItemFlags.Item2HdSwd:
-                        slotName = "ZS_LONGSWORD";
-                        break;
-                    default:
-                        slotName = "ZS_SWORD";
-                        break;
-                }
+                // HasFlag like AiDrawWeapon: a two-hander with any other flag (temple guards' swords) hung at the belt and
+                // drawing it looked for it on the back - the guards attacked empty-handed.
+                var flags = (VmGothicEnums.ItemFlags)_itemData.Flags;
+                var isTwoHanded = flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
+                                  flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd);
+                slotName = isTwoHanded ? "ZS_LONGSWORD" : "ZS_SWORD";
             }
             
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
