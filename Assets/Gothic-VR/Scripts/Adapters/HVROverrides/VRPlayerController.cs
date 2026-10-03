@@ -192,6 +192,11 @@ namespace Gothic.VR.Adapters.HVROverrides
             // Enable vertical walking controls
         }
 
+        /// <summary>
+        /// Transformed into a monster (VRTransformService): no grabbing, backpack or looting - like the engine.
+        /// </summary>
+        public void SetGrabbingEnabled(bool enable) => ChangeGrabbing(enable);
+
         private void ChangeGrabbing(bool enable)
         {
             LeftHand.AllowGrabbing = enable;

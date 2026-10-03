@@ -114,7 +114,16 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    // One broken NPC (e.g. a monster instance without a visual, spawned by a transformation scroll) must
+                    // not kill this coroutine - no NPC would be built anymore afterwards (summons stayed invisible).
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"[NpcService] Can't build NPC {npcElement.gameObject.name}: {e}", LogCat.Npc);
+                    }
                 }
 
                 yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
@@ -199,9 +208,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.ExtWldInsertNpc(npcInstanceIndex, spawnPoint);
         }
 
-        public void SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
         {
-            _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation, summonedBy);
+            return _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation, summonedBy);
         }
 
         public bool SpawnNpcByName(string symbolName, Vector3 position, Quaternion rotation)

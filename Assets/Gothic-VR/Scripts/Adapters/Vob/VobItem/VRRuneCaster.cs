@@ -59,6 +59,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly VRTransformService _vrTransformService;
+        private const string _transformName = "Transform";
 
         private const string _telekinesisName = "Telekinesis";
         private const float _telekinesisRange = 5000f;
@@ -181,6 +183,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 triggered = Keyboard.current[Key.R].wasPressedThisFrame;
             else
                 triggered = HVRController.GetButtonState(HVRHandSide.Right, HVRButtons.Trigger).JustActivated;
+
+            // Transformed: the orb hand's trigger transforms back (VRTransformPuppet) - no second transformation.
+            if (_vrTransformService.IsTransformed && IsTransformSpell())
+                return;
 
             // Telekinesis uses a 2-trigger system and skips Daedalus entirely.
             if (IsTelekinesisSpell())
@@ -323,6 +329,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (mfxName == _lightName)
                 {
                     ToggleLightSpell();
+                }
+                // Spell_Logic_Trf_X: Npc_SetActiveSpellInfo(self, <monster>) right before SPL_SENDCAST.
+                else if (mfxName == _transformName && _configService.Dev.EnableVrTransformations)
+                {
+                    var caster = _npcService.GetHeroContainer();
+                    if (caster != null && caster.ActiveSpellInfo > 1)
+                    {
+                        _vrTransformService.Transform(caster.ActiveSpellInfo, _runeHandSide);
+                        caster.ActiveSpellInfo = 0;
+                    }
                 }
                 else
                 {
@@ -901,6 +917,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return new Color(0.5f, 1f, 0.5f);
             return new Color(1f, 0.6f, 0.3f);
         }
+
+        private bool IsTransformSpell() =>
+            string.Equals(GetSpellMfxName(_item.Spell), _transformName, System.StringComparison.OrdinalIgnoreCase);
 
         private bool IsTelekinesisSpell() =>
             string.Equals(GetSpellMfxName(_item.Spell), _telekinesisName, System.StringComparison.OrdinalIgnoreCase);

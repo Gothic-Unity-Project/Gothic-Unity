@@ -155,7 +155,7 @@ namespace Gothic.VR.Adapters
         /// </summary>
         private void UpdateNameCanvas()
         {
-            if (!_isHovered || _nameCanvas == null)
+            if (!_isHovered || _nameCanvas == null || _cachedObjectRenderer == null)
                 return;
 
             // Calculate direction from parent object to camera

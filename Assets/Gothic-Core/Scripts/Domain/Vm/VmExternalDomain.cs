@@ -289,6 +289,10 @@ namespace Gothic.Core.Domain.Vm
             if (_configService.Dev.EnableScriptVideos)
                 RegisterPlayVideo(vm);
 
+            // Transformation scrolls (Spell_Logic_Trf_*): the monster instance the hero becomes (VRTransformService).
+            if (_configService.Dev.EnableVrTransformations && vm.GetSymbolByName("Npc_SetActiveSpellInfo") != null)
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
+
             // Day Routine
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
             vm.RegisterExternal<NpcInstance, int, int, int, string>("TA", Ta);
@@ -923,6 +927,14 @@ namespace Gothic.Core.Domain.Vm
             Logger.Log($"[PlayVideo] {fileName}", LogCat.Dialog);
             GlobalEventDispatcher.ScriptPlayVideo.Invoke(fileName);
             return 1;
+        }
+
+        public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)
+        {
+            var container = npc?.GetUserData();
+            if (container != null)
+                container.ActiveSpellInfo = info;
+            return LogInstantExternal(nameof(Npc_SetActiveSpellInfo), 0, npc, info);
         }
 
         /// <summary>

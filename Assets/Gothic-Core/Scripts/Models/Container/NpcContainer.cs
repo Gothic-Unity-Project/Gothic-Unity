@@ -179,6 +179,8 @@ namespace Gothic.Core.Models.Container
 
         // Spell casting state — set by VRRuneCaster while a rune is held
         public int ActiveSpell;
+        // Npc_SetActiveSpellInfo: for transformation spells the monster instance the caster becomes.
+        public int ActiveSpellInfo;
         public int ActiveSpellLevel = 1;
         public GameObject ActiveSpellVfxGo;
 

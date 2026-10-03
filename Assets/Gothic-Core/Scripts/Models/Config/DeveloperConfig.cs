@@ -529,5 +529,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: NPCs slide along walls/rocks instead of walking into them (sphere probe at hip height). Fast " +
                  "monsters ran through rocks and fell below the world.")]
         public bool EnableNpcWallCollision = true;
+
+        [Tooltip("V1: Transformation scrolls: the hero becomes the monster - it follows the player without AI (walk/run/" +
+                 "attack sounds), the VR camera goes down to its eyes, the hero's guild is the monster's. The casting hand " +
+                 "holds an orb with a live picture of the body; its trigger transforms back. The other trigger attacks.")]
+        public bool EnableVrTransformations = true;
     }
 }
