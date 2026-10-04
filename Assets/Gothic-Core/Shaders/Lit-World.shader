@@ -32,7 +32,7 @@ Shader "Lit/World"
             {
                 float4 vertex : POSITION;
                 half3 color : COLOR;
-                half3 normal : NORMAL;
+                half4 normal : NORMAL; // w = 1 on outdoor polygons (WorldMeshBuilder) - they follow the time of day
                 float4 uv : TEXCOORD0; // uv, array slice, max mip level
 
                 UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -61,9 +61,9 @@ Shader "Lit/World"
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
 
-            half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
+            half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color, half outdoor)
             {
-                half3 diffuse = color;
+                half3 diffuse = color * lerp(half3(1, 1, 1), _DayLightColor, outdoor);
 
                 //for (int j = 0; j < min(MAX_VISIBLE_LIGHTS, unity_LightData.y); j++)
                 //{
@@ -99,7 +99,7 @@ Shader "Lit/World"
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
-                o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
+                o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal.xyz), o.worldPos, v.color, v.normal.w);
                 return o;
             }
 
