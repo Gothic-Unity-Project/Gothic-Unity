@@ -122,6 +122,7 @@ namespace Gothic.VR.Adapters.Player
         private void SetOwner(IInventoryOwner owner)
         {
             _owner = owner;
+            SelectFirstFilledCategory();
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
 
             // The prefab's GrabColliders hold one empty entry: that turns on HVR's grab collider filter, which then lets
@@ -240,6 +241,22 @@ namespace Gothic.VR.Adapters.Player
             var item = vobContainer.VobAs<IItem>();
             _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, item?.Amount ?? 1));
             VRTradeGoods.RemoveFromWorld(vobContainer);
+        }
+
+        /// <summary>
+        /// An NPC's backpack opens on its first category with items - a wolf has only meat, no paging through the empty
+        /// weapon/armor/magic pages first.
+        /// </summary>
+        private void SelectFirstFilledCategory()
+        {
+            for (var category = VmGothicEnums.InvCats.InvWeapon; category <= VmGothicEnums.InvCats.InvMisc; category++)
+            {
+                if (Owner.GetInventory(category).Count == 0)
+                    continue;
+                _selectedCategory = category;
+                _currentPage = 1;
+                return;
+            }
         }
 
         private void OnNpcInventoryChanged(NpcContainer npc)
