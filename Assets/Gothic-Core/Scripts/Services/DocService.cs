@@ -13,6 +13,7 @@ namespace Gothic.Core.Services
     public class DocService
     {
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         private readonly Dictionary<int, DocModel> _docs = new();
         private int _nextId = 1;
@@ -150,6 +151,15 @@ namespace Gothic.Core.Services
                 return right != left && bottom != top;
             }
 
+            // G1 maps set no coords and the world mesh's bounds don't match the drawing (the hero was ~12% off) -
+            // calibrated edges per world from the config (left, top, right, bottom in cm).
+            var calibrated = _configService.Dev.G1WorldMapBounds;
+            if (doc.Level != null && Path.GetFileName(doc.Level.Replace('\\', '/')).EqualsIgnoreCase("WORLD.ZEN") &&
+                calibrated.x != calibrated.z && calibrated.y != calibrated.w)
+            {
+                (left, top, right, bottom) = (calibrated.x, calibrated.y, calibrated.z, calibrated.w);
+                return true;
+            }
 
             try
             {

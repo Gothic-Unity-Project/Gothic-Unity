@@ -154,7 +154,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _marker.anchoredPosition = new Vector2(Mathf.Clamp01(u) * size.x, (1f - Mathf.Clamp01(v)) * size.y);
 
             var forward = head.forward;
-            var yaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+            // Map up is +Z in G2 but -Z in G1 (top < bottom): turn the arrow the way the map's axes run.
+            var rightSign = _mapRight >= _mapLeft ? 1f : -1f;
+            var upSign = _mapTop >= _mapBottom ? 1f : -1f;
+            var yaw = Mathf.Atan2(forward.x * rightSign, forward.z * upSign) * Mathf.Rad2Deg;
             _marker.localRotation = Quaternion.Euler(0f, 0f, -yaw);
         }
 

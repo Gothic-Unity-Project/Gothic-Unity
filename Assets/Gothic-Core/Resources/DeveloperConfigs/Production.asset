@@ -17,6 +17,7 @@ MonoBehaviour:
   EnableMod: 0
   ModPath: 
   ModIni: 
+  FallbackLanguage: 
   GameControls: 0
   EnableVRDeviceSimulator: 0
   ActivateMarvinMode: 0
@@ -36,6 +37,7 @@ MonoBehaviour:
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
   EnableSaveLoadSystem: 0
+  EnableNpcRangedCombat: 0
   SpeedUpLoading: 0
   EnableVOBs: 1
   SpawnVOBTypes:
@@ -79,6 +81,11 @@ MonoBehaviour:
   SunLightIntensity: 1
   SunUpdateInterval: 1
   AmbientLightColor: {r: 0.1, g: 0.1, b: 0.1, a: 1}
+  EnableStaticLightsInLightMappedAreas: 1
+  StaticLightPoolSize: 1023
+  EnablePooledStationaryLights: 1
+  StationaryLightMaxDistance: 80
+  StationaryLightPoolRefreshSeconds: 2
   StartTimeHour: 8
   StartTimeMinute: 0
   TimeSpeedMultiplier: 1
@@ -95,5 +102,84 @@ MonoBehaviour:
   EnableTimeSkip: 0
   MarvinTeleportWaypoint: 
   MarvinSpawnNpcSymbol: 
+  MarvinGiveItems: 
   EnableNpcCombatCombos: 1
   EnableNpcHitDetection: 1
+  EnableOneHitKill: 0
+  EnableOneHitKnockout: 0
+  SummonSpawnRangeMultiplier: 0.8
+  RangedCombatRangeMultiplier: 0.8
+  EnableBackpackVacuum: 1
+  NpcLootMode: 2
+  NpcLootBackpackTimeout: 20
+  BackpackVacuumRadius: 1.2
+  BackpackVacuumStoreSeconds: 3
+  EnableHeroDropsWeaponsOnKnockout: 1
+  EnableRoutinePerceptionReset: 1
+  EnableCasterPerception: 1
+  EnableScriptRemovesHeldItems: 1
+  EnableSmoking: 1
+  SmokePuffs: 4
+  SmokeStartDelay: 1.5
+  EnableScreenMessages: 1
+  EnableNoTurnWhileUsingMob: 1
+  EnableMobSeatFix: 1
+  EnableRuntimeArmorVisuals: 1
+  EnableDigSpots: 1
+  DigSpotsRequireTool: 0
+  EnableDialogAlwaysOnTop: 1
+  EnableMobsiDialogs: 1
+  EnableVrCrossbow: 1
+  EnableChildVobLoaders: 1
+  EnableItemColliderFallback: 1
+  EnableKeepIdleOnClearAiQueue: 1
+  EnableScriptVideos: 1
+  EnableHeroMoveBodyState: 1
+  EnableCrossbowMasterOneHand: 1
+  EnableFasterChaseGiveUp: 1
+  EnableItemDetailsPopup: 1
+  EnableEquipItems: 1
+  EnableScriptEquipEffects: 1
+  EnableNpcWater: 1
+  EnableVrBows: 1
+  EnableThrowableSpells: 1
+  EnableNpcLookAtTarget: 1
+  EnableSummonIgnoresMasterHits: 1
+  EnableNpcNavMesh: 1
+  EnableNpcJumpAndFall: 1
+  EnableNpcWallCollision: 1
+  EnableLooplessStatesEnd: 1
+  EnableQuickWinExternals: 1
+  EnableDocConsumeOnClose: 1
+  EnableVrTransformations: 1
+  EnableVrHeroBody: 1
+  EnableAnimationPfx: 1
+  EnableSpellBodyFx: 1
+  EnablePfxMinimumEmission: 1
+  EnableItemRandomAnis: 1
+  EnableImportantInfoOrder: 1
+  EnableDialogFreeMovement: 1
+  DialogMaxDistance: 5
+  EnableNpcTargetIsEnemy: 1
+  EnableAiAttackDrawsWeapon: 1
+  EnableRoutineHolstersWeapon: 1
+  EnableDetectNpcSkipsDead: 1
+  EnableGuardsStopBerzerk: 1
+  EnablePassivePercBroadcast: 1
+  EnableNpcPerceptionsWithoutHero: 1
+  EnableAssessBodyPerception: 1
+  EnableMurderDefeatPerceptions: 1
+  EnableVrTrade: 1
+  EnableSpellTimePerMana: 1
+  MinSpellCastSeconds: 2
+  EnableModelScale: 1
+  EnableMapPlayerMarker: 1
+  G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
+  EnablePfxFullRateLoops: 1
+  EnableStackSplit: 1
+  StackSplitRepeatDelay: 0.45
+  StackSplitAcceleration: 0.8
+  EnableAiFlee: 1
+  EnableTeleportKeepsHeldItems: 1
+  EnableVrTorch: 1
+  EnableWldPlayEffect: 1

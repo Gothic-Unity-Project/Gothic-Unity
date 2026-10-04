@@ -679,6 +679,11 @@ namespace Gothic.Core.Models.Config
                  "Doc_SetLevel/Doc_SetLevelCoords, G1 maps use the world's bounds.")]
         public bool EnableMapPlayerMarker = true;
 
+        [Tooltip("G1 world map (WORLD.ZEN) edges in Gothic cm: x = left, y = top, z = right, w = bottom. G1 maps have no " +
+                 "Doc_SetLevelCoords - fit by two spots in VR (start, Swamp Camp). " +
+                 "All 0 = the world mesh bounds.")]
+        public Vector4 G1WorldMapBounds = new(-84056f, 67222f, 84451f, -61217f);
+
         [Tooltip("V1: Looping particle effects (torches, camp fires, fog, magic) emit at Gothic's own rate (max 500/s) " +
                  "instead of ~10 particles/s. Off if the frame rate suffers.")]
         public bool EnablePfxFullRateLoops = true;
