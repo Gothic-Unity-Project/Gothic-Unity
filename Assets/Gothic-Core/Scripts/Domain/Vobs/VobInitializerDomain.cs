@@ -17,6 +17,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -45,6 +46,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly StationaryLightsService _stationaryLightsService;
 
 
         /// <summary>
@@ -434,11 +436,15 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
         {
+            // Static lights are baked into the world's vertex light outdoors. In light mapped areas (caves, houses)
+            // they light the walls only via lightmaps we don't render - there they get a runtime light slot.
+            var isRuntimeSlot = false;
             if (vob.LightStatic)
             {
-                // Logging these will cause stuttering when a lot of them are needed.
-                // Logger.LogWarning($"Non-static lights aren't handled so far. go={vob.Name}");
-                return null;
+                if (!_configService.Dev.EnableStaticLightsInLightMappedAreas ||
+                    !_stationaryLightsService.IsNearLightMappedPolygons(worldPosition, vob.Range * .01f))
+                    return null;
+                isRuntimeSlot = true;
             }
 
             var go = GetPrefab(vob);
@@ -455,6 +461,15 @@ namespace Gothic.Core.Domain.Vobs
             lightComp.Range = vob.Range * .01f;
             lightComp.SpotAngle = vob.ConeAngle;
             lightComp.Intensity = 1;
+
+            // DeveloperConfig.EnablePooledStationaryLights: fire lights share the pool too (closest to the camera).
+            if (isRuntimeSlot || _configService.Dev.EnablePooledStationaryLights)
+            {
+                lightComp.IsRuntimeSlot = true;
+                lightComp.RuntimeLinearColor = lightComp.Color.linear;
+                lightComp.Init();
+                return go;
+            }
 
             // SaveGames might contain different order of Light objects (or Vobs where lights are children).
             // We therefore need to fetch which Vob has the same position as the one from cache.

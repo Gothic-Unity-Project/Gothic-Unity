@@ -295,6 +295,26 @@ namespace Gothic.Core.Models.Config
         public GameTimeService.GameTimeInterval SunUpdateInterval = GameTimeService.GameTimeInterval.EveryGameMinute;
         public Color AmbientLightColor = new(0.1f, 0.1f, 0.1f, 1);
 
+        [Tooltip("V1: Static lights in light mapped areas (caves, houses - torches, braziers) light the walls like " +
+                 "Gothic's lightmaps. Outdoors they're already baked into the world's vertex light.")]
+        public bool EnableStaticLightsInLightMappedAreas = true;
+
+        [Tooltip("Shader slots for the static lights above that are loaded at once (the rest stays dark). " +
+                 "Capped by what's left after the cached fire lights (1023 in total, 512 on mobile).")]
+        [Range(0, 1023)]
+        public int StaticLightPoolSize = 1023;
+
+        [Tooltip("V1: All world lights (fires too, not only the static ones above) share the shader slots - the ones " +
+                 "closest to the camera get them, like OpenGothic lights everything near you. Off: fire lights keep " +
+                 "a slot for good (G2 has ~700 - more than Quest's 512).")]
+        public bool EnablePooledStationaryLights = true;
+
+        [Tooltip("Pooled lights farther than this (m, minus their range) don't get a slot.")]
+        public float StationaryLightMaxDistance = 80f;
+
+        [Tooltip("How often the pooled lights are re-sorted by distance (s). Unloaded lights free their slot at once.")]
+        public float StationaryLightPoolRefreshSeconds = 2f;
+
 
         /**
          * ##########

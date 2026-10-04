@@ -123,6 +123,13 @@ namespace Gothic.Core.Adapters.Vob
 
         public int Index { get; set; } = -1;
 
+        /// <summary>
+        /// A pooled world light (fires, static lights of caves/houses): StationaryLightsService hands it a shader slot
+        /// only while it's loaded and among the lights closest to the camera - Index is -1 otherwise.
+        /// </summary>
+        public bool IsRuntimeSlot { get; set; }
+        public Color RuntimeLinearColor { get; set; }
+
         public static readonly int StationaryLightIndicesShaderId = Shader.PropertyToID("_StationaryLightIndices");
         public static readonly int StationaryLightIndices2ShaderId = Shader.PropertyToID("_StationaryLightIndices2");
         public static readonly int StationaryLightCountShaderId = Shader.PropertyToID("_StationaryLightCount");
@@ -166,8 +173,36 @@ namespace Gothic.Core.Adapters.Vob
             OnEnable();
         }
 
+        /// <summary>
+        /// The pool gave this light a shader slot: light the renderers around it.
+        /// </summary>
+        public void AttachSlot(int index)
+        {
+            Index = index;
+            foreach (var rend in _affectedRenderers)
+                _stationaryLightsService.AddLightOnRenderer(this, rend);
+        }
+
+        /// <summary>
+        /// The pool took the slot back (farther away than others, or unloaded).
+        /// </summary>
+        public void DetachSlot()
+        {
+            foreach (var rend in _affectedRenderers)
+                _stationaryLightsService.RemoveLightOnRenderer(this, rend);
+            Index = -1;
+        }
+
         private void OnEnable()
         {
+            if (IsRuntimeSlot)
+            {
+                // Init() calls this on a light that may still be inactive (lazy loading) - Unity calls it again later.
+                if (isActiveAndEnabled)
+                    _stationaryLightsService.RegisterPooledLight(this);
+                return;
+            }
+
             foreach (var rend in _affectedRenderers)
             {
                 _stationaryLightsService.AddLightOnRenderer(this, rend);
@@ -176,6 +211,12 @@ namespace Gothic.Core.Adapters.Vob
 
         private void OnDisable()
         {
+            if (IsRuntimeSlot)
+            {
+                _stationaryLightsService.UnregisterPooledLight(this);
+                return;
+            }
+
             foreach (var rend in _affectedRenderers)
             {
                 _stationaryLightsService.RemoveLightOnRenderer(this, rend);

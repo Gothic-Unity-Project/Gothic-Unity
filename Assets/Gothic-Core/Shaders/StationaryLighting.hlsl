@@ -1,7 +1,13 @@
 #ifndef STATIONARY_LIGHTING_INCLUDED
 #define STATIONARY_LIGHTING_INCLUDED
 
+// Unity caps a global array at 1023 elements. Mobile (Quest) keeps 512 to stay small in the constant buffer.
+// Must match StationaryLightsService._maxTotalLights.
+#if defined(SHADER_API_MOBILE)
 #define MAX_TOTAL_STATIONARY_LIGHTS 512
+#else
+#define MAX_TOTAL_STATIONARY_LIGHTS 1023
+#endif
 #define MAX_AFFECTING_STATIONARY_LIGHTS 16
 
 float4 _GlobalStationaryLightPositionsAndAttenuation[MAX_TOTAL_STATIONARY_LIGHTS];
