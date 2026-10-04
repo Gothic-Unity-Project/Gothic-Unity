@@ -625,12 +625,22 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_ProcessInfos(NpcInstance npc)
         {
-            _dialogService.ExtAiProcessInfos(npc);
+            _dialogService.ExtAiProcessInfos(npc ?? GetHeroForMissingNpc(nameof(AI_ProcessInfos)));
         }
 
         public void AI_StopProcessInfos(NpcInstance npc)
         {
-            _dialogService.ExtAiStopProcessInfos(npc);
+            _dialogService.ExtAiStopProcessInfos(npc ?? GetHeroForMissingNpc(nameof(AI_StopProcessInfos)));
+        }
+
+        /// <summary>
+        /// G1's SLEEPABIT_S1 calls AI_ProcessInfos(Hlp_GetNpc(PC_Hero)) - empty when the mod's hero is another instance
+        /// (Mroczne Tajemnice: PC_Rockefeller), and the bed's sleep menu threw. The scripts mean the hero there.
+        /// </summary>
+        private NpcInstance GetHeroForMissingNpc(string externalName)
+        {
+            Logger.LogWarning($"[{externalName}] called with no NPC - using the hero.", LogCat.Dialog);
+            return (NpcInstance)_gameStateService.GothicVm.GlobalHero;
         }
 
         public void AI_LookAt(NpcInstance npc, string waypoint)

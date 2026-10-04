@@ -575,8 +575,13 @@ namespace Gothic.Core.Services.Npc
         public void SetDialogs(NpcContainer npcContainer)
         {
             var npcIndex = npcContainer.Instance.Index;
+            // A mod's hero can be another instance (Mroczne Tajemnice: PC_Rockefeller) - the mob dialogs (bed, shrine)
+            // are still C_INFOs with npc = PC_Hero.
+            var heroAliasIndex = npcIndex == (_vm.GlobalHero as NpcInstance)?.Index
+                ? _vm.GetSymbolByName("PC_HERO")?.Index ?? npcIndex
+                : npcIndex;
             npcContainer.Props.Dialogs = _gameStateService.Dialogs.Instances
-                .Where(dialog => dialog.Npc == npcIndex)
+                .Where(dialog => dialog.Npc == npcIndex || dialog.Npc == heroAliasIndex)
                 .OrderByDescending(dialog => dialog.Important)
                 .ToList();
 
