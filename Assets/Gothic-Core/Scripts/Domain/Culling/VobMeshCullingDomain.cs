@@ -347,6 +347,9 @@ namespace Gothic.Core.Domain.Culling
         /// <summary>
         /// Fetch Mesh Bounds which are in local space. We will later "move" the bbox to the current world space.
         /// </summary>
+        // Meters: particles fly beyond their emitter - a generous box keeps them from popping out.
+        private const float _pfxCullingSize = 4f;
+
         private Bounds? GetLocalBounds(VobContainer container)
         {
             Bounds? totalBounds = null;
@@ -370,12 +373,24 @@ namespace Gothic.Core.Domain.Culling
                 case VirtualObjectType.zCVobLight:
                     additionalBounds = GetLocalLightBounds((ILight)vob);
                     break;
+                // Particle controllers have no mesh either (see the particle visuals below).
+                case VirtualObjectType.zCPFXController:
+                    if (ConfigService.Dev.EnableParticleEffects)
+                        additionalBounds = new Bounds(Vector3.zero, Vector3.one * _pfxCullingSize);
+                    break;
                 default:
                     switch (vob.Visual?.Type)
                     {
-                        // We don't support Decal and Pfx so far.
-                        case VisualType.Decal:
+                        // No mesh to measure: without bounds a VOB never got a culling entry, and lazy loading never
+                        // created it - standalone world particles (sparks over the water mages' pentagram) were missing.
                         case VisualType.ParticleEffect:
+                            if (ConfigService.Dev.EnableParticleEffects)
+                                additionalBounds = new Bounds(Vector3.zero, Vector3.one * _pfxCullingSize);
+                            break;
+                        case VisualType.Decal:
+                            if (ConfigService.Dev.EnableDecalVisuals && vob.Visual is VisualDecal decal)
+                                additionalBounds = new Bounds(Vector3.zero,
+                                    new Vector3(decal.Dimension.X, decal.Dimension.Y, decal.Dimension.X) / 100f * 2f);
                             break;
                         default:
                             additionalBounds = GetLocalMeshBounds(vob);

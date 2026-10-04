@@ -160,6 +160,16 @@ namespace Gothic.Core.Domain.Vobs
                     go = CreateMover((IMover)vob, parent);
                     break;
                 case VirtualObjectType.zCPFXController:
+                    // DeveloperConfig.EnableParticleEffects: a running controller shows its effect (sparks over the
+                    // pentagram, Xardas's tower). Controllers started by a trigger aren't handled yet.
+                    if (_configService.Dev.EnableParticleEffects && vob is IParticleEffectController pfxController &&
+                        pfxController.InitiallyRunning && !string.IsNullOrEmpty(pfxController.EffectName))
+                    {
+                        go = _meshService.CreateVobPfx(pfxController.EffectName, vob.Position.ToUnityVector(),
+                            vob.Rotation.ToUnityQuaternion(), parent);
+                        break;
+                    }
+
                     // A Particle controller makes no sense without a visual to show.
                     // Therefore, removing it now (as it's also not included in official G1 saves, and not visible within Spacer)
                     if (!vob.ShowVisual)

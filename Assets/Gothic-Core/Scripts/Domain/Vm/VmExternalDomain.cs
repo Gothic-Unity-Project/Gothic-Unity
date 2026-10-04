@@ -98,6 +98,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_PlayAni", AI_PlayAni);
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
+            if (vm.GetSymbolByName("AI_UseItem") != null)
+                vm.RegisterExternal<NpcInstance, int>("AI_UseItem", AI_UseItem);
             vm.RegisterExternal<NpcInstance, float>("AI_Wait", AI_Wait);
             vm.RegisterExternal<NpcInstance, int>("AI_WaitMs", AI_WaitMs);
             vm.RegisterExternal<int, NpcInstance, string, int>("AI_UseMob", AI_UseMob);
@@ -491,6 +493,21 @@ namespace Gothic.Core.Domain.Vm
         public void AI_StartState(NpcInstance npc, int function, int stateBehaviour, string wayPointName)
         {
             _npcAiService.ExtAiStartState(npc, function, Convert.ToBoolean(stateBehaviour), wayPointName);
+        }
+
+        /// <summary>
+        /// The NPC takes the item out, uses it up (on_state[0]: potions heal) and puts the hand down - like the engine.
+        /// NPCs drink a potion after a fight (ZS_HealSelf); unhandled, the queue got stuck there.
+        /// </summary>
+        public void AI_UseItem(NpcInstance npc, int itemId)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+            _npcAiService.ExtAiUseItemToState(npc, itemId, 0);
+            container.Props.AnimationQueue.Enqueue(new Gothic.Core.Domain.Npc.Actions.AnimationActions.UseItemEffect(
+                new Gothic.Core.Domain.Npc.Actions.AnimationAction(int0: itemId), container));
+            _npcAiService.ExtAiUseItemToState(npc, itemId, -1);
         }
 
         public void AI_UseItemToState(NpcInstance npc, int itemId, int expectedInventoryCount)

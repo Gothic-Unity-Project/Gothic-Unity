@@ -633,6 +633,14 @@ namespace Gothic.Core.Models.Config
                  "per mana, 40 per level). Off: one mana every 0.5 s for all spells.")]
         public bool EnableSpellTimePerMana = true;
 
+        [Tooltip("Seconds an instant spell (G2 summons, fire rain, transformations, heal...) glows in the hand before it " +
+                 "goes off - to enjoy the effects. 0 = at once like the engine. Throwable spells aren't affected.")]
+        public float MinSpellCastSeconds = 2f;
+
+        [Tooltip("V1: Mdl_SetModelScale scales the NPC like the engine - the Shrink spell (G1 troll) and NPCs whose " +
+                 "scripts set a size. Off: the scale is only stored.")]
+        public bool EnableModelScale = true;
+
         [Tooltip("V1: Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
                  "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]
         public bool EnableStackSplit = true;

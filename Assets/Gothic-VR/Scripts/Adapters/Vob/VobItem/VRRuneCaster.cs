@@ -78,6 +78,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private ItemInstance _item;
         private bool _isCasting;
+
+        // DeveloperConfig.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
+        // its effects in the hand until the minimum time is over.
+        private float _castStartTime;
+        private bool _isSendcastPending;
         private bool _castThisGrab;
         private int _manaInvested;
         private NpcContainer _spellTarget;
@@ -227,6 +232,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _isTargeting = false;
                 _vrPlayerService.DeactivateSpellTargeting();
                 _isCasting = true;
+                _castStartTime = Time.time;
+                _isSendcastPending = false;
                 _manaInvested = 0;
                 _manaTickTimer = GetManaTickInterval();
 
@@ -251,6 +258,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (!_isCasting) return;
 
+            if (_isSendcastPending)
+            {
+                if (Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+                    return;
+                _isSendcastPending = false;
+                FinalizeCast(applyEffect: true);
+                return;
+            }
+
             if (!IsManaTickDue())
                 return;
 
@@ -265,9 +281,20 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
+            // Ready at once (instant spell): its effects stay in the hand for the minimum cast time first.
+            if (result == _splSendcast && Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+            {
+                _isSendcastPending = true;
+                return;
+            }
+
             if (result == _splSendcast || result == _splSendstop)
             {
                 Logger.Log($"[VRRuneCaster] result={result} after {_manaInvested} ticks — spell fired", LogCat.VR);
+                // The script refused (no valid target, e.g. Shrink on a human): nothing happens, the mana invested so
+                // far comes back (G1 takes it per tick before asking the script).
+                if (result == _splSendstop)
+                    RefundInvestedMana();
                 FinalizeCast(applyEffect: result == _splSendcast);
             }
         }
@@ -355,7 +382,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
             try
             {
-                result = vm.Call<int, int>("Spell_ProcessMana", ++_manaInvested);
+                ++_manaInvested;
+                // Summons can't be shrunk (the script only checks for a monster) - refused like an invalid target.
+                result = IsShrinkOnSummon()
+                    ? _splSendstop
+                    : vm.Call<int, int>("Spell_ProcessMana", _manaInvested);
             }
             finally
             {
@@ -363,6 +394,29 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 vm.GlobalOther = oldOther;
             }
             return true;
+        }
+
+        private bool IsShrinkOnSummon()
+        {
+            return _spellTarget?.SummonedBy != null &&
+                   string.Equals(GetSpellMfxName(_item.Spell), "Shrink", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// G1 took one mana per invest tick - a refused spell gives it back.
+        /// </summary>
+        private void RefundInvestedMana()
+        {
+            if (IsScriptPaidSpell() || _manaInvested <= 0)
+                return;
+            var hero = _npcService.GetHeroContainer();
+            var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
+            var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
+            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
+            hero.Instance.SetAttribute(NpcAttribute.Mana, mana);
+            RefreshManaFill();
+            Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
+            _manaInvested = 0;
         }
 
         /// <summary>

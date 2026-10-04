@@ -221,6 +221,11 @@ namespace Gothic.Core.Domain.Npc
             var go = InitLazyLoadNpc(container);
             go.transform.SetPositionAndRotation(GetFreeAreaAtSpawnPoint(position), rotation);
             _npcMeshCullingService.AddCullingEntry(go);
+
+            // The engine's default walk mode is running; G1's ZS_MM_SummonedByPC never sets one, so a summoned golem
+            // walked after the hero (it only ran in fights).
+            if (summonedBy != null && container.Vob?.AiHuman != null)
+                container.Vob.AiHuman.WalkMode = (int)VmGothicEnums.WalkMode.Run;
             return go;
         }
 
@@ -521,6 +526,27 @@ namespace Gothic.Core.Domain.Npc
             _npcRoutineService.ExchangeRoutine(npc.Instance, npc.Vob.CurrentRoutine);
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableModelScale: the vob's model scale on the NPC (Shrink spell: ZS_MagicShrink scales a
+        /// monster down to 0.3 - the troll at the end of G1). The vob keeps it in saves, InitNpc applies it again.
+        /// </summary>
+        public void ApplyModelScale(NpcContainer container)
+        {
+            if (!_configService.Dev.EnableModelScale || container?.Go == null)
+                return;
+
+            var scale = container.Vob.ModelScale;
+            // Not set (0) means the normal size.
+            var unityScale = scale.X > 0f && scale.Y > 0f && scale.Z > 0f
+                ? new Vector3(scale.X, scale.Y, scale.Z)
+                : Vector3.one;
+            if (container.Go.transform.localScale == unityScale)
+                return;
+
+            container.Go.transform.localScale = unityScale;
+            Logger.Log($"[NpcService] {container.Instance.GetName(NpcNameSlot.Slot0)} model scale {unityScale}", LogCat.Npc);
+        }
+
         public void InitNpc(NpcInstance npcInstance, GameObject lazyLoadGo)
         {
             var npcData = npcInstance.GetUserData();
@@ -543,6 +569,9 @@ namespace Gothic.Core.Domain.Npc
 
             // We don't need specific locations of initial LazyLoading GO anymore.
             lazyLoadGo.transform.SetPositionAndRotation(default, default);
+
+            // A shrunk monster stays small after a load (the vob keeps the scale).
+            ApplyModelScale(npcData);
 
             foreach (var equippedItem in props.EquippedItems)
             {
