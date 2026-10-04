@@ -10,6 +10,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Culling;
@@ -30,6 +31,7 @@ using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -418,6 +420,8 @@ namespace Gothic.VR.Adapters.Player
         public void OnNextPageClick()
         {
             _currentPage++;
+            if (_currentPage > _totalPages)
+                _currentPage = _totalPages;
 
             UpdateInventoryView();
         }
@@ -504,7 +508,16 @@ namespace Gothic.VR.Adapters.Player
             ClearSockets();
             yield return null; // Releasing and destroying objects takes until the next frame.
 
-            RefillSockets(inventory);
+            // A throw here used to leave _refresh set forever - every later refresh only got marked dirty and the
+            // backpack UI froze (categories, pages, re-opening).
+            try
+            {
+                RefillSockets(inventory);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"[VRBackpack] Refilling page {_currentPage}/{_totalPages} failed: {e}", LogCat.VR);
+            }
             yield return null;
 
             _tempIgnoreSocketing = false;
@@ -541,8 +554,13 @@ namespace Gothic.VR.Adapters.Player
 
         private void RefillSockets(List<ContentItem> inventory)
         {
+            // The page can move on while this refresh waits (next page clicked meanwhile): keep it in range.
+            var lastPage = Mathf.Max(1, Mathf.CeilToInt(inventory.Count / 9f));
+            _currentPage = Mathf.Clamp(_currentPage, 1, lastPage);
+            _pagerText.text = $"{_currentPage}/{lastPage}";
+
             var startIndex = _currentPage * 9 - 9;
-            var count = Mathf.Min(9, inventory.Count - startIndex);
+            var count = Mathf.Max(0, Mathf.Min(9, inventory.Count - startIndex));
             var items = inventory.GetRange(startIndex, count);
 
             foreach (var item in items)
