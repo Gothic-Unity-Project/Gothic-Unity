@@ -282,22 +282,24 @@ namespace Gothic.Core.Adapters.Npc
 
             var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
 
-            // Skip perception VM calls for NPCs far outside their own sense range.
+            // Skip the hero's perception VM calls for NPCs far outside their own sense range.
             // Avoids expensive Daedalus calls for every NPC in the scene (e.g. Old Camp).
             var heroGo = hero?.GetUserData()?.Go;
-            if (heroGo != null)
+            var isHeroInSensesRange = heroGo != null && Vector3.Distance(gameObject.transform.position,
+                heroGo.transform.position) <= NpcInstance.SensesRange / 100f;
+
+            // DeveloperConfig.EnableNpcPerceptionsWithoutHero: like the engine, an NPC spots enemies and bodies on
+            // its own (Milten vs. an orc, a guard vs. a wolf) - the hero doesn't need to stand next to it.
+            if (!isHeroInSensesRange && !_configService.Dev.EnableNpcPerceptionsWithoutHero)
             {
-                var dist = Vector3.Distance(gameObject.transform.position, heroGo.transform.position);
-                if (dist > NpcInstance.SensesRange / 100f)
-                {
-                    Properties.CurrentPerceptionTime = 0f;
-                    return;
-                }
+                Properties.CurrentPerceptionTime = 0f;
+                return;
             }
+
             // Use the NPC's own senses_range (not the fixed global PERC_DIST_ASSESS_PLAYER).
             // ZS_GuidePC sets self.senses_range = HAI_DIST_ASSESS_MONSTER (~35m) so escort NPCs
             // can detect a lagging player far enough away to stop and wait.
-            if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false))
+            if(isHeroInSensesRange && _npcHelperService.CanSenseNpc(NpcInstance, hero, false))
             {
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
 
@@ -347,7 +349,8 @@ namespace Gothic.Core.Adapters.Npc
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
             // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.
             // B_MoveNpc itself checks BS_STAND so it won't bark at a moving player.
-            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.MoveNpc, out var moveNpcPerception) &&
+            if (isHeroInSensesRange &&
+                Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.MoveNpc, out var moveNpcPerception) &&
                 moveNpcPerception >= 0)
             {
                 const float moveNpcMaxRange = 1f;
@@ -357,7 +360,18 @@ namespace Gothic.Core.Adapters.Npc
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.MoveNpc, Properties, NpcInstance, null, hero);
             }
 
-            // TODO: PERC_ASSESSBODY, PERC_ASSESSITEM
+            // PERC_ASSESSBODY (active, like the engine): the closest sensed body. The scripts remember what they
+            // did with it (searched, reported the murder), so it firing every tick is fine.
+            if (_configService.Dev.EnableAssessBodyPerception &&
+                Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessBody, out var bodyPerception) &&
+                bodyPerception >= 0)
+            {
+                var body = _npcAiService.FindClosestSensedBody(NpcInstance);
+                if (body != null)
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessBody, Properties, NpcInstance, null, body);
+            }
+
+            // TODO: PERC_ASSESSITEM
 
             // Reset timer if we executed Perceptions.
             Properties.CurrentPerceptionTime = 0f;

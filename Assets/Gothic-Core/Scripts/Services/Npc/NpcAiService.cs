@@ -896,9 +896,94 @@ namespace Gothic.Core.Services.Npc
             return 1;
         }
 
+        /// <summary>
+        /// Like the engine (OpenGothic WorldObjects::sendPassivePerc): the perception goes to every NPC around the
+        /// sender - not to the sender itself (a guard's ASSESSWARN calls the other guards, it doesn't warn itself).
+        /// </summary>
         public void Npc_SendPassivePerc(NpcInstance npc,VmGothicEnums.PerceptionType perc, NpcInstance victim, NpcInstance other)
         {
-            ExecutePerception(perc, npc.GetUserData().Props, npc, victim, other);
+            var sender = npc?.GetUserData();
+            if (sender == null)
+                return;
+
+            if (!_configService.Dev.EnablePassivePercBroadcast)
+            {
+                ExecutePerception(perc, sender.Props, npc, victim, other);
+                return;
+            }
+
+            var notified = BroadcastPassivePerception(sender, perc, victim, other);
+            Logger.Log($"[PassivePerc] {npc.GetName(NpcNameSlot.Slot0)} sends {perc} " +
+                       $"(other={other?.GetName(NpcNameSlot.Slot0)}, victim={victim?.GetName(NpcNameSlot.Slot0)}) " +
+                       $"to {notified} NPC(s)", LogCat.Ai);
+        }
+
+        /// <summary>
+        /// Passive perception around the sender to every NPC which registered it: not the sender, not the hero, not
+        /// dead/unconscious or culled NPCs. Range: Perc_SetRange, capped by the receiver's senses_range.
+        /// </summary>
+        public int BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
+            NpcInstance victim, NpcInstance other, NpcContainer exclude = null)
+        {
+            if (sender?.Go == null)
+                return 0;
+
+            var senderPos = sender.Go.transform.position;
+            var notified = 0;
+
+            // Copy: a perception function can insert/remove NPCs (Wld_InsertNpc, AI_Teleport).
+            foreach (var candidate in _multiTypeCacheService.NpcCache.ToArray())
+            {
+                if (candidate == sender || candidate == exclude || candidate.Props == null || candidate.Instance == null) continue;
+                if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
+                if (candidate.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious) continue;
+                if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
+                if (!candidate.Props.Perceptions.TryGetValue(perception, out var perceptionFunction) || perceptionFunction < 0) continue;
+
+                var range = Mathf.Min(_npcHelperService.GetPerceptionRange(perception), candidate.Instance.SensesRange / 100f);
+                if ((candidate.Go.transform.position - senderPos).sqrMagnitude > range * range) continue;
+
+                ExecutePassivePerception(perception, perceptionFunction, candidate, victim, other);
+                notified++;
+            }
+
+            return notified;
+        }
+
+        /// <summary>
+        /// The engine starts a perception function that is a state (ZS_AssessMurder, ZS_AssessDefeat) as the NPC's
+        /// new AI state with its _Loop/_End, a B_ function is just called.
+        /// </summary>
+        private void ExecutePassivePerception(VmGothicEnums.PerceptionType perception, int perceptionFunction,
+            NpcContainer receiver, NpcInstance victim, NpcInstance other)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbolName = vm.GetSymbolByIndex(perceptionFunction)?.Name;
+            if (symbolName == null || !symbolName.StartsWith("ZS_", StringComparison.OrdinalIgnoreCase) ||
+                vm.GetSymbolByName(symbolName + "_LOOP") == null)
+            {
+                ExecutePerception(perception, receiver.Props, receiver.Instance, victim, other);
+                return;
+            }
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            var oldVictim = vm.GlobalVictim;
+            vm.GlobalSelf = receiver.Instance;
+            if (other != null)
+                vm.GlobalOther = other;
+            if (victim != null)
+                vm.GlobalVictim = victim;
+            try
+            {
+                ExtAiStartState(receiver.Instance, perceptionFunction, true, "");
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+                vm.GlobalVictim = oldVictim;
+            }
         }
 
         public void ExtSetTrueGuild(NpcInstance npc, int guild)
@@ -915,6 +1000,36 @@ namespace Gothic.Core.Services.Npc
                 npc.Guild : (int)npcGuild;
         }
         
+
+        /// <summary>
+        /// PERC_ASSESSBODY's other: the closest dead NPC the NPC senses (senses_range, sight/hearing like enemies).
+        /// </summary>
+        public NpcInstance FindClosestSensedBody(NpcInstance self)
+        {
+            var selfNpc = self.GetUserData();
+            if (selfNpc?.Go == null)
+                return null;
+
+            var selfPosition = selfNpc.Go.transform.position;
+            var sensesRangeMeters = self.SensesRange / 100f;
+            var closestSqrDist = sensesRangeMeters * sensesRangeMeters;
+            NpcContainer closest = null;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate == selfNpc || candidate.Props == null || candidate.Go == null) continue;
+                if (candidate.Props.BodyState != VmGothicEnums.BodyState.BsDead) continue;
+
+                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+                if (sqrDist > closestSqrDist) continue;
+                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, false)) continue;
+
+                closestSqrDist = sqrDist;
+                closest = candidate;
+            }
+
+            return closest?.Instance;
+        }
 
         public void UpdateEnemyNpc(NpcInstance self)
         {
@@ -1103,6 +1218,9 @@ namespace Gothic.Core.Services.Npc
                 if (candidate.Props == null || candidate.Go == null) continue;
                 if (candidate.Instance.Index == self.Index) continue;
                 if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
+                // The hero is Daedalus' job (PERC_ASSESSFIGHTER, its warnings escalate). With the hero's fight target
+                // still set after a hit, this restarted ZS_AssessFighter every tick - the first warning forever.
+                if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
 
                 var weaponState = (VmGothicEnums.WeaponState)candidate.Vob.FightMode;
                 if (weaponState == VmGothicEnums.WeaponState.NoWeapon ||
@@ -1128,6 +1246,8 @@ namespace Gothic.Core.Services.Npc
 
                 var zsAssessFighterSym = _gameStateService.GothicVm.GetSymbolByName("ZS_AssessFighter");
                 if (zsAssessFighterSym == null) return;
+                // Already sizing someone up - restarting the state would reset its warnings.
+                if (selfNpc.Vob.CurrentStateName?.StartsWithIgnoreCase("ZS_ASSESSFIGHTER") == true) return;
 
                 selfNpc.Props.EnemyNpc = candidate.Instance;
                 selfNpc.Props.TargetNpc = candidate.Instance;

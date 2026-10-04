@@ -645,6 +645,20 @@ namespace Gothic.Core.Models.Config
                  "Vanilla let it rage (friendly fire between friends).")]
         public bool EnableGuardsStopBerzerk = true;
 
+        [Tooltip("V1: Npc_SendPassivePerc reaches the NPCs around the sender like the engine (a guard's ASSESSWARN " +
+                 "calls the other guards). Off: the old behavior - the sender perceived it itself.")]
+        public bool EnablePassivePercBroadcast = true;
+
+        [Tooltip("V1: NPCs spot enemies and bodies even when the hero is far away (Milten vs. an orc). " +
+                 "Off: an NPC perceives nothing while the hero is outside its senses_range.")]
+        public bool EnableNpcPerceptionsWithoutHero = true;
+
+        [Tooltip("V1: PERC_ASSESSBODY - the closest sensed body (G1: monsters eat corpses, B_MM_AssessBody).")]
+        public bool EnableAssessBodyPerception = true;
+
+        [Tooltip("V1: PERC_ASSESSMURDER / PERC_ASSESSDEFEAT to the witnesses around a killed / knocked out NPC.")]
+        public bool EnableMurderDefeatPerceptions = true;
+
         [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;

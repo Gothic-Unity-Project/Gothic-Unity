@@ -622,6 +622,8 @@ namespace Gothic.Core.Services.Npc
 
             vm.GlobalSelf = oldSelf;
             vm.GlobalOther = oldOther;
+
+            BroadcastDownPerception(npc, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
         }
 
         private void OnHeroKnockedOut(NpcContainer hero)
@@ -774,12 +776,12 @@ namespace Gothic.Core.Services.Npc
             // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
             var deadInstance = dead.Instance;
             var heroInstance = _npcService.GetHeroContainer().Instance;
-            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, heroInstance));
+            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, heroInstance, killer));
 
             Logger.Log($"[FightService.OnNpcDied] {dead.Instance.GetName(NpcNameSlot.Slot0)} died — ZS_Dead deferred (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
         }
 
-        private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcInstance hero)
+        private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcInstance hero, NpcContainer killer)
         {
             yield return null;
 
@@ -803,6 +805,24 @@ namespace Gothic.Core.Services.Npc
 
             vm.GlobalSelf = oldSelf;
             vm.GlobalOther = oldOther;
+
+            BroadcastDownPerception(dead.GetUserData(), killer, VmGothicEnums.PerceptionType.AssessMurder);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMurderDefeatPerceptions: like the engine, witnesses around the victim learn who
+        /// killed (PERC_ASSESSMURDER) or knocked out (PERC_ASSESSDEFEAT) whom: other = killer, victim = victim.
+        /// The killer doesn't witness its own deed.
+        /// </summary>
+        private void BroadcastDownPerception(NpcContainer victim, NpcContainer killer, VmGothicEnums.PerceptionType perception)
+        {
+            if (!_configService.Dev.EnableMurderDefeatPerceptions || victim == null || killer == null || victim == killer)
+                return;
+
+            var notified = _npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance,
+                killer.Instance, exclude: killer);
+            Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
+                       $"{victim.Instance.GetName(NpcNameSlot.Slot0)}, {notified} witness(es)", LogCat.Fight);
         }
 
         /// <summary>
