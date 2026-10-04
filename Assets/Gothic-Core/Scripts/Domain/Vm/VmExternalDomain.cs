@@ -49,6 +49,8 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly DocService _docService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly RoomService _roomService;
 
         // (optional) Some messages from Daedalus are quite spammy. Ignore them.
         private static readonly string[] _spammyMessages = new[]
@@ -270,11 +272,20 @@ namespace Gothic.Core.Domain.Vm
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
                 vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
                 vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
-                // G2 portal/room system — outdoor areas have no portals so all return GIL_NONE (0).
-                vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild);
-                vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild);
-                vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom);
             }
+
+            // Portal rooms (RoomService), mobs in use and noises (HeroPerceptionService) - G1 and G2. Only registered
+            // when the scripts declare them (registering a missing symbol throws).
+            RegisterIfDeclared(vm, "Wld_GetPlayerPortalGuild", () => vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild));
+            RegisterIfDeclared(vm, "Wld_GetFormerPlayerPortalGuild", () => vm.RegisterExternal<int>("Wld_GetFormerPlayerPortalGuild", Wld_GetFormerPlayerPortalGuild));
+            RegisterIfDeclared(vm, "Npc_GetPortalGuild", () => vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild));
+            RegisterIfDeclared(vm, "Npc_IsInPlayersRoom", () => vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom));
+            RegisterIfDeclared(vm, "Npc_GetDetectedMob", () => vm.RegisterExternal<string, NpcInstance>("Npc_GetDetectedMob", Npc_GetDetectedMob));
+            RegisterIfDeclared(vm, "Npc_IsDetectedMobOwnedByNpc", () => vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_IsDetectedMobOwnedByNpc", Npc_IsDetectedMobOwnedByNpc));
+            RegisterIfDeclared(vm, "Npc_IsDetectedMobOwnedByGuild", () => vm.RegisterExternal<int, NpcInstance, int>("Npc_IsDetectedMobOwnedByGuild", Npc_IsDetectedMobOwnedByGuild));
+            RegisterIfDeclared(vm, "Npc_CanSeeSource", () => vm.RegisterExternal<int, NpcInstance>("Npc_CanSeeSource", Npc_CanSeeSource));
+            RegisterIfDeclared(vm, "Snd_IsSourceNpc", () => vm.RegisterExternal<int, NpcInstance>("Snd_IsSourceNpc", Snd_IsSourceNpc));
+            RegisterIfDeclared(vm, "Npc_GetDistToItem", () => vm.RegisterExternal<int, NpcInstance, ItemInstance>("Npc_GetDistToItem", Npc_GetDistToItem));
 
 
             // Print
@@ -1921,22 +1932,117 @@ namespace Gothic.Core.Domain.Vm
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
         }
 
+        private static void RegisterIfDeclared(DaedalusVm vm, string name, System.Action register)
+        {
+            if (vm.GetSymbolByName(name) != null)
+                register();
+        }
+
         public int Wld_GetPlayerPortalGuild()
         {
-            // Outdoor areas have no portals — return GIL_NONE (0). Indoor portals not yet implemented.
-            return 0;
+            // GIL_NONE (0) outdoors and in rooms no script gave to a guild.
+            return _roomService.GuildOfRoom(_roomService.HeroRoom);
+        }
+
+        public int Wld_GetFormerPlayerPortalGuild()
+        {
+            return _roomService.GuildOfRoom(_roomService.HeroFormerRoom);
         }
 
         public int Npc_GetPortalGuild(NpcInstance npc)
         {
-            // Outdoor areas have no portals — return GIL_NONE (0). Indoor portals not yet implemented.
-            return 0;
+            var go = npc?.GetUserData()?.Go;
+            return go == null ? 0 : _roomService.GuildOfRoom(_roomService.GetRoomAt(go.transform.position));
         }
 
         public int Npc_IsInPlayersRoom(NpcInstance npc)
         {
-            // Outdoor areas have no separate rooms — treat as always in same area.
+            var go = npc?.GetUserData()?.Go;
+            if (go == null)
+                return 0;
+            return _roomService.GetRoomAt(go.transform.position).EqualsIgnoreCase(_roomService.HeroRoom) ? 1 : 0;
+        }
+
+        /// <summary>
+        /// The scheme name of the mob the NPC uses (only the hero's is known - HeroPerceptionService), e.g. "CHESTBIG".
+        /// </summary>
+        public string Npc_GetDetectedMob(NpcInstance npc)
+        {
+            var mob = IsHero(npc) ? _heroPerceptionService.HeroDetectedMob : null;
+            var visual = mob?.Visual?.Name;
+            if (string.IsNullOrEmpty(visual))
+                return string.Empty;
+            // Like the engine's scheme name: "CHESTBIG_OCCHESTLARGE.MDS" -> "CHESTBIG".
+            var scheme = System.IO.Path.GetFileNameWithoutExtension(visual);
+            var underscore = scheme.IndexOf('_');
+            return (underscore > 0 ? scheme.Substring(0, underscore) : scheme).ToUpperInvariant();
+        }
+
+        /// <summary>
+        /// The mob the user uses belongs to npc (oCMob owner = the NPC's instance name).
+        /// </summary>
+        public int Npc_IsDetectedMobOwnedByNpc(NpcInstance user, NpcInstance npc)
+        {
+            if (!IsHero(user) || npc == null)
+                return 0;
+            var owner = (_heroPerceptionService.HeroDetectedMob as ZenKit.Vobs.IMovableObject)?.Owner;
+            var npcName = _gameStateService.GothicVm.GetSymbolByIndex(npc.Index)?.Name;
+            return !string.IsNullOrEmpty(owner) && owner.EqualsIgnoreCase(npcName) ? 1 : 0;
+        }
+
+        /// <summary>
+        /// The mob the user uses belongs to a guild (oCMob ownerGuild, e.g. "GIL_GRD").
+        /// </summary>
+        public int Npc_IsDetectedMobOwnedByGuild(NpcInstance user, int guild)
+        {
+            if (!IsHero(user))
+                return 0;
+            var ownerGuild = (_heroPerceptionService.HeroDetectedMob as ZenKit.Vobs.IMovableObject)?.OwnerGuild;
+            if (string.IsNullOrEmpty(ownerGuild))
+                return 0;
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(ownerGuild);
+            var ownerGuildId = symbol != null ? symbol.GetInt(0) : int.TryParse(ownerGuild, out var id) ? id : -1;
+            return ownerGuildId == guild ? 1 : 0;
+        }
+
+        /// <summary>
+        /// The last noise came from an NPC (only the hero makes noises so far) - like the engine, other = that NPC.
+        /// </summary>
+        public int Snd_IsSourceNpc(NpcInstance self)
+        {
+            var source = _heroPerceptionService.SoundSourceNpc;
+            if (source?.Instance == null)
+                return 0;
+            _gameStateService.GothicVm.GlobalOther = source.Instance;
             return 1;
+        }
+
+        public int Npc_CanSeeSource(NpcInstance self)
+        {
+            var source = _heroPerceptionService.SoundSourceNpc;
+            if (self == null || source?.Instance == null)
+                return 0;
+            return _npcHelperService.CanSeeNpc(self, source.Instance, false) ? 1 : 0;
+        }
+
+        /// <summary>
+        /// Like OpenGothic: no item (e.g. a footstep's noise) is infinitely far away. An item we can't place yet keeps
+        /// the old answer (0) - it was an unregistered external before.
+        /// </summary>
+        public int Npc_GetDistToItem(NpcInstance npc, ItemInstance item)
+        {
+            if (item == null)
+                return int.MaxValue;
+            var npcGo = npc?.GetUserData()?.Go;
+            var itemGo = item.UserData is VobContainer itemContainer ? itemContainer.Go : null;
+            if (npcGo == null || itemGo == null)
+                return 0;
+            return (int)(UnityEngine.Vector3.Distance(npcGo.transform.position, itemGo.transform.position) * 100f);
+        }
+
+        private bool IsHero(NpcInstance npc)
+        {
+            return npc != null && _gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
         }
 
         public void Wld_SendTrigger(string vobName)
@@ -2004,14 +2110,9 @@ namespace Gothic.Core.Domain.Vm
             _npcService.MobRoutines[name].Add((hour, minute, status));
         }
 
-        private bool _debugWld_AssignRoomToGuildExecuted;
         public void Wld_AssignRoomToGuild(string room, int guild)
         {
-            if (!_debugWld_AssignRoomToGuildExecuted)
-            {
-                Logger.LogWarningEditor($"Method >Wld_AssignRoomToGuild< not yet implemented in DaedalusVM.", LogCat.ZenKit);
-                _debugWld_AssignRoomToGuildExecuted = true;
-            }
+            _roomService.AssignRoomToGuild(room, guild);
         }
 
         public int Wld_GetGuildAttitude(int guild1, int guild2)

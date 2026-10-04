@@ -84,6 +84,7 @@ namespace Gothic.Core
             // NPC
             containerBuilder.AddSingleton(typeof(NpcService));
             containerBuilder.AddSingleton(typeof(NpcAiService));
+            containerBuilder.AddSingleton(typeof(HeroPerceptionService));
             containerBuilder.AddSingleton(typeof(NpcHelperService));
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
@@ -108,6 +109,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
+            containerBuilder.AddSingleton(typeof(RoomService));
 
             // Misc
             containerBuilder.AddSingleton(typeof(AudioService));

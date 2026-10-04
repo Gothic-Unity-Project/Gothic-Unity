@@ -29,6 +29,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private bool _isLocked;
         private string _combination;
@@ -115,6 +116,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
+            // Like OpenGothic: trying a locked chest/door is using it - its owner may see it.
+            _heroPerceptionService.OnHeroUsesMob(_lockable.Vob as IInteractiveObject);
             _hapticsService.Vibrate(_handSide, VrHapticsService.VibrationType.Info);
 
             // For later event usage.

@@ -659,6 +659,22 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: PERC_ASSESSMURDER / PERC_ASSESSDEFEAT to the witnesses around a killed / knocked out NPC.")]
         public bool EnableMurderDefeatPerceptions = true;
 
+        [Tooltip("V1: Crouching (real or the crouch button) is sneaking for the scripts (BS_SNEAK): NPCs that see " +
+                 "you ask why you sneak, footsteps make no noise.")]
+        public bool EnableHeroSneakBodyState = true;
+
+        [Tooltip("V1: PERC_ASSESSUSEMOB when the hero grabs a mob (chest lid, door, ...) or picks its lock - owners " +
+                 "and their guild react (\"Hands off!\", attack).")]
+        public bool EnableUseMobPerception = true;
+
+        [Tooltip("V1: Every footstep of the hero is a quiet sound (PERC_ASSESSQUIETSOUND) unless he sneaks - like " +
+                 "OpenGothic. G1's scripts only react to noises of items, G2 differs.")]
+        public bool EnableFootstepQuietSound = true;
+
+        [Tooltip("V1: Portal rooms (huts) from the world's BSP sectors: PERC_ASSESSENTERROOM when the hero walks in or " +
+                 "out, Wld_GetPlayerPortalGuild knows whose room it is (Wld_AssignRoomToGuild).")]
+        public bool EnableEnterRoomPerception = true;
+
         [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;

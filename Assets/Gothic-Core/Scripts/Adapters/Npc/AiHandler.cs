@@ -308,6 +308,15 @@ namespace Gothic.Core.Adapters.Npc
                 var heroWeaponState = (VmGothicEnums.WeaponState)hero.GetUserData().Vob.FightMode;
                 if (_npcAiService.IsArmedWeaponState(heroWeaponState))
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance, null, hero);
+
+                // PERC_OBSERVESUSPECT (original engine only, OpenGothic lacks it): the hero sneaks within its range
+                // (Perc_SetRange, G1: PERC_DIST_DIALOG) - G1 B_ObserveSuspect: "What's this supposed to be?".
+                // ZS_ObserveSuspect doesn't enable it again, so it won't restart while the hero keeps sneaking.
+                if (_configService.Dev.EnableHeroSneakBodyState &&
+                    hero.GetUserData().Props.BodyState == VmGothicEnums.BodyState.BsSneak &&
+                    Vector3.Distance(gameObject.transform.position, heroGo.transform.position) <=
+                    _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.ObserveSuspect))
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.ObserveSuspect, Properties, NpcInstance, null, hero);
             }
 
             // Snapshot before UpdateEnemyNpc below can assign a fresh target this tick — gates

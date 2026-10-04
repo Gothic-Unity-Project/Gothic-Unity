@@ -115,8 +115,16 @@ namespace Gothic.VR.Adapters.HVROverrides
 
             var props = heroInstance.GetUserData()?.Props;
             if (props == null || props.BodyState is not (VmGothicEnums.BodyState.BsStand
-                    or VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun))
+                    or VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun
+                    or VmGothicEnums.BodyState.BsSneak))
                 return;
+
+            // DeveloperConfig.EnableHeroSneakBodyState: crouched (head below CrouchMinHeight) = sneaking.
+            if (_configService.Dev.EnableHeroSneakBodyState && IsCrouching)
+            {
+                props.BodyState = VmGothicEnums.BodyState.BsSneak;
+                return;
+            }
 
             var velocity = CharacterController.velocity;
             var speed = new Vector2(velocity.x, velocity.z).magnitude;

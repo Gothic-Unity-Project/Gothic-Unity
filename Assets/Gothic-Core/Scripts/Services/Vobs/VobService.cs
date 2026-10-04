@@ -331,6 +331,41 @@ namespace Gothic.Core.Services.Vobs
                 var lazyLoadVobs = Object.FindObjectsOfType<VobLoader>(true);
                 lazyLoadVobs.ForEach(i => InitVob(i.gameObject));
             }
+
+            LogMobOwners();
+        }
+
+        /// <summary>
+        /// Diagnostics for PERC_ASSESSUSEMOB: how many mobs have an owner / owner guild (G1: Old Camp chests GIL_GRD).
+        /// </summary>
+        private void LogMobOwners()
+        {
+            var withOwner = 0;
+            var samples = new List<string>();
+
+            void Walk(List<IVirtualObject> vobs)
+            {
+                foreach (var vob in vobs)
+                {
+                    if (vob is IMovableObject mob && (!string.IsNullOrEmpty(mob.Owner) || !string.IsNullOrEmpty(mob.OwnerGuild)))
+                    {
+                        withOwner++;
+                        if (samples.Count < 6)
+                            samples.Add($"{vob.Name}/{vob.Visual?.Name}={mob.Owner}|{mob.OwnerGuild}");
+                    }
+                    Walk(vob.Children);
+                }
+            }
+
+            try
+            {
+                Walk(_saveGameService.CurrentWorldData.Vobs);
+                Logger.Log($"[Mobs] {withOwner} mobs with an owner; e.g. {string.Join(", ", samples)}", LogCat.Vob);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogWarning($"[Mobs] Owner check failed: {e.Message}", LogCat.Vob);
+            }
         }
 
         private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
