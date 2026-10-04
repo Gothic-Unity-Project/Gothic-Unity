@@ -41,6 +41,14 @@ namespace Gothic.VR.Adapters
 
         [SerializeField] private GameObject _nameCanvas;
 
+        // The amount the shown name was made with - a stack changing while hovered (split) updates the name.
+        private int _shownAmount = -1;
+
+        /// <summary>
+        /// The hover name (with the amount) is shown right now.
+        /// </summary>
+        public bool IsNameShown => _isHovered && _nameCanvas != null && _nameCanvas.activeSelf;
+
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
         private bool _mobActivated;
@@ -158,6 +166,9 @@ namespace Gothic.VR.Adapters
             if (!_isHovered || _nameCanvas == null || _cachedObjectRenderer == null)
                 return;
 
+            if (_nameCanvas.activeSelf && GetShownItemAmount() != _shownAmount)
+                SetFocusName();
+
             // Calculate direction from parent object to camera
             var directionToCamera = (_mainCamera.transform.position - transform.position).normalized;
 
@@ -183,6 +194,11 @@ namespace Gothic.VR.Adapters
             _isHovered = false;
         }
 
+        private int GetShownItemAmount()
+        {
+            return GetComponentInParent<VobLoader>()?.Container?.Vob is ZenKit.Vobs.IItem item ? item.Amount : -1;
+        }
+
         private void SetFocusName()
         {
             _nameCanvas.SetActive(true);
@@ -191,6 +207,7 @@ namespace Gothic.VR.Adapters
             if (vobContainer != null)
             {
                 _nameCanvas.GetComponentInChildren<TMP_Text>().text = vobContainer.Props.GetFocusName();
+                _shownAmount = GetShownItemAmount();
                 return;
             }
 

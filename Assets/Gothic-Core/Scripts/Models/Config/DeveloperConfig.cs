@@ -620,8 +620,15 @@ namespace Gothic.Core.Models.Config
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;
 
+        [Tooltip("V1: Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
+                 "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]
+        public bool EnableStackSplit = true;
 
+        [Tooltip("Seconds until the second piece while the split trigger is held (EnableStackSplit).")]
+        public float StackSplitRepeatDelay = 0.45f;
 
+        [Tooltip("Each next piece comes this factor faster (0.1-1, 1 = constant pace) (EnableStackSplit).")]
+        public float StackSplitAcceleration = 0.8f;
 
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;

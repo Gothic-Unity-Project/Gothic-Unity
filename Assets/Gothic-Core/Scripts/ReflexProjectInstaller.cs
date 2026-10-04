@@ -90,6 +90,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(FightService));
             containerBuilder.AddSingleton(typeof(DocService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Trade.TradeService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));
