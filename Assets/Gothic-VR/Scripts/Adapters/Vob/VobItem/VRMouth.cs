@@ -56,6 +56,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (!TryGetItemToEat(go, out var item))
                 return;
 
+#if GOTHIC_HVR_INSTALLED
+            // Unpaid trader goods (trade counter) can't be eaten, drunk or smoked.
+            if (go.GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+                return;
+#endif
+
             // Resolve root before grace-period check so the same object is tracked and removed.
             var rootGo = go;
             var vobLoaderComp = go.GetComponentInParent<VobLoader>();

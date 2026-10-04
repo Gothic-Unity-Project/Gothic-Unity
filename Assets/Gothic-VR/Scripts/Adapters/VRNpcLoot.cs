@@ -43,6 +43,11 @@ namespace Gothic.VR.Adapters
 
         [SerializeField] private GameObject _socketPrefab;
 
+        /// <summary>
+        /// The loot socket - also used for the trade counter's offer zones.
+        /// </summary>
+        public GameObject SocketPrefab => _socketPrefab;
+
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly AudioService _audioService;

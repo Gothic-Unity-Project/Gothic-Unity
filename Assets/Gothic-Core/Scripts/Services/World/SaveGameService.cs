@@ -342,6 +342,9 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public void SaveCurrentGame(SlotId saveGameId, string title)
         {
+            // A trade isn't saved: the reserved offers go back to their owners first.
+            ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Trade.TradeService>().Cancel();
+
             var saveGame = new SaveGame(_contextGameVersionService.Version);
             saveGame.Metadata.Title = title;
             saveGame.Metadata.SaveDate = DateTime.Now.ToString();

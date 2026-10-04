@@ -235,6 +235,10 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         private void ConsumeDocument()
         {
+            // Unpaid trader goods (trade counter) can be read, but not used up.
+            if (GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+                return;
+
             var container = GetComponentInParent<VobLoader>()?.Container;
             if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
                 return;

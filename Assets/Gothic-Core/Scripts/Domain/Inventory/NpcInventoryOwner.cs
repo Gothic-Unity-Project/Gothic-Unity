@@ -26,9 +26,18 @@ namespace Gothic.Core.Domain.Inventory
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameStateService _gameStateService;
 
-        public NpcInventoryOwner(NpcContainer npc)
+        private readonly string _hiddenItem;
+        private readonly bool _isEquippedHidden;
+
+        /// <summary>
+        /// hiddenItem/isEquippedHidden: a trader's goods - without his currency and anything he wears or wields
+        /// (the engine's T_Trade view).
+        /// </summary>
+        public NpcInventoryOwner(NpcContainer npc, string hiddenItem = null, bool isEquippedHidden = false)
         {
             Npc = npc;
+            _hiddenItem = hiddenItem;
+            _isEquippedHidden = isEquippedHidden;
             this.Inject();
         }
 
@@ -107,6 +116,10 @@ namespace Gothic.Core.Domain.Inventory
         {
             var item = _vmCacheService.TryGetItemData(itemInstanceName);
             if (item == null)
+                return false;
+            if (_hiddenItem != null && itemInstanceName.EqualsIgnoreCase(_hiddenItem))
+                return false;
+            if (_isEquippedHidden && IsEquipped(itemInstanceName))
                 return false;
             var isArmor = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory() ==
                           VmGothicEnums.InvCats.InvArmor;

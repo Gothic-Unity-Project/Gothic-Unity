@@ -123,6 +123,14 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
 
         /// <summary>
+        /// Trade with an NPC (TradeService). TradeSession - the running trade.
+        /// </summary>
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeStarted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeOfferChanged = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeCommitted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeClosed = new();
+
+        /// <summary>
         /// Daedalus PrintScreen/AI_PrintScreen ("New log entry", "1 item received", ...).
         /// string - text
         /// int - posY in percent of the screen (-1 = centered)

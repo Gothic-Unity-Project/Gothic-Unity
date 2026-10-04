@@ -616,6 +616,13 @@ namespace Gothic.Core.Models.Config
                  "Vanilla let it rage (friendly fire between friends).")]
         public bool EnableGuardsStopBerzerk = true;
 
+        [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
+                 "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
+        public bool EnableVrTrade = true;
+
+
+
+
         [Tooltip("V1: AI_Flee - NPCs run away from their enemy (fear spell, ZS_Flee). Before they stood in a T-pose.")]
         public bool EnableAiFlee = true;
 

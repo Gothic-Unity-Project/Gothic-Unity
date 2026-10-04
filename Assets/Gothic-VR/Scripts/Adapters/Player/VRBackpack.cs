@@ -19,6 +19,7 @@ using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
@@ -49,6 +50,7 @@ namespace Gothic.VR.Adapters.Player
         private VmGothicEnums.InvCats _selectedCategory =  VmGothicEnums.InvCats.InvWeapon;
         private bool _tempIgnoreSocketing;
         private IInventoryOwner _owner;
+        private NpcContainer _trader;
         private Coroutine _refresh;
         private bool _isRefreshDirty;
         private static readonly Color _npcBackpackTint = new(0.55f, 0.75f, 1f);
@@ -70,11 +72,56 @@ namespace Gothic.VR.Adapters.Player
         public bool IsNpcBackpack => _owner != null && !_owner.IsHero;
 
         /// <summary>
+        /// A trader's goods during a trade (VRTradeCounter): items taken out are VRTradeGoods until paid.
+        /// </summary>
+        public bool IsTradeBackpack => _trader != null;
+
+        private const string _prefabPath = "VR/Prefabs/Player-Elements/BackPack";
+
+        /// <summary>
+        /// A copy of the hero's backpack prefab (NPC loot, trader goods). spawnedRoot is the prefab root to destroy.
+        /// </summary>
+        public static VRBackpack SpawnCopy(Vector3 position, Quaternion rotation, string goName,
+            out GameObject spawnedRoot)
+        {
+            spawnedRoot = null;
+            var prefab = Resources.Load<GameObject>(_prefabPath);
+            if (prefab == null)
+            {
+                Gothic.Core.Logging.Logger.LogWarning($"[VRBackpack] Prefab {_prefabPath} not found.",
+                    Gothic.Core.Logging.LogCat.VR);
+                return null;
+            }
+
+            spawnedRoot = Instantiate(prefab, position, rotation);
+            spawnedRoot.name = goName;
+            spawnedRoot.Inject();
+            var backpack = spawnedRoot.GetComponentInChildren<VRBackpack>(true);
+            if (backpack == null)
+                Destroy(spawnedRoot);
+            return backpack;
+        }
+
+        /// <summary>
         /// Turns this backpack into the loot backpack of an NPC (call right after spawning it).
         /// </summary>
         public void SetNpcOwner(NpcContainer npc)
         {
-            _owner = new NpcInventoryOwner(npc);
+            SetOwner(new NpcInventoryOwner(npc));
+        }
+
+        /// <summary>
+        /// Turns this backpack into a trader's goods (without his currency and equipped items).
+        /// </summary>
+        public void SetTradeOwner(NpcContainer trader, IInventoryOwner traderGoods)
+        {
+            _trader = trader;
+            SetOwner(traderGoods);
+        }
+
+        private void SetOwner(IInventoryOwner owner)
+        {
+            _owner = owner;
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
 
             // The prefab's GrabColliders hold one empty entry: that turns on HVR's grab collider filter, which then lets
@@ -131,6 +178,35 @@ namespace Gothic.VR.Adapters.Player
                 return;
             foreach (var canvas in GetComponentsInChildren<Canvas>(true))
                 HVRInputModule.Instance.AddCanvas(canvas);
+        }
+
+        /// <summary>
+        /// Unpaid trader goods put into the hero's backpack/holster go back to the trader.
+        /// </summary>
+        private bool TryReturnTradeGoods(HVRGrabbable grabbable)
+        {
+            var tradeGoods = grabbable.GetComponentInParent<VRTradeGoods>();
+            if (tradeGoods == null || tradeGoods.IsSettled)
+                return false;
+
+            Gothic.Core.Logging.Logger.Log("[Trade] Unpaid goods put into the hero's backpack - back to the trader",
+                Gothic.Core.Logging.LogCat.VR);
+            // Releasing it from our socket mustn't count as taken out of the hero's inventory (it never got in).
+            _tempIgnoreSocketing = true;
+            tradeGoods.ReturnToTrader();
+            _tempIgnoreSocketing = false;
+            return true;
+        }
+
+        private void ReturnToHero(HVRGrabbable grabbable, VobContainer vobContainer)
+        {
+            _tempIgnoreSocketing = true;
+            grabbable.ForceRelease();
+            _tempIgnoreSocketing = false;
+
+            var item = vobContainer.VobAs<IItem>();
+            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, item?.Amount ?? 1));
+            VRTradeGoods.RemoveFromWorld(vobContainer);
         }
 
         private void OnNpcInventoryChanged(NpcContainer npc)
@@ -199,6 +275,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void OnItemPutIntoHolster(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
+            // Unpaid trader goods don't become the hero's.
+            if (TryReturnTradeGoods(grabbable))
+                return;
+
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
             var vobContainer = vobLoader.Container;
 
@@ -213,6 +293,21 @@ namespace Gothic.VR.Adapters.Player
 
             var vobLoader = grabbable.GetComponentInParent<VobLoader>(true);
             var vobContainer = vobLoader.Container;
+
+            var tradeGoods = grabbable.GetComponentInParent<VRTradeGoods>();
+            if (!IsNpcBackpack && TryReturnTradeGoods(grabbable))
+                return;
+            if (IsTradeBackpack)
+            {
+                // The hero's own item doesn't go into the trader's goods - back into the hero's inventory.
+                if (tradeGoods == null)
+                {
+                    ReturnToHero(grabbable, vobContainer);
+                    return;
+                }
+                // Laid back into the goods: counted below, nothing left to return.
+                tradeGoods.IsSettled = true;
+            }
 
             _saveGameService.UntrackLooseItem(vobContainer);
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
@@ -231,6 +326,9 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void OnItemPutOutOfHolster(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
+            if (_tempIgnoreSocketing)
+                return;
+
             var vobLoader = grabbable.GetComponentInParent<VobLoader>();
             if (vobLoader == null)
                 return;
@@ -408,6 +506,8 @@ namespace Gothic.VR.Adapters.Player
                 });
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
+                if (IsTradeBackpack)
+                    vobContainer.Go.AddComponent<VRTradeGoods>().Init(_trader);
                 var grabbable = vobContainer.Go.GetComponentInChildren<HVRGrabbable>();
                 _socketContainer.TryAddGrabbable(grabbable);
 

@@ -63,6 +63,9 @@ namespace Gothic.VR.Services.Context
                     new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
             });
             GlobalEventDispatcher.ScriptExitGame.AddListener(VRCinema.QuitAfterVideos);
+            // DeveloperConfig.EnableVrTrade: the trade counter between the hero and the trader.
+            GlobalEventDispatcher.TradeStarted.AddListener(session =>
+                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(session, _playerController.Camera));
             
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
