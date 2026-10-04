@@ -25,18 +25,14 @@ namespace Gothic.Core.Services.Inventory
         /// <summary>
         /// Seconds until the next piece while the button is held: getting faster with every piece.
         /// </summary>
-        /// <param name="isFeedingSocket">Into a socket it speeds up more gently - it raced.</param>
-        public float GetRepeatDelay(int piecesSplit, bool isFeedingSocket = false)
+        public float GetRepeatDelay(int piecesSplit)
         {
             var firstDelay = Mathf.Max(0.02f, _configService.Dev.StackSplitRepeatDelay);
-            var acceleration = Mathf.Clamp(_configService.Dev.StackSplitAcceleration, 0.1f, 1f);
-            if (isFeedingSocket)
-                acceleration = Mathf.Sqrt(acceleration);
-            var minDelay = isFeedingSocket ? _minFeedRepeatDelay : _minRepeatDelay;
-            return Mathf.Max(minDelay, firstDelay * Mathf.Pow(acceleration, Mathf.Max(0, piecesSplit - 1)));
+            // Speeding up gently (square root of the factor) - the full factor raced.
+            var acceleration = Mathf.Sqrt(Mathf.Clamp(_configService.Dev.StackSplitAcceleration, 0.1f, 1f));
+            return Mathf.Max(_minRepeatDelay, firstDelay * Mathf.Pow(acceleration, Mathf.Max(0, piecesSplit - 1)));
         }
 
-        private const float _minRepeatDelay = 0.04f;
-        private const float _minFeedRepeatDelay = 0.1f;
+        private const float _minRepeatDelay = 0.1f;
     }
 }

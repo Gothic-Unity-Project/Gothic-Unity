@@ -181,6 +181,39 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
+        /// The trader whose goods this backpack shows (trade counter), null otherwise.
+        /// </summary>
+        public NpcContainer Trader => _trader;
+
+        /// <summary>
+        /// The socketed stack nearest to a hand - taking pieces off it with the split button (VRStackSplitter).
+        /// </summary>
+        public HVRGrabbable FindStackNear(Vector3 position, float maxDistance)
+        {
+            HVRGrabbable nearest = null;
+            var nearestDistance = maxDistance;
+            foreach (var socket in _socketContainer.Sockets)
+            {
+                if (socket == null || !socket.IsGrabbing || socket.GrabbedTarget == null)
+                    continue;
+                var distance = Vector3.Distance(socket.GrabbedTarget.transform.position, position);
+                if (distance > nearestDistance)
+                    continue;
+                nearest = socket.GrabbedTarget;
+                nearestDistance = distance;
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// Pieces taken off a socketed stack leave the owner's inventory (its view shows the new amount already).
+        /// </summary>
+        public void RemoveTakenPieces(string itemInstanceName, int amount)
+        {
+            Owner.Remove(itemInstanceName, amount);
+        }
+
+        /// <summary>
         /// Unpaid trader goods put into the hero's backpack/holster go back to the trader.
         /// </summary>
         private bool TryReturnTradeGoods(HVRGrabbable grabbable)

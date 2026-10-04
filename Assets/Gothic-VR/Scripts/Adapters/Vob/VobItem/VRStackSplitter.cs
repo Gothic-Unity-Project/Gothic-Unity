@@ -11,6 +11,7 @@ using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
+using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Services;
 using HurricaneVR.Framework.ControllerInput;
@@ -32,6 +33,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// - empty hand near a stack held by the other hand, its button held: pieces jump into it, faster and faster.
     ///   They lie in the hand without holding grip (kinematic at the palm, not grabbed - a forced HVR grab flung the
     ///   physics hand away): grip grabs them normally, letting go drops them.
+    /// - empty hand near a stack in a backpack slot (the hero's, loot, trader goods), its button held: pieces jump from
+    ///   the slot into the hand the same way.
     /// - both hands hold the same item: this hand's stack joins the other hand's stack (this hand lets go).
     /// - a hand holds a stack near an empty socket (backpack, trade counter, loot), its button held: pieces gather at
     ///   the socket and go into it when the button is let go (letting go of the whole stack still socket it all).
@@ -50,6 +53,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private const float _maxHandDistance = 0.3f;
         private const float _maxSocketDistance = 0.3f;
+        private const float _maxBackpackStackDistance = 0.15f;
         private const float _mergeLabelSeconds = 1.5f;
 
         private HVRHandGrabber _leftHand;
@@ -61,6 +65,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private VobContainer _piece;
         private HVRSocket _feedSocket;
         private bool _isSourceGrabbed;
+
+        // Taking pieces off a stack in a backpack slot: removed from its owner when the button is let go (removing
+        // piece by piece refreshed an NPC's backpack and destroyed the stack being split).
+        private VRBackpack _sourceBackpack;
+        private int _piecesFromBackpack;
+        private string _backpackItemName;
         private int _piecesSplit;
         private float _nextPieceTime;
 
@@ -102,6 +112,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // The simulator's T: the left hand takes first. Hands near each other before a socket near a stack.
             if (TryStart(_leftHand, HVRHandSide.Left, _rightHand) || TryStart(_rightHand, HVRHandSide.Right, _leftHand))
+                return;
+            if (TryStartFromBackpack(_leftHand, HVRHandSide.Left) || TryStartFromBackpack(_rightHand, HVRHandSide.Right))
                 return;
             if (!TryStartFeed(_leftHand, HVRHandSide.Left))
                 TryStartFeed(_rightHand, HVRHandSide.Right);
@@ -218,6 +230,40 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
+        /// An empty hand near a stack in a backpack slot presses its button: the first piece lies in the hand.
+        /// </summary>
+        private bool TryStartFromBackpack(HVRHandGrabber hand, HVRHandSide side)
+        {
+            if (hand.GrabbedTarget != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
+                return false;
+
+            foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsSortMode.None))
+            {
+                var stackGrabbable = backpack.FindStackNear(hand.transform.position, _maxBackpackStackDistance);
+                var source = stackGrabbable != null ? stackGrabbable.GetComponentInParent<VobLoader>()?.Container : null;
+                var item = source?.VobAs<IItem>();
+                if (item == null || !_stackSplitService.CanSplit(item.Amount))
+                    continue;
+
+                // A trader's goods stay his unpaid goods in the hand.
+                var palm = hand.Palm != null ? hand.Palm : hand.transform;
+                var piece = SpawnPiece(item, backpack.Trader, palm.position, palm.rotation);
+                if (piece == null)
+                    return false;
+                PutIntoPalm(hand, piece);
+
+                item.Amount--;
+                _sourceBackpack = backpack;
+                _piecesFromBackpack = 1;
+                _backpackItemName = GetInstanceName(item);
+                Begin(side, source, false, piece, null);
+                Logger.Log($"[StackSplit] {GetInstanceName(item)}: 1 piece taken out of {backpack.name}", LogCat.VR);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// The hand holds a stack near an empty socket and presses its button: the first piece waits at the socket.
         /// </summary>
         private bool TryStartFeed(HVRHandGrabber hand, HVRHandSide side)
@@ -286,7 +332,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _piece = piece;
             _feedSocket = feedSocket;
             _piecesSplit = 1;
-            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit, _feedSocket != null);
+            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit);
             SetLabelPinned(_source, true);
             SetLabelPinned(_piece, true);
         }
@@ -299,7 +345,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var sourceItem = _source?.Go != null ? _source.VobAs<IItem>() : null;
             var pieceItem = _piece?.Go != null ? _piece.VobAs<IItem>() : null;
             var isPieceInPlace = _feedSocket != null ? !_feedSocket.IsGrabbing : IsInHand(_piece);
-            if (!IsSplitHeld(_buttonSide) || sourceItem == null || pieceItem == null || !IsInHand(_source) ||
+            var isSourceInPlace = _sourceBackpack != null ? IsSocketed(_source) : IsInHand(_source);
+            if (!IsSplitHeld(_buttonSide) || sourceItem == null || pieceItem == null || !isSourceInPlace ||
                 !isPieceInPlace)
             {
                 End();
@@ -312,8 +359,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             sourceItem.Amount--;
             pieceItem.Amount++;
             TakeFromSource(sourceItem, _isSourceGrabbed);
+            if (_sourceBackpack != null)
+                _piecesFromBackpack++;
             _piecesSplit++;
-            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit, _feedSocket != null);
+            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit);
             RefreshLabel(_source);
             RefreshLabel(_piece);
         }
@@ -322,6 +371,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             SetLabelPinned(_source, false);
             SetLabelPinned(_piece, false);
+
+            if (_sourceBackpack != null && _piecesFromBackpack > 0)
+                _sourceBackpack.RemoveTakenPieces(_backpackItemName, _piecesFromBackpack);
+            _sourceBackpack = null;
+            _piecesFromBackpack = 0;
 
             if (_feedSocket != null && _piece?.Go != null)
             {
@@ -463,6 +517,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     Destroy(label.gameObject);
             }
             _labels.Clear();
+        }
+
+        private static bool IsSocketed(VobContainer container)
+        {
+            var grabbable = container?.Go != null ? container.Go.GetComponentInChildren<HVRGrabbable>() : null;
+            return grabbable != null && grabbable.IsSocketed;
         }
 
         private static bool IsHeld(VobContainer container)
