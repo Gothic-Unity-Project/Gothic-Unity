@@ -393,6 +393,10 @@ namespace Gothic.Core.Models.Config
                  "loot closes.")]
         public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Both;
 
+        [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking the " +
+                 "body again).")]
+        public float NpcLootBackpackTimeout = 20f;
+
         [Tooltip("Pull radius around the backpack opening in meters.")]
         [Range(0.2f, 3f)]
         public float BackpackVacuumRadius = 1.2f;
@@ -624,6 +628,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;
+
+        [Tooltip("V1: Spells invest mana at their own C_Spell.time_per_mana like the engine (G2 charge spells: 30 ms " +
+                 "per mana, 40 per level). Off: one mana every 0.5 s for all spells.")]
+        public bool EnableSpellTimePerMana = true;
 
         [Tooltip("V1: Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
                  "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]

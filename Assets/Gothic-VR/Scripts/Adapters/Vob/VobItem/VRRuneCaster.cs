@@ -228,7 +228,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _vrPlayerService.DeactivateSpellTargeting();
                 _isCasting = true;
                 _manaInvested = 0;
-                _manaTickTimer = _manaTickInterval;
+                _manaTickTimer = GetManaTickInterval();
 
                 SpawnInvestFx(true);
 
@@ -304,11 +304,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private bool IsManaTickDue()
         {
+            var interval = GetManaTickInterval();
             _manaTickTimer += Time.deltaTime;
-            if (_manaTickTimer < _manaTickInterval)
+            if (_manaTickTimer < interval)
                 return false;
-            _manaTickTimer -= _manaTickInterval;
+            _manaTickTimer -= interval;
             return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableSpellTimePerMana: the spell's own C_Spell.time_per_mana (ms) like the engine - G2's
+        /// ChargeFireball invests one mana every 30 ms (40 per level); at our fixed 0.5 s a level took 20 s and the
+        /// spell always went off at level 1.
+        /// </summary>
+        private float GetManaTickInterval()
+        {
+            if (!_configService.Dev.EnableSpellTimePerMana || _item == null)
+                return _manaTickInterval;
+            var timePerMana = _vmCacheService.TryGetSpellData(_item.Spell)?.TimePerMana ?? 0f;
+            return timePerMana > 0f ? Mathf.Max(0.01f, timePerMana / 1000f) : _manaTickInterval;
         }
 
         /// <summary>
@@ -831,7 +845,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _manaInvested = 0;
             _investLevel = 0;
             _spellTarget = null;
-            _manaTickTimer = _manaTickInterval; // first mana right away
+            _manaTickTimer = GetManaTickInterval(); // first mana right away
 
             StartInvestSound(_item.Spell);
             SpawnSpellVfx(handSide);

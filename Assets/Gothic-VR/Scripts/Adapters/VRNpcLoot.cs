@@ -60,6 +60,7 @@ namespace Gothic.VR.Adapters
         private NpcInventoryOwner _lootOwner;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
+        private Coroutine _lootBackpackTimeout;
 
         private NpcContainer _npcContainer;
         private NpcLoader _npcLoader;
@@ -140,11 +141,48 @@ namespace Gothic.VR.Adapters
             }
             _lootBackpackRoot = backpackGo;
             _lootBackpack.SetNpcOwner(npc);
+
+            // Lying untouched for a while: gone like closing the loot - no backpacks lying around the battlefield.
+            // Held, it stays; let go, the time starts again.
+            var grabbable = _lootBackpack.GetComponent<HVRGrabbable>();
+            if (grabbable != null)
+            {
+                grabbable.Grabbed.AddListener((_, _) => StopLootBackpackTimeout());
+                grabbable.Released.AddListener((_, _) => StartLootBackpackTimeout());
+            }
+            StartLootBackpackTimeout();
             Logger.Log($"[VRNpcLoot] Loot backpack of {npc.Go.name} spawned", LogCat.VR);
+        }
+
+        private void StartLootBackpackTimeout()
+        {
+            StopLootBackpackTimeout();
+            if (_isOpen && isActiveAndEnabled)
+                _lootBackpackTimeout = StartCoroutine(CloseUnusedLootBackpack());
+        }
+
+        private void StopLootBackpackTimeout()
+        {
+            if (_lootBackpackTimeout == null)
+                return;
+            StopCoroutine(_lootBackpackTimeout);
+            _lootBackpackTimeout = null;
+        }
+
+        private IEnumerator CloseUnusedLootBackpack()
+        {
+            yield return new WaitForSeconds(Mathf.Max(1f, _configService.Dev.NpcLootBackpackTimeout));
+            _lootBackpackTimeout = null;
+            if (!_isOpen)
+                yield break;
+
+            Logger.Log("[VRNpcLoot] Loot backpack not picked up - loot closed", LogCat.VR);
+            Close();
         }
 
         private void DespawnLootBackpack()
         {
+            StopLootBackpackTimeout();
             if (_lootBackpack != null)
                 _lootBackpack.Despawn(_lootBackpackRoot);
             else if (_lootBackpackRoot != null)
