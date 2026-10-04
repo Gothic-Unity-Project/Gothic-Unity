@@ -170,6 +170,11 @@ namespace Gothic.Core.Domain.Vobs
                         break;
                     }
 
+                    // Diagnostics: controllers started later by a trigger (not handled yet) - which effect, where.
+                    if (vob is IParticleEffectController waitingController)
+                        Logger.Log($"[PFX] Controller '{vob.Name}' ({waitingController.EffectName}) at " +
+                                   $"{vob.Position.ToUnityVector()} waits for a trigger - not shown", LogCat.Vob);
+
                     // A Particle controller makes no sense without a visual to show.
                     // Therefore, removing it now (as it's also not included in official G1 saves, and not visible within Spacer)
                     if (!vob.ShowVisual)

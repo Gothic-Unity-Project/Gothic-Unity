@@ -641,6 +641,14 @@ namespace Gothic.Core.Models.Config
                  "scripts set a size. Off: the scale is only stored.")]
         public bool EnableModelScale = true;
 
+        [Tooltip("V1: Maps of the current world show the hero (U.TGA arrow, turned like him) like the engine - " +
+                 "Doc_SetLevel/Doc_SetLevelCoords, G1 maps use the world's bounds.")]
+        public bool EnableMapPlayerMarker = true;
+
+        [Tooltip("V1: Looping particle effects (torches, camp fires, fog, magic) emit at Gothic's own rate (max 500/s) " +
+                 "instead of ~10 particles/s. Off if the frame rate suffers.")]
+        public bool EnablePfxFullRateLoops = true;
+
         [Tooltip("V1: Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
                  "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]
         public bool EnableStackSplit = true;

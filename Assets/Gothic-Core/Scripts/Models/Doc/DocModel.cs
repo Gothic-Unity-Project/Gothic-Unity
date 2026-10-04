@@ -19,5 +19,19 @@ namespace Gothic.Core.Models.Doc
         public int Id;
         public bool IsMap;
         public List<DocPage> Pages = new();
+
+        /// <summary>
+        /// Doc_SetLevel: the world the map shows (e.g. WORLD.ZEN) - the hero is marked on it only there.
+        /// </summary>
+        public string Level;
+
+        /// <summary>
+        /// Doc_SetLevelCoords: world coordinates (cm) of the map edges. G1 maps have none - the world's bounds.
+        /// </summary>
+        public bool HasLevelCoords;
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 }

@@ -1,6 +1,10 @@
 using System.Collections.Generic;
+using System.IO;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Doc;
+using Gothic.Core.Services.World;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -8,6 +12,8 @@ namespace Gothic.Core.Services
 {
     public class DocService
     {
+        [Inject] private readonly SaveGameService _saveGameService;
+
         private readonly Dictionary<int, DocModel> _docs = new();
         private int _nextId = 1;
 
@@ -98,6 +104,79 @@ namespace Gothic.Core.Services
             Logger.Log($"[DocService] Doc_Show id={id}, pages={doc.Pages.Count}, itemGo={PendingItemGo?.name}", LogCat.Npc);
             GlobalEventDispatcher.DocShow.Invoke(doc, PendingItemGo);
             PendingItemGo = null;
+        }
+
+        public void SetLevel(int id, string level)
+        {
+            var doc = Get(id);
+            if (doc != null)
+                doc.Level = level;
+            Logger.Log($"[DocService] Doc_SetLevel id={id} level={level}", LogCat.Npc);
+        }
+
+        public void SetLevelCoords(int id, int left, int top, int right, int bottom)
+        {
+            var doc = Get(id);
+            if (doc == null)
+                return;
+            doc.HasLevelCoords = true;
+            doc.Left = left;
+            doc.Top = top;
+            doc.Right = right;
+            doc.Bottom = bottom;
+        }
+
+        /// <summary>
+        /// The map belongs to the world the hero is in (Doc_SetLevel "WORLD.ZEN", "Addon\AddonWorld.zen").
+        /// </summary>
+        public bool IsMapOfCurrentWorld(DocModel doc)
+        {
+            if (doc?.IsMap != true || string.IsNullOrEmpty(doc.Level) || string.IsNullOrEmpty(_saveGameService.CurrentWorldName))
+                return false;
+            return Path.GetFileName(doc.Level.Replace('\\', '/')).EqualsIgnoreCase(
+                Path.GetFileName(_saveGameService.CurrentWorldName.Replace('\\', '/')));
+        }
+
+        /// <summary>
+        /// World coordinates (cm) of the map edges: left, top, right, bottom like Doc_SetLevelCoords (top = north = +Z).
+        /// G1 maps set none - the engine uses the world mesh's bounds then.
+        /// </summary>
+        public bool TryGetMapBounds(DocModel doc, out float left, out float top, out float right, out float bottom)
+        {
+            left = top = right = bottom = 0f;
+            if (doc.HasLevelCoords)
+            {
+                (left, top, right, bottom) = (doc.Left, doc.Top, doc.Right, doc.Bottom);
+                return right != left && bottom != top;
+            }
+
+
+            try
+            {
+                var box = _saveGameService.CurrentWorldData.Mesh.BoundingBox;
+                (left, top, right, bottom) = (box.Min.X, box.Max.Z, box.Max.X, box.Min.Z);
+                if (right != left && bottom != top)
+                    return true;
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogWarning($"[DocService] World mesh bounds unavailable: {e.Message}", LogCat.Npc);
+            }
+
+            // The built world mesh in the scene (meters -> cm).
+            var worldRoot = GameObject.Find("World");
+            var renderers = worldRoot != null ? worldRoot.GetComponentsInChildren<Renderer>(true) : null;
+            if (renderers == null || renderers.Length == 0)
+            {
+                Logger.LogWarning("[DocService] No world bounds for the map", LogCat.Npc);
+                return false;
+            }
+            var bounds = renderers[0].bounds;
+            foreach (var renderer in renderers)
+                bounds.Encapsulate(renderer.bounds);
+            (left, top, right, bottom) = (bounds.min.x * 100f, bounds.max.z * 100f, bounds.max.x * 100f,
+                bounds.min.z * 100f);
+            return right != left && bottom != top;
         }
 
         private DocModel Get(int id) => _docs.TryGetValue(id, out var d) ? d : null;

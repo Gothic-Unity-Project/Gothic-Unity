@@ -241,7 +241,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // DeveloperConfig.EnablePfxMinimumEmission: low-rate effects (LIGHTSMOKE: 5 pps) emitted nothing.
                 if (_isGothicBurst)
                     scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxBurstEmissionRate);
-                else if (_isFullRate && _pfxConfigService.Dev.EnablePfxMinimumEmission)
+                // DeveloperConfig.EnablePfxFullRateLoops: looping world effects at Gothic's rate - torches, camp fires and
+                // ground fog were cut to ~10 particles/s (a few sparks instead of a flame).
+                else if ((_isFullRate || _pfxConfigService.Dev.EnablePfxFullRateLoops) &&
+                         _pfxConfigService.Dev.EnablePfxMinimumEmission)
                     scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxLoopEmissionRate);
                 else if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
                     scaledEmissionRate = Mathf.Max(scaledEmissionRate, Mathf.Min(pfx.PpsValue, _minimumEmissionRate));

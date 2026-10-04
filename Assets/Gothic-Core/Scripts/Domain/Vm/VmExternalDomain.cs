@@ -151,6 +151,11 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, string>("Doc_PrintLine", Doc_PrintLine);
             vm.RegisterExternal<int, int, string>("Doc_PrintLines", Doc_PrintLines);
             vm.RegisterExternal<int>("Doc_Show", Doc_Show);
+            // Map position externals: G1 has no Doc_SetLevelCoords (registering a missing symbol throws).
+            if (vm.GetSymbolByName("Doc_SetLevel") != null)
+                vm.RegisterExternal<int, string>("Doc_SetLevel", Doc_SetLevel);
+            if (vm.GetSymbolByName("Doc_SetLevelCoords") != null)
+                vm.RegisterExternal<int, int, int, int, int>("Doc_SetLevelCoords", Doc_SetLevelCoords);
 
             // Helper
             vm.RegisterExternal<int, int>("Hlp_Random", Hlp_Random);
@@ -763,6 +768,11 @@ namespace Gothic.Core.Domain.Vm
         public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
 
         public void Doc_Show(int id) => _docService.ShowDoc(id);
+
+        public void Doc_SetLevel(int id, string level) => _docService.SetLevel(id, level);
+
+        public void Doc_SetLevelCoords(int id, int left, int top, int right, int bottom) =>
+            _docService.SetLevelCoords(id, left, top, right, bottom);
 
         #endregion
 
