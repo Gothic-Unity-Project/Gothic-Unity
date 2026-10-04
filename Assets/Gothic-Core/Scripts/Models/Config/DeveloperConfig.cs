@@ -353,6 +353,11 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Daedalus symbol name of NPC to spawn next to player via Marvin 'Spawn NPC' button. E.g. SH, PC_THIEF. Leave empty to disable.")]
         public string MarvinSpawnNpcSymbol = string.Empty;
 
+        [Tooltip("Items for the Marvin 'Give items' button, comma separated, optional amount: " +
+                 "ITRU_FIREBOLT, ITSC_ICEBOLT:3, ITPO_MANA_03:5. Leave empty to hide the button.")]
+        [TextArea(2, 6)]
+        public string MarvinGiveItems = string.Empty;
+
         [Header("NPC Combat (WIP)")]
         [Tooltip("Fire ZS_Attack_Loop early when combo window opens so the next attack chains before the animation ends.")]
         public bool EnableNpcCombatCombos = true;

@@ -11,6 +11,7 @@ using Gothic.Core.Creator;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using ZenKit.Daedalus;
 using UnityEngine.UI;
 using Logger = Gothic.Core.Logging.Logger;
 using LogCat = Gothic.Core.Logging.LogCat;
@@ -26,6 +27,8 @@ namespace Gothic.VR.Adapters.Marvin
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         private void Start()
         {
@@ -58,6 +61,9 @@ namespace Gothic.VR.Adapters.Marvin
             if (!string.IsNullOrEmpty(_configService.Dev.MarvinSpawnNpcSymbol))
                 buttons.Add(($"Spawn {_configService.Dev.MarvinSpawnNpcSymbol}", CheatSpawnNpc));
 
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinGiveItems))
+                buttons.Add(("Give items", CheatGiveItems));
+
             const float buttonHeight = 50f;
             const float gap = 10f;
             var totalHeight = buttons.Count * buttonHeight + (buttons.Count - 1) * gap;
@@ -70,6 +76,8 @@ namespace Gothic.VR.Adapters.Marvin
             }
         }
 
+        private const int _manaMaxPerLevelCheat = 100;
+
         private void CheatAddLevels()
         {
             const int levelsToAdd = 5;
@@ -77,11 +85,17 @@ namespace Gothic.VR.Adapters.Marvin
             var oldLevel = hero.Instance.Level;
             hero.Instance.Level += levelsToAdd;
             hero.Instance.Lp += levelsToAdd * 10;
-            var hpMax = hero.Vob.GetAttribute(1) + levelsToAdd * 12;
-            hero.Vob.SetAttribute(1, hpMax);
-            hero.Vob.SetAttribute(0, hpMax);
+            // HP and mana max up, both filled. Set on the instance too: SyncHeroInstanceToVob() copies the instance
+            // into the vob - vob-only values were reverted at once.
+            var hpMax = hero.Instance.GetAttribute(NpcAttribute.HitPointsMax) + levelsToAdd * 12;
+            var manaMax = hero.Instance.GetAttribute(NpcAttribute.ManaMax) + _manaMaxPerLevelCheat;
+            hero.Instance.SetAttribute(NpcAttribute.HitPointsMax, hpMax);
+            hero.Instance.SetAttribute(NpcAttribute.HitPoints, hpMax);
+            hero.Instance.SetAttribute(NpcAttribute.ManaMax, manaMax);
+            hero.Instance.SetAttribute(NpcAttribute.Mana, manaMax);
             _npcService.SyncHeroInstanceToVob();
-            Logger.Log($"[MarvinMode] Level cheat: {oldLevel}→{hero.Instance.Level} (+{levelsToAdd * 10} LP, +{levelsToAdd * 12} HP_MAX)", LogCat.Ui);
+            Logger.Log($"[MarvinMode] Level cheat: {oldLevel}→{hero.Instance.Level} (+{levelsToAdd * 10} LP, " +
+                       $"HP {hpMax}/{hpMax}, mana {manaMax}/{manaMax})", LogCat.Ui);
         }
 
         private void CheatToNovice()
@@ -125,6 +139,29 @@ namespace Gothic.VR.Adapters.Marvin
             var ok = _npcService.SpawnNpcByName(symbol, pos, rot);
             if (ok)
                 Logger.Log($"[MarvinMode] Spawned '{symbol}' near player", LogCat.Ui);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.MarvinGiveItems: "ITRU_FIREBOLT, ITPO_MANA_03:5" - into the hero's inventory (backpack).
+        /// </summary>
+        private void CheatGiveItems()
+        {
+            foreach (var entry in _configService.Dev.MarvinGiveItems.Split(',', ';', '\n'))
+            {
+                var parts = entry.Trim().Split(':');
+                var itemName = parts[0].Trim().ToUpper();
+                if (itemName.Length == 0)
+                    continue;
+                var amount = parts.Length > 1 && int.TryParse(parts[1].Trim(), out var parsed) ? Mathf.Max(1, parsed) : 1;
+
+                if (_vmCacheService.TryGetItemData(itemName) == null)
+                {
+                    Logger.LogWarning($"[MarvinMode] Give items: unknown item '{itemName}'", LogCat.Ui);
+                    continue;
+                }
+                _playerService.AddItem(itemName, amount);
+                Logger.Log($"[MarvinMode] Gave {itemName} x{amount}", LogCat.Ui);
+            }
         }
 
         private void SkipTime30Min()

@@ -322,12 +322,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (currentMana <= 0)
                 return false;
 
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
-            // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
-            // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
-            // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
-            hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
-            RefreshManaFill();
+            // G1: the engine takes one mana per invest tick. G2: the spell's script pays on the cast (Spell_Cast_*) -
+            // taking it here too left too little for Spell_Logic's check (SPL_SENDSTOP, nothing fired, mana gone).
+            if (!IsScriptPaidSpell())
+            {
+                hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
+                // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
+                // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
+                // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
+                hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
+                RefreshManaFill();
+            }
 
             var vm = _gameStateService.GothicVm;
             var oldSelf = vm.GlobalSelf;
@@ -347,6 +352,54 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
+        /// G2 (and mods on it): Spell_Cast_[name] exists - the script pays the mana on the cast. G1 has none.
+        /// </summary>
+        private bool IsScriptPaidSpell()
+        {
+            var mfxName = GetSpellMfxName(_item.Spell);
+            return mfxName != null && _gameStateService.GothicVm.GetSymbolByName($"Spell_Cast_{mfxName}") != null;
+        }
+
+        /// <summary>
+        /// Like the engine on a cast (OpenGothic GameScript::invokeSpell): Spell_Cast_[name] with self = hero,
+        /// other = target - G2 pays the mana there (scroll or rune cost). Leveled spells get their invest level.
+        /// </summary>
+        private void InvokeSpellCast()
+        {
+            var mfxName = GetSpellMfxName(_item.Spell);
+            var vm = _gameStateService.GothicVm;
+            var castSymbol = mfxName != null ? vm.GetSymbolByName($"Spell_Cast_{mfxName}") : null;
+            if (castSymbol == null)
+                return;
+
+            var hero = _npcService.GetHeroContainer();
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            vm.GlobalSelf = vm.GlobalHero;
+            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
+            try
+            {
+                if (castSymbol.Size == 1)
+                    vm.Call(castSymbol.Index, Mathf.Max(1, _investLevel));
+                else
+                    vm.Call(castSymbol.Index);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+            }
+
+            // The script changed the instance's mana - the vob (mana bar, saves) follows.
+            hero.Vob.SetAttribute((int)NpcAttribute.Mana, hero.Instance.GetAttribute(NpcAttribute.Mana));
+            RefreshManaFill();
+        }
+
+        /// <summary>
         /// Ends the current cast — either because Daedalus auto-fired at max charge, sent an explicit
         /// stop, or the player released early (trigger 3+) to fire at whatever level was reached.
         /// </summary>
@@ -357,7 +410,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             DestroyBodyFx();
             PlayCastSound(_item.Spell);
             if (applyEffect)
+            {
                 SpawnCastFx();
+                InvokeSpellCast();
+            }
 
             if (applyEffect)
             {
@@ -890,6 +946,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var origin = handGo.transform.position + direction * 0.15f;
             SpawnSpellProjectile(origin, direction, _manaInvested);
+            InvokeSpellCast();
 
             _isCasting = false;
             _isThrowCharged = false;
