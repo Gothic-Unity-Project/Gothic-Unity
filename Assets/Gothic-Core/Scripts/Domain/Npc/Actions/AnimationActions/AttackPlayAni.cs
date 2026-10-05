@@ -127,13 +127,24 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 StopTurnAnimation();
                 // Magic/ranged animations have no DEF_OPT_FRAME, so HasComboWindowOpened never fires.
                 // Fire the hit at animation end instead.
-                if (!_hasHitFired && (VmGothicEnums.WeaponState)Vob.FightMode is
-                    VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                // DeveloperConfig.EnableNpcHitAtOptimalFrame: a melee animation without DEF_OPT_FRAME/DEF_WINDOW hits
+                // at its end too - wolves' bites never checked for a hit.
+                if (!_hasHitFired && ((VmGothicEnums.WeaponState)Vob.FightMode is
+                    VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow ||
+                    _configService.Dev.EnableNpcHitAtOptimalFrame))
                 {
                     _hasHitFired = true;
                     TryFireHit();
                 }
                 return;
+            }
+
+            // DeveloperConfig.EnableNpcHitAtOptimalFrame: like the engine, the hit lands at DEF_OPT_FRAME.
+            if (!_hasHitFired && _configService.Dev.EnableNpcHitAtOptimalFrame &&
+                PrefabProps.AnimationSystem.HasOptimalFrameReached(Action.String0))
+            {
+                _hasHitFired = true;
+                TryFireHit();
             }
 
             // Combo chaining: once the DEF_WINDOW frame is reached, cut this animation short so the

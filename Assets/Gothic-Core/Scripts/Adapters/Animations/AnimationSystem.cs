@@ -1090,6 +1090,26 @@ namespace Gothic.Core.Adapters.Animations
             }
         }
 
+        /// <summary>
+        /// True when the attack animation passed its DEF_OPT_FRAME - the frame the engine applies the hit's damage.
+        /// Monster attacks (wolves) have no DEF_WINDOW, so HasComboWindowOpened never opened for them.
+        /// </summary>
+        public bool HasOptimalFrameReached(string animationName)
+        {
+            if (AttackOptFrame == null || AttackOptFrame.Count == 0)
+                return false;
+
+            foreach (var trackInstance in _trackInstances)
+            {
+                if (!trackInstance.Track.MatchesName(animationName) &&
+                    (AttackAnimation == null || !trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation)))
+                    continue;
+                return trackInstance.CurrentTime >= AttackOptFrame[0] / trackInstance.Track.FpsSource;
+            }
+
+            return false;
+        }
+
         public bool IsPlaying(string animationName)
         {
             foreach (var trackInstance in _trackInstances)

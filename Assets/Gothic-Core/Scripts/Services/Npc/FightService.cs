@@ -686,6 +686,11 @@ namespace Gothic.Core.Services.Npc
 
                 candidate.Vob.AttitudeTemp = candidate.Vob.Attitude;
 
+                // Like the engine, the fight ends the moment the hero is down. The NPC's running chase/attack kept
+                // its queue busy for seconds, so ZS_Attack_Loop never saw C_NpcIsDown(hero) - a citizen ran in
+                // circles and attacked again once the hero stood up. Cleared, the loop ends the fight right away.
+                _npcAiService.ExtNpcClearAiQueue(candidate.Instance);
+
                 // The encounter is over, but nothing else tells this NPC to sheath whatever weapon it
                 // drew for the confrontation (B_DrawWeapon back in ZS_AssessEnemy) — without this it
                 // keeps walking/standing with the weapon out and the wrong animation set even after it

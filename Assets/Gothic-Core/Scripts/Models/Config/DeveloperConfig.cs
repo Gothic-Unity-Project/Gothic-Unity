@@ -676,6 +676,10 @@ namespace Gothic.Core.Models.Config
                  "Off: only the hero and his party knock out, NPCs kill each other.")]
         public bool EnableEngineUnconsciousRule = true;
 
+        [Tooltip("V1: An NPC's melee hit lands at its animation's DEF_OPT_FRAME (like the engine), or at its end when " +
+                 "it has none - wolves' bites never hit anything (no DEF_WINDOW).")]
+        public bool EnableNpcHitAtOptimalFrame = true;
+
         [Tooltip("V1: Crouching (real or the crouch button) is sneaking for the scripts (BS_SNEAK): NPCs that see " +
                  "you ask why you sneak, footsteps make no noise.")]
         public bool EnableHeroSneakBodyState = true;
