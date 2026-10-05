@@ -220,10 +220,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target);
                 }
-                // DeveloperConfig.EnableGuardsStopBerzerk: a berzerk NPC is stopped, not killed.
-                else if (IsHuman(target) &&
-                         (attacker.PrefabProps != null && attacker.PrefabProps.IsHero() || IsPartyMember(attacker) ||
-                          (_configService.Dev.EnableGuardsStopBerzerk && IsBerzerk(target))))
+                else if (IsHuman(target) && IsKnockedOutNotKilled(attacker, target))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
                     OnNpcKnockedOut(target, attacker);
@@ -239,8 +236,20 @@ namespace Gothic.Core.Services.Npc
             }
             else
             {
-                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
-                OnHitChangeAnimation(target);
+                // DeveloperConfig.EnableNpcSwingKeepsOnNpcHit: an NPC's swing isn't cut short by another NPC's hit -
+                // two bandits taking turns kept Cavalorn from ever landing one (stumble before his hit frame).
+                // The hero's hits still interrupt like in Gothic.
+                var isHeroAttacker = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
+                if (_configService.Dev.EnableNpcSwingKeepsOnNpcHit && !isHeroAttacker &&
+                    target.Props.CurrentAction is AttackPlayAni { IsSwingInProgress: true })
+                {
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage mid-swing - keeps swinging", LogCat.Npc);
+                }
+                else
+                {
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
+                    OnHitChangeAnimation(target);
+                }
                 OnHitPlaySound(target);
             }
 
@@ -459,7 +468,9 @@ namespace Gothic.Core.Services.Npc
                 // Party members excluded as well — a bystander that's lost sight of the hero should
                 // keep trying to reacquire the hero, not settle on the summon that's visibly fighting
                 // nearby instead.
-                if (attacker.Instance.Index != heroIndex &&
+                // Not when the attacker hits the hero himself - he's on the bystander's side (Rangar beat the hero,
+                // the citizen fighting the hero turned on Rangar).
+                if (attacker.Instance.Index != heroIndex && target.Instance.Index != heroIndex &&
                     candidate.Props.TargetNpc?.Index == heroContainer.Instance.Index &&
                     !_npcAiService.ExtNpcCanSeeNpc(candidate.Instance, heroContainer.Instance, false) &&
                     candidate.Instance.Guild != attacker.Instance.Guild &&
@@ -564,6 +575,32 @@ namespace Gothic.Core.Services.Npc
             _npcAiService.ExtAiStartState(partyMember.Instance, zsAttack.Index, true, "");
             _gameStateService.GothicVm.GlobalOther = oldOther;
             Logger.Log($"[FightService] Party member {partyMember.Instance.GetName(NpcNameSlot.Slot0)} → attack {enemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+        }
+
+        /// <summary>
+        /// A human at 0 HP: knocked out or dead?
+        /// DeveloperConfig.EnableEngineUnconsciousRule (like the engine, OpenGothic Npc::checkHealth): a melee hit
+        /// knocks out unless the victim is hostile to the attacker - permanent attitude towards the hero, guild
+        /// attitude between NPCs. A guard no longer kills a citizen in a brawl, bandits still die. Arrows kill.
+        /// Off: only the hero and his party knock out. A berzerk is always only stopped (EnableGuardsStopBerzerk).
+        /// </summary>
+        private bool IsKnockedOutNotKilled(NpcContainer attacker, NpcContainer target)
+        {
+            if (_configService.Dev.EnableGuardsStopBerzerk && IsBerzerk(target))
+                return true;
+
+            var isHeroAttacker = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
+            if (!_configService.Dev.EnableEngineUnconsciousRule)
+                return isHeroAttacker || IsPartyMember(attacker);
+
+            var attackerWeapon = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
+            if (!isHeroAttacker && attackerWeapon is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
+                return false;
+
+            var attitude = _npcAiService.ExtGetPermAttitude(target.Instance, attacker.Instance);
+            Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} down by " +
+                       $"{attacker.Instance.GetName(NpcNameSlot.Slot0)} - attitude {attitude}", LogCat.Fight);
+            return attitude != VmGothicEnums.Attitude.Hostile;
         }
 
         private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)

@@ -679,6 +679,31 @@ namespace Gothic.Core.Services.Npc
             }
         }
         
+        /// <summary>
+        /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
+        /// the item state resets.
+        /// </summary>
+        public void RemoveUsedItemFromHand(NpcContainer npcContainer)
+        {
+            var props = npcContainer?.Props;
+            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+                return;
+
+            var slotGo = npcContainer.PrefabProps?.Bip01 != null
+                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
+                : null;
+            if (slotGo != null)
+            {
+                for (var i = slotGo.transform.childCount - 1; i >= 0; i--)
+                    Object.Destroy(slotGo.transform.GetChild(i).gameObject);
+            }
+
+            Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
+                       $"'{props.UsedItemSlot}'", LogCat.Npc);
+            props.UsedItemSlot = string.Empty;
+            props.ItemAnimationState = -1;
+        }
+
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
         {
             if (slot2.Any())

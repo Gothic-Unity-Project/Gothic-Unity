@@ -667,6 +667,15 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: PERC_ASSESSMURDER / PERC_ASSESSDEFEAT to the witnesses around a killed / knocked out NPC.")]
         public bool EnableMurderDefeatPerceptions = true;
 
+        [Tooltip("V1: An NPC's started swing isn't cut short by another NPC's hit (it still takes the damage). Two " +
+                 "attackers taking turns kept their victim from ever landing a blow. The hero's hits still interrupt.")]
+        public bool EnableNpcSwingKeepsOnNpcHit = true;
+
+        [Tooltip("V1: Like the engine, a human beaten in melee is knocked out unless hostile to the attacker " +
+                 "(permanent attitude to the hero, guild attitude between NPCs) - then he dies. Arrows kill. " +
+                 "Off: only the hero and his party knock out, NPCs kill each other.")]
+        public bool EnableEngineUnconsciousRule = true;
+
         [Tooltip("V1: Crouching (real or the crouch button) is sneaking for the scripts (BS_SNEAK): NPCs that see " +
                  "you ask why you sneak, footsteps make no noise.")]
         public bool EnableHeroSneakBodyState = true;

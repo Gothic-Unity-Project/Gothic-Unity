@@ -29,6 +29,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private Transform _enemyTransform => _enemy.Go.transform;
         private bool _comboWindowLogged;
         private bool _hasHitFired;
+
+        /// <summary>
+        /// A melee/magic swing that hasn't reached its hit frame yet.
+        /// </summary>
+        public bool IsSwingInProgress =>
+            !IsFinishedFlag && !_hasHitFired && _move is FightAiMove.Attack or FightAiMove.AttackSide;
         private string _activeTurnAnimName;
         private const float _turnThresholdDeg = 10f;
 

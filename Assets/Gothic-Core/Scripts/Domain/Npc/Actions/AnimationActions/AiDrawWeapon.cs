@@ -21,6 +21,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly NpcService _npcService;
 
         private bool _isRangedRequested => Action.Int0 == 1;
         private bool _isMagicRequested => Action.Int0 == 2;
@@ -35,6 +36,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            // An item still in the hand from an interrupted routine (Cavalorn's apple) would end up on his back with
+            // the weapon's undraw - like the engine, drawing a weapon puts it away.
+            _npcService.RemoveUsedItemFromHand(NpcContainer);
+
             if (GameStateService.Dialogs.IsInDialog && GameStateService.Dialogs.CurrentDialogNpc == NpcContainer)
             {
                 Logger.LogWarning($"[DrawWeapon] {NpcInstance.GetName(NpcNameSlot.Slot0)} drew weapon during dialog — closing dialog", LogCat.Fight);
