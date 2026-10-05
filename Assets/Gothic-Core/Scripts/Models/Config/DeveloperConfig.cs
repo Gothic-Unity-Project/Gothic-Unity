@@ -684,6 +684,10 @@ namespace Gothic.Core.Models.Config
                  "next target after a fight (Npc_GetNextTarget) - they left him alone before it.")]
         public bool EnableEnemyOverrideNextTarget = true;
 
+        [Tooltip("V1: The hero's summons and NPCs treat each other like that NPC treats the hero - enemies fight them, " +
+                 "everyone else ignores them. Vanilla G2 makes humans hostile to summons (guards attack them).")]
+        public bool EnableNpcsIgnoreHeroSummons = true;
+
         [Tooltip("V1: Crouching (real or the crouch button) is sneaking for the scripts (BS_SNEAK): NPCs that see " +
                  "you ask why you sneak, footsteps make no noise.")]
         public bool EnableHeroSneakBodyState = true;

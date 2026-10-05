@@ -64,6 +64,25 @@ namespace Gothic.Core.Extensions
             material.renderQueue = (int)RenderQueue.Transparent;
         }
 
+        /// <summary>
+        /// Alpha blending for URP particle materials made at runtime (smoke, leaves). Plain SrcAlpha/OneMinusSrcAlpha
+        /// instead of ToTransparentMode's premultiplied blend: that one relies on the _ALPHAPREMULTIPLY_ON shader
+        /// variant, which builds strip (no material asset uses it) - smoke showed as square quads in builds only.
+        /// Same look in the Editor.
+        /// </summary>
+        public static void ToParticleAlphaBlendMode(this Material material)
+        {
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetFloat("_Surface", 1f);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.SetFloat("_SurfaceType", 1f);
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)RenderQueue.Transparent;
+        }
+
         public static void ToAdditiveMode(this Material material)
         {
             material.SetOverrideTag("RenderType", "Transparent");

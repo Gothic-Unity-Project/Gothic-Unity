@@ -359,7 +359,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 switch (pfx.VisAlphaFuncS.ToUpper())
                 {
                     case "BLEND":
-                        rendererModule.material.ToTransparentMode(); // e.g. leaves.pfx.
+                        rendererModule.material.ToParticleAlphaBlendMode(); // e.g. leaves.pfx, smoke.
                         break;
                     case "ADD":
                         rendererModule.material.ToAdditiveMode();
@@ -576,7 +576,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                             if (pfx.VisAlphaFuncS.EqualsIgnoreCase("ADD"))
                                 trailMat.ToAdditiveMode();
                             else
-                                trailMat.ToTransparentMode();
+                                trailMat.ToParticleAlphaBlendMode();
                             trailMat.SetInt("_Cull", (int)CullMode.Off);
                             trails.lifetime = _trailLifetime;
                             trails.inheritParticleColor = true;

@@ -302,6 +302,18 @@ namespace Gothic.Core.Services.Npc
             if (other.SummonedBy != null && self.Instance != null && other.SummonedBy.Index == self.Instance.Index)
                 return VmGothicEnums.Attitude.Friendly;
 
+            // DeveloperConfig.EnableNpcsIgnoreHeroSummons: the hero's summon and an NPC see each other the way that
+            // NPC sees the hero - bandits and wolves fight it, Cavalorn or Xardas leave it alone. A deviation: the G2
+            // scripts make humans hostile to the GIL_SUMMONED_* guilds (B_InitMonsterAttitudes), so in vanilla
+            // guards attack the hero's summons too.
+            if (_configService.Dev.EnableNpcsIgnoreHeroSummons)
+            {
+                if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
+                    return GetAttitudeTowardsHero(self);
+                if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
+                    return GetAttitudeTowardsHero(other);
+            }
+
             const int attNull = (int)VmGothicEnums.Attitude.Null;
             // Temp attitude is a hero-specific override (e.g. theft, summoned ally via ZS_MM_SummonedByPC)
             if (other.PrefabProps.IsHero() && self.Vob.AttitudeTemp != attNull)
@@ -315,6 +327,31 @@ namespace Gothic.Core.Services.Npc
         private VmGothicEnums.Attitude GetGuildAttitude(int selfGuild, int otherGuild)
         {
             return (VmGothicEnums.Attitude)_gameStateService.GuildAttitudes[selfGuild * _gameStateService.GuildCount + otherGuild];
+        }
+
+        private static bool IsHero(NpcContainer npc)
+        {
+            return npc.PrefabProps != null && npc.PrefabProps.IsHero();
+        }
+
+        private bool IsHeroSummon(NpcContainer npc)
+        {
+            return npc.SummonedBy != null && _gameStateService.GothicVm?.GlobalHero is NpcInstance hero &&
+                   npc.SummonedBy.Index == hero.Index;
+        }
+
+        /// <summary>
+        /// The NPC's attitude towards the hero, like GetPersonAttitude(npc, hero): temp, else permanent, else guild.
+        /// </summary>
+        private VmGothicEnums.Attitude GetAttitudeTowardsHero(NpcContainer npc)
+        {
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            if (npc.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
+            if (npc.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return hero?.Vob != null ? GetGuildAttitude(npc.Vob.Guild, hero.Vob.Guild) : VmGothicEnums.Attitude.Neutral;
         }
 
         [CanBeNull]
