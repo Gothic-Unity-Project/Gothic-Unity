@@ -7,14 +7,12 @@ using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
-using Gothic.VR.Adapters.HVROverrides;
-using Gothic.VR.Adapters.Player;
+using Gothic.Services.UI;
 using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Core.Player;
 using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Video;
@@ -38,19 +36,24 @@ namespace Gothic.VR.Adapters.UI
         private const float _skipInputDelay = 0.5f;
         // A bigger jump of the camera is a teleport (e.g. the hero is moved to the chapter start) - face it anew.
         private const float _teleportDistance = 5f;
+        private const float _skipHintGap = 0.2f;
+        private const float _skipHintScale = 0.2f;
+        private const float _skipHintAlpha = 0.6f;
+        private const float _skipHintFadeDelay = 0.5f;
+        private const float _skipHintFadeSeconds = 1f;
+        // Gothic's font has no square brackets.
+        private const string _skipHintButton = "(Trigger) ";
+        private const string _skipHintFallback = "skip";
 
         private static VRCinema _instance;
         private static bool _isQuitAfterVideos;
         private readonly Queue<string> _queue = new();
 
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly LocalizationService _localizationService;
 
         private Camera _camera;
         private int _savedCullingMask;
-        // DeveloperConfig.EnableCinemaShowsPlayer: hand and body renderers moved to the UI layer, and their old layers.
-        private readonly List<(GameObject Go, int Layer)> _playerLayers = new();
-        private HVRJointHand[] _jointHands;
         private CameraClearFlags _savedClearFlags;
         private Color _savedBackground;
         private float _savedTimeScale = 1f;
@@ -58,6 +61,9 @@ namespace Gothic.VR.Adapters.UI
         private Vector3 _lastCameraPosition;
 
         private GameObject _screen;
+        private GameObject _skipHint;
+        private TMP_Text _skipHintText;
+        private float _skipHintStartTime;
         private VideoPlayer _videoPlayer;
         private RenderTexture _renderTexture;
         private Material _videoPlayerMaterial;
@@ -183,8 +189,6 @@ namespace Gothic.VR.Adapters.UI
             _camera.cullingMask = 1 << Constants.UILayer;
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Color.black;
-            if (_configService.Dev.EnableCinemaShowsPlayer)
-                ShowPlayer();
             AudioListener.pause = true;
             _savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
@@ -194,6 +198,8 @@ namespace Gothic.VR.Adapters.UI
             _screen.layer = Constants.UILayer;
             Destroy(_screen.GetComponent<Collider>());
 
+            if (_configService.Dev.EnableCinemaSkipHint)
+                CreateSkipHint();
             FaceCamera();
             _screen.transform.localScale = new Vector3(_screenWidth, _screenWidth * 9f / 16f, 1f);
 
@@ -228,69 +234,6 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// The dark room renders only the UI layer - the hands and the hero body go there for the video.
-        /// </summary>
-        private void ShowPlayer()
-        {
-            var controller = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<VRPlayerController>();
-            _jointHands = controller != null
-                ? new[]
-                    {
-                        controller.LeftJointHand != null ? controller.LeftJointHand
-                            : controller.LeftHand != null ? controller.LeftHand.GetComponentInParent<HVRJointHand>() : null,
-                        controller.RightJointHand != null ? controller.RightJointHand
-                            : controller.RightHand != null ? controller.RightHand.GetComponentInParent<HVRJointHand>() : null
-                    }.Where(h => h != null).Distinct().ToArray()
-                : new HVRJointHand[0];
-            foreach (var hand in _jointHands)
-                MoveRenderersToUILayer(hand.gameObject);
-
-            var body = FindFirstObjectByType<VRHeroBody>();
-            if (body != null)
-                MoveRenderersToUILayer(body.gameObject);
-            Logger.Log($"[VRCinema] Showing {_jointHands.Length} hands, body={body != null} " +
-                       $"({_playerLayers.Count} renderers)", LogCat.VR);
-        }
-
-        private void MoveRenderersToUILayer(GameObject root)
-        {
-            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
-            {
-                var go = renderer.gameObject;
-                if (go.layer == Constants.UILayer)
-                    continue;
-                _playerLayers.Add((go, go.layer));
-                go.layer = Constants.UILayer;
-            }
-        }
-
-        private void RestorePlayer()
-        {
-            foreach (var (go, layer) in _playerLayers)
-            {
-                if (go != null)
-                    go.layer = layer;
-            }
-            _playerLayers.Clear();
-            _jointHands = null;
-        }
-
-        /// <summary>
-        /// HVR hands follow the controllers in FixedUpdate, which doesn't run while the world is paused - put them on
-        /// the controllers directly (the body's arms reach for them).
-        /// </summary>
-        private void MoveHandsToControllers()
-        {
-            if (_jointHands == null || Time.timeScale > 0f)
-                return;
-            foreach (var hand in _jointHands)
-            {
-                if (hand != null && hand.Target != null)
-                    hand.transform.SetPositionAndRotation(hand.Target.position, hand.Target.rotation);
-            }
-        }
-
-        /// <summary>
         /// The screen keeps a fixed direction (turning the head doesn't move it - that would make people sick), but
         /// follows the head's position: PlayVideo often comes before the script teleports the hero.
         /// </summary>
@@ -306,6 +249,52 @@ namespace Gothic.VR.Adapters.UI
         {
             _screen.transform.position = _camera.transform.position + _screenForward * _screenDistance;
             _screen.transform.rotation = Quaternion.LookRotation(_screenForward);
+
+            if (_skipHint == null)
+                return;
+            // Under the screen's right corner, its right edge in line with the screen's.
+            var screenT = _screen.transform;
+            var corner = screenT.position + screenT.right * (screenT.localScale.x / 2f) -
+                         Vector3.up * (screenT.localScale.y / 2f + _skipHintGap);
+            _skipHint.transform.SetPositionAndRotation(corner, screenT.rotation);
+        }
+
+        private void UpdateSkipHintFade()
+        {
+            if (_skipHintText == null)
+                return;
+            var progress = Mathf.Clamp01((Time.unscaledTime - _skipHintStartTime - _skipHintFadeDelay) /
+                                         _skipHintFadeSeconds);
+            var color = _skipHintText.color;
+            color.a = _skipHintAlpha * progress * progress;
+            _skipHintText.color = color;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableCinemaSkipHint: "(Trigger) skip" under the screen's right corner - the word from the
+        /// Gothic-UI table (key cinema.skip), in the dark room's UI layer.
+        /// </summary>
+        private void CreateSkipHint()
+        {
+            _skipHint = new GameObject("_CinemaSkipHint");
+            _skipHint.layer = Constants.UILayer;
+            _skipHint.transform.localScale = Vector3.one * _skipHintScale;
+
+            var text = _skipHint.AddComponent<TextMeshPro>();
+            VRGothicText.Apply(text);
+            var localized = _localizationService.GetText("cinema.skip");
+            text.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
+                ? _skipHintFallback
+                : localized);
+            text.fontSize = 12;
+            text.alignment = TextAlignmentOptions.Right;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            // Fades in (UpdateSkipHintFade) - the world is paused, so unscaled time.
+            text.color = new Color(1f, 1f, 1f, 0f);
+            _skipHintText = text;
+            _skipHintStartTime = Time.unscaledTime;
+            // Pivot at the right edge, so the text ends at the screen's corner.
+            text.rectTransform.pivot = new Vector2(1f, 0.5f);
         }
 
         private void LateUpdate()
@@ -313,7 +302,7 @@ namespace Gothic.VR.Adapters.UI
             if (_screen == null || _camera == null)
                 return;
 
-            MoveHandsToControllers();
+            UpdateSkipHintFade();
             if (Vector3.Distance(_camera.transform.position, _lastCameraPosition) > _teleportDistance)
                 FaceCamera();
             else
@@ -370,7 +359,6 @@ namespace Gothic.VR.Adapters.UI
             // Destroyed without Close (scene change during a video) - never leave the game paused.
             if (!_isRunning)
                 return;
-            RestorePlayer();
             Time.timeScale = _savedTimeScale;
             AudioListener.pause = false;
             _instance = null;
@@ -384,13 +372,14 @@ namespace Gothic.VR.Adapters.UI
                 _camera.clearFlags = _savedClearFlags;
                 _camera.backgroundColor = _savedBackground;
             }
-            RestorePlayer();
             AudioListener.pause = false;
             Time.timeScale = _savedTimeScale;
             StopBink();
 
             if (_screen != null)
                 Destroy(_screen);
+            if (_skipHint != null)
+                Destroy(_skipHint);
             if (_renderTexture != null)
                 _renderTexture.Release();
 

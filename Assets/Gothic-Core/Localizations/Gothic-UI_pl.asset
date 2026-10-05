@@ -194,6 +194,10 @@ MonoBehaviour:
     m_Localized: Brak
     m_Metadata:
       m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: "pomiń"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

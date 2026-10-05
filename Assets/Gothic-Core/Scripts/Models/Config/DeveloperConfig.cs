@@ -516,9 +516,8 @@ namespace Gothic.Core.Models.Config
                  "paused meanwhile. Skip: any trigger or A/X (keyboard: Space/Escape). Read at VM start.")]
         public bool EnableScriptVideos = true;
 
-        [Tooltip("The video cinema shows the player's hands and the VR hero body (the rest stays dark). The hands " +
-                 "follow the controllers although the world is paused; the body's legs keep their last pose.")]
-        public bool EnableCinemaShowsPlayer = true;
+        [Tooltip("V1: \"(Trigger) skip\" under the video cinema's screen (Gothic-UI localization key cinema.skip).")]
+        public bool EnableCinemaSkipHint = true;
 
         [Tooltip("The VR hero's body state follows its movement on land (BS_STAND/BS_WALK/BS_RUN) like the " +
                  "engine. Scripts need it: ZS_Attack gives up a chase ('$RUNCOWARD') only while the target runs.")]
