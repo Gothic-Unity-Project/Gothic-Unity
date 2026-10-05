@@ -9,7 +9,8 @@
   warnings (`ASSESSWARN`), `NPCCOMMAND` and others.
 - Active perceptions (enemies, bodies) work without the hero nearby — NPCs fight monsters on their own.
 - New: `ASSESSBODY` (monsters eat corpses), `ASSESSMURDER`/`ASSESSDEFEAT` to witnesses, `OBSERVESUSPECT` (hero
-  sneaking), `ASSESSENTERROOM`, `ASSESSUSEMOB`, footstep `ASSESSQUIETSOUND`. `ZS_*` perception functions are
+  sneaking), `ASSESSENTERROOM` (the room is the room floor under the feet, like OpenGothic's ground ray - walls
+  and roofs don't count), `ASSESSUSEMOB`, footstep `ASSESSQUIETSOUND`. `ZS_*` perception functions are
   started as states (with loop/end), like the engine.
 - NPCs react to the hero readying a weapon or rune in VR, and to casting (`ASSESSCASTER`).
 
@@ -40,7 +41,7 @@ switching · `1f73a5a6` EnemyOverride · `1e18996d` culled NPC routines · `d7d9
 
 `EnablePassivePercBroadcast`, `EnableNpcPerceptionsWithoutHero`, `EnableAssessBodyPerception`,
 `EnableMurderDefeatPerceptions`, `EnableHeroSneakBodyState`, `EnableUseMobPerception`,
-`EnableFootstepQuietSound`, `EnableEnterRoomPerception`, `EnableEnemyOverrideNextTarget`,
+`EnableFootstepQuietSound`, `EnableEnterRoomPerception`, `EnableFloorRoomLookup`, `EnableEnemyOverrideNextTarget`,
 `EnableRoutinePerceptionReset`, `EnableCasterPerception`, `EnableNpcTargetIsEnemy`, `EnableImportantInfoOrder`,
 `EnableLooplessStatesEnd`, `EnableDetectNpcSkipsDead`.
 

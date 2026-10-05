@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -16,15 +17,22 @@ namespace Gothic.Core.Services.World
     public class RoomService
     {
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly ConfigService _configService;
 
         /// <summary>
         /// Grid size (m) of the sector lookup.
         /// </summary>
         public const float CellSize = 1f;
 
+        /// <summary>
+        /// Grid size (m) of the room floor lookup - finer, a door's step outside must not count.
+        /// </summary>
+        public const float FloorCellSize = 0.5f;
+
         private const int _guildNone = 0;
 
         private Dictionary<long, int> _sectorCells = new();
+        private Dictionary<long, int> _floorCells = new();
         private readonly Dictionary<string, int> _roomGuilds = new(StringComparer.OrdinalIgnoreCase);
         private List<string> _sectorNames;
 
@@ -33,21 +41,32 @@ namespace Gothic.Core.Services.World
 
         public static long ToCell(Vector3 position)
         {
-            var x = (long)Mathf.FloorToInt(position.x / CellSize) & 0x1FFFFF;
-            var y = (long)Mathf.FloorToInt(position.y / CellSize) & 0x1FFFFF;
-            var z = (long)Mathf.FloorToInt(position.z / CellSize) & 0x1FFFFF;
+            return ToCell(position, CellSize);
+        }
+
+        public static long ToFloorCell(Vector3 position)
+        {
+            return ToCell(position, FloorCellSize);
+        }
+
+        private static long ToCell(Vector3 position, float size)
+        {
+            var x = (long)Mathf.FloorToInt(position.x / size) & 0x1FFFFF;
+            var y = (long)Mathf.FloorToInt(position.y / size) & 0x1FFFFF;
+            var z = (long)Mathf.FloorToInt(position.z / size) & 0x1FFFFF;
             return (x << 42) | (y << 21) | z;
         }
 
         /// <summary>
         /// Cells (ToCell) of the indoor world polygons and their sector. Set by the world mesh builder on every world load.
         /// </summary>
-        public void SetSectorCells(Dictionary<long, int> cells)
+        public void SetSectorCells(Dictionary<long, int> cells, Dictionary<long, int> floorCells)
         {
             _sectorCells = cells ?? new Dictionary<long, int>();
+            _floorCells = floorCells ?? new Dictionary<long, int>();
             HeroRoom = string.Empty;
             HeroFormerRoom = string.Empty;
-            Logger.Log($"[Rooms] {_sectorCells.Count} indoor cells", LogCat.Vob);
+            Logger.Log($"[Rooms] {_sectorCells.Count} indoor cells, {_floorCells.Count} room floor cells", LogCat.Vob);
         }
 
         /// <summary>
@@ -104,6 +123,18 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public string GetRoomAt(Vector3 feetPosition)
         {
+            // DeveloperConfig.EnableFloorRoomLookup: like OpenGothic (MoveAlgo: the sector of the polygon the ground ray
+            // hits) - the room floor right under the feet. Walls and roofs don't count, platforms overhead neither.
+            if (_configService.Dev.EnableFloorRoomLookup && _floorCells.Count > 0)
+            {
+                foreach (var height in new[] { 0.1f, -0.2f, -0.45f })
+                {
+                    if (_floorCells.TryGetValue(ToFloorCell(feetPosition + Vector3.up * height), out var floorSector))
+                        return GetSectorName(floorSector);
+                }
+                return string.Empty;
+            }
+
             if (_sectorCells.Count == 0)
                 return string.Empty;
 

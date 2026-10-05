@@ -8,6 +8,8 @@
   price difference in gold (G2) / ore (G1), OK/X. Engine prices, reserved offers, anti-theft (trader goods dropped
   or bagged go back to him and can't be eaten). The dialog continues during trading.
   An invisible table under the goods backpack catches it at hand height (only that backpack touches it).
+  Each side of the counter is a view of its offer: the same items stack into one, three slots show the offer
+  (arrows move it by one), and an always empty slot next to the middle takes new items.
 - **Stack splitting:** hold the trigger to take pieces into the empty hand or into a socket, at an accelerating
   pace; join equal stacks; live amount labels.
 - **NPC loot backpack:** a tinted copy of the hero's backpack next to the downed NPC, opening on its first non-empty

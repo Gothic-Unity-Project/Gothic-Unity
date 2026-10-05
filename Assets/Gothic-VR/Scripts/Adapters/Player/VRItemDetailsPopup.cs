@@ -19,7 +19,8 @@ namespace Gothic.VR.Adapters.Player
     /// V2 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and the other
     /// hand holds an item (or hovers one inside the backpack), a popup above the item shows what Gothic's inventory
     /// shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
-    /// Added at runtime by VRBackpack.
+    /// Added at runtime by VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items hovered in its
+    /// slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
     /// </summary>
     public class VRItemDetailsPopup : MonoBehaviour
     {
@@ -104,17 +105,24 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private GameObject FindItemToShow()
         {
-            if (!_configService.Dev.EnableItemDetailsPopup || _backpackGrabbable == null || !_backpackGrabbable.IsHandGrabbed)
+            var isCounter = _backpackGrabbable == null;
+            if (!_configService.Dev.EnableItemDetailsPopup || (!isCounter && !_backpackGrabbable.IsHandGrabbed))
                 return null;
+            // A held backpack shows the held item with its own popup.
+            var isBackpackHeld = isCounter && IsAnyBackpackHeld();
 
             foreach (var hand in _hands)
             {
-                if (hand == null || hand.GrabbedTarget == _backpackGrabbable)
+                if (hand == null || (!isCounter && hand.GrabbedTarget == _backpackGrabbable))
                     continue;
 
                 var held = hand.GrabbedTarget;
                 if (held != null)
+                {
+                    if (isBackpackHeld)
+                        continue;
                     return IsItem(held) ? held.gameObject : null;
+                }
 
                 var hovered = hand.HoverTarget;
                 if (hovered != null && hovered.transform.IsChildOf(transform) && IsItem(hovered))
@@ -128,6 +136,17 @@ namespace Gothic.VR.Adapters.Player
             }
 
             return null;
+        }
+
+        private bool IsAnyBackpackHeld()
+        {
+            foreach (var hand in _hands)
+            {
+                if (hand != null && hand.GrabbedTarget != null &&
+                    hand.GrabbedTarget.GetComponentInParent<VRBackpack>() != null && !IsItem(hand.GrabbedTarget))
+                    return true;
+            }
+            return false;
         }
 
         private HVRGrabbable FindBackpackItemNear(Vector3 position)

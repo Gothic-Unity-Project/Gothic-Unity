@@ -1,4 +1,5 @@
 #if GOTHIC_HVR_INSTALLED
+using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
@@ -11,6 +12,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.Trade;
 using Gothic.VR.Adapters.Player;
 using HurricaneVR.Framework.Core;
@@ -32,6 +34,9 @@ namespace Gothic.VR.Adapters.Trade
     /// (sells), right: what he takes (buys), behind: the trader's goods (his backpack, without his currency and
     /// equipped items). The middle shows the difference in currency, OK settles it (TradeService), X closes.
     /// Offered items are reserved - TradeService gives them back on close.
+    /// Each side is a view of its TradeOffer, like the backpack is a view of the inventory: an item laid into any slot
+    /// joins the offer (the same items stack into one), the slots are rebuilt from the offer. Three slots show the
+    /// offer, the arrows move it by one; the slot next to the middle is always empty, to lay items into.
     /// </summary>
     public class VRTradeCounter : MonoBehaviour
     {
@@ -39,14 +44,18 @@ namespace Gothic.VR.Adapters.Trade
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VobService _vobService;
 
         // Big - a backpack thrown a bit off still lands on it.
         private const float _goodsTableWidth = 10f;
         private const float _goodsTableDepth = 8f;
         private const float _goodsTableThickness = 0.05f;
-        private const int _socketsPerSide = 3;
+        private const int _visibleSlotsPerSide = 3;
         private const float _socketSpacing = 0.2f;
         private const float _socketScale = 1.6f;
+        private const float _textFontSize = 17.4f;
+        // TMP's default font shows nothing at runtime - the backpack's arrows use this one too.
+        private const string _arrowFontPath = "Fonts & Materials/LiberationSans SDF";
         private static readonly Color _canPayColor = new(0.45f, 1f, 0.45f);
         private static readonly Color _cannotPayColor = new(1f, 0.4f, 0.35f);
 
@@ -73,6 +82,12 @@ namespace Gothic.VR.Adapters.Trade
         private TradeSession _session;
         private readonly List<HVRSocket> _sockets = new();
         private readonly Dictionary<HVRSocket, Side> _socketSides = new();
+        // Per side: the slots showing the offer (left to right) and the first offer item they show.
+        private readonly Dictionary<Side, List<HVRSocket>> _slots = new() { [Side.Give] = new(), [Side.Take] = new() };
+        private readonly Dictionary<Side, int> _offsets = new() { [Side.Give] = 0, [Side.Take] = 0 };
+        private readonly Dictionary<Side, TMP_Text> _scrollTexts = new();
+        private Coroutine _refresh;
+        private bool _isRefreshDirty;
         private readonly Dictionary<HVRGrabbable, Placed> _placed = new();
         private bool _isIgnoringSockets;
         private VRBackpack _goods;
@@ -106,6 +121,9 @@ namespace Gothic.VR.Adapters.Trade
             CreateGoods();
             CreateTexts();
             CreateButtons();
+            // Like an open backpack: hovering the slots (and the goods lying here) shows the item's details.
+            if (_configService.Dev.EnableItemDetailsPopup)
+                gameObject.AddComponent<VRItemDetailsPopup>();
 
             GlobalEventDispatcher.TradeOfferChanged.AddListener(OnOfferChanged);
             GlobalEventDispatcher.TradeCommitted.AddListener(OnCommitted);
@@ -151,14 +169,27 @@ namespace Gothic.VR.Adapters.Trade
                 return;
             }
 
-            for (var i = 0; i < _socketsPerSide; i++)
+            // Middle out: the always empty slot, then the offer's slots - left to right on both sides.
+            CreateSocket(socketPrefab, Side.Give, -_socketSpacing);
+            CreateSocket(socketPrefab, Side.Take, _socketSpacing);
+            for (var i = 0; i < _visibleSlotsPerSide; i++)
             {
-                CreateSocket(socketPrefab, Side.Give, -_socketSpacing * (i + 1));
-                CreateSocket(socketPrefab, Side.Take, _socketSpacing * (i + 1));
+                _slots[Side.Give].Add(CreateSocket(socketPrefab, Side.Give,
+                    -_socketSpacing * (_visibleSlotsPerSide + 1 - i)));
+                _slots[Side.Take].Add(CreateSocket(socketPrefab, Side.Take, _socketSpacing * (i + 2)));
             }
         }
 
-        private void CreateSocket(GameObject socketPrefab, Side side, float x)
+        /// <summary>
+        /// The x of the middle of a side's offer slots.
+        /// </summary>
+        private static float GetListCenterX(Side side)
+        {
+            var x = _socketSpacing * (_visibleSlotsPerSide + 3) / 2f;
+            return side == Side.Give ? -x : x;
+        }
+
+        private HVRSocket CreateSocket(GameObject socketPrefab, Side side, float x)
         {
             var socketGo = Instantiate(socketPrefab, transform);
             socketGo.transform.localPosition = new Vector3(x, 0f, 0f);
@@ -167,11 +198,12 @@ namespace Gothic.VR.Adapters.Trade
 
             var socket = socketGo.GetComponentInChildren<HVRSocket>();
             if (socket == null)
-                return;
+                return null;
             socket.Grabbed.AddListener(OnItemPlaced);
             socket.Released.AddListener(OnItemTaken);
             _sockets.Add(socket);
             _socketSides[socket] = side;
+            return socket;
         }
 
         private void CreateGoods()
@@ -239,14 +271,18 @@ namespace Gothic.VR.Adapters.Trade
 
         private void CreateTexts()
         {
-            _giveText = CreateText("GiveValue", new Vector3(-_socketSpacing * 2f, 0.14f, 0f));
-            _takeText = CreateText("TakeValue", new Vector3(_socketSpacing * 2f, 0.14f, 0f));
+            _giveText = CreateText("GiveValue", new Vector3(GetListCenterX(Side.Give), 0.14f, 0f));
+            _takeText = CreateText("TakeValue", new Vector3(GetListCenterX(Side.Take), 0.14f, 0f));
+            _scrollTexts[Side.Give] = CreateText("GiveScroll", new Vector3(GetListCenterX(Side.Give), -0.13f, 0f));
+            _scrollTexts[Side.Take] = CreateText("TakeScroll", new Vector3(GetListCenterX(Side.Take), -0.13f, 0f));
+            CreateText("GivePool", new Vector3(-_socketSpacing, 0.14f, 0f)).text = "+";
+            CreateText("TakePool", new Vector3(_socketSpacing, 0.14f, 0f)).text = "+";
             _balanceText = CreateText("Balance", new Vector3(0f, 0.08f, 0f));
 
             // Whose side is whose: the hero's name over his offer, the trader's over the goods he gives.
             var heroName = _playerService.HeroContainer?.Instance.GetName(NpcNameSlot.Slot0) ?? "";
-            CreateText("GiveName", new Vector3(-_socketSpacing * 2f, 0.2f, 0f)).text = heroName;
-            CreateText("TakeName", new Vector3(_socketSpacing * 2f, 0.2f, 0f)).text =
+            CreateText("GiveName", new Vector3(GetListCenterX(Side.Give), 0.2f, 0f)).text = heroName;
+            CreateText("TakeName", new Vector3(GetListCenterX(Side.Take), 0.2f, 0f)).text =
                 _session.Trader.Instance.GetName(NpcNameSlot.Slot0);
         }
 
@@ -261,7 +297,7 @@ namespace Gothic.VR.Adapters.Trade
 
             var text = textGo.AddComponent<TextMeshPro>();
             Gothic.VR.Adapters.UI.VRGothicText.Apply(text);
-            text.fontSize = 12;
+            text.fontSize = _textFontSize;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.fontStyle = FontStyles.Bold;
@@ -279,17 +315,30 @@ namespace Gothic.VR.Adapters.Trade
             _canvas = canvasGo.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.WorldSpace;
             canvasGo.AddComponent<GraphicRaycaster>();
-            ((RectTransform)canvasGo.transform).sizeDelta = new Vector2(240f, 80f);
+            ((RectTransform)canvasGo.transform).sizeDelta =
+                new Vector2(_socketSpacing * 1000f * (_visibleSlotsPerSide + 3) * 2f, 80f);
 
             CreateButton(canvasGo.transform, "OK", new Vector2(-60f, 0f), new Color(0.2f, 0.5f, 0.2f, 0.9f), OnAccept);
             CreateButton(canvasGo.transform, "X", new Vector2(60f, 0f), new Color(0.5f, 0.2f, 0.2f, 0.9f), OnClose);
+
+            // Under each side's slots: move its offer by one (the canvas has 1000 px per meter).
+            var arrowColor = new Color(0.25f, 0.25f, 0.25f, 0.9f);
+            foreach (var side in new[] { Side.Give, Side.Take })
+            {
+                var centerPx = GetListCenterX(side) * 1000f;
+                var halfPx = _socketSpacing * 1000f * _visibleSlotsPerSide / 2f;
+                CreateButton(canvasGo.transform, "<", new Vector2(centerPx - halfPx, 0f), arrowColor,
+                    () => Scroll(side, -1), false);
+                CreateButton(canvasGo.transform, ">", new Vector2(centerPx + halfPx, 0f), arrowColor,
+                    () => Scroll(side, 1), false);
+            }
 
             if (HVRInputModule.Instance != null)
                 HVRInputModule.Instance.AddCanvas(_canvas);
         }
 
         private static void CreateButton(Transform parent, string label, Vector2 position, Color color,
-            UnityEngine.Events.UnityAction onClick)
+            UnityEngine.Events.UnityAction onClick, bool isGothicFont = true)
         {
             var buttonGo = new GameObject($"Button_{label}", typeof(RectTransform));
             buttonGo.transform.SetParent(parent, false);
@@ -310,7 +359,11 @@ namespace Gothic.VR.Adapters.Trade
             textRect.anchorMax = Vector2.one;
             textRect.sizeDelta = Vector2.zero;
             var text = textGo.AddComponent<TextMeshProUGUI>();
-            Gothic.VR.Adapters.UI.VRGothicText.Apply(text);
+            // Gothic's font has no arrows.
+            if (isGothicFont)
+                Gothic.VR.Adapters.UI.VRGothicText.Apply(text);
+            else
+                text.font = Resources.Load<TMP_FontAsset>(_arrowFontPath);
             text.text = label;
             text.fontSize = 40;
             text.alignment = TextAlignmentOptions.Center;
@@ -319,7 +372,8 @@ namespace Gothic.VR.Adapters.Trade
 
         private void OnItemPlaced(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
-            if (_isIgnoringSockets || grabber is not HVRSocket socket || !_socketSides.TryGetValue(socket, out var side))
+            if (_isIgnoringSockets || grabber is not HVRSocket socket || !_socketSides.TryGetValue(socket, out var side) ||
+                _placed.ContainsKey(grabbable))
                 return;
 
             var container = grabbable.GetComponentInParent<VobLoader>(true)?.Container;
@@ -345,7 +399,7 @@ namespace Gothic.VR.Adapters.Trade
                     ReturnToHero(grabbable, container, itemName, amount);
                     return;
                 }
-                _placed[grabbable] = new Placed(Side.Give, itemName, amount);
+                JoinOffer(grabbable, container, null);
                 _tradeService.OfferFromPlayer(itemName, amount);
             }
             else
@@ -356,9 +410,57 @@ namespace Gothic.VR.Adapters.Trade
                     ReturnToHero(grabbable, container, itemName, amount);
                     return;
                 }
-                _placed[grabbable] = new Placed(Side.Take, itemName, amount);
+                JoinOffer(grabbable, container, tradeGoods);
                 _tradeService.OfferFromTrader(itemName, amount);
             }
+            ShowOfferItem(side, itemName);
+            RequestRefresh();
+        }
+
+        /// <summary>
+        /// The laid item becomes part of its side's offer - the slots show the offer, rebuilt in RefreshSlots.
+        /// </summary>
+        private void JoinOffer(HVRGrabbable grabbable, VobContainer container, VRTradeGoods tradeGoods)
+        {
+            if (tradeGoods != null)
+                tradeGoods.IsSettled = true;
+            ReleaseIgnored(grabbable);
+            VRTradeGoods.RemoveFromWorld(container);
+        }
+
+        /// <summary>
+        /// Moves a side's slots so they show this offer item (a new one is added at the end).
+        /// </summary>
+        private void ShowOfferItem(Side side, string itemName)
+        {
+            var items = GetOffer(side).Items;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (!items[i].Name.EqualsIgnoreCase(itemName))
+                    continue;
+                if (i < _offsets[side])
+                    _offsets[side] = i;
+                else if (i >= _offsets[side] + _visibleSlotsPerSide)
+                    _offsets[side] = i - _visibleSlotsPerSide + 1;
+                return;
+            }
+        }
+
+        private void Scroll(Side side, int step)
+        {
+            if (_session == null)
+                return;
+            var maxOffset = Mathf.Max(0, GetOffer(side).Items.Count - _visibleSlotsPerSide);
+            var offset = Mathf.Clamp(_offsets[side] + step, 0, maxOffset);
+            if (offset == _offsets[side])
+                return;
+            _offsets[side] = offset;
+            RequestRefresh();
+        }
+
+        private TradeOffer GetOffer(Side side)
+        {
+            return side == Side.Give ? _session.PlayerOffer : _session.TraderOffer;
         }
 
         private void OnItemTaken(HVRGrabberBase grabber, HVRGrabbable grabbable)
@@ -370,6 +472,91 @@ namespace Gothic.VR.Adapters.Trade
                 _tradeService.WithdrawFromPlayerOffer(placed.ItemName, placed.Amount);
             else
                 _tradeService.WithdrawFromTraderOffer(placed.ItemName, placed.Amount);
+            RequestRefresh();
+        }
+
+        private void RequestRefresh()
+        {
+            if (_refresh != null)
+            {
+                _isRefreshDirty = true;
+                return;
+            }
+            _refresh = StartCoroutine(RefreshSlots());
+        }
+
+        /// <summary>
+        /// Like VRBackpack.UpdateSockets: empty the slots, then lay the shown part of each offer into them.
+        /// </summary>
+        private IEnumerator RefreshSlots()
+        {
+            RemovePlacedItems();
+            // Released and removed items are gone only in the next frame.
+            yield return null;
+
+            if (_session != null && _tradeService.Current == _session)
+            {
+                _isIgnoringSockets = true;
+                try
+                {
+                    FillSlots(Side.Give);
+                    FillSlots(Side.Take);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogError($"[Trade] Refilling the counter failed: {e}", LogCat.VR);
+                }
+                _isIgnoringSockets = false;
+            }
+
+            _refresh = null;
+            if (_isRefreshDirty)
+            {
+                _isRefreshDirty = false;
+                RequestRefresh();
+            }
+        }
+
+        private void FillSlots(Side side)
+        {
+            var items = GetOffer(side).Items;
+            var maxOffset = Mathf.Max(0, items.Count - _visibleSlotsPerSide);
+            _offsets[side] = Mathf.Clamp(_offsets[side], 0, maxOffset);
+
+            var slots = _slots[side];
+            for (var i = 0; i < slots.Count; i++)
+            {
+                var index = _offsets[side] + i;
+                if (slots[i] == null || index >= items.Count)
+                    continue;
+
+                var item = items[index];
+                var container = _vobService.CreateItem(new Item
+                {
+                    Name = item.Name,
+                    Visual = new VisualMesh(),
+                    Instance = item.Name,
+                    Amount = item.Amount
+                });
+                // The trader's unpaid goods stay his when taken off the counter (VRTradeGoods).
+                if (side == Side.Take)
+                    container.Go.AddComponent<VRTradeGoods>().Init(_session.Trader);
+                container.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
+                var grabbable = container.Go.GetComponentInChildren<HVRGrabbable>();
+                _placed[grabbable] = new Placed(side, item.Name, item.Amount);
+                if (!slots[i].TryGrab(grabbable, true))
+                {
+                    _placed.Remove(grabbable);
+                    Logger.LogWarning($"[Trade] {item.Name} couldn't go into a counter slot", LogCat.VR);
+                    VRTradeGoods.RemoveFromWorld(container);
+                }
+            }
+
+            var scrollText = _scrollTexts.GetValueOrDefault(side);
+            if (scrollText != null)
+                scrollText.text = items.Count > _visibleSlotsPerSide
+                    ? $"{_offsets[side] + 1}-{_offsets[side] + _visibleSlotsPerSide}/{items.Count}"
+                    : "";
         }
 
         private void ReleaseIgnored(HVRGrabbable grabbable)

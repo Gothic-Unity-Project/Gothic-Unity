@@ -39,6 +39,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
 
+        // A room floor polygon: its normal at most ~45 degrees from up/down.
+        private const float _floorMinNormalY = 0.7f;
+
         private static readonly VertexAttributeDescriptor[] _worldVertexLayout =
         {
             new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
@@ -137,11 +140,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // The cached world mesh is only read here, which is thread-safe.
             var lightMappedCells = new HashSet<long>();
             var sectorCells = new Dictionary<long, int>();
+            var floorCells = new Dictionary<long, int>();
             var materialSectors = _roomService.GetMaterialSectors(_mesh);
             var buffers = await Task.Run(() =>
-                ExtractChunks(chunks, materials, lightMappedCells, sectorCells, materialSectors));
+                ExtractChunks(chunks, materials, lightMappedCells, sectorCells, floorCells, materialSectors));
             _stationaryLightsService.SetLightMappedCells(lightMappedCells);
-            _roomService.SetSectorCells(sectorCells);
+            _roomService.SetSectorCells(sectorCells, floorCells);
             try
             {
                 var meshes = await BuildChunkMeshes(chunks.Count, buffers);
@@ -236,11 +240,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         /// <summary>
         /// Marks the RoomService cells an indoor polygon covers with its sector (bounding box, capped for huge ones).
+        /// Level polygons (floors) also go into the finer floor cells - a room is the floor under the feet.
         /// </summary>
-        private void AddSectorCells(int sector, IList<int> positionIndices, Dictionary<long, int> sectorCells)
+        private void AddSectorCells(int sector, IList<int> positionIndices, Dictionary<long, int> sectorCells,
+            Dictionary<long, int> floorCells)
         {
             if (positionIndices.Count == 0)
                 return;
+
+            if (positionIndices.Count >= 3 && IsLevel(positionIndices))
+                AddFloorCells(sector, positionIndices, floorCells);
 
             var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
             var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
@@ -261,8 +270,44 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         sectorCells[RoomService.ToCell(min + new Vector3(x, y, z) * cell)] = sector;
         }
 
+        /// <summary>
+        /// Floors (and ceilings, never at the feet): the polygon's normal points (nearly) up or down.
+        /// </summary>
+        private bool IsLevel(IList<int> positionIndices)
+        {
+            var a = _mesh.GetPosition(positionIndices[0]);
+            var b = _mesh.GetPosition(positionIndices[1]);
+            var c = _mesh.GetPosition(positionIndices[2]);
+            var normal = Vector3.Cross(new Vector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z),
+                new Vector3(c.X - a.X, c.Y - a.Y, c.Z - a.Z));
+            return normal.sqrMagnitude > 0f && Mathf.Abs(normal.normalized.y) > _floorMinNormalY;
+        }
+
+        private void AddFloorCells(int sector, IList<int> positionIndices, Dictionary<long, int> floorCells)
+        {
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            foreach (var index in positionIndices)
+            {
+                var p = _mesh.GetPosition(index);
+                var position = new Vector3(p.X, p.Y, p.Z) / 100f;
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            const float cell = RoomService.FloorCellSize;
+            const int maxCellsPerAxis = 40;
+            var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / cell), Vector3Int.one * maxCellsPerAxis);
+            for (var x = 0; x <= steps.x; x++)
+                for (var y = 0; y <= steps.y; y++)
+                    for (var z = 0; z <= steps.z; z++)
+                        floorCells[RoomService.ToFloorCell(min + Vector3.Min(new Vector3(x, y, z) * cell, max - min))] =
+                            sector;
+        }
+
         private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials,
-            HashSet<long> lightMappedCells, Dictionary<long, int> sectorCells, int[] materialSectors)
+            HashSet<long> lightMappedCells, Dictionary<long, int> sectorCells, Dictionary<long, int> floorCells,
+            int[] materialSectors)
         {
             // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
             // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
@@ -334,7 +379,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
                     // material name (RoomService.GetMaterialSectors).
                     if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
-                        AddSectorCells(materialSectors[materialIndex], positionIndices, sectorCells);
+                        AddSectorCells(materialSectors[materialIndex], positionIndices, sectorCells, floorCells);
 
                     void AddCorner(int fanIndex)
                     {

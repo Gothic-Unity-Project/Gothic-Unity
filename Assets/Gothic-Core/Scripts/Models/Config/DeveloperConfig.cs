@@ -707,6 +707,11 @@ namespace Gothic.Core.Models.Config
                  "out, Wld_GetPlayerPortalGuild knows whose room it is (Wld_AssignRoomToGuild).")]
         public bool EnableEnterRoomPerception = true;
 
+        [Tooltip("V1: A position's room (hut) is the room floor under the feet, like OpenGothic (the sector of the " +
+                 "floor polygon the ground ray hits). Off: any room polygon around the body - walls and the roof's " +
+                 "overhang counted too, NPCs said 'get out' a step before the door.")]
+        public bool EnableFloorRoomLookup = true;
+
         [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;
