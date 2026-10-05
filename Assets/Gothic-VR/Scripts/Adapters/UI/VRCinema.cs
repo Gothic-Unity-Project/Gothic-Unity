@@ -6,9 +6,15 @@ using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
+using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Adapters.Player;
 using HurricaneVR.Framework.ControllerInput;
+using HurricaneVR.Framework.Core.Player;
 using HurricaneVR.Framework.Shared;
+using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Video;
@@ -37,8 +43,14 @@ namespace Gothic.VR.Adapters.UI
         private static bool _isQuitAfterVideos;
         private readonly Queue<string> _queue = new();
 
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
+
         private Camera _camera;
         private int _savedCullingMask;
+        // DeveloperConfig.EnableCinemaShowsPlayer: hand and body renderers moved to the UI layer, and their old layers.
+        private readonly List<(GameObject Go, int Layer)> _playerLayers = new();
+        private HVRJointHand[] _jointHands;
         private CameraClearFlags _savedClearFlags;
         private Color _savedBackground;
         private float _savedTimeScale = 1f;
@@ -171,6 +183,8 @@ namespace Gothic.VR.Adapters.UI
             _camera.cullingMask = 1 << Constants.UILayer;
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Color.black;
+            if (_configService.Dev.EnableCinemaShowsPlayer)
+                ShowPlayer();
             AudioListener.pause = true;
             _savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
@@ -214,6 +228,69 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
+        /// The dark room renders only the UI layer - the hands and the hero body go there for the video.
+        /// </summary>
+        private void ShowPlayer()
+        {
+            var controller = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<VRPlayerController>();
+            _jointHands = controller != null
+                ? new[]
+                    {
+                        controller.LeftJointHand != null ? controller.LeftJointHand
+                            : controller.LeftHand != null ? controller.LeftHand.GetComponentInParent<HVRJointHand>() : null,
+                        controller.RightJointHand != null ? controller.RightJointHand
+                            : controller.RightHand != null ? controller.RightHand.GetComponentInParent<HVRJointHand>() : null
+                    }.Where(h => h != null).Distinct().ToArray()
+                : new HVRJointHand[0];
+            foreach (var hand in _jointHands)
+                MoveRenderersToUILayer(hand.gameObject);
+
+            var body = FindFirstObjectByType<VRHeroBody>();
+            if (body != null)
+                MoveRenderersToUILayer(body.gameObject);
+            Logger.Log($"[VRCinema] Showing {_jointHands.Length} hands, body={body != null} " +
+                       $"({_playerLayers.Count} renderers)", LogCat.VR);
+        }
+
+        private void MoveRenderersToUILayer(GameObject root)
+        {
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var go = renderer.gameObject;
+                if (go.layer == Constants.UILayer)
+                    continue;
+                _playerLayers.Add((go, go.layer));
+                go.layer = Constants.UILayer;
+            }
+        }
+
+        private void RestorePlayer()
+        {
+            foreach (var (go, layer) in _playerLayers)
+            {
+                if (go != null)
+                    go.layer = layer;
+            }
+            _playerLayers.Clear();
+            _jointHands = null;
+        }
+
+        /// <summary>
+        /// HVR hands follow the controllers in FixedUpdate, which doesn't run while the world is paused - put them on
+        /// the controllers directly (the body's arms reach for them).
+        /// </summary>
+        private void MoveHandsToControllers()
+        {
+            if (_jointHands == null || Time.timeScale > 0f)
+                return;
+            foreach (var hand in _jointHands)
+            {
+                if (hand != null && hand.Target != null)
+                    hand.transform.SetPositionAndRotation(hand.Target.position, hand.Target.rotation);
+            }
+        }
+
+        /// <summary>
         /// The screen keeps a fixed direction (turning the head doesn't move it - that would make people sick), but
         /// follows the head's position: PlayVideo often comes before the script teleports the hero.
         /// </summary>
@@ -236,6 +313,7 @@ namespace Gothic.VR.Adapters.UI
             if (_screen == null || _camera == null)
                 return;
 
+            MoveHandsToControllers();
             if (Vector3.Distance(_camera.transform.position, _lastCameraPosition) > _teleportDistance)
                 FaceCamera();
             else
@@ -282,11 +360,17 @@ namespace Gothic.VR.Adapters.UI
             return false;
         }
 
+        private void Awake()
+        {
+            gameObject.Inject();
+        }
+
         private void OnDestroy()
         {
             // Destroyed without Close (scene change during a video) - never leave the game paused.
             if (!_isRunning)
                 return;
+            RestorePlayer();
             Time.timeScale = _savedTimeScale;
             AudioListener.pause = false;
             _instance = null;
@@ -300,6 +384,7 @@ namespace Gothic.VR.Adapters.UI
                 _camera.clearFlags = _savedClearFlags;
                 _camera.backgroundColor = _savedBackground;
             }
+            RestorePlayer();
             AudioListener.pause = false;
             Time.timeScale = _savedTimeScale;
             StopBink();

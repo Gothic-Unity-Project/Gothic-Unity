@@ -8,6 +8,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Trade;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Const;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Trade;
 using Gothic.VR.Adapters.Player;
@@ -36,7 +38,12 @@ namespace Gothic.VR.Adapters.Trade
         [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly ConfigService _configService;
 
+        // Big - a backpack thrown a bit off still lands on it.
+        private const float _goodsTableWidth = 10f;
+        private const float _goodsTableDepth = 8f;
+        private const float _goodsTableThickness = 0.05f;
         private const int _socketsPerSide = 3;
         private const float _socketSpacing = 0.2f;
         private const float _socketScale = 1.6f;
@@ -180,6 +187,54 @@ namespace Gothic.VR.Adapters.Trade
             foreach (var body in _goodsRoot.GetComponentsInChildren<Rigidbody>())
                 body.isKinematic = true;
             _goods.SetTradeOwner(_session.Trader, _session.TraderGoods);
+
+            if (_configService.Dev.EnableTradeGoodsTable)
+                CreateGoodsTable();
+        }
+
+        /// <summary>
+        /// An invisible table right under the goods: put down, the backpack lands on it at hand height instead of on
+        /// the floor. Collider layer overrides: the table excludes every layer, the backpack's own colliders include
+        /// the table's layer with a higher priority - so only they touch it.
+        /// </summary>
+        private void CreateGoodsTable()
+        {
+            var backpackBody = _goodsRoot.GetComponentInChildren<Rigidbody>();
+            var colliders = new List<Collider>();
+            foreach (var collider in _goodsRoot.GetComponentsInChildren<Collider>())
+            {
+                if (!collider.isTrigger && collider.attachedRigidbody == backpackBody)
+                    colliders.Add(collider);
+            }
+            if (backpackBody == null || colliders.Count == 0)
+            {
+                Logger.LogWarning("[Trade] Goods backpack has no colliders - no goods table", LogCat.VR);
+                return;
+            }
+
+            var bounds = colliders[0].bounds;
+            foreach (var collider in colliders)
+                bounds.Encapsulate(collider.bounds);
+
+            var tableGo = new GameObject("_TradeGoodsTable");
+            tableGo.layer = Constants.IgnoreRaycastLayer;
+            tableGo.transform.SetParent(transform, false);
+            // The counter only turns around the up axis - its local y is the world height above it.
+            var top = bounds.min.y - transform.position.y;
+            var depth = transform.InverseTransformPoint(bounds.center).z;
+            tableGo.transform.localPosition = new Vector3(0f, top - _goodsTableThickness / 2f, depth);
+
+            var table = tableGo.AddComponent<BoxCollider>();
+            table.size = new Vector3(_goodsTableWidth, _goodsTableThickness, _goodsTableDepth);
+            table.excludeLayers = ~0;
+            table.layerOverridePriority = 0;
+
+            foreach (var collider in colliders)
+            {
+                collider.includeLayers = collider.includeLayers.value | (1 << Constants.IgnoreRaycastLayer.value);
+                collider.layerOverridePriority = Mathf.Max(collider.layerOverridePriority, 1);
+            }
+            Logger.Log($"[Trade] Goods table under the backpack ({colliders.Count} colliders)", LogCat.VR);
         }
 
         private void CreateTexts()

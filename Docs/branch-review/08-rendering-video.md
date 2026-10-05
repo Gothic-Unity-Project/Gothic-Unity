@@ -23,7 +23,8 @@
 
 **Bink video**
 - Original `.bik` videos play in a dark VR cinema, decoded by a C# port of OpenGothic's decoder on a background
-  thread, synced to the audio sample position. World paused during videos, skippable.
+  thread, synced to the audio sample position. World paused during videos, skippable. The player's hands (and the
+  VR hero body) stay visible in the dark room.
 
 ## Key commits
 
@@ -42,7 +43,7 @@
 `EnableStaticLightsInLightMappedAreas`, `StaticLightPoolSize`, `EnablePooledStationaryLights`,
 `StationaryLightMaxDistance`, `StationaryLightPoolRefreshSeconds`, `EnableDayNightWorldLight`,
 `DayNightLightStrength`, `EnableAnimationPfx`, `EnablePfxMinimumEmission`, `EnablePfxFullRateLoops`,
-`EnableWldPlayEffect`, `EnableScriptVideos`.
+`EnableWldPlayEffect`, `EnableScriptVideos`, `EnableCinemaShowsPlayer`.
 
 ## Review notes
 

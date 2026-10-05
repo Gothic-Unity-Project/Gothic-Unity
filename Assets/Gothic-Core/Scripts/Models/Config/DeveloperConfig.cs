@@ -516,6 +516,10 @@ namespace Gothic.Core.Models.Config
                  "paused meanwhile. Skip: any trigger or A/X (keyboard: Space/Escape). Read at VM start.")]
         public bool EnableScriptVideos = true;
 
+        [Tooltip("The video cinema shows the player's hands and the VR hero body (the rest stays dark). The hands " +
+                 "follow the controllers although the world is paused; the body's legs keep their last pose.")]
+        public bool EnableCinemaShowsPlayer = true;
+
         [Tooltip("The VR hero's body state follows its movement on land (BS_STAND/BS_WALK/BS_RUN) like the " +
                  "engine. Scripts need it: ZS_Attack gives up a chase ('$RUNCOWARD') only while the target runs.")]
         public bool EnableHeroMoveBodyState = true;
@@ -707,6 +711,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Trading in VR - a dialog choice with trade != 0 opens a counter between the hero and the trader: " +
                  "his goods, your offer, his offer, the price difference in gold (G2) / ore (G1), accept / close.")]
         public bool EnableVrTrade = true;
+
+        [Tooltip("V1: An invisible table under the trader's goods backpack - put down, it lands there instead of on " +
+                 "the floor (no bending down). Only that backpack touches it; hands, items and NPCs pass through.")]
+        public bool EnableTradeGoodsTable = true;
 
         [Tooltip("V1: Spells invest mana at their own C_Spell.time_per_mana like the engine (G2 charge spells: 30 ms " +
                  "per mana, 40 per level). Off: one mana every 0.5 s for all spells.")]

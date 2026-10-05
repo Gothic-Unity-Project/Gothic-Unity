@@ -7,6 +7,7 @@
 - **Trading in VR:** "Show me your goods" puts a counter between hero and trader: his goods, both offers, the
   price difference in gold (G2) / ore (G1), OK/X. Engine prices, reserved offers, anti-theft (trader goods dropped
   or bagged go back to him and can't be eaten). The dialog continues during trading.
+  An invisible table under the goods backpack catches it at hand height (only that backpack touches it).
 - **Stack splitting:** hold the trigger to take pieces into the empty hand or into a socket, at an accelerating
   pace; join equal stacks; live amount labels.
 - **NPC loot backpack:** a tinted copy of the hero's backpack next to the downed NPC, opening on its first non-empty
@@ -32,7 +33,7 @@ Core: `Services/Trade/TradeService.cs`, `Domain/Trade/TradePricing.cs`, `Models/
 
 ## Config flags
 
-`EnableVrTrade`, `EnableStackSplit`, `StackSplitRepeatDelay`, `StackSplitAcceleration`, `NpcLootMode`,
+`EnableVrTrade`, `EnableTradeGoodsTable`, `EnableStackSplit`, `StackSplitRepeatDelay`, `StackSplitAcceleration`, `NpcLootMode`,
 `NpcLootBackpackTimeout`, `EnableBackpackVacuum`, `BackpackVacuumRadius`, `BackpackVacuumStoreSeconds`,
 `EnableItemDetailsPopup`, `EnableScriptRemovesHeldItems`.
 
