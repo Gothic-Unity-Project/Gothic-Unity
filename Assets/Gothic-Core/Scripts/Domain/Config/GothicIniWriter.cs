@@ -39,7 +39,7 @@ namespace Gothic.Core.Domain.Config
 
         private bool IsGothicUnitySetting(string section)
         {
-            return section.Contains("Unity");
+            return section.Contains("VR");
         }
         
         /// <summary>
