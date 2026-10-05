@@ -18,6 +18,8 @@
 **Particles**
 - Spell effects around the caster, hit effects, animation PFX, `Wld_PlayEffect`, blood; world particle
   controllers and particle VOBs show up (Saturas' pentagram); loops emit at Gothic's rate (full torch flames).
+- Smoke and other `BLEND` particles use plain alpha blending: the premultiplied blend relied on the URP
+  `_ALPHAPREMULTIPLY_ON` variant, which builds strip for runtime-made materials (square smoke in builds only).
 
 **Bink video**
 - Original `.bik` videos play in a dark VR cinema, decoded by a C# port of OpenGothic's decoder on a background
@@ -25,7 +27,7 @@
 
 ## Key commits
 
-`4982a263` lights + pool · `d07e1c4d` day/night · `8c4b4f51`/`d4e451c5` particles · `1fb8180a` PFX loops ·
+`4982a263` lights + pool · `d07e1c4d` day/night · `8c4b4f51`/`d4e451c5` particles · `1fb8180a` PFX loops · `bc831b78` square smoke in builds ·
 `d688f290`/`9504e2c9`/`9f984e2c` Bink · `2de7f2dc` Bink attribution
 
 ## Main files

@@ -20,6 +20,9 @@
 **Summons**
 - Spawned beside the caster, never fight their master (`NpcContainer.SummonedBy` ↔ Friendly), run, defend the
   hero, and are a training dummy for their own summoner (hits don't turn them hostile).
+- NPCs treat the hero's summons the way they treat the hero: enemies fight them, everyone else ignores them.
+  **Deviation:** vanilla G2 makes humans hostile to the `GIL_SUMMONED_*` guilds (`B_InitMonsterAttitudes`), so guards
+  attack summons there.
 
 **Transformation scrolls**
 - The hero becomes the monster: a puppet without AI, camera at its eyes, walks/strafes/swims/sneaks like Gothic.
@@ -32,7 +35,7 @@
 `eaba6cf6` casting overhaul · `d8e51ea3` NPC casters · `65a4ed33` casts complete · `942032bc` summons ·
 `cdc628c2` throwable spells · `5e898826` G2 mana in Spell_Cast · `934b0305` time_per_mana · `a063883c` shrink ·
 `f2ebe1f2`/`040ecaf8`/`fc784fa9` transformations · `64d0bd47` VISUALFX in hand · `04d53a8d` teleport keeps items ·
-`79896b75` AI_Flee · `a6206509` summons as training dummy
+`79896b75` AI_Flee · `a6206509` summons as training dummy · `bc831b78` NPCs ignore the hero's summons
 
 ## Main files
 
@@ -42,7 +45,7 @@
 ## Config flags
 
 `EnableThrowableSpells`, `EnableSpellTimePerMana`, `MinSpellCastSeconds`, `EnableVrTransformations`,
-`EnableSummonIgnoresMasterHits`, `EnableModelScale`, `EnableAiFlee`, `EnableTeleportKeepsHeldItems`,
+`EnableSummonIgnoresMasterHits`, `EnableNpcsIgnoreHeroSummons`, `EnableModelScale`, `EnableAiFlee`, `EnableTeleportKeepsHeldItems`,
 `EnableSpellBodyFx`, `SummonSpawnRangeMultiplier`, `RangedCombatRangeMultiplier`, `EnableCasterPerception`.
 
 ## Review notes
