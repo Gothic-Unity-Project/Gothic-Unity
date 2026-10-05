@@ -5,6 +5,8 @@ TagManager:
   serializedVersion: 3
   tags:
   - GothicVob
+  - Subtitle
+  - Title
   layers:
   - Default
   - TransparentFX
