@@ -8,5 +8,6 @@
     "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--",
     "EnableMusic": true,
     "EnableZSpyLogs": false,
-    "EnableOggAudio": true
+    "EnableOggAudio": true,
+    "EnableVRDeviceSimulator": false
 }

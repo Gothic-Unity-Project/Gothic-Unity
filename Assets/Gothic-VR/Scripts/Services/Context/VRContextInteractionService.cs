@@ -92,7 +92,7 @@ namespace Gothic.VR.Services.Context
         public float GetFrameRate()
         {
             // If we have no VR device attached to our computer, we will get an NPE for activeLoader.
-            if (_configService.Dev.EnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
+            if (_configService.EffectiveEnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
             {
                 return 0;
             }
@@ -113,15 +113,34 @@ namespace Gothic.VR.Services.Context
             _playerController.transform.parent.parent.gameObject.SetActive(true);
             _playerController.SetNormalControls(true);
 
-            // XRDeviceSimulator
+            // XRDeviceSimulator (Editor: DeveloperConfig, builds: GameSettings.json)
+            var isSimulatorEnabled = _configService.EffectiveEnableVRDeviceSimulator;
+            if (isSimulatorEnabled)
+                StopXRForSimulator();
             var simulatorGO = activeScene.GetComponentInChildren<HVRBodySimulator>(true)!;
-            simulatorGO.gameObject.SetActive(developerConfig.EnableVRDeviceSimulator);
+            simulatorGO.gameObject.SetActive(isSimulatorEnabled);
 
             // Marvin Mode
             var marvinGO = activeScene.GetComponentInChildren<MarvinRootHandler>(true)!;
             marvinGO.gameObject.SetActive(developerConfig.ActivateMarvinMode);
         }
         
+        /// <summary>
+        /// Builds start XR on startup. With a headset (or SteamVR) running, the headset would still drive the camera
+        /// next to the simulator - stop XR so mouse and keyboard own the rig and the window shows the game.
+        /// </summary>
+        private void StopXRForSimulator()
+        {
+            var settings = XRGeneralSettings.Instance;
+            var manager = settings != null ? settings.Manager : null;
+            if (manager == null || manager.activeLoader == null)
+                return;
+
+            manager.StopSubsystems();
+            manager.DeinitializeLoader();
+            Logger.Log("[VRDeviceSimulator] XR stopped, the simulator drives the player.", LogCat.VR);
+        }
+
         private void PlayerPrefsUpdated(string key, object value)
         {
             if (key == GothicIniConfig.IniKeyVisualRange)

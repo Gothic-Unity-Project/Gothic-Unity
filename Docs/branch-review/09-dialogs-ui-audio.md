@@ -14,6 +14,8 @@
 **UI**
 - Script print events reach VR (`PrintScreen` messages, 2D sounds, taken items); repeated messages don't lag.
 - Status menu: right protection values, talent rows, weapon ranks and percentages in MT and G2.
+- Menu pictures with an alpha mode (the G2 "Noc Kruka" logo) use plain alpha blending: `ToTransparentMode` relied on
+  the `_ALPHATEST_ON` variant, which builds strip for runtime-made materials (the logo looked different in builds).
 - HP bars reflect live damage/healing and the loaded health; chapter screen waits for its jingle.
 
 **Audio**

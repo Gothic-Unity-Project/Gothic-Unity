@@ -12,5 +12,6 @@
         public bool EnableMusic = true;
         public bool EnableZSpyLogs;
         public bool EnableOggAudio = true;
+        public bool EnableVRDeviceSimulator;
     }
 }

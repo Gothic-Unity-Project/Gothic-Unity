@@ -31,7 +31,7 @@ menu adapters · `Assets/StreamingAssets/GameSettings.json`
 ## Config flags
 
 `EnableMod`, `ModPath`, `FallbackLanguage`, `EnableMusic`, `EnableOggAudio`; `GameSettings.json` (builds): `GameVersion`,
-`ModPath`, `ModIni`, `EnableMusic`, `EnableZSpyLogs`, `EnableOggAudio` — one build runs G1, G2 and their mods
+`ModPath`, `ModIni`, `EnableMusic`, `EnableZSpyLogs`, `EnableOggAudio`, `EnableVRDeviceSimulator` — one build runs G1, G2 and their mods
 (see [How to test](14-how-to-test.md)).
 
 ## Review notes

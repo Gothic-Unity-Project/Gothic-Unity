@@ -158,6 +158,22 @@ namespace Gothic.Core.Services.Config
         }
 
         /// <summary>
+        /// HVR keyboard/mouse simulator instead of a headset, same Editor/build split as the others - a PC build can be
+        /// played and shown without a headset. The simulator turns itself off on mobile, so it is always off there.
+        /// </summary>
+        public bool EffectiveEnableVRDeviceSimulator
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableVRDeviceSimulator;
+#else
+                return Root.EnableVRDeviceSimulator && !UnityEngine.Application.isMobilePlatform;
+#endif
+            }
+        }
+
+        /// <summary>
         /// First one to load.
         /// Root, as it contains only a few Gothic specific bootstrap data like
         /// installation directory of Gothic1/2 and LogLevel.

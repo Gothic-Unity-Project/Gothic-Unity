@@ -20,6 +20,8 @@
   package). Tags `Subtitle`/`Title` registered (prefabs already used them).
 - NVorbis DLL committed with a `.gitignore` exception.
 - ZSpy Daedalus logging via `GameSettings.json`; Uber Logger categories used throughout.
+- HVR keyboard/mouse simulator in PC builds via `GameSettings.json` `"EnableVRDeviceSimulator"` (it is plain runtime
+  code; only the old XRIT simulator was Editor-only). XR is stopped while it runs.
 
 ## Key commits
 

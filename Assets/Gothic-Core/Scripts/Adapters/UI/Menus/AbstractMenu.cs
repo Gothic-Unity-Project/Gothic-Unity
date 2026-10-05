@@ -255,7 +255,10 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             if (!item.AlphaMode.IsNullOrEmpty())
             {
-                backPic.ToTransparentMode();
+                // Plain alpha blending (Gothic's BLEND). ToTransparentMode clipped with _ALPHATEST_ON, a variant builds
+                // strip (no material asset uses it), and blended premultiplied a not premultiplied texture - the G2
+                // "Noc Kruka" logo looked different in builds than in the Editor.
+                backPic.ToFadeMode();
                 var color = backPic.GetColor("_BaseColor");
                 var alpha = item.Alpha / 255f;
                 backPic.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));

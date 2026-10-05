@@ -29,6 +29,7 @@ Which game starts and which mod is loaded comes from **different places** in the
 | Which game | DeveloperConfig `PreselectGameVersion` + `GameVersion` | `GameSettings.json` `"GameVersion"`; if empty, the build's DeveloperConfig |
 | Mod | DeveloperConfig `EnableMod` + `ModPath` + `ModIni` | `GameSettings.json` `"ModPath"` + `"ModIni"` |
 | Music / ZSpy | DeveloperConfig `EnableMusic` / `EnableZSpyLogs` | `GameSettings.json` `"EnableMusic"` / `"EnableZSpyLogs"` |
+| Keyboard/mouse instead of a headset | DeveloperConfig `EnableVRDeviceSimulator` | `GameSettings.json` `"EnableVRDeviceSimulator"` (PC only; stops XR, so a connected headset doesn't move the camera) |
 
 - `ModPath` is the mod's own game folder (a full Gothic install with the mod: `Data/`, `System/`, …). `ModIni` is
   the mod's ini inside `ModPath/System/`; empty means `GothicGame.ini`.
