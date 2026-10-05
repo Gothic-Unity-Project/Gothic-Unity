@@ -4,6 +4,7 @@
     {
         public string Gothic1Path;
         public string Gothic2Path;
+        public string GameVersion;
         public string ModPath;
         public string ModIni;
         public string LogLevel;

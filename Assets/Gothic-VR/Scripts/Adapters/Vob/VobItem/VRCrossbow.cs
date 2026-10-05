@@ -28,6 +28,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRCrossbow : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly Gothic.Core.Services.Context.ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -182,7 +183,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return false;
 
             var talent = hero.Vob.GetTalent(_crossbowTalent);
-            var percent = _configService.Dev.GameVersion == ZenKit.GameVersion.Gothic2
+            var percent = _contextGameVersionService.IsGothic2()
                 ? hero.Instance.GetHitChance((ZenKit.Daedalus.NpcTalent)_crossbowTalent)
                 : talent?.Value ?? 0;
             var isMaster = (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;

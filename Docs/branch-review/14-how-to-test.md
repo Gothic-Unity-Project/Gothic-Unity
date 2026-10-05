@@ -4,7 +4,7 @@
 
 Setup for testers, then where to look. Each theme page also has its own "How to test" section.
 
-## 1. Point the game at your Gothic (and mod) folder
+## 1. Point the game at your Gothic folders
 
 Create `Assets/StreamingAssets/GameSettings.dev.json`. It's gitignored and overrides `GameSettings.json` field by
 field, so it only needs the keys you change:
@@ -13,24 +13,41 @@ field, so it only needs the keys you change:
 {
     "Gothic1Path": "C:/Program Files (x86)/Steam/steamapps/common/Gothic",
     "Gothic2Path": "C:/Program Files (x86)/Steam/steamapps/common/Gothic II",
-    "ModPath": "",
-    "ModIni": "",
     "LogLevel": "Message"
 }
 ```
 
-- **Paths:** forward slashes, or double backslashes (`"C:\\Games\\Gothic"`). Without a path, the Steam default
-  folder is used.
-- **Vanilla:** leave `ModPath` and `ModIni` empty.
-- **Mod:** `ModPath` is the mod's own game folder (a full Gothic install with the mod: `Data/`, `System/`, …).
-  `ModIni` is the mod's ini inside `ModPath/System/`. Example for Mroczne Tajemnice (G1):
-  ```json
-  "ModPath": "C:/Games/Gothic MT",
-  "ModIni": "DM_E.INI"
-  ```
-  Then pick Gothic 1 in the game menu.
-- Other optional keys: `EnableMusic` (turn off if a mod's music crashes), `EnableOggAudio` (mod dubbing in Ogg),
-  `EnableZSpyLogs` (Daedalus logging), `LogCategories`.
+Paths: forward slashes, or double backslashes (`"C:\\Games\\Gothic"`). Without a path, the Steam default folder
+is used. The game paths work the same in the Editor and in builds.
+
+### Game and mod: Editor vs. build
+
+Which game starts and which mod is loaded comes from **different places** in the Editor and in a build:
+
+| | Editor | Build |
+|---|---|---|
+| Which game | DeveloperConfig `PreselectGameVersion` + `GameVersion` | `GameSettings.json` `"GameVersion"`; if empty, the build's DeveloperConfig |
+| Mod | DeveloperConfig `EnableMod` + `ModPath` + `ModIni` | `GameSettings.json` `"ModPath"` + `"ModIni"` |
+| Music / ZSpy | DeveloperConfig `EnableMusic` / `EnableZSpyLogs` | `GameSettings.json` `"EnableMusic"` / `"EnableZSpyLogs"` |
+
+- `ModPath` is the mod's own game folder (a full Gothic install with the mod: `Data/`, `System/`, …). `ModIni` is
+  the mod's ini inside `ModPath/System/`; empty means `GothicGame.ini`.
+- The mod must match the game: Mroczne Tajemnice runs with Gothic 1, a G2 mod with Gothic 2.
+
+### One build, all games and mods
+
+A build reads `GameSettings.json` from `<Build>/Gothic-Unity_Data/StreamingAssets/` (Quest/Pico: the app's data
+folder). Edit it before each start:
+
+| Run | `"GameVersion"` | `"ModPath"` | `"ModIni"` |
+|---|---|---|---|
+| G1 vanilla | `"Gothic1"` | `""` | `""` |
+| G1 + Mroczne Tajemnice | `"Gothic1"` | `"C:/Games/Gothic MT"` | `"DM_E.INI"` |
+| G2 vanilla | `"Gothic2"` | `""` | `""` |
+| G2 + a mod | `"Gothic2"` | `"C:/Games/Gothic II Mod"` | the mod's ini, or `""` |
+
+Each game + mod combination keeps its own precaching cache, so switching doesn't break anything — the first start of
+a combination just takes longer. `"GameVersion"` also accepts `G1`/`G2`.
 
 ## 2. Pick a developer config (for cheats)
 
@@ -45,7 +62,8 @@ For testing:
 
    | Field | What it does |
    |---|---|
-   | `PreselectGameVersion` / `GameVersion` | Skip the game selection and start G1 or G2 directly |
+   | `PreselectGameVersion` / `GameVersion` | Editor: which game starts. Keep it on — there is no game selection screen yet, with both games installed and this off the start stops |
+   | `EnableMod` / `ModPath` / `ModIni` | Editor: load a mod (see the table in section 1) |
    | `ActivateMarvinMode` | Shows the Marvin cheat panel on the hand menu |
    | `EnableLevel5Cheat` | Marvin button: +5 levels (+50 LP, more HP, +100 mana) |
    | `EnableTimeSkip` | Marvin button: skip 30 minutes (routines, day/night) |

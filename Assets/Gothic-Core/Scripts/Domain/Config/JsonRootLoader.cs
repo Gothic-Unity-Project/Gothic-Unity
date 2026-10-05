@@ -52,6 +52,8 @@ namespace Gothic.Core.Domain.Config
                 loadedSettings.ModPath = null;
             if (string.IsNullOrEmpty(loadedSettings.ModIni) || loadedSettings.ModIni.StartsWith("---"))
                 loadedSettings.ModIni = null;
+            if (string.IsNullOrEmpty(loadedSettings.GameVersion) || loadedSettings.GameVersion.StartsWith("---"))
+                loadedSettings.GameVersion = null;
 
             return loadedSettings;
         }

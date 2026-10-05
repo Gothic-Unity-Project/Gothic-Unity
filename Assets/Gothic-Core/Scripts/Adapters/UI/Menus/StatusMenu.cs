@@ -5,6 +5,7 @@ using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
@@ -43,6 +44,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         private void Awake()
         {
@@ -134,7 +136,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         private int GetTalentPercent(NpcContainer hero, int talentIndex, int talentValue)
         {
             const int lastWeaponTalent = 4;
-            if (_configService.Dev.GameVersion == GameVersion.Gothic2 && talentIndex <= lastWeaponTalent)
+            if (_contextGameVersionService.IsGothic2() && talentIndex <= lastWeaponTalent)
                 return hero.Instance.GetHitChance((NpcTalent)talentIndex);
 
             return talentValue;

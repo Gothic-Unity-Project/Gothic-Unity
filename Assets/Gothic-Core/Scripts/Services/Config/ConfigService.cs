@@ -32,6 +32,41 @@ namespace Gothic.Core.Services.Config
             }
         }
 
+        /// <summary>
+        /// The game to start without the game selection. Editor: DeveloperConfig PreselectGameVersion + GameVersion.
+        /// Builds: GameSettings.json "GameVersion" (Gothic1/Gothic2) when set, so one build runs G1, G2 and their
+        /// mods by editing the JSON (like ModPath/ModIni); otherwise the build's DeveloperConfig decides.
+        /// </summary>
+        public bool TryGetPreselectedGameVersion(out GameVersion version)
+        {
+#if !UNITY_EDITOR
+            if (TryParseGameVersion(Root.GameVersion, out version))
+                return true;
+#endif
+            version = Dev.GameVersion;
+            return Dev.PreselectGameVersion;
+        }
+
+        private static bool TryParseGameVersion(string value, out GameVersion version)
+        {
+            switch (value?.Trim().ToUpperInvariant())
+            {
+                case "GOTHIC1":
+                case "G1":
+                case "1":
+                    version = GameVersion.Gothic1;
+                    return true;
+                case "GOTHIC2":
+                case "G2":
+                case "2":
+                    version = GameVersion.Gothic2;
+                    return true;
+                default:
+                    version = GameVersion.Gothic1;
+                    return false;
+            }
+        }
+
         public string EffectiveModIni
         {
             get

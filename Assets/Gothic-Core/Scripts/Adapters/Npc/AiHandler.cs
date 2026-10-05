@@ -10,6 +10,7 @@ using FreePoint = Gothic.Core.Models.Vob.WayNet.FreePoint;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
@@ -29,6 +30,7 @@ namespace Gothic.Core.Adapters.Npc
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcService _npcService;
@@ -635,7 +637,7 @@ namespace Gothic.Core.Adapters.Npc
             // Reset "currently" used item
 
             // FIXME - We need to properly set this value for Gothic2 as well.
-            if (_configService.Dev.GameVersion == GameVersion.Gothic1)
+            if (_contextGameVersionService.IsGothic1())
             {
                 NpcInstance.SetAiVar(_vmService.AIVItemStatusKey, _vmService.TAITNone);
             }

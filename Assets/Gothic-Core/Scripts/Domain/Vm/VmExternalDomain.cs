@@ -49,6 +49,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly DocService _docService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly RoomService _roomService;
 
@@ -267,7 +268,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int, NpcInstance, NpcInstance>("Npc_HasNews", Npc_HasNews);
 
             // G2 externals only.
-            if (_configService.Dev.GameVersion == GameVersion.Gothic2)
+            if (_contextGameVersionService.IsGothic2())
             {
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
                 vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
