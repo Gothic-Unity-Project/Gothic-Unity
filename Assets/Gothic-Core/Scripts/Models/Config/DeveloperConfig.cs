@@ -680,6 +680,10 @@ namespace Gothic.Core.Models.Config
                  "it has none - wolves' bites never hit anything (no DEF_WINDOW).")]
         public bool EnableNpcHitAtOptimalFrame = true;
 
+        [Tooltip("V1 (G2): NPCs with AIV_EnemyOverride (road bandits below Xardas' tower) don't pick the hero as their " +
+                 "next target after a fight (Npc_GetNextTarget) - they left him alone before it.")]
+        public bool EnableEnemyOverrideNextTarget = true;
+
         [Tooltip("V1: Crouching (real or the crouch button) is sneaking for the scripts (BS_SNEAK): NPCs that see " +
                  "you ask why you sneak, footsteps make no noise.")]
         public bool EnableHeroSneakBodyState = true;

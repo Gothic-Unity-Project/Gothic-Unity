@@ -840,6 +840,10 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npc.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
+            var enemyOverrideAivar = _configService.Dev.EnableEnemyOverrideNextTarget
+                ? _gameStateService.GothicVm.GetSymbolByName("AIV_ENEMYOVERRIDE")?.GetInt(0) ?? -1
+                : -1;
+
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
                 if (candidate.Props == null || candidate.Go == null)
@@ -877,6 +881,13 @@ namespace Gothic.Core.Services.Npc
                     continue;
 
                 if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
+                    continue;
+
+                // DeveloperConfig.EnableEnemyOverrideNextTarget (G2): AIV_EnemyOverride NPCs (the bandits on the road
+                // below Xardas' tower) leave the guild-hostile hero alone until he talks to them (B_AssessEnemy skips
+                // them). After killing a wolf, ZS_Attack_Loop's Npc_GetNextTarget picked the bystanding hero.
+                if (enemyOverrideAivar >= 0 && candidate.PrefabProps != null && candidate.PrefabProps.IsHero() &&
+                    npc.GetAiVar(enemyOverrideAivar) != 0)
                     continue;
 
                 closestSqrDist = sqrDist;
