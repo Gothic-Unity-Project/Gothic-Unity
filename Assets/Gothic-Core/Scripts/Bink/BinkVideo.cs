@@ -1,6 +1,8 @@
 // Bink video decoder.
 // C# port of OpenGothic common/bink/video.cpp (https://github.com/Try/OpenGothic, MIT repository), whose codec is
 // itself based on FFmpeg libavcodec/bink.c and binkaudio.c - licensed LGPL 2.1 or later. See README.md in this folder.
+// FFmpeg bink.c: Copyright (c) 2009 Konstantin Shishkov, Copyright (C) 2011 Peter Ross.
+// Copyright (c) 2019 Try (OpenGothic, MIT). FFmpeg code: LGPL-2.1-or-later - copyright holders listed in README.md.
 using System;
 using System.IO;
 using static Gothic.Core.Bink.BinkTables;

@@ -1,6 +1,9 @@
 // Bink audio decoder (RDFT/DCT variants).
 // C# port of OpenGothic common/bink/video.cpp (https://github.com/Try/OpenGothic, MIT repository), whose codec is
 // itself based on FFmpeg libavcodec/binkaudio.c + fft/rdft/dct - licensed LGPL 2.1 or later. See README.md here.
+// FFmpeg binkaudio.c: Copyright (c) 2007-2011 Peter Ross, Copyright (c) 2009 Daniel Verkamp; FFT/RDFT/DCT:
+// Fabrice Bellard, Loren Merritt, Alex Converse, Peter Ross, Vitor Sessak.
+// Copyright (c) 2019 Try (OpenGothic, MIT). FFmpeg code: LGPL-2.1-or-later - copyright holders listed in README.md.
 using System;
 using System.Collections.Generic;
 using static Gothic.Core.Bink.BinkTables;

@@ -1,5 +1,7 @@
 // Bink video tables - generated from OpenGothic common/bink/video.cpp (MIT repository),
 // codec ported from FFmpeg libavcodec/bink.c + binkaudio.c (LGPL 2.1+).
+// FFmpeg binkdata.h: Copyright (c) 2009 Konstantin Shishkov.
+// Copyright (c) 2019 Try (OpenGothic, MIT). FFmpeg code: LGPL-2.1-or-later - copyright holders listed in README.md.
 namespace Gothic.Core.Bink
 {
     internal static class BinkTables
