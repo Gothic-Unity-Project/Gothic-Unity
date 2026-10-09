@@ -16,12 +16,16 @@
 - **Portal rooms:** BSP sectors from the world's room materials (like OpenGothic), `Wld_AssignRoomToGuild`,
   portal guild externals for G1 and G2.
 - Seated NPCs sit correctly, talk seated or stand up; mob seat fix.
+- **VOB tree fixes (all worlds):** an unnamed `zCVob` without a visual only groups its children - as a lazy loader
+  without bounds it never loaded and nothing below it appeared (~8000 VOBs in a big mod world); its children are now
+  VOBs of their own. Child VOBs sit at their own position (ZEN positions are world positions) instead of their
+  parent's origin. Movers and children of visual-less VOBs get precached bounds (static cache v6).
 
 ## Key commits
 
 `75bd89fd`/`b773c4c0`/`a1a8f2a2`/`e37c8952` movers · `9636179d` trigger system · `cd614258`/`f200e883` wheels ·
 `a696f99b` keys · `f44ca0ac` MOBSI · `74302081` G2 beds · `6bd758e0` MT beds · `3edf3460` dig spots ·
-`00f95e72` rooms · `2fb20421`/`8e6b8f44`/`be5105d6` seated NPCs · `05be2e1a` INIT_ triggers
+`00f95e72` rooms · `2fb20421`/`8e6b8f44`/`be5105d6` seated NPCs · `05be2e1a` INIT_ triggers · `8764fe40` VOB tree
 
 ## Main files
 
@@ -33,7 +37,8 @@
 ## Config flags
 
 `MoverSpeedMultiplier`, `EnableMobsiDialogs`, `EnableMobSeatFix`, `EnableNoTurnWhileUsingMob`, `EnableDigSpots`,
-`DigSpotsRequireTool`, `EnableChildVobLoaders`, `EnableEnterRoomPerception`.
+`DigSpotsRequireTool`, `EnableChildVobLoaders`, `EnableEnterRoomPerception`, `EnableEmptyVobContainerChildren`,
+`EnableWorldSpaceChildVobs`, `DebugTraceVobVisual` (debug: logs a VOB's loader creation, init and destruction).
 
 ## Review notes
 
