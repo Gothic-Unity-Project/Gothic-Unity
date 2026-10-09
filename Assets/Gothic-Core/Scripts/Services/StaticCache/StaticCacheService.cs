@@ -195,7 +195,11 @@ namespace Gothic.Core.Services.StaticCache
         public void Init()
         {
             _configIsCompressed = _configService.Dev.CompressStaticCacheFiles;
-            _cacheRootFolderPath = $"{Application.persistentDataPath}/Cache/{_contextGameVersionService.Version}/";
+
+            // Separate cache per (GameVersion, mod) — otherwise switching mods (or back to vanilla)
+            // under the same GameVersion reuses a differently-shaped cache from whatever was loaded
+            // last, forcing a full recreate every time instead of a one-off build per combination.
+            _cacheRootFolderPath = $"{Application.persistentDataPath}/Cache/{_contextGameVersionService.Version}{_configService.ModCacheSuffix}/";
         }
 
         /// <summary>

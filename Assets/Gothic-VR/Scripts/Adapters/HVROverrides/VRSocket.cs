@@ -20,6 +20,27 @@ namespace Gothic.VR.Adapters.HVROverrides
     /// </summary>
     public class VRSocket : HVRSocket
     {
+        // Lazily resolved: sockets on the player rig (holsters, shoulders, backpack) vs. world ones (chests, loot panel).
+        private bool? _isPlayerSocket;
+
+        // localScale of the VobLoader root (not the Grabbable child, which HVR's _previousScale covers).
+        private Vector3 _previousRootScale = Vector3.one;
+
+        /// <summary>
+        /// Rig layout: TechDemoXRRigOpenXR/{PlayerController, Waist/Holsters, BackPack, ...}.
+        /// The holsters aren't below PlayerController, so we check against its parent (the rig root).
+        /// </summary>
+        public bool IsPlayerSocket()
+        {
+            if (_isPlayerSocket.HasValue)
+                return _isPlayerSocket.Value;
+
+            var playerController = FindFirstObjectByType<VRPlayerController>();
+            var rig = playerController != null ? playerController.transform.parent : null;
+            _isPlayerSocket = rig != null && transform.IsChildOf(rig);
+            return _isPlayerSocket.Value;
+        }
+
         protected override void OnGrabbed(HVRGrabArgs args)
         {
             // HINT: We can't call base.OnGrabbed(), as it would break the parent behaviour already. We therefore recreate its logic here.
@@ -36,6 +57,11 @@ namespace Gothic.VR.Adapters.HVROverrides
                 var vobLoader = grabbable.GetComponentInParent<VobLoader>(true); // e.g., Backpack item might be disabled already as it's re-parented in parallel.
                 _previousParent = vobLoader.transform.parent; // We use parent of Grabbable object.
                 _previousScale = grabbable.transform.localScale;
+                _previousRootScale = vobLoader.transform.localScale;
+
+                // Items in the player's holsters etc. stay world VOBs, but NPCs must not pick them up (B_RegainDroppedWeapon).
+                if (IsPlayerSocket() && vobLoader.Container != null)
+                    vobLoader.Container.IsHeldByPlayer = true;
 
                 AttachGrabbable(grabbable);
                 OnGrabbableParented(grabbable);
@@ -63,6 +89,10 @@ namespace Gothic.VR.Adapters.HVROverrides
                 return;
             }
 
+            // Leaving the socket. If a hand takes it next, VRPlayerWeaponInteraction.OnGrabbed sets the flag again.
+            if (IsPlayerSocket() && vobLoader.Container != null)
+                vobLoader.Container.IsHeldByPlayer = false;
+
             var itemRoot = vobLoader.transform;
             base.OnReleased(grabbable);
 
@@ -73,6 +103,11 @@ namespace Gothic.VR.Adapters.HVROverrides
 
             grabbable.transform.parent = itemRoot;
             itemRoot.parent = tmpPreviousParent;
+
+            // AttachGrabbable() parents the root without keeping its world scale (it inherits the socket's scale).
+            // Re-parenting above keeps the world scale though, which bakes the socket's scale into localScale.
+            // Without this reset, every holster/shoulder put-in + take-out grew or shrank the item.
+            itemRoot.localScale = _previousRootScale;
         }
 
         protected override void AttachGrabbable(HVRGrabbable grabbable)

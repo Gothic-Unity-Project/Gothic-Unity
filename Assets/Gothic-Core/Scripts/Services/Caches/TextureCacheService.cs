@@ -214,6 +214,21 @@ namespace Gothic.Core.Services.Caches
 
         private async Task BuildTextureArray(TextureFormat textureFormat, Dictionary<string, (int Index, StaticCacheService.TextureInfo Data)> textureInfos, TextureArrayTypes texArrType)
         {
+            // Texture2DArray/RenderTexture have a hardware/API-imposed max slice count (commonly 2048).
+            // A mod adding enough unique textures (e.g. Gothic II New Balance: 2753 opaque textures) can
+            // exceed it — allocating past the limit throws and, since this runs inside WorldScene's single
+            // top-level try/catch, silently aborts the ENTIRE rest of world loading (WayNet/VOBs/NPCs/
+            // lights/player teleport all get skipped). Cap at the real hardware limit and drop whatever
+            // doesn't fit rather than let one oversized category take the whole world load down with it;
+            // meshes referencing a dropped texture's index already degrade via the "not found in cache"
+            // path below instead of crashing.
+            var maxSlices = SystemInfo.maxTextureArraySlices;
+            var sliceCount = Mathf.Min(textureInfos.Count, maxSlices);
+            if (textureInfos.Count > maxSlices)
+            {
+                Logger.LogError($"{texArrType} texture array wants {textureInfos.Count} slices but this hardware/API only supports {maxSlices} — dropping the last {textureInfos.Count - maxSlices} textures (those meshes will render without a matching texture).", LogCat.PreCaching);
+            }
+
             // It's either a Texture2DArray (solid meshes) or RenderTexture (water)
             Texture texArray;
 
@@ -226,13 +241,13 @@ namespace Gothic.Core.Services.Caches
                     autoGenerateMips = false,
                     filterMode = FilterMode.Trilinear,
                     useMipMap = true,
-                    volumeDepth = textureInfos.Count,
+                    volumeDepth = sliceCount,
                     wrapMode = TextureWrapMode.Repeat
                 };
             }
             else
             {
-                texArray = new Texture2DArray(MaxTextureSize, MaxTextureSize, textureInfos.Count, textureFormat, MaxMipCount, false, true)
+                texArray = new Texture2DArray(MaxTextureSize, MaxTextureSize, sliceCount, textureFormat, MaxMipCount, false, true)
                 {
                     name = $"{textureFormat} - {texArrType}",
                     filterMode = FilterMode.Trilinear,
@@ -246,6 +261,11 @@ namespace Gothic.Core.Services.Caches
             foreach (var texInfo in textureInfos)
             {
                 ++i;
+
+                if (i >= sliceCount)
+                {
+                    break;
+                }
 
                 var sourceTex = TryGetTexture(texInfo.Key, false);
 

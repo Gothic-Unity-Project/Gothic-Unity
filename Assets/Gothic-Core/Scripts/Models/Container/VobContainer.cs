@@ -20,6 +20,13 @@ namespace Gothic.Core.Models.Container
         public readonly VobProperties2 Props;
         public GameObject Go;
 
+        /// <summary>
+        /// TRUE while at least one player hand holds this item. The item stays a world VOB (it can be dropped again),
+        /// but NPC logic like Wld_DetectItem/AI_TakeItem must never take it out of the player's hand.
+        /// Set by the platform module (e.g., VR grab/release).
+        /// </summary>
+        public bool IsHeldByPlayer;
+
 
         [Inject] private readonly VmCacheService _vmCacheService;
         

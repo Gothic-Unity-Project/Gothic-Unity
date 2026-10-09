@@ -140,9 +140,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
         }
 
-        /// <summary>
-        /// We need to alter rootNode's position once walk animation is done.
-        /// </summary>
         protected override void AnimationEnd()
         {
             base.AnimationEnd();
@@ -153,14 +150,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PhysicsService.EnablePhysicsForNpc(PrefabProps);
             }
 
-            NpcGo.transform.localPosition = PrefabProps.Bip01.position;
+            // XZ walk movement is already applied per-frame by AnimationSystem.ApplyFinalMovement.
+            // Baked root bone X/Z are always 0; the Y channel is a pose offset (hip bob), not locomotion.
+            // Do NOT transfer Bip01.position (world) to localPosition — it accumulates Y drift each cycle.
             PrefabProps.Bip01.localPosition = Vector3.zero;
             PrefabProps.ColliderRootMotion.localPosition = Vector3.zero;
-
-            // TODO - Needed?
-            // root.SetLocalPositionAndRotation(
-            //     root.localPosition + bip01Transform.localPosition,
-            //     root.localRotation * bip01Transform.localRotation);
         }
     }
 }

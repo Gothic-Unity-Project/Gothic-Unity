@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Gothic.Core.Models.Config
 {
@@ -10,8 +11,17 @@ namespace Gothic.Core.Models.Config
         public readonly bool IsLoaded;
 
         public string Player => _config.GetValueOrDefault("player", "PC_HERO");
-        public string World => _config.GetValueOrDefault("world", "World.zen");
-        
+
+        // Mod inis may prefix the world with its subfolder (G2 Renovation: "NewWorld\NEWWORLD.ZEN").
+        // Our VFS lookup is flat by file name, so only the name part is meaningful here.
+        public string World => System.IO.Path.GetFileName(_config.GetValueOrDefault("world", "World.zen"));
+
+        // [FILES] vdf=... lists the exact .mod/.vdf archives this ini wants mounted. Multi-language mod
+        // packages (e.g. Dolina Zombie) ship every language's archives side by side in Data/, relying on
+        // the chosen ini to pick just one set — without this, all languages get merged together.
+        public IReadOnlyList<string> Vdfs => _config.GetValueOrDefault("vdf", "")
+            .Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+
 
 
         public GothicModIniConfig(Dictionary<string, string> config, string iniFilePath)

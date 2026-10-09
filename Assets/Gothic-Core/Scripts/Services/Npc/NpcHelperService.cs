@@ -15,6 +15,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
@@ -29,8 +30,10 @@ namespace Gothic.Core.Services.Npc
         
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -94,6 +97,12 @@ namespace Gothic.Core.Services.Npc
 
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)
         {
+            // VR hero never "draws" a melee weapon in the Gothic sense — physical VR hands handle combat.
+            // EquippedItems is populated by the startup script but does not reflect drawn state.
+            // Returning null prevents G2 guards from triggering ZS_REACTTOWEAPON via this check.
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var meleeWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatNf);
 
@@ -107,6 +116,9 @@ namespace Gothic.Core.Services.Npc
 
         public ItemInstance ExtNpcGetEquippedRangedWeapon(NpcInstance npc)
         {
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var rangedWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf);
 
@@ -144,13 +156,20 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npcInstance.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
+            // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning Vm.GlobalHero —
+            // if a mod's script calls this externally during that window, GlobalHero is still null.
+            var globalHeroIndex = _gameStateService.GothicVm.GlobalHero?.Index;
+
             var foundNpc = _multiTypeCacheService.NpcCache
                 .Where(i => i.Props != null) // ignore empty (safe check)
                 .Where(i => i.Go != null) // ignore empty (safe check)
                 .Where(i => i.Instance.Index != npcInstance.Index) // ignore self
+                // Engine (OpenGothic wld_detectnpcex): never the dead - a berzerk guard picked a corpse every frame.
+                .Where(i => !_configService.Dev.EnableDetectNpcSkipsDead ||
+                            i.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 .Where(i => detectPlayer ||
-                            i.Instance.Index !=
-                            _gameStateService.GothicVm.GlobalHero!.Index) // if we don't detect player, then skip it
+                            globalHeroIndex == null ||
+                            i.Instance.Index != globalHeroIndex) // if we don't detect player, then skip it
                 .Where(i => specificNpcIndex < 0 ||
                             specificNpcIndex == i.Instance.Index) // Specific NPC is found right now?
                 .Where(i => aiState < 0 || aiState == i.Vob.CurrentStateIndex)
@@ -158,6 +177,12 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => (i.Go.transform.position - npcPos).sqrMagnitude <= sensesRangeSqr) // detect only within senses range
                 .OrderBy(i => (i.Go.transform.position - npcPos).sqrMagnitude) // get nearest
                 .FirstOrDefault();
+
+            // Diagnostics (berzerk picks a victim without the player): rare call, logged.
+            if (!detectPlayer)
+                Logger.Log($"[Wld_DetectNpcEx] {npcInstance.GetName(NpcNameSlot.Slot0)} (no player, state {aiState}, " +
+                           $"guild {guild}, range {sensesRangeMeters:F0} m): " +
+                           $"{foundNpc?.Instance.GetName(NpcNameSlot.Slot0) ?? "nobody"}", LogCat.Ai);
 
             // without this Dialog box stops and breaks the entire NPC logic
             if (foundNpc == null)
@@ -178,34 +203,124 @@ namespace Gothic.Core.Services.Npc
         public int ExtNpcGetDistToWp(NpcInstance npc, string waypointName)
         {
             var npcGo = GetNpc(npc);
+
+            if (npcGo == null)
+            {
+                Logger.LogWarning($"ExtNpcGetDistToWp: npcGo is null for npc={npc?.GetName(NpcNameSlot.Slot0)} waypoint={waypointName}", LogCat.Npc);
+                return int.MaxValue;
+            }
+
             var waypoint = _wayNetService.GetWayNetPoint(waypointName);
 
-            if (!npcGo || waypoint == null)
+            if (waypoint == null)
+            {
+                Logger.LogWarning($"ExtNpcGetDistToWp: waypoint '{waypointName}' not found for npc={npc?.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                 return int.MaxValue;
+            }
 
             // *100 as Gothic metrics are in cm, not m.
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
         }
 
+        public bool ExtWldDetectItem(NpcInstance npc, int flags)
+        {
+            var npcGo = npc.GetUserData()?.Go;
+            if (npcGo == null) return false;
+
+            var npcPos = npcGo.transform.position;
+            const float searchRadius = 20f;
+
+            ItemInstance nearestData = null;
+            var nearestDist = float.MaxValue;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+
+                var itemSymName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (string.IsNullOrEmpty(itemSymName)) continue;
+
+                var itemData = _vmCacheService.TryGetItemData(itemSymName);
+                if (itemData == null) continue;
+
+                if (flags != 0 && (itemData.MainFlag & flags) == 0) continue;
+
+                // Skip items whose GO was destroyed (player already picked them up via loot menu)
+                if (container.Go == null) continue;
+
+                // The player's item - NPCs must not detect (and later AI_TakeItem) it out of their hand.
+                if (container.IsHeldByPlayer) continue;
+
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                // Use actual GO position (physics may have moved it)
+                var dist = Vector3.Distance(container.Go.transform.position, npcPos);
+                if (dist > searchRadius || dist >= nearestDist) continue;
+
+                nearestDist = dist;
+                nearestData = itemData;
+            }
+
+            if (nearestData == null)
+            {
+                Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)}: no item with flags={flags} nearby", LogCat.Npc);
+                return false;
+            }
+
+            _gameStateService.GothicVm.GlobalItem = nearestData;
+            Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
+            return true;
+        }
+
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)
         {
-            var props = GetProperties(npc);
-
-            // FIXME - this is related to overlays for the npc's
-            return 0;
+            // Was a stub returning 0 - every script asking for a talent level got "none". E.g. Mroczne Tajemnice's
+            // teachers (B_GiveprocentSkill) then reset a master's 1H rank to "Nowy". Same storage as Npc_SetTalentSkill.
+            // FIXME - skill levels should also drive the fight overlays (like OpenGothic does).
+            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Skill ?? 0;
         }
 
         public int ExtNpcGetTalentValue(NpcInstance npc, int skillId)
         {
-            return GetContainer(npc).Vob.GetTalent(skillId).Value;
+            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Value ?? 0;
         }
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
-                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            // A summon and its master are always friendly to each other — in BOTH directions and above
+            // every other rule: the summon's ZS_MM_Summoned sets Npc_SetAttitude(HOSTILE) (it fights
+            // everyone on its master's behalf), and the guild attitude table only covers human guilds,
+            // so monster-vs-monster falls back to hostile — a SkeletonMage (GIL_DEMON) would otherwise
+            // pick its own fresh GIL_SKELETON summons (spawned 2-5m away, closer than any real enemy)
+            // as targets, and the summons would then retaliate via the hit-response path. Vanilla gets
+            // this peace from engine-internal target filtering we don't replicate; SummonedBy is our
+            // equivalent, and every targeting path (GetNextTarget, UpdateEnemyNpc, armed-threat scan,
+            // hit-response switch) already respects Friendly.
+            if (self.SummonedBy != null && other.Instance != null && self.SummonedBy.Index == other.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
+            if (other.SummonedBy != null && self.Instance != null && other.SummonedBy.Index == self.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
 
+            // DeveloperConfig.EnableNpcsIgnoreHeroSummons: the hero's summon and an NPC see each other the way that
+            // NPC sees the hero - bandits and wolves fight it, Cavalorn or Xardas leave it alone. A deviation: the G2
+            // scripts make humans hostile to the GIL_SUMMONED_* guilds (B_InitMonsterAttitudes), so in vanilla
+            // guards attack the hero's summons too.
+            if (_configService.Dev.EnableNpcsIgnoreHeroSummons)
+            {
+                if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
+                    return GetAttitudeTowardsHero(self);
+                if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
+                    return GetAttitudeTowardsHero(other);
+            }
+
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            // Temp attitude is a hero-specific override (e.g. theft, summoned ally via ZS_MM_SummonedByPC)
+            if (other.PrefabProps.IsHero() && self.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            // Permanent personal attitude overrides guild when explicitly set via Npc_SetAttitude
+            if (self.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)self.Vob.Attitude;
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
 
@@ -214,10 +329,35 @@ namespace Gothic.Core.Services.Npc
             return (VmGothicEnums.Attitude)_gameStateService.GuildAttitudes[selfGuild * _gameStateService.GuildCount + otherGuild];
         }
 
+        private static bool IsHero(NpcContainer npc)
+        {
+            return npc.PrefabProps != null && npc.PrefabProps.IsHero();
+        }
+
+        private bool IsHeroSummon(NpcContainer npc)
+        {
+            return npc.SummonedBy != null && _gameStateService.GothicVm?.GlobalHero is NpcInstance hero &&
+                   npc.SummonedBy.Index == hero.Index;
+        }
+
+        /// <summary>
+        /// The NPC's attitude towards the hero, like GetPersonAttitude(npc, hero): temp, else permanent, else guild.
+        /// </summary>
+        private VmGothicEnums.Attitude GetAttitudeTowardsHero(NpcContainer npc)
+        {
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            if (npc.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
+            if (npc.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return hero?.Vob != null ? GetGuildAttitude(npc.Vob.Guild, hero.Vob.Guild) : VmGothicEnums.Attitude.Neutral;
+        }
+
         [CanBeNull]
         private GameObject GetNpc([CanBeNull] NpcInstance npc)
         {
-            return npc.GetUserData().Go;
+            return npc?.GetUserData()?.Go;
         }
 
         private NpcContainer GetContainer(NpcInstance npc)
@@ -255,7 +395,9 @@ namespace Gothic.Core.Services.Npc
 
             if ((senses & (VmGothicEnums.NpcSenses.Hear | VmGothicEnums.NpcSenses.Smell)) != 0)
             {
-                return true;
+                // Hearing/smell don't require facing the source (ignore FOV), but sound and scent
+                // still don't travel through solid geometry — reuse the sight raycast for that.
+                return CanSeeNpc(self, other, true);
             }
 
             return CanSeeNpc(self, other, freeLOS);
@@ -266,7 +408,8 @@ namespace Gothic.Core.Services.Npc
         /// fov = 50 - OpenGothic assumes 100 fov for NPCs
         /// fov = 30 - We reuse this for Focus angle during AI_Attack()
         /// </summary>
-        public bool CanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f)
+        public bool CanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f,
+            bool isFacingBackwards = false)
         {
             var selfContainer = self.GetUserData();
             var otherContainer = other.GetUserData();
@@ -300,7 +443,8 @@ namespace Gothic.Core.Services.Npc
                 0f,
                 otherGroundPosition.z - selfGroundPosition.z
             ).normalized;
-            var selfForwardHorizontal = new Vector3(selfRoot.forward.x, 0f, selfRoot.forward.z).normalized;
+            var selfForward = isFacingBackwards ? -selfRoot.forward : selfRoot.forward;
+            var selfForwardHorizontal = new Vector3(selfForward.x, 0f, selfForward.z).normalized;
             var angleToTarget = Vector3.Angle(selfForwardHorizontal, directionToTarget);
             var inFov = angleToTarget <= fov;
 

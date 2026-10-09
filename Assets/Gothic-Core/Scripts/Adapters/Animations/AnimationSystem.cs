@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using MyBox;
@@ -48,6 +50,21 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
+        [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
+        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
+
+        // Item states (smoking, drinking): the engine's random item animations every few seconds.
+        private const float _itemRandomAniMinSeconds = 6f;
+        private const float _itemRandomAniMaxSeconds = 14f;
+        private const int _maxItemRandomAnis = 4;
+        private float _nextItemRandomAniTime;
+
+        // *eventPFX effects that run until their *eventPFXStop (same index). Safety: gone after this time anyway.
+        private readonly Dictionary<int, GameObject> _activePfx = new();
+        private const float _pfxMaxSeconds = 12f;
+        private const float _pfxFadeSeconds = 8f;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -73,10 +90,13 @@ namespace Gothic.Core.Adapters.Animations
         private CapsuleCollider _walkCapsule;
         private float _walkCapsuleBaseRadius;
         private float _restRootHeight;
+        // Height of the root bone above the feet in the rest pose (NpcGo sits at feet + this).
+        public float RestRootHeight => _restRootHeight;
         private Transform _rootBone;
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
         private const float _rootColliderUpdateThreshold = 0.05f;
+        private float _lastMovementLogTime = -999f;
 
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
@@ -122,6 +142,15 @@ namespace Gothic.Core.Adapters.Animations
 
             CreateGraph();
             ResizeRootCollider();
+            // Snap NpcGo to ground now that we know restRootHeight, then allow gravity.
+            // RootCollisionHandler.Awake() set kinematic=true to block the depenetration jump
+            // that would otherwise happen before this point.
+            SnapToGround();
+            var parentTf = Go.transform.parent;
+            var parentInfo = parentTf != null ? $"parent='{parentTf.name}' parentPos={parentTf.position}" : "parent=none";
+            Logger.Log($"[SnapDiag] {Go.name} Start: enabling physics. GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} {parentInfo}", LogCat.Animation);
+            if (PrefabProps.ColliderRootMotion != null)
+                PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>().isKinematic = false;
         }
 
         /// <summary>
@@ -133,12 +162,25 @@ namespace Gothic.Core.Adapters.Animations
         /// </summary>
         private void ResizeRootCollider()
         {
-            var rootHeight = _animationService.GetRootBoneHeight(Properties.MdsNameBase);
+            // The overlay MDH defines the actual bone hierarchy used by the mesh builder, so its
+            // RootTranslation.y is the true rest height of the root bone above the feet. Using the
+            // base MDH instead (e.g. humans.mdh for a skeleton NPC whose bones come from
+            // humans_skeleton.mdh) sizes the capsule for the wrong skeleton, causing floating or
+            // incorrect terrain contact.
+            var mdsForHeight = string.IsNullOrEmpty(Properties.MdsNameOverlay)
+                ? Properties.MdsNameBase
+                : Properties.MdsNameOverlay;
+            var rootHeight = _animationService.GetRootBoneHeight(mdsForHeight);
+            if (rootHeight <= 0f)
+                rootHeight = _animationService.GetRootBoneHeight(Properties.MdsNameBase);
             var colliderTransform = PrefabProps.ColliderRootMotion;
+
+            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider: base={Properties.MdsNameBase} overlay={Properties.MdsNameOverlay} mdsForHeight={mdsForHeight} rootHeight={rootHeight:F3} collider={(colliderTransform == null ? "NULL" : "OK")}", LogCat.Animation);
 
             if (rootHeight <= 0f || colliderTransform == null ||
                 !colliderTransform.TryGetComponent<CapsuleCollider>(out var capsule))
             {
+                Logger.LogWarning($"[SnapDiag] {Go.name} ResizeRootCollider SKIPPED: rootHeight={rootHeight:F3} colliderNull={colliderTransform == null}", LogCat.Animation);
                 return;
             }
 
@@ -148,6 +190,44 @@ namespace Gothic.Core.Adapters.Animations
             _walkCapsuleBaseRadius = Mathf.Min(capsule.radius, rootHeight);
 
             UpdateRootCollider(0f);
+            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider DONE: restRootHeight={_restRootHeight:F3} capsuleCenter={_walkCapsule.center} capsuleHeight={_walkCapsule.height:F3} capsuleLayer={colliderTransform.gameObject.layer}", LogCat.Animation);
+        }
+
+        /// Snap NpcGo.Y so the capsule bottom lands exactly on the world mesh below.
+        /// Called by PhysicsService before enabling the rigidbody: if NpcGo was placed at terrain level
+        /// (waypoint Y), the capsule bottom is 1 m underground, and physics depenetration would push the
+        /// NPC into the air the moment gravity activates. The snap prevents that jump.
+        public void SnapToGround()
+        {
+            if (_restRootHeight <= 0f || _walkCapsule == null)
+            {
+                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround SKIPPED: restRootHeight={_restRootHeight:F3} walkCapsuleNull={_walkCapsule == null}", LogCat.Animation);
+                return;
+            }
+
+            var groundMask = 1 << (int)Constants.DefaultLayer;
+            var origin = Go.transform.position + Vector3.up * 2f;
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround: GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} origin={origin} mask={groundMask}", LogCat.Animation);
+
+            if (!Physics.Raycast(origin, Vector3.down, out var hit, 20f, groundMask))
+            {
+                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround RAYCAST MISSED from {origin} (no ground within 20m on DefaultLayer)", LogCat.Animation);
+                return;
+            }
+
+            var beforeY = Go.transform.position.y;
+            var targetY = hit.point.y + _restRootHeight;
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround HIT: collider='{hit.collider.name}' layer={hit.collider.gameObject.layer} hitY={hit.point.y:F3} restH={_restRootHeight:F3} targetY={targetY:F3} currentY={beforeY:F3} delta={targetY - beforeY:F3}", LogCat.Animation);
+
+            if (Mathf.Abs(beforeY - targetY) < 0.05f)
+            {
+                Logger.Log($"[SnapDiag] {Go.name} SnapToGround: already at correct Y (delta < 0.05), no move needed", LogCat.Animation);
+                return;
+            }
+
+            var pos = Go.transform.position;
+            Go.transform.position = new Vector3(pos.x, targetY, pos.z);
+            Logger.Log($"[SnapDiag] {Go.name} SnapToGround MOVED: {beforeY:F3} -> {targetY:F3}", LogCat.Animation);
         }
 
         /// <summary>
@@ -364,6 +444,7 @@ namespace Gothic.Core.Adapters.Animations
         public void DisableObject()
         {
             _trackInstances.Clear();
+            StopAllPfx();
 
             // Forget the last animated pose - the NPC restarts from an idle rest state when culled in again.
             if (_posePositions.IsCreated)
@@ -485,6 +566,24 @@ namespace Gothic.Core.Adapters.Animations
             return false;
         }
 
+        /// <summary>
+        /// Only the idle loop runs (ignoring tracks blending out) - nothing to stop.
+        /// </summary>
+        public bool IsPlayingOnlyIdle()
+        {
+            var idleName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, NpcData);
+            var hasIdle = false;
+            foreach (var instance in _trackInstances)
+            {
+                if (instance.State is AnimationState.BlendOut or AnimationState.Stop)
+                    continue;
+                if (!instance.Track.MatchesName(idleName))
+                    return false;
+                hasIdle = true;
+            }
+            return hasIdle;
+        }
+
         public bool PlayIdleAnimation()
         {
             return PlayAnimation(_animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, NpcData));
@@ -592,6 +691,8 @@ namespace Gothic.Core.Adapters.Animations
                 }
             }
 
+            UpdateItemRandomAni();
+
             // Feed the updated clocks and blend weights into the animation job. Posing itself happens there.
             UpdateJobData();
 
@@ -611,7 +712,9 @@ namespace Gothic.Core.Adapters.Animations
 
         private void PrePlayAnimation(AnimationTrackInstance instance)
         {
-            if (instance.Track.InvertYAxis)
+            // DeveloperConfig.EnableMobSeatFix: the 2025 inversion turned seated NPCs around once the sit loop started
+            // (the transition into it looks right) and could stay active after standing up (walking backwards).
+            if (instance.Track.InvertYAxis && !_configService.Dev.EnableMobSeatFix)
                 _isSittingInverted = true;
         }
 
@@ -653,8 +756,56 @@ namespace Gothic.Core.Adapters.Animations
                 finalMovement += instance.Track.MovementSpeed * Time.deltaTime;
             }
 
-            // Pos change is applied with rotated value.
-            Go.transform.localPosition += Go.transform.rotation * finalMovement;
+            // Strip pitch/roll — Gothic waypoints can have non-zero X/Z rotation (sloped terrain).
+            // Applying raw Go.transform.rotation to a horizontal movement vector produces a world-space
+            // Y component equal to speed * sin(pitch), which floats the NPC upward while walking.
+            var yawRotation = Quaternion.Euler(0f, Go.transform.eulerAngles.y, 0f);
+            var worldMove = yawRotation * finalMovement;
+
+            worldMove = SlideAlongWalls(worldMove);
+
+            // Deep water stops non-swimmers, swimmers float at the surface (DeveloperConfig.EnableNpcWater).
+            worldMove = _npcWaterService.ApplyWater(NpcData, worldMove, _restRootHeight,
+                _rootBone != null ? _rootBone.localPosition.y : 0f);
+
+            // Log if anything has Y — rate-limited to once per second.
+            if ((Mathf.Abs(finalMovement.y) > 0.0001f || Mathf.Abs(worldMove.y) > 0.0001f)
+                && Time.time - _lastMovementLogTime > 1f)
+            {
+                Logger.Log($"[SnapDiag] {Go.name} ApplyFinalMovement: rawY={finalMovement.y:F5} worldY={worldMove.y:F5} GoWorldY={Go.transform.position.y:F3}", LogCat.Animation);
+                _lastMovementLogTime = Time.time;
+            }
+
+            Go.transform.localPosition += worldMove;
+        }
+
+        private const float _wallProbeRadius = 0.3f;
+        private const float _wallMinNormalY = 0.5f;
+
+        /// <summary>
+        /// DeveloperConfig.EnableNpcWallCollision: root motion moves the NPC transform directly (kinematic while
+        /// walking) - fast runners (scavengers) went into rocks and fell below the world. A sphere at hip height probes
+        /// the move; against a wall only the part along the wall stays. Floors/slopes (normal up) don't block.
+        /// </summary>
+        private Vector3 SlideAlongWalls(Vector3 worldMove)
+        {
+            // Mob interactions (benches, beds, ...) walk the NPC into the mob on purpose.
+            if (!_configService.Dev.EnableNpcWallCollision || _restRootHeight <= 0f || PrefabProps.CurrentInteractable != null)
+                return worldMove;
+
+            var horizontal = new Vector3(worldMove.x, 0f, worldMove.z);
+            var distance = horizontal.magnitude;
+            if (distance < 0.0001f)
+                return worldMove;
+
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (!Physics.SphereCast(Go.transform.position, radius, horizontal / distance, out var hit, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+                return worldMove;
+
+            var wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+            var slide = Vector3.ProjectOnPlane(horizontal, wallNormal);
+            return new Vector3(slide.x, worldMove.y, slide.z);
         }
 
         private void ApplyFinalRotation()
@@ -717,13 +868,18 @@ namespace Gothic.Core.Adapters.Animations
                         AttackAnimation = trackInstance.AnimationName;
                         break;
                     case EventType.OptimalFrame:
-                        AttackOptFrame = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        // ZenKit stores numeric frame params in .Frames, not .Slots (which holds string params like bone names).
+                        AttackOptFrame = eventTag.Frames;
                         break;
                     case EventType.HitEnd:
-                        AttackHitEnd = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        AttackHitEnd = eventTag.Frames;
                         break;
                     case EventType.ComboWindow:
-                        AttackWindowFrames = eventTag.Slots.Item1.Split(' ').Where(s => !string.IsNullOrEmpty(s)).Select(i => Convert.ToInt32(i)).ToList();
+                        AttackWindowFrames = eventTag.Frames;
+                        if (AttackWindowFrames.Count == 0)
+                            Logger.LogWarning($"[ComboWindow] DEF_WINDOW on >{trackInstance.AnimationName}< has no frame params - combo window will never open.", LogCat.Animation);
+                        else
+                            Logger.Log($"[ComboWindow] DEF_WINDOW on >{trackInstance.AnimationName}< frames={string.Join(",", AttackWindowFrames)}", LogCat.Animation);
                         break;
                     // Unused. @see: https://gothic-modding-community.github.io/gmc/zengin/anims/events/#def_dir
                     case EventType.HitDirection:
@@ -750,16 +906,121 @@ namespace Gothic.Core.Adapters.Animations
             }
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableItemRandomAnis: in an item state (AI_UseItemToState, e.g. s_JOINT_S0) the engine plays
+        /// t_<SCHEME>_Random_1..n now and then - smoking NPCs take a drag (with its smoke PFX), drinkers sip.
+        /// </summary>
+        private void UpdateItemRandomAni()
+        {
+            if (!_configService.Dev.EnableItemRandomAnis || !Properties.HasItemEquipped ||
+                Properties.CurrentItem < 0 || Properties.ItemAnimationState < 0)
+            {
+                _nextItemRandomAniTime = 0f;
+                return;
+            }
+
+            if (_nextItemRandomAniTime <= 0f)
+            {
+                _nextItemRandomAniTime = Time.time + UnityEngine.Random.Range(_itemRandomAniMinSeconds,
+                    _itemRandomAniMaxSeconds);
+                return;
+            }
+            if (Time.time < _nextItemRandomAniTime)
+                return;
+            _nextItemRandomAniTime = 0f;
+
+            var scheme = _vmCacheService.TryGetItemData(Properties.CurrentItem)?.SchemeName;
+            if (string.IsNullOrEmpty(scheme))
+                return;
+
+            var candidates = new List<string>();
+            for (var i = 1; i <= _maxItemRandomAnis; i++)
+            {
+                var name = $"T_{scheme}_RANDOM_{i}";
+                if (IsPlaying(name))
+                    return; // still taking the last drag
+                if (_animationService.GetTrack(name, Properties.MdsNameBase, Properties.MdsNameOverlay) != null)
+                    candidates.Add(name);
+            }
+            if (candidates.Count > 0)
+                PlayAnimation(candidates[UnityEngine.Random.Range(0, candidates.Count)]);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableAnimationPfx: *eventPFX (frame, index, name, bone, ATTACH) creates the effect at the
+        /// bone (following it if attached), *eventPFXStop (frame, index) lets it fade out. Joint smoke, bubbles, ...
+        /// </summary>
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
         {
+            var stops = trackInstance.GetPendingParticleEffectStops();
+            if (stops != null)
+            {
+                foreach (var stop in stops)
+                    StopPfx(stop.Index);
+            }
+
             var pfxEvents = trackInstance.GetPendingParticleEffects();
-            if (pfxEvents == null)
+            if (pfxEvents == null || !_configService.Dev.EnableAnimationPfx)
                 return;
 
             foreach (var pfx in pfxEvents)
             {
-                Logger.LogWarning($"Particle Effects are not yet supported. {pfx.Name}", LogCat.Animation);
+                var bone = FindBone(pfx.Position) ?? Go.transform;
+                var pfxGo = pfx.Attached
+                    ? _meshService.CreateVobPfx(pfx.Name, parent: bone.gameObject, destroyAfterPlay: true)
+                    : _meshService.CreateVobPfx(pfx.Name, bone.position, bone.rotation, destroyAfterPlay: true);
+                if (pfxGo == null)
+                {
+                    Logger.LogWarning($"[AnimationPfx] {pfx.Name} couldn't be created ({trackInstance.AnimationName}).",
+                        LogCat.Animation);
+                    continue;
+                }
+
+                var parent = pfxGo.transform.parent;
+                var root = parent != null && parent != bone ? parent.gameObject : pfxGo;
+                foreach (var particleSystem in root.GetComponentsInChildren<ParticleSystem>())
+                {
+                    var main = particleSystem.main;
+                    main.simulationSpace = ParticleSystemSimulationSpace.World;
+                }
+                if (pfx.Index != 0)
+                {
+                    StopPfx(pfx.Index);
+                    _activePfx[pfx.Index] = root;
+                }
+                Destroy(root, _pfxMaxSeconds);
             }
+        }
+
+        private void StopPfx(int index)
+        {
+            if (!_activePfx.Remove(index, out var pfxGo) || pfxGo == null)
+                return;
+
+            foreach (var particleSystem in pfxGo.GetComponentsInChildren<ParticleSystem>())
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            Destroy(pfxGo, _pfxFadeSeconds);
+        }
+
+        private void StopAllPfx()
+        {
+            foreach (var index in _activePfx.Keys.ToList())
+                StopPfx(index);
+        }
+
+        /// <summary>
+        /// MDS bone names differ in case from the bone GameObjects ("Bip01 Head" vs "BIP01 HEAD").
+        /// </summary>
+        private Transform FindBone(string boneName)
+        {
+            if (string.IsNullOrEmpty(boneName))
+                return null;
+            foreach (var child in Go.GetComponentsInChildren<Transform>())
+            {
+                if (child.name.EqualsIgnoreCase(boneName))
+                    return child;
+            }
+            return null;
         }
 
         private void ApplyMorphEvents(AnimationTrackInstance trackInstance)
@@ -807,11 +1068,55 @@ namespace Gothic.Core.Adapters.Animations
             Logger.LogWarning("StopHeadAnimation not yet implemented.", LogCat.Animation);
         }
 
+        /// True when the current attack animation has advanced past the DEF_WINDOW start frame.
+        /// DEF_WINDOW fires at frame 0 in MDS (stores window bounds as params), so we check elapsed time
+        /// against the actual window start frame — matching how VrWeaponAttackDomain reads it.
+        public bool HasComboWindowOpened
+        {
+            get
+            {
+                if (AttackWindowFrames == null || AttackWindowFrames.Count == 0 || AttackAnimation == null)
+                    return false;
+
+                foreach (var trackInstance in _trackInstances)
+                {
+                    if (!trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation))
+                        continue;
+                    var comboStartTime = AttackWindowFrames[0] / trackInstance.Track.FpsSource;
+                    return trackInstance.CurrentTime >= comboStartTime;
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// True when the attack animation passed its DEF_OPT_FRAME - the frame the engine applies the hit's damage.
+        /// Monster attacks (wolves) have no DEF_WINDOW, so HasComboWindowOpened never opened for them.
+        /// </summary>
+        public bool HasOptimalFrameReached(string animationName)
+        {
+            if (AttackOptFrame == null || AttackOptFrame.Count == 0)
+                return false;
+
+            foreach (var trackInstance in _trackInstances)
+            {
+                if (!trackInstance.Track.MatchesName(animationName) &&
+                    (AttackAnimation == null || !trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation)))
+                    continue;
+                return trackInstance.CurrentTime >= AttackOptFrame[0] / trackInstance.Track.FpsSource;
+            }
+
+            return false;
+        }
+
         public bool IsPlaying(string animationName)
         {
             foreach (var trackInstance in _trackInstances)
             {
-                if (trackInstance.Track.Name.EqualsIgnoreCase(animationName))
+                // Aliases (e.g. t_Bench_S1_2_S0 = t_Bench_S0_2_S1 reversed) are requested by their alias name - comparing
+                // the real name only made UseMob treat stand-up transitions as finished at once (pop to standing).
+                if (trackInstance.Track.MatchesName(animationName))
                     return true;
             }
 

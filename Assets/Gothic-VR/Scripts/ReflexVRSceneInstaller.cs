@@ -18,6 +18,8 @@ namespace Gothic.VR
             containerBuilder.AddSingleton(typeof(VRPlayerService));
             containerBuilder.AddSingleton(typeof(VRWeaponService));
             containerBuilder.AddSingleton(typeof(VrHapticsService));
+            containerBuilder.AddSingleton(typeof(VRRangedService));
+            containerBuilder.AddSingleton(typeof(VRTransformService));
         }
     }
 }

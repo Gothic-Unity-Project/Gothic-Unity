@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
@@ -96,6 +97,100 @@ namespace Gothic.Core.Services.Npc
             return track;
         }
 
+        /// <summary>
+        /// The animation played back to front (e.g. a walk loop as walking backwards for models without a backwards
+        /// walk). Registered next to the real tracks under "{animName}_REVERSED" - share the baked samples, root motion
+        /// runs the other way. Returns the name to play, or null if the animation doesn't exist.
+        /// </summary>
+        public string GetReversedAnimationName(string animName, string mdsBase, string mdsOverlay)
+        {
+            var reversedName = animName + _reversedSuffix;
+            foreach (var mdsName in new[] { mdsOverlay, mdsBase })
+            {
+                if (mdsName == null)
+                    continue;
+
+                var mdsTracks = GetMdsTrackCache(mdsName);
+                if (mdsTracks.TryGetValue(reversedName, out var cached) && cached != null)
+                    return reversedName;
+
+                var source = GetTrack(animName, mdsName);
+                if (source == null)
+                    continue;
+
+                var reversed = new AnimationTrack
+                {
+                    TrackType = AnimationTrack.Type.Alias,
+                    Name = source.Name,
+                    AliasName = reversedName,
+                    Layer = source.Layer,
+                    NextAni = source.IsLooping ? reversedName : source.NextAni,
+                    BlendIn = source.BlendIn,
+                    BlendOut = source.BlendOut,
+                    Flags = source.Flags,
+                    Direction = source.Direction == AnimationDirection.Backward
+                        ? AnimationDirection.Forward
+                        : AnimationDirection.Backward,
+                    IsLooping = source.IsLooping,
+                    FirstFrame = source.FirstFrame,
+                    FrameCount = source.FrameCount,
+                    Fps = source.Fps,
+                    FpsSource = source.FpsSource,
+                    Duration = source.Duration,
+                    FrameTime = source.FrameTime,
+                    EventTags = source.EventTags,
+                    SoundEffects = source.SoundEffects,
+                    ParticleEffects = source.ParticleEffects,
+                    MorphAnimations = source.MorphAnimations,
+                    ParticleEffectsStop = source.ParticleEffectsStop,
+                    HasEvents = source.HasEvents,
+                    IsMoving = source.IsMoving,
+                    MovementSpeed = -source.MovementSpeed
+                };
+                reversed.ShareBakedSamples(source);
+                mdsTracks[reversedName] = reversed;
+                return reversedName;
+            }
+            return null;
+        }
+
+        private const string _reversedSuffix = "_REVERSED";
+
+        /// <summary>
+        /// How far the animation lifts the root bone from its first to its last frame (e.g. one ladder climb cycle).
+        /// 0 if unknown.
+        /// </summary>
+        public float GetRootHeightChange(string animName, string mdsBase, string mdsOverlay)
+        {
+            return TryGetRootHeightOffsets(animName, mdsBase, mdsOverlay, out var first, out var last) ? last - first : 0f;
+        }
+
+        /// <summary>
+        /// Root bone height offset (from the rest height) at the first and last played frame - the pose offset
+        /// AnimationSystem applies on top of the NPC's position (reversed tracks start at their last baked frame).
+        /// </summary>
+        public bool TryGetRootHeightOffsets(string animName, string mdsBase, string mdsOverlay, out float first,
+            out float last)
+        {
+            first = last = 0f;
+            var track = GetTrack(animName, mdsBase, mdsOverlay);
+            var skeleton = GetSkeleton(mdsBase);
+            if (track == null || skeleton == null || track.BakedFrameCount < 2 || !track.Positions.IsCreated)
+                return false;
+
+            for (var bone = 0; bone < track.BoneCount; bone++)
+            {
+                if (track.BoneToNode[bone] != skeleton.RootNodeIndex)
+                    continue;
+                first = track.Positions[bone].y;
+                last = track.Positions[(track.BakedFrameCount - 1) * track.BoneCount + bone].y;
+                if (track.Direction == AnimationDirection.Backward)
+                    (first, last) = (last, first);
+                return true;
+            }
+            return false;
+        }
+
         private AnimationTrack GetTrack(string animName, string mdsName)
         {
             if (mdsName == null)
@@ -110,7 +205,12 @@ namespace Gothic.Core.Services.Npc
                 return track;
             }
 
-            var mds = _resourceCacheService.TryGetModelScript(mdsName)!;
+            var mds = _resourceCacheService.TryGetModelScript(mdsName);
+            if (mds == null)
+            {
+                mdsTracks.Add(animName, null);
+                return null;
+            }
 
             var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
             IAnimationAlias animAlias = null;
@@ -219,7 +319,9 @@ namespace Gothic.Core.Services.Npc
                 EventTags = bakedSource?.EventTags ?? anim.EventTags.Select(i => i.Cache()).ToList(),
                 SoundEffects = bakedSource?.SoundEffects ?? anim.SoundEffects.Select(i => i.Cache()).ToList(),
                 ParticleEffects = bakedSource?.ParticleEffects ?? anim.ParticleEffects.Select(i => i.Cache()).ToList(),
-                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList()
+                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList(),
+                ParticleEffectsStop = bakedSource?.ParticleEffectsStop ??
+                                      anim.ParticleEffectsStop.Select(i => i.Cache()).ToList()
             };
 
             // Looping if this == next. If an alias is used, we expect the same alias being selected.
@@ -227,7 +329,8 @@ namespace Gothic.Core.Services.Npc
 
             // Cached so the per-frame event scan can skip the vast majority of tracks without any events.
             track.HasEvents = track.EventTags.Count > 0 || track.SoundEffects.Count > 0 ||
-                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0;
+                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0 ||
+                              track.ParticleEffectsStop.Count > 0;
 
             track.InvertYAxis = _animationsToInvertYAxis.Contains(track.Name);
 
@@ -235,9 +338,14 @@ namespace Gothic.Core.Services.Npc
             {
                 track.ShareBakedSamples(bakedSource);
             }
-            else
+            else if (modelAnimation.NodeIndices.Any())
             {
                 BakeSamples(track, modelAnimation, skeleton, modelAnimation.NodeIndices.ToArray());
+            }
+            else
+            {
+                Logger.LogWarning($"{track.Name}: animation has no node indices, skipping pose baking.",
+                    LogCat.Animation);
             }
 
             if (track.Flags.HasFlag(AnimationFlags.Rotate))
@@ -386,6 +494,15 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // A mod's .man can fail to parse its node list (e.g. a malformed MDS event section) and come back
+            // empty - skip movement-speed detection for it instead of crashing the shared animation-track cache.
+            if (!modelAnim.NodeIndices.Any())
+            {
+                Logger.LogWarning($"{track.Name}: animation has no node indices, skipping movement-speed detection.",
+                    LogCat.Animation);
+                return;
+            }
+
             // The root isn't always named BIP01 (e.g. Bloodfly's "BIP01 CENTER") - match by hierarchy instead.
             if (modelAnim.NodeIndices.First() != skeleton.RootNodeIndex)
             {
@@ -432,6 +549,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private string GetPreparedKey(string key)
         {
+            if (key == null) return string.Empty;
             var lowerKey = key.ToLower();
             var extension = Path.GetExtension(lowerKey);
 
@@ -450,12 +568,22 @@ namespace Gothic.Core.Services.Npc
 
             var weaponStateString = GetWeaponAnimationPrefix(overrideWeaponState ?? fightMode);
 
-            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            var walkMode = GetWaterWalkMode(npc, weaponStateString);
             var walkModeString = GetWalkModeString(walkMode);
+            // Swimming/diving animations exist only once, without weapon variants (S_SWIM, T_SWIMTURNL, ...).
+            if (walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                weaponStateString = string.Empty;
             var animationName = type switch
             {
                 VmGothicEnums.AnimationType.Idle => GetIdleAnimationName(weaponStateString, walkModeString),
                 VmGothicEnums.AnimationType.Move => GetMoveAnimationName(weaponStateString, walkMode, walkModeString),
+                // Ranged/Mage have no s_*Attack — use their actual shoot/cast animations.
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "BOW" => "s_BowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "CBOW" => "s_CBowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "MAG" => "s_FBTShoot",
                 VmGothicEnums.AnimationType.Attack => $"s_{weaponStateString}Attack",
                 VmGothicEnums.AnimationType.MoveL => $"t_{weaponStateString}{walkModeString}StrafeL",
                 VmGothicEnums.AnimationType.MoveR => $"t_{weaponStateString}{walkModeString}StrafeR",
@@ -516,10 +644,37 @@ namespace Gothic.Core.Services.Npc
             if (GetTrack(animationName, npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) == null &&
                 overrideWeaponState == null)
             {
+                Logger.LogWarning(
+                    $"[AnimFallback] >{npc.Go.name}< anim >{animationName}< not found " +
+                    $"(base={npc.Props.MdsNameBase}, overlay={npc.Props.MdsNameOverlay}, fightMode={(VmGothicEnums.WeaponState)npc.Vob.FightMode}) → falling back to Fist",
+                    LogCat.Animation);
                 return GetAnimationName(type, npc, VmGothicEnums.WeaponState.Fist);
             }
 
             return animationName;
+        }
+
+        /// <summary>
+        /// The engine picks the water animations itself, AI_SetWalkMode only says walk/run (DeveloperConfig.EnableNpcWater,
+        /// level set by NpcWaterService). Only if the model has them - most monsters have no wading loop.
+        /// </summary>
+        private VmGothicEnums.WalkMode GetWaterWalkMode(NpcContainer npc, string weaponStateString)
+        {
+            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            if (npc.Vob.Player || walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                return walkMode;
+
+            switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
+            {
+                case ZenGineConst.WaterLevel.Chest
+                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Swim;
+                case ZenGineConst.WaterLevel.Knee
+                    when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Water;
+                default:
+                    return walkMode;
+            }
         }
 
         private string GetWalkModeString(VmGothicEnums.WalkMode walkMode)

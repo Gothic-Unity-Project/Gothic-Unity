@@ -20,6 +20,158 @@ namespace Gothic.Core.Services.Config
         public GothicIniConfig Gothic { get; private set; }
         public GothicModIniConfig GothicMod { get; private set; }
 
+        public string EffectiveModPath
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
+#else
+                return Root.ModPath;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// The game to start without the game selection. Editor: DeveloperConfig PreselectGameVersion + GameVersion.
+        /// Builds: GameSettings.json "GameVersion" (Gothic1/Gothic2) when set, so one build runs G1, G2 and their
+        /// mods by editing the JSON (like ModPath/ModIni); otherwise the build's DeveloperConfig decides.
+        /// </summary>
+        public bool TryGetPreselectedGameVersion(out GameVersion version)
+        {
+#if !UNITY_EDITOR
+            if (TryParseGameVersion(Root.GameVersion, out version))
+                return true;
+#endif
+            version = Dev.GameVersion;
+            return Dev.PreselectGameVersion;
+        }
+
+        private static bool TryParseGameVersion(string value, out GameVersion version)
+        {
+            switch (value?.Trim().ToUpperInvariant())
+            {
+                case "GOTHIC1":
+                case "G1":
+                case "1":
+                    version = GameVersion.Gothic1;
+                    return true;
+                case "GOTHIC2":
+                case "G2":
+                case "2":
+                    version = GameVersion.Gothic2;
+                    return true;
+                default:
+                    version = GameVersion.Gothic1;
+                    return false;
+            }
+        }
+
+        public string EffectiveModIni
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMod && !Dev.ModIni.IsNullOrEmpty() ? Dev.ModIni : null;
+#else
+                return Root.ModIni;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// EffectiveModIni with the same "GothicGame.ini" fallback LoadGothicInis applies — a mod
+        /// (e.g. New Balance) can be active with no ModIni set at all, relying purely on the default.
+        /// </summary>
+        public string EffectiveModIniFileName => EffectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : EffectiveModIni;
+
+        /// <summary>
+        /// Whether a mod is active right now, i.e. whether ModPath resolved to something. This is the
+        /// single source of truth for "is a mod active" — use it instead of Dev.EnableMod directly,
+        /// which only means "use the Editor's ModPath/ModIni override" and is meaningless in a build.
+        /// </summary>
+        public bool IsModActive => !EffectiveModPath.IsNullOrEmpty();
+
+        /// <summary>
+        /// Folder-safe suffix identifying the active mod, so StaticCacheService keeps a separate cache
+        /// per (GameVersion, mod) instead of one shared per GameVersion — switching between vanilla and
+        /// several mods (or between mods) would otherwise stomp on each other's cached VOB bounds/texture
+        /// arrays/world chunks, forcing a full recreate every time. Naming uses the resolved ini file,
+        /// e.g. "_mod_GothicGame" or "_mod_DM_E". Empty when running vanilla.
+        /// </summary>
+        public string ModCacheSuffix => IsModActive
+            ? $"_mod_{Path.GetFileNameWithoutExtension(EffectiveModIniFileName)}"
+            : string.Empty;
+
+        /// <summary>
+        /// Some mod music compositions embed a native dmusic segue we can't intercept (see
+        /// MusicDomain.PCMReaderCallback) — turning music off entirely is the only workaround.
+        /// Standalone builds read this from GameSettings.json/.dev.json so one build can be
+        /// repointed at a different mod (and its music requirement) without a recompile; the
+        /// Editor uses the DeveloperConfig Inspector toggle instead for quick iteration.
+        /// </summary>
+        public bool EffectiveEnableMusic
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableMusic;
+#else
+                return Root.EnableMusic;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// ZSpy (Daedalus PrintDebug/PrintDebugInst) logging, same Editor/build split as EffectiveEnableMusic —
+        /// lets a standalone build be toggled on/off via GameSettings.json/.dev.json without a recompile,
+        /// instead of only being reachable via the DeveloperConfig Inspector toggle in the Editor.
+        /// </summary>
+        public bool EffectiveEnableZSpyLogs
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableZSpyLogs;
+#else
+                return Root.EnableZSpyLogs;
+#endif
+            }
+        }
+
+
+        /// <summary>
+        /// Some mods (e.g. New Balance) ship dubbing as Ogg Vorbis mislabeled with a ".wav" extension.
+        /// SoundDomain sniffs real content and decodes via NVorbis when detected — this is an escape
+        /// hatch in case a specific mod's Ogg files misbehave, same Editor/build split as the others.
+        /// </summary>
+        public bool EffectiveEnableOggAudio
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableOggAudio;
+#else
+                return Root.EnableOggAudio;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// HVR keyboard/mouse simulator instead of a headset, same Editor/build split as the others - a PC build can be
+        /// played and shown without a headset. The simulator turns itself off on mobile, so it is always off there.
+        /// </summary>
+        public bool EffectiveEnableVRDeviceSimulator
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableVRDeviceSimulator;
+#else
+                return Root.EnableVRDeviceSimulator && !UnityEngine.Application.isMobilePlatform;
+#endif
+            }
+        }
 
         /// <summary>
         /// First one to load.
@@ -45,12 +197,11 @@ namespace Gothic.Core.Services.Config
         /// </summary>
         public void LoadGothicInis(GameVersion version)
         {
-            var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-            var gothicIniPath = Path.Combine(rootPath, "system/Gothic.ini");
-            
-            var gothicModIniPath = Path.Combine(rootPath, "system");
-            gothicModIniPath =
-                Path.Combine(gothicModIniPath, Dev.ModIni.IsNullOrEmpty() ? "GothicGame.ini" : Dev.ModIni);
+            var baseRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            var rootPath = EffectiveModPath ?? baseRootPath;
+            var gothicIniPath = Path.Combine(baseRootPath, "system/Gothic.ini");
+
+            var gothicModIniPath = Path.Combine(rootPath, "system", EffectiveModIniFileName);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
             GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
@@ -63,12 +214,8 @@ namespace Gothic.Core.Services.Config
 
         public bool CheckIfGothicInstallationExists(GameVersion version)
         {
-            var gothicRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-
-            var gothicDataPath = $"{gothicRootPath}/Data";
-            var gothicWorkPath = $"{gothicRootPath}/_work";
-
-            return Directory.Exists(gothicWorkPath) && Directory.Exists(gothicDataPath);
+            var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            return Directory.Exists($"{rootPath}/_work") && Directory.Exists($"{rootPath}/Data");
         }
     }
 }

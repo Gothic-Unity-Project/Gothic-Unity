@@ -80,7 +80,10 @@ namespace Gothic.VR.Adapters.Player
 
         private IEnumerator DisableDelayed(int milliseconds)
         {
-            yield return new WaitForSeconds(milliseconds / 1000f);
+            // The AudioSource lives on this GO - never hide (and cut off the jingle) before the sound is done.
+            // G2's chapter times are often shorter than their WAVs.
+            var clipSeconds = _audioSource.clip != null ? _audioSource.clip.length : 0f;
+            yield return new WaitForSeconds(Mathf.Max(milliseconds / 1000f, clipSeconds));
 
             _canvasMoveVelocity = Vector3.zero;
             gameObject.SetActive(false);

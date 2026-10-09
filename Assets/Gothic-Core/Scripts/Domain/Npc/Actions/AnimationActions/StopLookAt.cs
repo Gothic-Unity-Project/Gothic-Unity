@@ -10,6 +10,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             PrefabProps.AnimationHeadHandler.StopLookAt();
+            Props.LookAtTarget = null;
 
             IsFinishedFlag = true;
         }

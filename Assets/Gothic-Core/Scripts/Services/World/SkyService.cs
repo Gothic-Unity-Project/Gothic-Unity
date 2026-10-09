@@ -37,6 +37,7 @@ namespace Gothic.Core.Services.World
         private static readonly int _sunColorShaderId = Shader.PropertyToID("_SunColor");
         private static readonly int _ambientShaderId = Shader.PropertyToID("_AmbientColor");
         private static readonly int _pointLightIntensityShaderId = Shader.PropertyToID("_PointLightIntensity");
+        private static readonly int _dayLightColorShaderId = Shader.PropertyToID("_DayLightColor");
         private static readonly int _underwaterColorShaderId = Shader.PropertyToID("_UnderwaterColor");
 
         private SkyStateRain _rainState = new();
@@ -217,7 +218,9 @@ namespace Gothic.Core.Services.World
             var oldFogColor = lastState.FogColor.ToUnityColor(255) / 255f;
             var newFogColor = newState.FogColor.ToUnityColor(255) / 255f;
 
-            RenderSettings.ambientLight = Color.Lerp(oldPolyColor, newPolyColor, lerpFraction);
+            var polyColor = Color.Lerp(oldPolyColor, newPolyColor, lerpFraction);
+            RenderSettings.ambientLight = polyColor;
+            SetDayLight(polyColor);
             RenderSettings.fogColor = Color.Lerp(oldFogColor, newFogColor, lerpFraction);
 
             // Old sky layer 1.
@@ -283,11 +286,36 @@ namespace Gothic.Core.Services.World
             _rainState.Layer[0].TEXAlpha = 255.0f;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDayNightWorldLight: Gothic's sky polyColor (bright by day, dark blue at night) scales
+        /// the outdoor world's baked light and the sun/ambient of VOBs and NPCs - like the hands (URP ambient) did alone.
+        /// Fires and torches (stationary lights) are added after it and stay bright.
+        /// </summary>
+        private Color _loggedDayLight = Color.white;
+        private Color _polyColor = Color.white;
+
+        private void SetDayLight(Color polyColor)
+        {
+            _polyColor = polyColor;
+            var dayLight = _configService.Dev.EnableDayNightWorldLight
+                ? Color.Lerp(Color.white, polyColor, _configService.Dev.DayNightLightStrength)
+                : Color.white;
+
+            Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
+            if (Mathf.Abs(dayLight.r - _loggedDayLight.r) + Mathf.Abs(dayLight.b - _loggedDayLight.b) > 0.1f)
+            {
+                _loggedDayLight = dayLight;
+                Logger.Log($"[Sky] Day light {dayLight}", LogCat.Vob);
+            }
+            Shader.SetGlobalColor(_sunColorShaderId, _configService.Dev.SunLightColor * dayLight);
+            Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor * dayLight);
+        }
+
         private void SetShaderProperties()
         {
             Shader.SetGlobalVector(_sunDirectionShaderId, _sunDirection);
-            Shader.SetGlobalColor(_sunColorShaderId, _configService.Dev.SunLightColor);
-            Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor);
+            // InterpolateSky calls this right after SetDayLight - keep its sky color (white overwrote the night).
+            SetDayLight(_polyColor);
             Shader.SetGlobalFloat(_pointLightIntensityShaderId, _configService.Dev.SunLightIntensity);
             
             // TODO - Could be moved to another Service as Sky handling for dive color is not 100% true ;-)

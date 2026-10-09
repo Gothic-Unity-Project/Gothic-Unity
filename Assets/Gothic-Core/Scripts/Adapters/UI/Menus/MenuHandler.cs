@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.UI.Menus
@@ -15,6 +18,9 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly ContextMenuService _contextMenuService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly BootstrapService _bootstrapService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         private Dictionary<string, GameObject> _menuList = new();
         private string _currentMenu;
@@ -50,6 +56,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void InstantiateMenus()
         {
             var menuInstanceNames = MainMenuHierarchy.GetMenuInstanceNamesRecursive();
+            Logger.Log($"[MenuHandler] Instantiating {menuInstanceNames.Count} menus: {string.Join(", ", menuInstanceNames)}", LogCat.Ui);
 
             foreach (var menuName in menuInstanceNames)
             {
@@ -57,13 +64,23 @@ namespace Gothic.Core.Adapters.UI.Menus
 
                 if (go == null)
                 {
-                    Logger.LogError($"Could not find UI Menu prefab >{menuName}<", LogCat.Ui);
-                    return;
+                    Logger.LogWarning($"[MenuHandler] No prefab for >{menuName}< — skipping (menu will be unavailable)", LogCat.Ui);
+                    continue;
                 }
 
-                go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
-                _menuList.Add(menuName, go);
+                try
+                {
+                    go.GetComponent<AbstractMenu>().InitializeMenu(MainMenuHierarchy.FindMenuRecursive(menuName));
+                    _menuList.Add(menuName, go);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogError($"[MenuHandler] Failed to initialize >{menuName}<: {e.Message}", LogCat.Ui);
+                    Object.Destroy(go);
+                }
             }
+
+            Logger.Log($"[MenuHandler] Instantiated {_menuList.Count}/{menuInstanceNames.Count} menus successfully", LogCat.Ui);
         }
         
         private void InstantiateMenu(string menuName, GameObject prefab)
@@ -89,6 +106,32 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         public void OpenMenu(string menuName, bool viaBackButton = false)
         {
+            if (!_menuList.ContainsKey(menuName))
+            {
+                // G2's MENU_NEW_GAME (and G1 mods' custom equivalents — Dolina Zombie's
+                // MENU_WIRKLICH_NEUES, Świat Skazańców' MENU_PLAY_SELECT, New Balance's MENU_NG) is
+                // only a yes/no confirmation dialog (headline + yes + no) and we have no prefab for
+                // it — treat opening it as an immediate "yes" and start the new game right away (same
+                // call MainMenu.Close makes for G1's direct NEW_GAME action). The set of compatible
+                // mods is finite in practice, so a plain name list is simpler than generic detection.
+                if (menuName is "MENU_NEW_GAME" or "MENU_WIRKLICH_NEUES" or "MENU_PLAY_SELECT" or "MENU_NG")
+                {
+                    // GothicMod.World defaults to G1's "World.zen" when no mod ini is loaded — for a
+                    // vanilla G2 install the start world is NewWorld.zen instead.
+                    var world = !_configService.GothicMod.IsLoaded && _contextGameVersionService.IsGothic2()
+                        ? "NewWorld.zen"
+                        : _configService.GothicMod.World;
+                    ToggleVisibility();
+                    _bootstrapService.LoadWorld(world, 0, SceneManager.GetActiveScene().name);
+                    return;
+                }
+
+                // Menu exists in MENU.DAT but couldn't be instantiated (no prefab / init failure).
+                // Stay on the currently open menu instead of closing everything into a dead screen.
+                Logger.LogWarning($"[MenuHandler] Menu '{menuName}' is unavailable — staying on '{_currentMenu}'", LogCat.Ui);
+                return;
+            }
+
             if (!viaBackButton && !_currentMenu.IsNullOrEmpty())
             {
                 _menuQueue.Push(_currentMenu);
@@ -97,11 +140,6 @@ namespace Gothic.Core.Adapters.UI.Menus
             _currentMenu = menuName;
 
             CloseAllMenus();
-            if (!_menuList.ContainsKey(menuName))
-            {
-                return;
-            }
-
             _menuList[menuName].SetActive(true);
         }
 

@@ -51,7 +51,7 @@ namespace Gothic.VR.Adapters.Player
 
             // If we have Device Simulator AND Spectator camera active, then the camera won't move at all in GameView.
             // And to be honest: We don't need the Spectator camera at that time.
-            if (_configService.Dev.EnableVRDeviceSimulator)
+            if (_configService.EffectiveEnableVRDeviceSimulator)
             {
                 DisableSpectatorCamera();
                 return;

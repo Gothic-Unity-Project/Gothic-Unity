@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
 using UnityEngine;
+using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -18,6 +21,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            // Props.CurrentWayPoint is updated on every WP pop in OnDestinationReached, so it tracks
+            // the last waynet node the NPC actually reached. Fall back to FindNearestWayPoint only
+            // when it has never been set (e.g. fresh spawn before any GoToWp has run).
             var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
             
@@ -26,6 +32,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
              * 1. Ai_GoToWp() can get called multiple times until it will loose the WP in between the Ai_StartState() calls. (e.g. ZS_Sleep() -> ZS_StandAround())
              * 2. During spawning (e.g.). As we spawn NPCs onto their current WayPoints, they don't need to walk there from entrance of OC.
              */
+            Logger.Log($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: currentWP={currentWaypoint.Name} dest={Destination} match={currentWaypoint.Name == Destination}", LogCat.Ai);
             if (destinationWaypoint == null || destinationWaypoint.Name == "" || currentWaypoint.Name == Destination)
             {
                 IsFinishedFlag = true;
@@ -36,9 +43,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var path = WayNetService.FindFastestPath(currentWaypoint.Name, destinationWaypoint.Name);
             if (path == null)
             {
+                Logger.LogWarning($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: no path {currentWaypoint.Name} → {Destination}", LogCat.Ai);
                 IsFinishedFlag = true;
                 return;
             }
+            Logger.Log($"[GoToWp] {NpcInstance.GetName(NpcNameSlot.Slot0)}: path {currentWaypoint.Name}→{Destination} steps={path.Length} firstHop={path[path.Length - 1].Name}", LogCat.Ai);
 
             _route = new Stack<DijkstraWaypoint>(path);
 
@@ -59,7 +68,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override void OnDestinationReached()
         {
-            _route.Pop();
+            // Keep Props.CurrentWayPoint current so AlignToWp and other consumers
+            // always know the last waynet node the NPC actually visited.
+            var reached = _route.Pop();
+            var reachedWp = WayNetService.GetWayNetPoint(reached.Name) as WayPoint;
+            if (reachedWp != null)
+                Props.CurrentWayPoint = reachedWp;
 
             if (_route.Count != 0)
             {
@@ -70,7 +84,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             StopWalk();
             AnimationEnd();
-
             IsFinishedFlag = true;
         }
     }

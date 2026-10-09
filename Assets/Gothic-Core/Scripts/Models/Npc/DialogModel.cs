@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Dialog;
 using ZenKit;
 using ZenKit.Daedalus;
@@ -9,6 +10,7 @@ namespace Gothic.Core.Models.Npc
     {
         public List<InfoInstance> Instances = new();
         public bool IsInDialog;
+        public NpcContainer CurrentDialogNpc;
 
         /// <summary>
         /// Set from C# when the hero physically initiates dialog (collision/grab).
@@ -31,6 +33,7 @@ namespace Gothic.Core.Models.Npc
             CurrentInstance = null;
             CurrentOptions.Clear();
             GestureCount = 0;
+            CurrentDialogNpc = null;
         }
     }
 }

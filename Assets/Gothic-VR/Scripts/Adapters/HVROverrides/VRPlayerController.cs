@@ -2,6 +2,8 @@
 using Gothic.Core;
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using HurricaneVR.Framework.Core.Player;
@@ -9,6 +11,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using ZenKit.Daedalus;
 
 namespace Gothic.VR.Adapters.HVROverrides
 {
@@ -27,10 +30,26 @@ namespace Gothic.VR.Adapters.HVROverrides
         // For resetting values when stop swimming.
         private float _defaultCharacterControllerStepHeight;
 
+        // Speed potions (Mdl_ApplyOverlayMDSTimed HUMANS_SPRINT.MDS): faster VR movement for the potion's time.
+        private const string _sprintOverlayName = "SPRINT";
+        private const float _sprintSpeedFactor = 1.5f;
+        private bool _isSpeedBoosted;
+        private string _speedOverlay;
+        // The potion's overlay (HUMANS_SPRINT.MDS) while it works - the VR hero body runs with its sprint animations.
+        public string SpeedOverlay => _isSpeedBoosted ? _speedOverlay : null;
+        private float _speedBoostEndTime;
+        private float _unboostedMoveSpeed;
+        private float _unboostedRunSpeed;
+
+        // Horizontal speed (m/s) for BS_WALK/BS_RUN. Moving in VR equals the hero's default run in Gothic.
+        private const float _bodyStateWalkSpeed = 0.2f;
+        private const float _bodyStateRunSpeed = 1f;
+
         protected override void Start()
         {
             base.Start();
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefsUpdated);
+            GlobalEventDispatcher.ScriptHeroOverlayTimed.AddListener(OnHeroOverlayTimed);
 
             _defaultCharacterControllerStepHeight = CharacterController.stepOffset;
 
@@ -47,11 +66,80 @@ namespace Gothic.VR.Adapters.HVROverrides
                 _gameStateService.InGameAndAlive = true;
                 MenuHandler.ToggleVisibility();
             }
+
+            UpdateHeroBodyState();
+            UpdateSpeedBoost();
+        }
+
+        private void OnHeroOverlayTimed(string overlayName, float seconds)
+        {
+            if (overlayName == null || overlayName.IndexOf(_sprintOverlayName, System.StringComparison.OrdinalIgnoreCase) < 0)
+                return;
+
+            _speedOverlay = overlayName;
+            if (!_isSpeedBoosted)
+            {
+                _unboostedMoveSpeed = MoveSpeed;
+                _unboostedRunSpeed = RunSpeed;
+                MoveSpeed *= _sprintSpeedFactor;
+                RunSpeed *= _sprintSpeedFactor;
+                _isSpeedBoosted = true;
+            }
+            _speedBoostEndTime = Time.time + seconds;
+        }
+
+        private void UpdateSpeedBoost()
+        {
+            if (!_isSpeedBoosted || Time.time < _speedBoostEndTime)
+                return;
+
+            _isSpeedBoosted = false;
+            // Swimming/diving set their own speeds meanwhile (VRSwimDive) - only undo our own change.
+            if (Mathf.Approximately(MoveSpeed, _unboostedMoveSpeed * _sprintSpeedFactor))
+                MoveSpeed = _unboostedMoveSpeed;
+            if (Mathf.Approximately(RunSpeed, _unboostedRunSpeed * _sprintSpeedFactor))
+                RunSpeed = _unboostedRunSpeed;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableHeroMoveBodyState: the engine sets BS_WALK/BS_RUN from the hero's movement. Scripts
+        /// read it, e.g. G1 ZS_Attack_Loop gives up a chase ("$RUNCOWARD") after HAI_TIME_FOLLOW loops of a running
+        /// target. Only stand/walk/run are touched - swim/dive (VRSwimDive), unconscious, sitting, ... stay.
+        /// </summary>
+        private void UpdateHeroBodyState()
+        {
+            if (!_configService.Dev.EnableHeroMoveBodyState)
+                return;
+            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
+                return;
+
+            var props = heroInstance.GetUserData()?.Props;
+            if (props == null || props.BodyState is not (VmGothicEnums.BodyState.BsStand
+                    or VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun
+                    or VmGothicEnums.BodyState.BsSneak))
+                return;
+
+            // DeveloperConfig.EnableHeroSneakBodyState: crouched (head below CrouchMinHeight) = sneaking.
+            if (_configService.Dev.EnableHeroSneakBodyState && IsCrouching)
+            {
+                props.BodyState = VmGothicEnums.BodyState.BsSneak;
+                return;
+            }
+
+            var velocity = CharacterController.velocity;
+            var speed = new Vector2(velocity.x, velocity.z).magnitude;
+            props.BodyState = speed switch
+            {
+                >= _bodyStateRunSpeed => VmGothicEnums.BodyState.BsRun,
+                >= _bodyStateWalkSpeed => VmGothicEnums.BodyState.BsWalk,
+                _ => VmGothicEnums.BodyState.BsStand
+            };
         }
 
         private void OnDestroy()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefsUpdated);
+            GlobalEventDispatcher.ScriptHeroOverlayTimed.RemoveListener(OnHeroOverlayTimed);
         }
 
         /// <summary>
@@ -155,6 +243,11 @@ namespace Gothic.VR.Adapters.HVROverrides
 
             // Enable vertical walking controls
         }
+
+        /// <summary>
+        /// Transformed into a monster (VRTransformService): no grabbing, backpack or looting - like the engine.
+        /// </summary>
+        public void SetGrabbingEnabled(bool enable) => ChangeGrabbing(enable);
 
         private void ChangeGrabbing(bool enable)
         {

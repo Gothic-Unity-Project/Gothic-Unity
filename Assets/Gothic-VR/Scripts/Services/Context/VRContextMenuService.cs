@@ -261,11 +261,13 @@ namespace Gothic.VR.Services.Context
 
         private MutableMenuItemInstance CreateAccessibilityBackButton(AbstractMenuInstance mainMenu)
         {
-            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS")!;
-            var backButtonReference = someOptionsMenu.FindMenuItem("MENUITEM_GRA_BACK", out _)!;
+            // A mod can rename/restructure MENU_OPT_GRAPHICS itself (not just items inside it) — both
+            // lookups fall back to null, and MutableMenuItemInstance/the text below already tolerate that.
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var backButtonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
             var backButton = new MutableMenuItemInstance("MENU_GOTHIC_OPT_VR_ACCESSIBILITY_BACK", backButtonReference);
-            
-            backButton.SetText(0, backButtonReference.GetText(0)); // Text: BACK
+
+            backButton.SetText(0, backButtonReference?.GetText(0) ?? "BACK");
             backButton.SetOnSelAction(0, MenuItemSelectAction.Back);
 
             return backButton;
@@ -297,13 +299,16 @@ namespace Gothic.VR.Services.Context
             {
                 optMenuParent.ReplaceItemAt(referenceItemIndex, vrImmersionMenuItem);
             }
-            // Calculate posY based on other 2 elements' diff and use it. 
+            // Calculate posY based on other 2 elements' diff and use it.
             else
             {
-                var optVideoPosY = optMenuParent.FindMenuItem("MENUITEM_OPT_VIDEO", out var _)!.PosY;
-                var optAudioPosY = optMenuParent.FindMenuItem("MENUITEM_OPT_AUDIO", out var _)!.PosY;
-                var diffPosY = optAudioPosY - optVideoPosY;
-                vrImmersionMenuItem.PosY += diffPosY;
+                var optVideoItem = optMenuParent.FindMenuItem("MENUITEM_OPT_VIDEO", out _);
+                var optAudioItem = optMenuParent.FindMenuItem("MENUITEM_OPT_AUDIO", out _);
+
+                // A mod can rename/restructure these too — fall back to no offset (item keeps the
+                // position it cloned from referenceItemMenu) rather than crashing menu init.
+                if (optVideoItem != null && optAudioItem != null)
+                    vrImmersionMenuItem.PosY += optAudioItem.PosY - optVideoItem.PosY;
 
                 optMenuParent.Items.Add(vrImmersionMenuItem);
             }
@@ -366,11 +371,11 @@ namespace Gothic.VR.Services.Context
         
         private MutableMenuItemInstance CreateImmersionBackButton(AbstractMenuInstance mainMenu)
         {
-            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS")!;
-            var backButtonReference = someOptionsMenu.FindMenuItem("MENUITEM_GRA_BACK", out _)!;
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var backButtonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
             var backButton = new MutableMenuItemInstance("MENU_GOTHIC_OPT_VR_IMMERSION_BACK", backButtonReference);
-            
-            backButton.SetText(0, backButtonReference.GetText(0)); // Text: BACK
+
+            backButton.SetText(0, backButtonReference?.GetText(0) ?? "BACK");
             backButton.SetOnSelAction(0, MenuItemSelectAction.Back);
 
             return backButton;

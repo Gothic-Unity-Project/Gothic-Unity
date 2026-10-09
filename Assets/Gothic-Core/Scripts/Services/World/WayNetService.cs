@@ -201,14 +201,43 @@ namespace Gothic.Core.Creator
             return matchingFreePoints.ToList();
         }
 
+        // Same "blocked by walls, but ignore facing" semantic as NpcHelperService.CanSeeNpc's freeLOS
+        // check — an NPC shouldn't need to be looking straight at a waypoint right behind it to
+        // recognize it as reachable.
+        private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
+
         public WayPoint FindNearestWayPoint(Vector3 lookupPosition, bool findSecondNearest = false)
         {
-            var wayPoint = _gameStateService.WayPoints
-                .OrderBy(pair => Vector3.Distance(pair.Value.Position, lookupPosition))
+            var orderedByDistance = _gameStateService.WayPoints
+                .OrderBy(pair => Vector3.Distance(pair.Value.Position, lookupPosition));
+
+            // Prefer a waypoint the NPC can actually walk to in a straight line — plain nearest-distance
+            // can land on the other side of a wall, sending the NPC through geometry to "reach" it.
+            // Checked lazily in distance order, so the common case (the nearest waypoint already has
+            // clear LOS) costs exactly one raycast rather than one per waypoint in the world — this
+            // project runs with a lot of NPCs, so that matters.
+            var wayPoint = orderedByDistance
+                .Where(pair => HasWalkableLineOfSight(lookupPosition, pair.Value.Position))
                 .Skip(findSecondNearest ? 1 : 0)
                 .FirstOrDefault();
 
+            // Nothing had a clear line of sight (e.g. the NPC is in a small enclosed space with no
+            // direct sight to any waynet node) — fall back to plain distance rather than returning null.
+            if (wayPoint.Value == null)
+            {
+                wayPoint = orderedByDistance
+                    .Skip(findSecondNearest ? 1 : 0)
+                    .FirstOrDefault();
+            }
+
             return wayPoint.Value;
+        }
+
+        private static bool HasWalkableLineOfSight(Vector3 from, Vector3 to)
+        {
+            var liftedFrom = from + Vector3.up;
+            var liftedTo = to + Vector3.up;
+            return !Physics.Linecast(liftedFrom, liftedTo, _raycastLayersToUse);
         }
 
         /// <summary>
@@ -217,6 +246,12 @@ namespace Gothic.Core.Creator
         [CanBeNull]
         public FreePoint FindNearestFreePoint(Vector3 lookupPosition, string fpNamePart, FreePoint npcOnFp)
         {
+            // If the NPC already has a home FP and it's available, return it directly.
+            // This prevents an NPC that woke up at the wrong position (e.g. after save/load or cull-in)
+            // from grabbing a closer unlocked FP that belongs to another NPC's post.
+            if (npcOnFp != null && npcOnFp.Name.ContainsIgnoreCase(fpNamePart) && !npcOnFp.IsLocked)
+                return npcOnFp;
+
             return _gameStateService.FreePoints
                 .Where(pair =>
                     pair.Value.Name.ContainsIgnoreCase(fpNamePart) && (pair.Value == npcOnFp || !pair.Value.IsLocked))

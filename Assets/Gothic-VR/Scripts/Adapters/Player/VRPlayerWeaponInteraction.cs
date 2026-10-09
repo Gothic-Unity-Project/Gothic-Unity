@@ -50,6 +50,8 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
+            vobContainer.IsHeldByPlayer = true;
+
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
@@ -68,6 +70,9 @@ namespace Gothic.VR.Adapters.Player
             // We grab something not handled as VobItem.
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
+
+            // The releasing hand might still be listed in HandGrabbers at this point - only count the other hand.
+            vobContainer.IsHeldByPlayer = item.HandGrabbers.Exists(h => h != hand);
 
             var itemInstance = vobContainer.GetItemInstance();
 

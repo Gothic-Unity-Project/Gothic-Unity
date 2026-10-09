@@ -9,6 +9,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
@@ -24,6 +25,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -36,12 +38,19 @@ namespace Gothic.VR.Adapters
 
         public void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
-            var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            if (_vrPlayerService.IsSpellActive)
+            {
+                grabber.ForceRelease();
+                return;
+            }
 
-            if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
+            var bodyState = _npcData.Props.BodyState;
+            var isDead = bodyState == VmGothicEnums.BodyState.BsDead;
+            var isUnconscious = bodyState == VmGothicEnums.BodyState.BsUnconscious;
+
+            if ((isDead || isUnconscious) && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
-                // HVR sets isKinematic=false during grab; release immediately and freeze the corpse
                 grabber.ForceRelease();
                 _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
                 return;
@@ -55,6 +64,16 @@ namespace Gothic.VR.Adapters
             {
                 _gameStateService.Dialogs.WasPlayerInitiated = true;
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessTalk, _npcData.Props, _npcData.Instance, null, (NpcInstance)_gameStateService.GothicVm.GlobalHero);
+            }
+
+            // DeveloperConfig.EnableMobSeatFix: talking/skipping is a "click" - don't keep holding the NPC. While held, HVR
+            // drives its rigidbody (kinematic velocity errors) and turned physics back on: seated NPCs got pushed up out
+            // of the bench and stayed there.
+            if (_configService.Dev.EnableMobSeatFix)
+            {
+                grabber.ForceRelease();
+                if (_npcData.PrefabProps.CurrentInteractable != null && _npcData.Props.CurrentInteractableStateId >= 0)
+                    _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
             }
         }
     }

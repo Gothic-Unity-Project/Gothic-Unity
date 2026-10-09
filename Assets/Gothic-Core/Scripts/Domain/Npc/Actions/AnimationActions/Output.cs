@@ -1,13 +1,14 @@
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
-using Gothic.Core.Logging;
 using Reflex.Attributes;
+using ZenKit;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
@@ -26,7 +27,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         protected virtual string OutputName => Action.String0;
 
         private bool _isHeroSpeaking => Action.Int0 == 0;
-        private float _audioPlaySeconds;
+        protected float _audioPlaySeconds;
 
         private string _randomDialogAnimationName;
 
@@ -39,7 +40,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_dialogService.SkipNextOutput)
             {
                 _dialogService.SkipNextOutput = false;
-                
+
                 // If - for any reason - the first dialog entry after selecting dialog entry, then we don't skip it.
                 if (_isHeroSpeaking)
                 {
@@ -47,11 +48,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     return;
                 }
             }
-            
+
             var audioClip = _audioService.CreateAudioClip(OutputName);
+            var block = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+
             if (audioClip == null)
-                Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
-            _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
+                Logger.LogWarning($"AudioClip >{OutputName}< not found. Using text-length fallback.", LogCat.Dialog);
+            _audioPlaySeconds = audioClip != null ? audioClip.length : Mathf.Max(2f, (block?.Message.Text.Length ?? 30) / 15f);
 
             // Hero
             if (_isHeroSpeaking)
@@ -59,34 +62,41 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 if (audioClip != null)
                     _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
             // NPC
             else
             {
-                var gestureCount = GetDialogGestureCount();
-                var randomId = Random.Range(1, gestureCount + 1);
-
-                _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
-                PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
-                PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                // Overlay SVMs (Bool0=true) fire over existing animations — skip gesture and head morph.
+                if (!Action.Bool0)
+                {
+                    var gestureCount = GetDialogGestureCount();
+                    var randomId = Random.Range(1, gestureCount + 1);
+                    _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
+                    PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                }
 
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
         }
 
-        private void PrintDialog()
+        private void PrintDialog(ICutsceneBlock block)
         {
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var currentMessage = _gameStateService.Dialogs.CutsceneLibrary.Blocks.Find(x => x.Name == OutputName).Message;
+            if (block == null)
+            {
+                Logger.LogWarning($"Dialog block '{OutputName}' not found in CutsceneLibrary.", LogCat.Dialog);
+                return;
+            }
 
+            var text = block.Message.Text;
             if (_isHeroSpeaking)
-                _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
+                _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.ShowSubtitles(text);
             else
-                PrefabProps.NpcSubtitles.ShowSubtitles(currentMessage.Text);
+                PrefabProps.NpcSubtitles.ShowSubtitles(text);
         }
 
         /// <summary>
@@ -99,6 +109,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // FIXME - We might need to check overlayMds and baseMds
                 // FIXME - We might need to save amount of gestures based on mds names (if they differ for e.g. humans and orcs)
                 var mds = _resourceCacheService.TryGetModelScript(Props.MdsNameBase);
+                if (mds == null)
+                {
+                    Logger.LogError($"{Props.MdsNameBase}.mds failed to load or parse. Dialog gestures are unavailable.", LogCat.Dialog);
+                    return 0;
+                }
 
                 _gameStateService.Dialogs.GestureCount = mds.Animations
                     .Count(anim => anim.Name.StartsWithIgnoreCase("T_DIALOGGESTURE_"));
@@ -121,12 +136,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_isHeroSpeaking)
             {
                 _npcService.GetHeroGameObject().GetComponent<AudioSource>().Stop();
+                _npcService.GetHeroContainer().PrefabProps.NpcSubtitles?.HideSubtitles();
             }
             // NPC
             else
             {
                 PrefabProps.NpcSound.Stop();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                // Killed/knocked out while talking - the line stopped, so does its subtitle.
+                PrefabProps.NpcSubtitles?.HideSubtitles();
+                if (_randomDialogAnimationName != null)
+                    PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
             }
         }
 

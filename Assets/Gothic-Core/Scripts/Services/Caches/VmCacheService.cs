@@ -20,6 +20,9 @@ namespace Gothic.Core.Services.Caches
         private readonly Dictionary<int, SvmInstance> _svmDataCache = new();
         private readonly Dictionary<string, SfxModel> _sfxDataCache = new();
         private readonly Dictionary<string, ParticleEffectInstance> _pfxDataCache = new();
+        private readonly Dictionary<string, EffectBaseInstance> _vfxDataCache = new();
+        private readonly Dictionary<string, ParticleEffectEmitKeyInstance> _vfxEmitKeyCache = new();
+        private readonly Dictionary<int, SpellInstance> _spellDataCache = new();
 
         /// <summary>
         /// Hint: Instances only need to be initialized once in ZenKit.
@@ -136,6 +139,33 @@ namespace Gothic.Core.Services.Caches
         }
 
         /// <summary>
+        /// C_Spell data of a spell ID. Like the engine, the instance name is "SPELL_" + spellFXInstanceNames[spellId]
+        /// (e.g. 0 -> "Light" -> Spell_Light). Works for G1, G2 and mods as long as they follow this convention.
+        /// </summary>
+        [CanBeNull]
+        public SpellInstance TryGetSpellData(int spellId)
+        {
+            if (_spellDataCache.TryGetValue(spellId, out var data))
+                return data;
+
+            SpellInstance newData = null;
+            try
+            {
+                var spellName = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames")?.GetString((ushort)spellId);
+                if (!string.IsNullOrEmpty(spellName))
+                    newData = _gameStateService.GothicVm.InitInstance<SpellInstance>($"SPELL_{spellName}");
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
+            _spellDataCache[spellId] = newData;
+
+            return newData;
+        }
+
+        /// <summary>
         /// Hint: Instances only need to be initialized once in ZenKit and don't need to be deleted during runtime.
         /// </summary>
         public ParticleEffectInstance TryGetPfxData(string key)
@@ -161,6 +191,54 @@ namespace Gothic.Core.Services.Caches
             return newData;
         }
 
+        /// <summary>
+        /// Spell effect from VISUALFX.DAT (C_VisualFX, e.g. spellFX_Fireball). Null if missing.
+        /// </summary>
+        public EffectBaseInstance TryGetVfxData(string key)
+        {
+            var preparedKey = GetPreparedKey(key);
+            if (_vfxDataCache.TryGetValue(preparedKey, out var data))
+                return data;
+
+            EffectBaseInstance newData = null;
+            try
+            {
+                if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
+                    newData = _gameStateService.VfxVm.InitInstance<EffectBaseInstance>(preparedKey);
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
+            _vfxDataCache[preparedKey] = newData;
+            return newData;
+        }
+
+        /// <summary>
+        /// Key of a spell effect from VISUALFX.DAT (C_ParticleFXEmitKey, e.g. spellFX_Fireball_KEY_CAST). Null if missing.
+        /// </summary>
+        public ParticleEffectEmitKeyInstance TryGetVfxEmitKey(string key)
+        {
+            var preparedKey = GetPreparedKey(key);
+            if (_vfxEmitKeyCache.TryGetValue(preparedKey, out var data))
+                return data;
+
+            ParticleEffectEmitKeyInstance newData = null;
+            try
+            {
+                if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
+                    newData = _gameStateService.VfxVm.InitInstance<ParticleEffectEmitKeyInstance>(preparedKey);
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
+            _vfxEmitKeyCache[preparedKey] = newData;
+            return newData;
+        }
+
         private string GetPreparedKey(string key)
         {
             var lowerKey = key.ToLower();
@@ -180,6 +258,7 @@ namespace Gothic.Core.Services.Caches
             _svmDataCache.Clear();
             _sfxDataCache.Clear();
             _pfxDataCache.Clear();
+            _spellDataCache.Clear();
         }
     }
 }

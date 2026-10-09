@@ -21,6 +21,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
 
+
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
         public void Init()
@@ -51,6 +52,12 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcExchangeRoutine(NpcInstance npcInstance, string routineName)
         {
+            if (npcInstance == null)
+            {
+                Logger.LogWarning($"Npc_ExchangeRoutine called with null npcInstance for routine '{routineName}'.", LogCat.Npc);
+                return;
+            }
+
             var formattedRoutineName = $"Rtn_{routineName}_{npcInstance.Id}";
             var newRoutine = _vm.GetSymbolByName(formattedRoutineName);
 
@@ -60,6 +67,9 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            var npcData = npcInstance.GetUserData();
+            if (npcData != null)
+                npcData.Vob.CurrentRoutine = formattedRoutineName;
             ExchangeRoutine(npcInstance, newRoutine.Index);
         }
 
@@ -83,13 +93,20 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            npc.GetUserData().Props.Routines.Clear();
+            var npcContainer = npc.GetUserData();
+            if (npcContainer == null)
+            {
+                Logger.LogWarning($"Npc_ExchangeRoutine: NPC {npc.Id} has no Unity data (not spawned?) — skipping routine exchange.", LogCat.Npc);
+                return;
+            }
+
+            npcContainer.Props.Routines.Clear();
 
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npc;
             _gameStateService.GothicVm.Call(routineIndex);
 
-            npc.GetUserData().Vob.HasRoutine = npc.GetUserData().Props.Routines.NotNullOrEmpty();
+            npcContainer.Vob.HasRoutine = npcContainer.Props.Routines.NotNullOrEmpty();
 
             CalculateCurrentRoutine(npc);
         }
@@ -140,7 +157,25 @@ namespace Gothic.Core.Services.Npc
             }
             npcProps.RoutineCurrent = newRoutine;
 
+            if (changed)
+                _npcMeshCullingService.NotifyNpcRoutineChanged(npc.GetUserData());
+
             return changed;
+        }
+
+        /// <summary>
+        /// Re-evaluates the time-based routine for all NPCs. Culled NPCs whose routine changed
+        /// will have their culling sphere moved to the new waypoint via NotifyNpcRoutineChanged.
+        /// Call this after a time skip so off-screen NPCs appear at their correct schedule position.
+        /// </summary>
+        public void RecalculateAllNpcRoutines()
+        {
+            foreach (var container in _npcMeshCullingService.GetAllNpcContainers())
+            {
+                if (container?.Props?.Routines == null || container.Props.Routines.Count == 0)
+                    continue;
+                CalculateCurrentRoutine(container.Instance);
+            }
         }
     }
 }

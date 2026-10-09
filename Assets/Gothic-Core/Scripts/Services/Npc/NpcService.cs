@@ -7,6 +7,7 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
@@ -27,6 +28,7 @@ using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Object = UnityEngine.Object;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
 {
@@ -112,7 +114,16 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    // One broken NPC (e.g. a monster instance without a visual, spawned by a transformation scroll) must
+                    // not kill this coroutine - no NPC would be built anymore afterwards (summons stayed invisible).
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"[NpcService] Can't build NPC {npcElement.gameObject.name}: {e}", LogCat.Npc);
+                    }
                 }
 
                 yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
@@ -154,11 +165,19 @@ namespace Gothic.Core.Services.Npc
         {
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
-            
-            if (_saveGameService.IsNewGame)
-                await _initializerDomain.InitNpcsNewGame(loading);
+
+            var npcInit = _configService.Dev.EnableSaveLoadSystem ? _saveGameService.PendingNpcInit : null;
+            if (_saveGameService.IsNewGame || npcInit == null)
+            {
+                if (_saveGameService.IsWorldEnteredFirstTime)
+                    await _initializerDomain.InitNpcsNewGame(loading);
+                else
+                    await _initializerDomain.InitNpcsSaveGame(loading);
+            }
             else
-                await _initializerDomain.InitNpcsSaveGame(loading);
+            {
+                await _initializerDomain.InitNpcsFromMergedSnapshots(loading, npcInit, _saveGameService.PendingNpcRestore);
+            }
         }
 
         /// <summary>
@@ -174,6 +193,12 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // InitNpcsFromMergedSnapshots is the primary NPC path when loading a saved game.
+            // Creating a duplicate container from the WORLD.SAV NPC VOB causes it to run ZS_* routines
+            // and lock FreePoints before the real container starts, so GoToNextFp picks the wrong FP.
+            if (_saveGameService.PendingNpcInit != null)
+                return;
+
             // Initialize NPC and set its data from SaveGame (VOB entry).
             _initializerDomain.InitNpcVobSaveGame(vobNpc);
         }
@@ -183,29 +208,46 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.ExtWldInsertNpc(npcInstanceIndex, spawnPoint);
         }
 
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
+        {
+            return _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation, summonedBy);
+        }
+
+        public bool SpawnNpcByName(string symbolName, Vector3 position, Quaternion rotation)
+        {
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(symbolName);
+            if (symbol == null)
+            {
+                Logger.LogWarning($"[NpcService] SpawnNpcByName: symbol '{symbolName}' not found", LogCat.Npc);
+                return false;
+            }
+            _initializerDomain.SpawnNpcRuntime(symbol.Index, position, rotation);
+            return true;
+        }
+
         // FIXME - I think they are overwritten when an NPC is loaded from a SaveGame, as we Initialize them again...
         public void ExtNpcSetTalentValue(NpcInstance npc, VmGothicEnums.Talent talent, int level)
         {
             var vob = npc.GetUserData()!.Vob;
-
+            var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
-                Type =  (int)talent,
-                Skill = 0,
+                Type  = (int)talent,
+                Skill = existing?.Skill ?? 0,
                 Value = level
             });
         }
-        
+
         // FIXME - In OpenGothic it adds MDS overlays based on skill level.
         public void ExtNpcSetTalentSkill(NpcInstance npc, VmGothicEnums.Talent talent, int skillValue)
         {
             var vob = npc.GetUserData()!.Vob;
-
+            var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
-                Type =  (int)talent,
+                Type  = (int)talent,
                 Skill = skillValue,
-                Value = 0
+                Value = existing?.Value ?? 0
             });
         }
 
@@ -224,7 +266,15 @@ namespace Gothic.Core.Services.Npc
             if (data.Armor >= 0)
             {
                 var armorData = _vmCacheService.TryGetItemData(data.Armor);
-                props.EquippedItems.Add(_vmCacheService.TryGetItemData(data.Armor));
+
+                // Mdl_SetVisualBody(..., armorInstance) equips the armor in the engine - incl. its protection.
+                // Most NPCs (and test heroes like PC_Rockefeller) get their armor this way, not via EquipItem().
+                // Same armor again (re-dressing): the slot conflict unequips + re-equips it, so nothing is doubled.
+                if (_configService.Dev.EnableScriptEquipEffects && armorData != null)
+                    _npcInventoryService.EquipItemWithEffects(data.Npc, armorData, deferItemFunctions: true);
+                else
+                    props.EquippedItems.Add(armorData);
+
                 props.MdmName = armorData.VisualChange;
             }
             else
@@ -243,13 +293,42 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
             var vob = npc.GetUserData().Vob;
+            var newValue = vob.GetAttribute(attributeId) + value;
 
-            vob.Attributes[attributeId] = value;
+            // Clamp paired attributes (HP ↔ HP_MAX, Mana ↔ Mana_MAX): max is at attributeId+1 by G1 convention.
+            // Only those two! Strength (4) is followed by Dexterity (5), which isn't its max - clamping it there made
+            // e.g. an amulet's +10 strength do nothing while the -10 on unequip still applied.
+            var isPairedWithMax = attributeId == (int)NpcAttribute.HitPoints || attributeId == (int)NpcAttribute.Mana;
+            if (isPairedWithMax && attributeId + 1 < vob.Attributes.Count)
+            {
+                var max = vob.GetAttribute(attributeId + 1);
+                if (max > 0)
+                    newValue = Mathf.Clamp(newValue, 0, max);
+            }
+
+            vob.SetAttribute(attributeId, newValue);
+            // Keep the NpcInstance in sync so CopyFromInstanceData (called in InitZkInstance) doesn't
+            // overwrite this value with the prototype default when the NPC mesh is lazy-loaded later.
+            npc.SetAttribute((NpcAttribute)attributeId, newValue);
         }
 
         public NpcContainer GetHeroContainer()
         {
-            return ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData();
+            // Hero doesn't exist yet in menus / during boot. Callers (e.g. StatusBarAdapter.Update) poll until it does.
+            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+        }
+
+        public void SyncHeroInstanceToVob()
+        {
+            var hero = GetHeroContainer();
+            hero.Vob.Level = hero.Instance.Level;
+            hero.Vob.Xp = hero.Instance.Exp;
+            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
+            hero.Vob.Lp = hero.Instance.Lp;
+            // Sync attributes written directly by Daedalus (e.g. hero.lp -= cost; hero.attribute[x] += y)
+            // bypassing our Npc_ChangeAttribute external.
+            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
+                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
         }
 
         public GameObject GetHeroGameObject()
@@ -311,6 +390,10 @@ namespace Gothic.Core.Services.Npc
             _multiTypeCacheService.NpcCache.Add(npcData);
             _vm.InitInstance(heroInstance);
             vobNpc.CopyFromInstanceData(heroInstance);
+            // ZenKit initialises FightMode to 6 (its None enum), which we would otherwise
+            // misinterpret as WeaponState.Mage. Hero in VR never uses the AI draw-weapon flow,
+            // so force NoWeapon (0) so C_NpcIsInFightMode and AssessFighter checks are correct.
+            vobNpc.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
 
             if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
             {
@@ -326,8 +409,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtMdlSetModelScale(NpcInstance npc, System.Numerics.Vector3 scale)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelScale = scale;
+            var container = npc.GetUserData();
+            container.Vob.ModelScale = scale;
+            _initializerDomain.ApplyModelScale(container);
         }
 
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
@@ -338,7 +422,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
-            npc.GetUserData().Props.MdsNameOverlay = overlayName;
+            var props = npc.GetUserData().Props;
+            props.MdsNameOverlay = overlayName;
+            props.MdsNameRoutineOverlay = overlayName;
         }
 
         public void ExtNpcSetToFistMode(NpcInstance npc)
@@ -365,11 +451,12 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetToFightMode(NpcInstance npc, int itemIndex)
         {
             var item = _vmCacheService.TryGetItemData(itemIndex);
-            npc.GetUserData()!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
-            npc.GetUserData().Props.CurrentItem = itemIndex;
-            
-            // Also add item into Inventory (G1; e.g., Gobbo NailMace).
-            // TODO - Check if it's the same in G2.
+            var container = npc.GetUserData();
+            // VR hero never draws weapons via Gothic's fight-mode system — physical VR hands handle combat.
+            // Only update FightMode for non-hero NPCs so Daedalus fmode stays 0 for the hero.
+            if (container?.PrefabProps?.IsHero() != true)
+                container!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
+            container!.Props.CurrentItem = itemIndex;
             _npcInventoryService.ExtCreateInvItems(npc, item.Index, 1);
         }
 
@@ -488,8 +575,13 @@ namespace Gothic.Core.Services.Npc
         public void SetDialogs(NpcContainer npcContainer)
         {
             var npcIndex = npcContainer.Instance.Index;
+            // A mod's hero can be another instance (Mroczne Tajemnice: PC_Rockefeller) - the mob dialogs (bed, shrine)
+            // are still C_INFOs with npc = PC_Hero.
+            var heroAliasIndex = npcIndex == (_vm.GlobalHero as NpcInstance)?.Index
+                ? _vm.GetSymbolByName("PC_HERO")?.Index ?? npcIndex
+                : npcIndex;
             npcContainer.Props.Dialogs = _gameStateService.Dialogs.Instances
-                .Where(dialog => dialog.Npc == npcIndex)
+                .Where(dialog => dialog.Npc == npcIndex || dialog.Npc == heroAliasIndex)
                 .OrderByDescending(dialog => dialog.Important)
                 .ToList();
 
@@ -587,6 +679,31 @@ namespace Gothic.Core.Services.Npc
             }
         }
         
+        /// <summary>
+        /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
+        /// the item state resets.
+        /// </summary>
+        public void RemoveUsedItemFromHand(NpcContainer npcContainer)
+        {
+            var props = npcContainer?.Props;
+            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+                return;
+
+            var slotGo = npcContainer.PrefabProps?.Bip01 != null
+                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
+                : null;
+            if (slotGo != null)
+            {
+                for (var i = slotGo.transform.childCount - 1; i >= 0; i--)
+                    Object.Destroy(slotGo.transform.GetChild(i).gameObject);
+            }
+
+            Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
+                       $"'{props.UsedItemSlot}'", LogCat.Npc);
+            props.UsedItemSlot = string.Empty;
+            props.ItemAnimationState = -1;
+        }
+
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
         {
             if (slot2.Any())

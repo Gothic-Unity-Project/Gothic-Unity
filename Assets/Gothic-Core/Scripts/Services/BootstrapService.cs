@@ -1,5 +1,7 @@
+using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using Gothic.Core.Adapters.Scenes;
 using Gothic.Core.Const;
 using Gothic.Core.Domain;
@@ -53,6 +55,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly ParticleService _particleService;
         
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
@@ -101,8 +104,10 @@ namespace Gothic.Core.Services
             _npcMeshCullingService.Init();
             _vobSoundCullingService.Init();
             _gameTimeService.Init();
+            _saveGameService.Init();
             _npcRoutineService.Init();
             _fightService.Init();
+            _npcNavMeshService.Init();
             _particleService.Init();
         }
 
@@ -119,9 +124,11 @@ namespace Gothic.Core.Services
 
             var gothicRootPath = _contextGameVersionService.RootPath;
 
-            // Otherwise, continue loading Gothic.
             Logger.Log($"Initializing Gothic installation at: {gothicRootPath}", LogCat.Loading);
-            _resourceCacheService.Init(gothicRootPath);
+            // Dev.EnableMod only means "use the Editor's ModPath/ModIni override" and is always false
+            // in a build's DeveloperConfig asset — mounting .mod archives (VfsOverwriteBehavior.All)
+            // must instead follow whether a mod is actually active via GameSettings.json in a build.
+            _resourceCacheService.Init(gothicRootPath, _configService.IsModActive, _configService.GothicMod.Vdfs);
 
             _audioService.InitMusic();
             _staticCacheService.Init();
@@ -183,12 +190,27 @@ namespace Gothic.Core.Services
             {
                 // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
                 // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
+                // Only clear _pendingNpcInit (world-specific) — keep _pendingNpcRestore alive so dirty
+                // NPCs modified in other worlds are restored when we revisit those worlds this session.
+                _saveGameService.ClearPendingNpcInit();
+                _vobService.PreWorldCreate();
                 _vobMeshCullingService.PreWorldCreate();
                 _npcMeshCullingService.PreWorldCreate();
                 _vobSoundCullingService.PreWorldCreate();
                 _npcService.ClearQueues();
             }
-            _saveGameService.ChangeWorld(worldName);
+            try
+            {
+                _saveGameService.ChangeWorld(worldName);
+            }
+            catch (Exception e)
+            {
+                // Mirrors PreCachingScene's per-world try/catch: a world can be unparsable (e.g. an
+                // unsupported VOB class in a mod's .zen) without crashing the whole session. Bail out
+                // before LoadScene so we don't proceed into a half-initialized Loading scene.
+                Logger.LogError($"Failed to load world '{worldName}': {e.Message}", LogCat.Loading);
+                return;
+            }
 
             LoadScene(Constants.SceneLoading, sceneToUnload);
         }

@@ -44,6 +44,7 @@ namespace Gothic.Core.Models.Animations
         private readonly List<IEventSoundEffect> _pendingSoundEffects;
         private readonly List<IEventParticleEffect> _pendingParticleEffects;
         private readonly List<IEventMorphAnimation> _pendingMorphAnimations;
+        private readonly List<IEventParticleEffectStop> _pendingParticleEffectStops;
 
 
         public AnimationTrackInstance(AnimationTrack track)
@@ -58,6 +59,7 @@ namespace Gothic.Core.Models.Animations
                 _pendingSoundEffects = new List<IEventSoundEffect>();
                 _pendingParticleEffects = new List<IEventParticleEffect>();
                 _pendingMorphAnimations = new List<IEventMorphAnimation>();
+                _pendingParticleEffectStops = new List<IEventParticleEffectStop>();
             }
 
             // If we have no BlendIn time, the animation needs to play at full weight right from the start.
@@ -175,6 +177,7 @@ namespace Gothic.Core.Models.Animations
             _pendingSoundEffects.Clear();
             _pendingParticleEffects.Clear();
             _pendingMorphAnimations.Clear();
+            _pendingParticleEffectStops.Clear();
 
             var currentFrame = CurrentTime / Track.FrameTime;
 
@@ -196,6 +199,12 @@ namespace Gothic.Core.Models.Animations
             {
                 if (IsFrameCrossed(ClampFrame(pfx.Frame), currentFrame, wrapped))
                     _pendingParticleEffects.Add(pfx);
+            }
+
+            foreach (var pfxStop in Track.ParticleEffectsStop)
+            {
+                if (IsFrameCrossed(ClampFrame(pfxStop.Frame), currentFrame, wrapped))
+                    _pendingParticleEffectStops.Add(pfxStop);
             }
 
             foreach (var morph in Track.MorphAnimations)
@@ -261,6 +270,14 @@ namespace Gothic.Core.Models.Animations
         public List<IEventParticleEffect> GetPendingParticleEffects()
         {
             return _pendingParticleEffects == null || _pendingParticleEffects.Count == 0 ? null : _pendingParticleEffects;
+        }
+
+        [CanBeNull]
+        public List<IEventParticleEffectStop> GetPendingParticleEffectStops()
+        {
+            return _pendingParticleEffectStops == null || _pendingParticleEffectStops.Count == 0
+                ? null
+                : _pendingParticleEffectStops;
         }
 
         [CanBeNull]

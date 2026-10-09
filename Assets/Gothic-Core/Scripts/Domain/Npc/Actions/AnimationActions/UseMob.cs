@@ -1,4 +1,5 @@
 using System.Linq;
+using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -37,7 +38,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             // NPC is already interacting with a Mob, we therefore assume it's a change of state (e.g. -1 to stop Mob usage)
-            if (Props.BodyState == VmGothicEnums.BodyState.BsMobinteract)
+            if (Props.BodyState == VmGothicEnums.BodyState.BsMobinteract || IsAlreadySittingOnSameMob())
             {
                 _mobContainer = PrefabProps.CurrentInteractable;
                 _slotGo = PrefabProps.CurrentInteractableSlot;
@@ -47,6 +48,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // _destination (0,0,0) as walk target and never reach TickMobUsage().
                 _destination = _slotGo.transform.position;
                 IsDestReached = true;
+
+                // Something (ClearState, AI_StandUp) may have reset it - B_AssessTalk checks BS_SIT to talk seated.
+                if (ConfigService.Dev.EnableMobSeatFix && TargetState >= 0)
+                    SetBodyState();
 
                 StartMobUseAnimation();
                 return;
@@ -68,6 +73,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 StartNow();
             else
                 StartDelayed();
+        }
+
+        /// <summary>
+        /// Sitting sets BsSit (not BsMobinteract), so a repeated AI_UseMob of a seated NPC searched the mob again and
+        /// walked back to the slot. Same scheme + already in a mob state = just a state change.
+        /// </summary>
+        private bool IsAlreadySittingOnSameMob()
+        {
+            if (!ConfigService.Dev.EnableMobSeatFix)
+                return false;
+
+            var current = PrefabProps.CurrentInteractable;
+            return current != null && PrefabProps.CurrentInteractableSlot != null &&
+                   Props.CurrentInteractableStateId >= 0 &&
+                   current.Props.GetVisualScheme().EqualsIgnoreCase(Action.String0);
         }
 
         private void StartNow()
@@ -217,7 +237,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             
             PhysicsService.DisablePhysicsForNpc(PrefabProps);
 
-            NpcGo.transform.SetPositionAndRotation(_slotGo.transform.position, _slotGo.transform.rotation);
+            // The slot is where the NPC stands in front of the mob - the transition animation's root motion moves it onto
+            // the seat (OpenGothic: same). Routines call AI_UseMob(BENCH, 1) again and again: snapping back to the slot
+            // then pulled the seated NPC off the bench into the air in front of it.
+            if (!ConfigService.Dev.EnableMobSeatFix || Props.CurrentInteractableStateId == -1)
+                NpcGo.transform.SetPositionAndRotation(_slotGo.transform.position, _slotGo.transform.rotation);
 
             // Already in the demanded state (e.g. a repeated AI_UseMob with the same state):
             // TickMobUsage() will replay the loop animation and finish without a transition.
@@ -249,6 +273,32 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
             Props.CurrentInteractableStateId += step;
+
+            if (_mobContainer == null)
+                return;
+
+            // Propagate to the mob VOB so Wld_GetMobState() returns the correct value.
+            var mobProps = _mobContainer.PropsAs<InteractiveProperties>();
+            if (mobProps != null)
+                mobProps.State = Props.CurrentInteractableStateId;
+
+            // If this mob is linked to a mover (e.g. VWHEEL → gate), activate it.
+            var target = _mobContainer.VobAs<IInteractiveObject>()?.Target;
+            if (!string.IsNullOrEmpty(target))
+                TriggerLinkedMover(target, step > 0);
+        }
+
+        private void TriggerLinkedMover(string targetName, bool opening)
+        {
+            if (!VobService.TryGetMover(targetName, out var moverContainer) || moverContainer?.Go == null)
+                return;
+
+            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
+            if (moverAdapter == null)
+                return;
+
+            if (opening) moverAdapter.Open();
+            else moverAdapter.Close();
         }
 
         private void PlayTransitionAnimation()

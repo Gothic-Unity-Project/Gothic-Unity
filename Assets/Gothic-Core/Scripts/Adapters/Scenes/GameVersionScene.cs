@@ -41,20 +41,22 @@ namespace Gothic.Core.Adapters.Scenes
             var isG1Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic1);
             var isG2Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic2);
 
-            if (_configService.Dev.PreselectGameVersion)
+            // Editor: DeveloperConfig. Builds: GameSettings.json "GameVersion" first (see ConfigService).
+            if (_configService.TryGetPreselectedGameVersion(out var preselectedVersion))
             {
-                var isInstalled = _configService.Dev.GameVersion == GameVersion.Gothic1 ? isG1Installed : isG2Installed;
+                var isInstalled = preselectedVersion == GameVersion.Gothic1 ? isG1Installed : isG2Installed;
 
                 if (isInstalled)
                 {
-                    _bootstrapService.InitPhase2(_configService.Dev.GameVersion);
+                    Logger.Log($"Starting preselected {preselectedVersion}.", LogCat.Loading);
+                    _bootstrapService.InitPhase2(preselectedVersion);
                     _bootstrapService.LoadScene(Constants.ScenePreCaching, Constants.SceneGameVersion);
                 }
                 else
                 {
                     // If the Gothic installation directory is not set, show an error message and exit.
                     _invalidInstallationDir.SetActive(true);
-                    throw new ArgumentException($"{_configService.Dev.GameVersion} installation couldn't be found inside >GameSettings.json< file.");
+                    throw new ArgumentException($"{preselectedVersion} installation couldn't be found inside >GameSettings.json< file.");
                 }
 
                 return;

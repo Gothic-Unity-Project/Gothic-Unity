@@ -21,6 +21,13 @@ namespace Gothic.Core.Models.Config
             G2DragonIsland,
         }
 
+        public enum NpcLootMode
+        {
+            Sockets,
+            Backpack,
+            Both,
+        }
+
         public enum MonsterId
         {
             None				= 0,

@@ -18,7 +18,7 @@ namespace Gothic.Core.Models.Proxy
         [Inject] private readonly VmService _vmService;
 
         protected INpc Npc => (INpc)Vob;
-        protected bool IsNew;
+        public bool IsNew;
 
         /// <summary>
         /// New Npc. Initialized when world is entered for the first time.
@@ -107,6 +107,30 @@ namespace Gothic.Core.Models.Proxy
             }
         }
         
+        /// <summary>
+        /// After Vm.InitInstance() resets an Instance to prototype values, this copies the Vob's saved
+        /// runtime values back into the Instance so Daedalus reads the correct save-game state.
+        /// Called during save-game load after InitZkInstance().
+        /// </summary>
+        public void RestoreInstanceFromVob(NpcInstance instance)
+        {
+            // Attributes (HP, strength, mana…) — Vob.SetAttribute is always called by Npc_ChangeAttribute
+            // and FightService, so Vob attributes are already up-to-date at load time.
+            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
+                instance.SetAttribute((NpcAttribute)i, GetAttribute(i));
+
+            // AiVars — written by Daedalus (self.aivar[i]=v) directly to NpcInstance, never auto-synced
+            // to Vob, so we need to read from the Vob (which has the save-game values) and push back.
+            var savedAiVars = AiVars;
+            for (var i = 0; i < savedAiVars.Length; i++)
+                instance.SetAiVar(i, savedAiVars[i]);
+
+            instance.Level = Level;
+            instance.Exp = Xp;
+            instance.Guild = Guild;
+            instance.FightTactic = FightTactic;
+        }
+
         public AiHuman AiHuman =>  (AiHuman)Ai;
         
         public string GetOverlay(int i)

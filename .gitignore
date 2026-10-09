@@ -95,6 +95,11 @@ ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json
 *.dll.meta
 *.so
 *.so.meta
+
+# NVorbis (Ogg Vorbis decoder, MIT license, ~80KB) has no entry in binary-dependencies yet -
+# committed directly until it's moved there. See Assets/Plugins/NVorbis/LICENSE.txt.
+!Assets/Plugins/NVorbis/NVorbis.dll
+!Assets/Plugins/NVorbis/NVorbis.dll.meta
 *CullingData.asset
 *CullingData.asset.meta
 

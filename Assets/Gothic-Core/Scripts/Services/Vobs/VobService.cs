@@ -1,4 +1,5 @@
 ﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,7 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Util;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
@@ -75,13 +77,20 @@ namespace Gothic.Core.Services.Vobs
             VirtualObjectType.zCPFXController,
             VirtualObjectType.zCTriggerList,
             VirtualObjectType.oCTriggerScript,
+            VirtualObjectType.zCCodeMaster,
+            VirtualObjectType.zCTrigger,
+            VirtualObjectType.zCTriggerUntouch,
+            VirtualObjectType.zCTriggerWorldStart,
+            VirtualObjectType.zCMoverController,
+            VirtualObjectType.zCMessageFilter,
             VirtualObjectType.zCVobLevelCompo
         };
 
         public void Init()
         {
             _unityMonoService.StartCoroutine(InitVobCoroutine());
-            
+            GlobalEventDispatcher.LoadGameStart.AddListener(PreWorldCreate);
+
             // Decoupling Culling logic from actual init logic.
             GlobalEventDispatcher.VobMeshCullingChanged.AddListener(InitVob);
             GlobalEventDispatcher.LockPickComboBroken.AddListener((lockPick, _, _) => lockPick.VobAs<IItem>().Amount--);
@@ -92,6 +101,12 @@ namespace Gothic.Core.Services.Vobs
                 else if (containerOrDoor.Vob is IDoor door)
                     door.IsLocked = false;
             });
+        }
+
+        public void PreWorldCreate()
+        {
+            _gameStateService.VobsInteractable.Clear();
+            _gameStateService.VobsMover.Clear();
         }
 
         /// <summary>
@@ -190,6 +205,10 @@ namespace Gothic.Core.Services.Vobs
                         try
                         {
                             _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                            if (item.IsTraced)
+                                Logger.LogWarning($"[VobTrace] '{item.name}' initialized: {item.transform.childCount} " +
+                                                  $"children, {item.GetComponentsInChildren<Renderer>(true).Length} " +
+                                                  $"renderers", LogCat.Vob);
                         }
                         catch (Exception e)
                         {
@@ -207,16 +226,16 @@ namespace Gothic.Core.Services.Vobs
         /// Create item with mesh only. No special handling like grabbing etc.
         /// e.g. used for NPCs drinking beer mesh in their hand.
         /// </summary>
-        public void CreateItemMesh(int itemId, GameObject parentGo)
+        public GameObject CreateItemMesh(int itemId, GameObject parentGo)
         {
             if (itemId == -1)
             {
                 Logger.LogError("No ItemId found. Is this a bug on daedalus or our side?", LogCat.Vob);
-                return; // no item
+                return null; // no item
             }
             var item = _vmCacheService.TryGetItemData(itemId);
 
-            _initializerDomain.CreateItemMesh(item, parentGo, default);
+            return _initializerDomain.CreateItemMesh(item, parentGo, default);
         }
 
         /// <summary>
@@ -316,6 +335,41 @@ namespace Gothic.Core.Services.Vobs
                 var lazyLoadVobs = Object.FindObjectsOfType<VobLoader>(true);
                 lazyLoadVobs.ForEach(i => InitVob(i.gameObject));
             }
+
+            LogMobOwners();
+        }
+
+        /// <summary>
+        /// Diagnostics for PERC_ASSESSUSEMOB: how many mobs have an owner / owner guild (G1: Old Camp chests GIL_GRD).
+        /// </summary>
+        private void LogMobOwners()
+        {
+            var withOwner = 0;
+            var samples = new List<string>();
+
+            void Walk(List<IVirtualObject> vobs)
+            {
+                foreach (var vob in vobs)
+                {
+                    if (vob is IMovableObject mob && (!string.IsNullOrEmpty(mob.Owner) || !string.IsNullOrEmpty(mob.OwnerGuild)))
+                    {
+                        withOwner++;
+                        if (samples.Count < 6)
+                            samples.Add($"{vob.Name}/{vob.Visual?.Name}={mob.Owner}|{mob.OwnerGuild}");
+                    }
+                    Walk(vob.Children);
+                }
+            }
+
+            try
+            {
+                Walk(_saveGameService.CurrentWorldData.Vobs);
+                Logger.Log($"[Mobs] {withOwner} mobs with an owner; e.g. {string.Join(", ", samples)}", LogCat.Vob);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogWarning($"[Mobs] Owner check failed: {e.Message}", LogCat.Vob);
+            }
         }
 
         private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
@@ -337,6 +391,16 @@ namespace Gothic.Core.Services.Vobs
                         continue;
                 }
 
+                // DeveloperConfig.EnableEmptyVobContainerChildren: an unnamed zCVob without a visual only groups its
+                // children - like a LevelCompo. As a lazy loader it never loaded (no visual = no bounds = never
+                // "visible"), and nothing below it ever appeared: The Chronicles Of Myrtana's intro ship and ~8000
+                // other VOBs. Its children become loaders of their own (VOB positions are world positions).
+                if (config.EnableEmptyVobContainerChildren && IsEmptyVobContainer(vob))
+                {
+                    await CreateWorldVobs(config, loading, vob.Children);
+                    continue;
+                }
+
                 // If our VOB type is ignored by Dev config, skip it and its children.
                 if (!config.SpawnVOBTypes.Value.IsEmpty() && !config.SpawnVOBTypes.Value.Contains(vob.Type))
                 {
@@ -348,6 +412,7 @@ namespace Gothic.Core.Services.Vobs
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
                     CreateVobNow(container);
+                    AddToMobInteractableList(container);
                 }
                 else
                 {
@@ -357,6 +422,12 @@ namespace Gothic.Core.Services.Vobs
                     AddToMobInteractableList(container);
                 }
             }
+        }
+
+        private static bool IsEmptyVobContainer(IVirtualObject vob)
+        {
+            return vob.Type == VirtualObjectType.zCVob && vob.Children.Count > 0 && string.IsNullOrEmpty(vob.Name) &&
+                   (vob.Visual == null || string.IsNullOrEmpty(vob.Visual.Name));
         }
 
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)
@@ -371,7 +442,26 @@ namespace Gothic.Core.Services.Vobs
             _initializerDomain.SetPosAndRot(container.Go, container.Vob.Position, container.Vob.Rotation);
             container.Go.SetParent(GetRootGameObjectOfType(container.Vob.Type));
 
+            if (IsTraced(container.Vob))
+            {
+                loader.IsTraced = true;
+                Logger.LogWarning($"[VobTrace] loader '{container.Go.name}' ({container.Vob.Type}, " +
+                                  $"'{container.Vob.Name}') created at {container.Go.transform.position}, " +
+                                  $"showVisual={container.Vob.ShowVisual}", LogCat.Vob);
+            }
+
             return container;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.DebugTraceVobVisual: follow the VOBs whose visual contains this text (e.g. a mod's model
+        /// that never shows).
+        /// </summary>
+        private bool IsTraced(IVirtualObject vob)
+        {
+            var trace = _configService.Dev.DebugTraceVobVisual;
+            return !string.IsNullOrEmpty(trace) &&
+                   vob.GetVisualName().IndexOf(trace, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         /// <summary>
@@ -416,11 +506,130 @@ namespace Gothic.Core.Services.Vobs
             var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
             var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
 
+            SpawnItemVob(instanceName, wp.Position.ToZkVector(), wp.Rotation.ToZkMatrix());
+        }
+
+        /// <summary>
+        /// Spawns an item VOB at a given world position with physics — used for weapon drops on NPC death/knockout.
+        /// </summary>
+        public VobContainer DropItemAtPosition(int symbolIndex, Vector3 worldPosition)
+        {
+            var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
+            if (!_configService.Dev.EnableVOBs || (!activeTypes.IsEmpty() && activeTypes.Contains(VirtualObjectType.oCItem)))
+                return null;
+
+            var sym = _gameStateService.GothicVm.GetSymbolByIndex(symbolIndex);
+            if (sym == null)
+            {
+                Logger.LogWarning($"[VobService] DropItemAtPosition: no symbol at index {symbolIndex}", LogCat.Vob);
+                return null;
+            }
+
+            Logger.Log($"[VobService] DropItemAtPosition: '{sym.Name}' at {worldPosition}", LogCat.Vob);
+
+            var vob = new Item
+            {
+                Name = sym.Name,
+                Position = worldPosition.ToZkVector(),
+                Rotation = Quaternion.identity.ToZkMatrix(),
+                Visual = new VisualMesh(),
+                Instance = sym.Name
+            };
+
+            var container = CreateContainerWithLoader(vob);
+            CreateVobNow(container);
+            // It's a regular world item from now on. Without a culling entry, grabbing it logs
+            // "Couldn't find object in Culling list" and its position updates aren't tracked.
+            _vobMeshCullingService.AddCullingEntry(container);
+            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+
+            // Add a solid BoxCollider so the existing Rigidbody has something to rest on world geometry.
+            // IMPORTANT: do NOT add a second Rigidbody — the oCItem prefab already has one (kinematic by
+            // default). VrWeaponAttackDomain.TryHandle() does GetComponentInChildren<Rigidbody>() to track
+            // weapon velocity; a second root Rigidbody would shadow the prefab's one and break hit detection
+            // for weapons picked directly from the ground.
+            if (container.Go != null)
+            {
+                var col = container.Go.AddComponent<BoxCollider>();
+                col.size = new Vector3(0.1f, 0.06f, 0.5f);
+                col.center = new Vector3(0f, 0.03f, 0f);
+
+                var rb = container.Go.GetComponentInChildren<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = false;
+                    rb.mass = 1f;
+                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                }
+            }
+
+            return container;
+        }
+
+        /// <summary>
+        /// Finds the nearest world VobContainer for a given item symbol within maxDist meters.
+        /// Uses actual GO position and skips kinematic (VR-grabbed) items.
+        /// </summary>
+        public VobContainer FindNearbyWorldItemContainer(string instanceName, Vector3 nearPosition, float maxDist = 5f)
+        {
+            VobContainer nearest = null;
+            var minDist = maxDist;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+                if (container.Go == null) continue;
+                if (container.IsHeldByPlayer) continue;
+
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                var itemSym = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (!string.Equals(itemSym, instanceName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var dist = Vector3.Distance(container.Go.transform.position, nearPosition);
+                if (dist >= minDist) continue;
+
+                minDist = dist;
+                nearest = container;
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// Removes a VobContainer from the world cache without destroying its GameObject.
+        /// Use when the player physically takes a world item (GO stays alive in VR hands).
+        /// </summary>
+        public void UntrackVobFromCache(VobContainer container)
+        {
+            if (!_multiTypeCacheService.VobCache.Remove(container))
+                return;
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Removes exactly this world item (cache + save data) and destroys its GameObject.
+        /// Callers must pass the container they validated themselves - re-searching by name here could pick
+        /// another copy of the item (e.g., the one in the player's hand).
+        /// </summary>
+        public void RemoveWorldItem(VobContainer container)
+        {
+            Logger.Log($"[VobService] RemoveWorldItem: destroying '{container.Vob.Name}' GO", LogCat.Vob);
+            _vobMeshCullingService.RemoveCullingEntry(container);
+            _multiTypeCacheService.VobCache.Remove(container);
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            Object.Destroy(container.Go);
+        }
+
+        private void SpawnItemVob(string instanceName, System.Numerics.Vector3 position, Matrix3x3 rotation)
+        {
             var vob = new Item
             {
                 Name = instanceName,
-                Position = wp.Position.ToZkVector(),
-                Rotation = wp.Rotation.ToZkMatrix(),
+                Position = position,
+                Rotation = rotation,
                 Visual = new VisualMesh(),
                 Instance = instanceName
             };
@@ -494,24 +703,244 @@ namespace Gothic.Core.Services.Vobs
             switch (container.Vob.Type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
+                // oCMobDoor excluded: doors use HVRPhysicsDoor for VR interaction, not AI_UseMob.
                 case VirtualObjectType.oCMobFire:
                 case VirtualObjectType.oCMobInter:
                 case VirtualObjectType.oCMobBed:
-                case VirtualObjectType.oCMobDoor:
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
                     var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
-                    
+
                     if (visualScheme.IsNullOrEmpty())
                         return;
-                    
+
                     _gameStateService.VobsInteractable.TryAdd(visualScheme, new());
                     _gameStateService.VobsInteractable[visualScheme!].Add(container);
                     break;
+
+                case VirtualObjectType.zCMover:
+                    var moverName = container.Vob.Name;
+                    if (!string.IsNullOrEmpty(moverName))
+                    {
+                        var moverKey = moverName.ToUpper();
+                        if (!_gameStateService.VobsMover.TryGetValue(moverKey, out var moverList))
+                            _gameStateService.VobsMover[moverKey] = moverList = new();
+                        moverList.Add(container);
+                    }
+                    break;
+
+                case VirtualObjectType.oCTriggerScript:
+                    // Vob.Name may be empty; GO name = "{GetVisualName()} (Loader)" which matches mob.Target.
+                    var triggerName = container.Go.name.Replace(" (Loader)", "");
+                    if (!string.IsNullOrEmpty(triggerName))
+                    {
+                        _gameStateService.VobsTriggerScript[triggerName.ToUpper()] = container;
+                        Logger.Log($"[VobService] Registered TriggerScript: '{triggerName}'", LogCat.Vob);
+                    }
+                    break;
+
+                case VirtualObjectType.zCTriggerList:
+                    var tlName = container.Vob.Name?.ToUpper();
+                    if (!string.IsNullOrEmpty(tlName))
+                    {
+                        _gameStateService.VobsTriggerList[tlName] = container;
+                        Logger.Log($"[VobService] Registered TriggerList: '{tlName}'", LogCat.Vob);
+                    }
+                    break;
+
+                case VirtualObjectType.zCCodeMaster:
+                    var cmName = container.Vob.Name?.ToUpper();
+                    if (!string.IsNullOrEmpty(cmName))
+                    {
+                        _gameStateService.VobsCodeMaster[cmName] = container;
+                        Logger.Log($"[VobService] Registered CodeMaster: '{cmName}'", LogCat.Vob);
+                    }
+                    break;
+
+                case VirtualObjectType.zCTrigger:
+                    var trigZoneName = container.Vob.Name?.ToUpper();
+                    if (!string.IsNullOrEmpty(trigZoneName))
+                    {
+                        _gameStateService.VobsTrigger[trigZoneName] = container;
+                        Logger.Log($"[VobService] Registered TriggerZone: '{trigZoneName}'", LogCat.Vob);
+                    }
+                    break;
+
+                case VirtualObjectType.zCMoverController:
+                    var mcName = container.Vob.Name?.ToUpper();
+                    if (!string.IsNullOrEmpty(mcName))
+                    {
+                        _gameStateService.VobsMoverController[mcName] = container;
+                        Logger.Log($"[VobService] Registered MoverController: '{mcName}'", LogCat.Vob);
+                    }
+                    break;
+
+                case VirtualObjectType.zCMessageFilter:
+                    var mfName = container.Vob.Name?.ToUpper();
+                    if (!string.IsNullOrEmpty(mfName))
+                    {
+                        _gameStateService.VobsMessageFilter[mfName] = container;
+                        Logger.Log($"[VobService] Registered MessageFilter: '{mfName}'", LogCat.Vob);
+                    }
+                    break;
             }
         }
-        
+
+        /// <summary>
+        /// Fires a named trigger chain: resolves by mover → code master → trigger list → trigger script.
+        /// Used by Wld_SendTrigger, chained movers, and mob-grab targets.
+        /// senderName: name of the VOB that initiated the trigger (needed by CodeMaster slave matching).
+        /// </summary>
+        public void DispatchTrigger(string name, string senderName = "")
+        {
+            // See GameStateService.SuppressVobTriggerDispatch: set while RebindNpcAliases() re-runs
+            // INIT_ on save-game load, when VOB GameObjects exist but haven't Awake()/DI-injected yet
+            // (still parented under the disabled vobRoot) — dispatching here would NRE on null
+            // [Inject] fields such as TriggerScriptHandler's VmService.
+            if (_gameStateService.SuppressVobTriggerDispatch)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' suppressed (NPC alias rebind in progress)", LogCat.Vob);
+                return;
+            }
+
+            // Gothic's engine routes trigger messages through an event manager queue (with optional
+            // fireDelay), so a script re-triggering itself is a common timer pattern — it re-fires on
+            // a later tick. We dispatch synchronously instead, which turns such a cycle into infinite
+            // recursion in a single frame (G2 Renovation's INIT triggers crashed the editor this way).
+            // Legit vanilla chains (TriggerList → movers, chained mover targets) are wide, not deep,
+            // so a small depth cap only ever cuts true cycles.
+            if (_dispatchTriggerDepth >= MaxDispatchTriggerDepth)
+            {
+                Logger.LogWarning($"[VobService] DispatchTrigger '{name}' dropped — trigger chain deeper than {MaxDispatchTriggerDepth} levels (self-retriggering loop?)", LogCat.Vob);
+                return;
+            }
+
+            _dispatchTriggerDepth++;
+            try
+            {
+                DispatchTriggerInternal(name, senderName);
+            }
+            finally
+            {
+                _dispatchTriggerDepth--;
+            }
+        }
+
+        private int _dispatchTriggerDepth;
+        private const int MaxDispatchTriggerDepth = 8;
+
+        private void DispatchTriggerInternal(string name, string senderName)
+        {
+
+            if (TryGetMovers(name, out var movers))
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → mover(s) (Toggle)", LogCat.Vob);
+                foreach (var c in movers)
+                {
+                    if (c?.Go == null || !c.Go) continue;
+                    c.Go.GetComponentInChildren<MoverAdapter>()?.Toggle();
+                }
+                return;
+            }
+
+            var key = name.ToUpper();
+
+            if (_gameStateService.VobsCodeMaster.TryGetValue(key, out var cm) && cm?.Go != null && cm.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' ← '{senderName}' → CodeMaster", LogCat.Vob);
+                cm.Go.GetComponentInChildren<CodeMasterHandler>(true)?.ReceiveTrigger(senderName);
+                return;
+            }
+
+            if (_gameStateService.VobsTriggerList.TryGetValue(key, out var tl) && tl?.Go != null && tl.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → TriggerList", LogCat.Vob);
+                tl.Go.GetComponentInChildren<TriggerListHandler>(true)?.Trigger();
+                return;
+            }
+
+            // TriggerScript and MessageFilter can coexist under the same name — do NOT early-return after TriggerScript.
+            var dispatched = false;
+
+            if (_gameStateService.VobsTriggerScript.TryGetValue(key, out var ts) && ts?.Go != null && ts.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → TriggerScript", LogCat.Vob);
+                ts.Go.GetComponentInChildren<TriggerScriptHandler>(true)?.Trigger();
+                dispatched = true;
+            }
+
+            if (_gameStateService.VobsMessageFilter.TryGetValue(key, out var mf) && mf?.Go != null && mf.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → MessageFilter", LogCat.Vob);
+                mf.Go.GetComponentInChildren<MessageFilterHandler>(true)?.Trigger();
+                dispatched = true;
+            }
+
+            if (_gameStateService.VobsTrigger.TryGetValue(key, out var tz) && tz?.Go != null && tz.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → TriggerZone (OnTrigger)", LogCat.Vob);
+                tz.Go.GetComponentInChildren<TriggerZoneHandler>(true)?.ReceiveTrigger();
+                dispatched = true;
+            }
+
+            if (_gameStateService.VobsMoverController.TryGetValue(key, out var mc) && mc?.Go != null && mc.Go)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' → MoverController", LogCat.Vob);
+                mc.Go.GetComponentInChildren<MoverControllerHandler>(true)?.Trigger();
+                dispatched = true;
+            }
+
+            if (!dispatched)
+                Logger.LogWarning($"[VobService] DispatchTrigger: '{name}' not found in movers, code masters, trigger lists, trigger scripts, trigger zones, message filters, or mover controllers", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Fires an untrigger event to the named VOB. Currently handled by CodeMaster (UntriggeredCancels).
+        /// senderName: VOB that sent the untrigger (for CodeMaster slave matching).
+        /// </summary>
+        public void DispatchUntrigger(string name, string senderName = "")
+        {
+            if (TryGetMovers(name, out var movers))
+            {
+                Logger.Log($"[VobService] DispatchUntrigger '{name}' → mover(s) (Close)", LogCat.Vob);
+                foreach (var c in movers)
+                {
+                    if (c?.Go == null || !c.Go) continue;
+                    c.Go.GetComponentInChildren<MoverAdapter>()?.Close();
+                }
+                return;
+            }
+
+            var key = name.ToUpper();
+
+            if (_gameStateService.VobsCodeMaster.TryGetValue(key, out var cm) && cm?.Go != null && cm.Go)
+            {
+                Logger.Log($"[VobService] DispatchUntrigger '{name}' ← '{senderName}' → CodeMaster", LogCat.Vob);
+                cm.Go.GetComponentInChildren<CodeMasterHandler>(true)?.ReceiveUntrigger(senderName);
+                return;
+            }
+
+            Logger.LogWarning($"[VobService] DispatchUntrigger: '{name}' — no handler found", LogCat.Vob);
+        }
+
+        public bool TryGetMovers(string name, out List<VobContainer> containers)
+        {
+            var start = 0;
+            while (start < name.Length && !char.IsLetterOrDigit(name[start]))
+                start++;
+            var key = name.Substring(start).ToUpper();
+            if (_gameStateService.VobsMover.TryGetValue(key, out containers)) return true;
+            return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
+        }
+
+        public bool TryGetMover(string name, out VobContainer container)
+        {
+            if (!TryGetMovers(name, out var list) || list.Count == 0) { container = null; return false; }
+            container = list[0];
+            return true;
+        }
+
         public List<ContentItem> UnpackItems(string contents)
         {
             List<ContentItem> result = new();

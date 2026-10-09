@@ -21,6 +21,109 @@ namespace Gothic.Core.Domain.Meshes.Builder
     /// </summary>
     public class VobPfxMeshBuilder : AbstractMeshBuilder
     {
+        /// <summary>
+        /// Gothic circles lie flat (Unity's are upright - the teleport ring was a line). dirMode DIR: particles fly in
+        /// the head/elevation direction (fire rain down, smoke up) - before, only the shape was rotated. shpScaleKeys:
+        /// the shape grows over time (ice wave).
+        /// </summary>
+        private void ApplyGothicShapeAndDirection(ZenKit.Daedalus.ParticleEffectInstance pfx,
+            ParticleSystem particleSystem, GameObject pfxGo)
+        {
+            var shape = particleSystem.shape;
+            shape.rotation = pfx.ShpTypeS.EqualsIgnoreCase("CIRCLE") ? new Vector3(90f, 0f, 0f) : Vector3.zero;
+
+            if (pfx.DirModeS.EqualsIgnoreCase("DIR"))
+            {
+                var minSpeed = Mathf.Max(0f, (pfx.VelAvg - pfx.VelVar) * _velocityScale);
+                var maxSpeed = Mathf.Max(0f, (pfx.VelAvg + pfx.VelVar) * _velocityScale);
+                var min = Vector3.positiveInfinity;
+                var max = Vector3.negativeInfinity;
+                foreach (var headStep in new[] { -1f, -0.5f, 0f, 0.5f, 1f })
+                {
+                    foreach (var elevStep in new[] { -1f, 0f, 1f })
+                    {
+                        var heading = (pfx.DirAngleHead + headStep * pfx.DirAngleHeadVar) * Mathf.Deg2Rad;
+                        var elevation = Mathf.Clamp(pfx.DirAngleElev + elevStep * pfx.DirAngleElevVar, -90f, 90f) *
+                                        Mathf.Deg2Rad;
+                        var sample = new Vector3(Mathf.Cos(elevation) * Mathf.Sin(heading), Mathf.Sin(elevation),
+                            Mathf.Cos(elevation) * Mathf.Cos(heading));
+                        foreach (var speed in new[] { minSpeed, maxSpeed })
+                        {
+                            min = Vector3.Min(min, sample * speed);
+                            max = Vector3.Max(max, sample * speed);
+                        }
+                    }
+                }
+
+                var main = particleSystem.main;
+                main.startSpeed = 0f;
+                var velocity = particleSystem.velocityOverLifetime;
+                velocity.enabled = true;
+                velocity.space = pfx.DirForS.EqualsIgnoreCase("WORLD")
+                    ? ParticleSystemSimulationSpace.World
+                    : ParticleSystemSimulationSpace.Local;
+                velocity.x = new ParticleSystem.MinMaxCurve(min.x, max.x);
+                velocity.y = new ParticleSystem.MinMaxCurve(min.y, max.y);
+                velocity.z = new ParticleSystem.MinMaxCurve(min.z, max.z);
+            }
+
+            if (!pfx.ShpScaleKeysS.NotNullOrEmpty() || pfx.ShpScaleKeysS == "=" || pfx.ShpScaleFps <= 0f)
+                return;
+            var tokens = pfx.ShpScaleKeysS.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 2)
+                return;
+            var keys = new float[tokens.Length];
+            for (var i = 0; i < tokens.Length; i++)
+                keys[i] = float.TryParse(tokens[i], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var key) ? key : 1f;
+            pfxGo.AddComponent<Gothic.Core.Adapters.Vob.PfxShapeScaler>().Init(particleSystem, keys, pfx.ShpScaleFps,
+                Convert.ToBoolean(pfx.ShpScaleIsLooping), Convert.ToBoolean(pfx.ShpScaleIsSmooth));
+        }
+
+        private const float _velocityScale = 10f;
+
+        /// <summary>
+        /// ppsCreateEm_S: the effect creates another one at its place (fireball explosion -> sparks + wall glow, fire
+        /// rain -> burning ground, ice spell -> target end). The delay (ppsCreateEmDelay) is ignored.
+        /// </summary>
+        private void CreateSubEmitter(ZenKit.Daedalus.ParticleEffectInstance pfx, GameObject pfxGo)
+        {
+            var childName = pfx.PpsCreateEmS;
+            if (!_pfxConfigService.Dev.EnablePfxMinimumEmission || string.IsNullOrEmpty(childName) || childName == "=" ||
+                string.Equals(childName, _visualName, StringComparison.OrdinalIgnoreCase) || _subEmitterDepth >= _maxSubEmitterDepth)
+                return;
+
+            _subEmitterDepth++;
+            try
+            {
+                var child = _pfxMeshService.CreateVobPfx(childName, parent: pfxGo, destroyAfterPlay: _destroyAfterPlay);
+                var childRoot = child != null ? child.transform.parent : null;
+                if (childRoot != null && childRoot.gameObject != pfxGo)
+                    childRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            }
+            finally
+            {
+                _subEmitterDepth--;
+            }
+        }
+
+        [Reflex.Attributes.Inject] private readonly Gothic.Core.Services.Config.ConfigService _pfxConfigService;
+        [Reflex.Attributes.Inject] private readonly Gothic.Core.Services.Meshes.MeshService _pfxMeshService;
+        private const float _minimumEmissionRate = 10f;
+        private const float _maxBurstEmissionRate = 2000f;
+        private const float _minBurstSeconds = 0.5f;
+        private const float _maxLoopEmissionRate = 500f;
+        private const float _gothicGravityScale = 10000f; // cm/ms^2 -> m/s^2
+        private bool _isFullRate;
+        // Share of the particle's lifetime its trail lasts (trlFadeSpeed fades them fast in Gothic).
+        private const float _trailLifetime = 0.15f;
+        private static readonly System.Collections.Generic.HashSet<string> _loggedPfx = new();
+        private const int _maxSubEmitterDepth = 3;
+        private static int _subEmitterDepth;
+        // One-shot (non-looping) effect: Gothic emission over the ppsScaleKeys time (DeveloperConfig.EnablePfxMinimumEmission).
+        private bool _isGothicBurst;
+        private float _burstSeconds = 1f;
+
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
@@ -37,6 +140,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             _destroyAfterPlay = destroyAfterPlay;
         }
+
+        /// <summary>
+        /// Spell/visual effects: looping ones emit their full ppsValue (the /100 was tuned for world fires).
+        /// </summary>
+        public void SetFullRate(bool isFullRate)
+        {
+            _isFullRate = isFullRate;
+        }
         
         public override GameObject Build()
         {
@@ -44,6 +155,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
             pfxGo.name = _visualName;
 
             var pfx = VmCacheService.TryGetPfxData(_visualName);
+            if (pfx == null)
+            {
+                Logger.LogWarning($"PFX '{_visualName}' not found in VM — skipping particle build.", LogCat.Mesh);
+                UnityEngine.Object.Destroy(pfxGo);
+                return null;
+            }
+
             var particleSystem = pfxGo.GetComponent<ParticleSystem>();
 
             pfxGo.GetComponent<VobPfxProperties>().PfxData = pfx;
@@ -56,9 +174,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 // Gravity values in Gothic are very small (e.g., -0.0003)
                 // Multiplying by 1k - Blood effects for Zombies are spreading good then.
-                gravityX = float.Parse(gravity[0]) * 10;
-                gravityY = float.Parse(gravity[1]) * 10;
-                gravityZ = float.Parse(gravity[2]) * 10;
+                var gravityScale = _pfxConfigService.Dev.EnablePfxMinimumEmission ? _gothicGravityScale : 10f;
+                gravityX = float.Parse(gravity[0]) * gravityScale;
+                gravityY = float.Parse(gravity[1]) * gravityScale;
+                gravityZ = float.Parse(gravity[2]) * gravityScale;
             }
 
             // Main module
@@ -68,6 +187,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var minLifeTime = (pfx.LspPartAvg - pfx.LspPartVar) / 1000;
                 var maxLifeTime = (pfx.LspPartAvg + pfx.LspPartVar) / 1000;
                 mainModule.duration = 1f; // I assume pfx data wants a cycle being 1 second long.
+                // Gothic one-shot effects run through their ppsScaleKeys at ppsFps (pickaxe sparks: 1 key at 10 fps).
+                _isGothicBurst = _pfxConfigService.Dev.EnablePfxMinimumEmission && !Convert.ToBoolean(pfx.PpsIsLooping);
+                if (_isGothicBurst)
+                {
+                    var keyCount = pfx.PpsScaleKeysS.NotNullOrEmpty() && pfx.PpsScaleKeysS != "="
+                        ? pfx.PpsScaleKeysS.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length
+                        : 0;
+                    _burstSeconds = keyCount > 0 && pfx.PpsFps > 0f
+                        ? Mathf.Clamp(keyCount / pfx.PpsFps, _minBurstSeconds, 10f)
+                        : 1f;
+                    mainModule.duration = _burstSeconds;
+                }
                 mainModule.startLifetime = new ParticleSystem.MinMaxCurve(minLifeTime, maxLifeTime);
                 mainModule.loop = Convert.ToBoolean(pfx.PpsIsLooping);
 
@@ -107,6 +238,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // Gothic's ppsValue is particles/second, but we need to scale it down significantly.
                 // dividing by 100 gives the right amount of blood emitter for zombies. Keeping it for now.
                 var scaledEmissionRate = pfx.PpsValue / 100f;
+                // DeveloperConfig.EnablePfxMinimumEmission: low-rate effects (LIGHTSMOKE: 5 pps) emitted nothing.
+                if (_isGothicBurst)
+                    scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxBurstEmissionRate);
+                // DeveloperConfig.EnablePfxFullRateLoops: looping world effects at Gothic's rate - torches, camp fires and
+                // ground fog were cut to ~10 particles/s (a few sparks instead of a flame).
+                else if ((_isFullRate || _pfxConfigService.Dev.EnablePfxFullRateLoops) &&
+                         _pfxConfigService.Dev.EnablePfxMinimumEmission)
+                    scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxLoopEmissionRate);
+                else if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
+                    scaledEmissionRate = Mathf.Max(scaledEmissionRate, Mathf.Min(pfx.PpsValue, _minimumEmissionRate));
                 
                 // Use ppsScaleKeys to modulate emission over normalized time [0..1]
                 if (pfx.PpsScaleKeysS.NotNullOrEmpty() && pfx.PpsScaleKeysS != "=")
@@ -218,7 +359,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 switch (pfx.VisAlphaFuncS.ToUpper())
                 {
                     case "BLEND":
-                        rendererModule.material.ToTransparentMode(); // e.g. leaves.pfx.
+                        rendererModule.material.ToParticleAlphaBlendMode(); // e.g. leaves.pfx, smoke.
                         break;
                     case "ADD":
                         rendererModule.material.ToAdditiveMode();
@@ -226,6 +367,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     default:
                         Logger.LogWarning($"Particle AlphaFunc {pfx.VisAlphaFuncS} not yet handled.", LogCat.Mesh);
                         break;
+                }
+
+                // Soft particles (smoke, fog) are mostly below 50 % alpha - the alpha test (cutoff 0.5) of the material
+                // modes discarded them completely: 38 smoke particles, nothing visible.
+                if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
+                {
+                    rendererModule.material.DisableKeyword("_ALPHATEST_ON");
+                    rendererModule.material.SetFloat("_Cutoff", 0f);
                 }
 
                 // makes the material render both faces
@@ -270,7 +419,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         shapeModule.shapeType = ParticleSystemShapeType.Box;
                         break;
                     case "MESH":
-                        shapeModule.shapeType = ParticleSystemShapeType.Mesh;
+                        shapeModule.shapeType = _pfxConfigService.Dev.EnablePfxMinimumEmission
+                            ? ParticleSystemShapeType.Sphere
+                            : ParticleSystemShapeType.Mesh;
                         break;
                     case "POINT":
                         shapeModule.shapeType = ParticleSystemShapeType.Sphere;
@@ -314,7 +465,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
 
                 // Apply direction mode and angle variations
-                if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
+                if (pfx.DirModeS.EqualsIgnoreCase("RAND") && _pfxConfigService.Dev.EnablePfxMinimumEmission)
+                {
+                    shapeModule.randomDirectionAmount = 1f;
+                }
+                else if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
                 {
                     // For random direction with angle spread, use Sphere shape to emit in all directions
                     // The velocity variations will be handled by start speed and velocity over lifetime
@@ -342,6 +497,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
                 shapeModule.alignToDirection = false; // Don't align to direction for blood splatter
             }
+
+            if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
+                ApplyGothicShapeAndDirection(pfx, particleSystem, pfxGo);
 
             // Velocity over Lifetime module (for directional spread and TARGET)
             {
@@ -413,18 +571,46 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     {
                         var trailMat = new Material(Constants.ShaderUnlitParticles);
                         _textureService.SetTexture(pfx.TrlTextureS, trailMat);
+                        if (_pfxConfigService.Dev.EnablePfxMinimumEmission)
+                        {
+                            if (pfx.VisAlphaFuncS.EqualsIgnoreCase("ADD"))
+                                trailMat.ToAdditiveMode();
+                            else
+                                trailMat.ToParticleAlphaBlendMode();
+                            trailMat.SetInt("_Cull", (int)CullMode.Off);
+                            trails.lifetime = _trailLifetime;
+                            trails.inheritParticleColor = true;
+                        }
                         var renderer = pfxGo.GetComponent<ParticleSystemRenderer>();
                         renderer.trailMaterial = trailMat;
                     }
                 }
             }
 
+            // Only a requested position. Quaternion's == / != compare by dot product (default != default is true) -
+            // Equals() compares the components.
+            var hasRotation = !RootRotation.Equals(default(Quaternion));
+            if (_pfxConfigService.Dev.EnablePfxMinimumEmission && (RootPosition != Vector3.zero || hasRotation))
+                RootGo.transform.SetPositionAndRotation(RootPosition, hasRotation ? RootRotation : Quaternion.identity);
+
             particleSystem.Play();
+            CreateSubEmitter(pfx, pfxGo);
+
+            if (_pfxConfigService.Dev.EnablePfxMinimumEmission && _loggedPfx.Add(_visualName))
+            {
+                var main = particleSystem.main;
+                Logger.Log($"[PFX] {_visualName}: at {pfxGo.transform.position}, loop={main.loop}, " +
+                           $"rate={particleSystem.emission.rateOverTimeMultiplier:F1}/s, duration={main.duration:F2}s, " +
+                           $"life={main.startLifetime.constantMax:F2}s, size={main.startSize.constantMax:F2}, " +
+                           $"shape={pfx.ShpTypeS} dir={pfx.DirModeS} vel={pfx.VelAvg}", LogCat.Mesh);
+            }
 
             // WARNING: If we provided an existing GO, then it will also destroy other Components. We assume it's a new GO() for Destroy only.
             if (!particleSystem.main.loop && _destroyAfterPlay)
             {
-                UnityEngine.Object.Destroy(RootGo, particleSystem.main.duration);
+                // A burst's particles outlive its emission (fireball explosion: 1.4 s) - they vanished after 1 s.
+                var lifetime = _isGothicBurst ? (pfx.LspPartAvg + pfx.LspPartVar) / 1000f : 0f;
+                UnityEngine.Object.Destroy(RootGo, particleSystem.main.duration + lifetime);
             }
 
             return pfxGo;

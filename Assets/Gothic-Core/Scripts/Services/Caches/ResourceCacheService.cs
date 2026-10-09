@@ -25,7 +25,12 @@ namespace Gothic.Core.Services.Caches
         
         public readonly Vfs Vfs = new();
 
-        private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default | LoaderOptions.Download);
+        // No LoaderOptions.Download! dmusic's internal auto-download error path double-frees the segment
+        // (native heap corruption, kills the whole process). We call Segment.Download() ourselves in
+        // TryGetSegment instead, where a failure surfaces as a catchable managed exception.
+        private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default);
+
+        private readonly HashSet<string> _brokenSegments = new();
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -40,16 +45,38 @@ namespace Gothic.Core.Services.Caches
         private ResourceCacheType<ITexture> _texture;
         private ResourceCacheType<GameObject> _prefab;
 
-        public void Init(string root)
+        // Kept for TryGetDaedalusVm's loose-file fallback (mods overriding a DAT with one ZenKit can't parse).
+        private string _workPath;
+
+        public void Init(string root, bool mountModFiles = false, IReadOnlyList<string> allowedModArchives = null)
         {
             var workPath = FindWorkPath(root);
+            _workPath = workPath;
             var diskPaths = FindDiskPaths(root);
 
-            diskPaths.ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.Older));
-            
+            // Mount base VDFs first. Gothic's own VDFs use Older so newest content in the stack wins.
+            diskPaths.Where(p => !p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
+                .ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.Older));
+
             // FIXME - As some mods tend to load thousands of additional files from local file system, we can also dynamically check when these files are
             //         requested and load them at that time. Saving multiple minutes of potential loading time.
             Vfs.Mount(Path.GetFullPath(workPath), "/_work", VfsOverwriteBehavior.Older);
+
+            // Mod VDFs (.mod extension) always override base game content, regardless of timestamps.
+            // Only mount when mod mode is active — vanilla Gothic has no .mod files, but patched
+            // installations might, and mounting them with All would corrupt vanilla VFS.
+            if (mountModFiles)
+            {
+                var modFiles = diskPaths.Where(p => p.EndsWith(".mod", StringComparison.OrdinalIgnoreCase));
+
+                // Multi-language mod packages (e.g. Dolina Zombie) ship every language's .mod archives
+                // side by side in Data/ — mounting all of them merges languages together. The mod ini's
+                // [FILES] vdf= list says exactly which ones belong together; restrict to that when present.
+                if (allowedModArchives is { Count: > 0 })
+                    modFiles = modFiles.Where(p => allowedModArchives.Contains(Path.GetFileName(p), StringComparer.OrdinalIgnoreCase));
+
+                modFiles.ToList().ForEach(v => Vfs.MountDisk(v, VfsOverwriteBehavior.All));
+            }
 
             _dmLoader.AddResolver(name =>
             {
@@ -189,9 +216,35 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public Segment TryGetSegment([NotNull] string key)
         {
-            // NOTE(lmichaelis): There is no caching required here, since the loader
-            //                   already caches segments upon loading them
-            return _dmLoader.GetSegment(key);
+            if (_brokenSegments.Contains(key))
+                return null;
+
+            Segment segment = null;
+
+            try
+            {
+                segment = _dmLoader.GetSegment(key);
+
+                // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
+                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
+                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                segment?.Download(_dmLoader);
+                return segment;
+            }
+            catch (Exception e)
+            {
+                _brokenSegments.Add(key);
+                Logger.LogWarning($"Music segment >{key}< failed to load or download ({e.Message}). Skipping it from now on.", LogCat.Audio);
+
+                // DmSegment_download leaves the native segment half-initialized on failure. Its finalizer
+                // later calls DmSegment_release on that same broken state and double-frees, corrupting the
+                // native heap and crashing the whole process (seen on the GC finalizer thread). Suppressing
+                // the finalizer intentionally leaks this one native segment instead of risking that crash.
+                if (segment != null)
+                    GC.SuppressFinalize(segment);
+
+                return null;
+            }
         }
 
         /// <summary>
@@ -207,8 +260,47 @@ namespace Gothic.Core.Services.Caches
             // AllowNullInstanceAccess - Ikarus fix.
             // IgnoreConstSpecifier - Ikarus fix. It is overwriting const entries multiple times.
             // TODO - both flags could be removed for non-Ikarus mods.
-            return new DaedalusVm(Vfs, $"{GetPreparedKey(key)}.dat",
-                DaedalusExecutionFlags.AllowNullInstanceAccess | DaedalusExecutionFlags.IgnoreConstSpecifier);
+            var flags = (byte)(DaedalusExecutionFlags.AllowNullInstanceAccess | DaedalusExecutionFlags.IgnoreConstSpecifier);
+            var fileName = $"{GetPreparedKey(key)}.dat";
+
+            try
+            {
+                return new DaedalusVm(Vfs, fileName, flags);
+            }
+            catch (Exception e)
+            {
+                // A mounted .mod archive can override an engine-side DAT with one ZenKit's native
+                // classes can't represent — e.g. G2 "Renovation" (a Union mod) extends C_FightAI.move
+                // to 7 entries while ZenKit is fixed at 6, failing the whole VM load. The mod installer
+                // still leaves the base-game DAT on disk under _work/, so fall back to that loose copy:
+                // for engine data (fight moves, menus, sfx) the vanilla version is a workable stand-in.
+                Logger.LogWarning($"[ResourceCacheService] DaedalusVm '{fileName}' failed to load from VFS ({e.Message}) — trying loose _work fallback", LogCat.ZenKit);
+
+                var looseDat = Directory.EnumerateFiles(_workPath, fileName, new EnumerationOptions
+                {
+                    MatchCasing = MatchCasing.CaseInsensitive,
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true
+                }).FirstOrDefault();
+
+                if (looseDat == null)
+                {
+                    Logger.LogError($"[ResourceCacheService] No loose '{fileName}' found under '{_workPath}' — VM unavailable", LogCat.ZenKit);
+                    return null;
+                }
+
+                try
+                {
+                    var vm = new DaedalusVm(looseDat, flags);
+                    Logger.LogWarning($"[ResourceCacheService] Loaded '{fileName}' from loose file '{looseDat}' instead", LogCat.ZenKit);
+                    return vm;
+                }
+                catch (Exception e2)
+                {
+                    Logger.LogError($"[ResourceCacheService] Loose fallback '{looseDat}' also failed to load ({e2.Message}) — VM unavailable", LogCat.ZenKit);
+                    return null;
+                }
+            }
         }
 
         // FIXME - Should it be used without Gothic game version? Or better always call with it?
@@ -259,7 +351,11 @@ namespace Gothic.Core.Services.Caches
         /// </summary>
         public GameObject TryGetPrefabObject(string prefabPath, string name = null, GameObject parent = null, bool worldPositionStays = true)
         {
-            var go = Object.Instantiate(TryGetPrefab(prefabPath), parent?.transform, worldPositionStays);
+            var prefab = TryGetPrefab(prefabPath);
+            if (prefab == null)
+                return null;
+
+            var go = Object.Instantiate(prefab, parent?.transform, worldPositionStays);
 
             if (name != null)
             {
@@ -279,10 +375,6 @@ namespace Gothic.Core.Services.Caches
         private GameObject TryGetPrefab(string prefabPath)
         {
             _prefab.TryLoad(prefabPath, out var item);
-            
-            if (item == null)
-                Logger.LogError($"Prefab at >{prefabPath}< not found.", LogCat.Loading);
-            
             return item;
         }
 
@@ -330,12 +422,19 @@ namespace Gothic.Core.Services.Caches
             }).First();
 
             var data = Path.GetFullPath(path, root);
-            var files = Directory.GetFiles(data, "*.vdf", new EnumerationOptions
+            var vdfs = Directory.GetFiles(data, "*.vdf", new EnumerationOptions
             {
                 MatchCasing = MatchCasing.CaseInsensitive,
                 RecurseSubdirectories = true,
                 IgnoreInaccessible = true
             });
+            var mods = Directory.GetFiles(data, "*.mod", new EnumerationOptions
+            {
+                MatchCasing = MatchCasing.CaseInsensitive,
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true
+            });
+            var files = vdfs.Concat(mods);
 
             return files.Select(v => Path.GetFullPath(v, data)).ToList();
         }

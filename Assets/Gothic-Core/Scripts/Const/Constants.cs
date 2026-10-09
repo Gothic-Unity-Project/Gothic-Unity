@@ -93,7 +93,9 @@ namespace Gothic.Core.Const
             VirtualObjectType.oCMobWheel,
             VirtualObjectType.zCVob,
             VirtualObjectType.zCVobAnimate,
-            VirtualObjectType.zCVobStair
+            VirtualObjectType.zCVobStair,
+            // Movers with a visual used nowhere else got no bounds (never shown): The Chronicles Of Myrtana's intro ship.
+            VirtualObjectType.zCMover
         };
 
         /*
@@ -155,7 +157,8 @@ namespace Gothic.Core.Const
         public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "5";
+        // 6: VOB bounds and texture arrays also for zCMover and for children of VOBs without a visual.
+        public const string StaticCacheVersion = "6";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

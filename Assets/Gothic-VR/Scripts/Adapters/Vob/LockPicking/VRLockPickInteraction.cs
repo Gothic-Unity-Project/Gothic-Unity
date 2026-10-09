@@ -29,7 +29,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
         private void Update()
         {
-            if (!_properties.IsInsideLock)
+            if (!_properties.IsInsideLock || _properties.HoldingHand == null)
             {
                 _firstFrameHandlingStarted = true;
                 return;
@@ -58,8 +58,6 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         /// </summary>
         private void CalculateRotation()
         {
-            Logger.Log($"InitialRotZ={_initialZRotation}, CurrentRotZ={_properties.HoldingHand.rotation.eulerAngles.z}", LogCat.VR);
-
             var rotationDiff = Mathf.DeltaAngle(_initialZRotation,
                 _properties.HoldingHand.rotation.eulerAngles.z);
 

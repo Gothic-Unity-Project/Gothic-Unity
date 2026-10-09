@@ -9,6 +9,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.StaticCache;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -32,9 +33,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
     public class WorldMeshBuilder : AbstractMeshBuilder
     {
         [Inject] private readonly FrameSkipperService _frameSkipperService;
+        [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly RoomService _roomService;
 
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
+
+        // A room floor polygon: its normal at most ~45 degrees from up/down.
+        private const float _floorMinNormalY = 0.7f;
 
         private static readonly VertexAttributeDescriptor[] _worldVertexLayout =
         {
@@ -132,7 +138,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             // Heavy ZenKit data extraction incl. vertex deduplication runs on a background thread.
             // The cached world mesh is only read here, which is thread-safe.
-            var buffers = await Task.Run(() => ExtractChunks(chunks, materials));
+            var lightMappedCells = new HashSet<long>();
+            var sectorCells = new Dictionary<long, int>();
+            var floorCells = new Dictionary<long, int>();
+            var materialSectors = _roomService.GetMaterialSectors(_mesh);
+            var buffers = await Task.Run(() =>
+                ExtractChunks(chunks, materials, lightMappedCells, sectorCells, floorCells, materialSectors));
+            _stationaryLightsService.SetLightMappedCells(lightMappedCells);
+            _roomService.SetSectorCells(sectorCells, floorCells);
             try
             {
                 var meshes = await BuildChunkMeshes(chunks.Count, buffers);
@@ -225,7 +238,76 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return entries;
         }
 
-        private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials)
+        /// <summary>
+        /// Marks the RoomService cells an indoor polygon covers with its sector (bounding box, capped for huge ones).
+        /// Level polygons (floors) also go into the finer floor cells - a room is the floor under the feet.
+        /// </summary>
+        private void AddSectorCells(int sector, IList<int> positionIndices, Dictionary<long, int> sectorCells,
+            Dictionary<long, int> floorCells)
+        {
+            if (positionIndices.Count == 0)
+                return;
+
+            if (positionIndices.Count >= 3 && IsLevel(positionIndices))
+                AddFloorCells(sector, positionIndices, floorCells);
+
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            foreach (var index in positionIndices)
+            {
+                var p = _mesh.GetPosition(index);
+                var position = new Vector3(p.X, p.Y, p.Z) / 100f;
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            const float cell = RoomService.CellSize;
+            const int maxCellsPerAxis = 12;
+            var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / cell), Vector3Int.one * maxCellsPerAxis);
+            for (var x = 0; x <= steps.x; x++)
+                for (var y = 0; y <= steps.y; y++)
+                    for (var z = 0; z <= steps.z; z++)
+                        sectorCells[RoomService.ToCell(min + new Vector3(x, y, z) * cell)] = sector;
+        }
+
+        /// <summary>
+        /// Floors (and ceilings, never at the feet): the polygon's normal points (nearly) up or down.
+        /// </summary>
+        private bool IsLevel(IList<int> positionIndices)
+        {
+            var a = _mesh.GetPosition(positionIndices[0]);
+            var b = _mesh.GetPosition(positionIndices[1]);
+            var c = _mesh.GetPosition(positionIndices[2]);
+            var normal = Vector3.Cross(new Vector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z),
+                new Vector3(c.X - a.X, c.Y - a.Y, c.Z - a.Z));
+            return normal.sqrMagnitude > 0f && Mathf.Abs(normal.normalized.y) > _floorMinNormalY;
+        }
+
+        private void AddFloorCells(int sector, IList<int> positionIndices, Dictionary<long, int> floorCells)
+        {
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            foreach (var index in positionIndices)
+            {
+                var p = _mesh.GetPosition(index);
+                var position = new Vector3(p.X, p.Y, p.Z) / 100f;
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            const float cell = RoomService.FloorCellSize;
+            const int maxCellsPerAxis = 40;
+            var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / cell), Vector3Int.one * maxCellsPerAxis);
+            for (var x = 0; x <= steps.x; x++)
+                for (var y = 0; y <= steps.y; y++)
+                    for (var z = 0; z <= steps.z; z++)
+                        floorCells[RoomService.ToFloorCell(min + Vector3.Min(new Vector3(x, y, z) * cell, max - min))] =
+                            sector;
+        }
+
+        private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials,
+            HashSet<long> lightMappedCells, Dictionary<long, int> sectorCells, Dictionary<long, int> floorCells,
+            int[] materialSectors)
         {
             // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
             // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
@@ -285,6 +367,20 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     var materialIndex = polygon.MaterialIndex;
                     var material = materials[materialIndex];
 
+                    // Gothic lit these (caves, houses) with lightmaps from static lights, which we don't render.
+                    // Their static lights are shown as runtime stationary lights instead (StationaryLightsService).
+                    if (polygon.LightMapIndex >= 0 && positionIndices.Count > 0)
+                    {
+                        var corner = _mesh.GetPosition(positionIndices[0]);
+                        lightMappedCells.Add(StationaryLightsService.ToCell(
+                            new Vector3(corner.X, corner.Y, corner.Z) / 100f));
+                    }
+
+                    // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
+                    // material name (RoomService.GetMaterialSectors).
+                    if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
+                        AddSectorCells(materialSectors[materialIndex], positionIndices, sectorCells, floorCells);
+
                     void AddCorner(int fanIndex)
                     {
                         var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex);
@@ -323,7 +419,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                                     NormalX = ToSnorm16(feature.Normal.X),
                                     NormalY = ToSnorm16(feature.Normal.Y),
                                     NormalZ = ToSnorm16(feature.Normal.Z),
-                                    NormalW = 0,
+                                    // Outdoor (vertex lit) polygons follow the time of day (Lit-World
+                                    // _DayLightColor), light mapped rooms and caves keep their light. G1's
+                                    // polygons have no outdoor flag set.
+                                    NormalW = polygon.LightMapIndex < 0 ? short.MaxValue : (short)0,
                                     // Gothic's baked vertex light, kept untouched: ARGB int -> RGBA byte order.
                                     Color = ((light >> 16) & 0xFF) | (((light >> 8) & 0xFF) << 8) |
                                             ((light & 0xFF) << 16) | (((light >> 24) & 0xFF) << 24),

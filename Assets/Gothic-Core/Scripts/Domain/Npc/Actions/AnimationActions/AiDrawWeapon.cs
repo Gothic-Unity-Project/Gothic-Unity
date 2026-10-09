@@ -1,17 +1,34 @@
 using System.Linq;
 using Gothic.Core.Const;
+using UnityEngine;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
+using Gothic.Core.Manager;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using JetBrains.Annotations;
+using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class DrawWeapon : AbstractAnimationAction
     {
+        [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly NpcService _npcService;
+
         private bool _isRangedRequested => Action.Int0 == 1;
+        private bool _isMagicRequested => Action.Int0 == 2;
+
+        // Public so UndrawWeapon can check the queue for a follow-up spell re-draw (spell switching)
+        // before deciding whether to clear NpcContainer.ActiveSpell — see UndrawWeapon.ApplyStateSheath.
+        public bool IsMagicRequest => _isMagicRequested;
 
         public DrawWeapon(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -19,17 +36,48 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            // An item still in the hand from an interrupted routine (Cavalorn's apple) would end up on his back with
+            // the weapon's undraw - like the engine, drawing a weapon puts it away.
+            _npcService.RemoveUsedItemFromHand(NpcContainer);
+
+            if (GameStateService.Dialogs.IsInDialog && GameStateService.Dialogs.CurrentDialogNpc == NpcContainer)
+            {
+                Logger.LogWarning($"[DrawWeapon] {NpcInstance.GetName(NpcNameSlot.Slot0)} drew weapon during dialog — closing dialog", LogCat.Fight);
+                _dialogService.StopDialog(NpcContainer);
+            }
+
             var weapon = GetEquippedWeapon();
             var weaponState = GetWeaponState(weapon);
 
             // The fight mode must be set before the animation plays: all follow-up animations
             // (s_1hRunL, t_2hRunTurnL, s_FistAttack, ...) compose their names from it.
+            Logger.Log($"[DrawWeapon] {NpcGo.transform.parent?.name} weapon={(weapon == null ? "null" : $"idx={weapon.Index}")} equippedCount={Props.EquippedItems.Count} → fightMode={weaponState}", LogCat.Animation);
             Vob.FightMode = (int)weaponState;
 
+            // Track which item is in hand so Attack.cs can use item.Range for attack range.
+            Props.CurrentItem = weapon?.Index ?? -1;
+
+            // Swap to the talent-level combat overlay (HUMANS_1HST1.MDS etc.) so attack/run animations
+            // reflect the NPC's actual weapon skill. Routine overlay (Humans_Relaxed.mds) is restored on undraw.
+            var combatOverlay = GetCombatOverlayName(weaponState);
+            if (combatOverlay != null)
+                Props.MdsNameOverlay = combatOverlay;
+
             MoveWeaponToHand(weapon, weaponState);
+            PlayWeaponDrawSound(weaponState);
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+                SpawnSpellVfx();
 
             var prefix = AnimationService.GetWeaponAnimationPrefix(weaponState);
-            var animationName = $"t_Move_2_{prefix}Move";
+            var walkMode = (VmGothicEnums.WalkMode)Vob.AiHuman.WalkMode;
+
+            // Run mode: use the layer-1 animation (t_1h_2_1hRun) which naturally replaces the running
+            // animation on the same layer. Walk mode: use the layer-2 walking draw (t_Move_2_1hMove).
+            var animationName = walkMode == VmGothicEnums.WalkMode.Run
+                ? $"t_{prefix}_2_{prefix}Run"
+                : $"t_Move_2_{prefix}Move";
+
+            Logger.Log($"[DrawWeapon] walkMode={walkMode} → playing '{animationName}'", LogCat.Animation);
 
             if (!PrefabProps.AnimationSystem.PlayAnimation(animationName))
             {
@@ -40,9 +88,53 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             ActionEndEventTime = PrefabProps.AnimationSystem.GetAnimationDuration(animationName);
         }
 
+        private void SpawnSpellVfx()
+        {
+            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
+            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
+            if (string.IsNullOrEmpty(mfxName))
+                return;
+            var handGo = NpcGo.FindChildRecursively(Constants.SlotRightHand);
+            if (handGo == null)
+                return;
+            if (NpcContainer.ActiveSpellVfxGo != null)
+                Object.Destroy(NpcContainer.ActiveSpellVfxGo);
+            var pfxName = $"MFX_{mfxName.ToUpper()}_INIT";
+            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            if (NpcContainer.ActiveSpellVfxGo == null)
+            {
+                pfxName = "MFX_FIREBALL_INIT"; // G2 fire fallback
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+            if (NpcContainer.ActiveSpellVfxGo == null)
+            {
+                pfxName = "MFX_FIREBOLT_INIT"; // G1 fire fallback
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            }
+
+            // Force looping so the glow stays on hand until undraw/attack
+            if (NpcContainer.ActiveSpellVfxGo != null)
+            {
+                var ps = NpcContainer.ActiveSpellVfxGo.GetComponent<ParticleSystem>();
+                if (ps != null)
+                {
+                    var main = ps.main;
+                    main.loop = true;
+                    // Gothic INIT spell PFX use ppsValue=500 but our builder divides by 100 → only 5/s.
+                    // With 0.15s lifetime that's <1 particle visible — boost emission for VR/NPC visibility.
+                    var emission = ps.emission;
+                    emission.rateOverTime = 50f;
+                    ps.Play();
+                }
+            }
+            Logger.Log($"[DrawWeapon] spell VFX '{pfxName}' on {NpcInstance.GetName(NpcNameSlot.Slot0)}", LogCat.Animation);
+        }
+
         [CanBeNull]
         private ItemInstance GetEquippedWeapon()
         {
+            if (_isMagicRequested) return null; // magic uses no weapon mesh
+
             var mainFlag = _isRangedRequested ? VmGothicEnums.ItemFlags.ItemKatFf : VmGothicEnums.ItemFlags.ItemKatNf;
 
             return Props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)mainFlag);
@@ -50,6 +142,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private VmGothicEnums.WeaponState GetWeaponState([CanBeNull] ItemInstance weapon)
         {
+            if (_isMagicRequested)
+                return VmGothicEnums.WeaponState.Mage;
+
             // No weapon equipped: fight with fists (the default for monsters and brawling humans).
             if (weapon == null)
                 return VmGothicEnums.WeaponState.Fist;
@@ -66,10 +161,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 : VmGothicEnums.WeaponState.W1H;
         }
 
-        /// <summary>
-        /// Reparent the weapon mesh from its stow slot (back/hip) into the hand.
-        /// FIXME - Ideally this happens on the animation's DEF_DRAWSOUND event instead of immediately.
-        /// </summary>
+        private void PlayWeaponDrawSound(VmGothicEnums.WeaponState weaponState)
+        {
+            if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.NoWeapon ||
+                weaponState == VmGothicEnums.WeaponState.Mage)
+                return;
+
+            var soundName = (weaponState == VmGothicEnums.WeaponState.Bow || weaponState == VmGothicEnums.WeaponState.CBow)
+                ? DaedalusConst.SoundDrawWood
+                : DaedalusConst.SoundDrawMetal;
+
+            var clip = _audioService.GetRandomSoundClip(soundName);
+            if (clip != null)
+                PrefabProps.NpcSound.PlayOneShot(clip);
+        }
+
         private void MoveWeaponToHand([CanBeNull] ItemInstance weapon, VmGothicEnums.WeaponState weaponState)
         {
             if (weapon == null)
@@ -80,6 +186,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             if (slotGo == null || handGo == null || slotGo.transform.childCount == 0)
                 return;
+
+            // Record the slot GOs so UndrawWeapon can return the weapon to the exact source,
+            // even if FightMode is already reset or the weapon ends up in an unexpected slot.
+            NpcContainer.WeaponStowSlotGo = slotGo;
+            NpcContainer.WeaponHandSlotGo = handGo;
 
             slotGo.transform.GetChild(0).gameObject.SetParent(handGo, true, true);
         }
@@ -97,8 +208,28 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public static string GetHandSlotName(VmGothicEnums.WeaponState weaponState)
         {
-            // Bows are held in the left hand (the right hand draws the arrow), everything else in the right.
-            return weaponState == VmGothicEnums.WeaponState.Bow ? Constants.SlotLeftHand : Constants.SlotRightHand;
+            // Both bows and crossbows are held in the left (bow) hand in Gothic — the right hand draws the arrow/bolt.
+            return (weaponState == VmGothicEnums.WeaponState.Bow || weaponState == VmGothicEnums.WeaponState.CBow)
+                ? Constants.SlotLeftHand
+                : Constants.SlotRightHand;
+        }
+
+        [CanBeNull]
+        private string GetCombatOverlayName(VmGothicEnums.WeaponState weaponState)
+        {
+            int talentIndex;
+            string prefix;
+            switch (weaponState)
+            {
+                case VmGothicEnums.WeaponState.W1H:   talentIndex = (int)VmGothicEnums.Talent._1H;        prefix = "HUMANS_1HS"; break;
+                case VmGothicEnums.WeaponState.W2H:   talentIndex = (int)VmGothicEnums.Talent._2H;        prefix = "HUMANS_2HS"; break;
+                case VmGothicEnums.WeaponState.Bow:   talentIndex = (int)VmGothicEnums.Talent.Bow;        prefix = "HUMANS_BOW"; break;
+                case VmGothicEnums.WeaponState.CBow:  talentIndex = (int)VmGothicEnums.Talent.Crossbow;   prefix = "HUMANS_CBOW"; break;
+                default: return null;
+            }
+
+            var skill = Vob.GetTalent(talentIndex)?.Skill ?? 0;
+            return skill > 0 ? $"{prefix}T{skill}.MDS" : null;
         }
     }
 }

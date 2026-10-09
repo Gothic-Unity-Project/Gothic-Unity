@@ -1,6 +1,13 @@
 ﻿{
     "Gothic1Path": "---Defaults to Steam installation path (PCVR) or files/Gothic1 (Mobile VR)---",
     "Gothic2Path": "---Defaults to Steam installation path (PCVR) or files/Gothic2 (Mobile VR)---",
+    "GameVersion": "---Optional (builds): Gothic1 or Gothic2 to start that game directly. Leave empty to use the build's default.---",
+    "ModPath": "---Optional: path to mod folder (e.g. C:/Gothic Mods/Mroczne Tajemnice). Leave empty for vanilla.---",
+    "ModIni": "---Optional: mod INI filename inside ModPath/system/ (e.g. DM_E.ini). Leave empty for GothicGame.ini.---",
     "LogLevel": "---Set log level to one of these values: Message/Warning/Error. Default: Warning---",
-    "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--"
+    "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--",
+    "EnableMusic": true,
+    "EnableZSpyLogs": false,
+    "EnableOggAudio": true,
+    "EnableVRDeviceSimulator": false
 }
