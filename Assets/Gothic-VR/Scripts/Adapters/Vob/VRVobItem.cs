@@ -323,7 +323,8 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         private void OnDrawGizmos()
         {
-            if (!Application.isPlaying || !_configService.Dev.ShowCapsuleOverlapGizmos)
+            // Not injected yet (item just created): the Scene view draws gizmos every frame anyway.
+            if (!Application.isPlaying || _configService == null || !_configService.Dev.ShowCapsuleOverlapGizmos)
             {
                 return;
             }

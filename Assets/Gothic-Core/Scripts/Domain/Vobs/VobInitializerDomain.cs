@@ -56,10 +56,18 @@ namespace Gothic.Core.Domain.Vobs
         /// parentWorldPosition - When we load Lights, we need to assign the shader's Index. As lazy loading will randomly load them,
         ///                       and Lights could be sub-VOBs inside fire, we need to find the index from WorldPosition calculated at
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
+        /// isInRelativeTree - VOBs of a fire's own .zen: positions relative to the fire. In a world, every VOB's position
+        ///                    is a world position (ZEN: trafoOSToWSPos), children too.
         /// </summary>
-        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob)
+        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            bool isInRelativeTree = false)
         {
+            // Light indices match the static cache, which adds the positions up the same way - keep it for lights.
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
+            // DeveloperConfig.EnableWorldSpaceChildVobs: where the VOB really is (free points NPCs walk to).
+            var placementPosition = _configService.Dev.EnableWorldSpaceChildVobs && !isInRelativeTree
+                ? vob.Position.ToUnityVector()
+                : worldPosition;
             GameObject go = null;
 
             switch (vob.Type)
@@ -90,7 +98,7 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCVobSpot:
                 case VirtualObjectType.zCVobStartpoint:
-                    go = CreateSpot(vob, parent, worldPosition, _configService.Dev.ShowFreePoints);
+                    go = CreateSpot(vob, parent, placementPosition, _configService.Dev.ShowFreePoints);
                     break;
                 case VirtualObjectType.oCTriggerChangeLevel:
                     go = CreateTriggerChangeLevel((TriggerChangeLevel)vob, parent);
@@ -244,12 +252,18 @@ namespace Gothic.Core.Domain.Vobs
             if (!go)
                 return;
 
+            // DeveloperConfig.EnableWorldSpaceChildVobs: a child VOB stayed at its parent's origin - only the root's
+            // loader is placed. Hidden in vanilla (children mostly sit at their parent), but The Chronicles Of Myrtana's
+            // intro ship had all its crates, hammocks and free points in one pile.
+            if (!isRootVob && !isInRelativeTree && _configService.Dev.EnableWorldSpaceChildVobs)
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go);
 
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false);
+                InitVob(childVob, go, worldPosition, false, isInRelativeTree);
             }
         }
 
@@ -430,7 +444,7 @@ namespace Gothic.Core.Domain.Vobs
                 vob.Position = default;
 
                 // Call normal mesh and Prefab loading logic
-                InitVob(vob, parent, worldPosition, false);
+                InitVob(vob, parent, worldPosition, false, true);
             }
         }
 

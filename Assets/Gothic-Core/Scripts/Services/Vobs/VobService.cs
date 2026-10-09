@@ -205,6 +205,10 @@ namespace Gothic.Core.Services.Vobs
                         try
                         {
                             _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                            if (item.IsTraced)
+                                Logger.LogWarning($"[VobTrace] '{item.name}' initialized: {item.transform.childCount} " +
+                                                  $"children, {item.GetComponentsInChildren<Renderer>(true).Length} " +
+                                                  $"renderers", LogCat.Vob);
                         }
                         catch (Exception e)
                         {
@@ -387,6 +391,16 @@ namespace Gothic.Core.Services.Vobs
                         continue;
                 }
 
+                // DeveloperConfig.EnableEmptyVobContainerChildren: an unnamed zCVob without a visual only groups its
+                // children - like a LevelCompo. As a lazy loader it never loaded (no visual = no bounds = never
+                // "visible"), and nothing below it ever appeared: The Chronicles Of Myrtana's intro ship and ~8000
+                // other VOBs. Its children become loaders of their own (VOB positions are world positions).
+                if (config.EnableEmptyVobContainerChildren && IsEmptyVobContainer(vob))
+                {
+                    await CreateWorldVobs(config, loading, vob.Children);
+                    continue;
+                }
+
                 // If our VOB type is ignored by Dev config, skip it and its children.
                 if (!config.SpawnVOBTypes.Value.IsEmpty() && !config.SpawnVOBTypes.Value.Contains(vob.Type))
                 {
@@ -410,6 +424,12 @@ namespace Gothic.Core.Services.Vobs
             }
         }
 
+        private static bool IsEmptyVobContainer(IVirtualObject vob)
+        {
+            return vob.Type == VirtualObjectType.zCVob && vob.Children.Count > 0 && string.IsNullOrEmpty(vob.Name) &&
+                   (vob.Visual == null || string.IsNullOrEmpty(vob.Visual.Name));
+        }
+
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)
         {
             var container = new VobContainer(vob);
@@ -422,7 +442,26 @@ namespace Gothic.Core.Services.Vobs
             _initializerDomain.SetPosAndRot(container.Go, container.Vob.Position, container.Vob.Rotation);
             container.Go.SetParent(GetRootGameObjectOfType(container.Vob.Type));
 
+            if (IsTraced(container.Vob))
+            {
+                loader.IsTraced = true;
+                Logger.LogWarning($"[VobTrace] loader '{container.Go.name}' ({container.Vob.Type}, " +
+                                  $"'{container.Vob.Name}') created at {container.Go.transform.position}, " +
+                                  $"showVisual={container.Vob.ShowVisual}", LogCat.Vob);
+            }
+
             return container;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.DebugTraceVobVisual: follow the VOBs whose visual contains this text (e.g. a mod's model
+        /// that never shows).
+        /// </summary>
+        private bool IsTraced(IVirtualObject vob)
+        {
+            var trace = _configService.Dev.DebugTraceVobVisual;
+            return !string.IsNullOrEmpty(trace) &&
+                   vob.GetVisualName().IndexOf(trace, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         /// <summary>

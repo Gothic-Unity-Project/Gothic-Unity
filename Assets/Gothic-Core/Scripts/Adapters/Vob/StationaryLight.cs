@@ -9,6 +9,12 @@ namespace Gothic.Core.Adapters.Vob
     public class StationaryLight : MonoBehaviour
     {
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        private StationaryLightsService _resolvedLightsService;
+
+        // OnEnable can run before GameObjectSelfInjector injected this component (component order on a new GO) - the
+        // NullReferenceExceptions of lights in nested VOBs (The Chronicles Of Myrtana's ship lanterns didn't light).
+        private StationaryLightsService LightsService => _stationaryLightsService ??
+            (_resolvedLightsService ??= ReflexProjectInstaller.DIContainer.Resolve<StationaryLightsService>());
         
         
         public Color Color
@@ -180,7 +186,7 @@ namespace Gothic.Core.Adapters.Vob
         {
             Index = index;
             foreach (var rend in _affectedRenderers)
-                _stationaryLightsService.AddLightOnRenderer(this, rend);
+                LightsService.AddLightOnRenderer(this, rend);
         }
 
         /// <summary>
@@ -189,7 +195,7 @@ namespace Gothic.Core.Adapters.Vob
         public void DetachSlot()
         {
             foreach (var rend in _affectedRenderers)
-                _stationaryLightsService.RemoveLightOnRenderer(this, rend);
+                LightsService.RemoveLightOnRenderer(this, rend);
             Index = -1;
         }
 
@@ -199,13 +205,13 @@ namespace Gothic.Core.Adapters.Vob
             {
                 // Init() calls this on a light that may still be inactive (lazy loading) - Unity calls it again later.
                 if (isActiveAndEnabled)
-                    _stationaryLightsService.RegisterPooledLight(this);
+                    LightsService.RegisterPooledLight(this);
                 return;
             }
 
             foreach (var rend in _affectedRenderers)
             {
-                _stationaryLightsService.AddLightOnRenderer(this, rend);
+                LightsService.AddLightOnRenderer(this, rend);
             }
         }
 
@@ -213,13 +219,13 @@ namespace Gothic.Core.Adapters.Vob
         {
             if (IsRuntimeSlot)
             {
-                _stationaryLightsService.UnregisterPooledLight(this);
+                LightsService.UnregisterPooledLight(this);
                 return;
             }
 
             foreach (var rend in _affectedRenderers)
             {
-                _stationaryLightsService.RemoveLightOnRenderer(this, rend);
+                LightsService.RemoveLightOnRenderer(this, rend);
             }
         }
 

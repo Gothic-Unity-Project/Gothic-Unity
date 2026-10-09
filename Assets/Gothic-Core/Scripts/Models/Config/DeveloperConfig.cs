@@ -132,6 +132,19 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]
         public string SpawnAtWaypoint = string.Empty;
 
+        [Tooltip("V1: Unnamed zCVobs without a visual only group their children - the children become VOBs of their " +
+                 "own. As lazy loaders without bounds these groups never loaded, nothing below them appeared (The " +
+                 "Chronicles Of Myrtana: the intro ship and ~8000 VOBs).")]
+        public bool EnableEmptyVobContainerChildren = true;
+
+        [Tooltip("V1: Child VOBs are placed at their own position (a world position, like the root's). They stayed at " +
+                 "their parent's origin - The Chronicles Of Myrtana's intro ship had its decoration in one pile.")]
+        public bool EnableWorldSpaceChildVobs = true;
+
+        [Tooltip("Debug: logs creation, init and destruction of VOBs whose visual contains this text ([VobTrace]). " +
+                 "Empty = off.")]
+        public string DebugTraceVobVisual = string.Empty;
+
         [Separator("Save/Load System (WIP)")]
         [Tooltip("Enable save/load system. OFF = main-branch behavior: no UNITYNPCINIT snapshot, no merged-snapshot NPC restore, no NpcCulling tracking. Turn OFF to diagnose monster/NPC init regressions.")]
         public bool EnableSaveLoadSystem;

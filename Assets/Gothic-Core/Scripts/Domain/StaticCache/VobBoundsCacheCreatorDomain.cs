@@ -94,12 +94,19 @@ namespace Gothic.Core.Domain.StaticCache
                         // FIXME - We can easily calculate bbox via position (0,0,0) + radius of emitting pfx.
                         var go2 = _meshService.CreateVobPfx(vob, parent: null);
                         if (go2 == null)
-                            continue; // PFX not found in VM (e.g. mod-only effect) — skip bounds for this VOB.
+                        {
+                            // PFX not found in VM (e.g. mod-only effect) — skip bounds for this VOB, not its children.
+                            await CalculateVobBounds(vob.Children);
+                            continue;
+                        }
                         boundingBox = CalculateBoundingBox(go2);
                         Object.Destroy(go2);
                         break;
                     case VisualType.Unknown:
-                        continue; // Skip this Vob as it's only a placeholder with no data.
+                        // Only a placeholder with no data - but its children are real VOBs: skipping them left them
+                        // without bounds, and VOBs without bounds never show (The Chronicles Of Myrtana: the intro ship).
+                        await CalculateVobBounds(vob.Children);
+                        continue;
                     default:
                         // FIXME - e.g. OC_MOB_CAULDRON has vob-children like MAGICPOTIONSMOKE.pfx and TORCH.pfx inside.
                         //         The correct bounds would need to include these elements to be checked.
