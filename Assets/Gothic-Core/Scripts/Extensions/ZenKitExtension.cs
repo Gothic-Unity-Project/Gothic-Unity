@@ -18,6 +18,16 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// Beds are oCMobDoors in Gothic's data - recognizable only by their visual (G1 BED_*, G2 also BEDHIGH_*).
+        /// </summary>
+        public static bool IsBed([CanBeNull] this IVirtualObject vob)
+        {
+            var visualName = vob?.Visual?.Name;
+            return !string.IsNullOrEmpty(visualName) &&
+                   visualName.StartsWith("BED", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// A visual name is either extracted from Visual.Name or Name of VOB itself.
         /// </summary>
         public static string GetVisualName([CanBeNull] this IVirtualObject vob)

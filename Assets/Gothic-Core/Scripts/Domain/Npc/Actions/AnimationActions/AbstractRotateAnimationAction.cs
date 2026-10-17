@@ -43,6 +43,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            // Like the engine (OpenGothic Npc::isRotationAllowed): an NPC using a mob (sitting on a bench, ...) doesn't
+            // turn - turning the root towards the hero pulled a seated NPC off its seat.
+            if (IsUsingMob())
+            {
+                IsFinishedFlag = true;
+                return;
+            }
+
             _finalRotation = GetRotationDirection();
 
             // Already aligned.
@@ -63,6 +71,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     NpcContainer);
                 PrefabProps.AnimationSystem.PlayAnimation(_rotationAnimationName);
             }
+        }
+
+        private bool IsUsingMob()
+        {
+            // BodyState and CurrentInteractable are set while still walking to the mob already. State -1 = not in use.
+            return PrefabProps.CurrentInteractable != null && Props.CurrentInteractableStateId >= 0;
         }
 
         public override void Tick()

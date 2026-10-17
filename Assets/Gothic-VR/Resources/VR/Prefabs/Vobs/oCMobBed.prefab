@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2854363553026066547}
   - component: {fileID: 6907302684280751333}
   m_Layer: 0
-  m_Name: ZM_PC_BED_STRAW
+  m_Name: BIP01.*|ZM.*
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

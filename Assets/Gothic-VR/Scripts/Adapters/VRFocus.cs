@@ -6,13 +6,19 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.VR.Adapters.Vob;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -29,7 +35,8 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
-
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         private static Camera _mainCamera;
 
@@ -40,6 +47,7 @@ namespace Gothic.VR.Adapters
 
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
+        private bool _mobActivated;
         private bool _isNpc;
 
         private void Awake()
@@ -59,6 +67,42 @@ namespace Gothic.VR.Adapters
         private void Start()
         {
             _nameCanvas.SetActive(false);
+            var grabbable = GetComponent<HVRGrabbable>();
+            grabbable?.Grabbed.AddListener(OnGrabbed);
+            grabbable?.Released.AddListener(OnReleased);
+
+            // Mobs used with a melee tool (e.g. G2 treasure X marks + pickaxe) can be dug up by hitting them.
+            if (_configService.Dev.EnableDigSpots &&
+                _vmCacheService.IsDigSpot(GetComponentInParent<VobLoader>()?.Container?.Vob) &&
+                GetComponent<VRDigSpot>() == null)
+            {
+                gameObject.AddComponent<VRDigSpot>();
+            }
+        }
+
+        private void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            if (_mobActivated)
+                return;
+
+            var vobLoader = GetComponentInParent<VobLoader>();
+            var vob = vobLoader?.Container?.Vob;
+            if (vob is not IInteractiveObject)
+                return;
+
+            // Doors use HVRPhysicsDoor and chests their lid physics - not the mob/trigger path.
+            // Beds are oCMobDoors too (BED*/BEDHIGH* visuals), but get used like other mobs (SLEEPABIT_S1).
+            if ((vob is IDoor && !vob.IsBed()) || vob is IContainer)
+                return;
+
+            _mobActivated = true;
+            Logger.Log($"[VRFocus.OnGrabbed] mob={vobLoader.gameObject.name}", LogCat.Ai);
+            _vrPlayerService.HandleMobGrab(vobLoader);
+        }
+
+        private void OnReleased(HVRGrabberBase _, HVRGrabbable __)
+        {
+            _mobActivated = false;
         }
 
         public void OnHoverEnter(HVRGrabberBase _, HVRGrabbable __)

@@ -2,6 +2,7 @@
 using System.Collections;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
@@ -31,6 +32,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
         private bool _isLocked;
         private string _combination;
+        private string _keyInstance;
         private HVRHandSide _handSide;
         private VobContainer _lockPick;
         private VobContainer _lockable;
@@ -55,10 +57,12 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 case IDoor door:
                     _isLocked = door.IsLocked;
                     _combination = door.PickString;
+                    _keyInstance = door.Key;
                     break;
                 case IContainer container:
                     _isLocked = container.IsLocked;
                     _combination = container.PickString;
+                    _keyInstance = container.Key;
                     break;
                 default:
                     Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.", LogCat.VR);
@@ -86,7 +90,10 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void OnTriggerEnter(Collider other)
         {
             if (!other.gameObject.name.Equals(_lockInteractionColliderName))
+            {
+                TryUnlockWithKey(other);
                 return;
+            }
 
             // Only a lock pick held in a hand picks the lock - one lying around (e.g. in a chest next to the door)
             // has no hand to track and threw every frame.
@@ -197,6 +204,44 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             }
         }
 
+        /// <summary>
+        /// Like the engine: the door's/chest's key (held in a hand) opens it without picking the lock.
+        /// </summary>
+        private void TryUnlockWithKey(Collider other)
+        {
+            if (string.IsNullOrEmpty(_keyInstance))
+                return;
+
+            // Any VOB can enter the trigger (not only items) - VobAs<IItem>() would throw an InvalidCastException.
+            var vobLoader = other.gameObject.GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container?.Vob is not IItem vobItem)
+                return;
+
+            var itemInstance = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            if (!itemInstance.EqualsIgnoreCase(_keyInstance))
+                return;
+
+            // The player must actively hold the key (not just a dropped/flying item).
+            HVRHandSide hand;
+            var leftRoot = _vrPlayerService.GrabbedItemLeft;
+            var rightRoot = _vrPlayerService.GrabbedItemRight;
+            if (leftRoot != null && leftRoot.GetComponentInParent<VobLoader>() == vobLoader)
+                hand = HVRHandSide.Left;
+            else if (rightRoot != null && rightRoot.GetComponentInParent<VobLoader>() == vobLoader)
+                hand = HVRHandSide.Right;
+            else
+                return;
+
+            Logger.Log($"[Lock] Key unlock: '{_keyInstance}' matched.", LogCat.VR);
+            // LockPickComboFinished also gives the success vibration (VrHapticsService).
+            PlaySound(_vmService.PickLockSuccessSoundName, _vmService.DoorLockSoundName);
+            GlobalEventDispatcher.LockPickComboFinished.Invoke(vobLoader.Container, _lockable, (int)hand);
+            _hvrPhysicsDoor.Unlock();
+            _hvrPhysicsDoor.GetComponent<Rigidbody>()
+                .AddForce(_hvrPhysicsDoor.transform.forward * 10f, ForceMode.Impulse);
+            gameObject.SetActive(false);
+        }
+
         private void PlaySound(string soundName, string fallback = null)
         {
             var clip = _audioService.GetRandomSoundClip(soundName);
@@ -206,6 +251,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 PlaySound(fallback);
                 return;
             }
+
+            if (clip == null)
+                return;
                 
             _audioSource.PlayOneShot(clip);
         }

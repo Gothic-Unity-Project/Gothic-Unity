@@ -49,6 +49,10 @@ MonoBehaviour:
     CullingDistance: 200
   BrightenUpHoveredVOBs: 1
   ShowNamesOnHoveredVOBs: 1
+  MoverSpeedMultiplier: 1
+  EnableMobsiDialogs: 1
+  EnableDigSpots: 1
+  DigSpotsRequireTool: 0
   PlayerInventoryAddition:
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0

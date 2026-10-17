@@ -188,6 +188,7 @@ namespace Gothic.Core.Services
                 _vobMeshCullingService.PreWorldCreate();
                 _npcMeshCullingService.PreWorldCreate();
                 _vobSoundCullingService.PreWorldCreate();
+                _vobService.PreWorldCreate();
                 _npcService.ClearQueues();
             }
             try

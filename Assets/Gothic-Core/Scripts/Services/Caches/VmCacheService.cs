@@ -5,9 +5,11 @@ using Gothic.Core.Models.Audio;
 using Gothic.Core.Models.Proxy;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 
 namespace Gothic.Core.Services.Caches
 {
@@ -20,6 +22,21 @@ namespace Gothic.Core.Services.Caches
         private readonly Dictionary<int, SvmInstance> _svmDataCache = new();
         private readonly Dictionary<string, SfxModel> _sfxDataCache = new();
         private readonly Dictionary<string, ParticleEffectInstance> _pfxDataCache = new();
+
+        /// <summary>
+        /// Dig spot: an interactive mob (no door/chest) with an onStateFunc which is used with a melee weapon/tool,
+        /// e.g. G2's treasure X marks + pickaxe. Generic for G2 and mods.
+        /// </summary>
+        public bool IsDigSpot([CanBeNull] IVirtualObject vob)
+        {
+            if (vob is not IInteractiveObject mob || vob is IDoor || vob is IContainer)
+                return false;
+            if (string.IsNullOrEmpty(mob.OnStateChangeFunction) || string.IsNullOrEmpty(mob.Item))
+                return false;
+
+            var tool = TryGetItemData(mob.Item);
+            return tool != null && ((VmGothicEnums.ItemFlags)tool.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
+        }
 
         /// <summary>
         /// Hint: Instances only need to be initialized once in ZenKit.

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -388,6 +389,20 @@ namespace Gothic.Core.Adapters.Npc
             Properties.AnimationQueue.Clear();
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
             Properties.StateTime = 0.0f;
+
+            // Mob usage (sitting on a bench, ...) ends with the respawn at the routine waypoint - the routine walks
+            // there and sits down again. Before, the NPC kept its sitting state and sat in the air at the respawn
+            // point.
+            if (Properties.CurrentInteractableStateId >= 0)
+            {
+                if (PrefabProps.CurrentInteractable?.Props is InteractiveProperties mobProps)
+                    mobProps.State = -1;
+
+                PrefabProps.CurrentInteractable = null;
+                PrefabProps.CurrentInteractableSlot = null;
+                Properties.CurrentInteractableStateId = -1;
+                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
+            }
 
             // WayNet handling
             // Nothing to do -> Even a despawned NPC (based on culling) needs to stick with its WPs/FPs.

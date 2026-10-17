@@ -32,10 +32,6 @@ namespace Gothic.Core.Models.Animations
         public AnimationDirection Direction;
         public bool IsLooping;
 
-        // Sitting poses (bench/throne) authored with a flipped Y rotation. Resolved once at bake time so the
-        // per-frame pose path and PlayAnimation/StopAnimation needn't string-match the animation name.
-        public bool InvertYAxis;
-
         // Frame metadata used to map Gothic event frame numbers onto baked clip time.
         public int FirstFrame;
         public int FrameCount;

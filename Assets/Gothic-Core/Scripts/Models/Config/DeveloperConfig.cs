@@ -164,6 +164,24 @@ namespace Gothic.Core.Models.Config
         [OverrideLabel("Show Names On Hovered VOBs")]
         public bool ShowNamesOnHoveredVOBs = true;
 
+        [Separator("Movers, triggers and mobs")]
+        [Tooltip("Multiplies the speed of movers (gates, lifts, drawbridges). 1 = original Gothic speed, " +
+                 "2 = twice as fast.")]
+        [Range(0.1f, 10f)]
+        public float MoverSpeedMultiplier = 1f;
+
+        [Tooltip("Grabbing a mob with an onStateFunc and no mover target (G2 shrines, alchemy/rune tables, " +
+                 "bookstands, ...) calls [onStateFunc]_S1 like the engine. MOBSI dialogs " +
+                 "(AI_ProcessInfos(hero)) open next to the mob.")]
+        public bool EnableMobsiDialogs = true;
+
+        [Tooltip("Mobs used with a melee tool + onStateFunc (G2 treasure X marks, pickaxe) are dug up by hitting " +
+                 "them 3 times with a swung melee weapon -> calls [onStateFunc]_S1 like the engine.")]
+        public bool EnableDigSpots = true;
+
+        [Tooltip("Dig spots only react to their own tool (vanilla: pickaxe). Off = any melee weapon (easier testing).")]
+        public bool DigSpotsRequireTool;
+
         [Separator("Debug")]
         [Tooltip("Array like this: C_ITEM_NAME:AMOUNT;... e.g., ItMi_Stuff_OldCoin_01:10;ItFo_Potion_Mana_01:1")]
         public string PlayerInventoryAddition;

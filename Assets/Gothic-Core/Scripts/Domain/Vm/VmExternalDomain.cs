@@ -42,6 +42,8 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
+
+        private readonly HashSet<string> _externalsCalledWithoutNpc = new();
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
@@ -253,6 +255,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, string, int>("Wld_SetMobRoutine", Wld_SetMobRoutine);
             vm.RegisterExternal<string, int>("Wld_AssignRoomToGuild", Wld_AssignRoomToGuild);
             vm.RegisterExternal<int, int, int>("Wld_GetGuildAttitude", Wld_GetGuildAttitude);
+            vm.RegisterExternal<string>("Wld_SendTrigger", Wld_SendTrigger);
+            vm.RegisterExternal<string>("Wld_SendUntrigger", Wld_SendUntrigger);
 
             // Misc
             vm.RegisterExternal<int, int>("Perc_SetRange", Perc_SetRange);
@@ -454,12 +458,23 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_ProcessInfos(NpcInstance npc)
         {
-            _dialogService.ExtAiProcessInfos(npc);
+            _dialogService.ExtAiProcessInfos(npc ?? GetHeroForMissingNpc(nameof(AI_ProcessInfos)));
         }
 
         public void AI_StopProcessInfos(NpcInstance npc)
         {
-            _dialogService.ExtAiStopProcessInfos(npc);
+            _dialogService.ExtAiStopProcessInfos(npc ?? GetHeroForMissingNpc(nameof(AI_StopProcessInfos)));
+        }
+
+        /// <summary>
+        /// G1's SLEEPABIT_S1 calls AI_ProcessInfos(Hlp_GetNpc(PC_Hero)) - empty when the mod's hero is another instance
+        /// (Mroczne Tajemnice: PC_Rockefeller), and the bed's sleep menu threw. The scripts mean the hero there.
+        /// </summary>
+        private NpcInstance GetHeroForMissingNpc(string externalName)
+        {
+            if (_externalsCalledWithoutNpc.Add(externalName))
+                Logger.LogWarning($"[{externalName}] called with no NPC - using the hero.", LogCat.Dialog);
+            return (NpcInstance)_gameStateService.GothicVm.GlobalHero;
         }
 
         public void AI_LookAt(NpcInstance npc, string waypoint)
@@ -1321,6 +1336,16 @@ namespace Gothic.Core.Domain.Vm
 
             var ret = _gameStateService.GuildAttitudes[guild1 * _gameStateService.GuildCount + guild2];
             return LogInstantExternal(nameof(Wld_GetGuildAttitude), ret, guild1, guild2);
+        }
+
+        public void Wld_SendTrigger(string vobName)
+        {
+            _vobService.DispatchTrigger(vobName);
+        }
+
+        public void Wld_SendUntrigger(string vobName)
+        {
+            _vobService.DispatchUntrigger(vobName);
         }
 
         #endregion
