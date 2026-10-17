@@ -70,6 +70,11 @@ namespace Gothic.Core.Domain.Audio
             // ships this, so normal play always takes the RIFF/WAV path below unchanged.
             if (IsOggVorbis(fileBytes))
             {
+                if (!_configService.EffectiveEnableOggAudio)
+                {
+                    throw new Exception("Ogg Vorbis audio detected but EnableOggAudio is disabled.");
+                }
+
                 return ConvertOggByteArrayToFloatArray(fileBytes);
             }
 

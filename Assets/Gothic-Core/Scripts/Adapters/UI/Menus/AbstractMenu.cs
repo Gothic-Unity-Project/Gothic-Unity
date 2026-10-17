@@ -103,7 +103,8 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void CreateRootElements()
         {
             var backPic = TextureService.GetMaterial(MenuInstance.BackPic);
-            if (backPic.mainTexture == null)
+            var hasRealBackPic = backPic.mainTexture != null;
+            if (!hasRealBackPic)
             {
                 // Some mod menus (e.g. New Balance's MENU_MAIN under Union) define no backPic.
                 // The fallback's pixel size also drives the pixel-ratio math below, i.e. item spacing.
@@ -115,6 +116,14 @@ namespace Gothic.Core.Adapters.UI.Menus
             SetupCanvasSize(backPic);
             ComputePixelRatios(backPic);
             BuildAllMenuItems();
+
+            var canvasT = Canvas.transform;
+            Logger.Log($"[AbstractMenu] '{MenuInstance.Name}' hasRealBackPic={hasRealBackPic} " +
+                       $"DimX/Y={MenuInstance.DimX}/{MenuInstance.DimY} " +
+                       $"backPicTex={backPic.mainTexture?.width}x{backPic.mainTexture?.height} " +
+                       $"PixelRatio={PixelRatioX:F6}/{PixelRatioY:F6} " +
+                       $"canvasRect={Canvas.GetComponent<RectTransform>().rect.width}x{Canvas.GetComponent<RectTransform>().rect.height} " +
+                       $"canvasScale={canvasT.localScale:F6}", LogCat.Ui);
         }
         
         private void BuildAllMenuItems()
@@ -240,7 +249,10 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             if (!item.AlphaMode.IsNullOrEmpty())
             {
-                backPic.ToTransparentMode();
+                // Plain alpha blending (Gothic's BLEND). ToTransparentMode clipped with _ALPHATEST_ON, a variant builds
+                // strip (no material asset uses it), and blended premultiplied a not premultiplied texture - the G2
+                // "Noc Kruka" logo looked different in builds than in the Editor.
+                backPic.ToFadeMode();
                 var color = backPic.GetColor("_BaseColor");
                 var alpha = item.Alpha / 255f;
                 backPic.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));

@@ -4,6 +4,7 @@ using Gothic.Core.Domain.Marvin;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Marvin;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using ZenKit;
@@ -19,6 +20,7 @@ namespace Gothic.Core.Services.Marvin
     {
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
 
         private const int _maxRecentCommands = 5;
         private const int _maxAmount = 999;
@@ -153,6 +155,12 @@ namespace Gothic.Core.Services.Marvin
             cheat.Add("level").Describe("Hero gains 5 levels").Runs(_ => _cheatDomain.AddLevels());
             cheat.Add("guild").Describe("Change the hero's guild")
                 .Add(_guildValue).Runs(values => _cheatDomain.SetGuild(values[0]));
+            if (_configService.Dev.EnableMarvinGodMode)
+                cheat.Add("god").Describe("Hits and falls don't hurt the hero (toggle)")
+                    .Runs(_ => _cheatDomain.ToggleGodMode());
+            if (_configService.Dev.EnableMarvinBlink)
+                root.Add("goto").Add("forward").Describe("4 m forward where you look, through walls")
+                    .Runs(_ => _cheatDomain.BlinkForward());
 
             root.Add("goto").Add("waypoint").Describe("Teleport to a waypoint")
                 .Add(_waypointValue).Runs(values => _cheatDomain.TeleportToWaypoint(values[0]));
@@ -161,6 +169,14 @@ namespace Gothic.Core.Services.Marvin
                 .Add(_instanceValue).Runs(values => Insert(values[0], 1));
             insert.Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
                 .Runs(values => Insert(values[0], int.Parse(values[1])));
+
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinFriendsNpcSymbols))
+                root.Add("team").Add("irdorath").Describe("The Irdorath crew in front of the hero")
+                    .Runs(_ => _cheatDomain.SpawnGroup("Irdorath crew", _configService.Dev.MarvinFriendsNpcSymbols));
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinCheatFriendsNpcSymbols))
+                root.Add("team").Add("helpers").Describe("The scripts' test helpers (SH/CH) in front of the hero")
+                    .Runs(_ => _cheatDomain.SpawnGroup("Test helpers",
+                        _configService.Dev.MarvinCheatFriendsNpcSymbols));
 
             root.Add("set").Add("time").Describe("Set the game time")
                 .Add(new MarvinNumberValue("<HOUR>", 0, 23))

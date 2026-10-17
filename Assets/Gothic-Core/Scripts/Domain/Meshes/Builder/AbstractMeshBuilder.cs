@@ -7,6 +7,7 @@ using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
@@ -29,6 +30,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly StaticCacheService _staticCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        // Named apart from subclasses' own _configService fields.
+        [Inject] private readonly ConfigService _builderConfigService;
 
         protected GameObject RootGo;
         protected GameObject ParentGo;
@@ -207,7 +210,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
                 else
                 {
-                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh, Mrm.Materials);
+                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh, Mrm);
                 }
             }
 
@@ -273,58 +276,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             //// Fill GameObjects with Meshes from "original" Mesh
-            var meshCounter = 0;
-            foreach (var softSkinMesh in Mdm.Meshes)
-            {
-                var mesh = softSkinMesh.Mesh;
+            var meshCounter = CreateSoftSkinMeshes(nodeObjects);
 
-                var meshObj = new GameObject($"ZM_{meshCounter}");
-                meshObj.SetParent(RootGo);
-
-                var meshFilter = meshObj.AddComponent<MeshFilter>();
-                var meshRenderer = meshObj.AddComponent<SkinnedMeshRenderer>();
-
-                meshRenderer.material = Constants.LoadingMaterial;
-
-                // Recalculate bbox based on current bones pose+rot when playing animations.
-                // This can become a performance issue which we need to monitor carefully.
-                // On top, the name is misleading: updateWhenOffscreen calculates the bbox at all.
-                // If not set, then no recalculation is done.
-                // @see https://docs.unity3d.com/2022.2/Documentation/Manual/class-SkinnedMeshRenderer.html
-                meshRenderer.updateWhenOffscreen = true;
-
-                // HINT: rootBone setting removed. If used, with updateWhenOffscreen e.g. a sitting animation is adding
-                //       too much bound size during animation.
-                //       Custom AnimationsSystem also played nicely when removing the rootBone.
-                // meshRenderer.rootBone = nodeObjects[0].transform;
-
-                PrepareMeshFilter(meshFilter, softSkinMesh, meshRenderer, meshCounter);
-                PrepareMeshRenderer(meshRenderer, mesh);
-
-                meshRenderer.sharedMesh = meshFilter.sharedMesh;
-
-                CreateBonesData(RootGo, nodeObjects, meshRenderer, softSkinMesh);
-
-                meshCounter++;
-            }
-
-            var attachments = GetFilteredAttachments(Mdm.Attachments);
-
-            // Fill GameObjects with Meshes from attachments
-            foreach (var subMesh in attachments)
-            {
-                var meshObj = nodeObjects.First(bone => bone.name == subMesh.Key);
-                var meshFilter = meshObj.TryAddComponent<MeshFilter>();
-                var meshRenderer = meshObj.TryAddComponent<MeshRenderer>();
-                meshRenderer.material = Constants.LoadingMaterial;
-
-                PrepareMeshFilter(meshFilter, subMesh.Value, meshRenderer, meshCounter);
-                PrepareMeshRenderer(meshRenderer, subMesh.Value);
-                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value.Materials);
-
-                // As Attachments are also just meshes, we need to increase the mesh counter for Filter's meshCache index.
-                meshCounter++;
-            }
+            CreateAttachments(nodeObjects, meshCounter);
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -345,6 +299,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             PrepareMeshFilter(meshFilter, Mmb.Mesh, meshRenderer, 0);
             PrepareMeshRenderer(meshRenderer, Mmb.Mesh);
+
+            // Morph mesh items (bows, crossbows) never got a collider: the HVR hand grabbed "nothing" next to them
+            // and they fell through the world (crossbows from NPC loot too). Items use the cached/fallback colliders.
+            if (HasMeshCollider && _builderConfigService.Dev.EnableItemColliderFallback)
+            {
+                // Sliced boxes first: the cached colliders of some bows are capsules as thick as an arm - the hand
+                // held the bow 10 cm next to its mesh.
+                if (UseColliderCache && !AddSlicedBoxColliders(RootGo, meshFilter.sharedMesh))
+                    PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
+                else if (!UseColliderCache)
+                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh);
+            }
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -380,6 +346,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 return;
             }
 
+            if (UseTextureArray && _builderConfigService.Dev.EnableTextureArraySubmeshMaterials)
+            {
+                PrepareTextureArrayMaterials(rend, mrmData);
+                return;
+            }
+
             var finalMaterials = new List<Material>(mrmData.SubMeshes.Count);
             var submeshCount = rend is MeshRenderer
                 ? rend.GetComponent<MeshFilter>().sharedMesh.subMeshCount
@@ -390,6 +362,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var materialData = mrmData.SubMeshes[i].Material;
                 if (materialData.Texture.IsEmpty()) // No texture to add.
                 {
+                    var colorMaterial = CreateUntexturedMaterial(materialData);
+                    if (colorMaterial != null)
+                    {
+                        rend.material = colorMaterial;
+                        finalMaterials.Add(colorMaterial);
+                        continue;
+                    }
+
                     Logger.LogWarning("No texture was set for: " + materialData.Name, LogCat.Mesh);
                     continue;
                 }
@@ -426,6 +406,41 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
+        /// DeveloperConfig.EnableTextureArraySubmeshMaterials: with texture arrays the mesh has one sub mesh per texture
+        /// array (PrepareMeshFilter: opaque, alpha cutout, water - in the order they first appear), not one per Gothic
+        /// sub mesh. Its materials follow the same grouping. Before, sub mesh i got the material of Gothic's sub mesh i:
+        /// a palm (bark, trunk, leaves) had its leaves sampling the opaque array with alpha array indices - stone
+        /// textures without alpha on G2 addon palms, fishing nets and mod meshes.
+        /// </summary>
+        private void PrepareTextureArrayMaterials(Renderer rend, IMultiResolutionMesh mrmData)
+        {
+            var groups = new List<(TextureCacheService.TextureArrayTypes Type, IMaterial Material)>();
+            foreach (var subMesh in mrmData.SubMeshes)
+            {
+                TextureCacheService.GetTextureArrayIndex(subMesh.Material, out var type, out _, out _, out _, out _);
+                if (groups.All(g => g.Type != type))
+                    groups.Add((type, subMesh.Material));
+            }
+
+            var finalMaterials = new List<Material>(groups.Count);
+            foreach (var (type, materialData) in groups)
+            {
+                if (type == TextureCacheService.TextureArrayTypes.Unknown)
+                {
+                    // Untextured (or not cached) - keep the slot so the following sub meshes keep their materials.
+                    finalMaterials.Add(CreateUntexturedMaterial(materialData) ?? new Material(Constants.ShaderWorldLit));
+                    continue;
+                }
+
+                var material = GetDefaultMaterial(type);
+                material.mainTexture = TextureCacheService.GetTextureArrayEntry(type);
+                finalMaterials.Add(material);
+            }
+
+            rend.SetMaterials(finalMaterials);
+        }
+
+        /// <summary>
         /// Ok, brace yourself:
         /// There are three parameters of interest when it comes to creating meshes for items (etc.).
         /// 1. positions - Unity: vertices (=Vector3)
@@ -454,7 +469,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var subMeshPerTextureFormat = new Dictionary<TextureCacheService.TextureArrayTypes, int>();
 
             // Elements like NPC armors might have multiple meshes. We therefore need to store each mesh with it's associated index.
-            if (_multiTypeCacheService.Meshes.TryGetValue($"{MeshName}_{meshIndex}", out Mesh mesh))
+            // DeveloperConfig.EnableMeshCachePerTextureMode: a texture array mesh (slice in uv.z, one sub mesh per array)
+            // and a single texture mesh (one sub mesh per Gothic material) of the same model aren't interchangeable.
+            // Mroczne Tajemnice has items with world object visuals (planks, palisade): the item's mesh was cached
+            // first and the world VOBs got it - stone textures (slice 0) and black parts on their wood.
+            var meshCacheKey = _builderConfigService.Dev.EnableMeshCachePerTextureMode
+                ? $"{MeshName}_{meshIndex}_{(UseTextureArray ? "array" : "single")}"
+                : $"{MeshName}_{meshIndex}";
+            if (_multiTypeCacheService.Meshes.TryGetValue(meshCacheKey, out Mesh mesh))
             {
                 meshFilter.sharedMesh = mesh;
                 return;
@@ -575,7 +597,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             if (weldVertices)
                 mesh.Optimize();
 
-            _multiTypeCacheService.Meshes.Add($"{MeshName}_{meshIndex}", mesh);
+            _multiTypeCacheService.Meshes.Add(meshCacheKey, mesh);
         }
 
         protected void PrepareMeshFilter(MeshFilter meshFilter, ISoftSkinMesh soft, Renderer renderer, int meshIndex)
@@ -668,21 +690,103 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// <summary>
         /// Check if Collider needs to be added.
         /// </summary>
-        protected void PrepareMeshCollider(GameObject obj, Mesh mesh, List<IMaterial> materialDatas)
+        protected void PrepareMeshCollider(GameObject obj, Mesh mesh, IMultiResolutionMesh mrm)
         {
+            var materialDatas = mrm.Materials;
             var anythingDisableCollission = materialDatas.Any(i => i.DisableCollision);
             var anythingWater = materialDatas.Any(i => i.Group == MaterialGroup.Water);
 
             if (!anythingDisableCollission && !anythingWater)
             {
                 PrepareMeshCollider(obj, mesh);
+                return;
             }
+
+            // DeveloperConfig.EnableMaterialCollisionFilter: like the engine, only polygons of materials without
+            // noCollDet (and not water) collide - a tree's trunk blocks, its leaves don't. Before, one leaf material
+            // left the whole tree without a collider.
+            if (!_builderConfigService.Dev.EnableMaterialCollisionFilter)
+                return;
+
+            var collisionMesh = GetCollisionMesh(mrm);
+            if (collisionMesh != null)
+                PrepareMeshCollider(obj, collisionMesh);
+        }
+
+        /// <summary>
+        /// The triangles of the sub meshes whose material collides (no noCollDet, not water), cached per mesh name.
+        /// </summary>
+        [CanBeNull]
+        private Mesh GetCollisionMesh(IMultiResolutionMesh mrm)
+        {
+            var cacheKey = $"{MeshName}_collision";
+            if (_multiTypeCacheService.Meshes.TryGetValue(cacheKey, out var cached))
+                return cached;
+
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            var positions = mrm.Positions;
+            var vertexByPosition = new Dictionary<int, int>();
+            foreach (var subMesh in mrm.SubMeshes)
+            {
+                if (subMesh.Material.DisableCollision || subMesh.Material.Group == MaterialGroup.Water)
+                    continue;
+
+                var wedges = subMesh.Wedges;
+                foreach (var triangle in subMesh.Triangles)
+                {
+                    // Reversed like the render mesh (Gothic -> Unity winding).
+                    foreach (var wedgeIndex in new[] { triangle.Wedge2, triangle.Wedge1, triangle.Wedge0 })
+                    {
+                        var positionIndex = wedges[wedgeIndex].Index;
+                        if (!vertexByPosition.TryGetValue(positionIndex, out var vertex))
+                        {
+                            var position = positions[positionIndex];
+                            vertex = vertices.Count;
+                            vertices.Add(new Vector3(position.X / 100f, position.Y / 100f, position.Z / 100f));
+                            vertexByPosition[positionIndex] = vertex;
+                        }
+                        triangles.Add(vertex);
+                    }
+                }
+            }
+
+            Mesh collisionMesh = null;
+            if (triangles.Count > 0)
+            {
+                collisionMesh = new Mesh { name = cacheKey };
+                if (vertices.Count > ushort.MaxValue)
+                    collisionMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                collisionMesh.SetVertices(vertices);
+                collisionMesh.SetTriangles(triangles, 0);
+            }
+            _multiTypeCacheService.Meshes[cacheKey] = collisionMesh;
+            return collisionMesh;
         }
         
         protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders))
+            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders) || colliders.Count == 0)
             {
+                // The pre-cached colliders are calculated from MRMs only - morph mesh items (bows, crossbows) got none:
+                // they fell through the ground, couldn't be force-grabbed and flew away when rotated in a hand.
+                // Thin boxes along the mesh itself. A box around the whole bow enclosed the holding hand - physics
+                // pushed hand and bow away ("backrooms").
+                if (_builderConfigService.Dev.EnableItemColliderFallback && mesh != null)
+                {
+                    if (AddSlicedBoxColliders(rootGo, mesh))
+                        return;
+
+                    var size = mesh.bounds.size;
+                    var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+                    var fallback = rootGo.AddComponent<CapsuleCollider>();
+                    fallback.center = mesh.bounds.center;
+                    fallback.direction = axis;
+                    fallback.height = Mathf.Max(size[axis], 0.1f);
+                    fallback.radius = 0.025f;
+                    return;
+                }
+
                 Logger.LogError($"Can't find Collider data for {MeshName}. Skipping...", LogCat.Mesh);
                 return;
             }
@@ -708,6 +812,128 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     Logger.LogError($"Capsule cache type {coll.T} not yet handled", LogCat.Mesh);
                 }
             }
+        }
+
+        private const int _colliderSlices = 8;
+        private const int _bowColliderSlices = 14;
+        private const float _colliderClusterGap = 0.03f;
+        private const float _bowColliderClusterGap = 0.02f;
+        private const float _colliderMinThickness = 0.012f;
+        private const float _colliderMinSize = 0.02f;
+
+        /// <summary>
+        /// Morph mesh items (bows, crossbows) without cached colliders: the mesh is cut into slices along its long axis,
+        /// the vertices of a slice are split into clusters (gaps > 3 cm) and each cluster gets a box. So the hand can
+        /// grab every part (crossbow stock and prod, bow grip and limbs) and nothing encloses empty space.
+        /// Hair-thin clusters (a bow's string) get no box - the string is drawn, not grabbed.
+        /// </summary>
+        private bool AddSlicedBoxColliders(GameObject rootGo, Mesh mesh)
+        {
+            if (!mesh.isReadable)
+                return false;
+
+            var vertices = mesh.vertices;
+            var bounds = mesh.bounds;
+            var size = bounds.size;
+            var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+            var length = size[axis];
+            if (vertices.Length == 0 || length < 0.05f)
+                return false;
+
+            // Bows: the string runs from tip to tip (ends of the long axis) - it's drawn, never grabbed. Without its
+            // vertices the boxes follow the limbs only (with them they became one flat plate).
+            var isBow = MeshName != null && MeshName.ContainsIgnoreCase("BOW") && !MeshName.ContainsIgnoreCase("CROSSBOW");
+            var sliceCount = isBow ? _bowColliderSlices : _colliderSlices;
+            var clusterGap = isBow ? _bowColliderClusterGap : _colliderClusterGap;
+            if (isBow)
+                vertices = RemoveBowString(vertices, axis, length);
+
+            var slices = new List<Vector3>[sliceCount];
+            var sliceLength = length / sliceCount;
+            foreach (var vertex in vertices)
+            {
+                var index = Mathf.Clamp((int)((vertex[axis] - bounds.min[axis]) / sliceLength), 0, sliceCount - 1);
+                (slices[index] ??= new List<Vector3>()).Add(vertex);
+            }
+
+            var axis2 = (axis + 1) % 3;
+            var axis3 = (axis + 2) % 3;
+            var added = 0;
+            for (var i = 0; i < sliceCount; i++)
+            {
+                if (slices[i] == null)
+                    continue;
+
+                foreach (var cluster2 in SplitByGap(slices[i], axis2, clusterGap))
+                {
+                    foreach (var cluster in SplitByGap(cluster2, axis3, clusterGap))
+                    {
+                        var min = cluster[0];
+                        var max = cluster[0];
+                        foreach (var vertex in cluster)
+                        {
+                            min = Vector3.Min(min, vertex);
+                            max = Vector3.Max(max, vertex);
+                        }
+
+                        var clusterSize = max - min;
+                        if (clusterSize[axis2] < _colliderMinThickness && clusterSize[axis3] < _colliderMinThickness)
+                            continue;
+
+                        // Boxes of neighbouring slices touch - no gaps along the item.
+                        min[axis] = Mathf.Min(min[axis], bounds.min[axis] + i * sliceLength);
+                        max[axis] = Mathf.Max(max[axis], bounds.min[axis] + (i + 1) * sliceLength);
+
+                        var box = rootGo.AddComponent<BoxCollider>();
+                        box.center = (min + max) * 0.5f;
+                        box.size = Vector3.Max(max - min, Vector3.one * _colliderMinSize);
+                        added++;
+                    }
+                }
+            }
+
+            return added > 0;
+        }
+
+        /// <summary>
+        /// Drops the vertices on the line between the two limb tips (the string), except at the tips themselves.
+        /// </summary>
+        private static Vector3[] RemoveBowString(Vector3[] vertices, int axis, float length)
+        {
+            var tipA = vertices[0];
+            var tipB = vertices[0];
+            foreach (var vertex in vertices)
+            {
+                if (vertex[axis] > tipA[axis])
+                    tipA = vertex;
+                if (vertex[axis] < tipB[axis])
+                    tipB = vertex;
+            }
+
+            var maxDistance = Mathf.Max(0.01f, length * 0.02f);
+            var line = tipB - tipA;
+            var kept = new List<Vector3>(vertices.Length);
+            foreach (var vertex in vertices)
+            {
+                var t = Mathf.Clamp01(Vector3.Dot(vertex - tipA, line) / line.sqrMagnitude);
+                var isString = t > 0.08f && t < 0.92f && Vector3.Distance(vertex, tipA + line * t) < maxDistance;
+                if (!isString)
+                    kept.Add(vertex);
+            }
+            return kept.Count > 0 ? kept.ToArray() : vertices;
+        }
+
+        private static List<List<Vector3>> SplitByGap(List<Vector3> points, int axis, float gap)
+        {
+            points.Sort((a, b) => a[axis].CompareTo(b[axis]));
+            var clusters = new List<List<Vector3>> { new() { points[0] } };
+            for (var i = 1; i < points.Count; i++)
+            {
+                if (points[i][axis] - points[i - 1][axis] > gap)
+                    clusters.Add(new List<Vector3>());
+                clusters[^1].Add(points[i]);
+            }
+            return clusters;
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)
@@ -759,6 +985,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return attachments;
         }
 
+        /// <summary>
+        /// Material for a color-only (untextured) Gothic material. Null = skip it (default).
+        /// </summary>
+        protected virtual Material CreateUntexturedMaterial(IMaterial materialData)
+        {
+            return null;
+        }
+
         protected virtual Texture2D GetTexture(string name)
         {
             return TextureCacheService.TryGetTexture(name);
@@ -791,6 +1025,82 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             // The render queue is defined by the water shader's "Queue" tag.
             return new Material(Constants.ShaderWater);
+        }
+
+        /// <summary>
+        /// Skinned meshes of the .mdm on the given bones (ZM_0, ZM_1, ...). Returns the mesh counter for attachments.
+        /// Also used to swap an NPC's body (armor) at runtime on its existing skeleton.
+        /// </summary>
+        protected int CreateSoftSkinMeshes(GameObject[] nodeObjects)
+        {
+            var meshCounter = 0;
+            foreach (var softSkinMesh in Mdm.Meshes)
+            {
+                var mesh = softSkinMesh.Mesh;
+
+                var meshObj = new GameObject($"ZM_{meshCounter}");
+                meshObj.SetParent(RootGo);
+
+                var meshFilter = meshObj.AddComponent<MeshFilter>();
+                var meshRenderer = meshObj.AddComponent<SkinnedMeshRenderer>();
+
+                meshRenderer.material = Constants.LoadingMaterial;
+
+                // Recalculate bbox based on current bones pose+rot when playing animations.
+                // This can become a performance issue which we need to monitor carefully.
+                // On top, the name is misleading: updateWhenOffscreen calculates the bbox at all.
+                // If not set, then no recalculation is done.
+                // @see https://docs.unity3d.com/2022.2/Documentation/Manual/class-SkinnedMeshRenderer.html
+                meshRenderer.updateWhenOffscreen = true;
+
+                // HINT: rootBone setting removed. If used, with updateWhenOffscreen e.g. a sitting animation is adding
+                //       too much bound size during animation.
+                //       Custom AnimationsSystem also played nicely when removing the rootBone.
+                // meshRenderer.rootBone = nodeObjects[0].transform;
+
+                PrepareMeshFilter(meshFilter, softSkinMesh, meshRenderer, meshCounter);
+                PrepareMeshRenderer(meshRenderer, mesh);
+
+                meshRenderer.sharedMesh = meshFilter.sharedMesh;
+
+                CreateBonesData(RootGo, nodeObjects, meshRenderer, softSkinMesh);
+
+                meshCounter++;
+            }
+
+            return meshCounter;
+        }
+
+        /// <summary>
+        /// Rigid meshes of the .mdm attached to bones (e.g. a hat or helmet of an armor).
+        /// </summary>
+        protected void CreateAttachments(GameObject[] nodeObjects, int meshCounter)
+        {
+            var attachments = GetFilteredAttachments(Mdm.Attachments);
+
+            // Fill GameObjects with Meshes from attachments
+            foreach (var subMesh in attachments)
+            {
+                var meshObj = GetAttachmentGo(nodeObjects.First(bone => bone.name == subMesh.Key));
+                var meshFilter = meshObj.TryAddComponent<MeshFilter>();
+                var meshRenderer = meshObj.TryAddComponent<MeshRenderer>();
+                meshRenderer.material = Constants.LoadingMaterial;
+
+                PrepareMeshFilter(meshFilter, subMesh.Value, meshRenderer, meshCounter);
+                PrepareMeshRenderer(meshRenderer, subMesh.Value);
+                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value);
+
+                // As Attachments are also just meshes, we need to increase the mesh counter for Filter's meshCache index.
+                meshCounter++;
+            }
+        }
+
+        /// <summary>
+        /// The GameObject which holds an attachment's mesh. Default: the bone itself.
+        /// </summary>
+        protected virtual GameObject GetAttachmentGo(GameObject node)
+        {
+            return node;
         }
 
         protected void SetPosAndRot(GameObject obj, Matrix4x4 matrix)

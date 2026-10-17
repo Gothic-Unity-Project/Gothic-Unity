@@ -9,11 +9,14 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -24,6 +27,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -36,12 +40,21 @@ namespace Gothic.VR.Adapters
 
         public void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
         {
-            var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            if (_vrPlayerService.IsSpellActive)
+            {
+                Logger.Log($"[VRNpc] Grab on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' ignored - a spell is active " +
+                           "(targeting or telekinesis)", LogCat.VR);
+                grabber.ForceRelease();
+                return;
+            }
 
-            if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
+            var bodyState = _npcData.Props.BodyState;
+            var isDead = bodyState == VmGothicEnums.BodyState.BsDead;
+            var isUnconscious = bodyState == VmGothicEnums.BodyState.BsUnconscious;
+
+            if ((isDead || isUnconscious) && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
-                // HVR sets isKinematic=false during grab; release immediately and freeze the corpse
                 grabber.ForceRelease();
                 _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
                 return;

@@ -59,7 +59,96 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateImmersionHeadline(gameMenu));
             vrImmersionMenu.Items.Add(CreateMicrophoneLabel(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers",
+                "-X HP / +X MANA over NPC heads", menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers,
+                menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
+                "Size of the -X HP / +X MANA numbers", menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateHitNumbersSizeSlider(gameMenu, menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers",
+                "HP/MAX on health bars", menuStartY + menuDY * 3));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers,
+                menuStartY + menuDY * 3));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "MARVIN", "Marvin",
+                "Show the Marvin panel (needs Marvin mode)", menuStartY + menuDY * 4));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel,
+                menuStartY + menuDY * 4, 1));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
+                "How smoothly a torch's light follows your hand", menuStartY + menuDY * 5));
+            vrImmersionMenu.Items.Add(CreateLightRefreshChoice(gameMenu, menuStartY + menuDY * 5));
+            vrImmersionMenu.Items.Add(CreateRestartButton(mainMenu, menuStartY + menuDY * 6));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+        }
+
+        // Our own options have no localization entries yet - plain English labels.
+        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id, string label,
+            string description, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}", subtitlesLabel);
+
+            item.PosY = posY;
+            item.SetText(0, label);
+            item.SetText(1, description);
+
+            return item;
+        }
+
+        private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
+            int posY, int defaultValue = 0)
+        {
+            // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
+            var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}_CHOICE", subtitlesChoice);
+
+            item.PosY = posY;
+            item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
+            item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
+            item.OnChgSetOption = iniName;
+            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return item;
+        }
+
+        private MutableMenuItemInstance CreateLightRefreshChoice(AbstractMenuInstance gameMenu, int posY)
+        {
+            var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh, posY);
+            item.SetText(0, "Low|Medium|High");
+            return item;
+        }
+
+        private AbstractMenuItemInstance CreateHitNumbersSizeSlider(AbstractMenuInstance gameMenu, int posY)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var slider = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_HIT_NUMBERS_SIZE_SLIDER",
+                mouseSlider);
+
+            slider.PosY = posY;
+            slider.SetUserFloat(0, VRConstants.SmoothRotationSettingAmount); // Steps.
+            // Default = smallest. AbstractMenu turns a default of exactly 0 into 1 (full), hence the tiny value.
+            slider.SetUserFloat(3, 0.0001f);
+            slider.OnChgSetOption = Constants.IniNames.HitNumbersSize;
+            slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return slider;
+        }
+
+        /// <summary>
+        /// Starts the game again (GameRestartDomain) - e.g. to pick another game profile.
+        /// </summary>
+        private MutableMenuItemInstance CreateRestartButton(AbstractMenuInstance mainMenu, int posY)
+        {
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
+            var restartButton = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
+
+            restartButton.PosY = posY;
+            restartButton.SetText(0, "Restart game");
+            restartButton.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);
+            restartButton.SetOnSelActionS(0, VRConstants.MenuCommandRestartGame);
+
+            return restartButton;
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)

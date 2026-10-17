@@ -21,6 +21,7 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Manager
 {
@@ -33,6 +34,7 @@ namespace Gothic.Core.Manager
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly Gothic.Core.Services.Trade.TradeService _tradeService;
 
         // Vanilla G1/G2 END entries: nr = 999, description = DIALOG_ENDE.
         private const int _exitInfoNr = 999;
@@ -47,6 +49,16 @@ namespace Gothic.Core.Manager
         private Coroutine _bubbleWatcher;
 
         /// <summary>
+        /// Set while a mob dialog (MOBSI, e.g. G2 shrine: [onStateFunc]_S1 -> AI_ProcessInfos(hero)) is open.
+        /// The dialog box is shown at this anchor next to the mob instead of at an NPC.
+        /// </summary>
+        public GameObject MobDialogAnchor { get; private set; }
+
+        private const float _heroQueueActionTimeout = 30f;
+
+        private bool _isHeroQueueRunning;
+
+        /// <summary>
         /// TextToSpeech toggle. So that the hero isn't repeating what we said already.
         /// </summary>
         public bool SkipNextOutput;
@@ -55,19 +67,14 @@ namespace Gothic.Core.Manager
         /// Check if NPC has at least one dialog which isn't told and Hero should know about.
         /// important
         ///     - TRUE - check if there's one important dialog untold.
-        ///     - FALSE - check if there's one unimportant dialog untold. (unused in G1)
+        ///     - FALSE - check if there's one unimportant dialog available (untold or permanent, condition true). G2's
+        ///       undead dragon calls it after his first talk - it logged an error and answered like important=1.
         /// </summary>
         public bool ExtCheckInfo(NpcInstance npc, bool important)
         {
-            if (!important)
-            {
-                // Don't worry. I assume this even makes no sense at all, as also the "END" dialog would always trigger a return true.
-                Logger.LogError("Npc_CheckInfo isn't implemented for important=0.", LogCat.Dialog);
-            }
-
             _npcService.SetDialogs(npc.GetUserData());
-            
-            return TryGetImportant(npc.GetUserData(), out _);
+
+            return TryGetInfo(npc.GetUserData(), important ? 1 : 0, out _);
         }
 
         /// <summary>
@@ -128,7 +135,7 @@ namespace Gothic.Core.Manager
             if (_gameStateService.Dialogs.CurrentOptions.Any())
             {
                 _contextDialogService.FillDialog(npcContainer.Instance, _gameStateService.Dialogs.CurrentOptions);
-                _contextDialogService.ShowDialog(npcContainer.Go);
+                _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
                 _gameStateService.Dialogs.IsChoosing = true;
                 _gameStateService.Dialogs.ExitInfo = null;
             }
@@ -178,7 +185,7 @@ namespace Gothic.Core.Manager
                 }
 
                 _contextDialogService.FillDialog(npcContainer.Instance, selectableDialogs);
-                _contextDialogService.ShowDialog(npcContainer.Go);
+                _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
                 _gameStateService.Dialogs.IsChoosing = true;
                 _gameStateService.Dialogs.ExitInfo = FindExitInfo(selectableDialogs);
             }
@@ -189,28 +196,32 @@ namespace Gothic.Core.Manager
         /// </summary>
         private bool TryGetImportant(NpcContainer npcContainer, out InfoInstance item)
         {
-            // Like the engine: lowest nr first.
-            foreach (var dialog in npcContainer.Props.Dialogs.OrderBy(d => d.Nr))
-            {
-                // Dialog is not important.
-                if (dialog.Important != 1)
-                {
-                    continue;
-                }
+            return TryGetInfo(npcContainer, 1, out item);
+        }
 
-                // Important dialog has already been told.
-                if (dialog.Permanent != 1 && GetInfoState(dialog.Index).Told)
-                {
+        /// <summary>
+        /// The first info with this "important" value that is available: not told yet (or permanent), condition true.
+        /// </summary>
+        private bool TryGetInfo(NpcContainer npcContainer, int important, out InfoInstance item)
+        {
+            // DeveloperConfig.EnableImportantInfoOrder: the engine checks them by nr (lowest first).
+            var dialogs = _configService.Dev.EnableImportantInfoOrder
+                ? npcContainer.Props.Dialogs.OrderBy(d => d.Nr)
+                : (IEnumerable<InfoInstance>)npcContainer.Props.Dialogs;
+            foreach (var dialog in dialogs)
+            {
+                // Not the kind asked for (important or not).
+                if (dialog.Important != important)
                     continue;
-                }
+
+                // Dialog has already been told.
+                if (dialog.Permanent != 1 && GetInfoState(dialog.Index).Told)
+                    continue;
 
                 // No dialog condition exists or dialog condition() is false.
                 if (dialog.Condition == 0)
-                {
                     continue;
-                }
-                
-                // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
+
                 var oldSelf = _gameStateService.GothicVm.GlobalSelf;
                 var oldOther = _gameStateService.GothicVm.GlobalOther;
                 _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
@@ -220,9 +231,7 @@ namespace Gothic.Core.Manager
                 _gameStateService.GothicVm.GlobalOther = oldOther;
 
                 if (conditionResult == 0)
-                {
                     continue;
-                }
 
                 // Dialog is usable.
                 item = dialog;
@@ -233,11 +242,30 @@ namespace Gothic.Core.Manager
             return false;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDialogHeroByInstance: the hero by instance, not by C_NPC.id == 0 - monsters don't set an
+        /// id either (0). G2's undead dragon "was the hero": his lines went to the hero's queue, which never runs - only
+        /// the hero's lines were heard. Speaker id 0 marks the hero in Output/OutputSvm, others get a non-zero one.
+        /// </summary>
+        private bool IsHeroSpeaker(NpcInstance npc)
+        {
+            if (!_configService.Dev.EnableDialogHeroByInstance)
+                return npc.Id == 0;
+            return _gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        private int GetSpeakerId(NpcInstance npc, bool isHero)
+        {
+            if (isHero || !_configService.Dev.EnableDialogHeroByInstance)
+                return isHero ? 0 : npc.Id;
+            return npc.Id != 0 ? npc.Id : -1;
+        }
+
         public void ExtAiOutput(NpcInstance self, NpcInstance target, string outputName)
         {
-            var isHero = self.Id == 0;
+            var isHero = IsHeroSpeaker(self);
             // Always the NPC we're talking to!
-            var speakerId = self.Id;
+            var speakerId = GetSpeakerId(self, isHero);
 
             var npcTalkingTo = isHero ? target : self;
 
@@ -246,9 +274,35 @@ namespace Gothic.Core.Manager
                 npcTalkingTo.GetUserData()));
         }
 
+        public void ExtAiOutputSvmOverlay(NpcInstance npc, NpcInstance target, string svmName)
+        {
+            var npcContainer = GetNpcContainer(npc);
+            var queue = npcContainer.Props.AnimationQueue;
+            var svmAction = new OutputSvm(
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, IsHeroSpeaker(npc)), string0: svmName,
+                    bool0: true),
+                npcContainer);
+
+            // Daedalus queues GoToNpc before AI_OutputSVM_Overlay in the same script execution.
+            // Reorder so the SVM fires first (fire-and-forget), then the NPC runs.
+            if (queue.Count > 0 && queue.Last() is GoToNpc)
+            {
+                var items = queue.ToArray();
+                queue.Clear();
+                for (var i = 0; i < items.Length - 1; i++)
+                    queue.Enqueue(items[i]);
+                queue.Enqueue(svmAction);
+                queue.Enqueue(items[items.Length - 1]);
+            }
+            else
+            {
+                queue.Enqueue(svmAction);
+            }
+        }
+
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
-            var isHero = npc.Id == 0;
+            var isHero = IsHeroSpeaker(npc);
 
             // Hero SVM: enqueue on target's queue (hero's queue is never processed); hero container provides voice ID.
             if (isHero && target != null)
@@ -266,7 +320,7 @@ namespace Gothic.Core.Manager
 
             var npcContainer = GetNpcContainer(npc);
             npcContainer.Props.AnimationQueue.Enqueue(new OutputSvm(
-                new AnimationAction(int0: npcContainer.Instance.Id, string0: svmName),
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, false), string0: svmName),
                 npcContainer));
         }
 
@@ -313,6 +367,7 @@ namespace Gothic.Core.Manager
             var props = GetProperties(npc);
 
             props.AnimationQueue.Enqueue(new StartProcessInfos(new AnimationAction(bool0: true), npc.GetUserData()));
+            RunHeroQueueIfMobDialog(npc.GetUserData());
         }
 
         public void ExtAiStopProcessInfos(NpcInstance npc)
@@ -320,6 +375,102 @@ namespace Gothic.Core.Manager
             var props = GetProperties(npc);
 
             props.AnimationQueue.Enqueue(new StopProcessInfos(new AnimationAction(), npc.GetUserData()));
+            RunHeroQueueIfMobDialog(npc.GetUserData());
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMobsiDialogs: called right before the mob's [onStateFunc]_S1, which opens the dialog
+        /// via AI_ProcessInfos(hero). Choices are C_INFO instances with npc = PC_Hero.
+        /// The hero's leftover AI queue is cleared - in VR nothing processes it, it's only run during mob dialogs.
+        /// </summary>
+        public void PrepareMobDialog(GameObject anchor)
+        {
+            if (MobDialogAnchor != null)
+                Object.Destroy(MobDialogAnchor);
+
+            MobDialogAnchor = anchor;
+            _npcService.GetHeroContainer()?.Props.AnimationQueue.Clear();
+        }
+
+        private GameObject GetDialogGo(NpcContainer npcContainer)
+        {
+            return MobDialogAnchor != null && IsHero(npcContainer) ? MobDialogAnchor : npcContainer.Go;
+        }
+
+        private bool IsHero(NpcContainer npcContainer)
+        {
+            return npcContainer != null && npcContainer == _npcService.GetHeroContainer();
+        }
+
+        /// <summary>
+        /// The VR hero has no AiHandler. During a mob dialog, its AI queue (StartProcessInfos after a choice,
+        /// AI_Output lines, AI_StopProcessInfos) is executed here like AiHandler does for NPCs.
+        /// </summary>
+        private void RunHeroQueueIfMobDialog(NpcContainer npcContainer)
+        {
+            if (MobDialogAnchor == null || !IsHero(npcContainer))
+                return;
+
+            // Like the engine, AI_ProcessInfos is a queued action: the dialog starts after the calling script returns.
+            // Started right away, the dialog was built inside the external - SMITHWEAPON_S1 sets the weapon descriptions
+            // after AI_ProcessInfos, so the anvil's weapon choices were empty.
+            _unityMonoService.StartCoroutine(RunHeroQueueNextFrame());
+        }
+
+        private IEnumerator RunHeroQueueNextFrame()
+        {
+            yield return null;
+            RunHeroQueue();
+        }
+
+        /// <summary>
+        /// Executes what scripts queued on the hero (e.g. PLAYER_MOB_MISSING_ITEM: B_Say_Overlay "$MISSINGITEM").
+        /// </summary>
+        public void RunHeroQueue()
+        {
+            var hero = _npcService.GetHeroContainer();
+            if (hero == null || _isHeroQueueRunning)
+                return;
+
+            _unityMonoService.StartCoroutine(RunHeroQueue(hero));
+        }
+
+        private IEnumerator RunHeroQueue(NpcContainer hero)
+        {
+            _isHeroQueueRunning = true;
+            var queue = hero.Props.AnimationQueue;
+
+            while (queue.Count > 0)
+            {
+                var action = queue.Dequeue();
+                var startTime = Time.time;
+                var isRunning = true;
+                try
+                {
+                    action.Start();
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"[MobDialog] Hero action {action.GetType().Name} failed to start: {e.Message}", LogCat.Dialog);
+                    isRunning = false;
+                }
+
+                while (isRunning && !action.IsFinished() && Time.time - startTime < _heroQueueActionTimeout)
+                {
+                    yield return null;
+                    try
+                    {
+                        action.Tick();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogWarning($"[MobDialog] Hero action {action.GetType().Name} failed: {e.Message}", LogCat.Dialog);
+                        isRunning = false;
+                    }
+                }
+            }
+
+            _isHeroQueueRunning = false;
         }
 
         public void MainSelectionClicked(NpcContainer npcContainer, InfoInstance infoInstance)
@@ -359,11 +510,21 @@ namespace Gothic.Core.Manager
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
 
+            // The trade ends with the dialog - everything laid on the counter goes back.
+            _tradeService.Cancel();
+
             // WIP: unlocking movement
             _contextInteractionService.UnlockPlayer();
 
             _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();
+
+            // EndDialog moved the dialog box away from the anchor - it can go now.
+            if (MobDialogAnchor != null && IsHero(npc))
+            {
+                Object.Destroy(MobDialogAnchor);
+                MobDialogAnchor = null;
+            }
 
             // Hide subtitles from both dialog partners.
             _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.HideSubtitles();
@@ -383,16 +544,30 @@ namespace Gothic.Core.Manager
         {
             horizontalDistance = 0f;
             var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null || npcContainer.Go == null)
+            var dialogGo = GetDialogGo(npcContainer);
+            if (hero?.Go == null || dialogGo == null)
                 return true;
 
-            var offset = hero.Go.transform.position - npcContainer.Go.transform.position;
+            var offset = hero.Go.transform.position - dialogGo.transform.position;
             var heightDifference = Mathf.Abs(offset.y);
             offset.y = 0f;
             horizontalDistance = offset.magnitude;
 
-            return horizontalDistance <= Constants.DialogMaxDistance &&
+            return horizontalDistance <= GetDialogRadius(npcContainer) &&
                    heightDifference <= Constants.DialogMaxHeightDifference;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableDialogRangeByBodySize: the distance counts from the body's edge - G2's undead dragon is
+        /// meters wide, the hero couldn't come close enough. Mob dialogs (MobDialogAnchor) use the plain distance.
+        /// </summary>
+        private float GetDialogRadius(NpcContainer npcContainer)
+        {
+            var isNpcDialog = GetDialogGo(npcContainer) == npcContainer.Go;
+            var bodyRadius = _configService.Dev.EnableDialogRangeByBodySize && isNpcDialog
+                ? Gothic.Core.Domain.Npc.NpcBodySize.GetRadius(npcContainer)
+                : 0f;
+            return Constants.DialogMaxDistance + bodyRadius;
         }
 
         /// <summary>
@@ -424,7 +599,7 @@ namespace Gothic.Core.Manager
                 else
                 {
                     outsideSeconds += Time.deltaTime;
-                    var overshoot = horizontalDistance - Constants.DialogMaxDistance;
+                    var overshoot = horizontalDistance - GetDialogRadius(npcContainer);
                     if (outsideSeconds > _bubbleGiveUpSeconds || overshoot > _bubbleGiveUpOvershoot)
                     {
                         Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero can't be " +
@@ -442,8 +617,9 @@ namespace Gothic.Core.Manager
 
         private void HoldHeroInBubble(NpcContainer npcContainer)
         {
-            _contextInteractionService.KeepPlayerWithin(npcContainer.Go.transform.position,
-                Constants.DialogSlowDownDistance, Constants.DialogMaxDistance - _bubbleEdgeMargin);
+            var radius = GetDialogRadius(npcContainer);
+            _contextInteractionService.KeepPlayerWithin(GetDialogGo(npcContainer).transform.position,
+                radius - (Constants.DialogMaxDistance - Constants.DialogSlowDownDistance), radius - _bubbleEdgeMargin);
         }
 
         private void StopBubbleWatcher()
@@ -478,6 +654,11 @@ namespace Gothic.Core.Manager
 
             // Delegate remaining tasks to general implementation of CallInformation
             CallInformation(npcContainer, infoInstance.Information);
+
+            // DeveloperConfig.EnableVrTrade: a choice with trade != 0 opens the trade after its info function (G2 fills
+            // the trader's goods there, e.g. B_GiveTradeInv).
+            if (infoInstance.Trade != 0)
+                _tradeService.TryStart(npcContainer);
         }
 
         private void CallInformation(NpcContainer npcContainer, int information)
@@ -515,6 +696,8 @@ namespace Gothic.Core.Manager
                 animationQueue.Enqueue(new StartProcessInfos(
                     new AnimationAction(int0: information), npcContainer));
             }
+
+            RunHeroQueueIfMobDialog(npcContainer);
         }
 
         public bool ExtNpcKnowsInfo(NpcInstance npc, int informationIndex)

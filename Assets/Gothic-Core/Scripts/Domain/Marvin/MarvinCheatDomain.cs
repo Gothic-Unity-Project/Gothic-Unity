@@ -1,6 +1,7 @@
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.UI;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
@@ -31,6 +32,13 @@ namespace Gothic.Core.Domain.Marvin
         private const int _manaMaxPerLevelCheat = 100;
         private const int _maxSpawnedNpcs = 10;
         private const float _spawnDistance = 2f;
+        private const float _blinkDistance = 4f;
+        private const float _blinkFloorSearchHeight = 3f;
+        private const float _groupDistance = 2.5f;
+        private const float _groupArcDegrees = 120f;
+        private const string _messageFont = "FONT_OLD_20_WHITE.TGA";
+        private const int _messagePos = 2;
+        private const float _messageSeconds = 2f;
 
         /// <summary>
         /// Hit points and mana to the maximum.
@@ -146,6 +154,90 @@ namespace Gothic.Core.Domain.Marvin
             _gameTimeService.SetTime(hour, minute);
             Logger.Log($"[MarvinCheatDomain] Time set to {hour:D2}:{minute:D2}", LogCat.Ui);
             return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMarvinGodMode: hits (melee, arrows, spells) and falls don't hurt the hero. Toggles; the
+        /// state shows as a screen message.
+        /// </summary>
+        public bool ToggleGodMode()
+        {
+            _playerService.IsGodMode = !_playerService.IsGodMode;
+            var state = _playerService.IsGodMode ? "ON" : "OFF";
+            GlobalEventDispatcher.PrintScreen.Invoke(
+                new PrintScreenMessage($"God mode {state}", _messagePos, _messagePos, _messageFont, _messageSeconds));
+            Logger.Log($"[MarvinCheatDomain] God mode {state}", LogCat.Ui);
+            return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMarvinBlink - like Gothic's Marvin key K: 4 m forward where the hero looks, only
+        /// horizontally (through doors and walls). The floor below the target is searched from a bit above, otherwise
+        /// the height stays. Falling out: MarvinFallRescue.
+        /// </summary>
+        public bool BlinkForward()
+        {
+            var player = _contextInteractionService.GetCurrentPlayerController();
+            var cam = Camera.main;
+            if (player == null || cam == null)
+            {
+                Logger.LogWarning("[MarvinCheatDomain] Blink: no player or camera", LogCat.Ui);
+                return false;
+            }
+
+            var forward = cam.transform.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.0001f)
+                forward = player.transform.forward;
+            forward.y = 0f;
+            forward.Normalize();
+
+            var target = player.transform.position + forward * _blinkDistance;
+            if (Physics.Raycast(target + Vector3.up * _blinkFloorSearchHeight, Vector3.down, out var hit,
+                    _blinkFloorSearchHeight * 2f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                target.y = hit.point.y;
+
+            _contextInteractionService.TeleportPlayerTo(target, player.transform.rotation);
+            Logger.Log($"[MarvinCheatDomain] Blink {_blinkDistance:F0} m forward to {target}", LogCat.Ui);
+            return true;
+        }
+
+        /// <summary>
+        /// Spawns a group of NPCs on an arc in front of the hero, facing him: the Irdorath crew (DeveloperConfig
+        /// MarvinFriendsNpcSymbols) or the scripts' test helpers SH/CH (MarvinCheatFriendsNpcSymbols).
+        /// </summary>
+        public bool SpawnGroup(string groupName, string npcSymbols)
+        {
+            var heroGo = _npcService.GetHeroContainer()?.Go;
+            if (heroGo == null)
+            {
+                Logger.LogWarning($"[MarvinCheatDomain] {groupName}: hero GameObject not found", LogCat.Ui);
+                return false;
+            }
+
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var entry in npcSymbols.Split(',', ';', '\n'))
+            {
+                var name = entry.Trim();
+                if (name.Length > 0)
+                    names.Add(name);
+            }
+
+            var forward = heroGo.transform.forward;
+            forward.y = 0f;
+            forward = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
+            var spawned = 0;
+            for (var i = 0; i < names.Count; i++)
+            {
+                var angle = names.Count > 1 ? -_groupArcDegrees / 2f + _groupArcDegrees * i / (names.Count - 1) : 0f;
+                var direction = Quaternion.Euler(0f, angle, 0f) * forward;
+                var position = heroGo.transform.position + direction * _groupDistance;
+                if (_npcService.SpawnNpcByName(names[i], position, Quaternion.LookRotation(-direction)))
+                    spawned++;
+            }
+
+            Logger.Log($"[MarvinCheatDomain] {groupName}: spawned {spawned}/{names.Count}", LogCat.Ui);
+            return spawned > 0;
         }
 
         private static int GetHeroAttribute(NpcContainer hero, NpcAttribute attribute)

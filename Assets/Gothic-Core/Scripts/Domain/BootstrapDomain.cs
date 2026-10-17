@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -31,11 +32,12 @@ namespace Gothic.Core.Domain
         [Inject] private readonly FontService _fontService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         
         public BootstrapDomain()
         {
-            GlobalEventDispatcher.LoadGameStart.AddListener(LoadGothicVm);
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
         
         public void Boot()
@@ -89,17 +91,19 @@ namespace Gothic.Core.Domain
             else if (!TrySetFallbackLanguage())
                 throw new CultureNotFoundException("Language couldn't be identified based on current Gothic " +
                                                    "installation. Set unityFallbackLanguage in the mod's ini " +
-                                                   "to boot anyway.");
+                                                   "(or DeveloperConfig.FallbackLanguage) to boot anyway.");
         }
 
         /// <summary>
         /// Mods frequently rename MOBNAME_CRATE (the auto-detection probe constant), which would
-        /// otherwise hard-fail the boot. The unityFallbackLanguage entry in the mod's ini lets
-        /// the mod author/user pick the language manually for such installations.
+        /// otherwise hard-fail the boot. The unityFallbackLanguage entry in the mod's ini (or else
+        /// DeveloperConfig.FallbackLanguage) lets the mod author/user pick the language manually for such installations.
         /// </summary>
         private bool TrySetFallbackLanguage()
         {
-            var fallback = _configService.GothicMod?.UnityFallbackLanguage.Trim().ToLowerInvariant();
+            var fallback = _configService.GothicMod?.UnityFallbackLanguage?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(fallback))
+                fallback = _configService.Dev.FallbackLanguage?.Trim().ToLowerInvariant();
             if (string.IsNullOrEmpty(fallback))
                 return false;
 
@@ -138,6 +142,32 @@ namespace Gothic.Core.Domain
             return valuesToCheck.Contains(l10nString);
         }
 
+        /// <summary>
+        /// Every game start gets a fresh Gothic VM. DeveloperConfig.EnableDialogsPerGameVm: its C_Info instances too -
+        /// the dialogs were initialized once at boot on the first VM, so what scripts write into them during the game
+        /// (SMITHWEAPON_S1: PC_ItMw_1H_Common.description = NAME_ItMw_1H_Common_01) went to the new VM's unbound symbols
+        /// and the anvil's weapon choices stayed empty.
+        /// </summary>
+        private void OnLoadGameStart()
+        {
+            LoadGothicVm();
+
+            // DeveloperConfig.EnableVmCacheResetOnLoad: item/SVM/spell instances of the old VM are dead in the new one.
+            if (_configService.Dev.EnableVmCacheResetOnLoad)
+            {
+                _vmCacheService.ResetGothicVmInstances();
+                Logger.Log("[Bootstrap] VM instance caches reset for the new VM", LogCat.ZenKit);
+            }
+
+            if (_configService.Dev.EnableDialogsPerGameVm)
+            {
+                _gameStateService.Dialogs.Instances.Clear();
+                LoadDialogs();
+                Logger.Log($"[Bootstrap] {_gameStateService.Dialogs.Instances.Count} dialogs initialized on the new VM",
+                    LogCat.Dialog);
+            }
+        }
+
         public void LoadGothicVm()
         {
             _gameStateService.GothicVm = _resourceCacheService.TryGetDaedalusVm("GOTHIC");
@@ -172,6 +202,7 @@ namespace Gothic.Core.Domain
             _gameStateService.MenuVm = _resourceCacheService.TryGetDaedalusVm("MENU");
             _gameStateService.SfxVm = _resourceCacheService.TryGetDaedalusVm("SFX");
             _gameStateService.PfxVm = _resourceCacheService.TryGetDaedalusVm("PARTICLEFX");
+            _gameStateService.VfxVm = _resourceCacheService.TryGetDaedalusVm("VISUALFX");
         }
 
         /// <summary>
@@ -191,12 +222,20 @@ namespace Gothic.Core.Domain
             var rootPath = _contextGameVersionService.RootPath;
             var suffixes = new[] { _contextGameVersionService.CutsceneFileSuffix, "BIN", "CSL" };
 
-            // VDFS/ is checked first — it holds the mod's OU.BIN extracted from DM_Speech.mod.
-            // ZenKit's CutsceneLibrary has no VFS support, so this is the only way to load mod subtitles.
-            var cutscenePath = new[] { "VDFS/_WORK", "_work" }
-                .SelectMany(folder => suffixes.Select(suffix =>
-                    Path.Combine(rootPath, folder, "DATA", "scripts", "content", "CUTSCENE", $"OU.{suffix}")))
+            // VDFS/ is checked first — it holds the mod's OU.BIN extracted from DM_Speech.mod by hand.
+            // ZenKit's CutsceneLibrary has no VFS support, so it needs a file on disk.
+            string GetDiskPath(string folder) => suffixes
+                .Select(s => Path.Combine(rootPath, folder, "DATA", "scripts", "content", "CUTSCENE", $"OU.{s}"))
                 .FirstOrDefault(File.Exists);
+
+            var cutscenePath = GetDiskPath("VDFS/_WORK");
+            // DeveloperConfig.EnableSubtitlesFromVfs: a mod's OU.BIN packed in its VDF/.mod (New Balance, Dolina Zombie)
+            // is written to a temporary file - no manual VDFS extraction needed any more.
+            if (cutscenePath == null && _configService.Dev.EnableSubtitlesFromVfs && _configService.IsModActive)
+                cutscenePath = ExtractSubtitlesFromVfs(suffixes);
+            cutscenePath ??= GetDiskPath("_work");
+            if (cutscenePath == null && _configService.Dev.EnableSubtitlesFromVfs)
+                cutscenePath = ExtractSubtitlesFromVfs(suffixes);
 
             if (cutscenePath == null)
             {
@@ -206,6 +245,36 @@ namespace Gothic.Core.Domain
 
             Logger.Log($"Loading CutsceneLibrary from: {cutscenePath}", LogCat.Dialog);
             _gameStateService.Dialogs.CutsceneLibrary = new(cutscenePath);
+        }
+
+        /// <summary>
+        /// The mounted archives' OU.BIN/OU.CSL (the mod's wins, VfsOverwriteBehavior.All) as a temporary file. Null if
+        /// no archive has one.
+        /// </summary>
+        private string ExtractSubtitlesFromVfs(string[] suffixes)
+        {
+            foreach (var suffix in suffixes.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var fileName = $"OU.{suffix}";
+                var bytes = _resourceCacheService.Vfs.Find(fileName)?.Buffer.Bytes;
+                if (bytes == null || bytes.Length == 0)
+                    continue;
+
+                try
+                {
+                    var path = Path.Combine(UnityEngine.Application.temporaryCachePath, fileName);
+                    File.WriteAllBytes(path, bytes);
+                    Logger.Log($"Subtitles {fileName} read from the archives ({bytes.Length / 1024} KB) -> {path}",
+                        LogCat.Dialog);
+                    return path;
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"Subtitles {fileName} from the archives couldn't be written: {e.Message}",
+                        LogCat.Dialog);
+                }
+            }
+            return null;
         }
 
         private void LoadVideos()
@@ -218,6 +287,35 @@ namespace Gothic.Core.Domain
             _fontService.Create();
         }
 
+        /// <summary>
+        /// Only the human block of the guild table comes from the scripts (GIL_ATTITUDES) - everything else stayed 0 =
+        /// ATT_HOSTILE: an orc warrior and an orc scout were enemies, and when one drew its weapon against the hero the
+        /// others attacked it. Orcs of all castes are friends, and every monster guild is friendly to itself.
+        /// Scripts can still change it (Wld_SetGuildAttitude).
+        /// </summary>
+        private void InitMonsterGuildAttitudes()
+        {
+            var count = _gameStateService.GuildCount;
+            var friendly = (int)VmGothicEnums.Attitude.Friendly;
+            // From the scripts - G1 and G2 number their guilds differently.
+            var vm = _gameStateService.GothicVm;
+            var humanSeparator = vm.GetSymbolByName("GIL_SEPERATOR_HUM")?.GetInt(0) ?? -1;
+            var orcSeparator = vm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0) ?? -1;
+            if (humanSeparator < 0 || orcSeparator < 0)
+            {
+                Logger.LogWarning("GIL_SEPERATOR_HUM/ORC not found - monster guild attitudes stay hostile.", LogCat.Npc);
+                return;
+            }
+            var firstOrcGuild = orcSeparator + 1;
+
+            for (var guild = humanSeparator + 1; guild < count; guild++)
+                _gameStateService.GuildAttitudes[guild * count + guild] = friendly;
+
+            for (var guild1 = firstOrcGuild; guild1 < count; guild1++)
+                for (var guild2 = firstOrcGuild; guild2 < count; guild2++)
+                    _gameStateService.GuildAttitudes[guild1 * count + guild2] = friendly;
+        }
+
         private void LoadGuildData()
         {
             var guildMax = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.GuildMaxValue);
@@ -228,6 +326,7 @@ namespace Gothic.Core.Domain
             _gameStateService.GuildHumanCount = (int)(tablesize != null ? Math.Sqrt(tablesize.GetInt(0)) : 0);
 
             _gameStateService.GuildAttitudes = new int[_gameStateService.GuildCount * _gameStateService.GuildCount];
+            InitMonsterGuildAttitudes();
 
             var id = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.GuildValuesInstance);
             if (id == null)

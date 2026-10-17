@@ -1,6 +1,7 @@
 #if GOTHIC_HVR_INSTALLED
 using System;
 using Gothic.Core.Adapters.UI.Menus;
+using Gothic.Core.Domain;
 
 namespace Gothic.VR.Adapters.UI.Menus.Settings
 {
@@ -38,6 +39,12 @@ namespace Gothic.VR.Adapters.UI.Menus.Settings
 
         protected override void ExecuteCommand(string itemName, string commandName)
         {
+            if (commandName == VRConstants.MenuCommandRestartGame)
+            {
+                GameRestartDomain.Restart();
+                return;
+            }
+
             throw new NotImplementedException();
         }
     }

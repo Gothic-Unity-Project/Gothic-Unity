@@ -1,4 +1,5 @@
 using System.Linq;
+using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -37,7 +38,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             // NPC is already interacting with a Mob, we therefore assume it's a change of state (e.g. -1 to stop Mob usage)
-            if (Props.BodyState == VmGothicEnums.BodyState.BsMobinteract)
+            if (Props.BodyState == VmGothicEnums.BodyState.BsMobinteract || IsAlreadySittingOnSameMob())
             {
                 _mobContainer = PrefabProps.CurrentInteractable;
                 _slotGo = PrefabProps.CurrentInteractableSlot;
@@ -47,6 +48,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // _destination (0,0,0) as walk target and never reach TickMobUsage().
                 _destination = _slotGo.transform.position;
                 IsDestReached = true;
+
+                // Something (ClearState, AI_StandUp) may have reset it - B_AssessTalk checks BS_SIT to talk seated.
+                if (ConfigService.Dev.EnableMobSeatFix && TargetState >= 0)
+                    SetBodyState();
 
                 StartMobUseAnimation();
                 return;
@@ -63,11 +68,31 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 IsFinishedFlag = true;
                 return;
             }
+
+            // DeveloperConfig.EnableMobOccupancy: taken right away - the walk (StartNow) can start frames later and
+            // another NPC must not pick the same mob meanwhile.
+            if (ConfigService.Dev.EnableMobOccupancy)
+                PrefabProps.CurrentInteractable = container;
             
             if (container.Go.GetComponent<VobLoader>().IsLoaded)
                 StartNow();
             else
                 StartDelayed();
+        }
+
+        /// <summary>
+        /// Sitting sets BsSit (not BsMobinteract), so a repeated AI_UseMob of a seated NPC searched the mob again and
+        /// walked back to the slot. Same scheme + already in a mob state = just a state change.
+        /// </summary>
+        private bool IsAlreadySittingOnSameMob()
+        {
+            if (!ConfigService.Dev.EnableMobSeatFix)
+                return false;
+
+            var current = PrefabProps.CurrentInteractable;
+            return current != null && PrefabProps.CurrentInteractableSlot != null &&
+                   Props.CurrentInteractableStateId >= 0 &&
+                   current.Props.GetVisualScheme().EqualsIgnoreCase(Action.String0);
         }
 
         private void StartNow()
@@ -78,6 +103,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             if (slot == null)
             {
+                // The reservation from Start (DeveloperConfig.EnableMobOccupancy) goes - no free slot.
+                if (Props.CurrentInteractableStateId == -1 && PrefabProps.CurrentInteractable == _mobContainer)
+                    PrefabProps.CurrentInteractable = null;
                 IsFinishedFlag = true;
                 return;
             }
@@ -172,7 +200,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             else
             {
                 // Loop animations carry the slot position as well (e.g. s_Bed_Front_S1 vs. s_Cauldron_S1).
-                var animName = string.Format(_mobLoopAnimationString, _mobsiScheme, GetSlotPositionTag(_slotGo.name), TargetState);
+                var animName = GetMobAnimationName(tag => string.Format(_mobLoopAnimationString, _mobsiScheme, tag, TargetState));
                 PrefabProps.AnimationSystem.PlayAnimation(animName);
             }
 
@@ -183,7 +211,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private VobContainer GetNearestMob()
         {
             var pos = NpcGo.transform.position;
-            return VobService.GetFreeInteractableWithin10M(pos, Action.String0);
+            return VobService.GetFreeInteractableWithin10M(pos, Action.String0, NpcContainer);
         }
 
         [CanBeNull]
@@ -193,7 +221,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return null;
 
             var pos = NpcGo.transform.position;
-            var slot = VobService.GetNearestSlot(_mobContainer.Go, pos);
+            var slot = ConfigService.Dev.EnableMobOccupancy
+                ? VobService.GetNearestFreeSlot(_mobContainer, pos, NpcContainer)
+                : VobService.GetNearestSlot(_mobContainer.Go, pos);
 
             return slot;
         }
@@ -217,12 +247,33 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             
             PhysicsService.DisablePhysicsForNpc(PrefabProps);
 
-            NpcGo.transform.SetPositionAndRotation(_slotGo.transform.position, _slotGo.transform.rotation);
+            // The slot is where the NPC stands in front of the mob - the transition animation's root motion moves it onto
+            // the seat (OpenGothic: same). Routines call AI_UseMob(BENCH, 1) again and again: snapping back to the slot
+            // then pulled the seated NPC off the bench into the air in front of it.
+            if (!ConfigService.Dev.EnableMobSeatFix || Props.CurrentInteractableStateId == -1)
+                NpcGo.transform.SetPositionAndRotation(_slotGo.transform.position, _slotGo.transform.rotation);
 
             // Already in the demanded state (e.g. a repeated AI_UseMob with the same state):
             // TickMobUsage() will replay the loop animation and finish without a transition.
             if (Props.CurrentInteractableStateId != TargetState)
                 PlayTransitionAnimation();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMobAnimationWithoutPosition: like OpenGothic, the slot position (FRONT/BACK) is only part
+        /// of the name when the model has such an animation - beds have t_Bed_Back_S0_2_S1, the saw, repair spot and roast
+        /// spit only t_BaumSaege_S0_2_S1. A pirate at the saw stood next to it (S_BAUMSAEGE_BACK_S1 not found).
+        /// </summary>
+        private string GetMobAnimationName(System.Func<string, string> format)
+        {
+            var positionTag = GetSlotPositionTag(_slotGo.name);
+            var animName = format(positionTag);
+            if (!ConfigService.Dev.EnableMobAnimationWithoutPosition || positionTag == "_" ||
+                PrefabProps.AnimationSystem.HasAnimation(animName))
+                return animName;
+
+            var withoutPosition = format("_");
+            return PrefabProps.AnimationSystem.HasAnimation(withoutPosition) ? withoutPosition : animName;
         }
 
         private string GetSlotPositionTag(string name)
@@ -249,6 +300,32 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
             Props.CurrentInteractableStateId += step;
+
+            if (_mobContainer == null)
+                return;
+
+            // Propagate to the mob VOB so Wld_GetMobState() returns the correct value.
+            var mobProps = _mobContainer.PropsAs<InteractiveProperties>();
+            if (mobProps != null)
+                mobProps.State = Props.CurrentInteractableStateId;
+
+            // If this mob is linked to a mover (e.g. VWHEEL → gate), activate it.
+            var target = _mobContainer.VobAs<IInteractiveObject>()?.Target;
+            if (!string.IsNullOrEmpty(target))
+                TriggerLinkedMover(target, step > 0);
+        }
+
+        private void TriggerLinkedMover(string targetName, bool opening)
+        {
+            if (!VobService.TryGetMover(targetName, out var moverContainer) || moverContainer?.Go == null)
+                return;
+
+            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
+            if (moverAdapter == null)
+                return;
+
+            if (opening) moverAdapter.Open();
+            else moverAdapter.Close();
         }
 
         private void PlayTransitionAnimation()
@@ -261,8 +338,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var from = current == -1 ? "Stand" : $"S{current}";
             var to = next == -1 ? "Stand" : $"S{next}";
 
-            var slotPositionName = GetSlotPositionTag(_slotGo.name);
-            var animName = string.Format(_mobTransitionAnimationString, _mobsiScheme, slotPositionName, from, to);
+            var animName = GetMobAnimationName(tag => string.Format(_mobTransitionAnimationString, _mobsiScheme, tag, from, to));
 
             _currentMobAnimation = animName;
             PrefabProps.AnimationSystem.PlayAnimation(animName);

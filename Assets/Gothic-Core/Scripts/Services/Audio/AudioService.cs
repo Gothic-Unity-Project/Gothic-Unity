@@ -37,8 +37,10 @@ namespace Gothic.Core.Manager
         public void InitMusic()
         {
             // Skipping Init() leaves _themes empty, so every Play*/Zone* call below safely no-ops and
-            // dmusic's native engine is never touched (see GothicModIniConfig.UnitySkipMusicPlayback).
-            if (!_configService.GothicMod.UnitySkipMusicPlayback)
+            // dmusic's native engine is never touched: the mod ini's unitySkipMusicPlayback (see
+            // GothicModIniConfig.UnitySkipMusicPlayback) or ConfigService.EffectiveEnableMusic (GameSettings.json /
+            // DeveloperConfig EnableMusic).
+            if (_configService.EffectiveEnableMusic && !_configService.GothicMod.UnitySkipMusicPlayback)
                 _musicDomain.Init();
 
             GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(OnMainMenuLoaded);
@@ -58,6 +60,14 @@ namespace Gothic.Core.Manager
             
             GlobalEventDispatcher.SetHeroAsTarget.AddListener((enemy, hero) =>
             {
+                // DeveloperConfig.EnableMusicZonesByPosition: the zone check derives fight/threat from this.
+                if (_configService.Dev.EnableMusicZonesByPosition)
+                {
+                    _musicDomain.OnHeroTargeted(enemy);
+                    _musicDomain.Play();
+                    return;
+                }
+
                 _musicDomain.ModeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon ? MusicDomain.MusicTagsMode.Thrill : MusicDomain.MusicTagsMode.Fight;
                 _musicDomain.Play();
             });
@@ -70,11 +80,13 @@ namespace Gothic.Core.Manager
 
         private void OnMainMenuLoaded()
         {
+            _musicDomain.ClearZones();
             PlayMusic("SYS_MENU");
         }
 
         private void OnLoadingSceneLoaded()
         {
+            _musicDomain.ClearZones();
             PlayMusic("SYS_LOADING");
         }
 

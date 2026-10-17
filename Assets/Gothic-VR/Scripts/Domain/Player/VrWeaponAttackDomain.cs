@@ -250,6 +250,14 @@ namespace Gothic.VR.Domain.Player
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(attackAnimationName));
         }
 
+        public VmGothicEnums.WeaponState GetWeaponState()
+        {
+            if (WeaponVobContainer == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            return Is2HD() ? VmGothicEnums.WeaponState.W2H : VmGothicEnums.WeaponState.W1H;
+        }
+
         private bool Is2HD()
         {
             return (WeaponVobContainer.GetItemInstance().Flags & _twoHandedFlags) != 0;
@@ -428,6 +436,10 @@ namespace Gothic.VR.Domain.Player
 
         private void HandleInitialWindow()
         {
+            // An unconscious hero can still swing a weapon picked up again - but it's no attack.
+            if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
+
             if (_currentWeaponVelocity >= _attackVelocityThreshold)
                 StartAttack();
         }

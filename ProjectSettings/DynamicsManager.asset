@@ -3,7 +3,7 @@
 --- !u!55 &1
 PhysicsManager:
   m_ObjectHideFlags: 0
-  serializedVersion: 19
+  serializedVersion: 23
   m_Gravity: {x: 0, y: -9.81, z: 0}
   m_DefaultMaterial: {fileID: 0}
   m_BounceThreshold: 2
@@ -17,7 +17,7 @@ PhysicsManager:
   m_EnableAdaptiveForce: 0
   m_ClothInterCollisionDistance: 0
   m_ClothInterCollisionStiffness: 0
-  m_LayerCollisionMatrix: 6fefffffc9e0cfffedefffffffffffff08e0cfff0de0cfff4ffaffff0ee2efff0de6cfffcdefffff0de7ffff4deaffff48e0cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4deeffffcdeeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  m_LayerCollisionMatrix: 6fefffffc9e0cfffedefffffffffffff08e0cfff0de0cfff4ffaffff0ee2efff0deecfffcdefffff0de7ffff4debffff48e0cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4deeffffcdeeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
   m_SimulationMode: 0
   m_AutoSyncTransforms: 0
   m_ReuseCollisionCallbacks: 1
@@ -26,6 +26,10 @@ PhysicsManager:
   m_ClothGravity: {x: 0, y: -9.81, z: 0}
   m_ContactPairsMode: 0
   m_BroadphaseType: 0
+  m_WorldBounds:
+    m_Center: {x: 0, y: 0, z: 0}
+    m_Extent: {x: 256, y: 256, z: 256}
+  m_WorldSubdivisions: 8
   m_FrictionType: 0
   m_EnableEnhancedDeterminism: 0
   m_ImprovedPatchFriction: 0
@@ -35,3 +39,7 @@ PhysicsManager:
   m_ScratchBufferChunkCount: 4
   m_CurrentBackendId: 4072204805
   m_FastMotionThreshold: 3.4028235e+38
+  m_SceneBuffersReleaseInterval: 0
+  m_ReleaseSceneBuffers: 0
+  m_LogVerbosity: 3
+  m_IncrementalStaticBroadphase: 1

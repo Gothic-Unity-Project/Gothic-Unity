@@ -76,6 +76,20 @@ namespace Gothic.Core.Const
         public const string SceneDefaultWorld = "DefaultWorld";
         public const string SceneLab = "Lab";
 
+        /// <summary>
+        /// Gothic.ini keys of our own menu options (written by the settings menu, 0 = off, 1 = on).
+        /// </summary>
+        public static class IniNames
+        {
+            public const string HitNumbers = "hitNumbers";
+            public const string HealthNumbers = "healthNumbers";
+            // Slider 0...1 for the "-X HP" numbers: 0 = smallest (default size), 1 = HitNumbersMaxScale times bigger.
+            public const string HitNumbersSize = "hitNumbersSize";
+            // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
+            public const string LightRefresh = "lightRefresh";
+            public const float HitNumbersMaxScale = 3f;
+        }
+
         // Water settings
         public static readonly int ShaderPropertyWaterEffectToggle = Shader.PropertyToID("_UnderwaterEffect");
         
@@ -95,7 +109,9 @@ namespace Gothic.Core.Const
             VirtualObjectType.oCMobWheel,
             VirtualObjectType.zCVob,
             VirtualObjectType.zCVobAnimate,
-            VirtualObjectType.zCVobStair
+            VirtualObjectType.zCVobStair,
+            // Movers with a visual used nowhere else got no bounds (never shown): The Chronicles Of Myrtana's intro ship.
+            VirtualObjectType.zCMover
         };
 
         /*
@@ -164,7 +180,8 @@ namespace Gothic.Core.Const
         public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "5";
+        // 6: VOB bounds and texture arrays also for zCMover and for children of VOBs without a visual.
+        public const string StaticCacheVersion = "6";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

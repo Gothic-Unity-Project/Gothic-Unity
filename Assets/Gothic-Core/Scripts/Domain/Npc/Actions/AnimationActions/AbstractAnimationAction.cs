@@ -7,6 +7,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Proxy;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
@@ -31,6 +32,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] protected readonly VobService VobService;
         [Inject] protected readonly VmService VmService;
         [Inject] protected readonly GameStateService GameStateService;
+        [Inject] protected readonly ConfigService ConfigService;
 
 
         protected readonly NpcContainer NpcContainer;

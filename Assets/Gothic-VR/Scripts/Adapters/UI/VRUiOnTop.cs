@@ -76,6 +76,23 @@ namespace Gothic.VR.Adapters.UI
                 PatchMeshRenderer(meshRenderer);
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableHudAlwaysOnTop: the same on-top drawing for a UI built by code, which has no VRUiOnTop
+        /// in its prefab (the hero's status bars, the chapter screen). Copies this one's materials once, applies it.
+        /// </summary>
+        public VRUiOnTop CopyTo(GameObject root)
+        {
+            if (!root.TryGetComponent<VRUiOnTop>(out var copy))
+            {
+                copy = root.AddComponent<VRUiOnTop>();
+                copy._backgroundMaterial = _backgroundMaterial;
+                copy._textMaterial = _textMaterial;
+                copy._meshMaterial = _meshMaterial;
+            }
+            copy.Apply();
+            return copy;
+        }
+
         private void OnEnable()
         {
             TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);

@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Doc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -82,7 +83,84 @@ namespace Gothic.Core
         /// Vector3      - at which position
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
-        
+
+        /// <summary>
+        /// NpcContainer - caster
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// int          - total spell damage (SPL_DAMAGE_* * level, already calculated)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, int> SpellHit = new();
+
+        /// <summary>
+        /// A spread spell (SpellConst.SpreadEffectNames, fire storm) landed on the ground/a wall - its burning area
+        /// damages the NPCs around.
+        /// NpcContainer - caster
+        /// Vector3      - impact position
+        /// int          - total spell damage
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, Vector3, int> SpellSpreadHit = new();
+
+        /// <summary>
+        /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
+        /// </summary>
+        public static readonly UnityEvent GameTimeSkipped = new();
+        // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
+        public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
+
+        /// <summary>
+        /// Arrow/bolt hit (VR crossbow/bow projectiles).
+        /// NpcContainer - shooter
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// (weapon, damageScale) - the ranged weapon (damage, damage type) + scale (VR bow: partly drawn string),
+        ///                         1 = engine damage. A tuple: UnityEvent takes at most 4 arguments.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, (ZenKit.Daedalus.ItemInstance weapon, float damageScale)> RangedHit = new();
+
+        /// <summary>
+        /// NpcContainer - who performs the finishing move (attacker)
+        /// NpcContainer - who is executed (unconscious target)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> FightFinishingMove = new();
+
+        /// <summary>
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
+        /// NpcContainer - whose inventory lost the item
+        /// int - item instance index
+        /// int - amount
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, int, int> ScriptRemovedInvItems = new();
+
+        /// <summary>
+        /// An inventory view (NPC loot sockets, NPC backpack, trade counter) changed an NPC's items - the other views
+        /// showing the same NPC refresh.
+        /// NpcContainer - whose inventory changed
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
+
+        /// <summary>
+        /// Trade with an NPC (TradeService). TradeSession - the running trade.
+        /// </summary>
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeStarted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeOfferChanged = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeCommitted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeClosed = new();
+
+        /// <summary>
+        /// PlayVideo/PlayVideoEx from Daedalus (chapter videos, G1 ending "Extro.bik"). string = video file name.
+        /// </summary>
+        public static readonly UnityEvent<string> ScriptPlayVideo = new();
+        // ExitGame (G1 ending) / ExitSession (G2 ending): the game ends after the queued videos (credits).
+        public static readonly UnityEvent ScriptExitGame = new();
+        // Mdl_ApplyOverlayMDSTimed on the hero (overlay name, seconds) - e.g. speed potions (HUMANS_SPRINT.MDS).
+        public static readonly UnityEvent<string, float> ScriptHeroOverlayTimed = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick
@@ -95,6 +173,8 @@ namespace Gothic.Core
         // FIXME - If LockPick in hand is Amount=0, then destroy as Mesh.
         public static readonly UnityEvent<VobContainer, VobContainer, int> LockPickComboBroken = new();
 
+        // DocModel — document to show; GameObject — item GO to attach the viewer to (may be null in flat mode).
+        public static readonly UnityEvent<DocModel, GameObject> DocShow = new();
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
         public static readonly UnityEvent<PrintScreenMessage> PrintScreen = new();

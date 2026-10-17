@@ -108,6 +108,9 @@ Assets/HurricaneVR/
 # Do not commit local development settings
 Assets/StreamingAssets/GameSettings.dev.json
 Assets/StreamingAssets/GameSettings.dev.json.meta
+# Temporary copies of LICENSE/THIRD_PARTY_NOTICES.md during Android builds (LicenseFilesBuildStep)
+Assets/StreamingAssets/Licenses/
+Assets/StreamingAssets/Licenses.meta
 Assets/StreamingAssets/SpeechToText/*.sentis
 Assets/StreamingAssets/SpeechToText/*.sentis.meta
 Assets/StreamingAssets/SpeechToText/*.json

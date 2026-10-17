@@ -13,6 +13,8 @@ namespace Gothic.Core.Services.Player
     {
         public List<string> VideoFileNamesMp4 = new();
         public List<string> VideoFilePathsMp4 = new();
+        // Original Bink videos - played directly by BinkPlayer (no conversion needed).
+        public List<string> VideoFilePathsBik = new();
 
         
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
@@ -30,6 +32,8 @@ namespace Gothic.Core.Services.Player
 
             VideoFilePathsMp4 = Directory.EnumerateFiles(videoFileFolder, "*.mp4").ToList();
             VideoFileNamesMp4 = VideoFilePathsMp4.Select(Path.GetFileName).ToList();
+            VideoFilePathsBik = Directory.EnumerateFiles(videoFileFolder)
+                .Where(i => Path.GetExtension(i).Equals(".bik", System.StringComparison.OrdinalIgnoreCase)).ToList();
 
             if (VideoFilePathsMp4.IsEmpty())
             {

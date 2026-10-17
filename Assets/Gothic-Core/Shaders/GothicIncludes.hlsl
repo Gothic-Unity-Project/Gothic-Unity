@@ -6,6 +6,9 @@
 float3 _SunDirection;
 real3 _SunColor;
 real3 _AmbientColor;
+// Time of day (Gothic's sky polyColor, SkyService): scales the outdoor world's baked light. Sun/ambient above already
+// contain it. Stationary lights (fires, torches) are added on top and stay as bright at night.
+real3 _DayLightColor;
 real _PointLightIntensity;
 bool _UnderwaterEffect;
 float3 _UnderwaterColor;

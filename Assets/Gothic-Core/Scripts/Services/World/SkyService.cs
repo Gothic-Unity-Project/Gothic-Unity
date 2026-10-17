@@ -24,6 +24,11 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly TextureCacheService _textureCacheService;
         [Inject] private readonly TextureService _textureService;
+        [Inject] private readonly SaveGameService _saveGameService;
+
+        // DeveloperConfig.EnableIndoorWorldDarkness: the light of indoor worlds (no sun, no fog) - like the night.
+        private static readonly Color _indoorLight = new(0.25f, 0.25f, 0.3f);
+        private bool? _isIndoorWorld;
         
         
         private Vector3 _sunDirection;
@@ -37,6 +42,7 @@ namespace Gothic.Core.Services.World
         private static readonly int _sunColorShaderId = Shader.PropertyToID("_SunColor");
         private static readonly int _ambientShaderId = Shader.PropertyToID("_AmbientColor");
         private static readonly int _pointLightIntensityShaderId = Shader.PropertyToID("_PointLightIntensity");
+        private static readonly int _dayLightColorShaderId = Shader.PropertyToID("_DayLightColor");
         private static readonly int _underwaterColorShaderId = Shader.PropertyToID("_UnderwaterColor");
 
         private SkyStateRain _rainState = new();
@@ -81,8 +87,37 @@ namespace Gothic.Core.Services.World
             GlobalEventDispatcher.GameTimeHourChangeCallback.AddListener(UpdateRainTime);
 
             RenderSettings.skybox = Object.Instantiate(_textureService.SkyMaterial);
+            _isIndoorWorld = null;
             InitRainGo();
             InitSky();
+            if (IsIndoorWorld())
+            {
+                RenderSettings.fog = false;
+                Logger.Log("[Sky] Indoor world - no sun, no fog", LogCat.Vob);
+            }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableIndoorWorldDarkness: an indoor BSP world (Old Mine, Free Mine, Orc Temple, mod caves).
+        /// The engine's indoor sky controller has no sun and no fog there - our sun lit the mines like the day.
+        /// </summary>
+        private bool IsIndoorWorld()
+        {
+            if (_isIndoorWorld.HasValue)
+                return _isIndoorWorld.Value;
+            if (!_configService.Dev.EnableIndoorWorldDarkness)
+                return false;
+
+            try
+            {
+                _isIndoorWorld = _saveGameService.CurrentWorldData?.BspTree?.Type == ZenKit.BspTreeType.Indoor;
+            }
+            catch (Exception)
+            {
+                // No world loaded yet (menu) - ask again later.
+                return false;
+            }
+            return _isIndoorWorld.Value;
         }
 
         /// <summary>
@@ -118,7 +153,7 @@ namespace Gothic.Core.Services.World
             });
 
 
-            RenderSettings.fog = true;
+            RenderSettings.fog = !IsIndoorWorld();
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.ambientMode = AmbientMode.Flat;
             InitRainState();
@@ -217,7 +252,9 @@ namespace Gothic.Core.Services.World
             var oldFogColor = lastState.FogColor.ToUnityColor(255) / 255f;
             var newFogColor = newState.FogColor.ToUnityColor(255) / 255f;
 
-            RenderSettings.ambientLight = Color.Lerp(oldPolyColor, newPolyColor, lerpFraction);
+            var polyColor = Color.Lerp(oldPolyColor, newPolyColor, lerpFraction);
+            RenderSettings.ambientLight = polyColor;
+            SetDayLight(polyColor);
             RenderSettings.fogColor = Color.Lerp(oldFogColor, newFogColor, lerpFraction);
 
             // Old sky layer 1.
@@ -283,11 +320,39 @@ namespace Gothic.Core.Services.World
             _rainState.Layer[0].TEXAlpha = 255.0f;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDayNightWorldLight: Gothic's sky polyColor (bright by day, dark blue at night) scales
+        /// the outdoor world's baked light and the sun/ambient of VOBs and NPCs - like the hands (URP ambient) did alone.
+        /// Fires and torches (stationary lights) are added after it and stay bright.
+        /// </summary>
+        private Color _loggedDayLight = Color.white;
+        private Color _polyColor = Color.white;
+
+        private void SetDayLight(Color polyColor)
+        {
+            _polyColor = polyColor;
+            var dayLight = _configService.Dev.EnableDayNightWorldLight
+                ? Color.Lerp(Color.white, polyColor, _configService.Dev.DayNightLightStrength)
+                : Color.white;
+            var isIndoor = IsIndoorWorld();
+            if (isIndoor)
+                dayLight = _indoorLight;
+
+            Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
+            if (Mathf.Abs(dayLight.r - _loggedDayLight.r) + Mathf.Abs(dayLight.b - _loggedDayLight.b) > 0.1f)
+            {
+                _loggedDayLight = dayLight;
+                Logger.Log($"[Sky] Day light {dayLight}", LogCat.Vob);
+            }
+            Shader.SetGlobalColor(_sunColorShaderId, isIndoor ? Color.black : _configService.Dev.SunLightColor * dayLight);
+            Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor * dayLight);
+        }
+
         private void SetShaderProperties()
         {
             Shader.SetGlobalVector(_sunDirectionShaderId, _sunDirection);
-            Shader.SetGlobalColor(_sunColorShaderId, _configService.Dev.SunLightColor);
-            Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor);
+            // InterpolateSky calls this right after SetDayLight - keep its sky color (white overwrote the night).
+            SetDayLight(_polyColor);
             Shader.SetGlobalFloat(_pointLightIntensityShaderId, _configService.Dev.SunLightIntensity);
             
             // TODO - Could be moved to another Service as Sky handling for dive color is not 100% true ;-)
@@ -299,7 +364,12 @@ namespace Gothic.Core.Services.World
         private void InitRainGo()
         {
             // by default rainPFX is disabled so we need to find the parent and activate it
-            var rainParticlesGameObject = GameObject.Find("Rain").FindChildRecursively("RainParticles");
+            var rainGo = GameObject.Find("Rain");
+            // DeveloperConfig.EnableRainFollowsPlayer: the rain stood at the world's origin (the player rig's root
+            // doesn't move) - now it follows the player's head.
+            if (_configService.Dev.EnableRainFollowsPlayer && rainGo.GetComponent<Adapters.Audio.RainFollower>() == null)
+                rainGo.AddComponent<Adapters.Audio.RainFollower>();
+            var rainParticlesGameObject = rainGo.FindChildRecursively("RainParticles");
             rainParticlesGameObject.SetActive(true);
             _rainParticleSystem = rainParticlesGameObject.GetComponent<ParticleSystem>();
             _rainParticleSystem.Stop();

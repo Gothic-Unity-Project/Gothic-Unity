@@ -19,6 +19,13 @@ namespace Gothic.Core.Services.Player
         public Quaternion HeroSpawnRotation;
         
         public string LastLevelChangeTriggerVobName;
+        // The world the last level change came from - its trigger in the new world is the way back.
+        public string LastLevelChangeFromWorld;
+
+        /// <summary>
+        /// Marvin's god mode (DeveloperConfig.EnableMarvinGodMode): hits and falls don't hurt the hero.
+        /// </summary>
+        public bool IsGodMode;
         public NpcContainer HeroContainer { get; private set; }
         
         
