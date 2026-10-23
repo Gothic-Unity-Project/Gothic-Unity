@@ -4,9 +4,15 @@ namespace Gothic.VR.Interaction.Ports
 {
     /// <summary>
     /// A physically rotating door or chest lid.
+    /// Shared prefabs may carry one hinge per backend: use the active one (VrHinges.FindActive).
     /// </summary>
     public interface IVrHinge
     {
+        /// <summary>
+        /// Whether this hinge belongs to the active VR backend.
+        /// </summary>
+        bool IsActive { get; }
+
         Transform Transform { get; }
         Rigidbody Rigidbody { get; }
 

@@ -22,6 +22,8 @@ Quest 2/3, Pico, PCVR, including Index / Steam Frame finger tracking.
 | 5 | [phase-5-hands.md](phase-5-hands.md) - **on hold**; physics hands skipped, Gothic fist meshes later | L-XL |
 | 6 | [phase-6-removal.md](phase-6-removal.md) - delete HVR, define, CI injection; update docs | S |
 
+Bugs found on the way (not caused by the replacement): [found-bugs.md](found-bugs.md).
+
 ## TL;DR
 
 - HVR 2.9.3: ~43k LoC. We use about a third of it, but that third is the hard part: **physics hands, physics

@@ -13,8 +13,9 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Interaction.Backends.Xri
 {
     /// <summary>
-    /// Sits next to an XRI interactable (GothicGrabInteractable for items) and its VrInteractable. Forwards XRI's
-    /// hover/select events synchronously to the VrInteractable and executes its commands on the interactable.
+    /// Sits next to an XRI interactable (GothicGrabInteractable for items, XRSimpleInteractable for mobs and NPCs)
+    /// and its VrInteractable. Forwards XRI's hover/select events synchronously to the VrInteractable and executes
+    /// its commands on the interactable.
     ///
     /// Prefabs carry the components of both backends. The XRI interactable is disabled in the prefab and only this
     /// bridge enables it, if XRI is the active backend. Otherwise, it stays disabled and never looks for (or
@@ -31,9 +32,35 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private XRBaseInteractable _xrInteractable;
         private VrInteractable _interactable;
         private bool _isSubscribed;
+        private float _lastHandReleaseTime = float.NegativeInfinity;
 
         public bool IsActive => _vrBackend is XriBackend;
         public bool IsHeld => _xrInteractable != null && _xrInteractable.isSelected;
+
+        /// <summary>
+        /// Mobs and NPCs carry an XRSimpleInteractable (select = use/talk), items a GothicGrabInteractable.
+        /// </summary>
+        public bool IsSelectOnly => _xrInteractable != null && _xrInteractable is not XRGrabInteractable;
+
+        /// <summary>
+        /// Selected by a player hand (XriGrabberBridge).
+        /// </summary>
+        public bool IsHeldByHand
+        {
+            get
+            {
+                if (_xrInteractable == null)
+                    return false;
+
+                foreach (var interactor in _xrInteractable.interactorsSelecting)
+                {
+                    if (interactor is Component component && component.TryGetComponent(out XriGrabberBridge _))
+                        return true;
+                }
+
+                return false;
+            }
+        }
 
         public IReadOnlyList<Collider> Colliders => _xrInteractable != null
             ? _xrInteractable.colliders
@@ -107,7 +134,15 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public void SetSocketSounds(AudioClip socketed, AudioClip unsocketed)
         {
-            // TODO HVR phase 3: XRI sockets.
+            // Nothing to do: VrInteractable keeps the clips and VrSocketSlot plays them (backend-neutral).
+        }
+
+        /// <summary>
+        /// A player hand released this interactable within the last seconds (XriSocketBridge takes such items).
+        /// </summary>
+        public bool IsJustReleasedByHand(float seconds)
+        {
+            return Time.time - _lastHandReleaseTime <= seconds;
         }
 
         /// <summary>
@@ -200,6 +235,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             if (!_selectArgs.Remove(args.interactorObject, out var grabArgs))
                 grabArgs = CreateOtherArgs(args.interactorObject);
+
+            if (args.interactorObject is Component component && component.TryGetComponent(out XriGrabberBridge _))
+                _lastHandReleaseTime = Time.time;
 
             _interactable.RaiseReleased(grabArgs);
         }

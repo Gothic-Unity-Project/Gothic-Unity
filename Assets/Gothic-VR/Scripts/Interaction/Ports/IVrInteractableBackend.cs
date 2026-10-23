@@ -16,6 +16,14 @@ namespace Gothic.VR.Interaction.Ports
         bool IsActive { get; }
 
         bool IsHeld { get; }
+
+        /// <summary>
+        /// True if a grab only "uses" the object (talk to an NPC, use a mob): nothing moves, nothing follows the hand
+        /// and no BeforeGrabbed is raised. False if the grab holds the object like an item (HVR grabs NPCs and mobs
+        /// that way, so their adapters release them again).
+        /// </summary>
+        bool IsSelectOnly { get; }
+
         IReadOnlyList<Collider> Colliders { get; }
         void ForceRelease();
         void SetupColliders();

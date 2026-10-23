@@ -5,6 +5,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Gothic.Core",
+        "Gothic.VR",
+        "Unity.XR.Interaction.Toolkit",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework"
     ],
