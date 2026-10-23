@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
-using UnityEngine.XR.Interaction.Toolkit.Utilities;
 
 namespace Gothic.VR.Interaction.Backends.Xri
 {
@@ -52,10 +51,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private bool IsInLineOfSight(Vector3 origin, IXRInteractable target)
         {
-            if (!XRInteractableUtility.TryGetClosestPointOnCollider(target, origin, out var distanceInfo))
+            if (!XriColliderUtility.TryGetClosestPoint(target, origin, out var closestPoint, out _))
                 return true;
 
-            var toTarget = distanceInfo.point - origin;
+            var toTarget = closestPoint - origin;
             var distance = toTarget.magnitude;
             if (distance > _maxDistance)
                 return false;

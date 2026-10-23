@@ -7,7 +7,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Caches;
-using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -74,8 +74,8 @@ namespace Gothic.VR.Adapters.Vob
             }
 
             // We leverage the same "door" script for containers (As it's also just an object to be rotated.
-            var hinge = GetComponentInChildren<IVrHinge>();
-            hinge.SetSounds(_containerOpenedClips[mdsName.ToLower()], _containerClosedClips[mdsName.ToLower()]);
+            var hinge = VrHinges.FindActive(this);
+            hinge?.SetSounds(_containerOpenedClips[mdsName.ToLower()], _containerClosedClips[mdsName.ToLower()]);
         }
     }
 }

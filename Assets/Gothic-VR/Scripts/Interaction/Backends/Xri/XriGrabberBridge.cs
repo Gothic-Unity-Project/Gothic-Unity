@@ -7,7 +7,6 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
-using UnityEngine.XR.Interaction.Toolkit.Utilities;
 
 namespace Gothic.VR.Interaction.Backends.Xri
 {
@@ -121,11 +120,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 : Interactor.transform;
             var maxDistance = nearRadius + _nearGrabMargin;
 
-            if (!XRInteractableUtility.TryGetClosestPointOnCollider(xrInteractable, origin.position,
-                    out var distanceInfo))
+            if (!XriColliderUtility.TryGetClosestPoint(xrInteractable, origin.position, out _, out var distanceSqr))
                 return VrGrabberKind.Distance;
 
-            return distanceInfo.distanceSqr <= maxDistance * maxDistance ? VrGrabberKind.Hand : VrGrabberKind.Distance;
+            return distanceSqr <= maxDistance * maxDistance ? VrGrabberKind.Hand : VrGrabberKind.Distance;
         }
 
         private void OnSelectEntered(SelectEnterEventArgs args)

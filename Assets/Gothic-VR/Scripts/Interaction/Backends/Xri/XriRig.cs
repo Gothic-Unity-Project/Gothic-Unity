@@ -8,7 +8,9 @@ using Reflex.Attributes;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Climbing;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Gravity;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Jump;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Movement;
@@ -52,6 +54,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [SerializeField] private GravityProvider _gravityProvider;
         [SerializeField] private JumpProvider _jumpProvider;
 
+        [Tooltip("Moves the rig while a hand holds a ClimbInteractable (ladders) and pauses gravity meanwhile.")]
+        [SerializeField] private ClimbProvider _climbProvider;
+
         [Header("Movement")]
         [Tooltip("Walking speed in m/s.")]
         [SerializeField] private float _moveSpeed = 1.5f;
@@ -92,6 +97,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isSprintLatched;
         private bool _isCrouching;
         private float _crouchOffset;
+        private bool _isMovementEnabled;
+        private bool _isJumpEnabled;
         private bool _isTeleportQueued;
         private Vector3 _teleportPosition;
 
@@ -107,13 +114,19 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public float CameraHeight => _origin.CameraInOriginSpaceHeight;
         public bool IsGrounded => _gravityProvider.isGrounded || _characterController.isGrounded;
 
-        // Climbing comes with HVR phase 4 (ClimbProvider).
-        public bool IsClimbing => false;
+        /// <summary>
+        /// A hand holds a ClimbInteractable. The ClimbProvider forces gravity off (GravityProvider lock) meanwhile.
+        /// </summary>
+        public bool IsClimbing => _climbProvider != null && _climbProvider.climbAnchorInteractable != null;
 
         public bool MovementEnabled
         {
-            get => _moveProvider.enabled;
-            set => _moveProvider.enabled = value;
+            get => _isMovementEnabled;
+            set
+            {
+                _isMovementEnabled = value;
+                UpdateClimbLock();
+            }
         }
 
         public bool TurnEnabled
@@ -138,8 +151,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public bool CanJump
         {
-            get => _jumpProvider.enabled;
-            set => _jumpProvider.enabled = value;
+            get => _isJumpEnabled;
+            set
+            {
+                _isJumpEnabled = value;
+                UpdateClimbLock();
+            }
         }
 
         public bool CanCrouch
@@ -230,6 +247,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             _teleportationProvider.locomotionEnded += OnTeleportLocomotionEnded;
 
+            _isMovementEnabled = _moveProvider.enabled;
+            _isJumpEnabled = _jumpProvider.enabled;
+            if (_climbProvider == null)
+                Logger.LogWarning("[XRI] XriRig has no ClimbProvider. Ladders can't be climbed.", LogCat.VR);
+
             ApplyGravity();
             UpdateTurnProviders();
         }
@@ -250,8 +272,20 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Update()
         {
+            UpdateClimbLock();
             UpdateSprint();
             UpdateCrouch();
+        }
+
+        /// <summary>
+        /// Walking and jumping are off while climbing (the thumbstick would fight the climbing hands), and come
+        /// back to what the game set (MovementEnabled/CanJump) afterwards.
+        /// </summary>
+        private void UpdateClimbLock()
+        {
+            var isClimbing = IsClimbing;
+            _moveProvider.enabled = _isMovementEnabled && !isClimbing;
+            _jumpProvider.enabled = _isJumpEnabled && !isClimbing;
         }
 
         private void UpdateSprint()
@@ -376,6 +410,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (rotation == default)
                 rotation = Quaternion.identity;
 
+            ReleaseClimb();
+
             _teleportPosition = position;
             _isTeleportQueued = true;
             _gravityProvider.ResetFallForce();
@@ -387,6 +423,23 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 matchOrientation = MatchOrientation.TargetUpAndForward,
                 requestTime = Time.time
             });
+        }
+
+        /// <summary>
+        /// The ClimbProvider keeps the hand at its grab point in world space, so it would pull a teleported rig back
+        /// to the ladder. Hands holding a ladder therefore let go first.
+        /// </summary>
+        private void ReleaseClimb()
+        {
+            // Bounded: one ladder per hand at most.
+            for (var i = 0; i < 2 && IsClimbing; i++)
+            {
+                var climbable = _climbProvider.climbAnchorInteractable;
+                if (climbable.interactionManager == null)
+                    return;
+
+                climbable.interactionManager.CancelInteractableSelection((IXRSelectInteractable)climbable);
+            }
         }
 
         /// <summary>

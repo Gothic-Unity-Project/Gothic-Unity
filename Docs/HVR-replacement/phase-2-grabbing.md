@@ -11,9 +11,16 @@ talking to or looting NPCs.
 - [x] Item pickup by hand and by distance grab adds to the inventory exactly once; two-hand grab doesn't double-count;
       drop removes. (2a. Note: world items have `Amount = 0` in the ZEN, so `VRPlayerService` adds 0 of them on both
       backends; verified with `Amount = 1` set at runtime. Pre-existing, not fixed here.)
-- [ ] Melee: weapon velocity detection (`VrWeaponAttackDomain`) triggers hits with the same thresholds as on HVR.
-- [x] Hover shows the name label and highlight (`VRFocus`). (2a: items. Mobs/NPCs in 2b.)
-- [ ] Grab on NPC = talk / skip line; grab on a dead NPC = loot panel; grab on a mob = use it.
+- [x] Melee: weapon velocity detection (`VrWeaponAttackDomain`) triggers hits with the same thresholds as on HVR.
+      (2b: thresholds unchanged, no per-backend value. XRI's VelocityTracking with `velocityDamping = 1`,
+      `velocityScale = 1` and no velocity limit sets the Rigidbody's velocity to (target - position) / fixedDeltaTime
+      every physics step, so the measured speed is the hand speed at the item's pivot, without the lag of HVR's
+      jointed physics hand. A swing reaches 2 m/s at least as easily as on HVR. Hand side verified (`_handlesRightHand`
+      for the right Near-Far). Feel and false positives from tracking jitter still need a headset playtest.)
+- [x] Hover shows the name label and highlight (`VRFocus`). (2a: items. 2b: mobs; NPCs show their health bar.)
+- [x] Grab on NPC = talk / skip line; grab on a dead NPC = loot panel; grab on a mob = use it.
+      (2b: verified with the simulator: Diego talks, the loot panel toggles on a dead NPC, fire and wheel are used.
+      Skipping a line goes through the same branch (`IsInDialog`), but no line was spoken while testing.)
 - [x] Held/socketed items don't push the player's `CharacterController`. (2a: held items; XRI ignores the
       CharacterController of the selecting rig on top of `VRPlayerService.IgnorePlayerCollision`. Sockets in phase 3.)
 - [x] Swimming disables grabbing and hovering (`IVrRig.SetGrabbingEnabled(false)`). (2a; UI pointing stays.)
@@ -47,6 +54,29 @@ talking to or looting NPCs.
 - Held items get `RigidbodyInterpolation.Interpolate` (restored on drop). Throw: XRI defaults (`throwOnDetach`,
   `throwVelocityScale` 1.5), not tuned against HVR yet.
 - Interim hand visual: a 4 cm sphere (`Hand Placeholder`, URP Lit, no collider) under each Near-Far interactor.
+
+### 2b notes (where reality deviated)
+
+- Mobs (`oCMobBed/Fire/Inter/Switch/Wheel`, so also the `oCMobInter/Seat` and `DigSpot` variants) and `oCNpc`
+  (`BIP01/RootMotionCollider`) got `XRSimpleInteractable` (disabled in the prefab, default settings, select mode
+  Single) + `XriInteractableBridge` next to `HVRGrabbable`/`HvrInteractableBridge`. Doors, chests and ladders
+  (phase 4) have no XRI bridge yet: their `VrInteractable` has no active backend on Xri.
+- `IVrInteractableBackend.IsSelectOnly` / `VrInteractable.IsSelectOnly`: true for XRI simple interactables (select =
+  use/talk, nothing moves, no `BeforeGrabbed`), false on HVR. `VRNpc` only does the `ForceRelease()` +
+  `DisablePhysicsForNpc()` workaround when it's false, so HVR behaves as before. On XRI the selection lasts while
+  the grip is held; the next grip press talks again or skips a line. Mobs keep the selection while held on both
+  backends (`VRMobInteraction` resets on release).
+- `XriColliderUtility.TryGetClosestPoint` replaces `XRInteractableUtility.TryGetClosestPointOnCollider` in
+  `XriGrabberBridge` and `XriLineOfSightFilter`: Unity's `Collider.ClosestPoint` doesn't support non-convex
+  `MeshCollider`s (mobs) and logged a warning per frame while pointing at one. Non-convex colliders use their bounds.
+- Dig spots: no change. `VRDigSpot` reads `VRPlayerService.GrabbedItemLeft/Right`, filled from
+  `VrGrabArgs.HandSide` = the Near-Far's `handedness` (`XriGrabberBridge.HandSide`).
+- `VRMouth`: the `Mouth` GameObject (VRMouth, trigger SphereCollider r = 2 at scale 0.05 -> 10 cm, AudioSource,
+  layer TransparentFX) is copied from the HVR rig's camera to `Main Camera` of `VR - Player XRI.prefab`. It's
+  backend neutral (trigger + held item's Rigidbody). Verified: berries held to the mouth are eaten.
+- Not caused by XRI (the code path is backend neutral), not fixed: an item eaten while held throws a `MissingReferenceException` in
+  `VobMeshCullingDomain.StopTrackVobPositionUpdatesDelayed` (the release starts a delayed coroutine on the
+  destroyed item).
 
 ## Mapping
 

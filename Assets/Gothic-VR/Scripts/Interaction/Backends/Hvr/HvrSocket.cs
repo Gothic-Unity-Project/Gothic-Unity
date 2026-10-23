@@ -1,8 +1,8 @@
 #if GOTHIC_HVR_INSTALLED
 using System;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
+using Gothic.VR.Interaction.Components;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using UnityEngine;
@@ -86,40 +86,8 @@ namespace Gothic.VR.Interaction.Backends.Hvr
 
         private void RotateItemForCategorySlot(GameObject rootGo, ItemInstance item)
         {
-            switch ((VmGothicEnums.ItemFlags)item.MainFlag)
-            {
-                case VmGothicEnums.ItemFlags.ItemKatNf:
-                case VmGothicEnums.ItemFlags.ItemKatMun:
-                    rootGo.transform.localRotation = Quaternion.Euler(-45, 0, -90);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatFf:
-                    rootGo.transform.localRotation = Quaternion.Euler(45, 180, -90);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatArmor:
-                    rootGo.transform.localRotation = Quaternion.Euler(0, 90, 0);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatFood:
-                    rootGo.transform.localRotation = Quaternion.Euler(0, 0, 22.5f);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatDocs:
-                    rootGo.transform.localRotation = Quaternion.Euler(90, 0, 90);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatRune:
-                    // Runes and magic scrolls
-                    rootGo.transform.localRotation = Quaternion.Euler(-90, 0, 90);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatMagic:
-                    // Rings and amulets
-                    rootGo.transform.localRotation = Quaternion.Euler(0, 0, 45);
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatPotions:
-                    // 0, 0, 0 - nothing to rotate.
-                    break;
-                default:
-                    // Misc and all other we missed.
-                    rootGo.transform.localRotation = Quaternion.Euler(-45, 135, -45);
-                    break;
-            }
+            // Same table as the backend-neutral VrSocketSlot.
+            rootGo.transform.localRotation = VrSocketSlot.GetCategoryRotation(item);
         }
     }
 }

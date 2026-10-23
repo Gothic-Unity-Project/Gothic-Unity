@@ -5,7 +5,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services.Caches;
 using Gothic.Core;
 using Gothic.Core.Extensions;
-using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -64,8 +64,8 @@ namespace Gothic.VR.Adapters.Vob
                 _doorClosedClips.Add(mdsName.ToLower(), _audioService.GetRandomSoundClip(closeSoundEffect));
             }
 
-            var hinge = GetComponentInChildren<IVrHinge>();
-            hinge.SetSounds(_doorOpenedClips[mdsName.ToLower()], _doorClosedClips[mdsName.ToLower()]);
+            var hinge = VrHinges.FindActive(this);
+            hinge?.SetSounds(_doorOpenedClips[mdsName.ToLower()], _doorClosedClips[mdsName.ToLower()]);
         }
     }
 }
