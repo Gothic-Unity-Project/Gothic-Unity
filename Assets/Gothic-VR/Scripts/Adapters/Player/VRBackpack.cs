@@ -25,6 +25,7 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// The player's backpack (inventory pages) and holsters. The backpack itself is a VrInteractable with an
     /// IVrSocketContainer for its slots. Items put into holsters or slots are added to the hero's inventory.
+    /// While the backpack is on the shoulder, its slots detect nothing (VrSocketSlot; HVR does it itself).
     /// </summary>
     public class VRBackpack : MonoBehaviour
     {
@@ -46,7 +47,12 @@ namespace Gothic.VR.Adapters.Player
         private int _currentPage = 1;
         private int _totalPages;
         private VmGothicEnums.InvCats _selectedCategory =  VmGothicEnums.InvCats.InvWeapon;
-        private bool _tempIgnoreSocketing;
+
+        // While the page is re-stacked, the slot events of the items we take out and put in ourselves are ignored.
+        // Otherwise, we create a loop. Items the player moves meanwhile still count.
+        private readonly HashSet<VrInteractable> _refreshRemovals = new();
+        private readonly HashSet<VrInteractable> _refreshPlacements = new();
+        private int _runningRefreshes;
         
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly PlayerService _playerService;
@@ -130,18 +136,38 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnBackpackGrabbedToShoulder(VrGrabArgs args)
         {
-            // Nothing to do for now.
             // We could potentially remove the meshes inside Backpack or simply hide it from rendering later.
+            if (IsShoulderSocket(args))
+                SetSlotDetectionEnabled(false);
         }
 
         private void OnBackpackReleasedFromShoulder(VrGrabArgs args)
         {
-            if (args.Kind != VrGrabberKind.Socket || args.GrabberGo == null)
-                return;
-            if (!args.GrabberGo.TryGetComponent(out IVrSocket socket) || !socket.IsShoulder)
+            if (!IsShoulderSocket(args))
                 return;
 
+            SetSlotDetectionEnabled(true);
             UpdateInventoryView();
+        }
+
+        private static bool IsShoulderSocket(VrGrabArgs args)
+        {
+            if (args.Kind != VrGrabberKind.Socket || args.GrabberGo == null)
+                return false;
+
+            return args.GrabberGo.TryGetComponent(out IVrSocket socket) && socket.IsShoulder;
+        }
+
+        /// <summary>
+        /// Backend-neutral slots only. HVR's backpack slots stop detecting on their own (ParentDisablesGrab).
+        /// </summary>
+        private void SetSlotDetectionEnabled(bool isEnabled)
+        {
+            foreach (var socket in _slots)
+            {
+                if (socket is VrSocketSlot slot)
+                    slot.SetDetectionEnabled(isEnabled);
+            }
         }
 
         /// <summary>
@@ -159,7 +185,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnItemPutIntoBackpack(VrGrabArgs args)
         {
-            if (_tempIgnoreSocketing)
+            if (_refreshPlacements.Contains(args.Interactable))
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>(true);
@@ -189,7 +215,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnItemPutOutOfBackpack(VrGrabArgs args)
         {
-            if (_tempIgnoreSocketing)
+            if (_refreshRemovals.Contains(args.Interactable))
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
@@ -282,16 +308,22 @@ namespace Gothic.VR.Adapters.Player
             yield return null;
 
             // While we re-stack items into slots, we need to ignore their events. Otherwise, we create a loop.
-            _tempIgnoreSocketing = true;
+            _runningRefreshes++;
             _vrWeaponService.DrawSoundsActive = false;
-            
+
             ClearSockets();
             yield return null; // Releasing and destroying objects takes until the next frame.
 
             RefillSockets(inventory);
             yield return null;
 
-            _tempIgnoreSocketing = false;
+            // Backends may raise the slot events a frame later (or more than once). Forget the items afterwards.
+            _runningRefreshes--;
+            if (_runningRefreshes > 0)
+                yield break;
+
+            _refreshRemovals.Clear();
+            _refreshPlacements.Clear();
             _vrWeaponService.DrawSoundsActive = true;
         }
 
@@ -305,6 +337,7 @@ namespace Gothic.VR.Adapters.Player
 
                 // Destroy VobLoader GO after releasing it from slot (proper event handling)
                 var heldRoot = socket.Held.transform.parent.gameObject;
+                _refreshRemovals.Add(socket.Held);
                 socket.ForceRelease();
                 heldRoot.SetActive(false); // Disable it, as it would be with scale 1 in front of our camera for 1 second.
                 // We need to wait until next frame to ensure the socket has removed the item.
@@ -329,7 +362,9 @@ namespace Gothic.VR.Adapters.Player
                 });
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
-                _socketContainer.TryAdd(vobContainer.Go.GetComponentInChildren<VrInteractable>());
+                var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();
+                _refreshPlacements.Add(interactable);
+                _socketContainer.TryPlace(interactable, silent: true);
             }
         }
 

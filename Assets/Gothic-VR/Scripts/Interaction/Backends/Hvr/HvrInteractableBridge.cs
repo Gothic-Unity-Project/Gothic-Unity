@@ -39,6 +39,7 @@ namespace Gothic.VR.Interaction.Backends.Hvr
         public bool IsActive => _vrBackend == null || _vrBackend is HvrBackend;
 
         public bool IsHeld => Grabbable.IsBeingHeld;
+        public bool IsSelectOnly => false;
         public IReadOnlyList<Collider> Colliders => Grabbable.Colliders;
 
         private void Awake()

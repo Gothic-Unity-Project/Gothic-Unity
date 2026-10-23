@@ -8,6 +8,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vm;
 using Gothic.VR.Services;
 using Gothic.VR.Adapters.Vob.VobItem;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -19,7 +20,6 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 {
     public class VRContainerDoorPickingInteraction : MonoBehaviour
     {
-
         [SerializeField] private GameObject _rootGO;
         [SerializeField] private AudioSource _audioSource;
 
@@ -39,7 +39,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private const string _lockInteractionColliderName = "LockPickInteraction";
 
         private int _combinationPos = 0;
-        
+
         public enum DoorLockStatus
         {
             StepSuccess,
@@ -52,8 +52,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         {
             var vobLoader = GetComponentInParent<VobLoader>();
             _lockable = vobLoader.Container;
-            // Every door and chest has exactly one hinge (the door wing or the chest lid).
-            _hinge = vobLoader.GetComponentInChildren<IVrHinge>(true);
+            // Every door and chest has one hinge (the door wing or the chest lid) per backend which supports it.
+            _hinge = VrHinges.FindActive(vobLoader);
             switch (_lockable.Vob)
             {
                 case IDoor door:
@@ -67,7 +67,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                     _keyInstance = container.Key;
                     break;
                 default:
-                    Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.", LogCat.VR);
+                    Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.",
+                        LogCat.VR);
                     break;
             }
 
@@ -84,9 +85,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private IEnumerator StartDelayed()
         {
             yield return null;
-            
+
             // Deactivate rotation
-            _hinge.Lock();
+            _hinge?.Lock();
         }
 
         private void OnTriggerEnter(Collider other)
@@ -135,7 +136,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             var interaction = heldItem.GetComponentInChildren<VRLockPickInteraction>();
             return interaction != null && interaction.gameObject == lockInteraction;
         }
-        
+
         private void OnTriggerExit(Collider other)
         {
             if (!other.gameObject.name.Equals(_lockInteractionColliderName))
@@ -235,19 +236,30 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void UnlockAndPushOpen()
         {
             // Reactivate rotation
+            if (_hinge == null)
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             _hinge.Unlock();
 
-            // Apply force in the door's forward direction (world space)
-            var pushDirection = _hinge.Transform.forward;
-            var pushForce = 10f;
-            _hinge.Rigidbody.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+            // Physics hinges (HVR) get pushed open here, kinematic ones (VrHinge) push themselves in Unlock().
+            var body = _hinge.Rigidbody;
+            if (body != null && !body.isKinematic)
+            {
+                var pushDirection = _hinge.Transform.forward;
+                var pushForce = 10f;
+                body.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+            }
+
             gameObject.SetActive(false);
         }
 
         private void PlaySound(string soundName, string fallback = null)
         {
             var clip = _audioService.GetRandomSoundClip(soundName);
-            
+
             if (clip == null && fallback != null)
             {
                 PlaySound(fallback);
@@ -256,7 +268,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             if (clip == null)
                 return;
-                
+
             _audioSource.PlayOneShot(clip);
         }
     }

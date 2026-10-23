@@ -74,9 +74,14 @@ namespace Gothic.VR.Adapters
             if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
-                // Grabbing turns physics on (VRPlayerItemAdapter); release immediately and freeze the corpse
-                args.Interactable.ForceRelease();
-                _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
+                // Grabbing turns physics on (VRPlayerItemAdapter); release immediately and freeze the corpse.
+                // Select-only interactables (XRI) neither move the NPC nor turn its physics on.
+                if (!args.Interactable.IsSelectOnly)
+                {
+                    args.Interactable.ForceRelease();
+                    _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
+                }
+
                 return;
             }
 
@@ -91,6 +96,10 @@ namespace Gothic.VR.Adapters
             }
 
             // Talking is a click, not a grab: release (grabbing turns physics on) and keep a seated NPC kinematic.
+            // Select-only interactables (XRI) don't move the NPC, so there's nothing to undo.
+            if (args.Interactable.IsSelectOnly)
+                return;
+
             args.Interactable.ForceRelease();
             if (_npcData.IsUsingMob())
                 _physicsService.DisablePhysicsForNpc(_npcData.PrefabProps);
