@@ -77,6 +77,8 @@ as a code reference.)
 
 - [ ] `VrHinge` (+ `IVrHinge` implementation), `VrLadderExit`.
 - [ ] `VRVobContainerPhysicsChest` → `VrChestSlots` (logic) + `VrHinge` (lid); delete the subclassing on the Xri path.
+      (3c: `VrChestSlots` exists and has `Open()`/`Close()`; `HvrPhysicsChest` is only the HVR lid. On Xri the lid is
+      the interim `VrChestLidToggle` (use = swing open/closed, kinematic, `IVrHinge`) - replace it with `VrHinge`.)
 - [ ] **Prefabs (UnityMCP):** `oCMobDoor.prefab` (VrHinge + grab interactable + bridge), `oCMobContainer.prefab`
       (lid), `oCMobLadder.prefab` (ClimbInteractable + bridge).
 - [ ] `VRContextInteractionService.KeepPlayerWithin` uses `IVrRig.IsClimbing`; verify with a dialog at a ladder.

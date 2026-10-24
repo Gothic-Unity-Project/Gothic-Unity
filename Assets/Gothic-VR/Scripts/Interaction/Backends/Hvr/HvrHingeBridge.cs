@@ -1,6 +1,7 @@
 #if GOTHIC_HVR_INSTALLED
 using Gothic.VR.Interaction.Ports;
 using HurricaneVR.Framework.Components;
+using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.VR.Interaction.Backends.Hvr
@@ -10,6 +11,8 @@ namespace Gothic.VR.Interaction.Backends.Hvr
     /// </summary>
     public class HvrHingeBridge : MonoBehaviour, IVrHinge
     {
+        [Inject] private readonly IVrBackend _vrBackend;
+
         private HVRPhysicsDoor _door;
 
         private HVRPhysicsDoor Door
@@ -22,6 +25,7 @@ namespace Gothic.VR.Interaction.Backends.Hvr
             }
         }
 
+        public bool IsActive => _vrBackend == null || _vrBackend is HvrBackend;
         public Transform Transform => transform;
         public Rigidbody Rigidbody => GetComponent<Rigidbody>();
 

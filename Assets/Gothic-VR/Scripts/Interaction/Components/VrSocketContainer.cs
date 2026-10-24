@@ -27,6 +27,25 @@ namespace Gothic.VR.Interaction.Components
             }
         }
 
+        /// <summary>
+        /// True if one of the slots has a backend part of the active VR backend (e.g. XriSocketBridge on XRI).
+        /// </summary>
+        public bool IsActive
+        {
+            get
+            {
+                foreach (var slot in Slots)
+                {
+                    if (slot != null && slot.HasActiveBackend)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool IsSilent => _isSilent;
+
         public IReadOnlyList<VrSocketSlot> Slots
         {
             get

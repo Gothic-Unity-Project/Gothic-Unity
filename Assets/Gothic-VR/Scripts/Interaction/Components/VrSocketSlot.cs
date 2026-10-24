@@ -94,6 +94,7 @@ namespace Gothic.VR.Interaction.Components
         private Rigidbody _heldRigidbody;
         private bool _wasKinematic;
         private bool _isPlacedEventRaised;
+        private bool _isReselectNeeded;
         private Coroutine _fitRoutine;
 
         public VrGrabberKind Kind => VrGrabberKind.Socket;
@@ -105,6 +106,11 @@ namespace Gothic.VR.Interaction.Components
         public VrInteractable LinkedInteractable => _linkedInteractable;
         public bool IsHovered => _hovered.Count > 0;
         public Transform AttachPoint => _attachPoint != null ? _attachPoint : transform;
+
+        /// <summary>
+        /// True if a backend part of the active VR backend sits next to this slot (it detects items).
+        /// </summary>
+        public bool HasActiveBackend => Backend != null;
 
         public float Size
         {
@@ -188,6 +194,19 @@ namespace Gothic.VR.Interaction.Components
         private void Awake()
         {
             _ = Backend;
+        }
+
+        private void OnEnable()
+        {
+            if (!_isReselectNeeded)
+                return;
+
+            _isReselectNeeded = false;
+            if (_held == null || Backend == null || Backend.TryPlace(_held))
+                return;
+
+            Logger.LogWarning($"[Socket] Backend couldn't hold {_held.name} in {name} again. Taken out.", LogCat.VR);
+            Remove(true);
         }
 
         private void OnDisable()
@@ -319,6 +338,14 @@ namespace Gothic.VR.Interaction.Components
             if (interactable == null || interactable != _held)
                 return;
 
+            // The slot is being deactivated (e.g. a chest is closed): the backend lets go of everything, but the item
+            // stays inside (and hidden with the slot). The backend holds it again once the slot is enabled.
+            if (!gameObject.activeInHierarchy)
+            {
+                _isReselectNeeded = true;
+                return;
+            }
+
             Remove(false);
         }
 
@@ -429,6 +456,7 @@ namespace Gothic.VR.Interaction.Components
 
             var previousParent = _previousParent;
             var previousScale = _previousScale;
+            _isReselectNeeded = false;
             _held = null;
             _heldRoot = null;
             _heldRigidbody = null;

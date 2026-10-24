@@ -13,6 +13,8 @@ namespace Gothic.VR.Adapters.Vob.Container
     /// <summary>
     /// Handle Socket-events for a whole Container (e.g., chest) and its corresponding sockets (rings where we put items into).
     /// Plays the weapon (un)draw sound when a weapon is put into or taken out of a socket.
+    /// No sound is played while the IVrSocketContainer on this GameObject (if any) is silent, e.g. while a chest
+    /// spawns its content.
     /// </summary>
     public class VRVobContainerSocketInventory : MonoBehaviour
     {
@@ -23,9 +25,11 @@ namespace Gothic.VR.Adapters.Vob.Container
         [SerializeField] private GameObject[] _additionalSockets;
 
         private readonly List<IVrSocket> _sockets = new();
+        private IVrSocketContainer _container;
 
         private void Awake()
         {
+            _container = GetComponent<IVrSocketContainer>();
             _sockets.AddRange(GetComponentsInChildren<IVrSocket>(true));
             foreach (var socketGo in _additionalSockets)
             {
@@ -51,7 +55,7 @@ namespace Gothic.VR.Adapters.Vob.Container
 
         private void OnBeforeGrabbed(VrGrabArgs args)
         {
-            if (args.Interactable == null)
+            if (args.Interactable == null || IsSilent)
                 return;
 
             var container = args.Interactable.GetComponentInParent<VobLoader>()?.Container;
@@ -62,7 +66,7 @@ namespace Gothic.VR.Adapters.Vob.Container
 
         private void OnReleased(VrGrabArgs args)
         {
-            if (args.Interactable == null)
+            if (args.Interactable == null || IsSilent)
                 return;
 
             var container = args.Interactable.GetComponentInParent<VobLoader>()?.Container;
@@ -70,6 +74,8 @@ namespace Gothic.VR.Adapters.Vob.Container
                 return;
             _vrWeaponService.PlayDrawSound(container);
         }
+
+        private bool IsSilent => _container != null && _container.IsSilent;
 
         private bool IsWeapon(VobContainer container)
         {

@@ -163,6 +163,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.VRNpcLoot
   _socketPrefab: {fileID: 5861164055357080340, guid: 2dd29fe4a7e819740af535267b7cc113, type: 3}
+  _slotPrefab: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!1 &2815092147823170342
 GameObject:
   m_ObjectHideFlags: 0

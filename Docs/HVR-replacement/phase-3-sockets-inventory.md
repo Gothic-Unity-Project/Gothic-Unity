@@ -17,12 +17,21 @@ PlayMode test), **3b** backpack + shoulder socket + hip holsters + HeadRelativeI
       flip), save → load.)
 - [x] Hip/back holsters keep weapons; drawing and holstering updates the inventory as today. (3b; holster, teleport
       while holstered, draw played on Xri with an item. Not played: swimming, walking with real tracking.)
-- [ ] Chests: the content spawns into slots (scaled down), items can be taken and put back; dropping an item into the
-      open chest stores it.
-- [ ] NPC loot: equipped and inventory items appear in loot slots, taking one moves it to the player.
-- [ ] Hover feedback on slots (scale and valid/invalid material) is equivalent to HVR.
-- [ ] Socket sounds: Gothic `InvOpen`/`InvClose` for the backpack, socket fallback sounds for slots, silent bulk
-      spawning.
+- [x] Chests: the content spawns into slots (scaled down), items can be taken and put back; dropping an item into the
+      open chest stores it. (3c; played on Xri with a G1 chest near the start: open → 5 items in slots laid out to
+      the chest mesh, take one by hand, release over the chest → back into a free slot (drop zone, also with slot
+      detection off), close → hidden, reopen → same items, nothing spawned twice. The lid is not physical on Xri
+      until Phase 4: using it (grab = use, like a mob) swings it open/closed, see `VrChestLidToggle`. Hvr: lid
+      opened by physics → HVR sockets filled as before.)
+- [x] NPC loot: equipped and inventory items appear in loot slots, taking one moves it to the player. (3c; played on
+      Xri: Orry's sword and crossbow with `[E]`, bolts, apple, nugget; taking the nugget removes it from his
+      inventory and refills the slots, taking the sword removes it from `EquippedItems` and the mesh from
+      `ZS_SWORD`; closing destroys the slots. Opened via `VRNpcLoot.Open`, not via a kill.)
+- [x] Hover feedback on slots (scale and valid/invalid material) is equivalent to HVR. (3a/3b; the invalid material
+      over a full slot was not played.)
+- [x] Socket sounds: Gothic `InvOpen`/`InvClose` for the backpack, socket fallback sounds for slots, silent bulk
+      spawning. (3b backpack; 3c chests spawn with `SetSilent(true)`, also no weapon draw sounds of
+      `VRVobContainerSocketInventory` while silent - on HVR too. Sounds were not listened to, only the code path.)
 
 ## What HVR does for us today (behaviour spec, write new code from this, not from HVR source)
 
@@ -139,14 +148,35 @@ as HVR's head-relative inventory). `VRBackpack.OnItemPutIntoHolster/OutOfHolster
         it doesn't move socketed items. Teleporting with a holstered item and a held backpack keeps both in place.
       - `VR Socket Slot.prefab` is on layer `TransparentFX` (1) now, like the mouth: its trigger meets held items
         (layers 6 and 7, which don't collide with Default), but neither the player nor hands' raycasts.
-- [ ] `VRVobContainerPhysicsChest`: split into `VrChestLid` (Phase 4) + `VrChestSlots` (this phase: resize slots to the
+- [x] `VRVobContainerPhysicsChest`: split into `VrChestLid` (Phase 4) + `VrChestSlots` (this phase: resize slots to the
       chest mesh, as today's `AlignSockets` logic, bulk spawn silently, pagination still TODO as logged today).
-- [ ] `VRNpcLoot`: create `VrSocketSlot`s at runtime instead of `HVRSocket`s; `Removed` → `OnItemTakenFromLoot`.
-- [ ] `VRVobContainerSocketInventory`: subscribe to container events.
+      (3c: `HvrPhysicsChest` is only the HVR lid now and calls `VrChestSlots.Open()/Close()`; on other backends it
+      switches itself off before the HVR door sets up its joint. `VrChestSlots` sits on the `oCMobContainer` root,
+      lists one inventory per backend (`Inventory` = HVR, `Inventory XRI`) and uses the first whose
+      `IVrSocketContainer.IsActive`; the others are deactivated. Layout = old `AlignSockets`, content via
+      `VobService.UnpackItems`, one frame per item, silent until 1 s after the spawn; a chest closed while spawning
+      hides its slots when the spawn is done. Interim lid on Xri: `VrChestLidToggle` (implements `IVrHinge`, so
+      lock picking locks/unlocks it and `VRVobContainer` gives it the open/close sounds; kinematic, swings to
+      110°). Phase 4 replaces it with `VrHinge`. Callers now take the active hinge (`VrHinges.FindActive`, new
+      `IVrHinge.IsActive`) and are null-safe (no hinge on Xri doors yet).)
+- [x] `VRNpcLoot`: create `VrSocketSlot`s at runtime instead of `HVRSocket`s; `Removed` → `OnItemTakenFromLoot`.
+      (3c: new `_slotPrefab` = `VR Socket Slot.prefab`, used when `IVrBackend.Kind` isn't Hvr (new property);
+      `_socketPrefab` stays the HVR slot. `Released` → `OnItemTakenFromLoot` unchanged.)
+- [x] `VRVobContainerSocketInventory`: subscribe to container events. (3c: still subscribes to the sockets below it;
+      new: no weapon (un)draw sound while the `IVrSocketContainer` next to it is silent. `IVrSocketContainer` got
+      `IsActive` and `IsSilent`.)
+- [x] Slots keep their items while deactivated (3c, found while testing): XRI releases a socket's selection when the
+      socket is disabled (closing a chest), and `VrSocketSlot` tried to re-parent the item during the deactivation.
+      Now the slot keeps the item and re-selects it in the backend on enable.
 - [ ] **Assets (UnityMCP):** (3a done: `Resources/VR/Prefabs/Player-Elements/VR Socket Slot.prefab` - slot,
       XriSocketBridge, sphere trigger r=0.07, hover feedback, GameObjectSelfInjector; `Gothic-VR/Meshes/SocketRing.asset`
       procedural torus; `Gothic-VR/Materials/SocketRing(-Valid/-Invalid).mat` URP Unlit transparent. 3b: backpack
-      prefab and rig anchors, see above. Rest: 3c)
+      prefab and rig anchors, see above. 3c: `oCMobContainer.prefab` got `VrChestSlots` on the root,
+      `BIP01 CHEST_.*_0/Inventory XRI` (`VrSocketContainer`, `VRVobContainerSocketInventory`, 12 `VR Socket Slot`
+      instances "Slot (0..11)" with Size 0.18, sphere r 0.1, ring flat and 1.33x like HVR's chest ring, and
+      `DropZone` = trigger box on layer TransparentFX with `VrContainerDropZone`, resized to the chest like HVR's
+      collector, 0.3 m high); the lid got `XRSimpleInteractable` (disabled) + `XriInteractableBridge` +
+      `VrChestLidToggle`. `oCNpc.prefab`: `VRNpcLoot._slotPrefab`.)
       new `VR Socket Slot.prefab` (replaces `VRBackpack(Large)InventorySlot` + HVR's
       `LargeInventorySlot` / `SocketOval`), ring mesh (simple torus, our own) + `SocketRing/Valid/Invalid` URP materials,
       add slots to `oCMobContainer.prefab` and the backpack prefab, shoulder + hip anchors on the XRI rig.
@@ -154,6 +184,11 @@ as HVR's head-relative inventory). `VRBackpack.OnItemPutIntoHolster/OutOfHolster
       never uses it, slots filter with `VrSocketSlot.Accepts`.)
 
 ## Test plan
+
+Status after 3c (Xri + simulator, programmatic input via MCP): 1-3 played in 3b (no save → load), 4 partly (no
+swimming), 5 and 6 played (G1 chest with 5 items; the "no sound burst" not listened to), 7 played without killing
+(loot opened directly), 8 not played. Hvr: boots, chest opens via physics and fills its HVR sockets, NPC loot uses
+the HVR slots. Not played on a headset.
 
 1. New game: backpack on the shoulder; grab it off → slots show the current category; flip pages/categories; put it
    back on the shoulder → `InvClose` sound.

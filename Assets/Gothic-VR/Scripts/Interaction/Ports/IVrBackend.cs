@@ -1,3 +1,4 @@
+using Gothic.Core.Models.Context;
 using Reflex.Core;
 
 namespace Gothic.VR.Interaction.Ports
@@ -9,6 +10,11 @@ namespace Gothic.VR.Interaction.Ports
     public interface IVrBackend
     {
         string Name { get; }
+
+        /// <summary>
+        /// Which DeveloperConfig.VrInteractionBackend this is.
+        /// </summary>
+        VrInteractionBackend Kind { get; }
 
         /// <summary>
         /// Registers the backend's implementations of IVrInput, IVrHaptics, IVrUiPointers and IVrSfxPlayer.

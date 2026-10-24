@@ -5,6 +5,7 @@ using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Ports;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Sockets;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -15,6 +16,8 @@ namespace Gothic.VR.Interaction.Backends.Hvr
     /// </summary>
     public class HvrSocketContainerBridge : MonoBehaviour, IVrSocketContainer
     {
+        [Inject] private readonly IVrBackend _vrBackend;
+
         private HVRSocketContainer _container;
         private readonly Dictionary<IVrSocket, (AudioClip Placed, AudioClip Removed)> _savedSounds = new();
         private bool _isSilent;
@@ -28,6 +31,9 @@ namespace Gothic.VR.Interaction.Backends.Hvr
                 return _container;
             }
         }
+
+        public bool IsActive => _vrBackend == null || _vrBackend is HvrBackend;
+        public bool IsSilent => _isSilent;
 
         public IReadOnlyList<IVrSocket> Sockets
         {

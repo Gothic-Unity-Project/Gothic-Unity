@@ -8,6 +8,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vm;
 using Gothic.VR.Services;
 using Gothic.VR.Adapters.Vob.VobItem;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -52,8 +53,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         {
             var vobLoader = GetComponentInParent<VobLoader>();
             _lockable = vobLoader.Container;
-            // Every door and chest has exactly one hinge (the door wing or the chest lid).
-            _hinge = vobLoader.GetComponentInChildren<IVrHinge>(true);
+            // Every door and chest has one hinge (the door wing or the chest lid) per backend which supports it.
+            _hinge = VrHinges.FindActive(vobLoader);
             switch (_lockable.Vob)
             {
                 case IDoor door:
@@ -86,7 +87,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             yield return null;
             
             // Deactivate rotation
-            _hinge.Lock();
+            _hinge?.Lock();
         }
 
         private void OnTriggerEnter(Collider other)
@@ -235,6 +236,12 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void UnlockAndPushOpen()
         {
             // Reactivate rotation
+            if (_hinge == null)
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             _hinge.Unlock();
 
             // Apply force in the door's forward direction (world space)

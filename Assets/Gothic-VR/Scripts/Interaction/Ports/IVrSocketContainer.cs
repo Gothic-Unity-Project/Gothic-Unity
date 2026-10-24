@@ -11,6 +11,17 @@ namespace Gothic.VR.Interaction.Ports
         IReadOnlyList<IVrSocket> Sockets { get; }
 
         /// <summary>
+        /// Whether this container belongs to the active VR backend. Shared prefabs (e.g. chests) carry one container
+        /// per backend.
+        /// </summary>
+        bool IsActive { get; }
+
+        /// <summary>
+        /// See SetSilent.
+        /// </summary>
+        bool IsSilent { get; }
+
+        /// <summary>
         /// Finds the first free socket which accepts the interactable.
         /// </summary>
         bool TryFindFree(VrInteractable interactable, out IVrSocket socket);
