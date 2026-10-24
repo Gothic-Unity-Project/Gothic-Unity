@@ -44,6 +44,13 @@ namespace Gothic.Core.Adapters.UI.Menus
         protected float PixelRatioX;
         protected float PixelRatioY;
 
+        // DeveloperConfig.EnableMenuScrolling: the rows that scroll (with their unscrolled position) and the offset in
+        // virtual menu units.
+        private readonly List<(AbstractMenuItemInstance item, Transform transform, Vector3 basePosition)> _scrollItems =
+            new();
+        private int _scrollOffset;
+        private int _maxScrollOffset;
+
         public virtual void InitializeMenu(AbstractMenuInstance menuInstance)
         {
             MenuHandler = transform.parent.GetComponent<MenuHandler>();
@@ -103,7 +110,8 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void CreateRootElements()
         {
             var backPic = TextureService.GetMaterial(MenuInstance.BackPic);
-            if (backPic.mainTexture == null)
+            var hasRealBackPic = backPic.mainTexture != null;
+            if (!hasRealBackPic)
             {
                 // Some mod menus (e.g. New Balance's MENU_MAIN under Union) define no backPic.
                 // The fallback's pixel size also drives the pixel-ratio math below, i.e. item spacing.
@@ -115,8 +123,72 @@ namespace Gothic.Core.Adapters.UI.Menus
             SetupCanvasSize(backPic);
             ComputePixelRatios(backPic);
             BuildAllMenuItems();
+            SetupScrolling();
+
+            var canvasT = Canvas.transform;
+            Logger.Log($"[AbstractMenu] '{MenuInstance.Name}' hasRealBackPic={hasRealBackPic} " +
+                       $"DimX/Y={MenuInstance.DimX}/{MenuInstance.DimY} " +
+                       $"backPicTex={backPic.mainTexture?.width}x{backPic.mainTexture?.height} " +
+                       $"PixelRatio={PixelRatioX:F6}/{PixelRatioY:F6} " +
+                       $"canvasRect={Canvas.GetComponent<RectTransform>().rect.width}x{Canvas.GetComponent<RectTransform>().rect.height} " +
+                       $"canvasScale={canvasT.localScale:F6}", LogCat.Ui);
         }
         
+        /// <summary>
+        /// DeveloperConfig.EnableMenuScrolling: a menu with more rows than fit between ScrollTopY and ScrollBottomY
+        /// (our Immersion options) scrolls by rows - Up/Down buttons (MenuCommandScrollUp/Down) or the mouse wheel.
+        /// Rows outside the window are hidden: Gothic's item back pictures are 3D quads a UI mask wouldn't clip.
+        /// </summary>
+        private void SetupScrolling()
+        {
+            _scrollItems.Clear();
+            _scrollOffset = 0;
+            _maxScrollOffset = 0;
+            if (!ConfigService.Dev.EnableMenuScrolling || MenuInstance.ScrollTopY < 0 || MenuInstance.ScrollStepY <= 0)
+                return;
+
+            foreach (var (item, go) in MenuItemCache.Values)
+            {
+                if (item.IsScrollable)
+                    _scrollItems.Add((item, go.transform, go.transform.localPosition));
+            }
+            if (_scrollItems.Count == 0)
+                return;
+
+            var step = MenuInstance.ScrollStepY;
+            var lastRowY = _scrollItems.Max(i => i.item.PosY);
+            var rowsBelow = Mathf.CeilToInt((lastRowY - (MenuInstance.ScrollBottomY - step)) / (float)step);
+            _maxScrollOffset = Mathf.Max(0, rowsBelow) * step;
+            ApplyScroll();
+        }
+
+        protected void Scroll(int rows)
+        {
+            if (_scrollItems.Count == 0)
+                return;
+            _scrollOffset = Mathf.Clamp(_scrollOffset + rows * MenuInstance.ScrollStepY, 0, _maxScrollOffset);
+            ApplyScroll();
+        }
+
+        private void ApplyScroll()
+        {
+            foreach (var (item, itemTransform, basePosition) in _scrollItems)
+            {
+                var posY = item.PosY - _scrollOffset;
+                itemTransform.gameObject.SetActive(posY >= MenuInstance.ScrollTopY && posY < MenuInstance.ScrollBottomY);
+                itemTransform.localPosition = basePosition + Vector3.up * (_scrollOffset / PixelRatioY);
+            }
+        }
+
+        private void Update()
+        {
+            if (_scrollItems.Count == 0 || UnityEngine.InputSystem.Mouse.current == null)
+                return;
+            var wheel = UnityEngine.InputSystem.Mouse.current.scroll.ReadValue().y;
+            if (Mathf.Abs(wheel) > 0.01f)
+                Scroll(wheel > 0f ? -1 : 1);
+        }
+
         private void BuildAllMenuItems()
         {
             foreach (var item in MenuInstance.Items)
@@ -240,7 +312,10 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             if (!item.AlphaMode.IsNullOrEmpty())
             {
-                backPic.ToTransparentMode();
+                // Plain alpha blending (Gothic's BLEND). ToTransparentMode clipped with _ALPHATEST_ON, a variant builds
+                // strip (no material asset uses it), and blended premultiplied a not premultiplied texture - the G2
+                // "Noc Kruka" logo looked different in builds than in the Editor.
+                backPic.ToFadeMode();
                 var color = backPic.GetColor("_BaseColor");
                 var alpha = item.Alpha / 255f;
                 backPic.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));
@@ -478,6 +553,11 @@ namespace Gothic.Core.Adapters.UI.Menus
                     PlaySound(itemName, commandName);
                     break;
                 case MenuItemSelectAction.ExecuteCommand:
+                    if (commandName == Constants.MenuCommandScrollUp || commandName == Constants.MenuCommandScrollDown)
+                    {
+                        Scroll(commandName == Constants.MenuCommandScrollUp ? -1 : 1);
+                        break;
+                    }
                     ExecuteCommand(itemName, commandName);
                     break;
                 default:

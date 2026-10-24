@@ -9,6 +9,12 @@ namespace Gothic.Core.Adapters.Vob
     public class StationaryLight : MonoBehaviour
     {
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        private StationaryLightsService _resolvedLightsService;
+
+        // OnEnable can run before GameObjectSelfInjector injected this component (component order on a new GO) - the
+        // NullReferenceExceptions of lights in nested VOBs (The Chronicles Of Myrtana's ship lanterns didn't light).
+        private StationaryLightsService LightsService => _stationaryLightsService ??
+            (_resolvedLightsService ??= ReflexProjectInstaller.DIContainer.Resolve<StationaryLightsService>());
         
         
         public Color Color
@@ -123,9 +129,19 @@ namespace Gothic.Core.Adapters.Vob
 
         /// <summary>
         /// Shader slot: StationaryLightsService hands one out only while the light is loaded and among the lights
-        /// closest to the camera - -1 otherwise.
+        /// closest to the camera - -1 otherwise. A light moving at runtime (torch in the hand, Light spell) sets
+        /// StationaryLightsService.DynamicLightIndex before Init() and keeps it (no pool).
         /// </summary>
-        public int Index { get; private set; } = -1;
+        public int Index { get; set; } = -1;
+
+        /// <summary>
+        /// A static light whose light is baked into the world's lightmaps (StationaryLightsService.HasWorldLightmaps):
+        /// it lights NPCs and VOBs outside the lightmaps only - the light mapped walls and the VOBs tinted with their
+        /// light (ApplyWorldLight) would get it twice: the Old Mine's scaffolds got brighter with every lamp the pool lit.
+        /// </summary>
+        public bool IsBakedIntoWorld { get; set; }
+
+        public int AffectedRendererCount => _affectedRenderers.Count;
 
         /// <summary>
         /// Color the pool writes into the shader slot it hands out (linear space).
@@ -150,6 +166,8 @@ namespace Gothic.Core.Adapters.Vob
         private Light _unityLight;
         // OnEnable already runs when the prefab is spawned - the pool may only know the light after Init().
         private bool _isInitialized;
+        // The dynamic slot (torch, Light spell): it lights its renderers itself, the pool never sees it.
+        private bool _isFixedSlot;
 
         private void OnDrawGizmosSelected()
         {
@@ -168,10 +186,25 @@ namespace Gothic.Core.Adapters.Vob
         {
             CachedPosition = transform.position;
             CachedRange = Range;
+            _isFixedSlot = Index >= 0;
             _isInitialized = true;
             GatherRenderers();
 
             // Call Light on Renderer activation again.
+            OnEnable();
+        }
+
+        /// <summary>
+        /// Re-gathers nearby renderers and re-registers with them. Unlike Init() (meant to run once
+        /// for a static world light), this is safe to call repeatedly for a light that moves at
+        /// runtime (e.g. a spell effect following the player) so it keeps affecting whatever's nearby.
+        /// </summary>
+        public void Refresh()
+        {
+            OnDisable();
+            _affectedRenderers.Clear();
+            CachedPosition = transform.position;
+            GatherRenderers();
             OnEnable();
         }
 
@@ -182,7 +215,7 @@ namespace Gothic.Core.Adapters.Vob
         {
             Index = index;
             foreach (var rend in _affectedRenderers)
-                _stationaryLightsService.AddLightOnRenderer(this, rend);
+                LightsService.AddLightOnRenderer(this, rend);
         }
 
         /// <summary>
@@ -191,21 +224,35 @@ namespace Gothic.Core.Adapters.Vob
         public void DetachSlot()
         {
             foreach (var rend in _affectedRenderers)
-                _stationaryLightsService.RemoveLightOnRenderer(this, rend);
+                LightsService.RemoveLightOnRenderer(this, rend);
             Index = -1;
         }
 
         private void OnEnable()
         {
+            if (_isFixedSlot)
+            {
+                foreach (var rend in _affectedRenderers)
+                    LightsService.AddLightOnRenderer(this, rend);
+                return;
+            }
+
             // Init() calls this on a light that may still be inactive (lazy loading) - Unity calls it again later.
             if (_isInitialized && isActiveAndEnabled)
-                _stationaryLightsService.RegisterPooledLight(this);
+                LightsService.RegisterPooledLight(this);
         }
 
         private void OnDisable()
         {
+            if (_isFixedSlot)
+            {
+                foreach (var rend in _affectedRenderers)
+                    LightsService.RemoveLightOnRenderer(this, rend);
+                return;
+            }
+
             if (_isInitialized)
-                _stationaryLightsService.UnregisterPooledLight(this);
+                LightsService.UnregisterPooledLight(this);
         }
 
         private void GatherRenderers()
@@ -214,7 +261,8 @@ namespace Gothic.Core.Adapters.Vob
             for (var i = 0; i < colliders.Length; i++)
             {
                 var renderer = colliders[i].GetComponent<MeshRenderer>();
-                if (renderer)
+                if (renderer && !(IsBakedIntoWorld && (LightsService.IsWorldChunk(renderer) ||
+                                                       LightsService.IsWorldLit(renderer))))
                 {
                     _affectedRenderers.Add(renderer);
                 }

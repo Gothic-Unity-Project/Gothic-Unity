@@ -191,6 +191,10 @@ MonoBehaviour:
     m_Key: menuitem.microphone.none_value
     m_Metadata:
       m_Items: []
+  - m_Id: 2692900000000000
+    m_Key: cinema.skip
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

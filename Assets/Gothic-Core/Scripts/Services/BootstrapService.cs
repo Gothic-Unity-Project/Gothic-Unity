@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using Gothic.Core.Adapters.Scenes;
 using Gothic.Core.Const;
 using Gothic.Core.Domain;
@@ -51,9 +52,11 @@ namespace Gothic.Core.Services
         [Inject] private readonly FrameSkipperService _frameSkipperService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly ParticleService _particleService;
         
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
@@ -102,8 +105,10 @@ namespace Gothic.Core.Services
             _npcMeshCullingService.Init();
             _vobSoundCullingService.Init();
             _gameTimeService.Init();
+            _saveGameService.Init();
             _npcRoutineService.Init();
             _fightService.Init();
+            _npcNavMeshService.Init();
             _particleService.Init();
         }
 
@@ -137,6 +142,7 @@ namespace Gothic.Core.Services
             GlobalEventDispatcher.LevelChangeTriggered.AddListener((world, spawn) =>
             {
                 _playerService.LastLevelChangeTriggerVobName = spawn;
+                _playerService.LastLevelChangeFromWorld = _saveGameService.CurrentWorldName;
                 LoadWorld(world, SaveGameService.SlotId.WorldChangeOnly, SceneManager.GetActiveScene().name);
             });
 
@@ -185,12 +191,29 @@ namespace Gothic.Core.Services
             {
                 // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
                 // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
+                // Only clear _pendingNpcInit (world-specific) — keep _pendingNpcRestore alive so dirty
+                // NPCs modified in other worlds are restored when we revisit those worlds this session.
+                _saveGameService.ClearPendingNpcInit();
+                _saveGameService.SyncWorldItemPositions();
+                _saveGameService.StoreLogicVobStates();
+                _saveGameService.StoreSpawnedNpcs();
+                _saveGameService.StoreWorldNpcStates();
+                LogicVobSaveState.BeginWorld(worldName);
                 _vobMeshCullingService.PreWorldCreate();
                 _npcMeshCullingService.PreWorldCreate();
                 _vobSoundCullingService.PreWorldCreate();
                 _vobService.PreWorldCreate();
                 _npcService.ClearQueues();
             }
+            // DeveloperConfig.EnableWorldPointsReset: free points (START, FP_*) and waypoints belong to one world. Never
+            // cleared before, the first world's won (TryAdd): a new game after loading an Old Mine save started at the
+            // mine's START - in the main world that's the middle of the Old Camp.
+            if (_configService.Dev.EnableWorldPointsReset)
+            {
+                _gameStateService.FreePoints.Clear();
+                _gameStateService.WayPoints.Clear();
+            }
+
             try
             {
                 _saveGameService.ChangeWorld(worldName);

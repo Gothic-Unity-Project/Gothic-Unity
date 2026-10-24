@@ -5,6 +5,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Vm;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
@@ -38,6 +39,7 @@ namespace Gothic.VR.Adapters.Vob
         private const string _stateOneSuffix = "_S1";
 
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly ConfigService _configService;
 
         private IInteractiveObject _mob;
         private Renderer[] _renderers;
@@ -53,6 +55,11 @@ namespace Gothic.VR.Adapters.Vob
             var loader = GetComponentInParent<VobLoader>();
             _mob = loader?.Container?.Vob as IInteractiveObject;
             _renderers = loader != null ? loader.GetComponentsInChildren<Renderer>(true) : Array.Empty<Renderer>();
+            // DeveloperConfig.EnableDigSpotTreasureOnly: only this VOB's renderers - VOBs nested below it in the world
+            // can have their own loader. One of Mroczne Tajemnice's anvils took three more anvils: its bounds covered
+            // the whole Old Camp and every sword swing there counted as a hit.
+            if (loader != null && _configService.Dev.EnableDigSpotTreasureOnly)
+                _renderers = Array.FindAll(_renderers, r => r.GetComponentInParent<VobLoader>(true) == loader);
             _hands = FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None);
 
             // Also tells whether the mob is visible at all (G2 X marks were invisible in an older playtest).

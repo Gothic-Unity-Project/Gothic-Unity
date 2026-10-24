@@ -2,12 +2,17 @@ using System;
 using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
 using TMPro;
+using ZenKit;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.UI.Menus
@@ -44,6 +49,8 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcHelperService _npcHelperService;
 
         private void Awake()
@@ -65,9 +72,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             var hero = _npcService.GetHeroContainer();
             var vob = hero.Vob;
 
-            var guildId = hero.Props.TrueGuild != VmGothicEnums.Guild.GIL_NONE
-                ? (int)hero.Props.TrueGuild
-                : vob.Guild;
+            var guildId = hero.Instance.Guild;
 
             MenuItemCache[_itemNameGuild].go.GetComponentInChildren<TMP_Text>().text = _vmService.GetGuildName(guildId);
             MenuItemCache[_itemNameLevel].go.GetComponentInChildren<TMP_Text>().text = vob.Level.ToString();
@@ -97,6 +102,7 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             // Talent 0 doesn't exist (TXT_TALENTS[0] = ""), NPC_TALENT_1H = 1 is shown in MENU_ITEM_TALENT_1_*.
             // Menu row number == talent index.
+            var filledRows = 0;
             Enumerable.Range(1, Math.Max(0, talentCount - 1)).ForEach(i =>
             {
                 var keyTitle = string.Format(_itemTalentTitlePattern, i);
@@ -106,6 +112,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 if (!MenuItemCache.ContainsKey(keyTitle))
                     return;
 
+                filledRows++;
                 var talent = vob.GetTalent(i);
                 var skillText = talentSkills[i];
                 string skillFormatted;
@@ -126,6 +133,8 @@ namespace Gothic.Core.Adapters.UI.Menus
                 if (MenuItemCache.ContainsKey(keyDescription))
                     SetItemText(keyDescription, $"{_npcHelperService.GetTalentPercent(hero, i)}%");
             });
+
+            Logger.Log($"[StatusMenu] Talents: count={vob.TalentCount}, titles={talentTitles.Count}, rows filled={filledRows}", LogCat.Ui);
         }
 
         /// <summary>

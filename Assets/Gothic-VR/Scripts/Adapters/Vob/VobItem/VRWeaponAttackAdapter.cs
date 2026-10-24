@@ -3,9 +3,14 @@ using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
+using Gothic.VR.Domain.Player;
 using Gothic.VR.Services;
+using HurricaneVR.Framework.Core;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -22,9 +27,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRWeaponAttackAdapter : MonoBehaviour
     {
         [Inject] private readonly VRWeaponService _vrWeaponService; 
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly ConfigService _configService;
         
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
+        private VrStabFinishDomain _stabFinish;
 
         private void Start()
         {
@@ -45,11 +53,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            // Hands, grabbables, the world - touching them is normal. A warning per touch flooded the log (lag).
             if (other.gameObject.layer != Constants.VobHitbox)
-            {
-                Logger.LogWarning($"[WeaponAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}", LogCat.Fight);
                 return;
-            }
 
             Logger.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
 
@@ -70,6 +76,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
+            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab and a twist only.
+            if (IsStabFinishOn() && NpcHelperService.IsKnockedOut(targetNpcContainer))
+            {
+                TryStabFinish(targetNpcContainer);
+                return;
+            }
+
             // Try to fire the hit through VR weapon service if available
             if (TryFireHitViaVRWeaponService(targetNpcContainer))
             {
@@ -79,6 +92,49 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.LogWarning("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)", LogCat.Fight);
             // TODO - Add support for flat-screen weapon hits and NPC-to-NPC hits here
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrStabFinish: the blade can already be inside the padded hitbox when the thrust comes.
+        /// </summary>
+        private void OnTriggerStay(Collider other)
+        {
+            if (other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
+                return;
+
+            var target = other.GetComponentInParent<NpcLoader>()?.Container;
+            if (target != null && NpcHelperService.IsKnockedOut(target))
+                TryStabFinish(target);
+        }
+
+        private void Update()
+        {
+            if (_stabFinish?.IsStuck == true)
+                _stabFinish.Tick(GetPlayerVelocity());
+        }
+
+        private Vector3 GetPlayerVelocity()
+        {
+            return _vrPlayerService.VRContextInteractionService.GetVRPlayerController().CharacterController.velocity;
+        }
+
+        private bool IsStabFinishOn()
+        {
+            return _configService != null && _configService.Dev.EnableVrStabFinish &&
+                   _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+        }
+
+        private void TryStabFinish(NpcContainer target)
+        {
+            if (_vrWeaponService == null || _stabFinish?.IsStuck == true)
+                return;
+
+            var attacker = _vrWeaponService.GetWeaponOwner(_weaponVobContainer);
+            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
+                return;
+
+            _stabFinish ??= new VrStabFinishDomain().Inject();
+            _stabFinish.TryStab(attacker, target, GetComponent<HVRGrabbable>(), GetPlayerVelocity());
         }
 
         private void OnTriggerExit(Collider other)

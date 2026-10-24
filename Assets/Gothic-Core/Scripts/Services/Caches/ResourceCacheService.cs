@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DirectMusic;
+using Gothic.Core.Domain.Meshes;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
@@ -11,6 +12,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
+using ZenKit.Vobs;
 using Font = ZenKit.Font;
 using Logger = Gothic.Core.Logging.Logger;
 using Mesh = ZenKit.Mesh;
@@ -32,6 +34,10 @@ namespace Gothic.Core.Services.Caches
 
         private readonly HashSet<string> _brokenSegments = new();
 
+        // Segments downloaded once - music zones switch themes back and forth (G2's pirate camp), no need to parse and
+        // download a theme again on the main thread while the audio thread renders.
+        private readonly Dictionary<string, Segment> _downloadedSegments = new(StringComparer.OrdinalIgnoreCase);
+
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
         private ResourceCacheType<IModelAnimation> _modelAnimation;
@@ -47,6 +53,23 @@ namespace Gothic.Core.Services.Caches
 
         // Kept for TryGetDaedalusVm's loose-file fallback (mods overriding a DAT with one ZenKit can't parse).
         private string _workPath;
+
+        /// <summary>
+        /// Prefabs come from Unity's Resources, not from the Gothic installation - they are needed before Init()
+        /// (the player scene with the game profile menu and its PrintScreen overlay loads before a game is picked).
+        /// </summary>
+        public ResourceCacheService()
+        {
+            _prefab = new(s =>
+            {
+                // Lookup is done in following places:
+                // 1. CONTEXT_NAME/Prefabs/... - overwrites lookup path below, used for specific prefabs, for current context (HVR, Flat, ...)
+                // 2. Prefabs/... - Located inside core module (Gothic-Core), if we don't need special handling.
+                var contextPrefixPath = $"{_contextInteractionService.GetContextName()}/{s}";
+                return new[] { contextPrefixPath, s }.Select(Resources.Load<GameObject>)
+                    .FirstOrDefault(newPrefab => newPrefab != null);
+            });
+        }
 
         public void Init(string root, bool mountModFiles = false, IReadOnlyList<string> allowedModArchives = null)
         {
@@ -89,7 +112,16 @@ namespace Gothic.Core.Services.Caches
                 (s, version) =>
                 {
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
-                    var fireWorld = new ZenKit.World(Vfs, s, version);
+                    var fireWorld = LoadWorld(s, version);
+
+                    // DeveloperConfig.EnableFireTreeRelativePositions: the roots' children (smoke under a fire's light)
+                    // carry the fire world's absolute positions too - zeroing only the roots put every FIRETREE_MEDIUM
+                    // smoke of the world at its absolute (-36, -5, 24) m: a smoke column at the Old Camp's gate.
+                    foreach (var root in fireWorld.RootObjects)
+                    {
+                        if (IsFireTreeRelativePositions() && root.Position != System.Numerics.Vector3.Zero)
+                            ShiftFireTreeChildren(root.Children, root.Position);
+                    }
 
                     // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
                     fireWorld.RootObjects.ForEach(i => i.Position = default);
@@ -108,16 +140,6 @@ namespace Gothic.Core.Services.Caches
             _morphMesh = new(s => new MorphMesh(Vfs, s).Cache());
             _font = new(s => new Font(Vfs, s).Cache());
             _texture = new(s => new Texture(Vfs, s).Cache());
-            
-            _prefab = new(s =>
-            {
-                // Lookup is done in following places:
-                // 1. CONTEXT_NAME/Prefabs/... - overwrites lookup path below, used for specific prefabs, for current context (HVR, Flat, ...)
-                // 2. Prefabs/... - Located inside core module (Gothic-Core), if we don't need special handling.
-                var contextPrefixPath = $"{_contextInteractionService.GetContextName()}/{s}";
-                return new[] { contextPrefixPath, s }.Select(Resources.Load<GameObject>)
-                    .FirstOrDefault(newPrefab => newPrefab != null);
-            });
         }
 
         [CanBeNull]
@@ -208,6 +230,23 @@ namespace Gothic.Core.Services.Caches
         /// Please consider using SoundCreator.ToAudioClip() instead.
         /// </summary>
         [CanBeNull]
+        /// <summary>
+        /// DeveloperConfig.EnableSfxFromSfxFolder: like the engine, a sound effect (C_SFX) is a file of
+        /// _WORK/DATA/SOUND/SFX - looked up by name only, a newer archive's speech file with the same name won (G1's
+        /// SFX.DAT maps the hero's SVM_15_DEAD to svm_2_dead.wav: sound.VDF's SFX one, not Speech.vdf's SPEECH one).
+        /// Falls back to the name lookup.
+        /// </summary>
+        public byte[] TryGetSoundBytes([NotNull] string key, [CanBeNull] string soundFolder)
+        {
+            if (soundFolder != null)
+            {
+                var node = Vfs.Resolve($"/_WORK/DATA/SOUND/{soundFolder}/{GetPreparedKey(key)}.wav");
+                if (node != null)
+                    return node.Buffer.Bytes;
+            }
+            return TryGetSoundBytes(key);
+        }
+
         public byte[] TryGetSoundBytes([NotNull] string key)
         {
             var node = Vfs.Find($"{GetPreparedKey(key)}.wav");
@@ -219,6 +258,8 @@ namespace Gothic.Core.Services.Caches
         {
             if (_brokenSegments.Contains(key))
                 return null;
+            if (_downloadedSegments.TryGetValue(key, out var downloaded))
+                return downloaded;
 
             Segment segment = null;
 
@@ -227,9 +268,10 @@ namespace Gothic.Core.Services.Caches
                 segment = _dmLoader.GetSegment(key);
 
                 // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
-                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
-                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                // whose instrument data dmusic can't download.
                 segment?.Download(_dmLoader);
+                if (segment != null)
+                    _downloadedSegments[key] = segment;
                 return segment;
             }
             catch (Exception e)
@@ -319,8 +361,68 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public ZenKit.World TryGetWorld([NotNull] string key)
         {
-            return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen");
+            return LoadWorld($"{GetPreparedKey(key)}.zen", null);
         }
+
+        /// <summary>
+        /// DeveloperConfig.EnableZenMaterialCountFix: a world ZenKit can't load is retried with its materials archive
+        /// header fixed - ZenKit skips the material count's first byte when it's a newline (266 materials: Mroczne
+        /// Tajemnice's ANCIENTTEMPLE.ZEN, std::bad_alloc). See ZenWorldArchiveFixDomain.
+        /// </summary>
+        private ZenKit.World LoadWorld(string name, GameVersion? version)
+        {
+            var chunkFixedData = TryFixChunkLengths(name);
+            try
+            {
+                return chunkFixedData != null
+                    ? new ZenKit.World(new Read(chunkFixedData), version)
+                    : new ZenKit.World(Vfs, name, version);
+            }
+            catch (Exception e) when (IsZenMaterialCountFix())
+            {
+                var data = chunkFixedData ?? Vfs.Find(name)?.Buffer.Bytes;
+                if (data == null)
+                    throw;
+
+                var fixedData = ZenWorldArchiveFixDomain.TryFixMaterialCountHeader(data, out var reason);
+                if (fixedData == null)
+                {
+                    Logger.LogError($"[ResourceCacheService] World '{name}' failed to load ({e.Message}), header " +
+                                    $"fix not applicable: {reason}", LogCat.ZenKit);
+                    throw;
+                }
+
+                Logger.LogWarning($"[ResourceCacheService] World '{name}' failed to load ({e.Message}) - " +
+                                  $"retrying with its materials archive header fixed ({reason})", LogCat.ZenKit);
+                return new ZenKit.World(new Read(fixedData), version);
+            }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableZenChunkLengthFix: checked before ZenKit loads a mod's world - a wrong chunk length makes
+        /// it hang, there's no exception to retry on (Renovation 2026's DRAGONISLAND.ZEN froze PreCaching). Only for mods:
+        /// it copies the whole world file, vanilla worlds are fine.
+        /// </summary>
+        [CanBeNull]
+        private byte[] TryFixChunkLengths(string name)
+        {
+            var configService = ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            if (!configService.Dev.EnableZenChunkLengthFix || !configService.IsModActive)
+                return null;
+
+            var node = Vfs.Find(name);
+            if (node == null)
+                return null;
+
+            var fixedData = ZenWorldArchiveFixDomain.TryFixMeshChunkLengths(node.Buffer.Bytes, out var reason);
+            if (fixedData != null)
+                Logger.LogWarning($"[ResourceCacheService] World '{name}' has wrong chunk lengths - fixed: {reason}",
+                    LogCat.ZenKit);
+            return fixedData;
+        }
+
+        private static bool IsZenMaterialCountFix() =>
+            ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>().Dev.EnableZenMaterialCountFix;
 
         /// <summary>
         /// We need to be careful to cache only Fire.zen files as they're small and used multiple times on a world.
@@ -330,6 +432,18 @@ namespace Gothic.Core.Services.Caches
         /// <param name="version"></param>
         /// <param name="cache"></param>
         /// <returns></returns>
+        private static bool IsFireTreeRelativePositions() =>
+            ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>().Dev.EnableFireTreeRelativePositions;
+
+        private static void ShiftFireTreeChildren(List<IVirtualObject> children, System.Numerics.Vector3 offset)
+        {
+            foreach (var child in children)
+            {
+                child.Position -= offset;
+                ShiftFireTreeChildren(child.Children, offset);
+            }
+        }
+
         [CanBeNull]
         public ZenKit.World TryGetWorld([NotNull] string key, GameVersion version, bool cache = false)
         {
@@ -339,7 +453,7 @@ namespace Gothic.Core.Services.Caches
             }
             else
             {
-                return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen", version);
+                return LoadWorld($"{GetPreparedKey(key)}.zen", version);
             }
         }
 

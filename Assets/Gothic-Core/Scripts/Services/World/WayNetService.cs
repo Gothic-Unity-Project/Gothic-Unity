@@ -26,6 +26,7 @@ namespace Gothic.Core.Creator
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _wayNetConfigService;
 
         public void Create(DeveloperConfig config, WorldContainer world)
         {
@@ -201,14 +202,43 @@ namespace Gothic.Core.Creator
             return matchingFreePoints.ToList();
         }
 
+        // Same "blocked by walls, but ignore facing" semantic as NpcHelperService.CanSeeNpc's freeLOS
+        // check — an NPC shouldn't need to be looking straight at a waypoint right behind it to
+        // recognize it as reachable.
+        private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
+
         public WayPoint FindNearestWayPoint(Vector3 lookupPosition, bool findSecondNearest = false)
         {
-            var wayPoint = _gameStateService.WayPoints
-                .OrderBy(pair => Vector3.Distance(pair.Value.Position, lookupPosition))
+            var orderedByDistance = _gameStateService.WayPoints
+                .OrderBy(pair => Vector3.Distance(pair.Value.Position, lookupPosition));
+
+            // Prefer a waypoint the NPC can actually walk to in a straight line — plain nearest-distance
+            // can land on the other side of a wall, sending the NPC through geometry to "reach" it.
+            // Checked lazily in distance order, so the common case (the nearest waypoint already has
+            // clear LOS) costs exactly one raycast rather than one per waypoint in the world — this
+            // project runs with a lot of NPCs, so that matters.
+            var wayPoint = orderedByDistance
+                .Where(pair => HasWalkableLineOfSight(lookupPosition, pair.Value.Position))
                 .Skip(findSecondNearest ? 1 : 0)
                 .FirstOrDefault();
 
+            // Nothing had a clear line of sight (e.g. the NPC is in a small enclosed space with no
+            // direct sight to any waynet node) — fall back to plain distance rather than returning null.
+            if (wayPoint.Value == null)
+            {
+                wayPoint = orderedByDistance
+                    .Skip(findSecondNearest ? 1 : 0)
+                    .FirstOrDefault();
+            }
+
             return wayPoint.Value;
+        }
+
+        private static bool HasWalkableLineOfSight(Vector3 from, Vector3 to)
+        {
+            var liftedFrom = from + Vector3.up;
+            var liftedTo = to + Vector3.up;
+            return !Physics.Linecast(liftedFrom, liftedTo, _raycastLayersToUse);
         }
 
         /// <summary>
@@ -217,6 +247,12 @@ namespace Gothic.Core.Creator
         [CanBeNull]
         public FreePoint FindNearestFreePoint(Vector3 lookupPosition, string fpNamePart, FreePoint npcOnFp)
         {
+            // If the NPC already has a home FP and it's available, return it directly.
+            // This prevents an NPC that woke up at the wrong position (e.g. after save/load or cull-in)
+            // from grabbing a closer unlocked FP that belongs to another NPC's post.
+            if (npcOnFp != null && npcOnFp.Name.ContainsIgnoreCase(fpNamePart) && !npcOnFp.IsLocked)
+                return npcOnFp;
+
             return _gameStateService.FreePoints
                 .Where(pair =>
                     pair.Value.Name.ContainsIgnoreCase(fpNamePart) && (pair.Value == npcOnFp || !pair.Value.IsLocked))
@@ -228,6 +264,9 @@ namespace Gothic.Core.Creator
 
         public DijkstraWaypoint[] FindFastestPath(string startWaypoint, string endWaypoint)
         {
+            if (_wayNetConfigService.Dev.EnableFastWaypointPath)
+                return FindFastestPathWithHeap(startWaypoint, endWaypoint);
+
             if (!_gameStateService.DijkstraWaypoints.ContainsKey(startWaypoint))
             {
                 Logger.LogWarning($"FindFastestPath: start waypoint '{startWaypoint}' not found in WayNet.", LogCat.Npc);
@@ -318,6 +357,109 @@ namespace Gothic.Core.Creator
             return path.ToArray();
         }
 
+
+        /// <summary>
+        /// DeveloperConfig.EnableFastWaypointPath: Dijkstra with a binary heap, stopping once the destination is reached.
+        /// The list based queue below put every waypoint of the world in, searched it linearly and walked the whole path
+        /// back on every step - quadratic on G1's waynet: a guide resuming its walk (Baal Parvez, 39 waypoints) froze the
+        /// game for a moment every time the hero caught up.
+        /// </summary>
+        private DijkstraWaypoint[] FindFastestPathWithHeap(string startWaypoint, string endWaypoint)
+        {
+            var waypoints = _gameStateService.DijkstraWaypoints;
+            if (!waypoints.TryGetValue(startWaypoint, out var start))
+            {
+                Logger.LogWarning($"FindFastestPath: start waypoint '{startWaypoint}' not found in WayNet.", LogCat.Npc);
+                return null;
+            }
+            if (!waypoints.ContainsKey(endWaypoint))
+            {
+                Logger.LogWarning($"FindFastestPath: end waypoint '{endWaypoint}' not found in WayNet.", LogCat.Npc);
+                return null;
+            }
+
+            var distances = new Dictionary<string, double> { [startWaypoint] = 0d };
+            var previous = new Dictionary<string, DijkstraWaypoint>();
+            var heap = new List<(double Distance, DijkstraWaypoint Waypoint)>();
+            HeapPush(heap, (0d, start));
+
+            var isReached = false;
+            while (heap.Count > 0)
+            {
+                var (distance, current) = HeapPop(heap);
+                if (distance > distances[current.Name])
+                    continue; // stale entry
+                if (current.Name == endWaypoint)
+                {
+                    isReached = true;
+                    break;
+                }
+
+                foreach (var (neighborName, edge) in current.DistanceToNeighbors)
+                {
+                    if (!waypoints.TryGetValue(neighborName, out var neighbor))
+                        continue;
+                    var alt = distance + edge;
+                    if (distances.TryGetValue(neighborName, out var known) && alt >= known)
+                        continue;
+                    distances[neighborName] = alt;
+                    previous[neighborName] = current;
+                    HeapPush(heap, (alt, neighbor));
+                }
+            }
+
+            if (!isReached)
+                return startWaypoint == endWaypoint ? new[] { start } : Array.Empty<DijkstraWaypoint>();
+
+            // Same order as before: destination first, start last (callers push it on a stack).
+            var path = new List<DijkstraWaypoint>();
+            var node = waypoints[endWaypoint];
+            while (node != null)
+            {
+                path.Add(node);
+                previous.TryGetValue(node.Name, out node);
+            }
+            return path.ToArray();
+        }
+
+        private static void HeapPush(List<(double Distance, DijkstraWaypoint Waypoint)> heap, (double, DijkstraWaypoint) item)
+        {
+            heap.Add(item);
+            var i = heap.Count - 1;
+            while (i > 0)
+            {
+                var parent = (i - 1) / 2;
+                if (heap[parent].Distance <= heap[i].Distance)
+                    break;
+                (heap[parent], heap[i]) = (heap[i], heap[parent]);
+                i = parent;
+            }
+        }
+
+        private static (double Distance, DijkstraWaypoint Waypoint) HeapPop(List<(double Distance, DijkstraWaypoint Waypoint)> heap)
+        {
+            var top = heap[0];
+            var last = heap[^1];
+            heap.RemoveAt(heap.Count - 1);
+            if (heap.Count == 0)
+                return top;
+
+            heap[0] = last;
+            var i = 0;
+            while (true)
+            {
+                var left = i * 2 + 1;
+                if (left >= heap.Count)
+                    break;
+                var right = left + 1;
+                var smallest = right < heap.Count && heap[right].Distance < heap[left].Distance ? right : left;
+                if (heap[i].Distance <= heap[smallest].Distance)
+                    break;
+                (heap[i], heap[smallest]) = (heap[smallest], heap[i]);
+                i = smallest;
+            }
+            return top;
+        }
 
         private class PriorityQueue
         {

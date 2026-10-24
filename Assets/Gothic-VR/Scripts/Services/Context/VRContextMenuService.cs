@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vm;
 using Gothic.Services.UI;
@@ -20,6 +21,7 @@ namespace Gothic.VR.Services.Context
     {
         [Inject] private readonly LocalizationService _localizationService;
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly ConfigService _configService;
         
         
         /// <summary>
@@ -59,7 +61,183 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateImmersionHeadline(gameMenu));
             vrImmersionMenu.Items.Add(CreateMicrophoneLabel(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
-            vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers",
+                "-X HP / +X MANA over NPC heads", menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers,
+                menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
+                "Size of the -X HP / +X MANA numbers", menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateHitNumbersSizeSlider(gameMenu, menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers",
+                "HP/MAX on health bars", menuStartY + menuDY * 3));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers,
+                menuStartY + menuDY * 3));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "MARVIN", "Marvin",
+                "Show the Marvin panel (needs Marvin mode)", menuStartY + menuDY * 4));
+            vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel,
+                menuStartY + menuDY * 4, 1));
+            vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
+                "How smoothly a torch's light follows your hand", menuStartY + menuDY * 5));
+            vrImmersionMenu.Items.Add(CreateLightRefreshChoice(gameMenu, menuStartY + menuDY * 5));
+            // DeveloperConfig.EnableHeroDeath: off = an NPC finishing you off only keeps you knocked out.
+            if (_configService.Dev.EnableHeroDeath)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HERO_DEATH", "Death",
+                    "NPCs can finish you off (off: only knocked out)", menuStartY + menuDY * 6));
+                vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HERO_DEATH", Constants.IniNames.HeroDeath,
+                    menuStartY + menuDY * 6, 1));
+            }
+            var nextRow = _configService.Dev.EnableHeroDeath ? 7 : 6;
+            // DeveloperConfig.EnableVrStabFinish: off = any hit finishes an unconscious NPC off.
+            if (_configService.Dev.EnableVrStabFinish)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
+                    "Stab and twist to finish off (off: any hit)", menuStartY + menuDY * nextRow));
+                vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
+                    menuStartY + menuDY * nextRow, 1));
+                nextRow++;
+            }
+            // DeveloperConfig.EnableVrCrossbowManualReload: off = a crossbow reloads by itself.
+            if (_configService.Dev.EnableVrCrossbowManualReload)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
+                    "Pull the string to reload (off: automatic)", menuStartY + menuDY * nextRow));
+                vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD",
+                    VRConstants.IniNames.CrossbowReload, menuStartY + menuDY * nextRow, 1));
+                nextRow++;
+            }
+            // DeveloperConfig.EnableVrSpellRing: Gesture (both hands up, both triggers) or Off.
+            if (_configService.Dev.EnableVrSpellRing)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "SPELL_RING", "Spell ring",
+                    "Both hands up + both triggers: equipped spells", menuStartY + menuDY * nextRow));
+                var spellRingChoice = CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing,
+                    menuStartY + menuDY * nextRow, 1);
+                spellRingChoice.SetText(0, "Off|Gesture");
+                vrImmersionMenu.Items.Add(spellRingChoice);
+                nextRow++;
+            }
+            var restartRow = nextRow;
+            vrImmersionMenu.Items.Add(CreateRestartButton(mainMenu, menuStartY + menuDY * restartRow));
+            var backButton = CreateImmersionBackButton(mainMenu);
+            vrImmersionMenu.Items.Add(backButton);
+            AddScrolling(mainMenu, vrImmersionMenu, menuStartY, backButton.PosY, menuDY);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMenuScrolling: the option rows (below the headline, above Back) scroll when there are
+        /// more than fit - Up (right, under the headline) / Down (right, next to Back) buttons (AbstractMenu).
+        /// </summary>
+        private void AddScrolling(AbstractMenuInstance mainMenu, MutableMenuInstance menu, int topY, int bottomY,
+            int stepY)
+        {
+            if (!_configService.Dev.EnableMenuScrolling)
+                return;
+
+            menu.ScrollTopY = topY;
+            menu.ScrollBottomY = bottomY;
+            menu.ScrollStepY = stepY;
+            foreach (var item in menu.Items)
+                item.IsScrollable = item.PosY >= topY && !item.Name.EndsWith("_BACK");
+
+            if (menu.Items.Max(i => i.IsScrollable ? i.PosY : 0) < bottomY)
+                return;
+            // Up on the right under the headline, Down on the right next to Back - one above the other.
+            menu.Items.Add(CreateScrollButton(mainMenu, menu.Name + "_SCROLL_UP", "Up", Constants.MenuCommandScrollUp,
+                _scrollButtonX, topY - stepY));
+            menu.Items.Add(CreateScrollButton(mainMenu, menu.Name + "_SCROLL_DOWN", "Down",
+                Constants.MenuCommandScrollDown, _scrollButtonX, bottomY + stepY / 3));
+        }
+
+        // Virtual menu X (0...8191) of the scroll buttons, at the right edge.
+        private const int _scrollButtonX = 6300;
+        private const int _scrollButtonWidth = 1600;
+
+        private MutableMenuItemInstance CreateScrollButton(AbstractMenuInstance mainMenu, string name, string text,
+            string command, int posX, int posY)
+        {
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
+            var button = new MutableMenuItemInstance(name, buttonReference);
+
+            button.PosX = posX;
+            button.DimX = _scrollButtonWidth;
+            button.PosY = posY;
+            button.SetText(0, text);
+            button.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);
+            button.SetOnSelActionS(0, command);
+
+            return button;
+        }
+
+        // Our own options have no localization entries yet - plain English labels.
+        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id, string label,
+            string description, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}", subtitlesLabel);
+
+            item.PosY = posY;
+            item.SetText(0, label);
+            item.SetText(1, description);
+
+            return item;
+        }
+
+        private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
+            int posY, int defaultValue = 0)
+        {
+            // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
+            var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}_CHOICE", subtitlesChoice);
+
+            item.PosY = posY;
+            item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
+            item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
+            item.OnChgSetOption = iniName;
+            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return item;
+        }
+
+        private MutableMenuItemInstance CreateLightRefreshChoice(AbstractMenuInstance gameMenu, int posY)
+        {
+            var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh, posY);
+            item.SetText(0, "Low|Medium|High");
+            return item;
+        }
+
+        private AbstractMenuItemInstance CreateHitNumbersSizeSlider(AbstractMenuInstance gameMenu, int posY)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var slider = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_HIT_NUMBERS_SIZE_SLIDER",
+                mouseSlider);
+
+            slider.PosY = posY;
+            slider.SetUserFloat(0, VRConstants.SmoothRotationSettingAmount); // Steps.
+            // Default = smallest. AbstractMenu turns a default of exactly 0 into 1 (full), hence the tiny value.
+            slider.SetUserFloat(3, 0.0001f);
+            slider.OnChgSetOption = Constants.IniNames.HitNumbersSize;
+            slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return slider;
+        }
+
+        /// <summary>
+        /// Starts the game again (GameRestartDomain) - e.g. to pick another game profile.
+        /// </summary>
+        private MutableMenuItemInstance CreateRestartButton(AbstractMenuInstance mainMenu, int posY)
+        {
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
+            var restartButton = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
+
+            restartButton.PosY = posY;
+            restartButton.SetText(0, "Restart game");
+            restartButton.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);
+            restartButton.SetOnSelActionS(0, VRConstants.MenuCommandRestartGame);
+
+            return restartButton;
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)

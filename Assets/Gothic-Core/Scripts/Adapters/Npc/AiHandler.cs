@@ -10,6 +10,7 @@ using Gothic.Core.Models.Vm;
 using FreePoint = Gothic.Core.Models.Vob.WayNet.FreePoint;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
@@ -29,6 +30,7 @@ namespace Gothic.Core.Adapters.Npc
 #endif
 
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
@@ -41,9 +43,45 @@ namespace Gothic.Core.Adapters.Npc
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
 
+        // True while the combo-preload CallAiFunction is executing. Used by ExtNpcClearAiQueue to
+        // avoid stopping the active AttackPlayAni when Npc_ClearAIQueue fires from ZS_Attack_Loop.
+        public bool IsInComboPreload { get; private set; }
+
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPC was dead at save time (or killed by startup scripts before mesh creation, e.g. Nek).
+            // Also catches HP=1 dead humans: FightService sets HP=1 on knockout; save-restore sets BsDead
+            // before InitNpc runs (via ApplyNpcSavedState in OnNpcCullingChanged), so the BsDead check
+            // here fires even when HP wasn't zeroed on kill.
+            var spawnHp = Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (spawnHp <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                Properties.BodyState = VmGothicEnums.BodyState.BsDead;
+                PlayDeadPose();
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={spawnHp}", LogCat.Npc);
+
+                // NPC died before this session (e.g. killed before save). Run ZS_Dead so Daedalus quest
+                // variables (e.g. CAVALORN_BRAGO_KILLED) are set in the fresh VM — dialog conditions depend on them.
+                // Only for HP=0 deaths (not HP=1 knockout-restores). Guard against double-call if OnNpcDied already ran.
+                if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
+                {
+                    var zsDeadSym = Vm.GetSymbolByName("ZS_Dead");
+                    if (zsDeadSym != null)
+                    {
+                        var oldSelf = Vm.GlobalSelf;
+                        var oldOther = Vm.GlobalOther;
+                        Vm.GlobalSelf = NpcInstance;
+                        Vm.GlobalOther = _npcService.GetHeroContainer().Instance;
+                        Vm.Call(zsDeadSym.Index);
+                        NpcData.IsZsDeadCalled = true;
+                        _npcService.SyncHeroInstanceToVob();
+                        Vm.GlobalSelf = oldSelf;
+                        Vm.GlobalOther = oldOther;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -86,6 +124,25 @@ namespace Gothic.Core.Adapters.Npc
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
             if (!Properties.CurrentAction.IsFinished())
             {
+                // Combo preload: Gothic's fight AI runs continuously, so the next attack is always
+                // queued before the combo window opens. We replicate this by firing the fight loop
+                // as soon as the window opens with an empty queue, so the cut happens at the right
+                // frame instead of waiting for the full animation (e.g. s_1hAttack is 5.6s).
+                if (_configService.Dev.EnableNpcCombatCombos &&
+                    Properties.CurrentAction is AttackPlayAni &&
+                    Properties.AnimationQueue.Count == 0 &&
+                    Properties.CurrentLoopState == NpcProperties.LoopState.Loop &&
+                    Properties.StateLoop != 0 &&
+                    PrefabProps.AnimationSystem.HasComboWindowOpened)
+                {
+                    Vm.GlobalSelf = NpcInstance;
+                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+                    IsInComboPreload = true;
+                    var preloadResponse = CallAiFunction(Properties.StateLoop);
+                    IsInComboPreload = false;
+                    if (preloadResponse != _daedalusLoopContinue)
+                        Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                }
                 return;
             }
 
@@ -98,7 +155,9 @@ namespace Gothic.Core.Adapters.Npc
                 if (NpcInstance != null)
                 {
                     Vm.GlobalSelf = NpcInstance;
-                    Vm.GlobalOther = Vm.GlobalHero;
+                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+                    if (Properties.StateVictim != null)
+                        Vm.GlobalVictim = Properties.StateVictim;
                 }
 
                 switch (Properties.CurrentLoopState)
@@ -117,6 +176,16 @@ namespace Gothic.Core.Adapters.Npc
                     case NpcProperties.LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
                         {
+                            // DeveloperConfig.EnableLooplessStatesEnd: like the engine, a state started via AI_StartState
+                            // without _Loop (ZS_HealSelf -> ZS_HealSelfMana after a fight) ends at once and the NPC goes
+                            // back to its routine (TA state walks to self.wp). Restarting it kept the NPC standing
+                            // where it gave up a chase. The daily routine state / a monster's start state still restart.
+                            if (_configService.Dev.EnableLooplessStatesEnd && !IsDailyState(Vob.CurrentStateIndex))
+                            {
+                                Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                                return;
+                            }
+
                             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
                             return;
                         }
@@ -125,7 +194,12 @@ namespace Gothic.Core.Adapters.Npc
                         
                         // Some ZS_*_Loop return !=0 when they want to quit.
                         if (loopResponse != _daedalusLoopContinue)
+                        {
                             Properties.CurrentLoopState = NpcProperties.LoopState.End;
+                            LogStateLoopEnded();
+                            ForgetHeroAfterLookingAway();
+                            _npcAiService.RememberHeroChaseGivenUp(NpcInstance, Properties, Vob.CurrentStateName);
+                        }
                         
                         break;
                     case NpcProperties.LoopState.End:
@@ -152,6 +226,55 @@ namespace Gothic.Core.Adapters.Npc
                 // plus file sink would be measurable noise on device.
                 Logger.LogEditor($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 PlayNextAnimation(Properties.AnimationQueue.Dequeue());
+            }
+        }
+
+        /// <summary>
+        /// Diagnostics: a non-daily state whose loop ended (berzerk ended at once) - which state, after how long.
+        /// </summary>
+        private void LogStateLoopEnded()
+        {
+            if (IsDailyState(Vob.CurrentStateIndex))
+                return;
+            Logger.Log($"[AiLoop] {NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)}: {Vob.CurrentStateName} loop ended " +
+                       $"(state time {Properties.StateTime:F1} s, active {Properties.IsStateTimeActive})", LogCat.Ai);
+        }
+
+        private bool IsDailyState(int stateIndex)
+        {
+            return stateIndex == Properties.RoutineCurrent?.Action || stateIndex == NpcInstance.StartAiState;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableQueuedStateEnd: a state's _End function, called when AI_StartState(..., 1, ...) is
+        /// reached in the queue - with the old state's other/victim, the globals are restored afterwards.
+        /// </summary>
+        public void CallStateEnd(int endFunction, NpcInstance other, NpcInstance victim)
+        {
+            var oldSelf = Vm.GlobalSelf;
+            var oldOther = Vm.GlobalOther;
+            var oldVictim = Vm.GlobalVictim;
+            Vm.GlobalSelf = NpcInstance;
+            if (other != null)
+                Vm.GlobalOther = other;
+            if (victim != null)
+                Vm.GlobalVictim = victim;
+
+            try
+            {
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: " +
+                           $"{Vm.GetSymbolByIndex(endFunction)?.Name} (state ended by AI_StartState)", LogCat.Ai);
+                CallAiFunction(endFunction);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"[AiHandler] State end {endFunction} failed: {e.Message}", LogCat.Ai);
+            }
+            finally
+            {
+                Vm.GlobalSelf = oldSelf;
+                Vm.GlobalOther = oldOther;
+                Vm.GlobalVictim = oldVictim;
             }
         }
 
@@ -194,14 +317,51 @@ namespace Gothic.Core.Adapters.Npc
             {
                 return;
             }
-            
-            var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
-            var assessPlayerRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessPlayer);
 
-            if(_npcHelperService.CanSenseNpc(NpcInstance, hero, false, assessPlayerRange))
+            var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
+
+            // Skip the hero's perception VM calls for NPCs far outside their own sense range.
+            // Avoids expensive Daedalus calls for every NPC in the scene (e.g. Old Camp).
+            var heroGo = hero?.GetUserData()?.Go;
+            var isHeroInSensesRange = heroGo != null && Vector3.Distance(gameObject.transform.position,
+                heroGo.transform.position) <= NpcInstance.SensesRange / 100f;
+
+            // DeveloperConfig.EnableNpcPerceptionsWithoutHero: like the engine, an NPC spots enemies and bodies on
+            // its own (Milten vs. an orc, a guard vs. a wolf) - the hero doesn't need to stand next to it.
+            if (!isHeroInSensesRange && !_configService.Dev.EnableNpcPerceptionsWithoutHero)
+            {
+                Properties.CurrentPerceptionTime = 0f;
+                return;
+            }
+
+            // Use the NPC's own senses_range (not the fixed global PERC_DIST_ASSESS_PLAYER).
+            // ZS_GuidePC sets self.senses_range = HAI_DIST_ASSESS_MONSTER (~35m) so escort NPCs
+            // can detect a lagging player far enough away to stop and wait.
+            if(isHeroInSensesRange && (IsEscortSensingHero() || _npcHelperService.CanSenseNpc(NpcInstance, hero, false)))
             {
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessPlayer, Properties, NpcInstance, null, hero);
+
+                // Active perception: hero is sensed while holding a weapon (FightMode set by NpcAiService.ExtSetHeroWeaponState).
+                // B_AssessFighter itself checks the distance (HAI_DIST_MELEE/RANGED) and attitude.
+                var heroWeaponState = (VmGothicEnums.WeaponState)hero.GetUserData().Vob.FightMode;
+                if (_npcAiService.IsArmedWeaponState(heroWeaponState))
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance, null, hero);
+
+                // PERC_OBSERVESUSPECT (original engine only, OpenGothic lacks it): the hero sneaks within its range
+                // (Perc_SetRange, G1: PERC_DIST_DIALOG) - G1 B_ObserveSuspect: "What's this supposed to be?".
+                // ZS_ObserveSuspect doesn't enable it again, so it won't restart while the hero keeps sneaking.
+                if (_configService.Dev.EnableHeroSneakBodyState &&
+                    hero.GetUserData().Props.BodyState == VmGothicEnums.BodyState.BsSneak &&
+                    Vector3.Distance(gameObject.transform.position, heroGo.transform.position) <=
+                    _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.ObserveSuspect))
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.ObserveSuspect, Properties, NpcInstance, null, hero);
             }
+
+            // Snapshot before UpdateEnemyNpc below can assign a fresh target this tick — gates
+            // UpdateActiveAttackerTarget on an ONGOING fight from a previous tick only, so a target
+            // UpdateEnemyNpc just picked doesn't get immediately second-guessed in the same tick by
+            // a second heuristic using different selection criteria.
+            var hadTargetBeforeThisTick = Properties.TargetNpc != null;
 
             // Scanning all NPCs for the closest enemy is expensive - only do it for NPCs that react to enemies at all.
             if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessEnemy, out var enemyPerception) &&
@@ -210,19 +370,72 @@ namespace Gothic.Core.Adapters.Npc
                 _npcAiService.UpdateEnemyNpc(NpcInstance);
 
                 // FIXME - Throws a lot of errors and warnings when NPCs are nearby monsters (e.g. Bridge guard next to OC)
-                if(Properties.EnemyNpc != null)
+                if(Properties.EnemyNpc != null && !IsLookingAwayFrom(Properties.EnemyNpc))
                 {
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
                 }
             }
 
+            // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never
+            // register that perception, so an NPC already engaged with the hero would otherwise never
+            // notice a companion or monster (e.g. Cavalorn, a wolf) engaging it in melee instead.
+            if (hadTargetBeforeThisTick)
+            {
+                _npcAiService.UpdateActiveAttackerTarget(NpcInstance);
+            }
 
-            // FIXME - We need to add other active perceptions here:
-            //         PERC_ASSESSBODY, PERC_ASSESSITEM, PERC_ASSESSFIGHTER
-            //         But at best when we test it immediately
+            // B_AssessFighter.d has !Npc_IsPlayer(other) guard so vanilla Daedalus never reacts to
+            // an armed non-player NPC approaching. We add NPC→NPC armed-threat detection in C#:
+            // an NPC in routine (no current target) reacts to nearby actively-fighting hostile NPCs
+            // exactly as it would react to the player drawing a weapon (ZS_AssessFighter).
+            if (Properties.TargetNpc == null)
+            {
+                _npcAiService.CheckForArmedNpcThreat(NpcInstance);
+            }
+
+            // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.
+            // Cap to 1m so Gothic's PERC_DIST_DIALOG value (5m) doesn't make NPCs react from meters away in VR.
+            // B_MoveNpc itself checks BS_STAND so it won't bark at a moving player.
+            if (isHeroInSensesRange &&
+                Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.MoveNpc, out var moveNpcPerception) &&
+                moveNpcPerception >= 0)
+            {
+                const float moveNpcMaxRange = 1f;
+                var moveNpcRange = Mathf.Min(_npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.MoveNpc), moveNpcMaxRange);
+                var distToHero = Vector3.Distance(gameObject.transform.position, heroGo.transform.position);
+                if (distToHero <= moveNpcRange)
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.MoveNpc, Properties, NpcInstance, null, hero);
+            }
+
+            // PERC_ASSESSBODY (active, like the engine): the closest sensed body. The scripts remember what they
+            // did with it (searched, reported the murder), so it firing every tick is fine.
+            if (_configService.Dev.EnableAssessBodyPerception &&
+                Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessBody, out var bodyPerception) &&
+                bodyPerception >= 0)
+            {
+                var body = _npcAiService.FindClosestSensedBody(NpcInstance);
+                if (body != null)
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessBody, Properties, NpcInstance, null, body);
+            }
+
+            // TODO: PERC_ASSESSITEM
 
             // Reset timer if we executed Perceptions.
             Properties.CurrentPerceptionTime = 0f;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableEscortSensesHero: a guide/follower (ZS_GuidePC/ZS_FollowPC in G1, ZS_Guide_Player/
+        /// ZS_Follow_Player in G2) senses the hero all around its senses range - the states set SENSE_SMELL with
+        /// HAI_DIST_ASSESS_MONSTER so PERC_ASSESSPLAYER notices a lagging hero. The quiet senses (smell only 3 m)
+        /// let the guide run ahead with its back to the hero: Baal Parvez, Lares and Jack Alligator never waited.
+        /// </summary>
+        private bool IsEscortSensingHero()
+        {
+            if (!_configService.Dev.EnableEscortSensesHero)
+                return false;
+
+            return NpcHelperService.IsInEscortState(NpcInstance);
         }
 
         private void ExecuteStates()
@@ -255,9 +468,24 @@ namespace Gothic.Core.Adapters.Npc
             // If we have nothing prepared, start daily Routine.
             else
             {
+                // Returning to routine — clear combat context so routine states get hero as "other".
+                Properties.StateOther = null;
+                Properties.StateVictim = null;
+
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)
+                {
+                    // Update CurrentWayPoint to the nearest WP so GoToWP uses the correct Dijkstra
+                    // starting position instead of the stale spawn WP. Without this, GoToWP(destination)
+                    // computes a path from the old spawn WP, walking the NPC backward before going forward.
+                    var prevWp = Properties.CurrentWayPoint?.Name ?? "null";
+                    var nearestWp = _wayNetService.FindNearestWayPoint(gameObject.transform.position);
+                    if (nearestWp != null)
+                        Properties.CurrentWayPoint = nearestWp;
+                    var pos = gameObject.transform.position;
+                    Logger.Log($"[StartNextRoutine] {NpcInstance.GetName(NpcNameSlot.Slot0)}: routine={currentRoutine.Waypoint} prevWP={prevWp} nearestWP={nearestWp?.Name ?? "null"} pos=({pos.x:F1},{pos.y:F1},{pos.z:F1})", LogCat.Ai);
                     StartRoutine(currentRoutine.Action, currentRoutine.Waypoint);
+                }
                 else
                     // If we don't have a routine, we're a monster.
                     StartRoutine(NpcInstance.StartAiState);
@@ -276,6 +504,45 @@ namespace Gothic.Core.Adapters.Npc
             
             StartRoutine(action);
         }
+
+        /// <summary>
+        /// DeveloperConfig.EnableTurnAwayIgnoresEnemyBehind: ZS_TurnAway ("I didn't see anything") turns the back to the
+        /// hero and ignores him for HAI_TIME_TURNAWAY (20 s) - but the enemy perception senses without a view angle
+        /// (like OpenGothic) and B_AssessEnemy checks Npc_CanSeeNpcFreeLOS (no angle either): a beaten guard with a
+        /// hostile attitude drew his weapon, put it away and looked away again in a loop, the 20 s never ran out.
+        /// The hero isn't an enemy to him in these states; other enemies (monsters) still are.
+        /// </summary>
+        private bool IsLookingAwayFrom(NpcInstance enemy)
+        {
+            if (!_configService.Dev.EnableTurnAwayIgnoresEnemyBehind || !IsInLookingAwayState())
+                return false;
+
+            return enemy.Index == ((NpcInstance)Vm.GlobalHero)?.Index;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableTurnAwayIgnoresEnemyBehind: when ZS_TurnAway runs out, the hostile temporary attitude
+        /// that sent him there goes back to the permanent one, like B_ResetTempAttitude - nothing in the scripts resets it
+        /// after looking away, and he started all over again whenever he saw the hero.
+        /// </summary>
+        private void ForgetHeroAfterLookingAway()
+        {
+            if (!_configService.Dev.EnableTurnAwayIgnoresEnemyBehind || !IsInLookingAwayState() ||
+                Vob.AttitudeTemp == Vob.Attitude)
+                return;
+
+            Logger.Log($"[AiLoop] {NpcInstance.GetName(NpcNameSlot.Slot0)}: done looking away - temporary attitude " +
+                       $"{(VmGothicEnums.Attitude)Vob.AttitudeTemp} back to {(VmGothicEnums.Attitude)Vob.Attitude}", LogCat.Ai);
+            Vob.AttitudeTemp = Vob.Attitude;
+        }
+
+        private bool IsInLookingAwayState()
+        {
+            return System.Array.IndexOf(_lookingAwayStates, Vob.CurrentStateName?.ToUpperInvariant()) >= 0;
+        }
+
+        // States in which the NPC looks away from the hero on purpose.
+        private static readonly string[] _lookingAwayStates = { "ZS_TURNAWAY" };
 
         public void StartRoutine(int action)
         {
@@ -309,12 +576,21 @@ namespace Gothic.Core.Adapters.Npc
 
             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
 
+            // Engine (OpenGothic Npc::startState): every state change disables all perceptions, the new ZS_ init
+            // re-enables its own. Only StartState.cs did it so far - AI_ContinueRoutine / back-to-routine kept e.g.
+            // ZS_AssessFighter's PERC_ASSESSREMOVEWEAPON, so the NPC answered every later weapon/rune removal with $WISEMOVE.
+            if (didRoutineChange && _configService.Dev.EnableRoutinePerceptionReset)
+                Properties.Perceptions.Clear();
+
             // We need to properly start state time as e.g. ZS_Cook won't call AI_StartState() or Npc_SetStateTime()
             // But it's required as it checks immediately how long the Cauldron is already been whirled.
             Properties.IsStateTimeActive = true;
 
             // When we reached end of ZS_*_END, we also call this method. Check if we really altered the routine action or just restarted it.
-            if (didRoutineChange)
+            // Skip FP release on the very first routine start (LastAiState==0 means no prior state).
+            // This preserves CurrentFreePoint restored from dirty save so Npc_IsOnFP returns true
+            // on the first B_GotoFP call, preventing the NPC from walking to a wrong distant FP.
+            if (didRoutineChange && Vob.LastAiState != 0)
             {
                 if (Properties.CurrentFreePoint != null)
                 {
@@ -322,6 +598,11 @@ namespace Gothic.Core.Adapters.Npc
                     Properties.CurrentFreePoint = null;
                 }
                 Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}<", LogCat.Ai);
+                Properties.StateTime = 0;
+            }
+            else if (didRoutineChange)
+            {
+                Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}< (FP preserved)", LogCat.Ai);
                 Properties.StateTime = 0;
             }
         }
@@ -352,6 +633,16 @@ namespace Gothic.Core.Adapters.Npc
                 }
 
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+                // DeveloperConfig.EnableDeadSkipsRoutine: a state change doesn't stand the dead up - it set BS_STAND
+                // and stopped S_DEADB: the dead hero took hits again (knocked out, back on his feet with 1 HP).
+                if (_configService.Dev.EnableDeadSkipsRoutine && Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+                {
+                    Logger.LogWarning($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: state cleared while " +
+                                      "dead - stays dead", LogCat.Ai);
+                    return;
+                }
+
                 Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
@@ -365,11 +656,32 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
+        /// Lying dead. G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
+        /// </summary>
+        private void PlayDeadPose()
+        {
+            if (!PrefabProps.AnimationSystem.PlayAnimation("S_DEADB"))
+                PrefabProps.AnimationSystem.PlayAnimation("S_DEAD");
+        }
+
+        /// <summary>
         /// Fully reset NPC state.
         /// Called after an NPC is re-enabled in the scene.
         /// </summary>
         public void ReEnableNpc()
         {
+            // DeveloperConfig.EnableDeadSkipsRoutine: a corpse stays where it died and lies again - it was moved to its
+            // routine waypoint and started its routine: Lukis and Ghorri stood in the bind pose, legs in the ground.
+            if (_configService.Dev.EnableDeadSkipsRoutine && Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                Properties.AnimationQueue.Clear();
+                Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+                PlayDeadPose();
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: re-enabled dead - lies again",
+                    LogCat.Npc);
+                return;
+            }
+
             // Spawn to initial spawn location
             var currentRoutine = Properties.RoutineCurrent;
             if (currentRoutine != null)
@@ -378,7 +690,11 @@ namespace Gothic.Core.Adapters.Npc
                 if (wp != null)
                 {
                     gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
-                    Properties.CurrentFreePoint = wp as FreePoint;
+                    // Only overwrite CurrentFreePoint when the routine WP is itself a FreePoint.
+                    // If it's a WayPoint (e.g. SPAWN_ZOLLO), preserve the home FP so GoToNextFp
+                    // can reclaim it instead of grabbing the nearest unlocked one.
+                    if (wp is FreePoint reFp)
+                        Properties.CurrentFreePoint = reFp;
                     Properties.CurrentWayPoint = wp as WayPoint;
                 }
                 else
@@ -454,6 +770,34 @@ namespace Gothic.Core.Adapters.Npc
                 //if we don't have a routine means it's about a monster
                 StartRoutine(Vob.CurrentStateIndex);
             }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableTimeSkipResetsNpcs: after the hero slept the NPC starts over like after culling
+        /// (ReEnableNpc: routine waypoint, empty queue, routine) - and forgets its fight: no enemy/target, the cooldowns
+        /// of a given-up chase, weapon away. Monsters go back to their start state, not the one they were in (an attack).
+        /// </summary>
+        public void ResetAfterTimeSkip()
+        {
+            Properties.EnemyNpc = null;
+            Properties.TargetNpc = null;
+            Properties.StateOther = null;
+            Properties.StateVictim = null;
+            Properties.LookAtTarget = null;
+            Properties.HeroChaseGivenUpTime = float.MinValue;
+            Properties.LastPursuitWarnTime = float.MinValue;
+
+            var isWeaponDrawn = (VmGothicEnums.WeaponState)Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon;
+            ReEnableNpc();
+
+            if (Properties.RoutineCurrent == null && NpcInstance.StartAiState != 0)
+                StartRoutine(NpcInstance.StartAiState);
+            if (isWeaponDrawn)
+                _npcAiService.ExtAiUndrawWeapon(NpcInstance);
+
+            var target = Properties.RoutineCurrent != null ? "routine " + Properties.RoutineCurrent.Waypoint : "start state";
+            Logger.Log($"[TimeSkipReset] {NpcInstance.GetName(NpcNameSlot.Slot0)} reset ({target}" +
+                       $"{(isWeaponDrawn ? ", weapon away" : "")})", LogCat.Ai);
         }
 
         public void DisableNpc()

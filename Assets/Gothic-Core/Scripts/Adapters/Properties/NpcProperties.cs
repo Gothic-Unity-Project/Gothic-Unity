@@ -37,6 +37,9 @@ namespace Gothic.Core.Adapters.Properties
         public string MdmName;
         public string MdsNameBase;
         public string MdsNameOverlay;
+        // Stores the overlay set by Daedalus routines (Mdl_ApplyOverlayMds). DrawWeapon temporarily
+        // replaces MdsNameOverlay with a combat overlay; UndrawWeapon restores from this.
+        public string MdsNameRoutineOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
         // An MDS file has always an MDH file named identically
@@ -54,6 +57,13 @@ namespace Gothic.Core.Adapters.Properties
 
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
+        // DeveloperConfig.EnableNpcPrehitReaction: until when (Time.time) this NPC - the hero - counts as starting a
+        // melee hit (the engine's isPrehit(): an attack animation before its hit frame).
+        public float MeleePrehitUntil = float.MinValue;
+        // The material of the weapon swung last (ItemMaterial, -1 = fists) - the hero's held weapon isn't equipped in VR.
+        public int MeleeSwingMaterial = -1;
+        // AI_LookAtNpc target until AI_StopLookAt (Npc_GetLookAtTarget).
+        public NpcInstance LookAtTarget;
 
         public enum LoopState
         {
@@ -77,9 +87,29 @@ namespace Gothic.Core.Adapters.Properties
         // e.g. used to handle random wait loops for idle eating animations (eat a cheese only every n-m seconds)
         public bool IsStateTimeActive;
         public float StateTime;
+
+        // Time.time when this NPC gave up chasing the hero from far away (DeveloperConfig.EnableChaseGiveUpCooldown).
+        public float HeroChaseGivenUpTime = float.MinValue;
+        // Time.time of the last threat before a chase (DeveloperConfig.EnablePursuitWarn).
+        public float LastPursuitWarnTime = float.MinValue;
         public LoopState CurrentLoopState = LoopState.None;
+
+        // DeveloperConfig.EnableNpcComboLimit: attacks chained at combo windows since the last one that played to its end.
+        public int AttackComboLength;
+        // DeveloperConfig.EnableNpcPhysicalProjectiles: AI_Attack turns in a row without a free line of shot.
+        public int BlockedShotCount;
+        // DeveloperConfig.EnableEngineNpcCombo: the attack animation that keeps playing for the next attack to continue,
+        // and the combo part it continues with.
+        public string ComboContinueAnimation;
+        public int ComboContinueIndex;
         public AbstractAnimationAction CurrentAction;
-        
+
+        // "other" and "victim" saved when a state is started via AI_StartState with a specific enemy.
+        // Used by AiHandler.Update() so state functions (ZS_*_Start/Loop) receive the correct NPC,
+        // not the hero default. Cleared when returning to daily routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;
     }

@@ -4,15 +4,17 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
-using Gothic.Core;
 using Gothic.Core.Extensions;
-using Gothic.Core.Manager;
-using Gothic.Core.Services;
+using Gothic.VR.Adapters.Vob;
+using Gothic.VR.Services;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Grabbers;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
+using LogCat = Gothic.Core.Logging.LogCat;
 
 namespace Gothic.VR.Adapters
 {
@@ -29,6 +31,9 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
 
@@ -37,8 +42,20 @@ namespace Gothic.VR.Adapters
 
         [SerializeField] private GameObject _nameCanvas;
 
+        private const string _nameTextName = "NameText";
+        private TMP_Text _nameText;
+
+        // The amount the shown name was made with - a stack changing while hovered (split) updates the name.
+        private int _shownAmount = -1;
+
+        /// <summary>
+        /// The hover name (with the amount) is shown right now.
+        /// </summary>
+        public bool IsNameShown => _isHovered && _nameCanvas != null && _nameCanvas.activeSelf;
+
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
+        private bool _mobActivated;
         private bool _isNpc;
 
         private void Awake()
@@ -58,10 +75,45 @@ namespace Gothic.VR.Adapters
         private void Start()
         {
             _nameCanvas.SetActive(false);
+            var grabbable = GetComponent<HVRGrabbable>();
+            grabbable?.Grabbed.AddListener(OnGrabbed);
+            grabbable?.Released.AddListener(OnReleased);
+            RefreshGrabColliders(grabbable);
+        }
+
+        private void OnGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            var vobLoader = GetComponentInParent<VobLoader>();
+            if (vobLoader == null || vobLoader.Container.Vob is not IInteractiveObject mob) return;
+
+            // Like the engine using a mob: chest lids and doors too (owners react, B_AssessUseMob).
+            _heroPerceptionService.OnHeroUsesMob(mob);
+
+            // Using the mob itself (wheels, levers, shrines, beds, ...) is VRMobInteraction's - containers aren't.
+            if (_mobActivated || mob is not IContainer container)
+                return;
+
+            _mobActivated = true;
+            _vrPlayerService.TryToggleStaticContainerLoot(vobLoader, container);
+        }
+
+        private void OnReleased(HVRGrabberBase _, HVRGrabbable __)
+        {
+            _mobActivated = false;
         }
 
         public void OnHoverEnter(HVRGrabberBase _, HVRGrabbable __)
         {
+            // The hero's focus (PlayerService.FocusNpc) - e.g. Marvin's "kill" hits the NPC the hand pointed at.
+            if (_isNpc && _configService.Dev.EnableMarvinKill)
+            {
+                var loader = GetComponentInParent<NpcLoader>();
+                var npc = loader != null && loader.Npc != null ? loader.Container : null;
+                if (npc != null)
+                    _playerService.FocusNpc = npc;
+            }
+
+
             OnHoverEnter(_isNpc
                 ? Constants.ShaderPropertyFocusBrightnessNpcValue
                 : Constants.ShaderPropertyFocusBrightnessValue);
@@ -84,8 +136,7 @@ namespace Gothic.VR.Adapters
                 _cachedObjectRenderer = GetComponentInChildren<Renderer>();
 
             if (_featureBrightenUp)
-                _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
-                    shaderPropertyFocusBrightnessValue);
+                _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness, shaderPropertyFocusBrightnessValue);
 
             if (_featureShowName)
                 SetFocusName();
@@ -97,18 +148,67 @@ namespace Gothic.VR.Adapters
         {
             if (_featureBrightenUp)
             {
-                _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
-                    Constants.ShaderPropertyFocusBrightnessDefault);
+                _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness, Constants.ShaderPropertyFocusBrightnessDefault);
             }
 
             _nameCanvas.SetActive(false);
             _isHovered = false;
         }
 
-        private void LateUpdate()
+        /// <summary>
+        /// DeveloperConfig.EnableMobColliderRefresh: HVRGrabbable collects its colliders in Awake - when the prefab is
+        /// instantiated, before the mesh is built. Mobs whose mesh sits on a child bone (G2 Irdorath's touchplates:
+        /// BIP01 TOUCHPLATE -> BIP01 PLATE) only had the prefab's empty MeshCollider, nothing to hover or grab.
+        /// The hand's trigger bag only maps a collider to its grabbable on the same GameObject or via HVRGrabbableChild
+        /// (HVRSettings.ComponentInParentFallback is off) - child colliders get one, and the grabbable's layer.
+        /// </summary>
+        private void RefreshGrabColliders(HVRGrabbable grabbable)
         {
-            if (!_isHovered)
+            if (grabbable == null || _isNpc || GetComponent<VRVobItem>() != null ||
+                !_configService.Dev.EnableMobColliderRefresh)
                 return;
+
+            var before = grabbable.Colliders.Count;
+            grabbable.SetupColliders();
+            if (grabbable.Colliders.Count == before)
+                return;
+
+            var linked = 0;
+            foreach (var childCollider in grabbable.Colliders)
+            {
+                var childGo = childCollider.gameObject;
+                if (childGo == grabbable.gameObject || childGo.GetComponent<HVRGrabbable>() != null)
+                    continue;
+                if (!childGo.TryGetComponent<HVRGrabbableChild>(out var child))
+                {
+                    child = childGo.AddComponent<HVRGrabbableChild>();
+                    linked++;
+                }
+                child.ParentGrabbable = grabbable;
+                childGo.layer = grabbable.gameObject.layer;
+            }
+
+            Logger.Log($"[VRFocus] '{name}' grab colliders {before} -> {grabbable.Colliders.Count}, {linked} child " +
+                       "collider(s) linked (mesh built after HVR's Awake)", LogCat.VR);
+        }
+
+        private void OnEnable()
+        {
+            Application.onBeforeRender += UpdateNameCanvas;
+        }
+
+        /// <summary>
+        /// Runs after every LateUpdate: sitting NPCs get their BIP01 yaw inverted in AnimationSystem.LateUpdate
+        /// (_isSittingInverted). Placed in our own LateUpdate, the label was turned with that bone afterwards and
+        /// showed its mirrored back side.
+        /// </summary>
+        private void UpdateNameCanvas()
+        {
+            if (!_isHovered || _nameCanvas == null || _cachedObjectRenderer == null)
+                return;
+
+            if (_nameCanvas.activeSelf && GetShownItemAmount() != _shownAmount)
+                SetFocusName();
 
             // Calculate direction from parent object to camera
             var directionToCamera = (_mainCamera.transform.position - transform.position).normalized;
@@ -129,9 +229,31 @@ namespace Gothic.VR.Adapters
         /// </summary>
         private void OnDisable()
         {
+            Application.onBeforeRender -= UpdateNameCanvas;
             _dynamicMaterialService.ResetAllDynamicValues(gameObject);
 
             _isHovered = false;
+        }
+
+        private int GetShownItemAmount()
+        {
+            return GetComponentInParent<VobLoader>()?.Container?.Vob is ZenKit.Vobs.IItem item ? item.Amount : -1;
+        }
+
+        /// <summary>
+        /// The canvas can hold more texts (e.g. HP numbers on the health bar) - the name goes into >NameText<.
+        /// </summary>
+        private TMP_Text GetNameText()
+        {
+            if (_nameText != null)
+                return _nameText;
+
+            var nameTextTransform = _nameCanvas.transform.FindChildRecursively(_nameTextName);
+            if (nameTextTransform != null)
+                _nameText = nameTextTransform.GetComponent<TMP_Text>();
+            if (_nameText == null)
+                _nameText = _nameCanvas.GetComponentInChildren<TMP_Text>();
+            return _nameText;
         }
 
         private void SetFocusName()
@@ -141,15 +263,15 @@ namespace Gothic.VR.Adapters
             var vobContainer = GetComponentInParent<VobLoader>()?.Container;
             if (vobContainer != null)
             {
-                _nameCanvas.GetComponentInChildren<TMP_Text>().text = vobContainer.Props.GetFocusName();
+                GetNameText().text = vobContainer.Props.GetFocusName();
+                _shownAmount = GetShownItemAmount();
                 return;
             }
 
             var npcLoader = GetComponentInParent<NpcLoader>();
             if (npcLoader != null)
             {
-                _nameCanvas.GetComponentInChildren<TMP_Text>().text =
-                    npcLoader.Npc.GetUserData().PrefabProps.GetFocusName();
+                GetNameText().text = npcLoader.Npc.GetUserData().PrefabProps.GetFocusName();
                 return;
             }
         }

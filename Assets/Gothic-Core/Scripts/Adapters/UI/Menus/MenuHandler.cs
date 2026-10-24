@@ -75,6 +75,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         private void InstantiateMenus()
         {
             var menuInstanceNames = MainMenuHierarchy.GetMenuInstanceNamesRecursive();
+            Logger.Log($"[MenuHandler] Instantiating {menuInstanceNames.Count} menus: {string.Join(", ", menuInstanceNames)}", LogCat.Ui);
 
             foreach (var menuName in menuInstanceNames)
             {
@@ -83,7 +84,10 @@ namespace Gothic.Core.Adapters.UI.Menus
                 // ResourceCacheService already logged the missing prefab. G2 and mods define menus we have no
                 // prefab for - skip them, the menu just stays unavailable.
                 if (go == null)
+                {
+                    Logger.LogWarning($"[MenuHandler] No prefab for >{menuName}< — skipping (menu will be unavailable)", LogCat.Ui);
                     continue;
+                }
 
                 try
                 {

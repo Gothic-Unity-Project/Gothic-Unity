@@ -19,7 +19,20 @@ namespace Gothic.Core.Services.Player
         public Quaternion HeroSpawnRotation;
         
         public string LastLevelChangeTriggerVobName;
+        // The world the last level change came from - its trigger in the new world is the way back.
+        public string LastLevelChangeFromWorld;
+
+        /// <summary>
+        /// Marvin's god mode (DeveloperConfig.EnableMarvinGodMode): hits and falls don't hurt the hero.
+        /// </summary>
+        public bool IsGodMode;
         public NpcContainer HeroContainer { get; private set; }
+
+        /// <summary>
+        /// The hero's focus like Gothic's: the NPC last pointed at (VR: hovered with a hand - VRFocus), kept until another
+        /// one is. Marvin's "kill" (DeveloperConfig.EnableMarvinKill) acts on it.
+        /// </summary>
+        public NpcContainer FocusNpc;
         
         
         [Inject] private readonly VmCacheService _vmCacheService;

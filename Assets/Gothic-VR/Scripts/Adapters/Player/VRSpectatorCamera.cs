@@ -51,7 +51,7 @@ namespace Gothic.VR.Adapters.Player
 
             // If we have Device Simulator AND Spectator camera active, then the camera won't move at all in GameView.
             // And to be honest: We don't need the Spectator camera at that time.
-            if (_configService.Dev.EnableVRDeviceSimulator)
+            if (_configService.EffectiveEnableVRDeviceSimulator)
             {
                 DisableSpectatorCamera();
                 return;
@@ -109,8 +109,9 @@ namespace Gothic.VR.Adapters.Player
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
                 _vrCameraTransform.rotation,
-                // Use an exponential ease-in/out for more natural-feeling camera movement
-                1.0f - Mathf.Exp(-Time.deltaTime / _selectedSmoothingValue)
+                // Use an exponential ease-in/out for more natural-feeling camera movement. Unscaled: the video cinema
+                // pauses the game (timeScale 0) - the view froze and didn't turn to the screen.
+                1.0f - Mathf.Exp(-Time.unscaledDeltaTime / _selectedSmoothingValue)
             );
         }
 

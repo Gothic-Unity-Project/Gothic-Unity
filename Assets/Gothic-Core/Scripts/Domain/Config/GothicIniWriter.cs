@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Config
@@ -51,6 +53,12 @@ namespace Gothic.Core.Domain.Config
         private void WriteSetting(string section, string key, string value, bool isCreateSettingAllowed)
         {
             var lines = File.ReadAllLines(_iniFilePath).ToList();
+            if (isCreateSettingAllowed && IsWriteInSectionOn())
+            {
+                WriteSettingInSection(lines, section, key, value);
+                File.WriteAllLines(_iniFilePath, lines);
+                return;
+            }
             var sectionFound = false;
             var keyFound = false;
             
@@ -98,6 +106,67 @@ namespace Gothic.Core.Domain.Config
             
             // Write full file now
             File.WriteAllLines(_iniFilePath, lines);
+        }
+
+        private static bool IsWriteInSectionOn()
+        {
+            return ReflexProjectInstaller.DIContainer?.Resolve<ConfigService>()?.Dev?.EnableIniWriteInSection ?? false;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableIniWriteInSection: a new key went to the end of the file - into the last section
+        /// (VR immersion options under [GOTHIC_VR_ACCESSIBILITY]) - and wasn't found there the next time: every change
+        /// added another line (marvinPanel 20 times). The loader takes the last value of a key in the whole file.
+        /// Now our (VR) key is removed from every other VR section and written at the end of its own section.
+        /// </summary>
+        private static void WriteSettingInSection(List<string> lines, string section, string key, string value)
+        {
+            var currentSection = string.Empty;
+            var insertAt = -1;
+            var isKeyWritten = false;
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i].Trim();
+                if (line.StartsWith("[") && line.EndsWith("]"))
+                {
+                    currentSection = line.Substring(1, line.Length - 2);
+                    continue;
+                }
+
+                var isOwnSection = currentSection.Equals(section, StringComparison.OrdinalIgnoreCase);
+                if (isOwnSection && line.Length > 0)
+                    insertAt = i + 1;
+
+                var separator = line.IndexOf('=');
+                if (separator <= 0 ||
+                    !line.Substring(0, separator).Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (isOwnSection && !isKeyWritten)
+                {
+                    lines[i] = $"{key}={value}";
+                    isKeyWritten = true;
+                }
+                else if (isOwnSection || currentSection.Contains("VR"))
+                {
+                    // A duplicate (own section) or a stray copy in another VR section - it would win when loading.
+                    lines.RemoveAt(i);
+                    if (insertAt > i)
+                        insertAt--;
+                    i--;
+                }
+            }
+
+            if (isKeyWritten)
+                return;
+
+            if (insertAt < 0)
+            {
+                lines.Add($"[{section}]");
+                lines.Add($"{key}={value}");
+                return;
+            }
+            lines.Insert(insertAt, $"{key}={value}");
         }
     }
 }

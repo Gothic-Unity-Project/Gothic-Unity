@@ -337,9 +337,7 @@ namespace Gothic.Core.Extensions
             };
 
             if (fileName == null)
-            {
-                Logger.LogError($"key {svmEntry} not (yet) implemented.", LogCat.Misc);
-            }
+                Logger.Log($"SVM key {svmEntry} not mapped — skipping audio.", LogCat.Misc);
 
             return fileName;
         }

@@ -12,8 +12,10 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using HurricaneVR.Framework.Components;
 using HurricaneVR.Framework.Core;
+using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Sockets;
 using MyBox;
 using Reflex.Attributes;
@@ -29,6 +31,7 @@ namespace Gothic.VR.Adapters.Vob.Container
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         private readonly char[] _itemNameSeparators = { ';', ',' };
@@ -50,6 +53,7 @@ namespace Gothic.VR.Adapters.Vob.Container
         private bool _openingForTheFirstTime = true;
         private bool _onOpenedHandled;
         private bool _onClosedHandled;
+
         
         
         [Serializable]
@@ -295,14 +299,91 @@ namespace Gothic.VR.Adapters.Vob.Container
         {
             // We wait for some time to ensure the objects are automatically snapped into place.
             yield return new WaitForSeconds(1f);
-            
+
             foreach (var socket in _socketContainer.Sockets)
             {
                 socket.AudioGrabbedFallback = grabAudio;
                 socket.AudioReleasedFallback = releaseAudio;
+                socket.Grabbed.AddListener(OnSocketGrabbed);
+                socket.Released.AddListener(OnSocketReleased);
             }
         }
-        
+
+        /// <summary>
+        /// Something is put into a chest socket (back, or from the backpack/world): it's in the chest's contents now,
+        /// not lying in the world. Sockets grabbing items as the chest fills don't count - registered after that.
+        /// </summary>
+        private void OnSocketGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            var container = grabbable.GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not IItem item)
+                return;
+
+            ChangeContents(GetInstanceName(item), Math.Max(1, item.Amount));
+            _saveGameService.RemoveItemFromWorld(container);
+        }
+
+        /// <summary>
+        /// A socket lets go of an item. Taken out when it isn't socketed a frame later (a hand holds it) - not when it
+        /// only moves to another socket of this chest (Grabbed adds it again).
+        /// Before, only HVR's socket grab was listened to (its grabber is the socket itself) and nothing ever left the
+        /// contents: two beers taken out were in the backpack and still in the chest after loading.
+        /// </summary>
+        private void OnSocketReleased(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        {
+            var container = grabbable.GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not IItem item)
+                return;
+
+            StartCoroutine(RemoveFromContentsIfTaken(grabbable, GetInstanceName(item), Math.Max(1, item.Amount)));
+        }
+
+        private IEnumerator RemoveFromContentsIfTaken(HVRGrabbable grabbable, string itemName, int amount)
+        {
+            yield return null;
+            if (grabbable == null || grabbable.IsSocketed)
+                yield break;
+
+            ChangeContents(itemName, -amount);
+        }
+
+        /// <summary>
+        /// IContainer.Contents is what a save stores for this chest (DeveloperConfig.EnableWorldItemSaveState).
+        /// </summary>
+        private void ChangeContents(string itemName, int amountChange)
+        {
+            if (_vobContainer == null || string.IsNullOrEmpty(itemName))
+                return;
+
+            var items = string.IsNullOrEmpty(_vobContainer.Contents)
+                ? new List<ContentItem>()
+                : ParseContent(_vobContainer.Contents);
+            var index = items.FindIndex(i => i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                if (amountChange > 0)
+                    items.Add(new ContentItem { Name = itemName, Amount = amountChange });
+            }
+            else
+            {
+                var entry = items[index];
+                entry.Amount += amountChange;
+                if (entry.Amount > 0)
+                    items[index] = entry;
+                else
+                    items.RemoveAt(index);
+            }
+
+            _vobContainer.Contents = string.Join(",", items.Select(i => $"{i.Name}:{i.Amount}"));
+            Logger.Log($"[VRVobContainerPhysicsChest] {itemName} {(amountChange > 0 ? "+" : "")}{amountChange} -> " +
+                       $"'{_vobContainer.Contents}'", LogCat.VR);
+        }
+
+        private static string GetInstanceName(IItem item)
+        {
+            return !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+        }
+
         /// <summary>
         /// FIXME - Only temporary function. In the future we need to create a new Item to use it (e.g.) for saving later.
         /// FIXME - For now we stick with the mesh without properties only.

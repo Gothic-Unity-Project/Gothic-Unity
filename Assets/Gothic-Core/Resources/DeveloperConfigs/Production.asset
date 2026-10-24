@@ -17,6 +17,9 @@ MonoBehaviour:
   PreSelectMod: 0
   ModIni: 
   ModPath: 
+  EnableGameProfiles: 0
+  GameProfiles: []
+  FallbackLanguage: 
   GameControls: 0
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
@@ -28,11 +31,18 @@ MonoBehaviour:
   IgnoreSpammyZSpyLogs: 1
   ZenKitLogLevel: 1
   DirectMusicLogLevel: 30
+  EnableLoadFeature: 0
+  EnableSaveFeature: 0
   EnableMainMenu: 1
   LoadFromSaveSlot: 0
   SaveSlotToLoad: 0
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
+  EnableEmptyVobContainerChildren: 1
+  EnableWorldSpaceChildVobs: 1
+  DebugTraceVobVisual: 
+  EnableSaveLoadSystem: 0
+  EnableNpcRangedCombat: 0
   SpeedUpLoading: 0
   EnableVOBs: 1
   SpawnVOBTypes:
@@ -49,11 +59,27 @@ MonoBehaviour:
     CullingDistance: 200
   BrightenUpHoveredVOBs: 1
   ShowNamesOnHoveredVOBs: 1
+  EnableMoverRelativeKeyframes: 1
+  EnableTriggerEnableState: 1
+  EnableTriggerListSummedDelays: 1
+  EnableEngineCodeMaster: 1
+  EnableLogicVobSaveState: 1
+  EnableWorldItemSaveState: 1
+  EnableNpcInventorySaveState: 1
+  EnableSaveStoresHeldItems: 1
+  EnableAnimationCombines: 1
+  EnableNewGameSpawnReset: 1
+  EnableMobOccupancy: 1
+  EnableWorldPointsReset: 1
+  EnableNpcWaitsForWorldVobs: 1
+  EnableQueuedStateEnd: 1
+  EnableDownedNpcPerceptions: 1
+  EnableNestedMovers: 1
+  EnableMobRequiredItem: 1
   PlayerInventoryAddition: 
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
   EnableNpcs: 1
-  EnableCombatSystem: 1
   EnableNpcMeshCulling: 1
   NpcCullingDistance: 50
   SpawnNpcInstances:
@@ -61,6 +87,10 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 
   EnableNpcEyeBlinking: 0
+  EnableFaceAnimations: 1
+  NpcDialogStopDistance: 1.3
+  NpcAttackApproachSpread: 1.3
+  NpcAttackArrivalThreshold: 0.2
   EnableNpcLooting: 1
   EnableDialogFreeMovement: 1
   ShowNpcColliders: 0
@@ -68,6 +98,8 @@ MonoBehaviour:
   ShowWayPoints: 0
   ShowWayEdges: 0
   EnableGameSounds: 1
+  EnableMusic: 1
+  EnableOggAudio: 1
   SunLightColor: {r: 0.69, g: 0.69, b: 0.69, a: 1}
   SunLightIntensity: 1
   SunUpdateInterval: 1
@@ -78,7 +110,221 @@ MonoBehaviour:
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
-  AlwaysRecreateCache: 0
+  AlwaysRecreateCache: 1
   OnlyCreateCacheForWorld: 
   EnableDecalVisuals: 0
   EnableParticleEffects: 0
+  EnableLevel5Cheat: 0
+  EnableGuildCheat: 0
+  EnableScavengerGuildCheat: 0
+  EnableTimeSkip: 0
+  MarvinTeleportWaypoint: 
+  EnableMarvinBlink: 1
+  EnableMarvinKill: 1
+  EnableMarvinFallRescue: 1
+  EnableMarvinGodMode: 1
+  MarvinSpawnNpcSymbol: 
+  MarvinFriendsNpcSymbols: 
+  MarvinCheatFriendsNpcSymbols: 
+  MarvinStartCommands: 
+  MarvinGiveItems: 
+  EnableNpcCombatCombos: 1
+  EnableNpcHitDetection: 1
+  EnableNpcPhysicalProjectiles: 1
+  EnableProjectileTrail: 1
+  EnableRangedWeaponNeedsAmmo: 1
+  EnableOutOfAmmoKeepsChasing: 1
+  EnableFightTurnTolerance: 1
+  EnableRangedFocusIgnoresCover: 1
+  EnableBlockedShotMoveInterrupt: 1
+  EnableOneHitKill: 0
+  EnableOneHitKnockout: 0
+  SummonSpawnRangeMultiplier: 0.8
+  RangedCombatRangeMultiplier: 0.8
+  EnableBackpackVacuum: 1
+  NpcLootMode: 2
+  NpcLootBackpackTimeout: 20
+  BackpackVacuumRadius: 1.2
+  BackpackVacuumStoreSeconds: 3
+  EnableHeroDropsWeaponsOnKnockout: 1
+  EnableRoutinePerceptionReset: 1
+  EnableCasterPerception: 1
+  EnableScriptRemovesHeldItems: 1
+  EnableSmoking: 1
+  SmokePuffs: 4
+  SmokeStartDelay: 1.5
+  EnableRuntimeArmorVisuals: 1
+  EnableDigSpotTreasureOnly: 1
+  EnableMobDialogOwnBounds: 1
+  EnableHudAlwaysOnTop: 1
+  EnableVrCrossbow: 1
+  EnableItemColliderFallback: 1
+  EnableRangedFittedColliders: 1
+  EnableKeepIdleOnClearAiQueue: 1
+  EnableCinemaSkipHint: 1
+  EnableEndingReturnsToMenu: 1
+  EnableHeroMoveBodyState: 1
+  EnableCrossbowMasterOneHand: 1
+  EnableFasterChaseGiveUp: 1
+  EnableItemDetailsPopup: 1
+  EnableEquipItems: 1
+  EnableScriptEquipEffects: 1
+  EnableNpcWater: 1
+  EnableVrBows: 1
+  EnableMorphByPosition: 1
+  EnableVrCrossbowManualReload: 1
+  EnableIniWriteInSection: 1
+  EnableVrSpellRing: 1
+  EnableThrowableSpells: 1
+  EnableBurning: 1
+  EnableChaseGiveUpCooldown: 1
+  EnableStickyHeroRun: 1
+  EnableQuietSenses: 1
+  EnablePursuitWarn: 1
+  EnableNpcRunAttack: 1
+  EnableRangedGiveUp: 1
+  EnableSpellSpreadDamage: 1
+  EnableMinimalDamage: 1
+  EnableTimeSkipResetsNpcs: 1
+  EnableDamageTargetMarkers: 1
+  EnableDamageTargetAutoAim: 1
+  EnableChildLogicVobs: 1
+  EnableMobColliderRefresh: 1
+  EnableHeroPersonalSpace: 1
+  EnableBodyPersonalSpace: 1
+  EnableAnimatedNpcHitbox: 1
+  EnableSingleHitPerNpcAttack: 1
+  EnableEngineNpcCombo: 1
+  EnableInvItemBySlot: 1
+  EnablePointerLineOnTop: 1
+  EnableDialogUntilStopProcessInfos: 1
+  EnableDialogBodyTurn: 1
+  EnableSfxFromSfxFolder: 1
+  EnableHeroHurtSound: 1
+  EnableSfxNumberedVariants: 1
+  EnableNpcLookAtTarget: 1
+  EnableSummonIgnoresMasterHits: 1
+  EnableNpcNavMesh: 1
+  EnableNpcJumpAndFall: 1
+  EnableNpcWallCollision: 1
+  EnableLooplessStatesEnd: 1
+  EnableQuickWinExternals: 1
+  EnableDocConsumeOnClose: 1
+  EnableVrTransformations: 1
+  EnableVrHeroBody: 1
+  EnableAnimationPfx: 1
+  EnableSpellBodyFx: 1
+  EnablePfxMinimumEmission: 1
+  EnableItemRandomAnis: 1
+  EnableImportantInfoOrder: 1
+  EnableDialogRangeByBodySize: 1
+  EnableDialogKeepsOutputs: 1
+  EnableDialogHeroByInstance: 1
+  EnableDeadStateLoop: 1
+  EnableNpcTargetIsEnemy: 1
+  EnableAiAttackDrawsWeapon: 1
+  EnableRoutineHolstersWeapon: 1
+  EnableDetectNpcSkipsDead: 1
+  EnableGuardsStopBerzerk: 1
+  EnablePassivePercBroadcast: 1
+  EnableNpcPerceptionsWithoutHero: 1
+  EnableAssessBodyPerception: 1
+  EnableMurderDefeatPerceptions: 1
+  EnableNpcSwingKeepsOnNpcHit: 1
+  EnableEngineUnconsciousRule: 1
+  EnableNpcHitAtOptimalFrame: 1
+  EnableEnemyOverrideNextTarget: 1
+  EnableNpcsIgnoreHeroSummons: 1
+  EnableHeroSneakBodyState: 1
+  EnableUseMobPerception: 1
+  EnableFootstepQuietSound: 1
+  EnableEnterRoomPerception: 1
+  EnableFloorRoomLookup: 1
+  EnableVrTrade: 1
+  EnableTradeGoodsTable: 1
+  EnableSpellTimePerMana: 1
+  MinSpellCastSeconds: 2
+  EnableSpellReleaseCheck: 1
+  EnableKnockoutTurning: 1
+  EnableSpawnedNpcSaves: 1
+  EnableWorldRevisitState: 1
+  EnableMusicZonesByPosition: 1
+  EnableLootTakeAll: 1
+  EnablePfxControllerVisuals: 1
+  EnableKnockoutFallAnimation: 1
+  EnableSummonActsForMaster: 1
+  EnableMobItemEvents: 1
+  EnableMobAnimationWithoutPosition: 1
+  EnableMobDocuments: 1
+  EnableDialogsPerGameVm: 1
+  EnableTextureArraySubmeshMaterials: 1
+  EnableMaterialCollisionFilter: 1
+  EnableFireVobChildren: 1
+  EnableNpcComboLimit: 1
+  EnableSummonSpellWithoutTarget: 1
+  EnableOnlyBadSpellsDamage: 1
+  EnableSpellThrowPhysics: 1
+  SpellThrowSpeedMultiplier: 0.5
+  EnableEscortSensesHero: 1
+  EnableHitStopsWalking: 1
+  EnableFastWaypointPath: 1
+  EnableFireTreeRelativePositions: 1
+  EnablePersonalAttitudeOnlyForHero: 1
+  EnableFireStates: 1
+  EnableRainFollowsPlayer: 1
+  EnableFrozenIsNotDown: 1
+  EnableNpcSpellFx: 1
+  NpcSpellHoming: 0.2
+  EnableHeroSpellStates: 1
+  EnableSubtitlesFromVfs: 1
+  EnableWorldLightmaps: 1
+  WorldLightmapBrightness: 1
+  EnableIndoorWorldDarkness: 1
+  EnableSpellMonsterMelee: 1
+  EnableDynamicVobLights: 1
+  EnableVobWorldLight: 1
+  EnableMeshCachePerTextureMode: 1
+  EnableTextureArrayMipFix: 1
+  HandLightInfluence: 0.3
+  HandSkinTint: {r: 0.78, g: 0.58, b: 0.48, a: 1}
+  EnableVmCacheResetOnLoad: 1
+  EnableZenMaterialCountFix: 1
+  EnableZenChunkLengthFix: 1
+  EnableItemDataBySymbol: 1
+  WeaponTrailOpacity: 0.5
+  EnableNpcPrehitReaction: 1
+  EnableNpcPrehitCancelsAttack: 1
+  EnableNpcParadeBlocksHits: 1
+  EnableAiTurnAway: 1
+  EnableAiWhirlAround: 1
+  EnableSneakBehindGuards: 1
+  EnableSneakSlowSprint: 1
+  EnableVrPickpocket: 1
+  EnableDefeatedNpcFightsBack: 1
+  EnableTurnAwayIgnoresEnemyBehind: 1
+  EnableLevelChangeSpawnFallback: 1
+  EnableHlpGetNpcVariables: 1
+  EnableHeroDefeatedAivar: 1
+  EnableEngineFinishingMove: 1
+  EnableFinishWithStabSound: 1
+  EnableVrStabFinish: 1
+  EnableDeathZeroHitPoints: 1
+  EnableDeadSkipsRoutine: 1
+  EnableDroppedItemColliderLayer: 1
+  EnableHeroDeath: 1
+  EnableHeroFallCamera: 1
+  EnableMenuScrolling: 1
+  EnableUiGrabBars: 1
+  EnableThrowRuneOneHand: 1
+  EnableVrFists: 1
+  EnableModelScale: 1
+  EnableMapPlayerMarker: 1
+  G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
+  EnablePfxFullRateLoops: 1
+  EnableStackSplit: 1
+  StackSplitRepeatDelay: 0.45
+  StackSplitAcceleration: 0.8
+  EnableAiFlee: 1
+  EnableTeleportKeepsHeldItems: 1
+  EnableVrTorch: 1
+  EnableWldPlayEffect: 1

@@ -1,4 +1,8 @@
 ﻿using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Extensions;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
 using UnityEngine;
 
 namespace Gothic.Core.Animations
@@ -19,6 +23,17 @@ namespace Gothic.Core.Animations
         private const float _headLookYawMax = 80f;
         private const float _headLookPitchMax = 30f;
         private const float _headLookRotateSpeed = 120f;
+        // DeveloperConfig.EnableDialogBodyTurn: degrees per second, and the angle at which the body stops turning.
+        private const float _bodyTurnSpeed = 180f;
+        private const float _bodyTurnStopAngle = 10f;
+        private bool _isTurningBody;
+        private string _bodyTurnAnimation;
+        private string _blendingOutTurnAnimation;
+        // The head's pose relative to the body without the turn animation.
+        private Quaternion _headRestRelative;
+        private bool _hasHeadRest;
+        private ConfigService _configService;
+        private AnimationService _animationService;
 
         protected override void Awake()
         {
@@ -52,6 +67,7 @@ namespace Gothic.Core.Animations
         public void StopDialogLookAt()
         {
             _dialogTarget = null;
+            StopBodyTurn();
         }
 
         /// <summary>
@@ -66,6 +82,26 @@ namespace Gothic.Core.Animations
                 return;
 
             var target = _dialogTarget == null ? null : _scriptTarget != null ? _scriptTarget : _dialogTarget;
+
+            if (_dialogTarget != null)
+                TurnBodyToDialogPartner(_dialogTarget.position);
+
+            // The turn animation swings the head to the side - while it plays the head keeps its pose from before
+            // (relative to the body), the look-at below still follows the hero.
+            // Also while it blends out after the turn - the neck swung to the side for a moment then.
+            if (_blendingOutTurnAnimation != null &&
+                !PrefabProps.AnimationSystem.IsPlaying(_blendingOutTurnAnimation))
+                _blendingOutTurnAnimation = null;
+            var headRelative = Quaternion.Inverse(Go.transform.rotation) * PrefabProps.Head.rotation;
+            if (_bodyTurnAnimation == null && _blendingOutTurnAnimation == null)
+            {
+                _headRestRelative = headRelative;
+                _hasHeadRest = true;
+            }
+            else if (_hasHeadRest)
+            {
+                PrefabProps.Head.rotation = Go.transform.rotation * _headRestRelative;
+            }
 
             var targetYaw = 0f;
             var targetPitch = 0f;
@@ -84,6 +120,62 @@ namespace Gothic.Core.Animations
             var body = Go.transform;
             var offset = Quaternion.AngleAxis(_yaw, Vector3.up) * Quaternion.AngleAxis(_pitch, body.right);
             PrefabProps.Head.rotation = offset * PrefabProps.Head.rotation;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableDialogBodyTurn: the hero walks behind his dialog partner - beyond what the neck can
+        /// turn (_headLookYawMax) the NPC turns his body towards him until he's nearly in front again
+        /// (_bodyTurnStopAngle). Within the neck's range only the head follows. Not while sitting / using a mob.
+        /// </summary>
+        private void TurnBodyToDialogPartner(Vector3 targetPosition)
+        {
+            _configService ??= ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
+            if (!_configService.Dev.EnableDialogBodyTurn || NpcData.IsUsingMob())
+            {
+                StopBodyTurn();
+                return;
+            }
+
+            var body = Go.transform;
+            var flatDirection = targetPosition - body.position;
+            flatDirection.y = 0f;
+            if (flatDirection.sqrMagnitude < 0.0001f)
+                return;
+
+            var angle = Vector3.SignedAngle(Vector3.ProjectOnPlane(body.forward, Vector3.up), flatDirection,
+                Vector3.up);
+            if (!_isTurningBody && Mathf.Abs(angle) > _headLookYawMax)
+                _isTurningBody = true;
+            else if (_isTurningBody && Mathf.Abs(angle) <= _bodyTurnStopAngle)
+                StopBodyTurn();
+            if (!_isTurningBody)
+                return;
+
+            // The feet step with it: the engine's turn animation (t_RunTurnL/R ...), like AI_TurnToNpc.
+            _animationService ??= ReflexProjectInstaller.DIContainer.Resolve<AnimationService>();
+            var turnAnimation = _animationService.GetAnimationName(
+                angle < 0f ? VmGothicEnums.AnimationType.RotL : VmGothicEnums.AnimationType.RotR, NpcData);
+            if (turnAnimation != _bodyTurnAnimation)
+            {
+                if (_bodyTurnAnimation != null)
+                    PrefabProps.AnimationSystem.StopAnimation(_bodyTurnAnimation);
+                _bodyTurnAnimation = turnAnimation;
+                if (_bodyTurnAnimation != null)
+                    PrefabProps.AnimationSystem.PlayAnimation(_bodyTurnAnimation);
+            }
+
+            body.rotation = Quaternion.RotateTowards(body.rotation, Quaternion.LookRotation(flatDirection),
+                _bodyTurnSpeed * Time.deltaTime);
+        }
+
+        private void StopBodyTurn()
+        {
+            _isTurningBody = false;
+            if (_bodyTurnAnimation == null)
+                return;
+            PrefabProps.AnimationSystem.StopAnimation(_bodyTurnAnimation);
+            _blendingOutTurnAnimation = _bodyTurnAnimation;
+            _bodyTurnAnimation = null;
         }
 
         private void GetLookAngles(Vector3 targetPosition, out float yaw, out float pitch)

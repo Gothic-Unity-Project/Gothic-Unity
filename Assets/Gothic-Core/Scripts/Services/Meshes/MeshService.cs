@@ -51,6 +51,21 @@ namespace Gothic.Core.Services.Meshes
             return npcGo;
         }
 
+        /// <summary>
+        /// Swap the body/armor mesh of an already built NPC (runtime armor change).
+        /// </summary>
+        public bool RebuildNpcBody(GameObject npcRoot, string mdmName, string mdhName, ExtSetVisualBodyData bodyData)
+        {
+            var npcBuilder = new NpcMeshBuilder().Inject();
+            npcBuilder.SetGameObject(npcRoot);
+            npcBuilder.SetMeshName(mdmName);
+            npcBuilder.SetMdh(mdhName);
+            npcBuilder.SetMdm(mdmName);
+            npcBuilder.SetBodyData(bodyData);
+
+            return npcBuilder.RebuildBody();
+        }
+
         public GameObject CreateNpcWeapon(GameObject npcGo, ItemInstance itemData,
             VmGothicEnums.ItemFlags mainFlag, VmGothicEnums.ItemFlags flags, bool isEquipped = false)
         {
@@ -188,9 +203,10 @@ namespace Gothic.Core.Services.Meshes
         }
 
         public GameObject CreateVobPfx(string pfxName, Vector3 position = default, Quaternion rotation = default,
-            GameObject parent = null, bool destroyAfterPlay = false)
+            GameObject parent = null, bool destroyAfterPlay = false, bool isFullRate = false)
         {
             var vobPfxBuilder = new VobPfxMeshBuilder().Inject();
+            vobPfxBuilder.SetFullRate(isFullRate);
             vobPfxBuilder.SetGameObject(null, pfxName);
             vobPfxBuilder.SetParent(parent);
             vobPfxBuilder.SetRootPosAndRot(position, rotation);

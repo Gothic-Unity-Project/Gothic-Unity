@@ -1,4 +1,4 @@
-﻿#if GOTHIC_HVR_INSTALLED
+#if GOTHIC_HVR_INSTALLED
 using System.Collections;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
@@ -29,6 +29,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private bool _isLocked;
         private string _combination;
@@ -40,7 +41,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private const string _lockInteractionColliderName = "LockPickInteraction";
 
         private int _combinationPos = 0;
-        
+
         public enum DoorLockStatus
         {
             StepSuccess,
@@ -82,7 +83,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private IEnumerator StartDelayed()
         {
             yield return null;
-            
+
             // Deactivate rotation
             _hvrPhysicsDoor.Lock();
         }
@@ -115,6 +116,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
+            // Like OpenGothic: trying a locked chest/door is using it - its owner may see it.
+            _heroPerceptionService.OnHeroUsesMob(_lockable.Vob as IInteractiveObject);
             _hapticsService.Vibrate(_handSide, VrHapticsService.VibrationType.Info);
 
             // For later event usage.
@@ -133,7 +136,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             var interaction = heldItem.GetComponentInChildren<VRLockPickInteraction>();
             return interaction != null && interaction.gameObject == lockInteraction;
         }
-        
+
         private void OnTriggerExit(Collider other)
         {
             if (!other.gameObject.name.Equals(_lockInteractionColliderName))
@@ -245,7 +248,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void PlaySound(string soundName, string fallback = null)
         {
             var clip = _audioService.GetRandomSoundClip(soundName);
-            
+
             if (clip == null && fallback != null)
             {
                 PlaySound(fallback);
@@ -260,4 +263,3 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
     }
 }
 #endif
-

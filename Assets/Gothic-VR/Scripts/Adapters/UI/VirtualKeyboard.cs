@@ -5,6 +5,7 @@ using Gothic.Core.Adapters.UI;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.VR.Models.UI;
 #if GOTHIC_HVR_INSTALLED
 using HurricaneVR.Framework.Core.UI;
@@ -148,6 +149,10 @@ namespace Gothic.VR.Adapters.UI
 
             // The optional rows changed - recalculate the panel size before the laser sees it.
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+
+            // DeveloperConfig.EnableUiGrabBars: following an anchor (Marvin), it's moved with the anchor's bar.
+            if (!_hasFollowTarget && ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableUiGrabBars)
+                VRGrabBar.Create((RectTransform)transform, transform);
 
             RefreshDisplay();
 #if GOTHIC_HVR_INSTALLED
