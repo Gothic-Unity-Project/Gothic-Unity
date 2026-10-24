@@ -110,11 +110,11 @@ namespace Gothic.Core.Const
         public static LayerMask WaterLayer = LayerMask.NameToLayer("Water");
         public static LayerMask UILayer = LayerMask.NameToLayer("UI");
 
-        // HVR Layers (could also be reused and implemented for XRIT if needed)
-        public static LayerMask PlayerLayer = LayerMask.NameToLayer("Player"); // Layer 8 (suggested by HVR)
-        public static LayerMask DynamicPoseLayer = LayerMask.NameToLayer("DynamicPose"); // Layer 9 (suggested by HVR)
-        public static LayerMask GrabbableLayer = LayerMask.NameToLayer("Grabbable"); // Layer 20 (suggested by HVR)
-        public static LayerMask HandLayer = LayerMask.NameToLayer("Hand"); // Layer 21 (suggested by HVR)
+        // VR layers (used by the VR backend for player, hands and grabbables)
+        public static LayerMask PlayerLayer = LayerMask.NameToLayer("Player"); // Layer 8 (VR backend default)
+        public static LayerMask DynamicPoseLayer = LayerMask.NameToLayer("DynamicPose"); // Layer 9 (VR backend default)
+        public static LayerMask GrabbableLayer = LayerMask.NameToLayer("Grabbable"); // Layer 20 (VR backend default)
+        public static LayerMask HandLayer = LayerMask.NameToLayer("Hand"); // Layer 21 (VR backend default)
 
         // Custom layers
         public static LayerMask VobItemLayer = LayerMask.NameToLayer("VobItem");

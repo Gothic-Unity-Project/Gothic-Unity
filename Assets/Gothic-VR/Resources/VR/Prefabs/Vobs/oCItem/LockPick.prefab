@@ -161,9 +161,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b286a6d3f574029ae48428e93591d28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IsSocketed: 0
   IsInsideLock: 0
-  ActiveDoorLock: {fileID: 0}
+  ActiveContainerDoorPicking: {fileID: 0}
   HoldingHand: {fileID: 0}
 --- !u!4 &6888142504213485964 stripped
 Transform:

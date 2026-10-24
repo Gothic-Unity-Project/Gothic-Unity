@@ -1,15 +1,15 @@
-using System;
-using Gothic.VR.Adapters.HVROverrides;
 using Gothic.Core.Extensions;
-using HurricaneVR.Framework.Core.Player;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
+using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.VR.Adapters.Player.Debugging
 {
     public class VRHandVelocityDebugger : MonoBehaviour
     {
-        [SerializeField] private VRPlayerController _playerController;
-        [SerializeField] private VRPlayerInputs _playerInputs;
+        [Inject] private readonly IVrInput _vrInput;
+
         [SerializeField] private GameObject _leftHandModel;
         [SerializeField] private GameObject _rightHandModel;
         [SerializeField] private Rigidbody _leftHandRigidbody;
@@ -20,9 +20,12 @@ namespace Gothic.VR.Adapters.Player.Debugging
         private LineRenderer _lineRendererRight1;
         private LineRenderer _lineRendererRight2;
         private LineRenderer _lineRendererRight3;
+        private IVrRig _rig;
 
         private void Start()
         {
+            _rig = GetComponent<IVrRig>();
+
             // Add a LineRenderer component
             _lineRendererLeft = _leftHandModel.AddComponent<LineRenderer>();
             _lineRendererRight1 = _rightHandModel.AddComponent<LineRenderer>();
@@ -65,16 +68,16 @@ namespace Gothic.VR.Adapters.Player.Debugging
         private void Update()
         {
             var rightPosition = _rightHandModel.transform.position;
-            var rawVelocity = _playerInputs.RightController.Velocity;
+            var rawVelocity = _vrInput.GetControllerVelocity(VrHandSide.Right);
 
             _lineRendererRight1.SetPosition(0, rightPosition);
             _lineRendererRight1.SetPosition(1, rightPosition + rawVelocity * 10);
 
             _lineRendererRight2.SetPosition(0, rightPosition);
-            _lineRendererRight2.SetPosition(1, rightPosition + _playerController.transform.TransformDirection(rawVelocity) * 10);
+            _lineRendererRight2.SetPosition(1, rightPosition + _rig.Root.TransformDirection(rawVelocity) * 10);
 
             _lineRendererRight3.SetPosition(0, rightPosition);
-            _lineRendererRight3.SetPosition(1, rightPosition + _playerController.CameraRig.transform.TransformDirection(rawVelocity) * 10);
+            _lineRendererRight3.SetPosition(1, rightPosition + _rig.TrackingSpace.TransformDirection(rawVelocity) * 10);
         }
     }
 }

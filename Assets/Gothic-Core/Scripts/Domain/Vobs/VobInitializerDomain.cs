@@ -802,7 +802,7 @@ namespace Gothic.Core.Domain.Vobs
 
         /// <summary>
         /// Child vobs are created inside their parent's GO without a VobLoader of their own. Their adapters
-        /// (VRVobContainer, VRVobContainerPhysicsChest, door lock picking, VRFocus) call
+        /// (VRVobContainer, chest lid physics, door lock picking, VRFocus) call
         /// GetComponentInParent&lt;VobLoader&gt;() and got the PARENT's vob (often an unnamed zCVob) -
         /// InvalidCastExceptions, "No door or container found for ><", doors/chests that don't work (G2 Xardas' tower).
         /// </summary>

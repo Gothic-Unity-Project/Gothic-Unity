@@ -1,12 +1,11 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using Gothic.VR.Adapters.HVROverrides;
-using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Shared;
+using Gothic.VR.Adapters.Player;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Logger = Gothic.Core.Logging.Logger;
@@ -52,7 +51,9 @@ namespace Gothic.VR.Adapters.UI
         private Color _savedBackground;
         private float _savedTimeScale = 1f;
 
-        private VRPlayerController _playerController;
+        private VRPlayer _player;
+        private IVrRig _rig;
+        private IVrInput _vrInput;
         private bool _savedMovementEnabled;
         private bool _savedRotationEnabled;
         private bool _savedCanCrouch;
@@ -171,16 +172,17 @@ namespace Gothic.VR.Adapters.UI
             }
         }
 
-        private static bool IsSkipPressed()
+        private bool IsSkipPressed()
         {
             var keyboard = Keyboard.current;
             if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
                 return true;
 
-            foreach (var side in new[] { HVRHandSide.Left, HVRHandSide.Right })
+            _vrInput ??= ReflexProjectInstaller.DIContainer.Resolve<IVrInput>();
+            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
             {
-                if (HVRController.GetButtonState(side, HVRButtons.Trigger).JustActivated ||
-                    HVRController.GetButtonState(side, HVRButtons.Primary).JustActivated)
+                if (_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated ||
+                    _vrInput.GetButton(side, VrButton.Primary).IsJustActivated)
                     return true;
             }
 
@@ -235,38 +237,45 @@ namespace Gothic.VR.Adapters.UI
         private void LockPlayer()
         {
             // The cinema is inactive until the first video - no Awake to cache it in before.
-            if (_playerController == null)
-                _playerController = GetComponentInParent<VRPlayerController>(true);
-            if (_playerController == null)
+            // It's a sibling of the rig inside the player prefab, not a child of the VRPlayer.
+            if (_player == null)
+            {
+                _player = transform.root.GetComponentInChildren<VRPlayer>(true);
+                _rig = _player == null ? null : _player.GetComponent<IVrRig>();
+            }
+            if (_player == null || _rig == null)
                 return;
 
-            _savedMovementEnabled = _playerController.MovementEnabled;
-            _savedRotationEnabled = _playerController.RotationEnabled;
-            _savedCanCrouch = _playerController.CanCrouch;
-            _savedCanJump = _playerController.CanJump;
-            _savedTeleporterEnabled = _playerController.Teleporter.enabled;
-            _savedMenuButtonEnabled = _playerController.VrInputs.IsMenuButtonEnabled;
+            _savedMovementEnabled = _rig.MovementEnabled;
+            _savedRotationEnabled = _rig.TurnEnabled;
+            _savedCanCrouch = _rig.CanCrouch;
+            _savedCanJump = _rig.CanJump;
+            _savedTeleporterEnabled = _rig.TeleportEnabled;
+            _savedMenuButtonEnabled = _player.IsMenuButtonEnabled;
 
-            _playerController.MovementEnabled = false;
-            _playerController.RotationEnabled = false;
-            _playerController.CanCrouch = false;
-            _playerController.CanJump = false;
-            _playerController.Teleporter.enabled = false;
-            _playerController.VrInputs.IsMenuButtonEnabled = false;
+            _rig.MovementEnabled = false;
+            _rig.TurnEnabled = false;
+            _rig.CanCrouch = false;
+            _rig.CanJump = false;
+            _rig.TeleportEnabled = false;
+            _player.IsMenuButtonEnabled = false;
         }
 
+        /// <summary>
+        /// Values enabled by others while the video played are kept: the lock saved at start can be outdated by then
+        /// (e.g. the world load or a dialog unlocked the player meanwhile), restoring it would leave the player stuck.
+        /// </summary>
         private void UnlockPlayer()
         {
-            if (_playerController == null)
+            if (_player == null || _rig == null)
                 return;
 
-            _playerController.MovementEnabled = _savedMovementEnabled;
-            _playerController.RotationEnabled = _savedRotationEnabled;
-            _playerController.CanCrouch = _savedCanCrouch;
-            _playerController.CanJump = _savedCanJump;
-            _playerController.Teleporter.enabled = _savedTeleporterEnabled;
-            _playerController.VrInputs.IsMenuButtonEnabled = _savedMenuButtonEnabled;
+            _rig.MovementEnabled |= _savedMovementEnabled;
+            _rig.TurnEnabled |= _savedRotationEnabled;
+            _rig.CanCrouch |= _savedCanCrouch;
+            _rig.CanJump |= _savedCanJump;
+            _rig.TeleportEnabled |= _savedTeleporterEnabled;
+            _player.IsMenuButtonEnabled |= _savedMenuButtonEnabled;
         }
     }
 }
-#endif

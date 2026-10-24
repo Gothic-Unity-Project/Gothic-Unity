@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
@@ -9,7 +8,7 @@ using Gothic.Services.UI;
 using Gothic.Core;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
-using HurricaneVR.Framework.Core.Player;
+using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -112,7 +111,7 @@ namespace Gothic.VR.Services.Context
             var sitStandSetting = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_SIT_STAND_CHOICE", subtitlesChoice);
 
             sitStandSetting.PosY = posY;
-            sitStandSetting.SetUserFloat(3, (int)HVRSitStand.PlayerHeight); // Default value if no INI value exists.
+            sitStandSetting.SetUserFloat(3, (int)VrSitStand.PlayerHeight); // Default value if no INI value exists.
 
             sitStandSetting.SetText(0, _localizationService.GetText("menuitem.sitStand.value"));
             sitStandSetting.OnChgSetOption = VRConstants.IniNames.SitStand;
@@ -167,7 +166,7 @@ namespace Gothic.VR.Services.Context
             var rotationTypeSetting = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_ROTATION_TYPE_CHOICE", subtitlesChoice);
 
             rotationTypeSetting.PosY = posY;
-            rotationTypeSetting.SetUserFloat(3, (int)RotationType.Snap); // Default value if no INI value exists.
+            rotationTypeSetting.SetUserFloat(3, (int)VrTurnType.Snap); // Default value if no INI value exists.
 
             rotationTypeSetting.SetText(0, _localizationService.GetText("menuitem.rotationType.value"));
             rotationTypeSetting.OnChgSetOption = VRConstants.IniNames.RotationType;
@@ -382,4 +381,3 @@ namespace Gothic.VR.Services.Context
         }
     }
 }
-#endif

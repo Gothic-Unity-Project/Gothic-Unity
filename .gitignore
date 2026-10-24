@@ -132,3 +132,11 @@ OpenGothic
 !.claude/README.md
 !.claude/CLAUDE-SETUP.md
 !.claude/statuslines/
+
+# Package samples (e.g. XR Interaction Toolkit Starter Assets, XR Interaction Simulator) are re-importable from the
+# Package Manager. What we need is copied into Gothic-VR/, so nothing may reference Assets/Samples/.
+/[Aa]ssets/[Ss]amples/
+/[Aa]ssets/[Ss]amples.meta
+
+
+ultimatexr-unity/

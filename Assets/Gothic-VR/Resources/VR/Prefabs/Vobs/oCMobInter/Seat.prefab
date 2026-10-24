@@ -56,26 +56,6 @@ PrefabInstance:
       propertyPath: Rigidbody
       value: 
       objectReference: {fileID: 492138702362873769}
-    - target: {fileID: 6907302684280751333, guid: 6cbff20e63c6e794fa758a47d703f2df, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6907302684280751333, guid: 6cbff20e63c6e794fa758a47d703f2df, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 1502701034376819458}
-    - target: {fileID: 6907302684280751333, guid: 6cbff20e63c6e794fa758a47d703f2df, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 6907302684280751333, guid: 6cbff20e63c6e794fa758a47d703f2df, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 6907302684280751333, guid: 6cbff20e63c6e794fa758a47d703f2df, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRSeat, Gothic.VR
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -136,5 +116,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89204bc4f3825b04bbeaa10da0266f6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRSeat
-  _canvasFade: {fileID: 0}
   _fadeSpeed: 6

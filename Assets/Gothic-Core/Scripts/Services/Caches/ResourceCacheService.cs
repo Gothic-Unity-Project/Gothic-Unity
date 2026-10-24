@@ -112,7 +112,7 @@ namespace Gothic.Core.Services.Caches
             _prefab = new(s =>
             {
                 // Lookup is done in following places:
-                // 1. CONTEXT_NAME/Prefabs/... - overwrites lookup path below, used for specific prefabs, for current context (HVR, Flat, ...)
+                // 1. CONTEXT_NAME/Prefabs/... - overwrites lookup path below, used for specific prefabs, for current context (VR, Flat, ...)
                 // 2. Prefabs/... - Located inside core module (Gothic-Core), if we don't need special handling.
                 var contextPrefixPath = $"{_contextInteractionService.GetContextName()}/{s}";
                 return new[] { contextPrefixPath, s }.Select(Resources.Load<GameObject>)

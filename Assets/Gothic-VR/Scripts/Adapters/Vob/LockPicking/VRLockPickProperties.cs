@@ -1,5 +1,4 @@
-﻿#if GOTHIC_HVR_INSTALLED
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Gothic.VR.Adapters.Vob.LockPicking
 {
@@ -10,4 +9,3 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         public Transform HoldingHand;
     }
 }
-#endif

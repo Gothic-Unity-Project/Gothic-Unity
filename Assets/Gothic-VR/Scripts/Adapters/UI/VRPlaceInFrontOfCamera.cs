@@ -1,6 +1,5 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Services.Context;
-using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 
@@ -73,13 +72,12 @@ namespace Gothic.VR.Adapters.UI
             if (_cameraTransform != null)
                 return true;
 
-            var playerController = _contextInteractionService?.GetCurrentPlayerController();
-            if (playerController == null)
+            var rig = _contextInteractionService?.GetImpl<VRContextInteractionService>().Rig;
+            if (rig == null)
                 return false;
 
-            _cameraTransform = playerController.GetComponent<VRPlayerController>().Camera;
+            _cameraTransform = rig.Head;
             return _cameraTransform != null;
         }
     }
 }
-#endif

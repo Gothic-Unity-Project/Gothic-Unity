@@ -6,7 +6,6 @@ using Gothic.Core.Models.Proxy;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
-using HurricaneVR.Framework.Core.Utils;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -60,7 +59,7 @@ namespace Gothic.Lab.Handler
 
         private IEnumerator SpawnMonster(int amount, string instanceName = null)
         {
-            if (instanceName.IsNullOrWhiteSpace())
+            if (string.IsNullOrWhiteSpace(instanceName))
                 instanceName = _monsterSelector.options[_monsterSelector.value].text;
             
             while (amount-- > 0)

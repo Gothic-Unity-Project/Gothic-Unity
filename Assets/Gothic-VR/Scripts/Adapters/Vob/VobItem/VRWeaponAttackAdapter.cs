@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
@@ -116,4 +115,3 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
     }
 }
-#endif

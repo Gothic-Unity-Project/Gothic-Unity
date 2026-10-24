@@ -5,10 +5,8 @@ using Gothic.Core.Adapters.UI;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
+using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.UI;
-#if GOTHIC_HVR_INSTALLED
-using HurricaneVR.Framework.Core.UI;
-#endif
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -150,11 +148,8 @@ namespace Gothic.VR.Adapters.UI
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
 
             RefreshDisplay();
-#if GOTHIC_HVR_INSTALLED
-            // A canvas created at runtime: the UI laser only hits canvases HVRInputModule knows.
-            if (HVRInputModule.Instance != null)
-                HVRInputModule.Instance.AddCanvas(GetComponent<Canvas>());
-#endif
+            // A canvas created at runtime: the UI laser only hits registered canvases.
+            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().RegisterCanvas(GetComponent<Canvas>());
             Logger.Log("[VirtualKeyboard] Shown", LogCat.Ui);
         }
 
@@ -367,10 +362,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
             _isClosed = true;
 
-#if GOTHIC_HVR_INSTALLED
-            if (HVRInputModule.Instance != null)
-                HVRInputModule.Instance.RemoveCanvas(GetComponent<Canvas>());
-#endif
+            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().UnregisterCanvas(GetComponent<Canvas>());
             if (_current == this)
                 _current = null;
             _onSubmit = null;

@@ -709,90 +709,6 @@ PrefabInstance:
       propertyPath: RaycastLayermask.m_Bits
       value: 9438272
       objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 4104050421938227924}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 4104050421938227924}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnReleased
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5592562468148006618}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBeforeGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
     - target: {fileID: 2034389217661245426, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.5
@@ -823,10 +739,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2573056120201010472, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 9da7c4efedc95434385f95fd36a71279, type: 2}
-    - target: {fileID: 2573056120201010472, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: 'm_Materials.Array.data[1]'
       value: 
       objectReference: {fileID: 2100000, guid: 9da7c4efedc95434385f95fd36a71279, type: 2}
     - target: {fileID: 2623048716060499684, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -905,34 +817,6 @@ PrefabInstance:
       propertyPath: SFXGrab
       value: 
       objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5592562468148006618}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBeforeGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 2980805439611176150, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
     - target: {fileID: 3063419232759952031, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Tags.Tags
       value: 
@@ -940,122 +824,6 @@ PrefabInstance:
     - target: {fileID: 3063419232759952031, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: Tags._data
       value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.size
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[1].m_Mode
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 3760600358070659426}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 9202099228209387433}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_Target
-      value: 
-      objectReference: {fileID: 3760600358070659426}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[1].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnItemPutIntoBackpack
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnReleased
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_MethodName
-      value: OnItemPutOutOfBackpack
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 9202099228209387433}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBeforeGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 3367897735511474143, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 3367897735596539136, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: SocketContainer
@@ -1092,34 +860,6 @@ PrefabInstance:
     - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: SFXGrab
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5592562468148006618}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBeforeGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 3964033594404211023, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 4653310549361533989, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: m_IsActive
@@ -1204,90 +944,6 @@ PrefabInstance:
     - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: RaycastLayermask.m_Bits
       value: 5243968
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 4104050421938227924}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 4104050421938227924}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnReleased
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
-      value: 
-      objectReference: {fileID: 5592562468148006618}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBeforeGrabbed
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Components.Player.VRPlayerWeaponInteraction, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRPlayerItemAdapter, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
-      propertyPath: BeforeGrabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 7340868166416387179, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1499,24 +1155,51 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2923976313076319325, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3523100539866759593}
+    - targetCorrespondingSourceObject: {fileID: 2923976313076319325, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 201725255711756182}
     - targetCorrespondingSourceObject: {fileID: 2923976313507361695, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3789326534228044634}
+    - targetCorrespondingSourceObject: {fileID: 3367897735596539146, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 265470885364990989}
     - targetCorrespondingSourceObject: {fileID: 3367897735511474145, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: 1
       addedObject: {fileID: 6510255065976159289}
+    - targetCorrespondingSourceObject: {fileID: 3367897735511474145, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6830298057528518834}
     - targetCorrespondingSourceObject: {fileID: 703588620095445913, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 851891696609758034}
     - targetCorrespondingSourceObject: {fileID: 2641012728304036569, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: 1
       addedObject: {fileID: 1678881631422854599}
+    - targetCorrespondingSourceObject: {fileID: 2641012728304036569, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8030036349999634828}
     - targetCorrespondingSourceObject: {fileID: 887448239260712835, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: 1
       addedObject: {fileID: 757337884793384726}
+    - targetCorrespondingSourceObject: {fileID: 887448239260712835, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7010009710009411731}
+    - targetCorrespondingSourceObject: {fileID: 8237771281066642269, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2406662486614375646}
+    - targetCorrespondingSourceObject: {fileID: 3327876949398026377, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8462357697535986096}
     - targetCorrespondingSourceObject: {fileID: 8886962481680141934, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4516976911541839521}
+    - targetCorrespondingSourceObject: {fileID: 8653842037556556660, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1976198550646775587}
+    - targetCorrespondingSourceObject: {fileID: 3309422083963978583, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9213565482220769279}
     - targetCorrespondingSourceObject: {fileID: 6718914276336705915, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3489498994974388381}
@@ -1537,7 +1220,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1685099869530008038, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 6965913448549182659}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ce026d01d1f538044a048be125f5a85e, type: 3}
@@ -1626,63 +1309,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutIntoHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutOutOfHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1726,6 +1359,18 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   DebugScale: 0
+--- !u!114 &7010009710009411731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1505226319018549300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!4 &1672321467721471303 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1118649348335930096, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -1905,9 +1550,6 @@ MonoBehaviour:
   MouseSensitivityX: 1
   IsGrounded: 0
   _actualVelocity: 0
-  MenuHandler: {fileID: 2192772470500779476}
-  Cinema: {fileID: 8331837288116874071}
-  _characterControllerSwimDiveStepHeight: 1
 --- !u!114 &6929123780788603430
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1975,25 +1617,6 @@ MonoBehaviour:
   UseWASD: 0
   IsMouseDown: 0
   MouseAxis: {x: 0, y: 0}
-  IsMenuActivated: 0
-  MenuState:
-    Active: 0
-    JustActivated: 0
-    JustDeactivated: 0
-    Value: 0
-  IsMenuButtonEnabled: 1
-  BothGripsActivatedState:
-    Active: 0
-    JustActivated: 0
-    JustDeactivated: 0
-    Value: 0
-  IsBothGripsActivated: 0
-  IsBothGripsActive: 0
-  BothGripsActiveState:
-    Active: 0
-    JustActivated: 0
-    JustDeactivated: 0
-    Value: 0
 --- !u!82 &4890979928761266796
 AudioSource:
   m_ObjectHideFlags: 0
@@ -2123,8 +1746,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4722222ff5b643658bd19ac210dbf94b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _playerController: {fileID: 1958783043908878430}
-  _playerInputs: {fileID: 6929123780788603430}
   _waterBobAmplitude: 0.001
   _waterBobFrequency: 2.5
   _swimStartDiveVerticalVelocity: -1
@@ -2167,8 +1788,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94f83c78c0664d83b28cbaed370379c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _playerController: {fileID: 1958783043908878430}
-  _playerInputs: {fileID: 6929123780788603430}
   _leftHandModel: {fileID: 2989725703437136398}
   _rightHandModel: {fileID: 3179937809927698473}
   _leftHandRigidbody: {fileID: 7701449421344543976}
@@ -2202,6 +1821,22 @@ MonoBehaviour:
   - {fileID: 4383562423631724883}
   _onTopMaterial: {fileID: 2100000, guid: 0733e67100959404abf850e406e5cb05, type: 2}
   _onTopRenderQueue: 3950
+--- !u!114 &201725255711756182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3469872688444955626}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae71b0be15a534849b5249a3e671a43f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRPlayer
+  MenuHandler: {fileID: 2192772470500779476}
+  Cinema: {fileID: 8331837288116874071}
+  SwimDiveStepHeight: 1
+  IsMenuButtonEnabled: 1
 --- !u!114 &3699890743539135334 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3164866306463935697, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -2213,6 +1848,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6bccf1e5bfe81ea449669046dd363b91, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &3845537509841100000 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3309422083963978583, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+  m_PrefabInstance: {fileID: 1779900574691844023}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &9213565482220769279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3845537509841100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fc5f324acfcbc3428010a9db3c9422e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrGrabberBridge
 --- !u!1 &3895146393672982614 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3367897735511474145, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -2232,63 +1884,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutIntoHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutOutOfHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -2331,17 +1933,63 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   DebugScale: 0
+--- !u!114 &6830298057528518834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3895146393672982614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!114 &3895146393690940081 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3367897735596539142, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 3895146393690940093}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6953a3149e8e4d1468962577608f0002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &3895146393690940093 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3367897735596539146, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+  m_PrefabInstance: {fileID: 1779900574691844023}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &265470885364990989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3895146393690940093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
+--- !u!1 &3935447129917564734 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3327876949398026377, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+  m_PrefabInstance: {fileID: 1779900574691844023}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8462357697535986096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3935447129917564734}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fc5f324acfcbc3428010a9db3c9422e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrGrabberBridge
 --- !u!137 &4253138355794772639 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 2573056120201010472, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -2366,63 +2014,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutIntoHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 9202099228209387433}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Vob.Container.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 3760600358070659426}
-        m_TargetAssemblyTypeName: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-        m_MethodName: OnItemPutOutOfHolster
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -2466,6 +2064,18 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   DebugScale: 0
+--- !u!114 &8030036349999634828
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4329570237425759598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!137 &4383562423631724883 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 2623048716060499684, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
@@ -2545,12 +2155,29 @@ Rigidbody:
   m_CorrespondingSourceObject: {fileID: 8653842037556556662, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &6965913448549182659 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8653842037556556660, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+  m_PrefabInstance: {fileID: 1779900574691844023}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1976198550646775587
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6965913448549182659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fc5f324acfcbc3428010a9db3c9422e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrGrabberBridge
 --- !u!114 &6965913448549182662 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8653842037556556657, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 6965913448549182659}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: de1e5b754bd6d9241a88e889575193b2, type: 3}
@@ -2630,12 +2257,29 @@ Rigidbody:
   m_CorrespondingSourceObject: {fileID: 8237771281066642271, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &7701449421344543978 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8237771281066642269, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
+  m_PrefabInstance: {fileID: 1779900574691844023}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2406662486614375646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7701449421344543978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fc5f324acfcbc3428010a9db3c9422e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrGrabberBridge
 --- !u!114 &7701449421344543983 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8237771281066642264, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 7701449421344543978}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: de1e5b754bd6d9241a88e889575193b2, type: 3}
@@ -2687,7 +2331,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7204430235297583144, guid: c43ac1b5fbd2fc24ea40fb28bae6be3e, type: 3}
   m_PrefabInstance: {fileID: 1779900574691844023}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 7701449421344543978}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ce026d01d1f538044a048be125f5a85e, type: 3}
@@ -3457,6 +3101,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3389792897302281518, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: _additionalSockets.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 3389792897302281518, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_additionalSockets.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1505226319018549300}
+    - target: {fileID: 3389792897302281518, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_additionalSockets.Array.data[1]'
+      value: 
+      objectReference: {fileID: 4329570237425759598}
+    - target: {fileID: 3389792897302281518, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_additionalSockets.Array.data[2]'
+      value: 
+      objectReference: {fileID: 3895146393672982614}
     - target: {fileID: 6429825415842413170, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
       propertyPath: m_Name
       value: BackPack
@@ -3465,62 +3125,22 @@ PrefabInstance:
       propertyPath: Socket
       value: 
       objectReference: {fileID: 3895146393690940081}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.size
-      value: 1
+    - target: {fileID: 7245954016319570917, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: _holsterSockets.Array.size
+      value: 3
       objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+    - target: {fileID: 7245954016319570917, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_holsterSockets.Array.data[0]'
       value: 
-      objectReference: {fileID: 3760600358070659426}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      objectReference: {fileID: 1505226319018549300}
+    - target: {fileID: 7245954016319570917, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_holsterSockets.Array.data[1]'
       value: 
-      objectReference: {fileID: 3760600358070659426}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBackpackGrabbedToShoulder
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnBackpackReleasedFromShoulder
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Gothic.VR.Adapters.Player.VRBackpack, Gothic.VR
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Grabbed.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
-    - target: {fileID: 6847336371662012770, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-      propertyPath: Released.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: UnityEngine.Object, UnityEngine
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 4329570237425759598}
+    - target: {fileID: 7245954016319570917, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
+      propertyPath: '_holsterSockets.Array.data[2]'
+      value: 
+      objectReference: {fileID: 3895146393672982614}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3535,17 +3155,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6ebc937e678155e4d86feeb9248cca97, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &3760600358070659426 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7245954016319570917, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-  m_PrefabInstance: {fileID: 5818257988439845511}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0e87e25baf014b28a5aaa89ab1e7c31f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!114 &4505433718888639186 stripped
@@ -3580,17 +3189,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 3447029125977450136, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
   m_PrefabInstance: {fileID: 5818257988439845511}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &9202099228209387433 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3389792897302281518, guid: 9887ca19e46b4d547b2ad40c47c756b9, type: 3}
-  m_PrefabInstance: {fileID: 5818257988439845511}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d33b9b45f9124f6b8afdb52a10613db0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &6171425951156898325
 PrefabInstance:
   m_ObjectHideFlags: 0

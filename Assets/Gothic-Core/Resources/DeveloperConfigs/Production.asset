@@ -18,6 +18,7 @@ MonoBehaviour:
   ModIni: 
   ModPath: 
   GameControls: 0
+  VrInteractionBackend: 0
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
   EnableZSpyLogs: 0

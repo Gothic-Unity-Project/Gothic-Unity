@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Const;
@@ -10,12 +9,11 @@ using Gothic.Core.Models.Config;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.UI;
-using HurricaneVR.Framework.Core.UI;
-using HurricaneVRExtensions.Simulator;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -33,17 +31,35 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly IVrInput _vrInput;
+        [Inject] private readonly IVrUiPointers _vrUiPointers;
+        [Inject] private readonly IVrHaptics _vrHaptics;
+        [Inject] private readonly IVrBackend _vrBackend;
 
         private const string _contextName = "VR";
+
         // Meters per second the player is pulled back when they ended up beyond KeepPlayerWithin's radius.
         private const float _keepWithinPullBackSpeed = 1f;
+
         // Share of the normal speed left at KeepPlayerWithin's radius for walking back in or sideways.
         private const float _keepWithinMinSpeed = 0.25f;
 
-        private VRPlayerController _playerController;
+        private IVrRig _rig;
+        private VRPlayer _player;
+        private float _defaultStepOffset;
         private GameObject _marvinRoot;
         private int _keepWithinLastFrame = -1;
         private Vector3 _keepWithinLastPosition;
+
+        /// <summary>
+        /// The player body of the active VR backend. null before SetupPlayerController().
+        /// </summary>
+        public IVrRig Rig => _rig;
+
+        /// <summary>
+        /// Gothic side of the player prefab (menu, Gothic inputs). null before SetupPlayerController().
+        /// </summary>
+        public VRPlayer Player => _player;
 
         public VRContextInteractionService()
         {
@@ -56,7 +72,7 @@ namespace Gothic.VR.Services.Context
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
                 SetRenderDistance(_configService.Gothic.IniVisualRange);
-                _playerController.SetNormalControls();
+                ApplyComfortSettings();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
@@ -71,7 +87,7 @@ namespace Gothic.VR.Services.Context
         private void OnLoadingSceneLoaded()
         {
             // Needed for: World -> Open MainMenu -> Hit "Load"/"New Game"
-            _playerController.MenuHandler.gameObject.SetActive(false);
+            _player.MenuHandler.gameObject.SetActive(false);
         }
 
         public float GetFrameRate()
@@ -93,17 +109,39 @@ namespace Gothic.VR.Services.Context
             // We call this method once at the very beginning of game start. We can safely assume we are in the Player.unity scene.
             var activeScene = SceneManager.GetActiveScene();
 
-            // HVR Player
-            _playerController = activeScene.GetComponentInChildren<VRPlayerController>(true)!;
-            _playerController.transform.parent.parent.gameObject.SetActive(true);
-            _playerController.SetNormalControls(true);
+            // VR Player: Gothic part and the backend's rig live on the same GameObject. The scene contains one
+            // (inactive) player prefab per VR backend. We use the one of the active backend and remove the others, so
+            // that scene-wide lookups (dialog, canvases, ...) find only ours.
+            var players = activeScene.GetRootGameObjects()
+                .SelectMany(i => i.GetComponentsInChildren<VRPlayer>(true))
+                .ToList();
+            _player = players.FirstOrDefault(i => _vrBackend.OwnsRig(i.GetComponent<IVrRig>()));
+            if (_player == null)
+            {
+                var message = $"No VR player with a rig of the active VR backend ({_vrBackend.Name}) found. " +
+                              "Check DeveloperConfig.VrInteractionBackend and the player prefabs in Player.unity.";
+                Logger.LogError(message, LogCat.VR);
+                throw new MissingComponentException(message);
+            }
+
+            _rig = _player.GetComponent<IVrRig>();
+            var playerRoot = _player.transform.root.gameObject;
+            foreach (var otherRoot in players.Select(i => i.transform.root.gameObject).Distinct())
+            {
+                if (otherRoot != playerRoot)
+                    Object.Destroy(otherRoot);
+            }
+
+            playerRoot.SetActive(true);
+            _defaultStepOffset = _rig.StepOffset;
+            ApplyComfortSettings(true);
 
             // XRDeviceSimulator
-            var simulatorGO = activeScene.GetComponentInChildren<HVRBodySimulator>(true)!;
-            simulatorGO.gameObject.SetActive(developerConfig.EnableVRDeviceSimulator);
+            _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
             // Marvin Mode
-            _marvinRoot = activeScene.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
+            // Searched inside our player only: the other backends' players are destroyed at the end of this frame.
+            _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
             _marvinRoot.SetActive(_marvinService.IsMarvinMode);
 
             // PrintScreen() messages in front of the camera
@@ -124,94 +162,149 @@ namespace Gothic.VR.Services.Context
             if (!_marvinService.IsActivationInputActive)
                 return;
 
-            var pointer = HVRInputModule.Instance.Pointers.FirstOrDefault(i => i.PointerEventData == eventData);
-            if (pointer == null)
+            if (!_vrUiPointers.TryGetHandSide(eventData, out var handSide))
             {
                 Logger.LogWarning("[VRContextInteractionService] No VR pointer found for the Marvin logo click.",
                     LogCat.Ui);
                 return;
             }
 
-            ReflexProjectInstaller.DIContainer.Resolve<VrHapticsService>()
-                .Vibrate(pointer.HandSide, VrHapticsService.VibrationType.Info);
+            _vrHaptics.Vibrate(handSide, VrHapticPreset.Info);
         }
-        
+
         private void PlayerPrefsUpdated(string key, object value)
         {
             if (key == GothicIniConfig.IniKeyVisualRange)
             {
                 SetRenderDistance(int.Parse((string)value));
             }
+            else if (key == VRConstants.IniNames.MoveDirection ||
+                     key == VRConstants.IniNames.RotationType ||
+                     key == VRConstants.IniNames.SnapRotationAmount ||
+                     key == VRConstants.IniNames.SmoothRotationSpeed ||
+                     key == VRConstants.IniNames.SitStand)
+            {
+                // Just update everything.
+                ApplyComfortSettings();
+            }
+        }
+
+        /// <summary>
+        /// Sit/stand, move direction and turning from Gothic.ini.
+        /// </summary>
+        /// <param name="useDefaultValues">Our player is created before Gothic inis are loaded. We therefore need
+        /// to set some default values.</param>
+        private void ApplyComfortSettings(bool useDefaultValues = false)
+        {
+            if (useDefaultValues)
+            {
+                _rig.ApplyComfortSettings(VrSitStand.PlayerHeight, VrMoveDirection.Camera, VrTurnType.Snap, 45f, 90f);
+                return;
+            }
+
+            var gothicIni = _configService.Gothic;
+            var sitStand = (VrSitStand)gothicIni.GetInt(VRConstants.IniNames.SitStand, (int)VrSitStand.PlayerHeight);
+            var moveDirection =
+                (VrMoveDirection)gothicIni.GetInt(VRConstants.IniNames.MoveDirection, (int)VrMoveDirection.Camera);
+            var turnType = (VrTurnType)gothicIni.GetInt(VRConstants.IniNames.RotationType, (int)VrTurnType.Snap);
+
+            var snapSetting = gothicIni.GetInt(VRConstants.IniNames.SnapRotationAmount,
+                VRConstants.SnapRotationDefaultValue);
+            // e.g., 20° = 5° + 3*5°
+            var snapDegrees = VRConstants.SnapRotationAmountSettingTickAmount +
+                              VRConstants.SnapRotationAmountSettingTickAmount * snapSetting;
+
+            var smoothSetting = gothicIni.GetFloat(VRConstants.IniNames.SmoothRotationSpeed,
+                VRConstants.SmoothRotationDefaultValue);
+            // e.g., 50 = 5 + 90 * 0.5f
+            var smoothSpeed = VRConstants.SmoothRotationMinSpeed +
+                              VRConstants.SmoothRotationMaxAdditionalSpeed * smoothSetting;
+
+            _rig.ApplyComfortSettings(sitStand, moveDirection, turnType, snapDegrees, smoothSpeed);
         }
 
         private void SetRenderDistance(int value)
         {
             // Starting with value=0 (20%) and ending with value=14 (300%)
-            _playerController.Camera.GetComponent<Camera>().farClipPlane = GothicIniConfig.IniVisualRangeFactor * (value + 1);
+            _rig.Camera.farClipPlane = GothicIniConfig.IniVisualRangeFactor * (value + 1);
         }
 
         public GameObject GetCurrentPlayerController()
         {
-            return _playerController.gameObject;
+            return _player.gameObject;
         }
 
-        public VRPlayerController GetVRPlayerController()
-        {
-            return _playerController;
-        }
-
-        public VRPlayerInputs GetVRPlayerInputs()
-        {
-            return _playerController.VrInputs;
-        }
-
+        /// <summary>
+        /// Disable certain actions to keep player stuck in current position.
+        /// </summary>
         public void LockPlayerInPlace()
         {
-            _playerController.SetLockedControls();
+            // HINT: Disable physics
+            // We can't disable physics as it would prevent the teleport from finishing (HVR checks for IsGrounded
+            // every frame). Therefore, we need to ground the player always on a plane and disable movement only.
+            _rig.MovementEnabled = false;
+            _rig.TurnEnabled = false;
+            _rig.TeleportEnabled = false;
         }
 
         public void UnlockPlayer()
         {
-            _playerController.SetUnlockedControls();
+            _rig.MovementEnabled = true;
+            _rig.TurnEnabled = true;
+            _rig.TeleportEnabled = true;
         }
 
         public void SetWalkingControls()
         {
-            _playerController.SetWalkingControls();
+            _rig.SetGrabbingEnabled(true);
+
+            _rig.CanCrouch = true;
+            _rig.CanJump = true;
+            _rig.TeleportEnabled = true;
+            _rig.StepOffset = _defaultStepOffset;
         }
 
         public void SetWaterWalkingControls()
         {
-            _playerController.SetWaterWalkingControls();
+            _rig.SetGrabbingEnabled(true);
+
+            _rig.CanCrouch = false;
+            _rig.CanJump = false;
+            _rig.TeleportEnabled = false;
+            _rig.StepOffset = _player.SwimDiveStepHeight;
         }
 
         public void SetSwimmingControls()
         {
-            _playerController.SetSwimmingControls();
+            // Disable grabbing of objects (as in G1)
+            _rig.SetGrabbingEnabled(false);
+
+            _rig.CanCrouch = false;
+            _rig.CanJump = false;
+            _rig.TeleportEnabled = false;
+            _rig.StepOffset = _player.SwimDiveStepHeight;
         }
 
         public void SetDivingControls()
         {
-            _playerController.SetDivingControls();
+            // Same as swimming. Vertical movement is done by VRSwimDive.
+            SetSwimmingControls();
         }
 
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
-            _playerController.Teleporter.Teleport(position);
-            
-            // Changing the rotation inside HVRTeleporter didn't work for y-axis. Therefore, setting it now.
-            _playerController.transform.rotation = rotation;
+            _rig.Teleport(position, rotation);
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)
         {
-            var controller = _playerController != null ? _playerController.CharacterController : null;
+            var controller = _rig?.CharacterController;
             if (controller == null)
                 return;
 
             // The frame's movement is read from the position of the previous call. After a gap (new dialog, a frame
             // without a call) there is nothing to compare against.
-            var position = _playerController.transform.position;
+            var position = _rig.Root.position;
             var frameMovement = _keepWithinLastFrame == Time.frameCount - 1
                 ? position - _keepWithinLastPosition
                 : Vector3.zero;
@@ -219,7 +312,7 @@ namespace Gothic.VR.Services.Context
             _keepWithinLastPosition = position;
 
             // Falling or on a ladder: a sideways push would fight gravity/the climbing hands.
-            if (!_playerController.IsGrounded || _playerController.IsClimbing)
+            if (!_rig.IsGrounded || _rig.IsClimbing)
                 return;
 
             var offset = position - center;
@@ -253,43 +346,41 @@ namespace Gothic.VR.Services.Context
                 return;
 
             controller.Move(correction);
-            _keepWithinLastPosition = _playerController.transform.position;
+            _keepWithinLastPosition = _rig.Root.position;
         }
 
         public void InitUIInteraction()
         {
-            // Find all ui canvases and add to HVR Input module (To activate red laser pointer for clicking/grabbing)
-            // WARNING: As it leverages FindObjectsOfType which looks through all opened scenes trees, this can become quite slow. Execute very carefully!
-            var allCanvases = Object.FindObjectsOfType<Canvas>(true);
-            HVRInputModule.Instance.UICanvases = allCanvases.ToList();
+            // Find all ui canvases and add them to the laser pointers (to activate the red laser for clicking/grabbing)
+            // WARNING: This looks through all opened scene trees and can become quite slow. Execute very carefully!
+            _vrUiPointers.RegisterAllCanvases();
         }
 
         public void IntroduceChapter(string chapter, string text, string texture, string wav, int time)
         {
             var playerScene = SceneManager.GetSceneByName(Constants.ScenePlayer);
-            
+
             // Check if we already loaded the Chapter change prefab
             var chapterPrefab = playerScene.GetRootGameObjects()
                 .FirstOrDefault(i => i.GetComponentInChildren<VRIntroduceChapter>());
-            
+
             if (chapterPrefab == null)
             {
                 chapterPrefab = _resourceCacheService.TryGetPrefabObject(PrefabType.StoryIntroduceChapter);
                 SceneManager.MoveGameObjectToScene(chapterPrefab, playerScene);
             }
-            
+
             chapterPrefab.GetComponent<VRIntroduceChapter>().DisplayIntroduction(chapter, text, texture, wav, time);
         }
 
         public void DisableMenus()
         {
-            _playerController.VrInputs.IsMenuButtonEnabled = false;
+            _player.IsMenuButtonEnabled = false;
         }
 
         public void EnableMenus()
         {
-            _playerController.VrInputs.IsMenuButtonEnabled = true;
+            _player.IsMenuButtonEnabled = true;
         }
     }
 }
-#endif

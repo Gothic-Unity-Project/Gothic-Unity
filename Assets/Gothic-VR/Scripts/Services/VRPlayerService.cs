@@ -1,10 +1,8 @@
-﻿#if GOTHIC_HVR_INSTALLED
-using Gothic.Core.Adapters.Vob;
+﻿using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
-using Gothic.VR.Adapters.HVROverrides;
 using Gothic.VR.Services.Context;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -13,9 +11,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Shared;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -24,7 +21,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// Contains global states about Hurricane VR player.
+    /// Contains global states about the VR player (items in hands).
     /// </summary>
     public class VRPlayerService
     {
@@ -34,8 +31,6 @@ namespace Gothic.VR.Services
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
-
-        public VRPlayerInputs VRPlayerInputs => VRContextInteractionService.GetVRPlayerInputs();
 
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
@@ -48,18 +43,16 @@ namespace Gothic.VR.Services
 
         public bool IsDualGrabbed => GrabbedItemLeft != null && GrabbedItemLeft == GrabbedItemRight;
 
-        public void SetGrab(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        /// <summary>
+        /// An item was grabbed by a hand (directly or by distance). Sockets and other grabbers are ignored.
+        /// </summary>
+        public void SetGrab(VrGrabArgs args)
         {
-            HVRHandGrabber handGrabber;
-            if (grabber is HVRForceGrabber forceGrabber)
-                handGrabber = forceGrabber.HandGrabber;
-            else
-                handGrabber = grabber as HVRHandGrabber;
-
-            if (handGrabber == null)
+            if (!args.IsHandOrDistance)
                 return;
 
-            if (handGrabber.IsLeftHand)
+            var grabbable = args.Interactable;
+            if (args.HandSide == VrHandSide.Left)
             {
                 // If we did remote grabbing, this function is called twice (remote grabber+hand grabber).
                 // As we already count remote grabbing as "in inventory", we skip it the second time.
@@ -88,20 +81,17 @@ namespace Gothic.VR.Services
             _playerService.AddItem(instanceName, vobItem.Amount);
         }
 
-        public void UnsetGrab(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        /// <summary>
+        /// An item was released by a hand (directly or by distance). Sockets and other grabbers are ignored.
+        /// </summary>
+        public void UnsetGrab(VrGrabArgs args)
         {
-            var dualGrabPrev = IsDualGrabbed;
-
-            HVRHandGrabber handGrabber;
-            if (grabber is HVRForceGrabber forceGrabber)
-                handGrabber = forceGrabber.HandGrabber;
-            else
-                handGrabber = grabber as HVRHandGrabber;
-
-            if (handGrabber == null)
+            if (!args.IsHandOrDistance)
                 return;
 
-            if (handGrabber.IsLeftHand)
+            var dualGrabPrev = IsDualGrabbed;
+            var grabbable = args.Interactable;
+            if (args.HandSide == VrHandSide.Left)
             {
                 // If we did remote grabbing, this function is called twice (remote grabber+hand grabber).
                 // As we already count remote grabbing as "in inventory", we skip it the second time.
@@ -134,28 +124,17 @@ namespace Gothic.VR.Services
         /// The player collides with VobItems (stuck at a sword in the ground like in Gothic). Items in our hands or
         /// sockets (hips, back) would push our own CharacterController, so they ignore it while being held.
         /// </summary>
-        public void IgnorePlayerCollision(HVRGrabbable grabbable, bool ignore)
+        public void IgnorePlayerCollision(VrInteractable grabbable, bool ignore)
         {
-            var playerController = _contextInteractionService.GetCurrentPlayerController();
-            if (playerController == null)
+            var characterController = VRContextInteractionService.Rig?.CharacterController;
+            if (characterController == null)
                 return;
 
-            var characterController = playerController.GetComponent<VRPlayerController>().CharacterController;
             foreach (var itemCollider in grabbable.Colliders)
             {
                 if (itemCollider != null)
                     Physics.IgnoreCollision(characterController, itemCollider, ignore);
             }
-        }
-
-        public HVRController GetHand(HVRHandSide side)
-        {
-            if (side == HVRHandSide.Left)
-                return _contextInteractionService.GetCurrentPlayerController().GetComponent<VRPlayerController>()
-                    .LeftHand.Controller;
-            else
-                return _contextInteractionService.GetCurrentPlayerController().GetComponent<VRPlayerController>()
-                    .RightHand.Controller;
         }
 
         /// <summary>
@@ -200,4 +179,3 @@ namespace Gothic.VR.Services
         }
     }
 }
-#endif

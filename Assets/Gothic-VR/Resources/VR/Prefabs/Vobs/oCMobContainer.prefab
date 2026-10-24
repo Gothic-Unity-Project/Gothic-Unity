@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 3492144785080063237}
   - component: {fileID: 7889487273161906977}
   - component: {fileID: 7785860572896069705}
+  - component: {fileID: 1468309271852763067}
   m_Layer: 0
   m_Name: ItemSocket (1)
   m_TagString: Untagged
@@ -51,39 +52,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -95,7 +70,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -195,6 +169,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &1468309271852763067
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 251161015644863541}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &1058267453060700974
 GameObject:
   m_ObjectHideFlags: 0
@@ -209,6 +195,7 @@ GameObject:
   - component: {fileID: 6214475728348187998}
   - component: {fileID: 8532409929422760468}
   - component: {fileID: 7916747858208428323}
+  - component: {fileID: 521888360392017761}
   m_Layer: 0
   m_Name: ItemSocket (11)
   m_TagString: Untagged
@@ -246,39 +233,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -290,7 +251,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -390,6 +350,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &521888360392017761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058267453060700974}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &1378983584142208125
 GameObject:
   m_ObjectHideFlags: 0
@@ -404,6 +376,7 @@ GameObject:
   - component: {fileID: 1875918564020284620}
   - component: {fileID: 9153324367550496876}
   - component: {fileID: 5755579173600781048}
+  - component: {fileID: 8487832477624126045}
   m_Layer: 0
   m_Name: ItemSocket (5)
   m_TagString: Untagged
@@ -441,39 +414,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -485,7 +432,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -585,6 +531,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &8487832477624126045
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1378983584142208125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &1404770959867932707
 GameObject:
   m_ObjectHideFlags: 0
@@ -646,6 +604,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -667,9 +627,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2214792497711643535
 GameObject:
@@ -732,6 +694,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -753,9 +717,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2987689210569271698
 GameObject:
@@ -837,7 +803,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rootGO: {fileID: 6503575194566409312}
   _audioSource: {fileID: 1934416043258242669}
-  _hvrPhysicsDoor: {fileID: 6797639264981372780}
 --- !u!135 &1304255910539477860
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -870,6 +835,7 @@ GameObject:
   - component: {fileID: 7540743326042314200}
   - component: {fileID: 923689649037191229}
   - component: {fileID: 2596048974797699402}
+  - component: {fileID: 4022459671801958678}
   m_Layer: 0
   m_Name: Inventory
   m_TagString: Untagged
@@ -943,6 +909,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d33b9b45f9124f6b8afdb52a10613db0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _additionalSockets: []
+--- !u!114 &4022459671801958678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3405583761693813258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3698197d5ce58d542a61ce69122e3160, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketContainerBridge
 --- !u!1 &3425223447465731592
 GameObject:
   m_ObjectHideFlags: 0
@@ -1004,6 +983,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -1025,9 +1006,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3676950170103165385
 GameObject:
@@ -1043,6 +1026,7 @@ GameObject:
   - component: {fileID: 6457455381913810790}
   - component: {fileID: 4667297139685793446}
   - component: {fileID: 1904934727426696998}
+  - component: {fileID: 4386314002942822306}
   m_Layer: 0
   m_Name: ItemSocket (4)
   m_TagString: Untagged
@@ -1080,39 +1064,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1124,7 +1082,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -1224,6 +1181,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &4386314002942822306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3676950170103165385}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &3808700244132799788
 GameObject:
   m_ObjectHideFlags: 0
@@ -1238,6 +1207,7 @@ GameObject:
   - component: {fileID: 2559447240399077539}
   - component: {fileID: 2099805584684839997}
   - component: {fileID: 5825525148917267618}
+  - component: {fileID: 5243031492779952397}
   m_Layer: 0
   m_Name: ItemSocket (10)
   m_TagString: Untagged
@@ -1275,39 +1245,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1319,7 +1263,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -1419,6 +1362,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &5243031492779952397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808700244132799788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &3951947908768828885
 GameObject:
   m_ObjectHideFlags: 0
@@ -1480,6 +1435,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -1501,9 +1458,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4098042481361422127
 GameObject:
@@ -1566,6 +1525,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -1587,9 +1548,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4112695746748433750
 GameObject:
@@ -1652,6 +1615,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -1673,9 +1638,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4312441289917667731
 GameObject:
@@ -1820,6 +1787,7 @@ GameObject:
   - component: {fileID: 5785087856397484637}
   - component: {fileID: 2720868678405414166}
   - component: {fileID: 2783188317653191907}
+  - component: {fileID: 4313482169820223075}
   m_Layer: 0
   m_Name: ItemSocket (6)
   m_TagString: Untagged
@@ -1857,39 +1825,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1901,7 +1843,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -2001,6 +1942,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &4313482169820223075
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4544068122292998800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &5161994242912671296
 GameObject:
   m_ObjectHideFlags: 0
@@ -2062,6 +2015,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -2083,9 +2038,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5871940868660505720
 GameObject:
@@ -2148,6 +2105,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -2169,9 +2128,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5980433150175133251
 GameObject:
@@ -2188,6 +2149,9 @@ GameObject:
   - component: {fileID: 7136319683539270999}
   - component: {fileID: 6573836035492029965}
   - component: {fileID: 6797639264981372780}
+  - component: {fileID: 172510743831141755}
+  - component: {fileID: 8269181727875358990}
+  - component: {fileID: 1469359342129423611}
   m_Layer: 11
   m_Name: BIP01 CHEST_.*_1
   m_TagString: Untagged
@@ -2218,10 +2182,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5980433150175133251}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2354,34 +2318,10 @@ MonoBehaviour:
       m_Calls: []
   HoverEnter:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 5337214664733562970}
-        m_TargetAssemblyTypeName: GVR.HVR.Components.HVRFocus, Assembly-CSharp
-        m_MethodName: OnHoverEnter
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   HoverExit:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 5337214664733562970}
-        m_TargetAssemblyTypeName: GVR.HVR.Components.HVRFocus, Assembly-CSharp
-        m_MethodName: OnHoverExit
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Collided:
     m_PersistentCalls:
       m_Calls: []
@@ -2491,6 +2431,42 @@ MonoBehaviour:
   _rootGo: {fileID: 6503575194566409312}
   _socketContainer: {fileID: 923689649037191229}
   _collectorCollider: {fileID: 9145350332021062103}
+--- !u!114 &172510743831141755
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5980433150175133251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5165ad186aed3fb408c5d43079b20d34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrInteractable
+--- !u!114 &8269181727875358990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5980433150175133251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 594f5e7857d0629419c1bef807639a86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrInteractableBridge
+--- !u!114 &1469359342129423611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5980433150175133251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fca5660b7d87044b9f6309422813386, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrHingeBridge
 --- !u!1 &6389233531767616918
 GameObject:
   m_ObjectHideFlags: 0
@@ -2552,6 +2528,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -2573,9 +2551,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6503575194566409312
 GameObject:
@@ -2699,6 +2679,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -2720,9 +2702,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6719234714038604469
 GameObject:
@@ -2738,6 +2722,7 @@ GameObject:
   - component: {fileID: 158729719686616005}
   - component: {fileID: 7916741380795831998}
   - component: {fileID: 5298672618290999715}
+  - component: {fileID: 7297648640871248928}
   m_Layer: 0
   m_Name: ItemSocket (0)
   m_TagString: Untagged
@@ -2775,39 +2760,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -2819,7 +2778,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -2919,6 +2877,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &7297648640871248928
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6719234714038604469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &6822371266024915418
 GameObject:
   m_ObjectHideFlags: 0
@@ -2933,6 +2903,7 @@ GameObject:
   - component: {fileID: 4704764476294233102}
   - component: {fileID: 598568339332800422}
   - component: {fileID: 2564368200858102714}
+  - component: {fileID: 6827862672640001227}
   m_Layer: 0
   m_Name: ItemSocket (7)
   m_TagString: Untagged
@@ -2970,39 +2941,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3014,7 +2959,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -3114,6 +3058,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &6827862672640001227
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6822371266024915418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &6842481923038689323
 GameObject:
   m_ObjectHideFlags: 0
@@ -3175,6 +3131,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -3196,9 +3154,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &7330976607743722592
 GameObject:
@@ -3214,6 +3174,7 @@ GameObject:
   - component: {fileID: 5927022531090099218}
   - component: {fileID: 1469796680986704926}
   - component: {fileID: 2037134406786832725}
+  - component: {fileID: 491441172845085459}
   m_Layer: 0
   m_Name: ItemSocket (8)
   m_TagString: Untagged
@@ -3251,39 +3212,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3295,7 +3230,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -3395,6 +3329,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &491441172845085459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7330976607743722592}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &8017589019207168410
 GameObject:
   m_ObjectHideFlags: 0
@@ -3409,6 +3355,7 @@ GameObject:
   - component: {fileID: 372745028345143667}
   - component: {fileID: 2809123207245500460}
   - component: {fileID: 1543325685525774575}
+  - component: {fileID: 6878980199702300609}
   m_Layer: 0
   m_Name: ItemSocket (3)
   m_TagString: Untagged
@@ -3446,39 +3393,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3490,7 +3411,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -3590,6 +3510,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &6878980199702300609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8017589019207168410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &8321360292962761766
 GameObject:
   m_ObjectHideFlags: 0
@@ -3604,6 +3536,7 @@ GameObject:
   - component: {fileID: 3576335141605442734}
   - component: {fileID: 1273249311594439381}
   - component: {fileID: 8938383412123691392}
+  - component: {fileID: 4791134024498380442}
   m_Layer: 0
   m_Name: ItemSocket (9)
   m_TagString: Untagged
@@ -3641,39 +3574,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3685,7 +3592,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -3785,6 +3691,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &4791134024498380442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8321360292962761766}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &8517697476932975960
 GameObject:
   m_ObjectHideFlags: 0
@@ -3851,7 +3769,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 3118550354282009099}
   GrabBags: []
-  _allowGrabbing: 0
   SocketContainer: {fileID: 923689649037191229}
   GrabbleMustBeHeld: 0
 --- !u!114 &3118550354282009099
@@ -3914,6 +3831,7 @@ GameObject:
   - component: {fileID: 7577847198649703145}
   - component: {fileID: 3895740475241616462}
   - component: {fileID: 9057796826089372788}
+  - component: {fileID: 1082262625873351403}
   m_Layer: 0
   m_Name: ItemSocket (2)
   m_TagString: Untagged
@@ -3951,39 +3869,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BeforeGrabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnBeforeGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Grabbed:
     m_PersistentCalls:
       m_Calls: []
   Released:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2596048974797699402}
-        m_TargetAssemblyTypeName: Gothic.VR.Components.VobContainer.VRVobContainerSocketInventory,
-          Gothic.VR
-        m_MethodName: OnReleased
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   BeforeHoverEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3995,7 +3887,6 @@ MonoBehaviour:
       m_Calls: []
   _grabBag: {fileID: 0}
   GrabBags: []
-  _allowGrabbing: 0
   GrabControl: 0
   GrabDetectionType: 1
   CheckHandOverlap: 0
@@ -4095,6 +3986,18 @@ MonoBehaviour:
     Tags: {fileID: 11400000, guid: 836908d62a0d2e8489d7e21e7f774964, type: 2}
     _data: 3
   Any: 1
+--- !u!114 &1082262625873351403
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8739208446635805306}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50fce3b6fdf41d541a8cb5f194cfd30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrSocketBridge
 --- !u!1 &8984571792552414776
 GameObject:
   m_ObjectHideFlags: 0
@@ -4156,6 +4059,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -4177,9 +4082,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1001 &6500207459066028785
 PrefabInstance:

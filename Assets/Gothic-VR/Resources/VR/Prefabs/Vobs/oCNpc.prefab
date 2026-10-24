@@ -125,7 +125,6 @@ MonoBehaviour:
   DebugPauseAtPlayAnimation: 0
   DebugPauseAtStopAnimation: 0
   DebugPlayAnimation: 
-  RootBone: {fileID: 8679908380237941234}
 --- !u!114 &7657019000195239257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -311,6 +310,10 @@ GameObject:
   - component: {fileID: 8720130747125307888}
   - component: {fileID: 957202922675155714}
   - component: {fileID: 8095166574519349901}
+  - component: {fileID: 8068816277696156100}
+  - component: {fileID: 7853705596767096919}
+  - component: {fileID: 5140815438130786265}
+  - component: {fileID: 5430918229934868786}
   m_Layer: 10
   m_Name: RootMotionCollider
   m_TagString: Untagged
@@ -471,78 +474,16 @@ MonoBehaviour:
       m_Calls: []
   Grabbed:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 4148423720954529152}
-        m_TargetAssemblyTypeName: Gothic.HVR.Components.HVRoCNpc, Assembly-CSharp
-        m_MethodName: OnGrabbed
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Released:
     m_PersistentCalls:
       m_Calls: []
   HoverEnter:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 383060561904739675}
-        m_TargetAssemblyTypeName: GVR.HVR.Components.HVRFocus, Assembly-CSharp
-        m_MethodName: OnHoverEnter
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 3776598624381708510}
-        m_TargetAssemblyTypeName: Gothic.Core.Adapters.UI.StatusBars.StatusBarAdapter,
-          Gothic.Core
-        m_MethodName: EnableBar
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   HoverExit:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 383060561904739675}
-        m_TargetAssemblyTypeName: GVR.HVR.Components.HVRFocus, Assembly-CSharp
-        m_MethodName: OnHoverExit
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 3776598624381708510}
-        m_TargetAssemblyTypeName: Gothic.Core.Adapters.UI.StatusBars.StatusBarAdapter,
-          Gothic.Core
-        m_MethodName: DisableBar
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   Collided:
     m_PersistentCalls:
       m_Calls: []
@@ -575,6 +516,116 @@ MonoBehaviour:
   HandGrabbers: []
   Stabbers: []
   Stabbable: {fileID: 0}
+--- !u!114 &8068816277696156100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3647559741746323219}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5165ad186aed3fb408c5d43079b20d34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrInteractable
+--- !u!114 &7853705596767096919
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3647559741746323219}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 594f5e7857d0629419c1bef807639a86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Hvr.HvrInteractableBridge
+--- !u!114 &5140815438130786265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3647559741746323219}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a35f6cfbfba9b548aaa00d52cfe8a50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable
+  m_InteractionManager: {fileID: 0}
+  m_Colliders: []
+  m_InteractionLayers:
+    m_Bits: 1
+  m_DistanceCalculationMode: 1
+  m_SelectMode: 0
+  m_FocusMode: 1
+  m_CustomReticle: {fileID: 0}
+  m_AllowGazeInteraction: 0
+  m_AllowGazeSelect: 0
+  m_OverrideGazeTimeToSelect: 0
+  m_GazeTimeToSelect: 0.5
+  m_OverrideTimeToAutoDeselectGaze: 0
+  m_TimeToAutoDeselectGaze: 3
+  m_AllowGazeAssistance: 0
+  m_FirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstFocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastFocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Activated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Deactivated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_StartingHoverFilters: []
+  m_StartingSelectFilters: []
+  m_StartingInteractionStrengthFilters: []
+  m_AutoFindParentInteractableInHierarchy: 0
+  m_ParentInteractableObject: {fileID: 0}
+--- !u!114 &5430918229934868786
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3647559741746323219}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d53defac19fbb474d81910e60e275fd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.XriInteractableBridge
 --- !u!1 &3748409399599174953
 GameObject:
   m_ObjectHideFlags: 0
@@ -877,17 +928,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}
---- !u!114 &3776598624381708510 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1174396645238234420, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}
-  m_PrefabInstance: {fileID: 2604602267262121450}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6c728d9fa1f409bad98a31897d804e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!224 &6204853864044937825 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8230739814078363531, guid: 6ce7e724ba52cae47a499f87c612cd47, type: 3}

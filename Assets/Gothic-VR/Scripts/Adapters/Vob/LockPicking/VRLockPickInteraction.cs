@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using UnityEngine;
 
 namespace Gothic.VR.Adapters.Vob.LockPicking
@@ -111,4 +110,3 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         }
     }
 }
-#endif

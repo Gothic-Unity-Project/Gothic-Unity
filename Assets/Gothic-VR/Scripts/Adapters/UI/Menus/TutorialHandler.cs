@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vm;
 using Gothic.Core;
@@ -38,4 +37,3 @@ namespace Gothic.VR.Adapters.UI.Menus
         }
     }
 }
-#endif

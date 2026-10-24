@@ -1,11 +1,10 @@
-#if GOTHIC_HVR_INSTALLED
 using System;
 using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.VR.Adapters.HVROverrides;
+using Gothic.VR.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -67,8 +66,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void GothicStart()
         {
-            var playerController = _contextInteractionService.GetCurrentPlayerController().GetComponent<VRPlayerController>();
-            playerController.Teleporter.PositionUpdate.AddListener(SetTeleportPosition);
+            _contextInteractionService.GetImpl<VRContextInteractionService>().Rig.Teleported += SetTeleportPosition;
 
             SetSmoothness();
             SetRenderDistance(_configService.Gothic.IniVisualRange);
@@ -148,4 +146,3 @@ namespace Gothic.VR.Adapters.Player
         }
     }
 }
-#endif

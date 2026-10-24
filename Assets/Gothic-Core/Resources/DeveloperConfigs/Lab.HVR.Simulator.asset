@@ -14,10 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PreselectGameVersion: 1
   GameVersion: 0
+  PreSelectMod: 0
   ModIni: 
+  ModPath: 
   GameControls: 0
+  VrInteractionBackend: 0
   EnableVRDeviceSimulator: 1
-  ActivateMarvinMode: 1
+  PreselectMarvinMode: 0
   EnableZSpyLogs: 0
   AllDebugChannels: 0
   ZSpyChannels:
@@ -51,6 +54,7 @@ MonoBehaviour:
   ShowVOBMeshCullingGizmos: 0
   ShowCapsuleOverlapGizmos: 0
   EnableNpcs: 0
+  EnableCombatSystem: 0
   EnableNpcMeshCulling: 1
   NpcCullingDistance: 50
   SpawnNpcInstances:
@@ -58,6 +62,8 @@ MonoBehaviour:
   SpawnMonsterInstances:
     Value: 
   EnableNpcEyeBlinking: 0
+  EnableNpcLooting: 0
+  EnableDialogFreeMovement: 1
   ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0

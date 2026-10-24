@@ -10,21 +10,55 @@ env:
   HVRversion: 'v2.9.3.a-Unity-6'
 
 jobs:
-  #########
-  # DEV COMPILE WITHOUT HVR #
-  #########
-  testCompileWithoutHVR:
-    name: Compile test without HVR installation
+  ##########################
+  # BUILD WITHOUT HVR (XRI) #
+  ##########################
+  # Builds the VR targets without the private HVR repo and without GOTHIC_HVR_INSTALLED. The DeveloperConfig
+  # still requests the Hvr backend; VRContextBootstrap falls back to the Xri backend (XR Interaction Toolkit) when
+  # HVR isn't compiled in. Same label as the HVR build, or "pipeline-test-build-xri" for this job only.
+  buildWithoutHVR:
+    if: ${{ github.event.label.name == 'pipeline-test-build' || github.event.label.name == 'pipeline-test-build-xri' }}
+    name: Build Gothic without HVR (Xri backend)
     runs-on: ubuntu-latest
-    # disabled - Let's re-enable once we implement Flat implementation.
-    if: false && github.event.pull_request.draft == false
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - targetPlatform: StandaloneWindows64
+            targetDevice: Windows64
+          - targetPlatform: Android
+            targetDevice: Pico
+          - targetPlatform: Android
+            targetDevice: Quest
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           clean: true
-      - name: Remove PlayerSetting HVR symbol temporarily
-        run: sed -i 's/GOTHIC_HVR_INSTALLED/GOTHIC_PLACEHOLDER/g' ProjectSettings/ProjectSettings.asset
+      # Own cache key: the Library compiled with HVR must not be reused here (and the other way round).
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Xri-${{ matrix.targetPlatform }}
+          restore-keys: Library-Xri-
+
+      - name: Remove PlayerSetting HVR symbol
+        run: |
+          sed -i 's/GOTHIC_HVR_INSTALLED;\?//g' ProjectSettings/ProjectSettings.asset
+          if grep -q 'GOTHIC_HVR_INSTALLED' ProjectSettings/ProjectSettings.asset; then
+            echo "GOTHIC_HVR_INSTALLED is still set in ProjectSettings.asset"
+            exit 1
+          fi
+          if [ -d Assets/HurricaneVR ]; then
+            echo "Assets/HurricaneVR must not exist for this build"
+            exit 1
+          fi
+
       - name: Build project
         uses: game-ci/unity-builder@v4
         env:
@@ -32,9 +66,23 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          targetPlatform: StandaloneWindows64
+          targetPlatform: ${{ matrix.targetPlatform }}
           allowDirtyBuild: true
-          buildMethod: Gothic.VR.Editor.VRBuilderActions.PerformWindows64Build
+          buildMethod: Gothic.VR.Editor.VRBuilderActions.Perform${{ matrix.targetDevice }}Build
+          # Android Keystore settings
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystoreName: Gothic.keystore
+          customParameters: >
+            -keystoreName "Gothic.keystore"
+            -keystorePass "${{ secrets.ANDROID_KEYSTORE_PASS }}"
+            -keyaliasName "${{ secrets.ANDROID_KEYALIAS_NAME }}"
+            -keyaliasPass "${{ secrets.ANDROID_KEYALIAS_PASS }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gothic-Unity-${{ matrix.targetDevice }}-Xri
+          path: Builds/${{ matrix.targetDevice }}
+          retention-days: 7
 
 
 

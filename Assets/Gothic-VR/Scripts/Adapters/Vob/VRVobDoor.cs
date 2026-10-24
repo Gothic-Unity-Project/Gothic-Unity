@@ -1,12 +1,11 @@
-﻿#if GOTHIC_HVR_INSTALLED
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Caches;
 using Gothic.Core;
 using Gothic.Core.Extensions;
-using HurricaneVR.Framework.Components;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -29,8 +28,8 @@ namespace Gothic.VR.Adapters.Vob
         }
         
         /// <summary>
-        /// Add opening and closing sound to the containers HVR settings.
-        /// The logic about when to play them is provided by HVR itself.
+        /// Add opening and closing sound to the door's hinge.
+        /// The hinge itself decides when to play them.
         /// </summary>
         private void PrepareSounds(IDoor props)
         {
@@ -65,10 +64,8 @@ namespace Gothic.VR.Adapters.Vob
                 _doorClosedClips.Add(mdsName.ToLower(), _audioService.GetRandomSoundClip(closeSoundEffect));
             }
 
-            var hvrDoor = GetComponentInChildren<HVRPhysicsDoor>();
-            hvrDoor.SFXOpened = _doorOpenedClips[mdsName.ToLower()];
-            hvrDoor.SFXClosed = _doorClosedClips[mdsName.ToLower()];
+            var hinge = GetComponentInChildren<IVrHinge>();
+            hinge.SetSounds(_doorOpenedClips[mdsName.ToLower()], _doorClosedClips[mdsName.ToLower()]);
         }
     }
 }
-#endif

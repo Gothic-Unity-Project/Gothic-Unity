@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
@@ -19,4 +18,3 @@ namespace Gothic.VR
         }
     }
 }
-#endif

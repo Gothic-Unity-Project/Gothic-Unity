@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Debugging.Fighting;
 
 namespace Gothic.VR.Debugging.Fighting
@@ -8,4 +7,3 @@ namespace Gothic.VR.Debugging.Fighting
         
     }
 }
-#endif

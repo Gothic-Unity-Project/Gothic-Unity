@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
@@ -8,8 +7,8 @@ using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -18,7 +17,8 @@ namespace Gothic.VR.Adapters
 {
     /// <summary>
     /// Handles focus brightness and name visibility for VOBs and NPCs.
-    /// We leverage HVRGrabbable's events to show canvas of object name and alter brightness on all objects' mesh renderers.
+    /// We leverage VrInteractable's events to show canvas of object name and alter brightness on all objects'
+    /// mesh renderers.
     ///
     /// Order of use is always:
     /// 1. HoverEnter -> We hover from far or near (e.g. grab distance without pulling towards us)
@@ -40,10 +40,15 @@ namespace Gothic.VR.Adapters
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
         private bool _isNpc;
+        private VrInteractable _interactable;
 
         private void Awake()
         {
             _isNpc = GetComponent<VRNpc>() != null;
+
+            _interactable = VrInteractable.Find(this);
+            _interactable.HoverEntered += OnHoverEnter;
+            _interactable.HoverExited += OnHoverExit;
 
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
@@ -60,7 +65,16 @@ namespace Gothic.VR.Adapters
             _nameCanvas.SetActive(false);
         }
 
-        public void OnHoverEnter(HVRGrabberBase _, HVRGrabbable __)
+        private void OnDestroy()
+        {
+            if (_interactable == null)
+                return;
+
+            _interactable.HoverEntered -= OnHoverEnter;
+            _interactable.HoverExited -= OnHoverExit;
+        }
+
+        private void OnHoverEnter(VrGrabArgs _)
         {
             OnHoverEnter(_isNpc
                 ? Constants.ShaderPropertyFocusBrightnessNpcValue
@@ -93,7 +107,7 @@ namespace Gothic.VR.Adapters
             _isHovered = true;
         }
 
-        public void OnHoverExit(HVRGrabberBase _, HVRGrabbable __)
+        private void OnHoverExit(VrGrabArgs _)
         {
             if (_featureBrightenUp)
             {
@@ -155,4 +169,3 @@ namespace Gothic.VR.Adapters
         }
     }
 }
-#endif

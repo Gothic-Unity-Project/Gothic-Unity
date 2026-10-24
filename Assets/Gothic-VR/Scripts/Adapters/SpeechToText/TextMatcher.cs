@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -91,4 +90,3 @@ namespace Gothic.VR.Adapters.SpeechToText
         public float Score { get; set; } // 0-1, where 1 is perfect match
     }
 }
-#endif

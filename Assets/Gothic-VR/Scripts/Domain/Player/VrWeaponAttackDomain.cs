@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +12,9 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.VR.Models.Vob;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
-using HurricaneVR.Framework.Core.Utils;
-using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -29,9 +28,10 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
-        private CharacterController _characterController => _vrPlayerService.VRContextInteractionService.GetVRPlayerController().CharacterController;
+        private CharacterController _characterController => _vrPlayerService.VRContextInteractionService.Rig.CharacterController;
 
         private const int _twoHandedFlags = (int)VmGothicEnums.ItemFlags.Item2HdAxe | (int)VmGothicEnums.ItemFlags.Item2HdSwd;
 
@@ -87,7 +87,7 @@ namespace Gothic.VR.Domain.Player
         /// FALSE, when:
         ///   1. Already handling one weapon, but another one is provided.
         /// </summary>
-        public bool TryHandle(VobContainer vobContainer, WeaponPhysicsConfig weaponConfig, HVRHandSide handSide, NpcContainer playerNpcContainer)
+        public bool TryHandle(VobContainer vobContainer, WeaponPhysicsConfig weaponConfig, VrHandSide handSide, NpcContainer playerNpcContainer)
         {
             if (!CanHandle(vobContainer))
                 return false;
@@ -135,9 +135,9 @@ namespace Gothic.VR.Domain.Player
                     windowTimes.comboWindowStart, windowTimes.comboWindowTime);
             }
 
-            if (handSide == HVRHandSide.Left)
+            if (handSide == VrHandSide.Left)
                 _handlesLeftHand = true;
-            else if (handSide == HVRHandSide.Right)
+            else if (handSide == VrHandSide.Right)
                 _handlesRightHand = true;
 
             AlterWeaponWeights(weaponConfig);
@@ -168,14 +168,14 @@ namespace Gothic.VR.Domain.Player
             return false;
         }
 
-        public bool TryUnHandle(WeaponPhysicsConfig weaponConfig, HVRHandSide handSide)
+        public bool TryUnHandle(WeaponPhysicsConfig weaponConfig, VrHandSide handSide)
         {
             if (!CanUnHandle(handSide))
                 return false;
 
-            if (handSide == HVRHandSide.Left)
+            if (handSide == VrHandSide.Left)
                 _handlesLeftHand = false;
-            else if (handSide == HVRHandSide.Right)
+            else if (handSide == VrHandSide.Right)
                 _handlesRightHand = false;
 
             // Alter weight now, before we potentially unset VobContainer and Rigidbody.
@@ -191,9 +191,9 @@ namespace Gothic.VR.Domain.Player
         /// Unhandle means: Do we released item in hand which we handled?
         /// Hint: We can only have one item in a hand at a time. Therefore, we don't need to check for the rigidbody itself.
         /// </summary>
-        private bool CanUnHandle(HVRHandSide releasedHandSide)
+        private bool CanUnHandle(VrHandSide releasedHandSide)
         {
-            if (releasedHandSide == HVRHandSide.Left)
+            if (releasedHandSide == VrHandSide.Left)
                 return _handlesLeftHand;
             else
                 return _handlesRightHand;
@@ -423,7 +423,7 @@ namespace Gothic.VR.Domain.Player
             if (_swingSwordSound == null)
                 return;
 
-            SFXPlayer.Instance.PlaySFX(_audioService.CreateAudioClip(_swingSwordSound.GetRandomSound()), _weaponRigidbody.position);
+            _vrSfxPlayer.Play(_audioService.CreateAudioClip(_swingSwordSound.GetRandomSound()), _weaponRigidbody.position);
         }
 
         private void HandleInitialWindow()
@@ -585,4 +585,3 @@ namespace Gothic.VR.Domain.Player
         }
     }
 }
-#endif

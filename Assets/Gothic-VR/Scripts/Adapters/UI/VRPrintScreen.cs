@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.UI;
@@ -126,4 +125,3 @@ namespace Gothic.VR.Adapters.UI
         }
     }
 }
-#endif

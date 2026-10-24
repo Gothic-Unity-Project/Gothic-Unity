@@ -24,7 +24,7 @@ namespace Gothic.Core.Services.Npc
     {
         /// <summary>
         /// Ranges are in meter.
-        /// FIXME - We should use PERC_ASSESSTALK range to leverage HVR's Grabbable hover and remote grab distance!
+        /// FIXME - We should use PERC_ASSESSTALK range to leverage the VR grab hover and remote grab distance!
         /// </summary>
         public readonly Dictionary<VmGothicEnums.PerceptionType, int> PerceptionRanges = new ();
         
