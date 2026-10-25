@@ -244,7 +244,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             _hinge.Unlock();
 
-            // Physics hinges (HVR) get pushed open here, kinematic ones (VrHinge) push themselves in Unlock().
+            // Physics hinges (HVR) get pushed open here, kinematic ones (VrHinge) swing open on their own in Unlock().
             var body = _hinge.Rigidbody;
             if (body != null && !body.isKinematic)
             {

@@ -6,6 +6,7 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Interaction.Components
@@ -21,7 +22,7 @@ namespace Gothic.VR.Interaction.Components
     /// - Closed below CloseAngle, open above CloseAngle + OpenHysteresis. Opened/Closed are raised once per change.
     ///   The Gothic open/close sound is played once per change, but not more often than SoundTimeout.
     /// - Soft close: released below CloseAngle, the leaf closes completely within CloseOverTime.
-    /// - Lock() holds the leaf at 0 degrees, Unlock() frees it with a small push open (lock picking).
+    /// - Lock() holds the leaf at 0 degrees, Unlock() frees it and swings it open to UnlockOpenAngle (lock picking).
     /// - Being kinematic, the player's CharacterController can't push the leaf through its limits.
     /// - Releases the leaf when the hand gets farther than BreakDistance from it (e.g. teleporting while holding).
     ///
@@ -68,9 +69,13 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Fastest rotation of a released leaf (degrees/s).")] [SerializeField]
         private float _maxSwingSpeed = 180f;
 
-        [Tooltip("Rotation speed (degrees/s) the leaf gets when it is unlocked (the push of lock picking).")]
+        [Tooltip("Speed (degrees/s) at which an unlocked leaf swings open (lock picking, key).")]
+        [FormerlySerializedAs("_unlockPushSpeed")]
         [SerializeField]
-        private float _unlockPushSpeed = 60f;
+        private float _unlockOpenSpeed = 60f;
+
+        [Tooltip("Opened angle (degrees) an unlocked leaf swings to on its own. Clamped to MaxAngle.")] [SerializeField]
+        private float _unlockOpenAngle = 80f;
 
         [Tooltip("A hand farther than this from the leaf (meters) lets go of it.")] [SerializeField]
         private float _breakDistance = 1f;
@@ -94,6 +99,7 @@ namespace Gothic.VR.Interaction.Components
         private bool _isStarted;
         private bool _isSubscribed;
         private bool _isLocked;
+        private bool _isOpeningAfterUnlock;
         private bool _isOpen;
         private bool _isClosed = true;
 
@@ -167,6 +173,8 @@ namespace Gothic.VR.Interaction.Components
                 MoveTo(0f, deltaTime);
             else if (IsHeld)
                 FollowHand(deltaTime);
+            else if (_isOpeningAfterUnlock)
+                OpenAfterUnlock(deltaTime);
             else
                 Swing(deltaTime);
 
@@ -176,6 +184,7 @@ namespace Gothic.VR.Interaction.Components
         public void Lock()
         {
             _isLocked = true;
+            _isOpeningAfterUnlock = false;
             _speed = 0f;
             if (!_isStarted)
                 return;
@@ -191,8 +200,10 @@ namespace Gothic.VR.Interaction.Components
             if (!_isStarted)
                 return;
 
-            // The push open of the lock picking.
-            _speed = _unlockPushSpeed;
+            // Lock picking done: the door/lid opens on its own (HVR pushed its physics door open). A small push
+            // only (as before) was barely noticeable.
+            _speed = 0f;
+            _isOpeningAfterUnlock = true;
             RebaselineGrab();
         }
 
@@ -237,6 +248,17 @@ namespace Gothic.VR.Interaction.Components
 
             // Keeps its speed for the swing after letting go.
             _speed = Mathf.Lerp(_speed, (_angle - previous) / deltaTime, 0.5f);
+        }
+
+        /// <summary>
+        /// Swings to the unlock open angle, then rests there. A hand grabbing the leaf takes over.
+        /// </summary>
+        private void OpenAfterUnlock(float deltaTime)
+        {
+            var target = Mathf.Clamp(_unlockOpenAngle, _minAngle, _maxAngle);
+            MoveTo(target, deltaTime, _unlockOpenSpeed);
+            if (Mathf.Approximately(_angle, target))
+                _isOpeningAfterUnlock = false;
         }
 
         private void Swing(float deltaTime)
@@ -343,6 +365,7 @@ namespace Gothic.VR.Interaction.Components
 
             _grabbers.Add(args.GrabberGo);
             _speed = 0f;
+            _isOpeningAfterUnlock = false;
             RebaselineGrab();
         }
 

@@ -32,6 +32,9 @@ namespace Gothic.VR.Interaction.Ports
         /// </summary>
         void Lock();
 
+        /// <summary>
+        /// Lets the hinge rotate again (lock picked, key used). Kinematic hinges (VrHinge) swing open on their own.
+        /// </summary>
         void Unlock();
 
         /// <summary>
