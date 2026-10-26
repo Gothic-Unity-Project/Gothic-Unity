@@ -600,10 +600,22 @@ namespace Gothic.Core.Services.Vobs
                 return;
 
             var item = _vmCacheService.TryGetItemData(itemInstance);
-            var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
-            var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
+            var instanceName = item != null ? _gameStateService.GothicVm.GetSymbolByIndex(item.Index)?.Name : null;
+            var wp = _wayNetService.GetWayNetPoint(spawnPoint);
 
-            SpawnItemVob(instanceName, wp.Position.ToZkVector(), wp.Rotation.ToZkMatrix());
+            // DeveloperConfig.EnableWldInsertItemSkipMissing: like OpenGothic, an unknown item or spawn point is logged
+            // and skipped. The exception aborted the whole world startup script (G2's STARTUP_OLDWORLD: the Valley of
+            // Mines stayed half empty).
+            if (_configService.Dev.EnableWldInsertItemSkipMissing && (instanceName == null || wp == null))
+            {
+                var itemText = instanceName == null ? $"no item {itemInstance}" : $"'{instanceName}'";
+                var pointText = wp == null ? " - no such waypoint/freepoint" : "";
+                Logger.LogWarning($"[VobService] Wld_InsertItem: {itemText} at '{spawnPoint}'{pointText}. Skipped.",
+                    LogCat.Vob);
+                return;
+            }
+
+            SpawnItemVob(instanceName, wp!.Position.ToZkVector(), wp.Rotation.ToZkMatrix());
         }
 
         // Collides with the world only (DynamicsManager: TransparentFX - Default, not Player/Hand/VobHitbox).

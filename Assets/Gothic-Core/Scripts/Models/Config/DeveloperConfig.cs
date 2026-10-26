@@ -1512,6 +1512,10 @@ namespace Gothic.Core.Models.Config
                  "stopped at once.")]
         public bool EnableActiveSpellIsScroll = true;
 
+        [Tooltip("V1: Wld_InsertItem with an unknown item or spawn point logs a warning and skips it (like OpenGothic) - " +
+                 "the exception aborted G2's STARTUP_OLDWORLD, the Valley of Mines stayed half empty.")]
+        public bool EnableWldInsertItemSkipMissing = true;
+
         [Tooltip("V1: The game version / profile scene puts the player onto its floor like the logo and menu scenes - the " +
                  "XRI player fell from the floorless Player scene before the floor existed and kept falling.")]
         public bool EnableGameVersionScenePlacement = true;

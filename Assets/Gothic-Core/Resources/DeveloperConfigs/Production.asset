@@ -364,6 +364,7 @@ MonoBehaviour:
   EnableCastWithHoldingHand: 1
   EnableTwoHandSpellCharge: 1
   EnableActiveSpellIsScroll: 1
+  EnableWldInsertItemSkipMissing: 1
   EnableGameVersionScenePlacement: 1
   EnableHeroHands: 1
   HeroHandsRollDegrees: 0
