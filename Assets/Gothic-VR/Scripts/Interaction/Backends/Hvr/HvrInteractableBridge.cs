@@ -42,6 +42,34 @@ namespace Gothic.VR.Interaction.Backends.Hvr
         public bool IsSelectOnly => false;
         public IReadOnlyList<Collider> Colliders => Grabbable.Colliders;
 
+        public bool IsGrabEnabled
+        {
+            get => Grabbable.enabled;
+            set => Grabbable.enabled = value;
+        }
+
+        public bool IsDistanceGrabbable
+        {
+            get => Grabbable.ForceGrabbable;
+            set => Grabbable.ForceGrabbable = value;
+        }
+
+        public bool IsOneHandOnly
+        {
+            get => TryGetComponent<HvrOneHandGrabFilter>(out _);
+            set
+            {
+                if (value == IsOneHandOnly)
+                    return;
+
+                if (value)
+                    gameObject.AddComponent<HvrOneHandGrabFilter>().Grabbable = Grabbable;
+                else
+                    DestroyImmediate(GetComponent<HvrOneHandGrabFilter>());
+                Grabbable.LoadFilters();
+            }
+        }
+
         private void Awake()
         {
             _interactable = GetComponent<VrInteractable>();
@@ -71,9 +99,30 @@ namespace Gothic.VR.Interaction.Backends.Hvr
             Grabbable.ForceRelease();
         }
 
-        public void SetupColliders()
+        public void SetupColliders(bool isChildLinked = false)
         {
             Grabbable.SetupColliders();
+            if (isChildLinked)
+                LinkChildColliders();
+        }
+
+        /// <summary>
+        /// The hand's trigger bag only maps a collider to its grabbable on the same GameObject or via
+        /// HVRGrabbableChild (HVRSettings.ComponentInParentFallback is off) - child colliders get one, and the
+        /// grabbable's layer.
+        /// </summary>
+        private void LinkChildColliders()
+        {
+            foreach (var childCollider in Grabbable.Colliders)
+            {
+                var childGo = childCollider.gameObject;
+                if (childGo == Grabbable.gameObject || childGo.GetComponent<HVRGrabbable>() != null)
+                    continue;
+                if (!childGo.TryGetComponent<HVRGrabbableChild>(out var child))
+                    child = childGo.AddComponent<HVRGrabbableChild>();
+                child.ParentGrabbable = Grabbable;
+                childGo.layer = Grabbable.gameObject.layer;
+            }
         }
 
         public void SetSocketSounds(AudioClip socketed, AudioClip unsocketed)

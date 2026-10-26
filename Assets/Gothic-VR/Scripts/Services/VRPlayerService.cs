@@ -1,5 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
@@ -9,14 +13,20 @@ using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Manager;
-using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.VR.Adapters.Vob;
+using Gothic.VR.Adapters.Vob.Container;
+using Gothic.Core.Models.Container;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using EventType = ZenKit.EventType;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services
@@ -28,6 +38,14 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly DocService _docService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
 
         public VRContextInteractionService VRContextInteractionService =>
@@ -35,6 +53,13 @@ namespace Gothic.VR.Services
 
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
+
+        private IVrInput _vrInput;
+
+        /// <summary>
+        /// Keyboard and mouse instead of controllers (IVrInput.IsSimulator).
+        /// </summary>
+        public bool IsSimulator => (_vrInput ??= ReflexProjectInstaller.DIContainer.Resolve<IVrInput>()).IsSimulator;
 
         public enum HandType
         {
@@ -80,7 +105,8 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
+            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
+            if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.AddItem(instanceName, vobItem.Amount);
         }
@@ -119,7 +145,8 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
+            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
+            if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.RemoveItem(instanceName, vobItem.Amount);
         }
@@ -182,17 +209,74 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// The hero grabbed a mob (wheel, lever, ...). The logic is platform neutral (MobInteractionService),
-        /// only the dialog anchor next to the mob is VR specific.
+        /// only the dialog anchor next to the mob (and a bookstand's page) is VR specific.
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
-            _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
+            if (TryCloseMobDocument(loader))
+                return;
+
+            _mobInteractionService.HandleMobGrab(loader,
+                () => CreateMobDialogAnchor(loader, _configService.Dev.EnableMobDialogOwnBounds),
+                () => BeginMobDocument(loader));
+        }
+
+        /// <summary>
+        /// A container without a lid (mummy) is a plain mob: the click shows/hides a loot backpack like a corpse.
+        /// Chests with a lid (VRVobContainer) open physically.
+        /// </summary>
+        public void TryToggleStaticContainerLoot(VobLoader loader, IContainer container)
+        {
+            if (loader.GetComponentInChildren<VRVobContainer>(true) != null)
+                return;
+
+            if (!loader.TryGetComponent<VRStaticContainerLoot>(out var loot))
+                loot = loader.gameObject.AddComponent<VRStaticContainerLoot>();
+            loot.Toggle(container);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMobDocuments: an open page (bookstand) closes on the next touch.
+        /// </summary>
+        private bool TryCloseMobDocument(VobLoader loader)
+        {
+            if (!_configService.Dev.EnableMobDocuments)
+                return false;
+
+            var openDocument = loader.transform.Find(VRMobDocument.AnchorName);
+            if (openDocument == null)
+                return false;
+
+            UnityEngine.Object.Destroy(openDocument.gameObject);
+            Logger.Log($"[MobDialog] Closed the page of '{loader.name}'.", LogCat.Dialog);
+            return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableMobDocuments: a page next to the mob for a Doc_Show of its "[onStateFunc]_S1"
+        /// (bookstands). Removed again if the script showed nothing.
+        /// </summary>
+        private Action BeginMobDocument(VobLoader loader)
+        {
+            if (!_configService.Dev.EnableMobDocuments)
+                return null;
+
+            var document = VRMobDocument.Create(loader.gameObject);
+            _docService.PendingItemGo = document.gameObject;
+            return () =>
+            {
+                _docService.PendingItemGo = null;
+                if (document.HasPages)
+                    Logger.Log($"[MobDialog] '{loader.name}' shows a page (Doc_Show).", LogCat.Dialog);
+                else
+                    UnityEngine.Object.Destroy(document.gameObject);
+            };
         }
 
         /// <summary>
         /// Next to the mob on the player's left (= the mob's right, where NPC dialogs are), at eye height.
         /// </summary>
-        private static GameObject CreateMobDialogAnchor(VobLoader loader)
+        private static GameObject CreateMobDialogAnchor(VobLoader loader, bool isOwnBoundsOnly)
         {
             var cam = Camera.main != null ? Camera.main.transform : loader.transform;
 
@@ -200,6 +284,11 @@ namespace Gothic.VR.Services
             var hasBounds = false;
             foreach (var mobRenderer in loader.GetComponentsInChildren<Renderer>())
             {
+                // DeveloperConfig.EnableMobDialogOwnBounds: VOBs nested below the mob have their own loader. One of
+                // Mroczne Tajemnice's anvils has three more below it - the anchor landed hundreds of meters away
+                // ("hero farther than 5 m").
+                if (isOwnBoundsOnly && mobRenderer.GetComponentInParent<VobLoader>(true) != loader)
+                    continue;
                 if (!hasBounds)
                 {
                     bounds = mobRenderer.bounds;
@@ -219,6 +308,116 @@ namespace Gothic.VR.Services
             anchor.transform.position = position;
             new GameObject("DialogMenuRootPos").transform.SetParent(anchor.transform, false);
             return anchor;
+        }
+
+        /// <summary>
+        /// The hand as the player sees it (IVrRig.GetHandVisual).
+        /// </summary>
+        public GameObject GetHandModelGo(VrHandSide side)
+        {
+            var hand = VRContextInteractionService?.Rig?.GetHandVisual(side);
+            return hand != null ? hand.gameObject : null;
+        }
+
+        // True during any active spell (telekinesis or combat targeting) — blocks NPC dialog.
+        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive;
+        public bool IsSpellTargetingActive { get; private set; }
+
+        // Telekinesis state — lives here so it survives VRRuneCaster destruction when one hand releases.
+        public bool IsTelekinesisActive { get; private set; }
+        public event System.Action TelekinesisDeactivated;
+
+        // Spell targeting state (combat spells - extends the rune hand's distance grab only).
+        private VrHandSide _spellTargetingSide;
+
+        private IVrRig Rig => VRContextInteractionService?.Rig;
+
+        /// <summary>
+        /// Combat spells aim with the rune hand's distance grab (IVrRig.GetDistanceHovered), extended to the spell's
+        /// range.
+        /// </summary>
+        public void ActivateSpellTargeting(VrHandSide runeHandSide, float range)
+        {
+            if (IsSpellTargetingActive || Rig == null)
+                return;
+            _spellTargetingSide = runeHandSide;
+            Rig.SetDistanceGrabRange(runeHandSide, range);
+            Logger.Log($"[SpellTarget] {runeHandSide} hand distance grab extended to {range} m", LogCat.VR);
+            IsSpellTargetingActive = true;
+        }
+
+        public void DeactivateSpellTargeting()
+        {
+            if (!IsSpellTargetingActive)
+                return;
+            // Telekinesis may still use the longer range.
+            if (!IsTelekinesisActive)
+                Rig?.ResetDistanceGrabRange(_spellTargetingSide);
+            IsSpellTargetingActive = false;
+        }
+
+        /// <summary>
+        /// The NPC the hand's distance grab points at (spell targeting), null if none.
+        /// </summary>
+        public NpcContainer GetSpellTarget(VrHandSide side)
+        {
+            var hovered = Rig?.GetDistanceHovered(side);
+            var npcLoader = hovered != null ? hovered.GetComponentInParent<NpcLoader>() : null;
+            return npcLoader != null && npcLoader.Npc != null ? npcLoader.Npc.GetUserData() : null;
+        }
+
+        /// <summary>
+        /// Both hands' distance grab reaches the spell's range - items far away are highlighted (VRFocus) and pulled
+        /// with TryTelekinesisGrab. Ends with the first item pulled into a hand.
+        /// </summary>
+        public void ActivateTelekinesis(float range)
+        {
+            if (IsTelekinesisActive || Rig == null)
+                return;
+
+            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            {
+                Rig.SetDistanceGrabRange(side, range);
+                Logger.Log($"[Telekinesis] {side} hand distance grab extended to {range} m", LogCat.VR);
+            }
+            foreach (var grabber in Rig.HandGrabbers)
+                grabber.Grabbed += OnTelekinesisItemGrabbed;
+
+            IsTelekinesisActive = true;
+        }
+
+        public void DeactivateTelekinesis()
+        {
+            if (!IsTelekinesisActive)
+                return;
+
+            var rig = Rig;
+            if (rig != null)
+            {
+                foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+                {
+                    if (!IsSpellTargetingActive || side != _spellTargetingSide)
+                        rig.ResetDistanceGrabRange(side);
+                }
+                foreach (var grabber in rig.HandGrabbers)
+                    grabber.Grabbed -= OnTelekinesisItemGrabbed;
+            }
+
+            IsTelekinesisActive = false;
+            TelekinesisDeactivated?.Invoke();
+        }
+
+        public bool TryTelekinesisGrab()
+        {
+            var rig = Rig;
+            return rig != null && (rig.TryDistanceGrabHovered(VrHandSide.Right) ||
+                                   rig.TryDistanceGrabHovered(VrHandSide.Left));
+        }
+
+        private void OnTelekinesisItemGrabbed(VrGrabArgs args)
+        {
+            if (args.Kind == VrGrabberKind.Distance)
+                DeactivateTelekinesis();
         }
     }
 }

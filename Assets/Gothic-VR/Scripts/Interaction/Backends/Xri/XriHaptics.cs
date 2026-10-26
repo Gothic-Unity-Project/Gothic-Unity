@@ -50,6 +50,17 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public void Vibrate(VrHandSide side, VrHapticPreset preset, float amplitudeScale)
         {
+            var (amplitude, duration, frequency) = _presets[(int)preset];
+            Send(side, amplitude * Mathf.Clamp01(amplitudeScale), duration, frequency);
+        }
+
+        public void Vibrate(VrHandSide side, float amplitude, float duration)
+        {
+            Send(side, Mathf.Clamp01(amplitude), duration, 0f);
+        }
+
+        private void Send(VrHandSide side, float amplitude, float duration, float frequency)
+        {
             var channel = GetProvider(side)?.GetChannelGroup()?.GetChannel();
             if (channel == null)
             {
@@ -62,8 +73,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 return;
             }
 
-            var (amplitude, duration, frequency) = _presets[(int)preset];
-            channel.SendHapticImpulse(amplitude * Mathf.Clamp01(amplitudeScale), duration, frequency);
+            channel.SendHapticImpulse(amplitude, duration, frequency);
         }
 
         private XRInputHapticImpulseProvider GetProvider(VrHandSide side)

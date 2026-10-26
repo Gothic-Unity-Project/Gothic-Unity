@@ -37,6 +37,14 @@ namespace Gothic.VR.Interaction.Backends.Hvr
             return HVRInputManager.Instance.GetController(side.ToHvr()).Velocity;
         }
 
+        public Vector2 GetThumbstick(VrHandSide side)
+        {
+            var controller = HVRInputManager.Instance != null
+                ? HVRInputManager.Instance.GetController(side.ToHvr())
+                : null;
+            return controller != null ? controller.JoystickAxis : Vector2.zero;
+        }
+
         public void SetDeviceSimulatorActive(bool isActive)
         {
             var simulator = SceneManager.GetActiveScene().GetComponentInChildren<HVRBodySimulator>(true)!;

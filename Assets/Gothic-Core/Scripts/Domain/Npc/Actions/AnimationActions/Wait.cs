@@ -16,6 +16,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _waitSeconds = Action.Float0;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableNpcPrehitReaction: a fight's wait ends when the hero swings - the next AI_Attack reacts.
+        /// </summary>
+        public void Interrupt()
+        {
+            _waitSeconds = 0f;
+        }
+
         public override bool IsFinished()
         {
             _waitSeconds -= Time.deltaTime;

@@ -20,8 +20,7 @@ Jump -> Space
 Crouch -> Z/X
 Run -> Shift
 Menu -> Escape
-Quest log -> L
-Status -> B";
+R -> Trigger spell";
 
 
         private void Awake()
@@ -43,11 +42,11 @@ Status -> B";
 
         private void RenderBodySimulatorTutorial()
         {
-            float y = 300;
+            float y = 370;
             if (!_vrHandsSimulator || !_vrHandsSimulator.enabled)
-                y = 100;
+                y = 175;
 
-            GUI.BeginGroup(new Rect(1, Screen.height - y, 300, 100));
+            GUI.BeginGroup(new Rect(1, Screen.height - y, 300, 175));
 
             GUI.Box(new Rect(0, 0, 100, 25), "<b>Body controls</b>");
             GUI.TextArea(new Rect(0, 15, 300, 150), string.Format(_tutorialText));

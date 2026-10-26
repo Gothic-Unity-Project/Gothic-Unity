@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -94,7 +95,21 @@ namespace Gothic.Core.Models.Audio
                     break;
                 }
             } while (true);
-            
+
+            // DeveloperConfig.EnableSfxNumberedVariants: the pain screams are numbered instead (SVM_15_AARGH,
+            // SVM_15_AARGH_1 ... _4 -> svm_2_aargh_1/2/3.wav) - only the first one was ever heard.
+            if (sounds.Count == 1 && _gameStateService.SfxVm.GetSymbolByName($"{soundKey}_1") != null &&
+                ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableSfxNumberedVariants)
+            {
+                for (var number = 1; ; number++)
+                {
+                    var nextKey = $"{soundKey}_{number}";
+                    if (_gameStateService.SfxVm.GetSymbolByName(nextKey) == null)
+                        break;
+                    sounds.Add(_gameStateService.SfxVm.InitInstance<SoundEffectInstance>(nextKey));
+                }
+            }
+
             _soundEffects = sounds.ToArray();
         }
     }

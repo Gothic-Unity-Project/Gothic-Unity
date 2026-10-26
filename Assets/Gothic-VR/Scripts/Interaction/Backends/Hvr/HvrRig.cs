@@ -1,9 +1,12 @@
 #if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections.Generic;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using HurricaneVR.Framework.Core.Bags;
 using HurricaneVR.Framework.Core.Grabbers;
 using HurricaneVR.Framework.Core.Player;
 using UnityEngine;
@@ -32,6 +35,13 @@ namespace Gothic.VR.Interaction.Backends.Hvr
         float IVrRig.CameraHeight => CameraHeight;
         bool IVrRig.IsGrounded => IsGrounded;
         bool IVrRig.IsClimbing => IsClimbing;
+        bool IVrRig.IsCrouching => IsCrouching;
+
+        float IVrRig.CameraYOffset
+        {
+            get => CameraRig.CameraYOffset;
+            set => CameraRig.CameraYOffset = value;
+        }
 
         bool IVrRig.MovementEnabled
         {
@@ -152,6 +162,129 @@ namespace Gothic.VR.Interaction.Backends.Hvr
         {
             if (ScreenFader)
                 ScreenFader.Fade(alpha, speed);
+        }
+
+        Transform IVrRig.GetHandVisual(VrHandSide side)
+        {
+            var hand = side == VrHandSide.Left ? LeftHand : RightHand;
+            if (hand == null)
+                return null;
+
+            var model = hand.gameObject.FindChildRecursively(side == VrHandSide.Left ? "LeftHandModel" : "RightHandModel");
+            return model != null ? model.transform : hand.transform;
+        }
+
+        IReadOnlyList<Collider> IVrRig.GetHandColliders(VrHandSide side)
+        {
+            var hand = side == VrHandSide.Left ? LeftHand : RightHand;
+            if (hand == null)
+                return Array.Empty<Collider>();
+
+            return System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(
+                hand.GetComponentsInChildren<Collider>(true), i => !i.isTrigger));
+        }
+
+        // The force grabber's own values per hand (index VrHandSide), saved before the first change.
+        private readonly (bool IsSaved, float RayDistance, float BagDistance, Vector3 Center, float Height)[]
+            _defaultForceGrab = new (bool, float, float, Vector3, float)[2];
+
+        private HVRForceGrabber GetForceGrabber(VrHandSide side)
+        {
+            var hand = side == VrHandSide.Left ? LeftHand : RightHand;
+            return hand != null ? hand.ForceGrabber : null;
+        }
+
+        public float GetDistanceGrabRange(VrHandSide side)
+        {
+            var forceGrabber = GetForceGrabber(side);
+            return forceGrabber != null ? forceGrabber.MaxRayCastDistance : 0f;
+        }
+
+        /// <summary>
+        /// The ray's distance and the force grab bags' capsule (2.5 times as long, pointing forward) and max distance.
+        /// </summary>
+        public void SetDistanceGrabRange(VrHandSide side, float range)
+        {
+            var forceGrabber = GetForceGrabber(side);
+            if (forceGrabber == null)
+                return;
+
+            SaveDefaultForceGrab(side, forceGrabber);
+            var saved = _defaultForceGrab[(int)side];
+            forceGrabber.MaxRayCastDistance = range;
+            foreach (var bag in forceGrabber.GrabBags)
+            {
+                if (bag is not HVRForceGrabberBag forceBag || !bag.TryGetComponent<CapsuleCollider>(out var capsule))
+                    continue;
+
+                var height = saved.Height * 2.5f;
+                capsule.height = height;
+                capsule.center = new Vector3(0f, 0f, height * 0.5f);
+                forceBag.MaxDistanceAllowed = range;
+            }
+        }
+
+        public void ResetDistanceGrabRange(VrHandSide side)
+        {
+            var forceGrabber = GetForceGrabber(side);
+            var saved = _defaultForceGrab[(int)side];
+            if (forceGrabber == null || !saved.IsSaved)
+                return;
+
+            forceGrabber.MaxRayCastDistance = saved.RayDistance;
+            foreach (var bag in forceGrabber.GrabBags)
+            {
+                if (bag is not HVRForceGrabberBag forceBag || !bag.TryGetComponent<CapsuleCollider>(out var capsule))
+                    continue;
+
+                capsule.center = saved.Center;
+                capsule.height = saved.Height;
+                forceBag.MaxDistanceAllowed = saved.BagDistance;
+            }
+        }
+
+        private void SaveDefaultForceGrab(VrHandSide side, HVRForceGrabber forceGrabber)
+        {
+            if (_defaultForceGrab[(int)side].IsSaved)
+                return;
+
+            foreach (var bag in forceGrabber.GrabBags)
+            {
+                if (bag is not HVRForceGrabberBag forceBag || !bag.TryGetComponent<CapsuleCollider>(out var capsule))
+                    continue;
+
+                _defaultForceGrab[(int)side] = (true, forceGrabber.MaxRayCastDistance, forceBag.MaxDistanceAllowed,
+                    capsule.center, capsule.height);
+                return;
+            }
+        }
+
+        public VrInteractable GetDistanceHovered(VrHandSide side)
+        {
+            var forceGrabber = GetForceGrabber(side);
+            if (forceGrabber == null)
+                return null;
+
+            var target = forceGrabber.HoverTarget;
+            if (target == null)
+            {
+                foreach (var bag in forceGrabber.GrabBags)
+                {
+                    if (bag.ClosestGrabbable == null)
+                        continue;
+                    target = bag.ClosestGrabbable;
+                    break;
+                }
+            }
+
+            return target != null ? HvrGrabArgsFactory.GetInteractable(target) : null;
+        }
+
+        public bool TryDistanceGrabHovered(VrHandSide side)
+        {
+            var forceGrabber = GetForceGrabber(side);
+            return forceGrabber != null && forceGrabber.HoverTarget != null &&
+                   forceGrabber.TryGrab(forceGrabber.HoverTarget, true);
         }
 
         public void SetGrabbingEnabled(bool isEnabled)

@@ -70,6 +70,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 farCaster.castDistance = VRConstants.DistanceGrabMaxDistance;
                 farCaster.coneCastAngle = VRConstants.DistanceGrabConeAngle;
             }
+
+            // Grab triggers (XriInteractableBridge, e.g. the backpack's grab volume) are hit by the hand. Triggers of
+            // nothing grabbable are hit as well, but don't map to an interactable and are skipped.
+            if (Interactor.nearInteractionCaster is SphereInteractionCaster nearCaster)
+                nearCaster.physicsTriggerInteraction = QueryTriggerInteraction.Collide;
         }
 
         private void Start()
@@ -113,6 +118,56 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             _interactor.selectEntered.RemoveListener(OnSelectEntered);
             _interactor.selectExited.RemoveListener(OnSelectExited);
+        }
+
+        /// <summary>
+        /// Range of the far ray (distance grab).
+        /// </summary>
+        public float DistanceGrabRange
+        {
+            get => Interactor.farInteractionCaster is CurveInteractionCaster farCaster
+                ? farCaster.castDistance
+                : VRConstants.DistanceGrabMaxDistance;
+            set
+            {
+                if (Interactor.farInteractionCaster is CurveInteractionCaster farCaster)
+                    farCaster.castDistance = value;
+            }
+        }
+
+        /// <summary>
+        /// The first interactable the hand hovers (by its far ray or right at the hand).
+        /// </summary>
+        public VrInteractable GetHovered()
+        {
+            foreach (var hovered in Interactor.interactablesHovered)
+            {
+                var interactable = GetInteractable(hovered);
+                if (interactable != null)
+                    return interactable;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Selects the hovered grab interactable from afar - XRI pulls it into the hand.
+        /// </summary>
+        public bool TrySelectHovered()
+        {
+            if (Interactor.hasSelection || Interactor.interactionManager == null)
+                return false;
+
+            foreach (var hovered in Interactor.interactablesHovered)
+            {
+                if (hovered is not XRGrabInteractable grab || !grab.IsSelectableBy((IXRSelectInteractor)Interactor))
+                    continue;
+
+                Interactor.interactionManager.SelectEnter((IXRSelectInteractor)Interactor, grab);
+                return true;
+            }
+
+            return false;
         }
 
         public void ForceRelease()

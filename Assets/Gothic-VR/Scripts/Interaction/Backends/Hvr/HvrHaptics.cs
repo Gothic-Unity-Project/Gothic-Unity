@@ -31,6 +31,11 @@ namespace Gothic.VR.Interaction.Backends.Hvr
         {
             HVRInputManager.Instance.GetController(side.ToHvr()).Vibrate(_presets[(int)preset]);
         }
+
+        public void Vibrate(VrHandSide side, float amplitude, float duration)
+        {
+            HVRInputManager.Instance.GetController(side.ToHvr())?.Vibrate(amplitude, duration);
+        }
     }
 }
 #endif

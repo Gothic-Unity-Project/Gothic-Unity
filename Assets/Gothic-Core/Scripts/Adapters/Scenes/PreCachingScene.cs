@@ -73,7 +73,8 @@ namespace Gothic.Core.Adapters.Scenes
                 foreach (var worldNameToCheck in allWorldNames)
                 {
                     // Mods can ship (or reference) worlds ZenKit can't parse. Skip them instead of aborting.
-                    World world;
+                    Logger.Log($"PreCaching: attempting to load world '{worldNameToCheck}'", LogCat.PreCaching);
+                    ZenKit.World world;
                     try
                     {
                         world = _resourceCacheService.TryGetWorld(worldNameToCheck, _contextGameVersionService.Version);
@@ -89,7 +90,7 @@ namespace Gothic.Core.Adapters.Scenes
                     // e.g., FIRETREE.ZEN is no real world.
                     if (world == null || world.Mesh.PositionCount == 0)
                         continue;
-                    
+
                     worldNamesToLoad.Add(worldNameToCheck);
                     worldsToLoad.Add(world);
                 }

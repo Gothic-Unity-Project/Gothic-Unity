@@ -47,6 +47,12 @@ namespace Gothic.VR.Interaction.Ports
         Vector3 GetControllerVelocity(VrHandSide side);
 
         /// <summary>
+        /// Thumbstick position (-1...1 per axis). Turning/moving use it too - read it only while those are locked or
+        /// for a deliberate push (e.g. the favorites ring's zoom).
+        /// </summary>
+        Vector2 GetThumbstick(VrHandSide side);
+
+        /// <summary>
         /// Activates the desktop device simulator (DeveloperConfig.EnableVRDeviceSimulator).
         /// </summary>
         void SetDeviceSimulatorActive(bool isActive);

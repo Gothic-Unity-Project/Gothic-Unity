@@ -24,6 +24,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// </summary>
     public class XriInteractableBridge : MonoBehaviour, IVrInteractableBackend
     {
+        [Tooltip("Trigger colliders that count for hovering and grabbing by hand anyway (XRI ignores triggers). " +
+                 "E.g. the backpack's grab volume, which HVR used, as its hull alone is hard to grab.")]
+        [SerializeField]
+        private Collider[] _grabTriggers;
+
         [Inject] private readonly IVrBackend _vrBackend;
 
         private readonly Dictionary<IXRInteractor, VrGrabArgs> _selectArgs = new();
@@ -34,6 +39,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private VrInteractable _interactable;
         private bool _isSubscribed;
         private float _lastHandReleaseTime = float.NegativeInfinity;
+        private bool _isGrabEnabled = true;
+        private bool _isStarted;
 
         public bool IsActive => _vrBackend is XriBackend;
         public bool IsHeld => _xrInteractable != null && _xrInteractable.isSelected;
@@ -66,6 +73,40 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public IReadOnlyList<Collider> Colliders => _xrInteractable != null
             ? _xrInteractable.colliders
             : System.Array.Empty<Collider>();
+
+        /// <summary>
+        /// The XR interactable is enabled in Start (runtime colliders), only if grabbing is enabled by then.
+        /// </summary>
+        public bool IsGrabEnabled
+        {
+            get => _isGrabEnabled;
+            set
+            {
+                _isGrabEnabled = value;
+                if (_isSubscribed && _isStarted)
+                    _xrInteractable.enabled = value;
+            }
+        }
+
+        public bool IsOneHandOnly
+        {
+            get => _xrInteractable is GothicGrabInteractable grab && grab.IsOneHandOnly;
+            set
+            {
+                if (_xrInteractable is GothicGrabInteractable grab)
+                    grab.IsOneHandOnly = value;
+            }
+        }
+
+        public bool IsDistanceGrabbable
+        {
+            get => _xrInteractable is not GothicGrabInteractable grab || grab.IsDistanceGrabbable;
+            set
+            {
+                if (_xrInteractable is GothicGrabInteractable grab)
+                    grab.IsDistanceGrabbable = value;
+            }
+        }
 
         private void Awake()
         {
@@ -100,7 +141,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (_xrInteractable is ClimbInteractable)
                 _xrInteractable.getDistanceOverride = GetDistanceToBounds;
 
-            _xrInteractable.enabled = true;
+            _isStarted = true;
+            _xrInteractable.enabled = _isGrabEnabled;
         }
 
         private void OnDestroy()
@@ -124,7 +166,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// Re-collects the colliders. The interaction manager maps colliders to interactables on registration only,
         /// therefore an enabled interactable is registered again (not while it's held or hovered).
         /// </summary>
-        public void SetupColliders()
+        public void SetupColliders(bool isChildLinked = false)
         {
             if (!_isSubscribed)
                 return;
@@ -180,6 +222,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
 
             _colliderBuffer.Clear();
+
+            // Only the near casters of the hands see them (XriGrabberBridge), the far ray ignores triggers.
+            if (_grabTriggers != null)
+            {
+                foreach (var grabTrigger in _grabTriggers)
+                {
+                    if (grabTrigger != null && !_xrInteractable.colliders.Contains(grabTrigger))
+                        _xrInteractable.colliders.Add(grabTrigger);
+                }
+            }
 
             if (_xrInteractable.colliders.Count == 0)
                 Logger.LogWarning($"[XRI] {name} has no colliders. It can't be grabbed or hovered.", LogCat.VR);

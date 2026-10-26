@@ -37,13 +37,21 @@ namespace Gothic.Core.Manager
         public void InitMusic()
         {
             // Skipping Init() leaves _themes empty, so every Play*/Zone* call below safely no-ops and
-            // dmusic's native engine is never touched (see GothicModIniConfig.UnitySkipMusicPlayback).
-            if (!_configService.GothicMod.UnitySkipMusicPlayback)
+            // dmusic's native engine is never touched: the mod ini's unitySkipMusicPlayback (see
+            // GothicModIniConfig.UnitySkipMusicPlayback) or ConfigService.EffectiveEnableMusic (GameSettings.json /
+            // DeveloperConfig EnableMusic).
+            if (_configService.EffectiveEnableMusic && !_configService.GothicMod.UnitySkipMusicPlayback)
                 _musicDomain.Init();
 
             GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(OnMainMenuLoaded);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(_musicDomain.OnWorldLoaded);
+            // DeveloperConfig.EnableEnvironmentReverb: echo in mines, caves and temples - one per world scene.
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
+            {
+                if (_configService.Dev.EnableEnvironmentReverb)
+                    new GameObject("_EnvironmentReverb").AddComponent<Gothic.Core.Adapters.Audio.EnvironmentReverb>();
+            });
 
             GlobalEventDispatcher.MusicZoneEntered.AddListener(_musicDomain.MusicZoneEntered);
             GlobalEventDispatcher.MusicZoneExited.AddListener(_musicDomain.MusicZoneExited);
@@ -58,6 +66,14 @@ namespace Gothic.Core.Manager
             
             GlobalEventDispatcher.SetHeroAsTarget.AddListener((enemy, hero) =>
             {
+                // DeveloperConfig.EnableMusicZonesByPosition: the zone check derives fight/threat from this.
+                if (_configService.Dev.EnableMusicZonesByPosition)
+                {
+                    _musicDomain.OnHeroTargeted(enemy);
+                    _musicDomain.Play();
+                    return;
+                }
+
                 _musicDomain.ModeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon ? MusicDomain.MusicTagsMode.Thrill : MusicDomain.MusicTagsMode.Fight;
                 _musicDomain.Play();
             });
@@ -70,11 +86,13 @@ namespace Gothic.Core.Manager
 
         private void OnMainMenuLoaded()
         {
+            _musicDomain.ClearZones();
             PlayMusic("SYS_MENU");
         }
 
         private void OnLoadingSceneLoaded()
         {
+            _musicDomain.ClearZones();
             PlayMusic("SYS_LOADING");
         }
 
@@ -104,8 +122,20 @@ namespace Gothic.Core.Manager
         [CanBeNull]
         public AudioClip CreateAudioClip(SoundEffectInstance soundEffectInstance)
         {
-            return CreateAudioClip(soundEffectInstance.File);
+            return CreateSfxAudioClip(soundEffectInstance.File);
         }
+
+        /// <summary>
+        /// The file of a sound effect instance (C_SFX) - from _WORK/DATA/SOUND/SFX first like the engine
+        /// (DeveloperConfig.EnableSfxFromSfxFolder; a speech file with the same name doesn't win then).
+        /// </summary>
+        [CanBeNull]
+        public AudioClip CreateSfxAudioClip(string fileName)
+        {
+            return _soundDomain.CreateAudioClip(fileName, _configService.Dev.EnableSfxFromSfxFolder ? _sfxFolder : null);
+        }
+
+        private const string _sfxFolder = "SFX";
 
         /// <summary>
         /// Create AudioClip from a file inside .vdf containers.

@@ -319,6 +319,8 @@ namespace Gothic.Tests.PlayMode
             public float CameraHeight => 1.6f;
             public bool IsGrounded => true;
             public bool IsClimbing { get; set; }
+            public bool IsCrouching => false;
+            public float CameraYOffset { get; set; }
             public bool MovementEnabled { get; set; }
             public bool TurnEnabled { get; set; }
             public bool TeleportEnabled { get; set; }
@@ -353,6 +355,39 @@ namespace Gothic.Tests.PlayMode
 
             public void SetGrabbingEnabled(bool isEnabled)
             {
+            }
+
+            public Transform GetHandVisual(VrHandSide side)
+            {
+                return Hand != null ? Hand.transform : Controller;
+            }
+
+            public IReadOnlyList<Collider> GetHandColliders(VrHandSide side)
+            {
+                return Array.Empty<Collider>();
+            }
+
+            public float GetDistanceGrabRange(VrHandSide side)
+            {
+                return 0f;
+            }
+
+            public void SetDistanceGrabRange(VrHandSide side, float range)
+            {
+            }
+
+            public void ResetDistanceGrabRange(VrHandSide side)
+            {
+            }
+
+            public VrInteractable GetDistanceHovered(VrHandSide side)
+            {
+                return null;
+            }
+
+            public bool TryDistanceGrabHovered(VrHandSide side)
+            {
+                return false;
             }
 
             public void Fade(float alpha, float speed)

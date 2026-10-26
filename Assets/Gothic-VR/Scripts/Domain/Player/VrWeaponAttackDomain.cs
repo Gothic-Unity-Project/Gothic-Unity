@@ -250,6 +250,14 @@ namespace Gothic.VR.Domain.Player
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(attackAnimationName));
         }
 
+        public VmGothicEnums.WeaponState GetWeaponState()
+        {
+            if (WeaponVobContainer == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            return Is2HD() ? VmGothicEnums.WeaponState.W2H : VmGothicEnums.WeaponState.W1H;
+        }
+
         private bool Is2HD()
         {
             return (WeaponVobContainer.GetItemInstance().Flags & _twoHandedFlags) != 0;
@@ -428,6 +436,10 @@ namespace Gothic.VR.Domain.Player
 
         private void HandleInitialWindow()
         {
+            // An unconscious hero can still swing a weapon picked up again - but it's no attack.
+            if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
+
             if (_currentWeaponVelocity >= _attackVelocityThreshold)
                 StartAttack();
         }
@@ -441,6 +453,15 @@ namespace Gothic.VR.Domain.Player
             _soundPlayed = _swingSwordSound == null;
 
             _stateMachine.StartAttack();
+
+            // DeveloperConfig.EnableNpcPrehitReaction: the swing is the hero's "prehit" - NPCs can parry or jump back.
+            if (GetOwner()?.PrefabProps?.IsHero() == true)
+            {
+                var item = WeaponVobContainer?.GetItemInstance();
+                var isMeleeWeapon = item != null &&
+                                    ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
+                GlobalEventDispatcher.HeroMeleeSwing.Invoke(isMeleeWeapon ? item.Material : -1);
+            }
         }
 
         private bool CheckIfComboWindowFailed()

@@ -28,7 +28,7 @@ But what happened instead?
 - **Is this a fresh install or an update?** Fresh/Update from v...
 
 ### Logs/Screenshots/Videos
-Please attach at least logs (Gothic-Unity.log) and screenshots or videos that give us more insights.
+Please attach at least logs (the session's `Logs/Gothic-Unity_<date>_<time>.log.txt` - Windows: `%USERPROFILE%/AppData/LocalLow/Gothic Unity Project/<product>/Logs`, Android: the app's data folder) and screenshots or videos that give us more insights.
 - [ ] Logs attached
 - [ ] Screenshot attached
 - [ ] Video attached

@@ -8,6 +8,8 @@ namespace Gothic.Core.Model.UI.MenuItem
     {
         public string Name { get; set; }
         public AbstractMenuInstance MenuInstance { get; set; }
+        // DeveloperConfig.EnableMenuScrolling: the row moves with the menu's scroll (AbstractMenuInstance.ScrollTopY).
+        public bool IsScrollable { get; set; }
 
         protected AbstractMenuItemInstance(string menuItemName)
         {

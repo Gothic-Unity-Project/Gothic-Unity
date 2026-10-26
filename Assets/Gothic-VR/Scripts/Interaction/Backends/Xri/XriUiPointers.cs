@@ -1,3 +1,4 @@
+using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -62,6 +63,14 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 default:
                     return false;
             }
+        }
+
+        public LineRenderer[] GetPointerLines(Transform rigRoot)
+        {
+            // The far ray's line visual is a child of each hand's NearFarInteractor.
+            return rigRoot.GetComponentsInChildren<NearFarInteractor>(true)
+                .SelectMany(i => i.GetComponentsInChildren<LineRenderer>(true))
+                .ToArray();
         }
     }
 }

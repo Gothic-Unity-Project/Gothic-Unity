@@ -37,9 +37,9 @@ namespace Gothic.Core.Services.Context
             return _impl.GetCurrentPlayerController();
         }
 
-        public void LockPlayerInPlace()
+        public void LockPlayerInPlace(bool allowTurning = false)
         {
-            _impl.LockPlayerInPlace();
+            _impl.LockPlayerInPlace(allowTurning);
         }
 
         public void UnlockPlayer()
@@ -70,6 +70,11 @@ namespace Gothic.Core.Services.Context
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
             _impl.TeleportPlayerTo(position,rotation);
+        }
+
+        public void StoreHeldItemsInBackpack()
+        {
+            _impl.StoreHeldItemsInBackpack();
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)

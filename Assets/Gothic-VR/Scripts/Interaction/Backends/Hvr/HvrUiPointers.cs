@@ -36,6 +36,14 @@ namespace Gothic.VR.Interaction.Backends.Hvr
             side = pointer == null ? default : pointer.HandSide.ToVr();
             return pointer != null;
         }
+
+        public LineRenderer[] GetPointerLines(Transform rigRoot)
+        {
+            return rigRoot.GetComponentsInChildren<HVRUIPointer>(true)
+                .Select(i => i.GetComponent<LineRenderer>())
+                .Where(i => i != null)
+                .ToArray();
+        }
     }
 }
 #endif

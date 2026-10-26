@@ -39,5 +39,29 @@ namespace Gothic.Core.Const
             public static string MyFkFocusFar = "FA_MY_FK_FOCUS_FAR_{0}"; // I have opponent in focus
             public static string MyFkNoFocusFar = "FA_MY_FK_NOFOCUS_FAR_{0}"; // I have opponent NOT in focus
         }
+
+        // HAI_DIST_RANGED (vanilla AI_Constants.d) — the assumed max engagement distance for ranged/
+        // magic combat. A Bow/CBow/Mage attack dispatched from MyFkFocusFar (see Attack.cs) can
+        // legitimately connect from anywhere within this range; only true melee needs point-blank
+        // weapon reach. Used by AttackPlayAni.GetWeaponReach() so the hit-connect check agrees with
+        // what the move-selection already allows — a mismatch here silently turns every ranged
+        // "Attack" move dispatched beyond melee range into a "miss, target out of reach".
+        public const float RangedAttackReachMeters = 30f;
+
+        // DeveloperConfig.EnableNpcPrehitReaction: a VR swing counts as the hero's "prehit" this long - an attack
+        // animation's time before its hit frame (DEF_OPT_FRAME).
+        public const float HeroPrehitSeconds = 0.4f;
+        // The hero's reach for the prehit check (the engine: the attacker's weapon range) - a swung sword plus a step.
+        public const float HeroPrehitRangeMeters = 3f;
+        // OpenGothic FightAlgo: isInFocusAngle 30 degrees, isInJumpBackAngle 90 degrees.
+        public const float FocusAngle = 30f;
+        public const float JumpBackAngle = 90f;
+        // The hero's facing in VR is his head, which turns more than a body - a bit more room than the engine's 30.
+        public const float HeroFocusAngle = 45f;
+        // Gothic.ini (immersion): 1 = a lethal arrow/bolt/spell knocks a human out, 0 = it kills (OpenGothic).
+        public const string RangedKnockoutIniName = "rangedKnockout";
+        // Immersion option (DeveloperConfig.EnableKillerXpOnly): 1 = every death gives the hero experience (cheat),
+        // 0 = only his own kills, his summons' and his party's (Gothic, default).
+        public const string XpForAnyKillIniName = "xpForAnyKill";
     }
 }

@@ -10,12 +10,17 @@ using Gothic.Core.Models.Config;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.UI;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using ZenKit.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -29,6 +34,9 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
@@ -77,12 +85,32 @@ namespace Gothic.VR.Services.Context
             _vrWeaponService.Init();
             _vrCinemaService.Init();
 
+            // DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head (one per world scene).
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
+            {
+                if (_configService.Dev.EnableVrHeroBody)
+                    new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
+                // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+                new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
+                // DeveloperConfig.EnableHeroPersonalSpace (checked at runtime): NPC bodies stay out of the camera.
+                new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
+                ApplyHudOnTop();
+                // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
+                VRHandSkinLight.Apply(_configService);
+                // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): out of the world -> START.
+                new UnityEngine.GameObject("_MarvinFallRescue").AddComponent<Gothic.VR.Adapters.Marvin.MarvinFallRescue>();
+            });
+            // DeveloperConfig.EnableVrTrade: the trade counter between the hero and the trader.
+            GlobalEventDispatcher.TradeStarted.AddListener(session =>
+                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(session, _rig.Head));
+            
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
                 SetRenderDistance(_configService.Gothic.IniVisualRange);
                 ApplyComfortSettings();
                 ApplyPhysicalHands();
+                ApplyMarvinVisibility();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
@@ -103,7 +131,7 @@ namespace Gothic.VR.Services.Context
         public float GetFrameRate()
         {
             // If we have no VR device attached to our computer, we will get an NPE for activeLoader.
-            if (_configService.Dev.EnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
+            if (_configService.EffectiveEnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
             {
                 return 0;
             }
@@ -150,21 +178,107 @@ namespace Gothic.VR.Services.Context
             if (_configService.Gothic != null)
                 ApplyPhysicalHands();
 
-            // XRDeviceSimulator
-            _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
+            // XRDeviceSimulator (Editor: DeveloperConfig, builds: GameSettings.json)
+            var isSimulatorEnabled = _configService.EffectiveEnableVRDeviceSimulator;
+            if (isSimulatorEnabled)
+                StopXRForSimulator();
+            _vrInput.SetDeviceSimulatorActive(isSimulatorEnabled);
 
             // Marvin Mode
             // Searched inside our player only: the other backends' players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
             _marvinRoot.SetActive(_marvinService.IsMarvinMode);
+            if (developerConfig.EnableUiGrabBars)
+                AddMarvinGrabBar();
+
+            // DeveloperConfig.EnableVrSpellRing: the favorites ring, in the player's space - it moves with him.
+            if (developerConfig.EnableVrSpellRing)
+            {
+                var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
+                favoritesRing.transform.SetParent(_player.transform, false);
+            }
+
+            // DeveloperConfig.EnableVrPickpocket: purses on the hips of NPCs who can't see the sneaking hero (G1).
+            if (developerConfig.EnableVrPickpocket)
+            {
+                var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+                pickpocket.transform.SetParent(_player.transform, false);
+            }
+
+            // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
+            if (developerConfig.EnableVrHeroBlock)
+            {
+                var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+                heroBlock.transform.SetParent(_player.transform, false);
+            }
+
+            // DeveloperConfig.EnableVisualFxEarthquake: FX_EarthQuake rumbles the controllers.
+            if (developerConfig.EnableVisualFxEarthquake)
+            {
+                var earthquakeRumble = new GameObject("_EarthquakeRumble").AddComponent<VREarthquakeRumble>();
+                earthquakeRumble.transform.SetParent(_player.transform, false);
+            }
+
+            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
+            if (developerConfig.EnableBackpackEquipToggle)
+            {
+                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+                equipToggle.transform.SetParent(_player.transform, false);
+            }
+
+            // DeveloperConfig.EnableWeaponGripGrab: the first hand on a weapon closes around its grip.
+            if (developerConfig.EnableWeaponGripGrab)
+            {
+                var gripGrab = new GameObject("_WeaponGripGrab").AddComponent<VRWeaponGripGrab>();
+                gripGrab.transform.SetParent(_player.transform, false);
+            }
+            ApplyMarvinVisibility();
+
+            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
+            _player.gameObject.AddComponent<VRHeroMovement>();
 
             // PrintScreen() messages in front of the camera
             activeScene.GetComponentInChildren<VRPrintScreen>(true)!.Init();
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableUiGrabBars: grabbed, the Marvin panel leaves the left hand and stays where it's put
+        /// in the player's space (it moves and turns with him) - one element with its keyboard (it follows the panel's
+        /// KeyboardAnchor), so the bar is upright at the side. Released in the sphere above the left hand, it docks back.
+        /// </summary>
+        private void AddMarvinGrabBar()
+        {
+            var panel = _marvinRoot.transform;
+            var hand = panel.parent;
+            var dockedPosition = panel.localPosition;
+            var dockedRotation = panel.localRotation;
+            var dockedScale = panel.localScale;
+            var playerSpace = _player.transform;
+
+            var bar = VRGrabBar.Create((RectTransform)panel, panel, true,
+                () =>
+                {
+                    if (panel.parent != playerSpace)
+                        panel.SetParent(playerSpace, true);
+                },
+                hand,
+                () =>
+                {
+                    panel.SetParent(hand, false);
+                    panel.SetLocalPositionAndRotation(dockedPosition, dockedRotation);
+                    panel.localScale = dockedScale;
+                    Logger.Log("[VRContextInteractionService] Marvin panel docked to the hand", LogCat.VR);
+                });
+
+            // Centered where the panel meets its keyboard (KeyboardAnchor below the panel) - one bar for both.
+            var barRect = (RectTransform)bar.transform;
+            barRect.anchorMin = barRect.anchorMax = new Vector2(1f, 0f);
+            barRect.sizeDelta = new Vector2(barRect.sizeDelta.x, ((RectTransform)panel).rect.height);
+        }
+
         private void OnMarvinModeChanged(bool isActive)
         {
-            _marvinRoot.SetActive(isActive);
+            ApplyMarvinVisibility();
         }
 
         /// <summary>
@@ -185,12 +299,32 @@ namespace Gothic.VR.Services.Context
 
             _vrHapticsService.Vibrate(handSide, VrHapticPreset.Info);
         }
+        
+        /// <summary>
+        /// Builds start XR on startup. With a headset (or SteamVR) running, the headset would still drive the camera
+        /// next to the simulator - stop XR so mouse and keyboard own the rig and the window shows the game.
+        /// </summary>
+        private void StopXRForSimulator()
+        {
+            var settings = XRGeneralSettings.Instance;
+            var manager = settings != null ? settings.Manager : null;
+            if (manager == null || manager.activeLoader == null)
+                return;
+
+            manager.StopSubsystems();
+            manager.DeinitializeLoader();
+            Logger.Log("[VRDeviceSimulator] XR stopped, the simulator drives the player.", LogCat.VR);
+        }
 
         private void PlayerPrefsUpdated(string key, object value)
         {
             if (key == GothicIniConfig.IniKeyVisualRange)
             {
                 SetRenderDistance(int.Parse((string)value));
+            }
+            else if (key == VRConstants.IniNames.MarvinPanel)
+            {
+                ApplyMarvinVisibility();
             }
             else if (key == VRConstants.IniNames.MoveDirection ||
                      key == VRConstants.IniNames.RotationType ||
@@ -205,6 +339,85 @@ namespace Gothic.VR.Services.Context
             {
                 ApplyPhysicalHands();
             }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableHudAlwaysOnTop: the hero's bars (on the wrists - the other hand and the world cut
+        /// through them) draw on top of everything, like the dialog box. The menus have their VRUiOnTop in the prefab,
+        /// it is the template for the bars' materials.
+        /// </summary>
+        private void ApplyHudOnTop()
+        {
+            if (!_configService.Dev.EnableHudAlwaysOnTop)
+                return;
+
+            var template = Object.FindFirstObjectByType<VRUiOnTop>(FindObjectsInactive.Include);
+            if (template == null)
+            {
+                Logger.LogWarning("[VRUiOnTop] No on-top UI in the scene to copy - status bars stay depth tested.",
+                    LogCat.VR);
+                return;
+            }
+
+            var roots = new System.Collections.Generic.HashSet<GameObject>();
+            foreach (var bar in Object.FindObjectsByType<Gothic.Core.Adapters.UI.StatusBars.StatusBarAdapter>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (bar.IsPlayer)
+                    roots.Add(GetRootCanvas(bar.transform) ?? bar.gameObject);
+            }
+            foreach (var root in roots)
+            {
+                UseMaterialTextureAsSprite(root);
+                template.CopyTo(root);
+            }
+
+            Logger.Log($"[VRUiOnTop] HUD drawn on top: {string.Join(", ", roots.Select(r => r.name))}", LogCat.VR);
+        }
+
+        /// <summary>
+        /// The bars' fill is an Image with a white sprite and the Gothic texture (BAR_HEALTH.TGA) in its URP material.
+        /// The on-top shader samples the Canvas texture - the sprite's - so the fill came out white. A sprite of the
+        /// material's texture gives the Canvas the right one (URP keeps sampling the material either way).
+        /// </summary>
+        private static void UseMaterialTextureAsSprite(GameObject root)
+        {
+            foreach (var image in root.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+            {
+                var texture = image.material != null ? image.material.mainTexture as Texture2D : null;
+                if (texture == null || image.sprite == null || image.sprite.texture == texture)
+                    continue;
+
+                image.sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f));
+                Logger.Log($"[VRUiOnTop] {image.name}: sprite from its material's texture '{texture.name}'", LogCat.VR);
+            }
+        }
+
+        private static GameObject GetRootCanvas(Transform transform)
+        {
+            GameObject root = null;
+            for (var current = transform; current != null; current = current.parent)
+            {
+                if (current.TryGetComponent<Canvas>(out _))
+                    root = current.gameObject;
+            }
+            return root;
+        }
+
+        /// <summary>
+        /// Our Immersion option "Marvin" (Gothic.ini, on by default) hides/shows the Marvin panel - only while Marvin
+        /// mode is on (MarvinService.IsMarvinMode). The panel can't do it itself: it is inactive then.
+        /// </summary>
+        private void ApplyMarvinVisibility()
+        {
+            if (_marvinRoot == null || _configService.Gothic == null)
+                return;
+
+            var isShown = _marvinService.IsMarvinMode &&
+                          _configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 1) == 1;
+            _marvinRoot.SetActive(isShown);
+            Logger.Log($"[VRContextInteractionService] Marvin panel {(isShown ? "shown" : "hidden")}", LogCat.VR);
         }
 
         /// <summary>
@@ -267,13 +480,13 @@ namespace Gothic.VR.Services.Context
         /// <summary>
         /// Disable certain actions to keep player stuck in current position.
         /// </summary>
-        public void LockPlayerInPlace()
+        public void LockPlayerInPlace(bool allowTurning = false)
         {
             // HINT: Disable physics
             // We can't disable physics as it would prevent the teleport from finishing (HVR checks for IsGrounded
             // every frame). Therefore, we need to ground the player always on a plane and disable movement only.
             _rig.MovementEnabled = false;
-            _rig.TurnEnabled = false;
+            _rig.TurnEnabled = allowTurning;
             _rig.TeleportEnabled = false;
         }
 
@@ -323,7 +536,42 @@ namespace Gothic.VR.Services.Context
 
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
+            // DeveloperConfig.EnableTeleportKeepsHeldItems: what the hands hold goes into the backpack first - a held
+            // rune stayed at the old place (or vanished) and the hero stayed in magic mode.
+            if (_configService.Dev.EnableTeleportKeepsHeldItems)
+                StoreHeldItemsInBackpack();
+
             _rig.Teleport(position, rotation);
+        }
+
+        /// <summary>
+        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
+        /// the world item.
+        /// </summary>
+        public void StoreHeldItemsInBackpack()
+        {
+            // A rune held with both hands is one item - stored once.
+            var stored = new System.Collections.Generic.HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand).ToList())
+            {
+                var interactable = hand.Held;
+                if (interactable == null || !stored.Add(interactable))
+                    continue;
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.VobAs<IItem>();
+                if (item == null)
+                    continue;
+
+                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
+                interactable.ForceRelease();
+
+                var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                _saveGameService.UntrackLooseItem(container);
+                _playerService.AddItem(instanceName, Mathf.Max(1, item.Amount));
+                _vobService.RemoveWorldItem(container);
+                Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{Mathf.Max(1, item.Amount)} put into the backpack",
+                    LogCat.VR);
+            }
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)

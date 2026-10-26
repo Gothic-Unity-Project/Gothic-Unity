@@ -1,13 +1,14 @@
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
-using Gothic.Core.Logging;
 using Reflex.Attributes;
+using ZenKit;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 using Random = UnityEngine.Random;
@@ -22,11 +23,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         protected virtual string OutputName => Action.String0;
 
         private bool _isHeroSpeaking => Action.Int0 == 0;
-        private float _audioPlaySeconds;
+        protected float _audioPlaySeconds;
 
         private string _randomDialogAnimationName;
 
@@ -41,7 +43,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_dialogService.SkipNextOutput)
             {
                 _dialogService.SkipNextOutput = false;
-                
+
                 // If - for any reason - the first dialog entry after selecting dialog entry, then we don't skip it.
                 if (_isHeroSpeaking)
                 {
@@ -49,11 +51,23 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     return;
                 }
             }
-            
+
             var audioClip = _audioService.CreateAudioClip(OutputName);
+            // No OU.BIN/CSL found at boot (e.g. a mod without them, see BootstrapDomain.LoadSubtitles).
+            var cutsceneLibrary = _gameStateService.Dialogs.CutsceneLibrary;
+            if (cutsceneLibrary == null && !_hasLoggedMissingSubtitles)
+            {
+                Logger.LogWarning("No cutscene library loaded. Dialogs play without subtitles.", LogCat.Dialog);
+                _hasLoggedMissingSubtitles = true;
+            }
+            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
+            var block = cutsceneLibrary?.Blocks.Find(x => x.Name == OutputName);
+
             if (audioClip == null)
-                Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
-            _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
+                Logger.LogWarning($"AudioClip >{OutputName}< not found. Using text-length fallback.", LogCat.Dialog);
+            _audioPlaySeconds = audioClip != null ? audioClip.length : Mathf.Max(2f, (block?.Message.Text.Length ?? 30) / 15f);
+            Logger.Log($"[Dialog] {(_isHeroSpeaking ? "hero" : NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0))} says '{OutputName}' " +
+                       $"({(audioClip != null ? "audio" : "no audio")}, {_audioPlaySeconds:F1} s)", LogCat.Dialog);
 
             // Hero
             if (_isHeroSpeaking)
@@ -61,41 +75,68 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 if (audioClip != null)
                     _npcService.GetHeroGameObject().GetComponent<AudioSource>().PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
             // NPC
             else
             {
-                var gestureCount = GetDialogGestureCount();
-                var randomId = Random.Range(1, gestureCount + 1);
-
-                _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
-                PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
-                PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                // Overlay SVMs (Bool0=true) fire over existing animations — skip gesture and head morph.
+                if (!Action.Bool0)
+                {
+                    var gestureCount = GetDialogGestureCount();
+                    var randomId = Random.Range(1, gestureCount + 1);
+                    _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
+                    PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                }
 
                 if (audioClip != null)
-                    PrefabProps.NpcSound.PlayOneShot(audioClip);
+                    GetVoiceSource().PlayOneShot(audioClip);
 
-                PrintDialog();
+                PrintDialog(block);
             }
         }
 
-        private void PrintDialog()
+        /// <summary>
+        /// DeveloperConfig.EnableDialogRangeByBodySize: dialog lines get their own AudioSource next to NpcSound. NpcSound's
+        /// maxDistance follows the last animation sound (AnimationSystem: a dragon's breath) - his lines were inaudible
+        /// meters away, where his big head is. Full volume within the body, audible as far as the dialog reaches.
+        /// </summary>
+        private AudioSource GetVoiceSource()
         {
-            // No OU.BIN/CSL found at boot (e.g. a mod without them, see BootstrapDomain.LoadSubtitles).
-            var cutsceneLibrary = _gameStateService.Dialogs.CutsceneLibrary;
-            if (cutsceneLibrary == null)
+            var npcSound = PrefabProps.NpcSound;
+            if (!_configService.Dev.EnableDialogRangeByBodySize || npcSound == null)
+                return npcSound;
+
+            const string voiceName = "_DialogVoice";
+            var voiceTransform = npcSound.transform.Find(voiceName);
+            AudioSource voice;
+            if (voiceTransform == null)
             {
-                if (!_hasLoggedMissingSubtitles)
-                    Logger.LogWarning("No cutscene library loaded. Dialogs play without subtitles.", LogCat.Dialog);
-                _hasLoggedMissingSubtitles = true;
-                return;
+                var voiceGo = new GameObject(voiceName);
+                voiceGo.transform.SetParent(npcSound.transform, false);
+                voice = voiceGo.AddComponent<AudioSource>();
+                voice.outputAudioMixerGroup = npcSound.outputAudioMixerGroup;
+                voice.spatialBlend = npcSound.spatialBlend;
+                voice.volume = npcSound.volume;
+                voice.priority = npcSound.priority;
+                voice.dopplerLevel = 0f;
+                voice.rolloffMode = AudioRolloffMode.Linear;
+                voice.playOnAwake = false;
+            }
+            else
+            {
+                voice = voiceTransform.GetComponent<AudioSource>();
             }
 
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = cutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+            var bodyRadius = Gothic.Core.Domain.Npc.NpcBodySize.GetRadius(NpcContainer);
+            voice.minDistance = bodyRadius;
+            voice.maxDistance = bodyRadius + Gothic.Core.Const.Constants.DialogMaxDistance * 3f;
+            return voice;
+        }
 
-            // Mod-only output names can be missing in OU.BIN/OU.CSL. Skip the subtitle instead of throwing an NRE.
+        private void PrintDialog(ICutsceneBlock block)
+        {
             if (block == null)
             {
                 Logger.LogWarning($"Dialog block '{OutputName}' not found in CutsceneLibrary.", LogCat.Dialog);
@@ -154,9 +195,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             else
             {
                 PrefabProps.NpcSound.Stop();
-                // The line stopped - so does its subtitle.
+                // The line itself plays on the voice source (EnableDialogRangeByBodySize).
+                PrefabProps.NpcSound.transform.Find("_DialogVoice")?.GetComponent<AudioSource>()?.Stop();
+                // Killed/knocked out while talking - the line stopped, so does its subtitle.
                 PrefabProps.NpcSubtitles?.HideSubtitles();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                if (_randomDialogAnimationName != null)
+                {
+                    PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                    // DeveloperConfig.EnableFaceAnimations: the mouth stops with the line.
+                    if (_configService.Dev.EnableFaceAnimations)
+                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                }
             }
         }
 

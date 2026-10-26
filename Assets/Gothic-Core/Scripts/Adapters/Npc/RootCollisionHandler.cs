@@ -9,16 +9,24 @@ namespace Gothic.Core.Adapters.Npc
         [SerializeField] private CapsuleCollider _walkCollider;
 
         private SkinnedMeshRenderer[] _meshRenderers;
-        
+        private readonly Collider[] _separationBuffer = new Collider[8];
+
         private const float _pushbackDistance = 0.3f;
-        
-        
+        private const float _npcSeparationRadius = 0.55f;
+        private const float _npcSeparationSpeed = 1.5f;
+
+
         protected override void Awake()
         {
             base.Awake();
 
             // Cached object which will be used later.
             NpcData.PrefabProps.ColliderRootMotion = gameObject.transform;
+
+            // Keep kinematic until AnimationSystem.Start() has snapped NpcGo to the correct
+            // ground height. Without this the capsule bottom starts 1 m underground and physics
+            // depenetration would push the NPC into the air before Start() even runs.
+            GetComponent<Rigidbody>().isKinematic = true;
         }
 
         /// <summary>
@@ -38,34 +46,56 @@ namespace Gothic.Core.Adapters.Npc
             transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
         }
 
-        /// <summary>
-        /// We need to apply physics on the NPC itself.
-        /// General movement and animations are handled within AnimationSystem.cs. This Collider object is to add physics on top.
-        /// </summary>
         private void Update()
         {
             if (_meshRenderers == null)
                 _meshRenderers = Go.GetComponentsInChildren<SkinnedMeshRenderer>();
-
-            var bbox = new Bounds();
-
-            foreach (var rend in _meshRenderers)
-                bbox.Encapsulate(rend.localBounds);
-
-            /*
-             * NPC GO hierarchy:
-             *
-             * root
-             *  /RootCollisionHandler <- physics (gravity settling) is calculated here and merged to root
-             *  /BIP01/ <- animation root
-             *    /... <- animation bones
-             */
 
             // Apply physics based position change to root.
             Go.transform.localPosition += transform.localPosition;
 
             // Empty physics based diff. Next frame physics will be recalculated.
             transform.localPosition = Vector3.zero;
+
+            SeparateFromNearbyNpcs();
+        }
+
+        // Kinematic Rigidbodies don't receive collision forces from other kinematic bodies, so NPCs
+        // would clip through each other without this manual overlap check. Runs each frame but uses
+        // NonAlloc with a small fixed buffer and an early-out per-NPC, so cost is minimal in practice.
+        private void SeparateFromNearbyNpcs()
+        {
+            var myPos = Go.transform.position;
+            var count = Physics.OverlapSphereNonAlloc(
+                myPos + Vector3.up,
+                _npcSeparationRadius,
+                _separationBuffer,
+                1 << (int)Constants.VobNpcOrMonsterLayer);
+
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _separationBuffer[i];
+                if (hit == null || hit.gameObject == gameObject) continue;
+
+                var diff = myPos - hit.transform.position;
+                diff.y = 0f;
+                var dist = diff.magnitude;
+
+                // Two NPCs exactly on top of each other: push in a random direction to break the deadlock.
+                if (dist < 0.001f)
+                {
+                    diff = new Vector3(Random.value - 0.5f, 0f, Random.value - 0.5f);
+                    dist = diff.magnitude;
+                }
+
+                // Scale push strength by how deep the overlap is (0 at the radius boundary, full speed
+                // at zero distance) instead of a flat push regardless of overlap amount. A constant push
+                // right up to a hard cutoff makes two NPCs sitting near the boundary flicker in and out
+                // of range every frame — shoved out, no longer overlapping, drift back in, shoved out
+                // again — instead of settling. Scaling by penetration depth converges to a stable gap.
+                var overlapFraction = Mathf.Clamp01(1f - dist / _npcSeparationRadius);
+                Go.transform.position += diff.normalized * (_npcSeparationSpeed * overlapFraction * Time.deltaTime);
+            }
         }
 
         private void OnCollisionEnter(Collision collision)

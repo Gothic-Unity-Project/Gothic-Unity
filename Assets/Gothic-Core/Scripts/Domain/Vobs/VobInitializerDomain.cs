@@ -54,10 +54,18 @@ namespace Gothic.Core.Domain.Vobs
         /// parentWorldPosition - When we load Lights, we need to assign the shader's Index. As lazy loading will randomly load them,
         ///                       and Lights could be sub-VOBs inside fire, we need to find the index from WorldPosition calculated at
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
+        /// isInRelativeTree - VOBs of a fire's own .zen: positions relative to the fire. In a world, every VOB's position
+        ///                    is a world position (ZEN: trafoOSToWSPos), children too.
         /// </summary>
-        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob)
+        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            bool isInRelativeTree = false)
         {
+            // Light indices match the static cache, which adds the positions up the same way - keep it for lights.
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
+            // DeveloperConfig.EnableWorldSpaceChildVobs: where the VOB really is (free points NPCs walk to).
+            var placementPosition = _configService.Dev.EnableWorldSpaceChildVobs && !isInRelativeTree
+                ? vob.Position.ToUnityVector()
+                : worldPosition;
             GameObject go = null;
 
             switch (vob.Type)
@@ -88,7 +96,7 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCVobSpot:
                 case VirtualObjectType.zCVobStartpoint:
-                    go = CreateSpot(vob, parent, _configService.Dev.ShowFreePoints);
+                    go = CreateSpot(vob, parent, placementPosition, _configService.Dev.ShowFreePoints);
                     break;
                 case VirtualObjectType.oCTriggerChangeLevel:
                     go = CreateTriggerChangeLevel((TriggerChangeLevel)vob, parent);
@@ -112,7 +120,7 @@ namespace Gothic.Core.Domain.Vobs
                         case VisualType.ParticleEffect:
                             if (_configService.Dev.EnableParticleEffects)
                             {
-                                go = CreatePfx(vob, parent);
+                                go = CreatePfx(vob, parent, isInRelativeTree);
                             }
 
                             break;
@@ -159,8 +167,24 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCMover:
                     go = CreateMover((IMover)vob, parent);
+                    TryAddDamageTargetMarker(vob, go);
                     break;
                 case VirtualObjectType.zCPFXController:
+                    // DeveloperConfig.EnableParticleEffects: a running controller shows its effect (sparks over the
+                    // pentagram, Xardas's tower). Controllers started by a trigger aren't handled yet.
+                    if (_configService.Dev.EnableParticleEffects && vob is IParticleEffectController pfxController &&
+                        pfxController.InitiallyRunning && !string.IsNullOrEmpty(GetPfxControllerEffect(pfxController)))
+                    {
+                        go = _meshService.CreateVobPfx(GetPfxControllerEffect(pfxController),
+                            GetPfxPosition(vob, parent, isInRelativeTree), vob.Rotation.ToUnityQuaternion(), parent);
+                        break;
+                    }
+
+                    // Diagnostics: controllers started later by a trigger (not handled yet) - which effect, where.
+                    if (vob is IParticleEffectController waitingController)
+                        Logger.Log($"[PFX] Controller '{vob.Name}' ({GetPfxControllerEffect(waitingController)}) at " +
+                                   $"{vob.Position.ToUnityVector()} waits for a trigger - not shown", LogCat.Vob);
+
                     // A Particle controller makes no sense without a visual to show.
                     // Therefore, removing it now (as it's also not included in official G1 saves, and not visible within Spacer)
                     if (!vob.ShowVisual)
@@ -182,6 +206,7 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.oCTriggerScript:
                     go = CreateTriggerScript((ITriggerScript)vob, parent);
+                    TryAddDamageTargetMarker(vob, go);
                     break;
                 case VirtualObjectType.zCCodeMaster:
                     go = GetPrefab(vob, parent);
@@ -191,6 +216,7 @@ namespace Gothic.Core.Domain.Vobs
                 case VirtualObjectType.zCTrigger:
                     go = CreateTriggerZone(vob, parent, $"TriggerZone_{vob.Name}");
                     go.GetComponent<TriggerZoneHandler>().Init((ITrigger)vob);
+                    TryAddDamageTargetMarker(vob, go);
                     break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = CreateTriggerZone(vob, parent, $"TriggerUntouch_{vob.Name}");
@@ -227,6 +253,14 @@ namespace Gothic.Core.Domain.Vobs
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
+                    // DeveloperConfig.EnableChildLogicVobs: their children (a cutscene camera's trigger lists moving
+                    // gates/pillars) are created anyway. Root ones: VobService made the children roots already.
+                    if (_configService.Dev.EnableChildLogicVobs && !isRootVob)
+                    {
+                        foreach (var childVob in vob.Children)
+                            InitVob(childVob, parent, worldPosition, false, isInRelativeTree);
+                    }
+
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -236,19 +270,56 @@ namespace Gothic.Core.Domain.Vobs
                         LogCat.Vob);
                     return;
             }
+            // A decal/particle VOB skipped because those visuals are off (EnableDecalVisuals/EnableParticleEffects, off in
+            // Production) still carries its children: an empty GO holds them. In builds G2's Irdorath trap/bridge
+            // triggers (children of particle VOBs) were never created - "chained target ... not found", nothing to shoot.
+            if (!go && vob.Children.Count > 0 && IsVisualDisabled(vob))
+            {
+                go = new GameObject($"{vob.Name} (visual off)");
+                go.transform.SetParent(parent != null ? parent.transform : null, false);
+                go.transform.SetPositionAndRotation(placementPosition, vob.Rotation.ToUnityQuaternion());
+            }
 
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
 
+            // DeveloperConfig.EnableWorldSpaceChildVobs: a child VOB stayed at its parent's origin - only the root's
+            // loader is placed. Hidden in vanilla (children mostly sit at their parent), but The Chronicles Of Myrtana's
+            // intro ship had all its crates, hammocks and free points in one pile.
+            if (!isRootVob && !isInRelativeTree && _configService.Dev.EnableWorldSpaceChildVobs)
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go);
 
+            // DeveloperConfig.EnableVobWorldLight: static VOBs in caves/houses take the light of the floor below.
+            if (vob.Type is not (VirtualObjectType.oCItem or VirtualObjectType.zCVobLight or VirtualObjectType.zCMover or
+                VirtualObjectType.zCPFXController))
+                _stationaryLightsService.ApplyWorldLight(go);
+
+            // DeveloperConfig.EnableChildLogicVobs: trigger zones/scripts are scaled to their bounding box - their children
+            // are created next to them, not below them.
+            var childParent = _configService.Dev.EnableChildLogicVobs && vob.Type is VirtualObjectType.zCTrigger or
+                VirtualObjectType.zCTriggerUntouch or VirtualObjectType.oCTriggerScript
+                ? parent
+                : go;
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false);
+                InitVob(childVob, childParent, worldPosition, false, isInRelativeTree);
             }
         }
+
+        private bool IsVisualDisabled(IVirtualObject vob)
+        {
+            return vob.Type == VirtualObjectType.zCVob && vob.Visual?.Type switch
+            {
+                VisualType.Decal => !_configService.Dev.EnableDecalVisuals,
+                VisualType.ParticleEffect => !_configService.Dev.EnableParticleEffects,
+                _ => false
+            };
+        }
+
 
         public void SetPosAndRot(GameObject obj, System.Numerics.Vector3 position, Matrix3x3 rotation)
         {
@@ -342,7 +413,12 @@ namespace Gothic.Core.Domain.Vobs
                         : _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobContainer:
-                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobContainer, name: name, parent: parent);
+                    // A container without a lid (no .MDS, e.g. the orc mummies CHESTBIG_ORCMUMMY.ASC) is set up like
+                    // other mobs: highlight + click - the click opens a loot backpack (VRPlayerService.HandleMobGrab).
+                    var containerVisual = vob.Visual?.Name;
+                    var hasLid = containerVisual.IsNullOrEmpty() || containerVisual.EndsWithIgnoreCase(".MDS");
+                    go = _resourceCacheService.TryGetPrefabObject(
+                        hasLid ? PrefabType.VobContainer : PrefabType.VobInteractable, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobLadder:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobLadder, name: name, parent: parent);
@@ -421,9 +497,14 @@ namespace Gothic.Core.Domain.Vobs
         {
             var go = CreateDefaultMesh(vob, parent);
 
+            // DeveloperConfig.EnableFireVobChildren: a fireplace without a fire tree is still a mesh - returning null
+            // dropped its child VOBs. Mroczne Tajemnice's smithy on the smugglers' beach (a high fireplace below
+            // another one) was missing.
+            var meshOnly = _configService.Dev.EnableFireVobChildren ? go : null;
+
             if (vob.VobTree == "")
             {
-                return null;
+                return meshOnly;
             }
 
             var fireWorld = _resourceCacheService.TryGetWorld(vob.VobTree, _contextGameVersionService.Version, true);
@@ -431,10 +512,24 @@ namespace Gothic.Core.Domain.Vobs
             if (fireWorld == null)
             {
                 Logger.LogWarning($"Fire world {vob.VobTree} not found. Skipping usage...", LogCat.Loading);
-                return null;
+                return meshOnly;
             }
+            
+            var slot = go.FindChildRecursively(vob.Slot) ?? go;
+            var childCountBefore = slot.transform.childCount;
+            CreateFireVobs(fireWorld.RootObjects, slot, worldPosition);
 
-            CreateFireVobs(fireWorld.RootObjects, go.FindChildRecursively(vob.Slot) ?? go, worldPosition);
+            // DeveloperConfig.EnableFireStates: the fire tree burns by the scheme's mob routine (lit at night), always
+            // indoors (light mapped: houses, mines), can be toggled and is off when far away.
+            if (_configService.Dev.EnableFireStates)
+            {
+                var fireObjects = new List<GameObject>();
+                for (var i = childCountBefore; i < slot.transform.childCount; i++)
+                    fireObjects.Add(slot.transform.GetChild(i).gameObject);
+                var scheme = vob.Visual?.Name?.Split('_')[0];
+                var isIndoor = _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, _fireIndoorRadius);
+                go.AddComponent<VobFireHandler>().Init(scheme, isIndoor, fireObjects);
+            }
 
             return go;
         }
@@ -450,9 +545,12 @@ namespace Gothic.Core.Domain.Vobs
                 vob.Position = default;
 
                 // Call normal mesh and Prefab loading logic
-                InitVob(vob, parent, worldPosition, false);
+                InitVob(vob, parent, worldPosition, false, true);
             }
         }
+
+        // A fire this close to light mapped polygons (houses, caves, mines) is indoors - it always burns.
+        private const float _fireIndoorRadius = 3f;
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
         {
@@ -476,6 +574,9 @@ namespace Gothic.Core.Domain.Vobs
             lightComp.SpotAngle = vob.ConeAngle;
             lightComp.Intensity = 1;
 
+            // DeveloperConfig.EnableWorldLightmaps: a static light is in the lightmaps - VOBs and NPCs only.
+            lightComp.IsBakedIntoWorld = vob.LightStatic && _stationaryLightsService.HasWorldLightmaps;
+
             // All world lights share the shader slots - the ones closest to the camera get them.
             lightComp.RuntimeLinearColor = lightComp.Color.linear;
             lightComp.Init();
@@ -485,8 +586,6 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateMover(IMover vob, GameObject parent)
         {
-            // Each mover starts "Closed", when game boots. (At least for a new game.)
-            // TODO - We need to check if it's the case for a loaded game
             vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
 
             var go = CreateDefaultMesh(vob, parent);
@@ -671,7 +770,7 @@ namespace Gothic.Core.Domain.Vobs
                         $"Multiple random elements exist for >{firstSound.File}< but only first is selected.",
                         LogCat.Audio);
 
-                clip = _audioService.CreateAudioClip(firstSound.File);
+                clip = _audioService.CreateSfxAudioClip(firstSound.File);
             }
 
             return clip;
@@ -698,7 +797,7 @@ namespace Gothic.Core.Domain.Vobs
         /// Basically a free point where NPCs can do something like sitting on a bench etc.
         /// @see for more information: https://ataulien.github.io/Inside-Gothic/objects/spot/
         /// </summary>
-        private GameObject CreateSpot(IVirtualObject vob, GameObject parent, bool debugDraw = false)
+        private GameObject CreateSpot(IVirtualObject vob, GameObject parent, Vector3 worldPosition, bool debugDraw = false)
         {
             // FIXME - change to a Prefab in the future.
             var vobObj = GetPrefab(vob);
@@ -718,7 +817,9 @@ namespace Gothic.Core.Domain.Vobs
             var freePointData = new FreePoint
             {
                 Name = fpName,
-                Position = vob.Position.ToUnityVector(),
+                // worldPosition is the accumulated parent chain offset + vob.Position — use it
+                // instead of the raw local vob.Position so nested FPs get the correct world coords.
+                Position = worldPosition,
                 Direction = vob.Rotation.ToUnityQuaternion().eulerAngles
             };
             vobObj.GetComponent<VobSpotProperties>().Fp = freePointData;
@@ -838,6 +939,79 @@ namespace Gothic.Core.Domain.Vobs
             ownLoader.IsLoaded = true;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDamageTargetMarkers: a trigger/mover you shoot (reactToOnDamage) with nothing visible -
+        /// its mesh didn't load or it has none (G2: the targets for bows/spells that open movers weren't there in builds).
+        /// A green X in the middle of its zone shows where to shoot, like the red X of treasure spots.
+        /// </summary>
+        private void TryAddDamageTargetMarker(IVirtualObject vob, GameObject go)
+        {
+            if (!_configService.Dev.EnableDamageTargetMarkers || go == null || vob is not ITrigger { ReactToOnDamage: true })
+                return;
+            foreach (var existingRenderer in go.GetComponentsInChildren<Renderer>(true))
+            {
+                if (existingRenderer.enabled)
+                    return;
+            }
+
+            // Not as a child right away: trigger zones are scaled to their bounding box - the X keeps its own size.
+            var marker = new GameObject("DamageTargetMarker");
+            var min = vob.BoundingBox.Min.ToUnityVector();
+            var max = vob.BoundingBox.Max.ToUnityVector();
+            var hasBounds = (max - min).sqrMagnitude > 0.0001f;
+            marker.transform.SetPositionAndRotation(hasBounds ? (min + max) / 2f : go.transform.position,
+                Quaternion.Euler(0f, vob.Rotation.ToUnityQuaternion().eulerAngles.y, 0f));
+            marker.transform.SetParent(go.transform, true);
+
+            var green = new Color(0.1f, 0.75f, 0.15f);
+            CreateMarkerPlank(marker, Quaternion.Euler(0f, 0f, 45f), green);
+            CreateMarkerPlank(marker, Quaternion.Euler(0f, 0f, -45f), green);
+
+            Logger.Log($"[DamageTarget] '{vob.Name}' ({vob.Type}) reacts to hits but shows nothing - green X at " +
+                       $"{marker.transform.position}", LogCat.Vob);
+        }
+
+        private static void CreateMarkerPlank(GameObject parent, Quaternion localRotation, Color color)
+        {
+            var plank = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            plank.name = "DamageTargetMarkerPlank";
+            plank.transform.SetParent(parent.transform, false);
+            plank.transform.localRotation = localRotation;
+            plank.transform.localScale = new Vector3(0.6f, 0.08f, 0.08f);
+
+            // Only visual - the trigger's own zone/collider takes the hit.
+            Object.Destroy(plank.GetComponent<Collider>());
+
+            var material = GetPlaceholderMaterial(color);
+            if (material != null)
+                plank.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        private static readonly Dictionary<Color, Material> _placeholderMaterials = new();
+
+        /// <summary>
+        /// The placeholder X's material: URP Unlit in a plain color. The primitive's default material drew nothing in
+        /// builds - G2's treasure X marks (and the green target X) were there and diggable, but invisible.
+        /// </summary>
+        private static Material GetPlaceholderMaterial(Color color)
+        {
+            if (_placeholderMaterials.TryGetValue(color, out var material) && material != null)
+                return material;
+
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+            {
+                Logger.LogWarning("[DigSpot] URP Unlit shader not found - placeholder X keeps the default material.", LogCat.Vob);
+                return null;
+            }
+
+            material = new Material(shader) { color = color };
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", color);
+            _placeholderMaterials[color] = material;
+            return material;
+        }
+
         private GameObject CreateDefaultMesh(IVirtualObject vob, GameObject parent)
         {
             var go = GetPrefab(vob);
@@ -928,10 +1102,36 @@ namespace Gothic.Core.Domain.Vobs
                 vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(), parent);
         }
 
-        private GameObject CreatePfx(IVirtualObject vob, GameObject parent)
+        /// <summary>
+        /// DeveloperConfig.EnablePfxControllerVisuals: the controller's effect is its particle visual like the engine
+        /// (zCPFXControler, OpenGothic PfxController) - pfxName is mostly a Spacer leftover ".PFX". Before, G2's active
+        /// teleport platforms (RESURRECTION.pfx) and cauldrons showed nothing ("PFX '.PFX' not found in VM").
+        /// </summary>
+        private string GetPfxControllerEffect(IParticleEffectController controller)
         {
-            return _meshService.CreateVobPfx(vob, vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(),
-                parent);
+            if (_configService.Dev.EnablePfxControllerVisuals && controller.Visual?.Type == VisualType.ParticleEffect &&
+                controller.Visual.Name.NotNullOrEmpty())
+                return controller.Visual.Name;
+            return controller.EffectName;
+        }
+
+        private GameObject CreatePfx(IVirtualObject vob, GameObject parent, bool isInRelativeTree = false)
+        {
+            return _meshService.CreateVobPfx(vob, GetPfxPosition(vob, parent, isInRelativeTree),
+                vob.Rotation.ToUnityQuaternion(), parent);
+        }
+
+        /// <summary>
+        /// Particle effects are placed in world space. DeveloperConfig.EnableFireTreeRelativePositions: in a fire tree
+        /// (oCMobFire vobTree) the VOB position is relative to the fire's slot - taken as world position, every fire,
+        /// torch flame and smoke of the world burned at the world's origin (torches showed no fire at all).
+        /// </summary>
+        private Vector3 GetPfxPosition(IVirtualObject vob, GameObject parent, bool isInRelativeTree)
+        {
+            var position = vob.Position.ToUnityVector();
+            if (isInRelativeTree && parent != null && _configService.Dev.EnableFireTreeRelativePositions)
+                position += parent.transform.position;
+            return position;
         }
 
         /// <summary>

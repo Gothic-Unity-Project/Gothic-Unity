@@ -4,6 +4,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Models.Marvin;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -18,6 +19,11 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly VRWeaponService _weaponService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
+
+        // DeveloperConfig.EnableRingWeaponSlots: the melee weapon equipped before one was grabbed.
+        private ZenKit.Daedalus.ItemInstance _equippedBeforeGrab;
+        private bool _isEquippedBeforeGrabKept;
 
 
         // FIXME - All of these values will be dynamic in the future. Based on skill level and weapon type.
@@ -77,6 +83,8 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
+            vobContainer.IsHeldByPlayer = true;
+
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
@@ -96,6 +104,9 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
+            // The releasing hand might still hold it at this point - only count the other hand.
+            vobContainer.IsHeldByPlayer = IsHeldByOtherHand(args);
+
             var itemInstance = vobContainer.GetItemInstance();
 
             // Currently we handle melee weapons only.
@@ -104,6 +115,16 @@ namespace Gothic.VR.Adapters.Player
 
             _weaponService.OnReleased(args.HandSide, GetWeaponPhysicsConfig());
             SyncEquippedWeaponToHero(itemInstance, equip: false);
+        }
+
+        private bool IsHeldByOtherHand(VrGrabArgs args)
+        {
+            foreach (var grabber in _rig.HandGrabbers)
+            {
+                if (grabber.HandSide != args.HandSide && grabber.Held == args.Interactable)
+                    return true;
+            }
+            return false;
         }
 
         private void SyncEquippedWeaponToHero(ZenKit.Daedalus.ItemInstance itemInstance, bool equip)
@@ -117,6 +138,32 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var equippedItems = heroContainer.Props.EquippedItems;
+
+            // DeveloperConfig.EnableRingWeaponSlots: the held weapon counts as equipped only while held - letting go
+            // gives the equipped one back (the favorites ring shows it). Before, any weapon grabbed and let go left
+            // the hero with no equipped melee weapon at all (Rockefeller's orc hammer was gone after the first grab).
+            if (_configService.Dev.EnableRingWeaponSlots)
+            {
+                if (equip)
+                {
+                    if (!_isEquippedBeforeGrabKept)
+                    {
+                        _equippedBeforeGrab = equippedItems.Find(i => i.MainFlag == itemInstance.MainFlag);
+                        _isEquippedBeforeGrabKept = true;
+                    }
+                }
+                else
+                {
+                    // The ring's own weapon too: where it ends up decides (VRFavoritesRing, EnableRingWeaponLeavesOnDrop).
+                    equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
+                    if (_equippedBeforeGrab != null)
+                        equippedItems.Add(_equippedBeforeGrab);
+                    _equippedBeforeGrab = null;
+                    _isEquippedBeforeGrabKept = false;
+                    return;
+                }
+            }
+
             equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
             if (equip)
                 equippedItems.Add(itemInstance);

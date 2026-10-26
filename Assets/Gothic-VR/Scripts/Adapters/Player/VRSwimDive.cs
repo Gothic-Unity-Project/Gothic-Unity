@@ -8,10 +8,12 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Audio;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Marvin;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Player;
@@ -32,6 +34,7 @@ namespace Gothic.VR.Adapters.Player
         private IVrRig _rig;
         
         private INpc _playerVob;
+        private NpcContainer _heroContainer;
         private IAiHuman _playerAi;
         private SfxModel _sfxSwimSound;
         private SfxModel _sfxDiveSound;
@@ -92,6 +95,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private readonly ConfigService _configService;
 
         private void Awake()
         {
@@ -104,7 +108,9 @@ namespace Gothic.VR.Adapters.Player
 
 			GlobalEventDispatcher.ZenKitBootstrapped.AddListener(() =>
             {
-                if (_contextGameVersionService.IsGothic2())
+                // DeveloperConfig.EnableNpcWater: G2 has the same Humans.mds swim animations - sounds are looked up
+                // defensively below and played null-safe.
+                if (_contextGameVersionService.IsGothic2() && !_configService.Dev.EnableNpcWater)
                 {
                     Logger.LogError("Swimming is not yet implemented for G2. Skipping...", LogCat.VR);
                     return;
@@ -161,8 +167,15 @@ namespace Gothic.VR.Adapters.Player
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
             {
-                _playerVob = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData()!.Vob;
+                _heroContainer = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData()!;
+                _playerVob = _heroContainer.Vob;
                 _playerAi = (IAiHuman)_playerVob.Ai;
+
+                // A loaded save (or new world) starts on land - leftovers of swimming/diving would keep the slow
+                // water movement. The next FixedUpdate detects water again if we spawned in it.
+                if (_configService.Dev.EnableNpcWater && (_playerAi.WaterLevel != (int)ZenGineConst.WaterLevel.Normal ||
+                                                          _mode != VmGothicEnums.WalkMode.Walk))
+                    LeaveWater();
             });
             
             _initialGravity = _rig.Gravity;
@@ -273,6 +286,18 @@ namespace Gothic.VR.Adapters.Player
             switch ((ZenGineConst.WaterLevel)_playerAi.WaterLevel)
             {
                 case ZenGineConst.WaterLevel.Normal:
+                    // Straight from swimming/diving to land (teleport, save load) - the Knee step was skipped.
+                    if (_configService.Dev.EnableNpcWater)
+                    {
+                        if (_mode == VmGothicEnums.WalkMode.Dive)
+                        {
+                            _playerService.StopDiving();
+                            _rig.Fade(0, float.MaxValue);
+                        }
+                        _mode = VmGothicEnums.WalkMode.Walk;
+                        Shader.SetGlobalInt(Constants.ShaderPropertyWaterEffectToggle, 0);
+                    }
+
                     _rig.Gravity = _initialGravity;
                     _rig.MoveSpeed = _initialMoveSpeed;
                     _rig.RunSpeed = _initialRunSpeed;
@@ -288,8 +313,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySfx(_sfxSwim2HangSound);
 
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -314,8 +338,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySfx(_sfxSwim2HangSound);
                         
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -334,6 +357,32 @@ namespace Gothic.VR.Adapters.Player
                 default:
                     throw new Exception($"Unknown value {_playerAi.WaterLevel} for water.");
             }
+
+            UpdateHeroBodyState();
+        }
+
+        /// <summary>
+        /// Scripts check C_BodyStateContains(other, BS_SWIM/BS_DIVE): monsters stop chasing a swimming hero
+        /// (ZS_MM_Attack, AIV_MM_FollowInWater), no sleep/freeze spells in water, ...
+        /// Other states (unconscious, ...) are never overwritten.
+        /// </summary>
+        private void UpdateHeroBodyState()
+        {
+            if (!_configService.Dev.EnableNpcWater || _heroContainer?.Props == null)
+                return;
+
+            var bodyState = _heroContainer.Props.BodyState;
+            var isWaterOrMoving = bodyState is VmGothicEnums.BodyState.BsStand or VmGothicEnums.BodyState.BsWalk
+                or VmGothicEnums.BodyState.BsRun or VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive;
+            if (!isWaterOrMoving)
+                return;
+
+            _heroContainer.Props.BodyState = _mode switch
+            {
+                VmGothicEnums.WalkMode.Swim => VmGothicEnums.BodyState.BsSwim,
+                VmGothicEnums.WalkMode.Dive => VmGothicEnums.BodyState.BsDive,
+                _ => VmGothicEnums.BodyState.BsStand
+            };
         }
 
         private IEnumerator WaterBobbing()
@@ -363,9 +412,10 @@ namespace Gothic.VR.Adapters.Player
             _contextInteractionService.SetDivingControls();
 
             _playerService.StartDiving();
+            UpdateHeroBodyState();
             _rig.Fade(0.8f, 1/_playerService.CurrentAir); // We fade to black based on our start level of air (in seconds)
             
-            _vrSfxPlayer.Play(_audioService.CreateAudioClip(_sfxSwim2DiveSound.GetRandomSound()), Camera.main!.transform.position);
+            PlaySfx(_sfxSwim2DiveSound);
             
             // FIXME - Bubbles are too big on screen. Needs more love.
             // _diveBubbles.SetActive(true);
@@ -464,14 +514,12 @@ namespace Gothic.VR.Adapters.Player
             // Play swim SFX for each hand that just started pulling
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySfx(_sfxSwimSound, isCooldown: true);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySfx(_sfxSwimSound, isCooldown: true);
                 _isSwimDiveForceRightJustStarted = false;
             }
 
@@ -541,19 +589,35 @@ namespace Gothic.VR.Adapters.Player
             // Play dive SFX for each hand that just started pulling, prevent overlap via cooldown
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySfx(_sfxDiveSound, isCooldown: true);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySfx(_sfxDiveSound, isCooldown: true);
                 _isSwimDiveForceRightJustStarted = false;
             }
 
             // Move the character
             _rig.CharacterController.Move(_currentVelocity * Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Mods (and G2 before EnableNpcWater) can miss the swim sounds - swimming works without them.
+        /// </summary>
+        private void PlaySfx(SfxModel sfx, bool isCooldown = false)
+        {
+            if (sfx == null || Camera.main == null)
+                return;
+
+            var clip = _audioService.CreateAudioClip(sfx.GetRandomSound());
+            if (clip == null)
+                return;
+
+            if (isCooldown)
+                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main.transform.position, _swimDiveSfxUuid, clip.length);
+            else
+                _vrSfxPlayer.Play(clip, Camera.main.transform.position);
         }
 
         public IEnumerable<object> CollectMarvinInspectorProperties()

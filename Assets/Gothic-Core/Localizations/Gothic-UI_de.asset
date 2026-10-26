@@ -195,6 +195,10 @@ MonoBehaviour:
     m_Localized: Deaktiviert
     m_Metadata:
       m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: "überspringen"
+    m_Metadata:
+      m_Items: []
   - m_Id: 186269666525962240
     m_Localized: "Physische H\xE4nde"
     m_Metadata:

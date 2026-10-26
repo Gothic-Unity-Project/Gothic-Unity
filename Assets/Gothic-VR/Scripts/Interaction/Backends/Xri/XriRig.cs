@@ -4,6 +4,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -107,6 +108,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [Tooltip("Speed in m/s of the camera moving down/up when crouching starts/ends.")] [SerializeField]
         private float _crouchSpeed = 1.5f;
 
+        [Tooltip("The camera up to this far (m) above the crouch height counts as crouching (sneaking) - also when " +
+                 "the player really crouches.")] [SerializeField]
+        private float _crouchDetectionMargin = 0.2f;
+
         [Tooltip("Below this HMD height (m), the Standing setting doesn't scale (no headset, not tracked yet).")]
         [SerializeField]
         private float _minCalibrationHeight = 0.5f;
@@ -158,6 +163,26 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// A hand holds a ClimbInteractable. The ClimbProvider forces gravity off (GravityProvider lock) meanwhile.
         /// </summary>
         public bool IsClimbing => _climbProvider != null && _climbProvider.climbAnchorInteractable != null;
+
+        /// <summary>
+        /// The crouch button, or the camera this low (head held low in reality, the toggle's _crouchHeight).
+        /// </summary>
+        /// <summary>
+        /// Height the origin adds below the HMD (Device mode's CameraYOffset, 0 on the floor) and the tracking space's
+        /// scale (Standing) - XriHurricaneStyleSimulator keeps the simulated eyes at a fixed height with them.
+        /// </summary>
+        public float TrackingBaseOffset => _origin.CurrentTrackingOriginMode == TrackingOriginModeFlags.Floor
+            ? 0f
+            : _origin.CameraYOffset;
+
+        public float TrackingScale => CameraOffset.localScale.y;
+
+        public bool IsCrouching => _isCrouching || CameraHeight <= _crouchHeight + _crouchDetectionMargin;
+
+        /// <summary>
+        /// Added to the camera offset on top of crouching (UpdateCrouch).
+        /// </summary>
+        public float CameraYOffset { get; set; }
 
         public bool MovementEnabled
         {
@@ -476,7 +501,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _crouchOffset = Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
 
             var position = CameraOffset.localPosition;
-            position.y = baseOffset - _crouchOffset;
+            position.y = baseOffset - _crouchOffset + CameraYOffset;
             CameraOffset.localPosition = position;
         }
 
@@ -628,6 +653,34 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// Disabling drops what the hands hold: XRI ends the selection of an interactor that may not select
         /// (swimming: as in G1, no items in the hands).
         /// </summary>
+        public Transform GetHandVisual(VrHandSide side)
+        {
+            var controller = side == VrHandSide.Left ? _leftController : _rightController;
+            if (controller == null)
+                return null;
+
+            // The block hand's root (with VrPhysicsHand next to it) - its visual offset keeps it out of walls.
+            var blockHand = controller.GetComponentInChildren<VrBlockHand>(true);
+            return blockHand != null ? blockHand.transform : controller;
+        }
+
+        public IReadOnlyList<Collider> GetHandColliders(VrHandSide side)
+        {
+            var controller = side == VrHandSide.Left ? _leftController : _rightController;
+            var physicsHand = controller != null ? controller.GetComponentInChildren<VrPhysicsHand>(true) : null;
+            if (physicsHand == null || physicsHand.Body == null)
+                return Array.Empty<Collider>();
+
+            var result = new List<Collider>();
+            foreach (var handCollider in physicsHand.Body.GetComponentsInChildren<Collider>(true))
+            {
+                if (!handCollider.isTrigger)
+                    result.Add(handCollider);
+            }
+
+            return result;
+        }
+
         public void SetGrabbingEnabled(bool isEnabled)
         {
             SetGrabbingEnabled(VrHandSide.Left, isEnabled);
@@ -648,6 +701,36 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
             return grabber != null && grabber.Interactor.allowSelect;
+        }
+
+        public float GetDistanceGrabRange(VrHandSide side)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            return grabber != null ? grabber.DistanceGrabRange : VRConstants.DistanceGrabMaxDistance;
+        }
+
+        public void SetDistanceGrabRange(VrHandSide side, float range)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            if (grabber != null)
+                grabber.DistanceGrabRange = range;
+        }
+
+        public void ResetDistanceGrabRange(VrHandSide side)
+        {
+            SetDistanceGrabRange(side, VRConstants.DistanceGrabMaxDistance);
+        }
+
+        public VrInteractable GetDistanceHovered(VrHandSide side)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            return grabber != null ? grabber.GetHovered() : null;
+        }
+
+        public bool TryDistanceGrabHovered(VrHandSide side)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            return grabber != null && grabber.TrySelectHovered();
         }
 
         public void Fade(float alpha, float speed)

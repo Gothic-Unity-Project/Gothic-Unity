@@ -576,6 +576,23 @@ namespace Gothic.VR.Interaction.Components
             _gripGhostDistance = Vector3.Distance(position, targetPosition);
         }
 
+        /// <summary>
+        /// Two hands hold the item and this one isn't its owner: the hand's pose on its grip, where ShowOnGrip() shows
+        /// it before rendering. For bodies posed in LateUpdate (VRHeroBody's fists), which showed the controller.
+        /// </summary>
+        public bool TryGetSecondHandGripPose(out Vector3 position, out Quaternion rotation)
+        {
+            position = default;
+            rotation = default;
+            if (_heldVisual == null || _heldBody == null || _attachPoint == null || _heldVisual.HolderCount < 2 ||
+                _heldVisual.IsOwner(this))
+                return false;
+
+            UpdateHeldGrip();
+            GetHandPoseOnGrip(_heldBody.position, _heldBody.rotation, out position, out rotation);
+            return true;
+        }
+
         internal void RestoreFromGrip()
         {
             if (!_isVisualOnGrip)

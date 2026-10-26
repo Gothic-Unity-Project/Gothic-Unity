@@ -44,6 +44,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly InputAction[] _haptics = new InputAction[2];
         private readonly InputAction[] _gripValues = new InputAction[2];
         private readonly InputAction[] _thumbTouches = new InputAction[2];
+        // XRI's own controller maps (also read by its turn/move providers).
+        private const string _leftThumbstickActionPath = "XRI Left/Thumbstick";
+        private const string _rightThumbstickActionPath = "XRI Right/Thumbstick";
+        private readonly InputAction[] _thumbsticks = new InputAction[2];
         private readonly InputAction[] _gothicActions = new InputAction[_gothicActionNames.Length];
 
         // Simulator only: velocity from the controller's position change, as simulated devices have no velocity.
@@ -58,9 +62,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public InputActionAsset Actions { get; }
 
-        public bool IsSimulator => _isSimulatorActive && _simulator != null && _simulator.isActiveAndEnabled;
+        // The XRInteractionSimulator component is off with Hurricane style keys - its GameObject (devices) runs.
+        public bool IsSimulator => _isSimulatorActive && _simulator != null && _simulator.gameObject.activeInHierarchy;
 
-        public bool UsesBothGripsSimulatorKey => false;
+        // Hurricane style: T holds both grips (like HVR); XRI's simulator holds them itself.
+        public bool UsesBothGripsSimulatorKey => _isHurricaneStyle;
+
+        private bool _isHurricaneStyle;
 
         public XriInput()
         {
@@ -123,6 +131,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return ToState(_gothicActions[(int)action]);
         }
 
+        public Vector2 GetThumbstick(VrHandSide side)
+        {
+            var action = _thumbsticks[(int)side] ??= Actions?.FindAction(
+                side == VrHandSide.Left ? _leftThumbstickActionPath : _rightThumbstickActionPath);
+            return action == null ? Vector2.zero : action.ReadValue<Vector2>();
+        }
+
         public Vector3 GetControllerVelocity(VrHandSide side)
         {
             if (IsSimulator && _simulatorRig != null)
@@ -181,7 +196,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
 
             if (isActive)
+            {
                 AssignSimulatorControllers();
+                ApplySimulatorControls();
+            }
 
             _simulator.gameObject.SetActive(isActive);
             ApplyKeyboardShortcuts(isActive);
@@ -204,6 +222,34 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 _simulator.leftControllerTransform = rig.LeftHand;
             if (_simulator.rightControllerTransform == null)
                 _simulator.rightControllerTransform = rig.RightHand;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.VrSimulatorControls: HurricaneStyle turns XRI's simulator keys off (its devices stay) and lets
+        /// XriHurricaneStyleSimulator drive them. Before the GameObject is enabled (XRInteractionSimulator.OnEnable).
+        /// </summary>
+        private void ApplySimulatorControls()
+        {
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            _isHurricaneStyle = config != null && config.Dev.VrSimulatorControls ==
+                Gothic.Core.Models.Config.DeveloperConfigEnums.VrSimulatorControls.HurricaneStyle;
+
+            _simulator.enabled = !_isHurricaneStyle;
+            if (_simulator.TryGetComponent<XriSimulatorControlsGUI>(out var xriHelp))
+                xriHelp.enabled = !_isHurricaneStyle;
+
+            var hurricane = _simulator.GetComponent<XriHurricaneStyleSimulator>();
+            if (_isHurricaneStyle)
+            {
+                if (hurricane == null)
+                    hurricane = _simulator.gameObject.AddComponent<XriHurricaneStyleSimulator>();
+                hurricane.enabled = true;
+                hurricane.Init(_simulatorRig);
+            }
+            else if (hurricane != null)
+            {
+                hurricane.enabled = false;
+            }
         }
 
         /// <summary>

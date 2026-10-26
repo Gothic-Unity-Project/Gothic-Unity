@@ -759,8 +759,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6612003150404089826}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.75440663, y: -0.13302226, z: -0.11161894, w: 0.6330221}
-  m_LocalPosition: {x: -0.00066799996, y: 0.00036299942, z: 0.002999999}
+  m_LocalRotation: {x: 0.5, y: 0.5, z: 0.5, w: 0.5}
+  m_LocalPosition: {x: -0.00077, y: -0.00008, z: 0.0026}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2279,6 +2279,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d53defac19fbb474d81910e60e275fd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.XriInteractableBridge
+  _grabTriggers:
+  - {fileID: 8221808169109762332}
 --- !u!114 &8572402590685869353
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2638,6 +2640,10 @@ PrefabInstance:
       propertyPath: m_LocalRotation.y
       value: 0.7071068
       objectReference: {fileID: 0}
+    - target: {fileID: 6523535316780004576, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      propertyPath: _size
+      value: 0.3
+      objectReference: {fileID: 0}
     - target: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_Name
       value: PutIntoSlot
@@ -2656,19 +2662,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7071068
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.7071068
+      value: -0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

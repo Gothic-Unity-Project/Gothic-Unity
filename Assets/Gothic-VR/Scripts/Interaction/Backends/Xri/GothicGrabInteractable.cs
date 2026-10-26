@@ -1,3 +1,4 @@
+using Gothic.VR.Interaction.Components;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -30,9 +31,27 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isOneHandOnly;
 
         private XriInteractableBridge _bridge;
+        private VrInteractable _vrInteractable;
         private RigidbodyInterpolation _interpolationBeforeGrab;
         private bool _isInterpolationOverridden;
         private bool _isSocketDetach;
+
+        // A hand this close (m) to the item's colliders grabs it when distance grabs are off.
+        private const float _nearGrabDistance = 0.25f;
+
+        /// <summary>
+        /// false: only a hand right at it grabs it (IVrInteractableBackend.IsDistanceGrabbable).
+        /// </summary>
+        public bool IsDistanceGrabbable { get; set; } = true;
+
+        /// <summary>
+        /// See the serialized field (also set at runtime, IVrInteractableBackend.IsOneHandOnly).
+        /// </summary>
+        public bool IsOneHandOnly
+        {
+            get => _isOneHandOnly;
+            set => _isOneHandOnly = value;
+        }
 
         /// <summary>
         /// Selected by a socket only (no hand).
@@ -53,7 +72,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public override bool IsHoverableBy(IXRHoverInteractor interactor)
         {
-            if (interactor is not XriSocketBridge && (IsLockedInSocket || IsHeldByOtherHand(interactor)))
+            if (interactor is not XriSocketBridge &&
+                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor)))
                 return false;
 
             return base.IsHoverableBy(interactor);
@@ -61,24 +81,46 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public override bool IsSelectableBy(IXRSelectInteractor interactor)
         {
-            if (interactor is not XriSocketBridge && (IsLockedInSocket || IsHeldByOtherHand(interactor)))
+            if (interactor is not XriSocketBridge &&
+                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor)))
                 return false;
 
             return base.IsSelectableBy(interactor);
         }
 
-        private bool IsHeldByOtherHand(IXRInteractor interactor)
+        private bool IsTooFarFor(IXRInteractor interactor)
         {
-            if (!_isOneHandOnly)
+            if (IsDistanceGrabbable || isSelected)
                 return false;
 
+            return !XriColliderUtility.TryGetClosestPoint(this, interactor.transform.position, out _,
+                       out var distanceSqr) || distanceSqr > _nearGrabDistance * _nearGrabDistance;
+        }
+
+        /// <summary>
+        /// Another hand holds it and this one may not grab it too: one-hand-only items, or VrInteractable's
+        /// CanSecondHandGrabAt says no (a bow's string - that hand draws instead of grabbing the bow).
+        /// </summary>
+        private bool IsHeldByOtherHand(IXRInteractor interactor)
+        {
+            var isHeldByOther = false;
             foreach (var selecting in interactorsSelecting)
             {
                 if (selecting is not XriSocketBridge && !ReferenceEquals(selecting, interactor))
-                    return true;
+                {
+                    isHeldByOther = true;
+                    break;
+                }
             }
 
-            return false;
+            if (!isHeldByOther)
+                return false;
+            if (_isOneHandOnly)
+                return true;
+
+            _vrInteractable ??= GetComponent<VrInteractable>();
+            var canGrabAt = _vrInteractable != null ? _vrInteractable.CanSecondHandGrabAt : null;
+            return canGrabAt != null && !canGrabAt(interactor.transform.position);
         }
 
         public override void ProcessInteractable(XRInteractionUpdateOrder.UpdatePhase updatePhase)

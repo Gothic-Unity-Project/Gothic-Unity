@@ -14,14 +14,32 @@ namespace Gothic.VR
 
             // Immersion
             public const string Microphone = "microphone";
+            // 0 = Marvin panel hidden, 1 = shown (default) - only while Marvin mode is on (MarvinService.IsMarvinMode).
+            public const string MarvinPanel = "marvinPanel";
+            // 1 = an unconscious NPC is finished off by a stab and a twist (default), 0 = by any hit.
+            public const string StabFinish = "stabFinish";
+            // 1 = a crossbow is reloaded by pulling its string (default), 0 = by itself.
+            public const string CrossbowReload = "crossbowReload";
+            // 1 = the spell ring opens with the gesture (both hands up, both triggers), 0 = off.
+            public const string SpellRing = "spellRing";
+            // 1 = a lethal arrow/bolt/spell knocks a human out (the next one finishes him off), 0 = it kills.
+            public const string RangedKnockout = Gothic.Core.Const.FightConst.RangedKnockoutIniName;
+            // 1 = a scroll is used up by its cast like in Gothic (default), 0 = scrolls are cast forever.
+            public const string ScrollsSingleUse = "scrollsSingleUse";
+            // 1 = every death gives the hero experience (cheat), 0 = only his, his summons' and his party's kills.
+            public const string XpForAnyKill = Gothic.Core.Const.FightConst.XpForAnyKillIniName;
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
+
+            // 1 = the hero's own fists are the VR hands (with the VR hero body), 0 = the VR hand models (default).
+            public const string HeroHands = "heroHands";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
 
         public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
+        public const string MenuCommandRestartGame = "RESTART_GAME";
 
         // 0...10 Ini values
         public const int SmoothRotationSettingAmount = 10;

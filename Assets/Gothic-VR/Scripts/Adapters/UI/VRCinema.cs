@@ -3,9 +3,12 @@ using Gothic.Core;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
+using Gothic.Services.UI;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Logger = Gothic.Core.Logging.Logger;
@@ -26,6 +29,14 @@ namespace Gothic.VR.Adapters.UI
     public class VRCinema : MonoBehaviour
     {
         private const float _skipInputDelay = 0.5f;
+        private const float _skipHintGap = 0.2f;
+        private const float _skipHintScale = 0.2f;
+        private const float _skipHintAlpha = 0.6f;
+        private const float _skipHintFadeDelay = 0.5f;
+        private const float _skipHintFadeSeconds = 1f;
+        // Gothic's font has no square brackets.
+        private const string _skipHintButton = "(Trigger) ";
+        private const string _skipHintFallback = "skip";
 
         [Tooltip("Screen the video is rendered on (UI layer, as the camera renders only this layer meanwhile).")]
         [SerializeField]
@@ -49,7 +60,14 @@ namespace Gothic.VR.Adapters.UI
         private int _savedCullingMask;
         private CameraClearFlags _savedClearFlags;
         private Color _savedBackground;
+        // The spectator camera (the monitor/stream view) - it kept showing the world, without the screen.
+        private readonly List<(Camera camera, int cullingMask, CameraClearFlags clearFlags, Color background)>
+            _savedSpectatorCameras = new();
         private float _savedTimeScale = 1f;
+
+        private GameObject _skipHint;
+        private TMP_Text _skipHintText;
+        private float _skipHintStartTime;
 
         private VRPlayer _player;
         private IVrRig _rig;
@@ -72,6 +90,8 @@ namespace Gothic.VR.Adapters.UI
         /// Escape) must not open the menu in the same frame, after the menu button got unlocked again.
         /// </summary>
         public bool IsBlockingInput => _isRunning || Time.frameCount == _closedFrame;
+
+        public bool IsRunning => _isRunning;
 
         /// <summary>
         /// Queues a Bink video file. Only the first one starts the cinema, the others follow.
@@ -102,6 +122,7 @@ namespace Gothic.VR.Adapters.UI
             var path = _queue.Dequeue();
             Logger.Log($"[VRCinema] Playing {path}", LogCat.VR);
             _playStartTime = Time.unscaledTime;
+            ResetSkipHintFade();
             StopBink();
             PlayBink(path);
         }
@@ -145,6 +166,7 @@ namespace Gothic.VR.Adapters.UI
             _camera.cullingMask = 1 << Constants.UILayer;
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Color.black;
+            DarkenSpectatorCameras();
             AudioListener.pause = true;
             _savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
@@ -156,7 +178,97 @@ namespace Gothic.VR.Adapters.UI
 
             // The world is paused via AudioListener.pause - the video's own source ignores it. Not serialized by Unity.
             _audioSource.ignoreListenerPause = true;
+
+            var configService = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
+            if (configService.Dev.EnableCinemaSkipHint && _skipHint == null)
+                CreateSkipHint();
             return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableCinemaSkipHint: "(Trigger) skip" under the screen's right corner - the word from the
+        /// Gothic-UI table (key cinema.skip), in the dark room's UI layer.
+        /// </summary>
+        private void CreateSkipHint()
+        {
+            _skipHint = new GameObject("_CinemaSkipHint");
+            _skipHint.layer = Constants.UILayer;
+            _skipHint.transform.SetParent(transform, false);
+            _skipHint.transform.localScale = Vector3.one * _skipHintScale;
+
+            var text = _skipHint.AddComponent<TextMeshPro>();
+            VRGothicText.Apply(text);
+            var localized = ReflexProjectInstaller.DIContainer.Resolve<LocalizationService>().GetText("cinema.skip");
+            text.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
+                ? _skipHintFallback
+                : localized);
+            text.fontSize = 12;
+            text.alignment = TextAlignmentOptions.Right;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            // Pivot at the right edge, so the text ends at the screen's corner.
+            text.rectTransform.pivot = new Vector2(1f, 0.5f);
+            _skipHintText = text;
+            ResetSkipHintFade();
+        }
+
+        private void ResetSkipHintFade()
+        {
+            if (_skipHintText == null)
+                return;
+            // Fades in (UpdateSkipHint) - the world is paused, so unscaled time.
+            _skipHintText.color = new Color(1f, 1f, 1f, 0f);
+            _skipHintStartTime = Time.unscaledTime;
+        }
+
+        private void LateUpdate()
+        {
+            if (!_isRunning || _skipHint == null)
+                return;
+
+            // Under the screen's right corner, its right edge in line with the screen's.
+            var screenTransform = _screen.transform;
+            var corner = screenTransform.position + screenTransform.right * (screenTransform.lossyScale.x / 2f) -
+                         Vector3.up * (screenTransform.lossyScale.y / 2f + _skipHintGap);
+            _skipHint.transform.SetPositionAndRotation(corner, screenTransform.rotation);
+
+            var progress = Mathf.Clamp01((Time.unscaledTime - _skipHintStartTime - _skipHintFadeDelay) /
+                                         _skipHintFadeSeconds);
+            var color = _skipHintText.color;
+            color.a = _skipHintAlpha * progress * progress;
+            _skipHintText.color = color;
+        }
+
+        /// <summary>
+        /// The monitor shows VRSpectatorCamera, not the VR camera - the same dark room there, or OBS/the monitor showed
+        /// the world without the video.
+        /// </summary>
+        private void DarkenSpectatorCameras()
+        {
+            _savedSpectatorCameras.Clear();
+            foreach (var spectator in FindObjectsByType<Player.VRSpectatorCamera>(FindObjectsSortMode.None))
+            {
+                if (!spectator.TryGetComponent<Camera>(out var spectatorCamera) || spectatorCamera == _camera)
+                    continue;
+
+                _savedSpectatorCameras.Add((spectatorCamera, spectatorCamera.cullingMask, spectatorCamera.clearFlags,
+                    spectatorCamera.backgroundColor));
+                spectatorCamera.cullingMask = 1 << Constants.UILayer;
+                spectatorCamera.clearFlags = CameraClearFlags.SolidColor;
+                spectatorCamera.backgroundColor = Color.black;
+            }
+        }
+
+        private void RestoreSpectatorCameras()
+        {
+            foreach (var (spectatorCamera, cullingMask, clearFlags, background) in _savedSpectatorCameras)
+            {
+                if (spectatorCamera == null)
+                    continue;
+                spectatorCamera.cullingMask = cullingMask;
+                spectatorCamera.clearFlags = clearFlags;
+                spectatorCamera.backgroundColor = background;
+            }
+            _savedSpectatorCameras.Clear();
         }
 
         private void Update()
@@ -214,6 +326,7 @@ namespace Gothic.VR.Adapters.UI
         private void RestoreWorld()
         {
             RestoreCamera();
+            RestoreSpectatorCameras();
             UnlockPlayer();
             AudioListener.pause = false;
             Time.timeScale = _savedTimeScale;
@@ -231,7 +344,7 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// The camera only shows the screen, but HVR still moves/crouches the player and the menu button would open
+        /// The camera only shows the screen, but the rig still moves/crouches the player and the menu button would open
         /// the menu. The previous values are kept, as a dialog or seat might have locked the player already.
         /// </summary>
         private void LockPlayer()
