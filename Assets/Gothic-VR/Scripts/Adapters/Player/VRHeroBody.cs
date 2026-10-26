@@ -115,6 +115,7 @@ namespace Gothic.VR.Adapters.Player
         // armor's gloves) are the VR hands - the backend's hand visuals are hidden meanwhile.
         private readonly List<(SkinnedMeshRenderer renderer, Mesh withHands, Mesh withoutHands)> _handMeshes = new();
         private readonly List<Renderer> _hiddenVrHandRenderers = new();
+        private readonly HashSet<Transform> _hiddenVrHandVisuals = new();
         private bool _isHeroHandsOption;
         private bool _areHeroHandsShown;
 
@@ -242,28 +243,46 @@ namespace Gothic.VR.Adapters.Player
                         vrRenderer.enabled = true;
                 }
                 _hiddenVrHandRenderers.Clear();
+                _hiddenVrHandVisuals.Clear();
             }
             Logger.Log($"[VRHeroBody] Hero's hands {(isShown ? "shown - VR hands hidden" : "hidden - VR hands back")}",
                 LogCat.VR);
         }
 
+        /// <summary>
+        /// Only the hand model's own renderers, collected once per hand visual. Whatever is attached later (spell VFX -
+        /// thrown on as the projectile, item popups, the held item) stays visible: hiding them every frame left the
+        /// charged spell and the flying projectile without their effect, just the light.
+        /// </summary>
         private void HideVrHands()
         {
             foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
             {
                 var handVisual = _rig?.GetHandVisual(side);
-                if (handVisual == null)
+                if (handVisual == null || !_hiddenVrHandVisuals.Add(handVisual))
                     continue;
                 foreach (var vrRenderer in handVisual.GetComponentsInChildren<Renderer>(true))
                 {
-                    // Not what the hand holds (items, the ring's spell rune).
-                    if (!vrRenderer.enabled || vrRenderer.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>() != null)
-                        continue;
-                    vrRenderer.enabled = false;
-                    if (!_hiddenVrHandRenderers.Contains(vrRenderer))
+                    if (vrRenderer.enabled && IsVrHandModelRenderer(vrRenderer) &&
+                        !_hiddenVrHandRenderers.Contains(vrRenderer))
                         _hiddenVrHandRenderers.Add(vrRenderer);
                 }
             }
+
+            // A hand visual can switch its renderers on again (hover/grab poses).
+            foreach (var vrRenderer in _hiddenVrHandRenderers)
+            {
+                if (vrRenderer != null && vrRenderer.enabled)
+                    vrRenderer.enabled = false;
+            }
+        }
+
+        private static bool IsVrHandModelRenderer(Renderer vrRenderer)
+        {
+            // Not what the hand holds (items, the ring's spell rune), no effects or texts.
+            return vrRenderer is MeshRenderer or SkinnedMeshRenderer &&
+                   vrRenderer.GetComponent<TMPro.TMP_Text>() == null &&
+                   vrRenderer.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>() == null;
         }
 
         /// <summary>
