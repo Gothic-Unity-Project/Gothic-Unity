@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +13,8 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Services;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -45,6 +47,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly Gothic.Core.Services.World.SaveGameService _saveGameService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         
         // Do not eat them twice during destroy time.
@@ -172,13 +175,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 !IsSmokable(item))
                 return false;
 
-#if GOTHIC_HVR_INSTALLED
             // Only eat what's held in a hand. Items in the backpack or the NPC loot panel sit in sockets
-            // and can pass the mouth when those open near the head.
-            var grabbable = go.GetComponentInParent<HurricaneVR.Framework.Core.HVRGrabbable>();
-            if (grabbable != null && !grabbable.IsHandGrabbed)
+            // and can pass the mouth when those open near the head. Any backend: the items carry the components of
+            // all of them - asking HVR's grabbable on XRI said "not in a hand" and nothing was ever eaten.
+            var interactable = go.GetComponentInParent<VrInteractable>();
+            if (interactable != null && !IsInHand(interactable))
                 return false;
-#endif
 
             return true;
         }
@@ -244,12 +246,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // Items held in a hand count as inventory (VRPlayerService.SetGrab/UnsetGrab): added with the full amount on
             // grab, removed with the then-current amount on release. Keep that in sync, or eaten food stays as a ghost.
-#if GOTHIC_HVR_INSTALLED
-            var grabbable = go.GetComponentInChildren<HurricaneVR.Framework.Core.HVRGrabbable>();
-            var isHeld = grabbable != null && grabbable.IsBeingHeld;
-#else
-            var isHeld = false;
-#endif
+            var interactable = go.GetComponentInChildren<VrInteractable>();
+            var isHeld = interactable != null && IsInHand(interactable);
 
             var vobItem = go.GetComponent<VobLoader>()?.Container.VobAs<IItem>();
             if (vobItem != null && vobItem.Amount > 1)
@@ -262,11 +260,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 yield break;
             }
 
-#if GOTHIC_HVR_INSTALLED
             // Release first - that removes it from the inventory like any dropped item.
             if (isHeld)
-                grabbable.ForceRelease();
-#endif
+                ReleaseFromHands(interactable);
 
             // DeveloperConfig.EnableWorldItemSaveState: eaten, it leaves the world's item list too - destroying only the
             // GameObject left it there and a berry eaten right from the ground was back after loading.
@@ -279,6 +275,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             Destroy(go);
+        }
+
+        private bool IsInHand(VrInteractable interactable)
+        {
+            return _vrPlayerService.GrabbedItemLeft == interactable.gameObject ||
+                   _vrPlayerService.GrabbedItemRight == interactable.gameObject;
+        }
+
+        private void ReleaseFromHands(VrInteractable interactable)
+        {
+            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            if (rig == null)
+                return;
+
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand.Held == interactable)
+                    hand.ForceRelease();
+            }
         }
 
         private void CallOnState(GameObject go)
