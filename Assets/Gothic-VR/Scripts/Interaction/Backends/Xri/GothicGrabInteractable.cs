@@ -1,3 +1,4 @@
+using Gothic.VR.Interaction.Components;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -30,6 +31,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isOneHandOnly;
 
         private XriInteractableBridge _bridge;
+        private VrInteractable _vrInteractable;
         private RigidbodyInterpolation _interpolationBeforeGrab;
         private bool _isInterpolationOverridden;
         private bool _isSocketDetach;
@@ -95,18 +97,30 @@ namespace Gothic.VR.Interaction.Backends.Xri
                        out var distanceSqr) || distanceSqr > _nearGrabDistance * _nearGrabDistance;
         }
 
+        /// <summary>
+        /// Another hand holds it and this one may not grab it too: one-hand-only items, or VrInteractable's
+        /// CanSecondHandGrabAt says no (a bow's string - that hand draws instead of grabbing the bow).
+        /// </summary>
         private bool IsHeldByOtherHand(IXRInteractor interactor)
         {
-            if (!_isOneHandOnly)
-                return false;
-
+            var isHeldByOther = false;
             foreach (var selecting in interactorsSelecting)
             {
                 if (selecting is not XriSocketBridge && !ReferenceEquals(selecting, interactor))
-                    return true;
+                {
+                    isHeldByOther = true;
+                    break;
+                }
             }
 
-            return false;
+            if (!isHeldByOther)
+                return false;
+            if (_isOneHandOnly)
+                return true;
+
+            _vrInteractable ??= GetComponent<VrInteractable>();
+            var canGrabAt = _vrInteractable != null ? _vrInteractable.CanSecondHandGrabAt : null;
+            return canGrabAt != null && !canGrabAt(interactor.transform.position);
         }
 
         public override void ProcessInteractable(XRInteractionUpdateOrder.UpdatePhase updatePhase)

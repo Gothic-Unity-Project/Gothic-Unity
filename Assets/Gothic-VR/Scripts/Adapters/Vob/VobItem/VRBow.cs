@@ -13,6 +13,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
+using Gothic.VR.Interaction.Components;
 using HurricaneVR.Framework.ControllerInput;
 using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Shared;
@@ -100,6 +101,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _munition = _vrRangedService.GetMunition(_item);
             CreateString();
             AddStringFilter();
+            Application.onBeforeRender += OnBeforeRender;
             _vrWeaponService.SetRangedReadied(VmGothicEnums.WeaponState.Bow);
 
             Logger.Log($"[VRBow] {_item.Name} readied - munition={_munition?.Name ?? "none"}, maxDraw={_maxDraw:F2} m, " +
@@ -108,11 +110,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void OnDestroy()
         {
+            Application.onBeforeRender -= OnBeforeRender;
             if (_item == null)
                 return;
 
             _vrWeaponService.SetRangedReadied(null);
             DropArrow();
+            if (TryGetComponent<VrInteractable>(out var interactable))
+                interactable.CanSecondHandGrabAt = null;
 
             // The bow goes back to the holster/backpack with its Gothic string.
             if (_meshFilter != null && _originalMesh != null)
@@ -141,6 +146,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (!_isDrawing)
                 _nockWorld = GetRestNockWorld();
+
+            UpdateString();
+            UpdateArrow();
+        }
+
+        /// <summary>
+        /// XRI moves the held bow right before rendering, after LateUpdate - the string and the arrow lagged a frame
+        /// behind the bow. Placed again from the bow's final pose.
+        /// </summary>
+        private void OnBeforeRender()
+        {
+            if (_item == null || !isActiveAndEnabled)
+                return;
+
+            if (!_isDrawing)
+                _nockWorld = GetRestNockWorld();
+            else
+                UpdateDrawnNock();
 
             UpdateString();
             UpdateArrow();
@@ -182,12 +205,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            var restNock = GetRestNockWorld();
-            var forward = _meshFilter.transform.TransformDirection(_localForward).normalized;
-            var pull = Vector3.ClampMagnitude(hand.transform.position - restNock, _maxDraw);
-            var drawDistance = Mathf.Max(0f, Vector3.Dot(pull, -forward));
-
-            _nockWorld = restNock + pull;
+            var drawDistance = UpdateDrawnNock();
             _tension = Mathf.Clamp01(drawDistance / _maxDraw);
             ApplyBend(_tension);
 
@@ -196,6 +214,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _lastHapticTension = _tension;
                 _hapticsService.Vibrate(_drawHand, VrHapticPreset.Info);
             }
+        }
+
+        /// <summary>
+        /// The nock follows the drawing hand (up to the max draw). Returns how far it is drawn back.
+        /// </summary>
+        private float UpdateDrawnNock()
+        {
+            var hand = _vrPlayerService.GetHandModelGo(_drawHand);
+            var restNock = GetRestNockWorld();
+            if (hand == null)
+            {
+                _nockWorld = restNock;
+                return 0f;
+            }
+
+            var forward = _meshFilter.transform.TransformDirection(_localForward).normalized;
+            var pull = Vector3.ClampMagnitude(hand.transform.position - restNock, _maxDraw);
+            _nockWorld = restNock + pull;
+            return Mathf.Max(0f, Vector3.Dot(pull, -forward));
         }
 
         private void Release()
@@ -241,6 +278,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void AddStringFilter()
         {
+            // Other VR backends (XRI) ask the interactable.
+            if (TryGetComponent<VrInteractable>(out var interactable))
+                interactable.CanSecondHandGrabAt = position => !IsAtString(position);
+
             if (!TryGetComponent<HVRGrabbable>(out var grabbable) || TryGetComponent<VRBowStringFilter>(out _))
                 return;
 

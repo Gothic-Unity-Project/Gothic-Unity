@@ -217,7 +217,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private XRSimulatedControllerState CreateControllerState(HandState hand, VrHandSide side, Vector3 headPosition,
             bool isControlled, Keyboard keyboard, Mouse mouse, bool isLaserClick, Vector2 stick, bool isStickClick)
         {
-            UpdateGrip(hand, side, isControlled && keyboard.gKey.wasPressedThisFrame);
+            UpdateGrip(hand, side, isControlled && keyboard.gKey.wasPressedThisFrame,
+                isControlled && keyboard.gKey.isPressed);
 
             var isTrigger = (isControlled || isLaserClick) && mouse.leftButton.isPressed;
             var state = new XRSimulatedControllerState
@@ -249,9 +250,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         /// <summary>
         /// Like the HVR simulator, a grabbed item stays in the hand after letting go of Q/E, G again lets go. A press
-        /// that grabbed nothing, or only used something (NPC talk, mobs), is let go a few frames later.
+        /// that grabbed nothing, or only used something (NPC talk, mobs), is let go a few frames later - but not while G
+        /// is still held: drawing a bow's string holds no item, the string snapped back at once.
         /// </summary>
-        private void UpdateGrip(HandState hand, VrHandSide side, bool isPressed)
+        private void UpdateGrip(HandState hand, VrHandSide side, bool isPressed, bool isKeyHeld)
         {
             if (isPressed)
             {
@@ -266,7 +268,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 return;
             }
 
-            if (!hand.IsGripLatched || hand.GripReleaseCheckFrame < 0 || Time.frameCount < hand.GripReleaseCheckFrame)
+            if (!hand.IsGripLatched || hand.GripReleaseCheckFrame < 0 || Time.frameCount < hand.GripReleaseCheckFrame ||
+                isKeyHeld)
                 return;
 
             hand.GripReleaseCheckFrame = -1;

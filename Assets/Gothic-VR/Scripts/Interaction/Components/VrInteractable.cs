@@ -48,6 +48,12 @@ namespace Gothic.VR.Interaction.Components
         public IReadOnlyList<Collider> Colliders => Backend != null ? Backend.Colliders : Array.Empty<Collider>();
 
         /// <summary>
+        /// While a hand holds it: can another hand at this position grab it too? null = yes. VRBow: not at the string -
+        /// that hand draws instead. Read by the XRI backend; HVR uses VRBowStringFilter.
+        /// </summary>
+        public Func<Vector3, bool> CanSecondHandGrabAt { get; set; }
+
+        /// <summary>
         /// See IVrInteractableBackend.IsGrabEnabled.
         /// </summary>
         public bool IsGrabEnabled
