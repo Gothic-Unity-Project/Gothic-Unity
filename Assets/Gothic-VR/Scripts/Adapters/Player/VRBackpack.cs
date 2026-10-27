@@ -55,6 +55,7 @@ namespace Gothic.VR.Adapters.Player
         private IVrSocketContainer _socketContainer;
         private readonly List<IVrSocket> _holsters = new();
         private readonly List<IVrSocket> _slots = new();
+        private readonly Dictionary<Collider, Vector3> _grabVolumeSizes = new();
 
         private bool _isZenKitBootstrapped;
         private int _currentPage = 1;
@@ -529,8 +530,11 @@ namespace Gothic.VR.Adapters.Player
             SetHoldingHandCollisions(args, true);
 
             // We could potentially remove the meshes inside Backpack or simply hide it from rendering later.
-            if (IsShoulderSocket(args))
-                SetSlotDetectionEnabled(false);
+            if (!IsShoulderSocket(args))
+                return;
+
+            SetSlotDetectionEnabled(false);
+            SetShoulderGrabVolumes(true);
         }
 
         private void OnBackpackReleasedFromShoulder(VrGrabArgs args)
@@ -540,8 +544,67 @@ namespace Gothic.VR.Adapters.Player
             if (!IsShoulderSocket(args))
                 return;
 
+            SetShoulderGrabVolumes(false);
             SetSlotDetectionEnabled(true);
             UpdateInventoryView();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.BackpackShoulderGrabScale: on the shoulder, the grab volumes (trigger colliders the hands
+        /// grab it by) are larger - it had to be grabbed very precisely over the shoulder. Original size in a hand.
+        /// </summary>
+        private void SetShoulderGrabVolumes(bool isOnShoulder)
+        {
+            var scale = _configService != null ? _configService.Dev.BackpackShoulderGrabScale : 1f;
+            if (isOnShoulder && (_grabVolumeSizes.Count > 0 || scale <= 1f))
+                return;
+
+            if (!isOnShoulder)
+            {
+                foreach (var pair in _grabVolumeSizes)
+                    SetVolumeSize(pair.Key, pair.Value);
+                _grabVolumeSizes.Clear();
+                return;
+            }
+
+            foreach (var volume in _interactable.Colliders)
+            {
+                if (volume == null || !volume.isTrigger)
+                    continue;
+
+                var size = GetVolumeSize(volume);
+                _grabVolumeSizes[volume] = size;
+                SetVolumeSize(volume, size * scale);
+            }
+        }
+
+        // Sphere/capsule: (radius, height, 0), box: size.
+        private static Vector3 GetVolumeSize(Collider volume)
+        {
+            return volume switch
+            {
+                SphereCollider sphere => new Vector3(sphere.radius, 0f, 0f),
+                CapsuleCollider capsule => new Vector3(capsule.radius, capsule.height, 0f),
+                BoxCollider box => box.size,
+                _ => Vector3.zero
+            };
+        }
+
+        private static void SetVolumeSize(Collider volume, Vector3 size)
+        {
+            switch (volume)
+            {
+                case SphereCollider sphere:
+                    sphere.radius = size.x;
+                    break;
+                case CapsuleCollider capsule:
+                    capsule.radius = size.x;
+                    capsule.height = size.y;
+                    break;
+                case BoxCollider box:
+                    box.size = size;
+                    break;
+            }
         }
 
         /// <summary>
