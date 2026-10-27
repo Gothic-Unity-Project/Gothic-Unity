@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
@@ -16,11 +15,8 @@ using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
-using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Core.Sockets;
-using HurricaneVR.Framework.Shared;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -42,6 +38,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     ///   the socket and go into it when the button is let go (letting go of the whole stack still socket it all).
     /// The stacks show their name with the amount meanwhile. The hero's inventory count stays right: held items count
     /// as inventory (VRPlayerService.SetGrab/UnsetGrab).
+    /// Any VR backend (IVrRig hands, VrInteractable, IVrSocket).
     /// </summary>
     public class VRStackSplitter : MonoBehaviour
     {
@@ -58,14 +55,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _maxBackpackStackDistance = 0.15f;
         private const float _mergeLabelSeconds = 1.5f;
 
-        private HVRHandGrabber _leftHand;
-        private HVRHandGrabber _rightHand;
+        private IVrRig _rig;
+        private IVrGrabber _leftHand;
+        private IVrGrabber _rightHand;
 
         // The running split/feed (button held).
         private VrHandSide _buttonSide;
         private VobContainer _source;
         private VobContainer _piece;
-        private HVRSocket _feedSocket;
+        private IVrSocket _feedSocket;
         private bool _isSourceGrabbed;
 
         // Taking pieces off a stack in a backpack slot: removed from its owner when the button is let go (removing
@@ -86,7 +84,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// Pieces lying in a hand without grip: not grabbed, so not counted as inventory (a world item).
         /// </summary>
-        private readonly Dictionary<HVRHandGrabber, (VobContainer Piece, bool IsGripPressed)> _palmPieces = new();
+        private readonly Dictionary<IVrGrabber, (VobContainer Piece, bool IsGripPressed)> _palmPieces = new();
 
         private void Awake()
         {
@@ -123,13 +121,30 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void FindHands()
         {
-            foreach (var hand in FindObjectsByType<HVRHandGrabber>(FindObjectsSortMode.None))
+            _rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            if (_rig == null)
+                return;
+
+            foreach (var hand in _rig.HandGrabbers)
             {
-                if (hand.IsLeftHand)
+                if (hand == null)
+                    continue;
+                if (hand.HandSide == VrHandSide.Left)
                     _leftHand = hand;
                 else
                     _rightHand = hand;
             }
+        }
+
+        /// <summary>
+        /// The hand as the player sees it - pieces lie in it (HVR: the physics hand's model, XRI: the block hand).
+        /// </summary>
+        private Transform GetPalm(IVrGrabber hand)
+        {
+            var visual = _rig?.GetHandVisual(hand.HandSide);
+            if (visual != null)
+                return visual;
+            return hand.HandSide == VrHandSide.Left ? _rig?.LeftHand : _rig?.RightHand;
         }
 
         private bool IsSplitPressed(VrHandSide side)
@@ -149,12 +164,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// What the hand holds: grabbed (counted as inventory) or a piece lying in it (not counted).
         /// </summary>
-        private VobContainer GetHeld(HVRHandGrabber hand, out bool isGrabbed)
+        private VobContainer GetHeld(IVrGrabber hand, out bool isGrabbed)
         {
-            if (hand.GrabbedTarget != null)
+            if (hand.Held != null)
             {
                 isGrabbed = true;
-                return hand.GrabbedTarget.GetComponentInParent<VobLoader>()?.Container;
+                return hand.Held.GetComponentInParent<VobLoader>()?.Container;
             }
             isGrabbed = false;
             return _palmPieces.TryGetValue(hand, out var entry) && entry.Piece?.Go != null ? entry.Piece : null;
@@ -162,8 +177,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private static Vector3 GetItemPosition(VobContainer container)
         {
-            var grabbable = container.Go.GetComponentInChildren<HVRGrabbable>();
-            return grabbable != null ? grabbable.transform.position : container.Go.transform.position;
+            var interactable = container.Go.GetComponentInChildren<VrInteractable>();
+            return interactable != null ? interactable.transform.position : container.Go.transform.position;
         }
 
         private bool IsInHand(VobContainer container)
@@ -180,7 +195,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return false;
         }
 
-        private bool TryStart(HVRHandGrabber hand, VrHandSide side, HVRHandGrabber otherHand)
+        private bool TryStart(IVrGrabber hand, VrHandSide side, IVrGrabber otherHand)
         {
             if (!IsSplitPressed(side))
                 return false;
@@ -190,11 +205,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (otherItem == null || otherContainer.Go.GetComponentInChildren<VRRuneCaster>() != null)
                 return false;
             // The grabbed item moves, not its VobLoader root.
-            if (Vector3.Distance(hand.transform.position, GetItemPosition(otherContainer)) > _maxHandDistance)
+            if (Vector3.Distance(GetPalm(hand).position, GetItemPosition(otherContainer)) > _maxHandDistance)
                 return false;
 
             var held = GetHeld(hand, out var isGrabbed);
-            if (held == null && hand.GrabbedTarget == null)
+            if (held == null && hand.Held == null)
                 return TryStartSplit(hand, side, otherContainer, otherItem, isOtherGrabbed);
 
             return held != null && TryMerge(hand, held, isGrabbed, otherContainer, otherItem, isOtherGrabbed);
@@ -210,14 +225,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 : null;
         }
 
-        private bool TryStartSplit(HVRHandGrabber emptyHand, VrHandSide side, VobContainer source, IItem item,
+        private bool TryStartSplit(IVrGrabber emptyHand, VrHandSide side, VobContainer source, IItem item,
             bool isSourceGrabbed)
         {
             if (!_stackSplitService.CanSplit(item.Amount))
                 return false;
 
             // A piece of unpaid trader goods is unpaid trader goods too (buy 3 of his 10 arrows).
-            var palm = emptyHand.Palm != null ? emptyHand.Palm : emptyHand.transform;
+            var palm = GetPalm(emptyHand);
             var piece = SpawnPiece(item, GetUnpaidTrader(source), palm.position, palm.rotation);
             if (piece == null)
                 return false;
@@ -234,21 +249,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// An empty hand near a stack in a backpack slot presses its button: the first piece lies in the hand.
         /// </summary>
-        private bool TryStartFromBackpack(HVRHandGrabber hand, VrHandSide side)
+        private bool TryStartFromBackpack(IVrGrabber hand, VrHandSide side)
         {
-            if (hand.GrabbedTarget != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
+            if (hand.Held != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
                 return false;
 
             foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsSortMode.None))
             {
-                var stackGrabbable = backpack.FindStackNear(hand.transform.position, _maxBackpackStackDistance);
+                var stackGrabbable = backpack.FindStackNear(GetPalm(hand).position, _maxBackpackStackDistance);
                 var source = stackGrabbable != null ? stackGrabbable.GetComponentInParent<VobLoader>()?.Container : null;
                 var item = source?.VobAs<IItem>();
                 if (item == null || !_stackSplitService.CanSplit(item.Amount))
                     continue;
 
                 // A trader's goods stay his unpaid goods in the hand.
-                var palm = hand.Palm != null ? hand.Palm : hand.transform;
+                var palm = GetPalm(hand);
                 var piece = SpawnPiece(item, backpack.Trader, palm.position, palm.rotation);
                 if (piece == null)
                     return false;
@@ -268,9 +283,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// The hand holds a stack near an empty socket and presses its button: the first piece waits at the socket.
         /// </summary>
-        private bool TryStartFeed(HVRHandGrabber hand, VrHandSide side)
+        private bool TryStartFeed(IVrGrabber hand, VrHandSide side)
         {
-            var stackGrabbable = hand.GrabbedTarget;
+            var stackGrabbable = hand.Held;
             if (stackGrabbable == null || !IsSplitPressed(side) ||
                 stackGrabbable.GetComponentInParent<VRRuneCaster>() != null)
                 return false;
@@ -284,8 +299,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (socket == null)
                 return false;
 
-            var piece = SpawnPiece(item, GetUnpaidTrader(source), socket.transform.position,
-                socket.transform.rotation);
+            var piece = SpawnPiece(item, GetUnpaidTrader(source), socket.Transform.position,
+                socket.Transform.rotation);
             if (piece == null)
                 return false;
             SetKinematic(piece, true);
@@ -294,19 +309,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             TakeFromSource(item, true);
 
             Begin(side, source, true, piece, socket);
-            Logger.Log($"[StackSplit] {GetInstanceName(item)}: feeding {socket.name}", LogCat.VR);
+            Logger.Log($"[StackSplit] {GetInstanceName(item)}: feeding {socket.Transform.name}", LogCat.VR);
             return true;
         }
 
-        private HVRSocket FindEmptySocket(HVRGrabbable stackGrabbable)
+        /// <summary>
+        /// Free item sockets of any backend (VrSocketSlot: only those taking Gothic items, not the shoulder).
+        /// </summary>
+        private IVrSocket FindEmptySocket(VrInteractable stackGrabbable)
         {
-            HVRSocket nearest = null;
+            IVrSocket nearest = null;
             var nearestDistance = _maxSocketDistance;
-            foreach (var socket in FindObjectsByType<HVRSocket>(FindObjectsSortMode.None))
+            foreach (var behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
             {
-                if (socket.IsGrabbing || !socket.isActiveAndEnabled || !socket.CanHover(stackGrabbable))
+                if (behaviour is not IVrSocket socket || socket.IsOccupied || socket.IsShoulder ||
+                    !behaviour.isActiveAndEnabled ||
+                    (behaviour is VrSocketSlot slot && (!slot.HasActiveBackend || !slot.Accepts(stackGrabbable))))
                     continue;
-                var distance = Vector3.Distance(socket.transform.position, stackGrabbable.transform.position);
+                var distance = Vector3.Distance(socket.Transform.position, stackGrabbable.transform.position);
                 if (distance > nearestDistance)
                     continue;
                 nearest = socket;
@@ -326,7 +346,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         private void Begin(VrHandSide side, VobContainer source, bool isSourceGrabbed, VobContainer piece,
-            HVRSocket feedSocket)
+            IVrSocket feedSocket)
         {
             _buttonSide = side;
             _isSourceGrabbed = isSourceGrabbed;
@@ -346,7 +366,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var sourceItem = _source?.Go != null ? _source.VobAs<IItem>() : null;
             var pieceItem = _piece?.Go != null ? _piece.VobAs<IItem>() : null;
-            var isPieceInPlace = _feedSocket != null ? !_feedSocket.IsGrabbing : IsInHand(_piece);
+            var isPieceInPlace = _feedSocket != null ? !_feedSocket.IsOccupied : IsInHand(_piece);
             var isSourceInPlace = _sourceBackpack != null ? IsSocketed(_source) : IsInHand(_source);
             if (!IsSplitHeld(_buttonSide) || sourceItem == null || pieceItem == null || !isSourceInPlace ||
                 !isPieceInPlace)
@@ -383,9 +403,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 // Into the socket in one go - its owner (backpack, counter) counts the whole amount once.
                 SetKinematic(_piece, false);
-                var grabbable = _piece.Go.GetComponentInChildren<HVRGrabbable>();
-                if (grabbable == null || _feedSocket.IsGrabbing || !_feedSocket.TryGrab(grabbable, true))
-                    Logger.LogWarning($"[StackSplit] {_piece.Go.name} couldn't go into {_feedSocket.name}", LogCat.VR);
+                var interactable = _piece.Go.GetComponentInChildren<VrInteractable>();
+                if (interactable == null || _feedSocket.IsOccupied || !_feedSocket.TryPlace(interactable, false))
+                    Logger.LogWarning($"[StackSplit] {_piece.Go.name} couldn't go into {_feedSocket.Transform.name}",
+                        LogCat.VR);
             }
 
             if (_piece?.Go != null && _source?.Go != null)
@@ -400,7 +421,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// This hand's stack of the same item joins the other hand's stack, this hand is empty afterwards.
         /// </summary>
-        private bool TryMerge(HVRHandGrabber hand, VobContainer source, bool isSourceGrabbed, VobContainer target,
+        private bool TryMerge(IVrGrabber hand, VobContainer source, bool isSourceGrabbed, VobContainer target,
             IItem targetItem, bool isTargetGrabbed)
         {
             var sourceItem = source?.VobAs<IItem>();
@@ -419,7 +440,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var amount = Mathf.Max(1, sourceItem.Amount);
             _palmPieces.Remove(hand);
             if (isSourceGrabbed)
-                hand.GrabbedTarget.ForceRelease();
+                hand.ForceRelease();
             targetItem.Amount += amount;
             if (isTargetGrabbed)
                 _playerService.AddItem(instanceName, amount);
@@ -521,16 +542,22 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _labels.Clear();
         }
 
-        private static bool IsSocketed(VobContainer container)
+        /// <summary>
+        /// Held, but by no hand: in a socket.
+        /// </summary>
+        private bool IsSocketed(VobContainer container)
         {
-            var grabbable = container?.Go != null ? container.Go.GetComponentInChildren<HVRGrabbable>() : null;
-            return grabbable != null && grabbable.IsSocketed;
+            var interactable = container?.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
+            return interactable != null && interactable.IsHeld && !IsHeld(container);
         }
 
-        private static bool IsHeld(VobContainer container)
+        /// <summary>
+        /// Held by a hand.
+        /// </summary>
+        private bool IsHeld(VobContainer container)
         {
-            var grabbable = container.Go.GetComponentInChildren<HVRGrabbable>();
-            return grabbable != null && grabbable.IsBeingHeld;
+            var interactable = container.Go.GetComponentInChildren<VrInteractable>();
+            return interactable != null && (_leftHand?.Held == interactable || _rightHand?.Held == interactable);
         }
 
         private static void SetKinematic(VobContainer container, bool isKinematic)
@@ -570,32 +597,36 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// The piece lies in the palm, kinematic and following it, its collision with the hands off - a forced HVR grab
         /// flung the physics hand away (the piece spawned inside the hand's colliders).
         /// </summary>
-        private void PutIntoPalm(HVRHandGrabber hand, VobContainer piece)
+        private void PutIntoPalm(IVrGrabber hand, VobContainer piece)
         {
-            var palm = hand.Palm != null ? hand.Palm : hand.transform;
+            var palm = GetPalm(hand);
             SetKinematic(piece, true);
             piece.Go.transform.SetParent(palm, true);
             SetHandCollisions(piece, false);
             _palmPieces[hand] = (piece, false);
 
-            var grabbable = piece.Go.GetComponentInChildren<HVRGrabbable>();
-            if (grabbable != null)
-                grabbable.Grabbed.AddListener(OnPalmPieceGrabbed);
+            var interactable = piece.Go.GetComponentInChildren<VrInteractable>();
+            if (interactable != null)
+                interactable.Grabbed += OnPalmPieceGrabbed;
         }
 
         /// <summary>
-        /// Grip on the piece: HVR takes over, it is a normal item again.
+        /// Grip on the piece: the backend takes over, it is a normal item again.
         /// </summary>
-        private void OnPalmPieceGrabbed(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        private void OnPalmPieceGrabbed(VrGrabArgs args)
         {
-            grabbable.Grabbed.RemoveListener(OnPalmPieceGrabbed);
-            foreach (var hand in new List<HVRHandGrabber>(_palmPieces.Keys))
+            var interactable = args.Interactable;
+            if (interactable == null)
+                return;
+
+            interactable.Grabbed -= OnPalmPieceGrabbed;
+            foreach (var hand in new List<IVrGrabber>(_palmPieces.Keys))
             {
                 var piece = _palmPieces[hand].Piece;
-                if (piece?.Go == null || piece.Go.GetComponentInChildren<HVRGrabbable>() != grabbable)
+                if (piece?.Go == null || piece.Go.GetComponentInChildren<VrInteractable>() != interactable)
                     continue;
                 _palmPieces.Remove(hand);
-                // HVR ignores the hand collisions of what it holds and restores them on release - not us.
+                // The backend ignores the hand collisions of what it holds and restores them on release - not us.
                 LetGoOfPalm(piece, isCollisionRestored: false);
             }
         }
@@ -622,15 +653,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (piece?.Go == null)
                 return;
             var pieceColliders = piece.Go.GetComponentsInChildren<Collider>(true);
-            foreach (var hand in new[] { _leftHand, _rightHand })
+            var physicsHands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (physicsHands == null)
+                return;
+            foreach (var hand in physicsHands)
             {
-                if (hand == null)
-                    continue;
-                foreach (var handCollider in hand.GetComponentsInChildren<Collider>(true))
-                {
-                    foreach (var pieceCollider in pieceColliders)
-                        Physics.IgnoreCollision(handCollider, pieceCollider, !isEnabled);
-                }
+                if (hand != null)
+                    hand.IgnoreCollisions(pieceColliders, !isEnabled);
             }
         }
 
@@ -638,7 +667,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// A piece lying in the palm: grip grabs it (OnPalmPieceGrabbed); a grip press + release that didn't grab it
         /// drops it.
         /// </summary>
-        private void UpdatePalmPiece(HVRHandGrabber hand, VrHandSide side)
+        private void UpdatePalmPiece(IVrGrabber hand, VrHandSide side)
         {
             if (!_palmPieces.TryGetValue(hand, out var entry))
                 return;
@@ -669,4 +698,3 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
     }
 }
-#endif
