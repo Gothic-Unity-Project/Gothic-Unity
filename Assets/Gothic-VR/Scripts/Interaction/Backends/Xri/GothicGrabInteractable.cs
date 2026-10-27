@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
+using UnityEngine.XR.Interaction.Toolkit.Transformers;
 
 namespace Gothic.VR.Interaction.Backends.Xri
 {
@@ -38,6 +40,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         // A hand this close (m) to the item's colliders grabs it when distance grabs are off.
         private const float _nearGrabDistance = 0.25f;
+        // The line's end counts as a hit on this item this close (m) to its colliders.
+        private const float _rayHitTolerance = 0.05f;
 
         /// <summary>
         /// false: only a hand right at it grabs it (IVrInteractableBackend.IsDistanceGrabbable).
@@ -62,6 +66,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             base.Awake();
             _bridge = GetComponent<XriInteractableBridge>();
+
+            if (IsDevFlag(dev => dev.EnableXriSecondHandFixed))
+                gameObject.AddComponent<GothicTwoHandGrabTransformer>();
+        }
+
+        private static bool IsDevFlag(System.Func<Gothic.Core.Models.Config.DeveloperConfig, bool> flag)
+        {
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
+                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            return config?.Dev != null && flag(config.Dev);
         }
 
         /// <summary>
@@ -142,6 +156,51 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 _bridge.OnSelectEntering(args);
 
             base.OnSelectEntering(args);
+        }
+
+        protected override void OnSelectEntered(SelectEnterEventArgs args)
+        {
+            base.OnSelectEntered(args);
+            if (interactorsSelecting.Count > 1)
+                UseTwoHandTransformer();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableXriSecondHandFixed: two hands move the item like HVR (GothicTwoHandGrabTransformer) -
+        /// XRI's general transformer (it registers itself for two hands too) turned the item towards the second
+        /// controller, the ghost hand.
+        /// </summary>
+        private void UseTwoHandTransformer()
+        {
+            if (!TryGetComponent<GothicTwoHandGrabTransformer>(out _))
+                return;
+
+            foreach (var transformer in GetComponents<XRGeneralGrabTransformer>())
+                RemoveMultipleGrabTransformer(transformer);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableXriGrabAtRayHit: grabbed from afar, the item is held where the hand's line hit it (the
+        /// hilt or the blade) and comes to the hand with that spot - XRI took the item's spot nearest to the hand.
+        /// </summary>
+        protected override void InitializeDynamicAttachPose(IXRSelectInteractor interactor,
+            Transform dynamicAttachTransform)
+        {
+            base.InitializeDynamicAttachPose(interactor, dynamicAttachTransform);
+            if (interactor is not NearFarInteractor nearFar || !IsDevFlag(dev => dev.EnableXriGrabAtRayHit))
+                return;
+
+            var isFar = nearFar.selectionRegion.Value == NearFarInteractor.Region.Far ||
+                        Vector3.Distance(nearFar.transform.position, transform.position) > _nearGrabDistance;
+            if (!isFar || nearFar.TryGetCurveEndPoint(out var hitPoint, false, false) != EndPointType.ValidCastHit)
+                return;
+
+            // Only a hit on this item (the line may end behind it).
+            if (!XriColliderUtility.TryGetClosestPoint(this, hitPoint, out _, out var distanceSqr) ||
+                distanceSqr > _rayHitTolerance * _rayHitTolerance)
+                return;
+
+            dynamicAttachTransform.position = hitPoint;
         }
 
         protected override void OnSelectExiting(SelectExitEventArgs args)
