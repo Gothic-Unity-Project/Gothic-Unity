@@ -842,7 +842,15 @@ namespace Gothic.Core.Services.Vobs
             if (container.Go == null)
                 return;
 
-            switch (container.Vob.Type)
+            var type = container.Vob.Type;
+
+            // DeveloperConfig.EnableMobDoorNonDoorVisuals: G2's Old Camp beds (BEDHIGH_2_OC...) are oCMobDoor vobs - NPCs
+            // never found a bed for ZS_Sleep and slept standing next to it. Only real doors stay excluded.
+            if (type == VirtualObjectType.oCMobDoor && _configService.Dev.EnableMobDoorNonDoorVisuals &&
+                container.Vob.Visual?.Name.ToUpper().StartsWith("DOOR") == false)
+                type = VirtualObjectType.oCMobInter;
+
+            switch (type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
                 // oCMobDoor excluded: doors use VR hinge physics for interaction, not AI_UseMob.
