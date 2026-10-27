@@ -1,7 +1,6 @@
-#if GOTHIC_HVR_INSTALLED
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Assets.HurricaneVR.Framework.Shared.Utilities;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -10,13 +9,11 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
-using Gothic.VR.Interaction.Backends.Hvr;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Shared;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -25,7 +22,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: G1's pickpocketing in VR (rules in PickpocketService).
+    /// DeveloperConfig.EnableVrPickpocket: pickpocketing in VR (rules in PickpocketService - G1, and G2 in addition to
+    /// the dialog with EnableG2VrPickpocket). Any VR backend (IVrRig hands, VrInteractable).
     /// - Sneaking with the talent, humans nearby who can't see the hero show a purse (a small copy of the backpack) on
     ///   their right hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
     /// - Grip on the purse: the victim's pockets open as a backpack in that hand (his items without what he wears or
@@ -75,7 +73,7 @@ namespace Gothic.VR.Adapters.Player
         private PickpocketInventoryOwner _pockets;
         private VRBackpack _backpack;
         private GameObject _backpackRoot;
-        private HVRGrabbable _backpackGrabbable;
+        private VrInteractable _backpackGrabbable;
         private bool _isCaught;
 
         private class Purse
@@ -297,16 +295,23 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private bool IsHandFree(VrHandSide side)
         {
-            var target = GetHandGrabber(side)?.GrabbedTarget;
+            var target = GetHandGrabber(side)?.Held;
             return target == null || target.GetComponentInParent<VRNpc>() != null;
         }
 
-        private HVRHandGrabber GetHandGrabber(VrHandSide side)
+        private IVrRig Rig => _vrPlayerService.VRContextInteractionService?.Rig;
+
+        private IVrGrabber GetHandGrabber(VrHandSide side)
         {
-            var controller = GetComponentInParent<HvrRig>();
-            if (controller == null)
+            var rig = Rig;
+            if (rig == null)
                 return null;
-            return side == VrHandSide.Left ? controller.LeftHand : controller.RightHand;
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand != null && hand.HandSide == side)
+                    return hand;
+            }
+            return null;
         }
 
         private void StartRobbery(NpcContainer victim, VrHandSide side)
@@ -316,7 +321,7 @@ namespace Gothic.VR.Adapters.Player
             if (hand == null || handModel == null)
                 return;
 
-            if (hand.GrabbedTarget != null)
+            if (hand.Held != null)
                 hand.ForceRelease();
 
             var handTransform = handModel.transform;
@@ -333,20 +338,30 @@ namespace Gothic.VR.Adapters.Player
             _pockets = new PickpocketInventoryOwner(victim);
             _pockets.ItemTaken += OnItemTaken;
             _backpack.SetContainerOwner(_pockets);
+            _backpackGrabbable = VrInteractable.Find(_backpack);
+            StartCoroutine(PutPocketsIntoHand(side, victimName, handTransform.position));
+        }
 
-            _backpackGrabbable = _backpack.GetComponent<HVRGrabbable>();
-            if (_backpackGrabbable == null || !hand.TryGrab(_backpackGrabbable, true))
+        /// <summary>
+        /// A frame later: a backend may make a freshly spawned prefab grabbable only in its Start (XRI).
+        /// </summary>
+        private IEnumerator PutPocketsIntoHand(VrHandSide side, string victimName, Vector3 soundPosition)
+        {
+            yield return null;
+            var rig = Rig;
+            if (_backpackGrabbable == null || rig == null || !IsRobbing ||
+                !rig.TryGrabIntoHand(side, _backpackGrabbable))
             {
                 Logger.LogWarning($"[Pickpocket] The pockets of {victimName} couldn't be put into the hand - closed.",
                     LogCat.VR);
                 EndRobbery();
-                return;
+                yield break;
             }
-            _backpackGrabbable.Released.AddListener(OnBackpackReleased);
+            _backpackGrabbable.Released += OnBackpackReleased;
 
             var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
             if (clip != null)
-                AudioSource.PlayClipAtPoint(clip, handTransform.position);
+                AudioSource.PlayClipAtPoint(clip, soundPosition);
             _hapticsService.Vibrate(side, VrHapticPreset.Success);
             Logger.Log($"[Pickpocket] Robbing {victimName}", LogCat.VR);
         }
@@ -358,17 +373,26 @@ namespace Gothic.VR.Adapters.Player
 
             Logger.Log($"[Pickpocket] Took {amount}x {itemInstanceName} from " +
                        $"{_victim.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.VR);
-            // Inside HVR's socket event - the backpack goes in the next Update.
+            // Inside the socket event - the backpack goes in the next Update.
             if (_pickpocketService.RollCaught())
                 _isCaught = true;
         }
 
-        private void OnBackpackReleased(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        private void OnBackpackReleased(VrGrabArgs args)
         {
+            if (!args.IsHandOrDistance)
+                return;
             if (!_isCaught && _victim != null)
                 Logger.Log("[Pickpocket] Backpack let go - pockets closed", LogCat.VR);
-            // Not inside the release itself: HVR still works on the grabbable.
-            this.ExecuteNextUpdate(EndRobbery);
+            // Not inside the release itself: the backend still works on the interactable.
+            StartCoroutine(EndRobberyNextFrame());
+        }
+
+        private IEnumerator EndRobberyNextFrame()
+        {
+            yield return null;
+            if (IsRobbing)
+                EndRobbery();
         }
 
         private void UpdateRobbery()
@@ -408,8 +432,8 @@ namespace Gothic.VR.Adapters.Player
             _caughtUntil[victim] = Time.time + _caughtCooldown;
             foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
                 _hapticsService.Vibrate(side, VrHapticPreset.Error);
-            EndRobbery();
             _pickpocketService.CatchThief(victim);
+            EndRobbery();
         }
 
         private void EndRobbery()
@@ -418,8 +442,8 @@ namespace Gothic.VR.Adapters.Player
                 _pockets.ItemTaken -= OnItemTaken;
             if (_backpackGrabbable != null)
             {
-                _backpackGrabbable.Released.RemoveListener(OnBackpackReleased);
-                if (_backpackGrabbable.IsBeingHeld)
+                _backpackGrabbable.Released -= OnBackpackReleased;
+                if (_backpackGrabbable.IsHeld)
                     _backpackGrabbable.ForceRelease();
             }
             if (_backpack != null)
@@ -445,4 +469,3 @@ namespace Gothic.VR.Adapters.Player
         }
     }
 }
-#endif

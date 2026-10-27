@@ -733,6 +733,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return grabber != null && grabber.TrySelectHovered();
         }
 
+        public bool TryGrabIntoHand(VrHandSide side, VrInteractable interactable)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            return grabber != null && grabber.TrySelect(interactable);
+        }
+
         public void Fade(float alpha, float speed)
         {
             if (_screenFade != null)

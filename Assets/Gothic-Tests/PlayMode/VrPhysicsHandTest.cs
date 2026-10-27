@@ -390,6 +390,11 @@ namespace Gothic.Tests.PlayMode
                 return false;
             }
 
+            public bool TryGrabIntoHand(VrHandSide side, VrInteractable interactable)
+            {
+                return false;
+            }
+
             public void Fade(float alpha, float speed)
             {
             }

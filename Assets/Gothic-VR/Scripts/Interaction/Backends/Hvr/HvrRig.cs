@@ -287,6 +287,20 @@ namespace Gothic.VR.Interaction.Backends.Hvr
                    forceGrabber.TryGrab(forceGrabber.HoverTarget, true);
         }
 
+        public bool TryGrabIntoHand(VrHandSide side, VrInteractable interactable)
+        {
+            var hand = side == VrHandSide.Left ? LeftHand : RightHand;
+            var grabbable = interactable != null
+                ? interactable.GetComponent<HurricaneVR.Framework.Core.HVRGrabbable>()
+                : null;
+            if (hand == null || grabbable == null)
+                return false;
+
+            if (hand.GrabbedTarget != null)
+                hand.ForceRelease();
+            return hand.TryGrab(grabbable, true);
+        }
+
         public void SetGrabbingEnabled(bool isEnabled)
         {
             SetGrabbingEnabled(LeftHand, isEnabled);

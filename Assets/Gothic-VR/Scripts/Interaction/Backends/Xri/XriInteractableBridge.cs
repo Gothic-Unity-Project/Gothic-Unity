@@ -110,7 +110,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Awake()
         {
-            if (!IsActive)
+            TrySubscribe();
+        }
+
+        /// <summary>
+        /// Awake for scene objects. Prefabs spawned at runtime and injected afterwards (Instantiate + Inject: the trade
+        /// goods and loot backpacks) have no backend in Awake yet - they subscribe in Start (it couldn't be grabbed).
+        /// </summary>
+        private void TrySubscribe()
+        {
+            if (_isSubscribed || !IsActive)
                 return;
 
             _interactable = GetComponent<VrInteractable>();
@@ -131,6 +140,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Start()
         {
+            TrySubscribe();
             if (!_isSubscribed)
                 return;
 

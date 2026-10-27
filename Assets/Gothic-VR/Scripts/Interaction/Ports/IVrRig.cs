@@ -131,6 +131,12 @@ namespace Gothic.VR.Interaction.Ports
         bool TryDistanceGrabHovered(VrHandSide side);
 
         /// <summary>
+        /// Puts the interactable straight into the hand, as if grabbed (the victim's pockets when pickpocketing). The
+        /// hand lets go of what it holds. false if the backend couldn't (e.g. not grabbable yet - spawned this frame).
+        /// </summary>
+        bool TryGrabIntoHand(VrHandSide side, VrInteractable interactable);
+
+        /// <summary>
         /// Fades the screen towards alpha (0 = clear, 1 = black) with speed alpha per second.
         /// </summary>
         void Fade(float alpha, float speed);

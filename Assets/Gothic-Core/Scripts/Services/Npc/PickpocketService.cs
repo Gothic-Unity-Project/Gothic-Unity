@@ -19,6 +19,11 @@ namespace Gothic.Core.Services.Npc
     /// noticing", "even the best get caught sometimes").
     /// Caught: the victim gets PERC_CATCHTHIEF (ZS_CatchThief: whirls around, ZS_AssessEnemy), witnesses within
     /// HAI_DIST_ASSESSTHEFT the passive PERC_ASSESSTHEFT with the victim set (B_AssessTheft: "$BEHINDYOU").
+    ///
+    /// DeveloperConfig.EnableG2VrPickpocket: the same in G2, in addition to its dialog - which stays untouched (its
+    /// gold, quest keys...). G2 keeps no chance in the talent value: the chance to get caught per item comes from the
+    /// dexterity (G2's pickpocket dialogs ask for it). A victim without PERC_CATCHTHIEF attacks like B_Beklauen
+    /// (B_Attack AR_THEFT).
     /// </summary>
     public class PickpocketService
     {
@@ -27,6 +32,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
+
+        // G2: caught per item = 100 - dexterity (%), within these bounds - nobody is safe, nobody always caught.
+        private const int _g2MinCaughtChance = 5;
+        private const int _g2MaxCaughtChance = 90;
+        private const string _theftReasonSymbol = "AR_Theft";
+
+        private bool IsGothic1 => _contextGameVersionService.IsGothic1();
 
         // Seconds a hand that was near the purse can't start a talk with its NPC (HVR grabs the NPC with the same grip).
         private const float _talkBlockSeconds = 1f;
@@ -59,7 +71,8 @@ namespace Gothic.Core.Services.Npc
 
         // No game picked yet (profile menu): no VM and no game version.
         public bool IsEnabled => _configService.Dev.EnableVrPickpocket && _configService.Gothic != null &&
-                                 _gameStateService.GothicVm != null && _contextGameVersionService.IsGothic1();
+                                 _gameStateService.GothicVm != null &&
+                                 (IsGothic1 || _configService.Dev.EnableG2VrPickpocket);
 
         public NpcContainer Hero => (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
 
@@ -93,14 +106,17 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// One item taken: caught with the talent value's chance.
+        /// One item taken: caught with the talent value's chance (G1) or by the dexterity (G2).
         /// </summary>
         public bool RollCaught()
         {
             var hero = Hero;
             if (hero?.Instance == null)
                 return false;
-            var chance = _npcHelperService.ExtNpcGetTalentValue(hero.Instance, GetTalentId());
+            var chance = IsGothic1
+                ? _npcHelperService.ExtNpcGetTalentValue(hero.Instance, GetTalentId())
+                : Mathf.Clamp(100 - hero.Instance.GetAttribute(NpcAttribute.Dexterity), _g2MinCaughtChance,
+                    _g2MaxCaughtChance);
             var roll = Random.Range(0, 100);
             Logger.Log($"[Pickpocket] roll {roll} vs. {chance} % to get caught", LogCat.Npc);
             return roll < chance;
@@ -114,11 +130,28 @@ namespace Gothic.Core.Services.Npc
 
             var isVictimReacting = _npcAiService.ExecuteSinglePerception(VmGothicEnums.PerceptionType.CatchThief,
                 victim, victim.Instance, hero.Instance);
+            // G2 victims may not know PERC_CATCHTHIEF: they attack like the caught pickpocket dialog (B_Beklauen).
+            if (!isVictimReacting && !IsGothic1)
+                AttackThief(victim, hero);
             var witnesses = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
                 victim.Instance, hero.Instance, victim);
             Logger.Log($"[Pickpocket] {victim.Instance.GetName(NpcNameSlot.Slot0)} caught the hero " +
                        $"(PERC_CATCHTHIEF {(isVictimReacting ? "sent" : "not registered")}, " +
                        $"PERC_ASSESSTHEFT to {witnesses} NPC(s))", LogCat.Npc);
+        }
+
+        private void AttackThief(NpcContainer victim, NpcContainer hero)
+        {
+            var vm = _gameStateService.GothicVm;
+            var attack = vm.GetSymbolByName("B_Attack");
+            var reason = vm.GetSymbolByName(_theftReasonSymbol);
+            if (attack == null || reason == null)
+                return;
+
+            vm.Call<NpcInstance, NpcInstance, int, int>(attack.Index, victim.Instance, hero.Instance,
+                reason.GetInt(0), 1);
+            Logger.Log($"[Pickpocket] {victim.Instance.GetName(NpcNameSlot.Slot0)} attacks the thief (B_Attack " +
+                       "AR_THEFT)", LogCat.Npc);
         }
 
         private int GetTalentId()

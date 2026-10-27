@@ -170,6 +170,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return false;
         }
 
+        /// <summary>
+        /// Puts the interactable into this hand (IVrRig.TryGrabIntoHand). The hand lets go of what it holds first.
+        /// </summary>
+        public bool TrySelect(VrInteractable interactable)
+        {
+            var manager = Interactor.interactionManager;
+            if (interactable == null || manager == null ||
+                !interactable.TryGetComponent<XRGrabInteractable>(out var grab) || !grab.isActiveAndEnabled)
+                return false;
+
+            if (Interactor.hasSelection)
+                manager.CancelInteractorSelection((IXRSelectInteractor)Interactor);
+            manager.SelectEnter((IXRSelectInteractor)Interactor, grab);
+            return Interactor.IsSelecting(grab);
+        }
+
         public void ForceRelease()
         {
             if (Interactor.hasSelection && Interactor.interactionManager != null)
