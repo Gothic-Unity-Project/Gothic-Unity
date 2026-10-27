@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Caches;
 using Gothic.Core;
 using Gothic.Core.Extensions;

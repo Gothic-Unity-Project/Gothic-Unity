@@ -5,7 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Caches;
 using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;

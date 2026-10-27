@@ -1,7 +1,6 @@
-using Gothic.Core.Creator;
 using Gothic.Core.Domain.Vobs;
-using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -15,7 +14,6 @@ using Gothic.Core.Services.UI;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
-using Gothic.Services.UI;
 using Reflex.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;

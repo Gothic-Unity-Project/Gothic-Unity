@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;

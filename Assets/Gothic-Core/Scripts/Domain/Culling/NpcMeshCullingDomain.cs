@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Npc;
-using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;

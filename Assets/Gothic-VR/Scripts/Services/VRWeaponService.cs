@@ -1,9 +1,9 @@
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob.Item;
 using Gothic.Core.Const;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;

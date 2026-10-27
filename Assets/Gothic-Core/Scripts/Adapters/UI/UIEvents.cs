@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.UI;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;

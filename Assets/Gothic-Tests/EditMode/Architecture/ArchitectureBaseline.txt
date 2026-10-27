@@ -67,10 +67,3 @@ namespace | Models/UI/Menu/MutableMenuInstance.cs | Gothic.Core.Model.UI.Menu
 namespace | Models/UI/MenuItem/AbstractMenuItemInstance.cs | Gothic.Core.Model.UI.MenuItem
 namespace | Models/UI/MenuItem/MenuItemInstanceAdapter.cs | Gothic.Core.Model.UI.MenuItem
 namespace | Models/UI/MenuItem/MutableMenuItemInstance.cs | Gothic.Core.Model.UI.MenuItem
-namespace | Services/Audio/AudioService.cs | Gothic.Core.Manager
-namespace | Services/Marvin/MarvinService.cs | Gothic.Core.Manager
-namespace | Services/Player/DialogService.cs | Gothic.Core.Manager
-namespace | Services/UI/LocalizationService.cs | Gothic.Services.UI
-namespace | Services/UnityMonoService.cs | Gothic.Core.Manager
-namespace | Services/World/LoadingService.cs | Gothic.Core.Manager
-namespace | Services/World/WayNetService.cs | Gothic.Core.Creator

@@ -1,4 +1,4 @@
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;

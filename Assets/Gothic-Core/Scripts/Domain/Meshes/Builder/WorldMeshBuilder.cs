@@ -5,7 +5,6 @@ using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
 using Gothic.Core.Const;
-using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.StaticCache;

@@ -5,7 +5,6 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core;
 using Gothic.Core.Extensions;
-using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;

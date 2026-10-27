@@ -8,7 +8,6 @@ using Gothic.VR.Services.Context;
 using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;

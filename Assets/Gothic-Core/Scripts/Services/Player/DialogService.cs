@@ -23,7 +23,7 @@ using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
-namespace Gothic.Core.Manager
+namespace Gothic.Core.Services.Player
 {
     public class DialogService
     {

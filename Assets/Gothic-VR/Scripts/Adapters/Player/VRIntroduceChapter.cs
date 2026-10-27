@@ -1,6 +1,6 @@
 using System.Collections;
 using Gothic.Core.Extensions;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using TMPro;

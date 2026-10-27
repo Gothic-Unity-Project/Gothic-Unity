@@ -9,7 +9,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace Gothic.Core.Manager
+namespace Gothic.Core.Services.Marvin
 {
     /// <summary>
     /// Marvin mode state and its activation like in the original game (status screen -> type "marvin" -> close):

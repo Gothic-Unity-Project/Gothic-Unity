@@ -7,7 +7,7 @@ using UnityEngine.Localization.Settings;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace Gothic.Services.UI
+namespace Gothic.Core.Services.UI
 {
     public class LocalizationService
     {

@@ -1,11 +1,11 @@
 using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using ZenKit.Daedalus;

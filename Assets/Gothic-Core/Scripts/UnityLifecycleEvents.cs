@@ -1,4 +1,3 @@
-using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;

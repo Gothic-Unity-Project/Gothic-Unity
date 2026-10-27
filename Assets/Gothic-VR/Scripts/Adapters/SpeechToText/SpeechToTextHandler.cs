@@ -1,6 +1,5 @@
 using Gothic.Core;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;

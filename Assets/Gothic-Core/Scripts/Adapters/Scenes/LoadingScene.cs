@@ -1,5 +1,4 @@
 using Gothic.Core.Adapters.UI.LoadingBars;
-using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.World;

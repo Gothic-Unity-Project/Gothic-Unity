@@ -1,10 +1,10 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Gothic.Core.Domain.Meshes.Builder;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.StaticCache;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.World;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;

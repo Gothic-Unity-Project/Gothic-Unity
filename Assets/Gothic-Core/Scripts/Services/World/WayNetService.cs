@@ -20,7 +20,7 @@ using Material = UnityEngine.Material;
 using Mesh = UnityEngine.Mesh;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 
-namespace Gothic.Core.Creator
+namespace Gothic.Core.Services.World
 {
     public class WayNetService
     {

@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-namespace Gothic.Core.Manager
+namespace Gothic.Core.Services
 {
     /// <summary>
     /// Singleton DI wrapper to access Unity MonoBehaviour functions.

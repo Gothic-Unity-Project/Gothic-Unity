@@ -2,7 +2,6 @@ using System.Collections;
 using Gothic.Core.Const;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Manager;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;

@@ -1,11 +1,11 @@
 ﻿using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.UI.StatusBars;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;

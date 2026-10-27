@@ -1,5 +1,5 @@
 using System.Linq;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;

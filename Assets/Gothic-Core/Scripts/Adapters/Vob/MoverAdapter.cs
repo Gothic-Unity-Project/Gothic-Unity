@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;

@@ -1,5 +1,5 @@
 using Gothic.Core.Adapters.UI;
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Marvin;
 using Reflex.Attributes;
 using UnityEngine;
 

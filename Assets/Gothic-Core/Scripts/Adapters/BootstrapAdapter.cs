@@ -1,4 +1,3 @@
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Services;
 using Reflex.Attributes;

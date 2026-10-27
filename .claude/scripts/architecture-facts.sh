@@ -67,7 +67,7 @@ layer_rank() {
     case "$1" in
         Models|Model) echo 0 ;;
         Domain) echo 1 ;;                     # Domain and Services share a rank
-        Services|Manager|Creator) echo 1 ;;   # Manager/Creator are legacy namespaces inside Services/
+        Services) echo 1 ;;
         Adapters) echo 2 ;;
         *) echo -1 ;;
     esac

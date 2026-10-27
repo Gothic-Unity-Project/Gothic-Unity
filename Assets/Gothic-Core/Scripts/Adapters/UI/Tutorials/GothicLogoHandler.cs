@@ -1,4 +1,4 @@
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Marvin;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;

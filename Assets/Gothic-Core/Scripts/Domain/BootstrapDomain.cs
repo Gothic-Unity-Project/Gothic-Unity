@@ -12,7 +12,6 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.UI;
 using Gothic.Core.Services.Vm;
-using Gothic.Services.UI;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;

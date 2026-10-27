@@ -1,4 +1,4 @@
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Audio;
 using Reflex.Attributes;
 using UnityEngine;
 

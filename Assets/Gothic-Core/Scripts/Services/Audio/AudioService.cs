@@ -8,7 +8,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 
-namespace Gothic.Core.Manager
+namespace Gothic.Core.Services.Audio
 {
     public class AudioService
     {

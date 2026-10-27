@@ -1,7 +1,7 @@
 using System.Linq;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Player;
 using Reflex.Attributes;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions

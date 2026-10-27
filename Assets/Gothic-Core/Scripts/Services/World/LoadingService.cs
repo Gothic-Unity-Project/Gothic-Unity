@@ -3,7 +3,7 @@ using System.Linq;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Extensions;
 
-namespace Gothic.Core.Manager
+namespace Gothic.Core.Services.World
 {
     public class LoadingService
     {

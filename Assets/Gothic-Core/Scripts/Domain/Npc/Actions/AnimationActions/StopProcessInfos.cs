@@ -1,5 +1,5 @@
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 

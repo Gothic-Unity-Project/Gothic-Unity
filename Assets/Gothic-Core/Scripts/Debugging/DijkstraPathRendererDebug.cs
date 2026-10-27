@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Gothic.Core.Creator;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;

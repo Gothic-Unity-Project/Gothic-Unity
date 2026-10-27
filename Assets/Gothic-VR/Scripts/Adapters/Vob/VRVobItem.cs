@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using Gothic.Core.Const;
-using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
 using Gothic.VR.Services;
 using Gothic.Core;

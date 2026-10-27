@@ -8,7 +8,7 @@ namespace Gothic.Tests.EditMode.Architecture
 {
     /// <summary>
     /// Source based scan of Gothic.Core's layer folders. Layers are taken from the folder a file lives in, not from its
-    /// namespace, as some namespaces don't match their folder (e.g. Gothic.Core.Manager inside Services/).
+    /// namespace, as some namespaces don't match their folder (e.g. Gothic.Core.Model.UI inside Models/).
     ///
     /// Each violation is a single line "rule | file-or-type | detail", which is also the format of the baseline file.
     /// No UnityEngine dependency on purpose, so it can be run outside of Unity as well.

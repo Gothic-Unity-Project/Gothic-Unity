@@ -1,4 +1,4 @@
-using Gothic.Core.Manager;
+using Gothic.Core.Services.Marvin;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
