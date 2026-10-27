@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -36,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRTransformService _vrTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VRUiOnTopService _uiOnTopService;
         [Inject] private readonly Gothic.Core.Manager.AudioService _audioService;
         [Inject] private readonly Gothic.Core.Services.Audio.GroundSoundService _groundSoundService;
 
@@ -119,6 +121,12 @@ namespace Gothic.VR.Adapters.Player
         private bool _isHeroHandsOption;
         private bool _areHeroHandsShown;
 
+        // DeveloperConfig.EnableHeroHandsOnTop: after the on-top UI (UiOnTop-Text: 3901), like VRHandsOnTop.
+        private const int _armsOnTopRenderQueue = 3950;
+        private bool _areArmsOnTop;
+        private readonly Dictionary<Renderer, Material[]> _armsOriginalMaterials = new();
+        private readonly Dictionary<Material, Material> _onTopMaterialCopies = new();
+
         // Legs/torso animation (V2).
         private VRHeroBodyAnimator _animator;
         private float _lastBodyYaw;
@@ -194,6 +202,11 @@ namespace Gothic.VR.Adapters.Player
             SetHeroHandsShown(false);
             EndDown();
             DestroyCreatedMeshes();
+            foreach (var copy in _onTopMaterialCopies.Values)
+            {
+                if (copy != null)
+                    Destroy(copy);
+            }
         }
 
         private void OnDisable()
@@ -476,6 +489,7 @@ namespace Gothic.VR.Adapters.Player
             _rig ??= _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
             SetSleevesRolledUp(isVisible && IsBackpackInHand());
             SetHeroHandsShown(isVisible && _isHeroHandsOption && _handMeshes.Count > 0);
+            SetArmsOnTop(isVisible && _areHeroHandsShown && _uiOnTopService != null && _uiOnTopService.AreHandsOnTop);
             if (!isVisible)
                 return;
 
@@ -716,6 +730,53 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
+        /// DeveloperConfig.EnableHeroHandsOnTop: with the hero's fists as the VR hands, the arms (fists included) draw
+        /// over on-top UI like the block hands (VRHandsOnTop) while a menu or dialog wants the hands on top - the fist
+        /// pointing at a menu entry was hidden behind the menu. Copies of their materials with a later render queue.
+        /// </summary>
+        private void SetArmsOnTop(bool isOnTop)
+        {
+            isOnTop &= _configService.Dev.EnableHeroHandsOnTop;
+            if (isOnTop == _areArmsOnTop)
+                return;
+            _areArmsOnTop = isOnTop;
+
+            if (!isOnTop)
+            {
+                foreach (var (renderer, materials) in _armsOriginalMaterials)
+                {
+                    if (renderer != null)
+                        renderer.sharedMaterials = materials;
+                }
+                _armsOriginalMaterials.Clear();
+                return;
+            }
+
+            var armRenderers = _handMeshes.Select(i => i.renderer).Concat(_bareForearms);
+            foreach (var renderer in armRenderers)
+            {
+                if (renderer == null || _armsOriginalMaterials.ContainsKey(renderer))
+                    continue;
+
+                var materials = renderer.sharedMaterials;
+                _armsOriginalMaterials[renderer] = materials;
+                renderer.sharedMaterials = materials.Select(GetOnTopCopy).ToArray();
+            }
+        }
+
+        private Material GetOnTopCopy(Material material)
+        {
+            if (material == null)
+                return null;
+            if (!_onTopMaterialCopies.TryGetValue(material, out var copy) || copy == null)
+            {
+                copy = new Material(material) { renderQueue = _armsOnTopRenderQueue };
+                _onTopMaterialCopies[material] = copy;
+            }
+            return copy;
+        }
+
+        /// <summary>
         /// The armor's and the bare forearms' meshes for both states: rolled-up sleeves (backpack in a hand) and the
         /// hero's own hands (DeveloperConfig.EnableHeroHands). With both the naked hands come with the bare forearms -
         /// the sleeveless armor has none, the fists vanished while the backpack was held.
@@ -761,6 +822,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             SetHeroHandsShown(false);
+            SetArmsOnTop(false);
             if (_body != null)
                 Destroy(_body);
             DestroyCreatedMeshes();
