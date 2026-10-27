@@ -376,6 +376,12 @@ MonoBehaviour:
   EnableItemTheftPerception: 1
   EnableG2VrPickpocket: 1
   EnableItemInitSymbolCheck: 1
+  EnableHeroHandsOnTop: 1
+  EnableRingGestureGrace: 1
+  EnableXriPointerHoverColor: 1
+  EnableHeroHandsHoldInPalm: 1
+  HeroHandsHoldShift: 0.3
+  EnableXriSecondHandFixed: 1
   EnableGameVersionScenePlacement: 1
   EnableHeroHands: 1
   HeroHandsRollDegrees: 0

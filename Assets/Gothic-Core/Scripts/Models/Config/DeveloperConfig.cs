@@ -1575,6 +1575,23 @@ namespace Gothic.Core.Models.Config
                  "and back.")]
         public bool EnableXriPointerHoverColor = true;
 
+        [Tooltip("V1: With the hero's fists as the VR hands, held items sit a bit more towards the fingers (see " +
+                 "HeroHandsHoldShift) - a coin lay on the knuckles.")]
+        public bool EnableHeroHandsHoldInPalm = true;
+
+        [Tooltip("Share of the way from the hand's attach point to the fist's palm slot (ZS_RIGHTHAND/ZS_LEFTHAND) held " +
+                 "items are moved, at most 4 cm. 0 = the attach point itself, 1 = the palm slot (too far).")]
+        [Range(0f, 1f)]
+        public float HeroHandsHoldShift = 0.3f;
+
+        [Tooltip("V1: XRI: an item held with two hands sits halfway between where each hand holds it (like HVR) - the " +
+                 "item turned towards the second controller (ghost hand) instead.")]
+        public bool EnableXriSecondHandFixed = true;
+
+        [Tooltip("V1: XRI: an item grabbed from afar is held where the hand's line hit it (hilt or blade) - XRI took " +
+                 "the item's spot nearest to the hand.")]
+        public bool EnableXriGrabAtRayHit = true;
+
         [Tooltip("V1: The game version / profile scene puts the player onto its floor like the logo and menu scenes - the " +
                  "XRI player fell from the floorless Player scene before the floor existed and kept falling.")]
         public bool EnableGameVersionScenePlacement = true;
