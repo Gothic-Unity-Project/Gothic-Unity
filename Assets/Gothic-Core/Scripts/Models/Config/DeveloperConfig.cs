@@ -1592,6 +1592,30 @@ namespace Gothic.Core.Models.Config
                  "the item's spot nearest to the hand.")]
         public bool EnableXriGrabAtRayHit = true;
 
+        [Tooltip("V1: With two hands on an item, the second hero fist sits on its grip of the item as shown and turns " +
+                 "like its controller - it hung between the controller and the grip.")]
+        public bool EnableSecondFistOnShownGrip = true;
+
+        [Tooltip("V1: XRI: an item held in one hand can't be grabbed from afar by the other one (only right at it) - " +
+                 "the line still highlights it to read it.")]
+        public bool EnableNoDistanceGrabOfHeldItem = true;
+
+        [Tooltip("V1: The weapon trail is measured on every attack: as wide as the weapon is long (its longest side, " +
+                 "world scale), at its middle - it was short and oddly scaled in the middle of the blade (XRI).")]
+        public bool EnableTrailFromWeaponLength = true;
+
+        [Tooltip("V1: Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
+                 "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
+        public bool EnableHeroSleepBody = true;
+
+        [Tooltip("V1: Loot, container, trade and pocket backpacks stay where they are (kinematic) - the backpack's hull " +
+                 "doesn't collide with the world, a loot backpack fell through the ground.")]
+        public bool EnableLootBackpackStays = true;
+
+        [Tooltip("V1: The trade counter's buttons (OK, X, arrows) are pressed by pushing a hand into them, on any VR " +
+                 "backend - besides the UI laser, which didn't click them on XRI.")]
+        public bool EnableTradeTouchButtons = true;
+
         [Tooltip("V1: The game version / profile scene puts the player onto its floor like the logo and menu scenes - the " +
                  "XRI player fell from the floorless Player scene before the floor existed and kept falling.")]
         public bool EnableGameVersionScenePlacement = true;
