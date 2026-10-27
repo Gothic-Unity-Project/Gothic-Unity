@@ -8,9 +8,12 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
+using Gothic.Core.Logging;
 using Reflex.Attributes;
+using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Caches
 {
@@ -74,6 +77,14 @@ namespace Gothic.Core.Services.Caches
             if (_itemDataCache.TryGetValue(preparedKey, out var data) && data != null)
                 return data;
 
+            // DeveloperConfig.EnableItemInitSymbolCheck: no init of a symbol that isn't an instance - G2's ItemHoshi
+            // (all items) has ITWR_ADDON_LPBOOK, which isn't one: the native VM error crashed Unity.
+            if (!IsItemInstanceSymbol(symbol))
+            {
+                _itemDataCache[preparedKey] = null;
+                return null;
+            }
+
             ItemInstance newData = null;
             try
             {
@@ -101,6 +112,12 @@ namespace Gothic.Core.Services.Caches
                 return data;
             }
 
+            if (!IsItemInstanceSymbol(_gameStateService.GothicVm.GetSymbolByName(preparedKey)))
+            {
+                _itemDataCache[preparedKey] = null;
+                return null;
+            }
+
             ItemInstance newData = null;
             try
             {
@@ -114,6 +131,21 @@ namespace Gothic.Core.Services.Caches
             _itemDataCache[preparedKey] = newData;
 
             return newData;
+        }
+
+        private bool IsItemInstanceSymbol(DaedalusSymbol symbol)
+        {
+            if (!_configService.Dev.EnableItemInitSymbolCheck)
+                return true;
+            // ZenKit's own $INSTANCE_HELP (index 0 - what a missing item symbol in a script points to) is an
+            // instance without a parent class: its init failed natively and aborted ItemHoshi's script before
+            // Mdl_SetVisualBody (an invisible NPC).
+            if (symbol != null && symbol.Type == DaedalusDataType.Instance && symbol.Parent >= 0 &&
+                !symbol.Name.StartsWith("$"))
+                return true;
+
+            Logger.LogWarning($"[VmCache] '{symbol?.Name}' is no instance ({symbol?.Type}) - no item.", LogCat.ZenKit);
+            return false;
         }
 
         public FightAiProxy TryGetFightAiData(string nameTemplate, int instanceId)

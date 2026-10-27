@@ -434,8 +434,17 @@ namespace Gothic.Core.Services.Npc
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
 
-            
-            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+            // DeveloperConfig.EnableItemInitSymbolCheck: no item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
+            // skipped like the engine. The exception stopped the NPC's creation.
+            var itemData = _vmCacheService.TryGetItemData(itemIndex);
+            if (itemData == null)
+            {
+                Logger.LogWarning($"[CreateInvItems] {npc.GetName(NpcNameSlot.Slot0)}: '{itemInstance?.Name}' is no " +
+                                  "item - skipped.", LogCat.Npc);
+                return;
+            }
+
+            var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
@@ -467,8 +476,11 @@ namespace Gothic.Core.Services.Npc
 
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
-            
-            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+
+            var itemData = _vmCacheService.TryGetItemData(itemIndex);
+            if (itemData == null)
+                return;
+            var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
