@@ -19,7 +19,13 @@ architecture; these files cover workflow and hard-won gotchas.
 |---|---|
 | `daedalus-scout` | read-only lookup in Gothic scripts / OpenGothic / ZenKit, returns a short brief |
 | `gothic-reviewer` | reviews your diff against project-specific pitfalls before commit/PR |
+| `architecture-reviewer` | one-page structural review of a branch, `--wip` changes or a plan: layers, dependencies, coupling, where to look |
 | `playtest-planner` | turns branch changes into an in-game test checklist for G1/G2 |
+
+## Scripts (`scripts/`)
+
+- `architecture-facts.sh [<range> | --wip]` - structural facts of a change (layers, usings, DI, events, public API).
+  Used by `architecture-reviewer`, readable on its own as a review starting point.
 
 ## Settings
 

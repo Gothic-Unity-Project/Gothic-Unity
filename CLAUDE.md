@@ -30,6 +30,10 @@ CI triggers on PRs labeled `pipeline-test-build`. HurricaneVR (commercial asset)
 
 PlayMode tests live in `Assets/Gothic-Tests/PlayMode/` (assembly: `Gothic.Tests.PlayMode.asmdef`). Run them via the Unity Test Runner window.
 
+EditMode tests live in `Assets/Gothic-Tests/EditMode/`. `CoreArchitectureTest` enforces the Core layer model (see
+Architecture). Known violations are in `ArchitectureBaseline.txt` next to it; it may only shrink. Fix new violations
+by moving code to the right layer - never add baseline lines to make the test pass.
+
 ## Architecture
 
 ### Layer Model

@@ -128,6 +128,7 @@ OpenGothic
 !.claude/skills/
 !.claude/agents/
 !.claude/hooks/
+!.claude/scripts/
 !.claude/settings.json
 !.claude/README.md
 !.claude/CLAUDE-SETUP.md
