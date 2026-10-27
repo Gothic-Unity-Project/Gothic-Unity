@@ -12,6 +12,7 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Climbing;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Gravity;
@@ -32,6 +33,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
     {
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+
+        // DeveloperConfig.EnableXriPointerHoverColor: the pointer line's color while it points at something.
+        private static readonly Color _pointerHoverColor = Color.red;
+        private const float _pointerColorFadeSpeed = 8f;
 
         [Header("Rig")] [SerializeField] private XROrigin _origin;
         [SerializeField] private CharacterController _characterController;
@@ -340,6 +346,45 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 _bodyTransformer.afterApplyTransformations += OnAfterApplyTransformations;
             else
                 Logger.LogError("[XRI] No XRBodyTransformer found. Walking downhill will bounce.", LogCat.VR);
+
+            ApplyPointerHoverColor();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableXriPointerHoverColor: the hands' pointer lines fade to red while they point at
+        /// something (item, mob, NPC, UI) and back when they don't - XRI's own blend between the line's state
+        /// properties (CurveVisualController.linePropertyAnimationSpeed).
+        /// </summary>
+        private void ApplyPointerHoverColor()
+        {
+            if (_configService == null || !_configService.Dev.EnableXriPointerHoverColor)
+                return;
+
+            foreach (var visual in GetComponentsInChildren<CurveVisualController>(true))
+            {
+                var line = visual.lineRenderer;
+                var idleGradient = visual.noValidHitProperties.adjustGradient
+                    ? visual.noValidHitProperties.gradient
+                    : line != null ? line.colorGradient : null;
+                if (idleGradient == null)
+                    continue;
+
+                var hoverGradient = new Gradient();
+                hoverGradient.SetKeys(new[] { new GradientColorKey(_pointerHoverColor, 0f),
+                        new GradientColorKey(_pointerHoverColor, 1f) },
+                    idleGradient.alphaKeys);
+
+                visual.customizeLinePropertiesForState = true;
+                visual.linePropertyAnimationSpeed = _pointerColorFadeSpeed;
+                visual.noValidHitProperties.adjustGradient = true;
+                visual.noValidHitProperties.gradient = idleGradient;
+                foreach (var properties in new[] { visual.hoverHitProperties, visual.selectHitProperties,
+                             visual.uiHitProperties, visual.uiPressHitProperties })
+                {
+                    properties.adjustGradient = true;
+                    properties.gradient = hoverGradient;
+                }
+            }
         }
 
         private void OnDestroy()

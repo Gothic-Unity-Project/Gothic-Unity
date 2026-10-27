@@ -1571,7 +1571,7 @@ namespace Gothic.Core.Models.Config
                  "below the eyes, a trigger flicker) - it took much longer than its 1 s.")]
         public bool EnableRingGestureGrace = true;
 
-        [Tooltip("V1: XRI: the hands' pointer lines fade to light red while pointing at something (item, mob, NPC, UI) " +
+        [Tooltip("V1: XRI: the hands' pointer lines fade to red while pointing at something (item, mob, NPC, UI) " +
                  "and back.")]
         public bool EnableXriPointerHoverColor = true;
 
