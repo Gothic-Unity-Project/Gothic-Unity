@@ -1,9 +1,8 @@
 using System;
 using Gothic.Core.Logging;
-#if GOTHIC_HVR_INSTALLED
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Core.Player;
-#endif
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Services;
 using UnityEngine;
 using UnityEngine.UI;
 using Logger = Gothic.Core.Logging.Logger;
@@ -16,6 +15,9 @@ namespace Gothic.VR.Adapters.UI
     /// Created at runtime under the canvas, outside its rect and ignored by its layout group.
     /// Optional dock: while grabbed a sphere floats above a dock anchor (the left hand) - released in it, onDock is
     /// called (put the target back there).
+    /// Optional head follow: released outside the dock, the target floats in the air at its spot relative to the head
+    /// and lazily follows it (turns after it only once the head looked away further, then glides) - not glued to it.
+    /// Any VR backend (IVrRig, IVrInput), see SetPorts.
     /// </summary>
     public class VRGrabBar : MonoBehaviour
     {
@@ -32,30 +34,54 @@ namespace Gothic.VR.Adapters.UI
         private const float _dockHeight = 0.12f;
         private static readonly Color _dockColor = new(1f, 0.85f, 0.4f, 1f);
 
+        // Head follow: the head turns this far (degrees) away before the target turns after it, until it's within
+        // the settle angle again. Smoothing per second.
+        private const float _followStartAngle = 35f;
+        private const float _followSettleAngle = 3f;
+        private const float _followSharpness = 5f;
+
+        private static IVrRig _rig;
+        private static IVrInput _input;
+        private static VrHapticsService _haptics;
+
         private RectTransform _rect;
         private Transform _target;
         private Action _onBeforeGrab;
         private Transform _dockAnchor;
         private Action _onDock;
+        private bool _isHeadFollow;
         private GameObject _dockSphere;
         private Image _image;
         private Transform _grabTransform;
+        private VrHandSide _grabSide;
         private Vector3 _grabPositionOffset;
         private Quaternion _grabRotationOffset;
-#if GOTHIC_HVR_INSTALLED
-        private static HVRPlayerController _player;
-        private HVRHandGrabber _hand;
-#endif
+
+        private bool _isFollowing;
+        private bool _isFollowTurning;
+        private float _followYaw;
+        private Vector3 _followPositionOffset;
+        private Quaternion _followRotationOffset;
 
         public bool IsGrabbed => _grabTransform != null;
 
         /// <summary>
+        /// The player's rig, input and haptics (VRContextInteractionService, once the player exists).
+        /// </summary>
+        public static void SetPorts(IVrRig rig, IVrInput input, VrHapticsService haptics)
+        {
+            _rig = rig;
+            _input = input;
+            _haptics = haptics;
+        }
+
+        /// <summary>
         /// target: what moves (the canvas itself or e.g. the anchor it follows). isVertical: along the canvas' right
         /// side instead of under it. onBeforeGrab: on every grab before the offset to the hand is taken (detach from a
-        /// parent here). dockAnchor + onDock: see the class.
+        /// parent here). dockAnchor + onDock: see the class. isHeadFollow: see the class.
         /// </summary>
         public static VRGrabBar Create(RectTransform canvas, Transform target, bool isVertical = false,
-            Action onBeforeGrab = null, Transform dockAnchor = null, Action onDock = null)
+            Action onBeforeGrab = null, Transform dockAnchor = null, Action onDock = null, bool isHeadFollow = false)
         {
             var size = canvas.rect.size;
             var thickness = size.x * _barThickness;
@@ -87,6 +113,7 @@ namespace Gothic.VR.Adapters.UI
             bar._onBeforeGrab = onBeforeGrab;
             bar._dockAnchor = dockAnchor;
             bar._onDock = onDock;
+            bar._isHeadFollow = isHeadFollow;
             bar._image = go.GetComponent<Image>();
             bar._image.color = _color;
             // Grabbed by the hand, not clicked by the UI laser.
@@ -99,10 +126,12 @@ namespace Gothic.VR.Adapters.UI
         /// </summary>
         private void Update()
         {
-#if GOTHIC_HVR_INSTALLED
+            if (_rig == null || _input == null)
+                return;
+
             if (_grabTransform != null)
             {
-                if (_target == null || _hand == null || !_hand.Controller.GripButtonState.Active)
+                if (_target == null || !_input.GetButton(_grabSide, VrButton.Grip).IsActive)
                 {
                     Release();
                     return;
@@ -113,42 +142,45 @@ namespace Gothic.VR.Adapters.UI
                 return;
             }
 
-            if (_player == null)
-                _player = FindAnyObjectByType<HVRPlayerController>();
-            if (_player == null)
-                return;
-
             var isHovered = false;
-            foreach (var hand in new[] { _player.LeftHand, _player.RightHand })
+            foreach (var hand in _rig.HandGrabbers)
             {
                 // A hand holding something (sword, rune) doesn't grab the bar.
-                if (hand == null || hand.GrabbedTarget != null || !IsInReach(GetHandPosition(hand)))
+                if (hand == null || hand.Held != null || !IsInReach(GetHandPosition(hand.HandSide)))
                     continue;
                 isHovered = true;
-                if (hand.Controller.GripButtonState.JustActivated)
+                if (_input.GetButton(hand.HandSide, VrButton.Grip).IsJustActivated)
                 {
-                    Grab(hand);
+                    Grab(hand.HandSide);
                     return;
                 }
             }
             _image.color = isHovered ? _hoverColor : _color;
-#endif
+
+            if (_isFollowing)
+                UpdateHeadFollow();
         }
 
-#if GOTHIC_HVR_INSTALLED
-        private static Vector3 GetHandPosition(HVRHandGrabber hand)
+        private static Vector3 GetHandPosition(VrHandSide side)
         {
-            return hand.Palm != null ? hand.Palm.position : hand.transform.position;
+            var visual = _rig.GetHandVisual(side);
+            return visual != null ? visual.position : GetController(side).position;
+        }
+
+        private static Transform GetController(VrHandSide side)
+        {
+            return side == VrHandSide.Left ? _rig.LeftHand : _rig.RightHand;
         }
 
         /// <summary>
         /// The tracked controller, not the physics hand - it lags behind and would shake the target.
         /// </summary>
-        private void Grab(HVRHandGrabber hand)
+        private void Grab(VrHandSide side)
         {
             _onBeforeGrab?.Invoke();
-            _hand = hand;
-            _grabTransform = hand.TrackedController != null ? hand.TrackedController : hand.transform;
+            _isFollowing = false;
+            _grabSide = side;
+            _grabTransform = GetController(side);
             _grabRotationOffset = Quaternion.Inverse(_grabTransform.rotation) * _target.rotation;
             _grabPositionOffset = Quaternion.Inverse(_grabTransform.rotation) * (_target.position - _grabTransform.position);
             _image.color = _grabbedColor;
@@ -158,10 +190,9 @@ namespace Gothic.VR.Adapters.UI
                 _dockSphere.SetActive(true);
                 UpdateDockSphere();
             }
-            hand.Controller.Vibrate(0.3f, 0.05f);
-            Logger.Log($"[VRGrabBar] {_target.name} grabbed ({hand.HandSide})", LogCat.Ui);
+            _haptics?.Vibrate(side, VrHapticPreset.Info);
+            Logger.Log($"[VRGrabBar] {_target.name} grabbed ({side})", LogCat.Ui);
         }
-#endif
 
         private bool IsInReach(Vector3 position)
         {
@@ -182,14 +213,58 @@ namespace Gothic.VR.Adapters.UI
             Logger.Log($"[VRGrabBar] {(_target != null ? _target.name : "target")} released" +
                        (isDocked ? " in the dock" : ""), LogCat.Ui);
             _grabTransform = null;
-#if GOTHIC_HVR_INSTALLED
-            _hand = null;
-#endif
             _image.color = _color;
             if (_dockSphere != null)
                 _dockSphere.SetActive(false);
             if (isDocked)
+            {
                 _onDock();
+                return;
+            }
+
+            if (_isHeadFollow && _target != null && _rig.Head != null)
+                StartHeadFollow();
+        }
+
+        /// <summary>
+        /// Keeps the target's pose relative to the head's yaw (no pitch/roll: it doesn't swing with nodding).
+        /// </summary>
+        private void StartHeadFollow()
+        {
+            var head = _rig.Head;
+            _followYaw = head.eulerAngles.y;
+            var yaw = Quaternion.Euler(0f, _followYaw, 0f);
+            _followPositionOffset = Quaternion.Inverse(yaw) * (_target.position - head.position);
+            _followRotationOffset = Quaternion.Inverse(yaw) * _target.rotation;
+            _isFollowing = true;
+            _isFollowTurning = false;
+        }
+
+        private void UpdateHeadFollow()
+        {
+            var head = _rig.Head;
+            if (_target == null || head == null)
+            {
+                _isFollowing = false;
+                return;
+            }
+
+            var headYaw = head.eulerAngles.y;
+            var angle = Mathf.Abs(Mathf.DeltaAngle(_followYaw, headYaw));
+            if (angle > _followStartAngle)
+                _isFollowTurning = true;
+            else if (angle < _followSettleAngle)
+                _isFollowTurning = false;
+
+            var blend = 1f - Mathf.Exp(-_followSharpness * Time.deltaTime);
+            if (_isFollowTurning)
+                _followYaw = Mathf.LerpAngle(_followYaw, headYaw, blend);
+
+            var yaw = Quaternion.Euler(0f, _followYaw, 0f);
+            var position = head.position + yaw * _followPositionOffset;
+            var rotation = yaw * _followRotationOffset;
+            _target.SetPositionAndRotation(Vector3.Lerp(_target.position, position, blend),
+                Quaternion.Slerp(_target.rotation, rotation, blend));
         }
 
         /// <summary>

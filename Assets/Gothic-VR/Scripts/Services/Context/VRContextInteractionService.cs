@@ -163,6 +163,7 @@ namespace Gothic.VR.Services.Context
             }
 
             _rig = _player.GetComponent<IVrRig>();
+            VRGrabBar.SetPorts(_rig, _vrInput, _vrHapticsService);
             var playerRoot = _player.transform.root.gameObject;
             foreach (var otherRoot in players.Select(i => i.transform.root.gameObject).Distinct())
             {
@@ -268,7 +269,8 @@ namespace Gothic.VR.Services.Context
                     panel.SetLocalPositionAndRotation(dockedPosition, dockedRotation);
                     panel.localScale = dockedScale;
                     Logger.Log("[VRContextInteractionService] Marvin panel docked to the hand", LogCat.VR);
-                });
+                },
+                _configService.Dev.EnableMarvinHeadFollow);
 
             // Centered where the panel meets its keyboard (KeyboardAnchor below the panel) - one bar for both.
             var barRect = (RectTransform)bar.transform;
