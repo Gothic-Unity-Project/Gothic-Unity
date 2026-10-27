@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Gothic.Tests.EditMode.Architecture
 {
     /// <summary>
-    /// Guards the layer model of Gothic.Core: Models -> Domain -> Services -> Adapters (see CLAUDE.md > Architecture).
+    /// Guards the layer model of Gothic.Core: Models <- Domain/Services <- Adapters (see CLAUDE.md > Architecture).
     ///
     /// Existing violations are listed in ArchitectureBaseline.txt and tolerated. The tests fail on
     /// 1. new violations - fix the code, or, if it's a reviewed exception, add the line to the baseline.
@@ -33,7 +33,7 @@ namespace Gothic.Tests.EditMode.Architecture
         public void LayersOnlyUseOwnOrLowerLayers()
         {
             AssertMatchesBaseline(CoreLayerScanner.RuleLayer, _scanner.FindLayerViolations(),
-                "A layer may only use namespaces of its own or lower layers (Models -> Domain -> Services -> Adapters).");
+                "A layer may only use namespaces of its own or lower layers (Models <- Domain/Services <- Adapters).");
         }
 
         [Test]

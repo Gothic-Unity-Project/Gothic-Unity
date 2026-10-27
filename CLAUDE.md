@@ -52,7 +52,10 @@ Gothic.Core               with engine, services, domain logic
 
 **Assembly topology**: Every module depends on `Gothic.Core` and has **no interaction with other Gothic modules** (star topology — no lateral dependencies).
 
-Within Core, responsibility is further split into four layers: **Model** (data) → **Domain** (business logic) → **Service** (orchestration) → **Adapter** (Unity integration). Dependencies flow upward only.
+Within Core, responsibility is further split into layers: **Model** (data) ← **Domain** (business logic) ⇄ **Service** (orchestration) ← **Adapter** (Unity integration). Arrows point to what a layer may use:
+- Models only use Models.
+- Domain and Services are one rank and may use each other. Domain classes are workers owned by a Service, created via `new XDomain().Inject()` (not registered in Reflex), and may `[Inject]` Services.
+- Nothing below Adapters uses Adapters.
 
 ### Dependency Injection (Reflex)
 
@@ -74,7 +77,7 @@ Injection approaches:
 (Each pattern lives in its folder representation like Adapters in `/Adapters/`.)
 - **Adapters**: MonoBehaviour classes that bridge Unity lifecycle (Start/Update/etc.) to domain services. They are thin wrappers — logic belongs in services.
 - **Services**: Pure C# classes injected via DI.
-- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_).
+- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_). Created and owned by a Service, never by an Adapter.
 - **Models**: Data containers, often with a `Container` suffix (e.g. `NpcContainer`, `VobContainer`) wrapping entity state.
 - **GlobalEventDispatcher**: Central event bus (`Assets/Gothic-Core/Scripts/GlobalEventDispatcher.cs`) used for cross-service communication (scene loading, NPC creation, fight events, time changes, etc.). Used for all! events at runtime for easy seekability.
 

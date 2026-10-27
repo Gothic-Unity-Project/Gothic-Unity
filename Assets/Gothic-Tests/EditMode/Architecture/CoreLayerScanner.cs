@@ -20,11 +20,18 @@ namespace Gothic.Tests.EditMode.Architecture
         public const string RuleMonoBehaviour = "monobehaviour";
 
         /// <summary>
-        /// Lowest to highest. A layer may only use namespaces of its own or lower layers.
+        /// Layer folders, lowest to highest.
         /// </summary>
         public static readonly string[] Layers = { "Models", "Domain", "Services", "Adapters" };
 
+        /// <summary>
+        /// Rank per entry of Layers. A layer may only use namespaces of its own or lower ranks.
+        /// Domain and Services share a rank: Domain classes are workers owned by a Service and may use Services.
+        /// </summary>
+        private static readonly int[] _ranks = { 0, 1, 1, 2 };
+
         private static readonly Regex _namespaceRegex = new(@"^\s*namespace\s+([\w.]+)", RegexOptions.Multiline);
+
         private static readonly Regex _usingRegex =
             new(@"^\s*using\s+(?:static\s+)?(?:\w+\s*=\s*)?([\w.]+)\s*;", RegexOptions.Multiline);
 
@@ -72,11 +79,12 @@ namespace Gothic.Tests.EditMode.Architecture
                 bestMatch = declared;
                 bestLayer = layer;
             }
+
             return bestLayer;
         }
 
         /// <summary>
-        /// A file must not have a using of a namespace living in a higher layer.
+        /// A file must not have a using of a namespace living in a higher ranked layer.
         /// </summary>
         public List<string> FindLayerViolations()
         {
@@ -86,10 +94,12 @@ namespace Gothic.Tests.EditMode.Architecture
                 foreach (Match match in _usingRegex.Matches(content))
                 {
                     var usedNamespace = match.Groups[1].Value;
-                    if (GetLayerOfNamespace(usedNamespace) > layer)
+                    var usedLayer = GetLayerOfNamespace(usedNamespace);
+                    if (usedLayer >= 0 && _ranks[usedLayer] > _ranks[layer])
                         violations.Add(Format(RuleLayer, path, usedNamespace));
                 }
             }
+
             return Sorted(violations);
         }
 
@@ -114,6 +124,7 @@ namespace Gothic.Tests.EditMode.Architecture
                         violations.Add(Format(RuleNamespace, path, nameSpace));
                 }
             }
+
             return Sorted(violations);
         }
 
