@@ -302,6 +302,31 @@ namespace Gothic.Core.Manager
             }
         }
 
+        /// <summary>
+        /// The hero comments on something outside a dialog (e.g. $KEYMISSING at a locked door): voice and subtitle,
+        /// fire-and-forget. Takes the first SVM the game has a line for (G1 lacks some of G2's).
+        /// </summary>
+        public void HeroSaySvm(params string[] svmNames)
+        {
+            if (_gameStateService.GothicVm.GlobalHero is not NpcInstance hero)
+                return;
+
+            var blocks = _gameStateService.Dialogs.CutsceneLibrary?.Blocks;
+            foreach (var svmName in svmNames)
+            {
+                var lineName = $"SVM_{hero.Voice}_{svmName.TrimStart('$')}";
+                if (blocks != null &&
+                    !blocks.Exists(block => block.Name.Equals(lineName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                Logger.Log($"[Dialog] Hero says {svmName} ({lineName}).", LogCat.Dialog);
+                new OutputSvm(new AnimationAction(int0: 0, string0: svmName), GetNpcContainer(hero)).Start();
+                return;
+            }
+
+            Logger.LogWarning($"[Dialog] Hero has no line for {string.Join(", ", svmNames)}.", LogCat.Dialog);
+        }
+
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
             var isHero = IsHeroSpeaker(npc);

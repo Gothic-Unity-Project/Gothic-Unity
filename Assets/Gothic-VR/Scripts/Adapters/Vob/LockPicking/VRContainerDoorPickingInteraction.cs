@@ -28,6 +28,14 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly DialogService _dialogService;
+
+        private const float _lockedTouchRadius = 0.1f;
+        private const float _lockedCommentCooldown = 8f;
+        private readonly Collider[] _touchHits = new Collider[16];
+        private readonly bool[] _isHandTouching = new bool[2];
+        private float _nextLockedCommentTime;
 
         private bool _isLocked;
         private string _combination;
@@ -89,6 +97,69 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
             // Deactivate rotation
             _hinge?.Lock();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableLockedTouchComment: like the engine trying a locked door/chest without key or lock
+        /// pick - an empty hand touching it makes the hero say why it doesn't open ($KEYMISSING, $NEVEROPEN...).
+        /// </summary>
+        private void Update()
+        {
+            if (!_configService.Dev.EnableLockedTouchComment)
+                return;
+
+            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            if (rig == null)
+                return;
+
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand == null)
+                    continue;
+
+                var index = hand.HandSide == VrHandSide.Left ? 0 : 1;
+                var wasTouching = _isHandTouching[index];
+                _isHandTouching[index] = hand.Held == null && IsHandTouchingLockable(rig, hand.HandSide);
+
+                if (!_isHandTouching[index] || wasTouching || Time.time < _nextLockedCommentTime)
+                    continue;
+
+                _nextLockedCommentTime = Time.time + _lockedCommentCooldown;
+                _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
+                _dialogService.HeroSaySvm(GetLockedSvms());
+            }
+        }
+
+        private bool IsHandTouchingLockable(IVrRig rig, VrHandSide side)
+        {
+            var handVisual = rig.GetHandVisual(side);
+            var handPosition = handVisual != null ? handVisual.position
+                : _vrPlayerService.GetHandModelGo(side)?.transform.position;
+            if (!handPosition.HasValue || _lockable.Go == null)
+                return false;
+
+            var count = Physics.OverlapSphereNonAlloc(handPosition.Value, _lockedTouchRadius, _touchHits,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (var i = 0; i < count; i++)
+            {
+                if (_touchHits[i].transform.IsChildOf(_lockable.Go.transform))
+                    return true;
+            }
+            return false;
+        }
+
+        // Like oCMobLockable::CanOpen: what the hero misses to open it, with fallbacks for G1's smaller SVM set.
+        private string[] GetLockedSvms()
+        {
+            var hasKey = !string.IsNullOrEmpty(_keyInstance);
+            var hasPick = !string.IsNullOrEmpty(_combination);
+            if (hasKey && hasPick)
+                return new[] { "$PICKLOCKORKEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
+            if (hasKey)
+                return new[] { "$KEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
+            if (hasPick)
+                return new[] { "$PICKLOCKMISSING", "$NOMOREPICKS", "$DOESNTWORK" };
+            return new[] { "$NEVEROPEN", "$DOESNTWORK" };
         }
 
         private void OnTriggerEnter(Collider other)
