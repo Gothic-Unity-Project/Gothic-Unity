@@ -365,6 +365,17 @@ MonoBehaviour:
   EnableTwoHandSpellCharge: 1
   EnableActiveSpellIsScroll: 1
   EnableWldInsertItemSkipMissing: 1
+  EnableMobDoorNonDoorVisuals: 1
+  EnableLockedTouchComment: 1
+  EnableLinkedSocketReturn: 1
+  BackpackShoulderGrabScale: 2
+  EnableMarvinHeadFollow: 1
+  EnableSwimTurnAnimation: 1
+  EnableMeleeHeightReach: 1
+  EnableG2KeepAllTalents: 1
+  EnableItemTheftPerception: 1
+  EnableG2VrPickpocket: 1
+  EnableItemInitSymbolCheck: 1
   EnableGameVersionScenePlacement: 1
   EnableHeroHands: 1
   HeroHandsRollDegrees: 0

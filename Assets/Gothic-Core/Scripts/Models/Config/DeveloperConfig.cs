@@ -489,7 +489,7 @@ namespace Gothic.Core.Models.Config
                  "forward'). Only shown for one click, not run. Leave empty for none.")]
         public string MarvinStartCommands = string.Empty;
 
-        [Tooltip("Items for the Marvin 'Give items' button, comma separated, optional amount: " +
+        [Tooltip("Items for the Marvin command 'give items', comma separated, optional amount: " +
                  "ITRU_FIREBOLT, ITSC_ICEBOLT:3, ITPO_MANA_03:5. Leave empty to hide the button.")]
         [TextArea(2, 6)]
         public string MarvinGiveItems = string.Empty;
@@ -1515,6 +1515,65 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Wld_InsertItem with an unknown item or spawn point logs a warning and skips it (like OpenGothic) - " +
                  "the exception aborted G2's STARTUP_OLDWORLD, the Valley of Mines stayed half empty.")]
         public bool EnableWldInsertItemSkipMissing = true;
+
+        [Tooltip("V1: An oCMobDoor vob whose visual isn't a DOOR (G2's Old Camp beds) is an AI_UseMob mob like any " +
+                 "other - Parcival and the paladins slept standing next to their beds.")]
+        public bool EnableMobDoorNonDoorVisuals = true;
+
+        [Tooltip("V1: An empty VR hand touching a locked door/chest makes the hero say why it doesn't open, like the " +
+                 "engine ($KEYMISSING, $PICKLOCKMISSING, $NEVEROPEN).")]
+        public bool EnableLockedTouchComment = true;
+
+        [Tooltip("V1: The backpack returns to its shoulder when it fell through the world, got deactivated or lies " +
+                 "30 m away and no hand holds it - it was gone for good.")]
+        public bool EnableLinkedSocketReturn = true;
+
+        [Tooltip("V1: While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
+                 "had to be grabbed very precisely. 1 = off.")]
+        public float BackpackShoulderGrabScale = 2f;
+
+        [Tooltip("V1: The Marvin panel released in the air (not in the hand dock) floats there relative to the head and " +
+                 "lazily follows it (turns after it only when looking away further) - it stayed where it was put in the " +
+                 "player's space.")]
+        public bool EnableMarvinHeadFollow = true;
+
+        [Tooltip("V1: The VR hero's body plays T_SWIMTURNL/R (T_DIVETURNL/R under water) while drifting and turning - " +
+                 "it floated without any turn animation.")]
+        public bool EnableSwimTurnAnimation = true;
+
+        [Tooltip("V1: Melee fighters can't hit an enemy above their body (hero up a rock above wolves) or far below " +
+                 "them (orcs at a castle wall) - they turn and wait, take an equipped ranged weapon, and give up after " +
+                 "8 s. Wolves bit a climbing hero, a crossbow guard ran off the wall into the orcs.")]
+        public bool EnableMeleeHeightReach = true;
+
+        [Tooltip("V1: G2 NPCs keep all their talents when saved (level changes too) - they were cut to G1's 12, the hero " +
+                 "lost pickpocketing (12), smithing, runes, alchemy... A missing talent slot is added when set again.")]
+        public bool EnableG2KeepAllTalents = true;
+
+        [Tooltip("V1: The hero taking an item lying in the world sends PERC_ASSESSTHEFT like the engine - the scripts " +
+                 "call it theft by the item's/room's owner (Lares' hut in G1, citizens' houses in G2). Nothing out of an " +
+                 "inventory, only the first take.")]
+        public bool EnableItemTheftPerception = true;
+
+        [Tooltip("V1: The VR purse (EnableVrPickpocket) in G2 too, in addition to the pickpocket dialog (untouched): " +
+                 "like G1 - sneak, open his pockets, each item can get the hero caught (100 - dexterity %, 5-90).")]
+        public bool EnableG2VrPickpocket = true;
+
+        [Tooltip("V1: An item lookup of a symbol that isn't an instance gives no item instead of initializing it - G2's " +
+                 "ItemHoshi (Marvin 'insert itemhoshi') has ITWR_ADDON_LPBOOK, the native VM error crashed Unity.")]
+        public bool EnableItemInitSymbolCheck = true;
+
+        [Tooltip("V1: With the hero's fists as the VR hands, the arms draw over menus/dialogs like the block hands " +
+                 "(VRHandsOnTop) - the fist pointing at a menu entry was behind the menu.")]
+        public bool EnableHeroHandsOnTop = true;
+
+        [Tooltip("V1: The favorites ring's open gesture keeps its hold time through a short break (0.3 s: a hand dipping " +
+                 "below the eyes, a trigger flicker) - it took much longer than its 1 s.")]
+        public bool EnableRingGestureGrace = true;
+
+        [Tooltip("V1: XRI: the hands' pointer lines fade to light red while pointing at something (item, mob, NPC, UI) " +
+                 "and back.")]
+        public bool EnableXriPointerHoverColor = true;
 
         [Tooltip("V1: The game version / profile scene puts the player onto its floor like the logo and menu scenes - the " +
                  "XRI player fell from the floorless Player scene before the floor existed and kept falling.")]
