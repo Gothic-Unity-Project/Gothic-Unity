@@ -1,3 +1,4 @@
+using System;
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -28,6 +29,7 @@ namespace Gothic.Core.Domain.Marvin
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         private const int _levelsPerLevelCheat = 5;
         private const int _learnPointsPerLevel = 10;
@@ -121,6 +123,34 @@ namespace Gothic.Core.Domain.Marvin
         /// <summary>
         /// Items go into the hero's inventory. NPCs are spawned in front of the hero.
         /// </summary>
+        /// <summary>
+        /// DeveloperConfig.MarvinGiveItems: the whole list into the hero's inventory ("ITRU_FIREBOLT, ITPO_MANA_03:5") -
+        /// test kits for G2, where the scripts' test heroes (PC_Rockefeller) break the story. Unknown items are skipped.
+        /// </summary>
+        public bool GiveItems(string itemList)
+        {
+            var given = 0;
+            foreach (var entry in itemList.Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = entry.Trim().Trim('\'').Split(':');
+                var name = parts[0].Trim();
+                if (name.Length == 0)
+                    continue;
+                var amount = parts.Length > 1 && int.TryParse(parts[1].Trim(), out var parsed) ? parsed : 1;
+                if (_vmCacheService.TryGetItemData(name) == null)
+                {
+                    Logger.LogWarning($"[MarvinCheatDomain] Give items: no item '{name}' - skipped", LogCat.Ui);
+                    continue;
+                }
+
+                _playerService.AddItem(name, Mathf.Max(1, amount));
+                given++;
+            }
+
+            Logger.Log($"[MarvinCheatDomain] Gave {given} item(s) from MarvinGiveItems", LogCat.Ui);
+            return given > 0;
+        }
+
         public bool Insert(string instanceName, int amount, bool isItem)
         {
             if (isItem)

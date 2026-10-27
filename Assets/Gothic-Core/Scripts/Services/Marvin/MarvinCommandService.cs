@@ -208,6 +208,11 @@ namespace Gothic.Core.Services.Marvin
             insert.Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
                 .Runs(values => Insert(values[0], int.Parse(values[1])));
 
+            if (!string.IsNullOrWhiteSpace(_configService.Dev.MarvinGiveItems))
+                root.Add("give").Add("items").Describe("The DeveloperConfig's item list (MarvinGiveItems) into the " +
+                                                       "inventory").Runs(_ => _cheatDomain.GiveItems(
+                    _configService.Dev.MarvinGiveItems));
+
             if (!string.IsNullOrEmpty(_configService.Dev.MarvinFriendsNpcSymbols))
                 root.Add("team").Add("irdorath").Describe("The Irdorath crew in front of the hero")
                     .Runs(_ => _cheatDomain.SpawnGroup("Irdorath crew", _configService.Dev.MarvinFriendsNpcSymbols));
