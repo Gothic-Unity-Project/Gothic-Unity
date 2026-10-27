@@ -82,11 +82,6 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
         public bool EnableVRDeviceSimulator;
 
-        [Tooltip("Keys of the VR device simulator on the XRI backend: XRI's own or like the HVR simulator (W/A/S/D, " +
-                 "right mouse turns, hold Q/E + mouse moves a hand, G grabs/lets go, left click = trigger).")]
-        public DeveloperConfigEnums.VrSimulatorControls VrSimulatorControls =
-            DeveloperConfigEnums.VrSimulatorControls.XriSimulator;
-
         [Tooltip("Start with Marvin mode on (shortcut). Without it, Marvin mode can still be activated in game.")]
         public bool PreselectMarvinMode;
 

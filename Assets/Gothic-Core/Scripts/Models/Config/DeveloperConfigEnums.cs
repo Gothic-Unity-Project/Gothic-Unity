@@ -21,14 +21,6 @@ namespace Gothic.Core.Models.Config
             G2DragonIsland,
         }
 
-        public enum VrSimulatorControls
-        {
-            // The XR Interaction Simulator's own keys (XRI backend).
-            XriSimulator,
-            // Like the HVR simulator: W/A/S/D, right mouse turns, hold Q/E to move a hand, G grabs.
-            HurricaneStyle,
-        }
-
         public enum NpcLootMode
         {
             Sockets,

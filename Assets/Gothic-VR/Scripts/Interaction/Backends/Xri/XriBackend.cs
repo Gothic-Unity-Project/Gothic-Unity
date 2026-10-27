@@ -9,7 +9,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// <summary>
     /// XR Interaction Toolkit backend. Always compiled, as XRI is a free package.
     /// Implemented: input, haptics, SFX, UI laser pointers, the player rig (XriRig on "VR - Player XRI.prefab",
-    /// with ScreenFade/WallFade on its camera), the XR Interaction Simulator and item grabbing (Near-Far interactor
+    /// with ScreenFade/WallFade on its camera), the desktop simulator and item grabbing (Near-Far interactor
     /// per hand, GothicGrabInteractable + XriInteractableBridge on oCItem), using mobs/NPCs and the socket core
     /// (VrSocketSlot + XriSocketBridge, "VR Socket Slot.prefab"), the backpack ("BackPack XRI.prefab") on the
     /// shoulder and the hip/shoulder holsters (VrBodyAnchor "Shoulders"/"Waist" on the rig), chest slots
@@ -26,7 +26,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public void InstallBindings(ContainerBuilder containerBuilder)
         {
             Logger.LogWarning("XRI backend is work in progress: rig, locomotion, input, haptics, UI laser pointers, " +
-                              "screen fades, the XR Interaction Simulator, grabbing (items, mobs, NPCs), the " +
+                              "screen fades, the desktop simulator, grabbing (items, mobs, NPCs), the " +
                               "backpack, holsters, chest slots, doors, chest lids, ladders, NPC loot, block hands " +
                               "and physical hands (held items, contact haptics, teleports, ladders, swimming) " +
                               "work.", LogCat.VR);

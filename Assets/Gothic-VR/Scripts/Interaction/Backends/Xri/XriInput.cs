@@ -5,7 +5,6 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Interaction.Backends.Xri
@@ -27,7 +26,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private const string _thumbTouchActionName = "Thumb Touch";
 
         // Binding groups of the "Gothic" map: controller bindings ("XR") are always used, the keyboard shortcuts
-        // ("Simulator") only while the XR Interaction Simulator is active.
+        // ("Simulator") only while the simulator is active.
         private const string _xrBindingGroup = "XR";
 
         // Indexed by VrButton.
@@ -44,11 +43,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly InputAction[] _haptics = new InputAction[2];
         private readonly InputAction[] _gripValues = new InputAction[2];
         private readonly InputAction[] _thumbTouches = new InputAction[2];
-        // XRI's own controller maps (also read by its turn/move providers).
+        private readonly InputAction[] _gothicActions = new InputAction[_gothicActionNames.Length];
         private const string _leftThumbstickActionPath = "XRI Left/Thumbstick";
         private const string _rightThumbstickActionPath = "XRI Right/Thumbstick";
         private readonly InputAction[] _thumbsticks = new InputAction[2];
-        private readonly InputAction[] _gothicActions = new InputAction[_gothicActionNames.Length];
 
         // Simulator only: velocity from the controller's position change, as simulated devices have no velocity.
         private readonly Vector3[] _simulatedVelocities = new Vector3[2];
@@ -56,19 +54,15 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly int[] _simulatedVelocityFrames = { -1, -1 };
 
         private InputActionMap _gothicMap;
-        private XRInteractionSimulator _simulator;
+        private XriHvrStyleSimulator _simulator;
         private XriRig _simulatorRig;
         private bool _isSimulatorActive;
 
         public InputActionAsset Actions { get; }
 
-        // The XRInteractionSimulator component is off with Hurricane style keys - its GameObject (devices) runs.
-        public bool IsSimulator => _isSimulatorActive && _simulator != null && _simulator.gameObject.activeInHierarchy;
+        public bool IsSimulator => _isSimulatorActive && _simulator != null && _simulator.isActiveAndEnabled;
 
-        // Hurricane style: T holds both grips (like HVR); XRI's simulator holds them itself.
-        public bool UsesBothGripsSimulatorKey => _isHurricaneStyle;
-
-        private bool _isHurricaneStyle;
+        public bool UsesBothGripsSimulatorKey => false;
 
         public XriInput()
         {
@@ -148,7 +142,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
-        /// The XR Interaction Simulator's controllers report no velocity (swim strokes would do nothing). Derived from
+        /// The simulated controllers report no velocity (swim strokes would do nothing). Derived from
         /// the controller's position in the tracking space between two frames instead. Zero on the first call after a
         /// pause, as there is nothing to compare against.
         /// </summary>
@@ -183,12 +177,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _isSimulatorActive = isActive;
 
             if (_simulator == null)
-                _simulator = SceneManager.GetActiveScene().GetComponentInChildren<XRInteractionSimulator>(true);
+                _simulator = SceneManager.GetActiveScene().GetComponentInChildren<XriHvrStyleSimulator>(true);
 
             if (_simulator == null)
             {
                 if (isActive)
-                    Logger.LogWarning("XRI backend: no XR Interaction Simulator in the active scene. " +
+                    Logger.LogWarning("XRI backend: no XriHvrStyleSimulator in the active scene. " +
                                       "Add 'VR - XR Interaction Simulator.prefab' (inactive) to the player scene.",
                         LogCat.VR);
                 ApplyKeyboardShortcuts(false);
@@ -196,60 +190,24 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
 
             if (isActive)
-            {
-                AssignSimulatorControllers();
-                ApplySimulatorControls();
-            }
+                AssignSimulatorRig();
 
             _simulator.gameObject.SetActive(isActive);
             ApplyKeyboardShortcuts(isActive);
         }
 
         /// <summary>
-        /// The simulator finds the controllers only via an XRInputModalityManager, which our rig doesn't have. Without
-        /// them, point-and-click (mouse aims the controller ray) would aim the camera instead.
-        /// Called before the simulator's GameObject is enabled, as it reads them in OnEnable.
+        /// The simulator aims the right hand at the mouse cursor through the rig's camera and tracking space.
+        /// Called before the simulator's GameObject is enabled.
         /// </summary>
-        private void AssignSimulatorControllers()
+        private void AssignSimulatorRig()
         {
             var rig = Object.FindFirstObjectByType<XriRig>();
             if (rig == null)
                 return;
 
             _simulatorRig = rig;
-
-            if (_simulator.leftControllerTransform == null)
-                _simulator.leftControllerTransform = rig.LeftHand;
-            if (_simulator.rightControllerTransform == null)
-                _simulator.rightControllerTransform = rig.RightHand;
-        }
-
-        /// <summary>
-        /// DeveloperConfig.VrSimulatorControls: HurricaneStyle turns XRI's simulator keys off (its devices stay) and lets
-        /// XriHurricaneStyleSimulator drive them. Before the GameObject is enabled (XRInteractionSimulator.OnEnable).
-        /// </summary>
-        private void ApplySimulatorControls()
-        {
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer?.Resolve<Gothic.Core.Services.Config.ConfigService>();
-            _isHurricaneStyle = config != null && config.Dev.VrSimulatorControls ==
-                Gothic.Core.Models.Config.DeveloperConfigEnums.VrSimulatorControls.HurricaneStyle;
-
-            _simulator.enabled = !_isHurricaneStyle;
-            if (_simulator.TryGetComponent<XriSimulatorControlsGUI>(out var xriHelp))
-                xriHelp.enabled = !_isHurricaneStyle;
-
-            var hurricane = _simulator.GetComponent<XriHurricaneStyleSimulator>();
-            if (_isHurricaneStyle)
-            {
-                if (hurricane == null)
-                    hurricane = _simulator.gameObject.AddComponent<XriHurricaneStyleSimulator>();
-                hurricane.enabled = true;
-                hurricane.Init(_simulatorRig);
-            }
-            else if (hurricane != null)
-            {
-                hurricane.enabled = false;
-            }
+            _simulator.Rig = rig;
         }
 
         /// <summary>

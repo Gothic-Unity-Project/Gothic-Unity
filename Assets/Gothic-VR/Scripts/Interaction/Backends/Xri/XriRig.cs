@@ -175,7 +175,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// </summary>
         /// <summary>
         /// Height the origin adds below the HMD (Device mode's CameraYOffset, 0 on the floor) and the tracking space's
-        /// scale (Standing) - XriHurricaneStyleSimulator keeps the simulated eyes at a fixed height with them.
+        /// scale (Standing) - XriHvrStyleSimulator keeps the simulated eyes at a fixed height with them.
         /// </summary>
         public float TrackingBaseOffset => _origin.CurrentTrackingOriginMode == TrackingOriginModeFlags.Floor
             ? 0f

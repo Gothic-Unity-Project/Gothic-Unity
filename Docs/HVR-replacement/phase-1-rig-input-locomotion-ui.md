@@ -308,6 +308,61 @@ Already on `IVrRig` after Phase 0. Check:
   - Play mode test (G1, Xri, simulator; keys injected via the Input System, Game view at 919x301), see the test plan
     section below.
 
+- Update (HVR-style controls): the XRI simulator's device selection ([ ] Tab, modes) was too hard to use, so its
+  input handling is replaced by own code with controls like the HVR simulator.
+  - `XriHvrStyleSimulator` (`Gothic-VR/Scripts/Interaction/Backends/Xri/`) writes the state of the simulated HMD and
+    controllers (`XRSimulatedHMDState` / `XRSimulatedControllerState` via `InputState.Change`) every frame. The
+    devices are still added by `SimulatedDeviceLifecycleManager` on the same prefab. `XRInteractionSimulator`,
+    `InputActionManager` and `SimulatedHandPlaybackManager` were removed from the prefab, the copied simulator input
+    actions (`Gothic-VR/Simulator/`) deleted. `XriInput` looks for `XriHvrStyleSimulator` now and hands it the rig
+    (replaces the controller assignment above); the velocity workaround for swim strokes is unchanged.
+  - Hand poses are kept relative to the head's yaw (not its pitch), so hands follow walking, snap turns and mouse
+    looking. The HMD only rotates; its position stays 0 like before (the eye height comes from the XR Origin).
+  - Grip is a toggle (the HVR simulator shows Grab/Release on the same key): an item stays held after letting go of
+    Q/E. A grip that grabbed nothing or only used something (NPC talk, mobs: select-only interactables) lets go
+    by itself once Q/E is let go, so the next G is a press again (talking to Diego twice needed G three times).
+    Both grips (`VRPlayer.IsBothGripsActive`) = both grips toggled on while Q and E are held.
+  - The hands' `NearFarInteractor`s read grip (select) and trigger (activate) from the simulator directly
+    (`XRInputButtonReader.InputSourceMode.ManualValue`, restored on disable): through the simulated devices' `Select`
+    action the grip never arrived - no grab, no NPC talk. Everything else (UI press, Gothic actions, `IVrInput`)
+    still reads the simulated devices.
+  - Cursor aim: while the right hand isn't held (E), gripping or manually rotated, it points at what's under the
+    mouse cursor (world-space UI via the EventSystem with a `TrackedDeviceEventData` ray, else a collider, else
+    3 m), so the UI laser and the teleport arc follow the mouse. Rotating the right hand with the middle mouse turns
+    it off, R or C turn it on again.
+  - The cursor is locked while looking or moving a hand; the first frame after locking skips the mouse delta.
+  - Keys (on-screen list: F1, `XriSimulatorControlsGUI`):
+
+    | Key | Effect |
+    |-----|--------|
+    | W/A/S/D | walk (left stick) |
+    | hold right mouse + move | look (yaw turns the head and the hands with it, pitch tilts the head) |
+    | Space / X / F / Esc | jump / crouch / sprint / menu (`Gothic` map, group `Simulator`, unchanged) |
+    | J / L | snap turn (right stick left/right) |
+    | I / K | right stick up/down; hold K (stick back) = teleport arc, aim with the mouse, release to teleport |
+    | left click | trigger of the right hand (UI click) without Q/E, of the held hand(s) with Q/E |
+    | 1 / 2 / 3 | primary / secondary / stick click, same hand rule as left click |
+    | hold Q / E + mouse | move the left / right hand in the camera plane |
+    | hold Q / E + scroll | move the hand forward/back along the view |
+    | hold Q / E + middle mouse + move | rotate the hand (x = yaw, y = pitch); + scroll = roll |
+    | Q / E + G | toggle that hand's grip (grab / release); nothing grabbed or an NPC/mob used: lets go with Q/E |
+    | Shift (while moving a hand) | precise (x0.2) |
+    | R | reset both hands in front of the body, cursor aim on |
+    | C | cursor aim of the right hand on/off |
+    | F1 | key list on/off |
+
+    Q and E together move both hands. Hands reach up to 1.8 m from the head (the floor while standing).
+  - Play mode test (G1 new world, Xri, simulator, editor without headset; input injected from editor scripts, not
+    typed): W walks (left stick 1.0, ~6 m in 5 s); right mouse + delta turns the camera 45° / tilts it 15° and the
+    left hand follows the yaw; E + mouse up moves the right hand up in the camera plane; E+G toggles the grip (stays
+    after releasing E); with the hand on a torch on the ground, E+G grabbed it (selected by the right Near-Far
+    interactor) and E + mouse up lifted it; in the in-game menu the right hand pointed at "Einstellungen" under the
+    cursor and left click opened the options page; L snap-turned 15°; hold/release K teleported to the arc target.
+    Not tested: swim strokes and the finger block with the new simulator, Shift precision, rotating with the middle
+    mouse, the left hand's buttons, Lab.unity. Injection notes: queued mouse positions are remapped to Game view
+    coordinates by the editor (positions were set with `InputState.Change` in the player update instead), and keys
+    need the Game view focused (or `editorInputBehaviorInPlayMode = AllDeviceInputAlwaysGoesToGameView` for the test).
+
 ## CI
 
 - Add a build job that doesn't inject HVR, removes `GOTHIC_HVR_INSTALLED` and sets the backend to `Xri`. Methods
