@@ -324,12 +324,19 @@ namespace Gothic.Core.Services.Npc
         {
             // Same storage as Npc_SetTalentSkill.
             // FIXME - skill levels should also drive the fight overlays (like OpenGothic does).
-            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Skill ?? 0;
+            return GetTalentInRange(npc, skillId)?.Skill ?? 0;
         }
 
         public int ExtNpcGetTalentValue(NpcInstance npc, int skillId)
         {
-            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Value ?? 0;
+            return GetTalentInRange(npc, skillId)?.Value ?? 0;
+        }
+
+        // A talent the vob doesn't have (yet) is 0 - ZenKit errors out of range.
+        private ITalent GetTalentInRange(NpcInstance npc, int skillId)
+        {
+            var vob = GetContainer(npc)?.Vob;
+            return vob != null && skillId >= 0 && skillId < vob.TalentCount ? vob.GetTalent(skillId) : null;
         }
 
         /// <summary>

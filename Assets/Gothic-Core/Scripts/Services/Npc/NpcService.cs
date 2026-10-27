@@ -242,6 +242,7 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetTalentValue(NpcInstance npc, VmGothicEnums.Talent talent, int level)
         {
             var vob = npc.GetUserData()!.Vob;
+            EnsureTalentSlot(vob, (int)talent);
             var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
@@ -255,6 +256,7 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetTalentSkill(NpcInstance npc, VmGothicEnums.Talent talent, int skillValue)
         {
             var vob = npc.GetUserData()!.Vob;
+            EnsureTalentSlot(vob, (int)talent);
             var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
@@ -262,6 +264,20 @@ namespace Gothic.Core.Services.Npc
                 Skill = skillValue,
                 Value = existing?.Value ?? 0
             });
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableG2KeepAllTalents: a vob with fewer talents than the index (a G2 hero whose talents were
+        /// cut to G1's 12 by an older save) gets the missing ones - setting G2's pickpocketing (12) failed silently.
+        /// </summary>
+        private void EnsureTalentSlot(NpcProxy vob, int index)
+        {
+            if (!_configService.Dev.EnableG2KeepAllTalents || index < vob.TalentCount)
+                return;
+
+            Logger.Log($"[Talents] {vob.NpcInstance}: {vob.TalentCount} talents, adding up to {index + 1}", LogCat.Npc);
+            while (vob.TalentCount <= index)
+                vob.AddTalent(new Talent { Type = vob.TalentCount });
         }
 
         public void ExtMdlSetVisual(NpcInstance npc, string visual)

@@ -558,8 +558,13 @@ namespace Gothic.Core.Services.World
         /// If we write 16 talents ZenKit stores numTalents=16 and Gothic reads only 12, leaving
         /// 4 extra talent chunks where the next string field should be → RestoreStringEOL crash.
         /// </summary>
-        private static void FlushTalents(NpcContainer npc)
+        private void FlushTalents(NpcContainer npc)
         {
+            // DeveloperConfig.EnableG2KeepAllTalents: G2 has 22 talents (NPC_TALENT_PICKPOCKET is 12) - every level
+            // change cut the hero's pickpocketing, smithing, runes, alchemy... and learning them again failed.
+            if (_configService.Dev.EnableG2KeepAllTalents && !_contextGameVersionService.IsGothic1())
+                return;
+
             const int G1NpcTalentMax = 12;
             var before = npc.Vob.TalentCount;
             for (var i = before - 1; i >= G1NpcTalentMax; i--)
