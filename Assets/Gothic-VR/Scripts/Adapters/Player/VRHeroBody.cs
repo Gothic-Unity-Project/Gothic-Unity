@@ -124,6 +124,14 @@ namespace Gothic.VR.Adapters.Player
         // DeveloperConfig.EnableHeroHandsOnTop: after the on-top UI (UiOnTop-Text: 3901), like VRHandsOnTop.
         private const int _armsOnTopRenderQueue = 3950;
         private bool _areArmsOnTop;
+
+        // DeveloperConfig.EnableHeroHandsHoldInPalm: the fists' palm slots (left, right) and the attach points' spots.
+        private const string _leftPalmSlotName = "ZS_LEFTHAND";
+        private const string _rightPalmSlotName = "ZS_RIGHTHAND";
+        private readonly Transform[] _palmSlots = new Transform[2];
+        private readonly Dictionary<Transform, Vector3> _attachDefaultPositions = new();
+        private readonly Dictionary<Transform, Vector3> _attachShiftedPositions = new();
+        private const float _maxHoldShift = 0.04f;
         private readonly Dictionary<Renderer, Material[]> _armsOriginalMaterials = new();
         private readonly Dictionary<Material, Material> _onTopMaterialCopies = new();
 
@@ -491,7 +499,10 @@ namespace Gothic.VR.Adapters.Player
             SetHeroHandsShown(isVisible && _isHeroHandsOption && _handMeshes.Count > 0);
             SetArmsOnTop(isVisible && _areHeroHandsShown && _uiOnTopService != null && _uiOnTopService.AreHandsOnTop);
             if (!isVisible)
+            {
+                UpdateHeldItemAttachPoints(false);
                 return;
+            }
 
             // Under the head, a bit behind it - looking down shows the chest, not the inside of the neck. Scaled to the
             // player's eye height above the floor, so the feet stay on the ground (sitting/standing mode, any height).
@@ -532,6 +543,55 @@ namespace Gothic.VR.Adapters.Player
                 GetSecondHandGripPose(VrHandSide.Left));
             _rightArm.Solve(_vrPlayerService.GetHandModelGo(VrHandSide.Right), _body.transform, _rig?.RightHand,
                 GetSecondHandGripPose(VrHandSide.Right));
+            UpdateHeldItemAttachPoints(_areHeroHandsShown);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableHeroHandsHoldInPalm: with the hero's fists, held items sit a bit more towards the fingers
+        /// (HeroHandsHoldShift of the way to the fist's palm slot ZS_RIGHTHAND/ZS_LEFTHAND, at most _maxHoldShift) - at
+        /// the block hand's attach point a coin lay on the knuckles. The shift is taken once when the fists show and
+        /// stays fixed (moving the attach point every frame broke grabbing); back to its own spot without the fists.
+        /// </summary>
+        private void UpdateHeldItemAttachPoints(bool isInPalm)
+        {
+            var hands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (hands == null)
+                return;
+
+            isInPalm &= _configService.Dev.EnableHeroHandsHoldInPalm;
+            foreach (var hand in hands)
+            {
+                var attach = hand != null ? hand.AttachPoint : null;
+                if (attach == null)
+                    continue;
+                if (!_attachDefaultPositions.TryGetValue(attach, out var defaultPosition))
+                {
+                    defaultPosition = attach.localPosition;
+                    _attachDefaultPositions[attach] = defaultPosition;
+                }
+
+                var slot = _palmSlots[hand.Side == VrHandSide.Left ? 0 : 1];
+                if (!isInPalm || slot == null || attach.parent == null)
+                {
+                    _attachShiftedPositions.Remove(attach);
+                    if (attach.localPosition != defaultPosition)
+                        attach.localPosition = defaultPosition;
+                    continue;
+                }
+
+                if (!_attachShiftedPositions.TryGetValue(attach, out var shiftedPosition))
+                {
+                    var defaultWorld = attach.parent.TransformPoint(defaultPosition);
+                    var shift = Vector3.ClampMagnitude((slot.position - defaultWorld) *
+                                                       _configService.Dev.HeroHandsHoldShift, _maxHoldShift);
+                    shiftedPosition = attach.parent.InverseTransformPoint(defaultWorld + shift);
+                    _attachShiftedPositions[attach] = shiftedPosition;
+                    Logger.Log($"[VRHeroBody] {hand.Side} hand holds {shift.magnitude * 100f:F1} cm towards the " +
+                               "fingers", LogCat.VR);
+                }
+                if (attach.localPosition != shiftedPosition)
+                    attach.localPosition = shiftedPosition;
+            }
         }
 
         /// <summary>
@@ -887,6 +947,8 @@ namespace Gothic.VR.Adapters.Player
 
             _leftArm.Bind(bones, _handMeshes);
             _rightArm.Bind(bones, _handMeshes);
+            _palmSlots[0] = bones.TryGetValue(_leftPalmSlotName, out var leftSlot) ? leftSlot : null;
+            _palmSlots[1] = bones.TryGetValue(_rightPalmSlotName, out var rightSlot) ? rightSlot : null;
             BuildSleeves(props, mdhName, bones);
 
             _animator = new VRHeroBodyAnimator(_animationService, props.MdsNameBase, props.MdsNameOverlay, bones);

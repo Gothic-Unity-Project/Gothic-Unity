@@ -227,6 +227,11 @@ namespace Gothic.VR.Interaction.Components
         public VrHandSide Side => _side;
 
         /// <summary>
+        /// What held items follow (CreateAttachPoint), null before the first one. VRHeroBody moves it into the fist.
+        /// </summary>
+        public Transform AttachPoint => _attachPoint;
+
+        /// <summary>
         /// Distance in m between the physical hand and the controller after the last physics step.
         /// 0 while the hand isn't physical.
         /// </summary>
