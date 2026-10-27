@@ -83,6 +83,8 @@ namespace Gothic.VR.Adapters.Player
         private const string _g1Currency = "ItMiNugget";
         private const string _focusNameCanvas = "NameCanvas";
         private const float _gestureSeconds = 1f;
+        // A broken gesture shorter than this (s) keeps the hold time (DeveloperConfig.EnableRingGestureGrace).
+        private const float _gestureGraceSeconds = 0.3f;
         // Meters the hands must be above the eyes for the gesture.
         private const float _gestureHeightAboveEyes = 0.1f;
         private const float _previewSeconds = 1f;
@@ -133,6 +135,7 @@ namespace Gothic.VR.Adapters.Player
         private bool _isTeleportLocked;
         private bool _isOpen;
         private float _gestureTime;
+        private float _gestureBrokenTime;
         private bool _isGestureLatched;
         private int _gestureHapticStep;
 
@@ -325,13 +328,27 @@ namespace Gothic.VR.Adapters.Player
                             left.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
                             right.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
                             !IsHeroBusy();
-            if (!isGesture || _isGestureLatched)
+            if (_isGestureLatched)
             {
                 _gestureTime = 0f;
                 _gestureHapticStep = 0;
                 return;
             }
 
+            // DeveloperConfig.EnableRingGestureGrace: a hand dipping below the eyes or a trigger flickering for a moment
+            // doesn't start the hold again - it took much longer than _gestureSeconds.
+            if (!isGesture)
+            {
+                _gestureBrokenTime += Time.deltaTime;
+                if (!_configService.Dev.EnableRingGestureGrace || _gestureBrokenTime > _gestureGraceSeconds)
+                {
+                    _gestureTime = 0f;
+                    _gestureHapticStep = 0;
+                }
+                return;
+            }
+
+            _gestureBrokenTime = 0f;
             _gestureTime += Time.deltaTime;
             var step = Mathf.FloorToInt(_gestureTime / _gestureSeconds * 3f);
             if (step > _gestureHapticStep && step < 3)
