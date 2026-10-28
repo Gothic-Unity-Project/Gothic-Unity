@@ -498,7 +498,11 @@ namespace Gothic.VR.Interaction.Components
                 return;
             }
 
-            if (_separation > _maxDistance)
+            // DeveloperConfig.EnableTwoHandHoldNoStuckRelease: with two hands on an item, the item holds the hands at
+            // their grips - the controllers are away from them (turning the item, a swing). That isn't stuck: the second
+            // hand let go of the sword mid-swing.
+            var isTwoHandHold = _heldVisual != null && _heldVisual.HolderCount > 1 && IsTwoHandStuckIgnored();
+            if (_separation > _maxDistance && !isTwoHandHold)
             {
                 _stuckTime += deltaTime;
                 if (_stuckTime > _maxDistanceTime)
@@ -594,6 +598,20 @@ namespace Gothic.VR.Interaction.Components
                 return false;
 
             UpdateHeldGrip();
+
+            // DeveloperConfig.EnableSecondFistOnShownGrip: on the grip of the item as it's shown, not of its physics
+            // body (the fist hung between the controller and the grip), and turned like the controller (the knuckles
+            // follow the hand, the grip stays).
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
+                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            if (config?.Dev != null && config.Dev.EnableSecondFistOnShownGrip &&
+                _heldVisual.TryGetShownPose(out var itemPosition, out var itemRotation))
+            {
+                GetHandPoseOnGrip(itemPosition, itemRotation, out position, out _);
+                GetTargetPose(out _, out rotation);
+                return true;
+            }
+
             GetHandPoseOnGrip(_heldBody.position, _heldBody.rotation, out position, out rotation);
             return true;
         }
@@ -761,6 +779,13 @@ namespace Gothic.VR.Interaction.Components
             _heldBody.position = position;
             _heldBody.rotation = rotation;
             _heldBody.transform.SetPositionAndRotation(position, rotation);
+        }
+
+        private static bool IsTwoHandStuckIgnored()
+        {
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
+                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            return config?.Dev != null && config.Dev.EnableTwoHandHoldNoStuckRelease;
         }
 
         private void ReleaseStuckItem()

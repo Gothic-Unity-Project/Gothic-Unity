@@ -39,6 +39,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isSubscribed;
         private VrPhysicsHand _physicsHand;
 
+        /// <summary>
+        /// Where the hand is shown (the physical hand, held back by what it touches), null without one.
+        /// </summary>
+        public Transform PhysicsHand => _physicsHand != null ? _physicsHand.transform : null;
+
         public NearFarInteractor Interactor
         {
             get

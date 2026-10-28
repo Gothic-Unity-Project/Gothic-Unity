@@ -96,10 +96,45 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public override bool IsSelectableBy(IXRSelectInteractor interactor)
         {
             if (interactor is not XriSocketBridge &&
-                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor)))
+                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor) ||
+                 IsDistanceGrabOfHeldItem(interactor)))
                 return false;
 
             return base.IsSelectableBy(interactor);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableNoDistanceGrabOfHeldItem: the other hand holds it - this hand grabs it only right at
+        /// it, not from afar (the line still hovers it: highlighted, readable).
+        /// </summary>
+        private bool IsDistanceGrabOfHeldItem(IXRInteractor interactor)
+        {
+            // Only for a new grab: XRI asks again while the hand holds it, and a hand swinging the item with both hands
+            // got more than _nearGrabDistance away from it - XRI let go of it.
+            if (interactor is IXRSelectInteractor selector && interactorsSelecting.Contains(selector))
+                return false;
+
+            var isHeldByOtherHand = false;
+            foreach (var selecting in interactorsSelecting)
+            {
+                if (selecting is not XriSocketBridge && !ReferenceEquals(selecting, interactor))
+                    isHeldByOtherHand = true;
+            }
+            if (!isHeldByOtherHand || !IsDevFlag(dev => dev.EnableNoDistanceGrabOfHeldItem))
+                return false;
+
+            // Near: the controller or the shown hand (the physical hand can be held at the item, away from the
+            // controller - measured from the controller only, the second hand couldn't grab it again right at it).
+            var shownHand = interactor is Component component && component.TryGetComponent(out XriGrabberBridge bridge)
+                ? bridge.PhysicsHand
+                : null;
+            return !IsNear(interactor.transform.position) && (shownHand == null || !IsNear(shownHand.position));
+        }
+
+        private bool IsNear(Vector3 position)
+        {
+            return XriColliderUtility.TryGetClosestPoint(this, position, out _, out var distanceSqr) &&
+                   distanceSqr <= _nearGrabDistance * _nearGrabDistance;
         }
 
         private bool IsTooFarFor(IXRInteractor interactor)
