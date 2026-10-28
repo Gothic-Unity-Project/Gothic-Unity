@@ -44,6 +44,10 @@ namespace Gothic.Core.Adapters.Npc
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPCs that wake up together (a whole camp after loading) would sense in the same frame, forever: a
+            // random point in the interval spreads them. The first perception comes sooner, never later.
+            Properties.CurrentPerceptionTime = UnityEngine.Random.Range(0f, Properties.PerceptionTime);
         }
 
         /// <summary>
