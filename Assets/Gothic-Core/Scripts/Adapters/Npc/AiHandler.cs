@@ -379,7 +379,11 @@ namespace Gothic.Core.Adapters.Npc
         {
             using var marker = _nextAnimationMarker.Auto();
             Properties.CurrentAction = action;
+
+            // The action's type as its own sample (development builds only).
+            UnityEngine.Profiling.Profiler.BeginSample(action.GetType().Name);
             action.Start();
+            UnityEngine.Profiling.Profiler.EndSample();
         }
 
         /// <summary>
