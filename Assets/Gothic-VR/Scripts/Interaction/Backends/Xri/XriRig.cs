@@ -348,6 +348,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 Logger.LogError("[XRI] No XRBodyTransformer found. Walking downhill will bounce.", LogCat.VR);
 
             ApplyPointerHoverColor();
+            ExcludeItemsFromGround();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableItemsNoGround: items are no ground to stand on (gravity's grounded check, SnapToGround) -
+        /// these sphere casts don't know that the player ignores the items he holds: a held bow under the feet was
+        /// ground, jumping off it again and again flew.
+        /// </summary>
+        private void ExcludeItemsFromGround()
+        {
+            if (_configService == null || !_configService.Dev.EnableItemsNoGround)
+                return;
+
+            _collidingLayers &= ~((1 << Gothic.Core.Const.Constants.VobItemLayer) |
+                                  (1 << Gothic.Core.Const.Constants.VobItemNoWorldCollision));
+            _gravityProvider.sphereCastLayerMask = _collidingLayers;
         }
 
         /// <summary>
