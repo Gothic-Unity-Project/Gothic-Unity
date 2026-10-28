@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -142,7 +142,12 @@ namespace Gothic.Core.Manager
                 _gameStateService.Dialogs.ExitInfo = null;
             }
             // There is at least one important entry, the NPC wants to talk to the hero about.
-            else if (initialDialogStarting && TryGetImportant(npcContainer, out var infoInstance))
+            // DeveloperConfig.EnableImportantInfoQueue: like the engine, after one important info the next one starts by
+            // itself (Hanna: her greeting, then the thieves' cellar one) - not only when the dialog starts. A permanent
+            // important info only at the start (it would repeat forever).
+            else if ((initialDialogStarting || _configService.Dev.EnableImportantInfoQueue) &&
+                     TryGetImportant(npcContainer, out var infoInstance) &&
+                     (initialDialogStarting || infoInstance.Permanent != 1))
             {
                 _gameStateService.Dialogs.CurrentInstance = infoInstance;
                 CallMainInformation(npcContainer, infoInstance);
@@ -153,6 +158,11 @@ namespace Gothic.Core.Manager
 
                 foreach (var dialog in npcContainer.Props.Dialogs)
                 {
+                    // DeveloperConfig.EnableImportantInfoQueue: important infos are the NPC's to start, never a choice
+                    // for the hero (Hanna's cellar info showed up as an empty choice).
+                    if (dialog.Important == 1 && _configService.Dev.EnableImportantInfoQueue)
+                        continue;
+
                     // Dialog is non-permanent and already been told
                     if (dialog.Permanent == 0 && GetInfoState(dialog.Index).Told)
                     {
