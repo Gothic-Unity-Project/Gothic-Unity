@@ -59,6 +59,10 @@ namespace Gothic.Core.Services.Vobs
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
         private readonly NearestFirstQueue<VobLoader> _objectsToInitQueue = new();
 
+        // VOBs initialized per frame even if the frame's share is used up already. In busy places (Khorinis) the
+        // rest of the frame takes the share before the queue runs: one per frame, thousands of VOBs took minutes.
+        private const int _minVobInitsPerFrame = 10;
+
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
 
@@ -192,7 +196,8 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
-        /// Initializes queued VOBs nearest to the camera first, until this frame's share is used up.
+        /// Initializes queued VOBs nearest to the camera first, at least _minVobInitsPerFrame, then until this
+        /// frame's share is used up.
         /// </summary>
         private IEnumerator InitVobCoroutine()
         {
@@ -202,6 +207,7 @@ namespace Gothic.Core.Services.Vobs
                 if (_objectsToInitQueue.Count > 0 && camera != null)
                     _objectsToInitQueue.UpdateOrder(camera.transform.position);
 
+                var initCount = 0;
                 while (_objectsToInitQueue.TryDequeue(out var item))
                 {
                     // Destroyed in the meantime (e.g. world change).
@@ -221,7 +227,7 @@ namespace Gothic.Core.Services.Vobs
                         Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
                     }
 
-                    if (_frameSkipperService.IsFrameBudgetUsed)
+                    if (++initCount >= _minVobInitsPerFrame && _frameSkipperService.IsFrameBudgetUsed)
                         break;
                 }
 
