@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
@@ -15,10 +14,10 @@ using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.Trade;
 using Gothic.VR.Adapters.Player;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Core.Sockets;
-using HurricaneVR.Framework.Core.UI;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -37,6 +36,7 @@ namespace Gothic.VR.Adapters.Trade
     /// Each side is a view of its TradeOffer, like the backpack is a view of the inventory: an item laid into any slot
     /// joins the offer (the same items stack into one), the slots are rebuilt from the offer. Three slots show the
     /// offer, the arrows move it by one; the slot next to the middle is always empty, to lay items into.
+    /// Any VR backend (IVrSocket slots, VrInteractable items, IVrUiPointers for the buttons).
     /// </summary>
     public class VRTradeCounter : MonoBehaviour
     {
@@ -45,6 +45,14 @@ namespace Gothic.VR.Adapters.Trade
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly IVrUiPointers _vrUiPointers;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VrHapticsService _hapticsService;
+
+        // DeveloperConfig.EnableTradeTouchButtons: a hand this close (m) in front of/behind a button presses it.
+        private const float _touchDepth = 0.04f;
+        private readonly List<Button> _buttons = new();
+        private readonly Button[] _touchedButtons = new Button[2];
 
         // Big - a backpack thrown a bit off still lands on it.
         private const float _goodsTableWidth = 10f;
@@ -80,15 +88,15 @@ namespace Gothic.VR.Adapters.Trade
         }
 
         private TradeSession _session;
-        private readonly List<HVRSocket> _sockets = new();
-        private readonly Dictionary<HVRSocket, Side> _socketSides = new();
+        private readonly List<IVrSocket> _sockets = new();
+        private readonly Dictionary<IVrSocket, Side> _socketSides = new();
         // Per side: the slots showing the offer (left to right) and the first offer item they show.
-        private readonly Dictionary<Side, List<HVRSocket>> _slots = new() { [Side.Give] = new(), [Side.Take] = new() };
+        private readonly Dictionary<Side, List<IVrSocket>> _slots = new() { [Side.Give] = new(), [Side.Take] = new() };
         private readonly Dictionary<Side, int> _offsets = new() { [Side.Give] = 0, [Side.Take] = 0 };
         private readonly Dictionary<Side, TMP_Text> _scrollTexts = new();
         private Coroutine _refresh;
         private bool _isRefreshDirty;
-        private readonly Dictionary<HVRGrabbable, Placed> _placed = new();
+        private readonly Dictionary<VrInteractable, Placed> _placed = new();
         private bool _isIgnoringSockets;
         private VRBackpack _goods;
         private GameObject _goodsRoot;
@@ -137,8 +145,8 @@ namespace Gothic.VR.Adapters.Trade
             GlobalEventDispatcher.TradeOfferChanged.RemoveListener(OnOfferChanged);
             GlobalEventDispatcher.TradeCommitted.RemoveListener(OnCommitted);
             GlobalEventDispatcher.TradeClosed.RemoveListener(OnClosed);
-            if (_canvas != null && HVRInputModule.Instance != null)
-                HVRInputModule.Instance.RemoveCanvas(_canvas);
+            if (_canvas != null)
+                _vrUiPointers.UnregisterCanvas(_canvas);
         }
 
         /// <summary>
@@ -157,7 +165,52 @@ namespace Gothic.VR.Adapters.Trade
             {
                 Logger.Log("[Trade] The trader can't trade any more - closed", LogCat.VR);
                 _tradeService.Cancel();
+                return;
             }
+
+            UpdateTouchButtons();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableTradeTouchButtons: a hand pushed into a button presses it (any VR backend) - besides
+        /// the UI laser, which didn't click them on XRI.
+        /// </summary>
+        private void UpdateTouchButtons()
+        {
+            if (!_configService.Dev.EnableTradeTouchButtons)
+                return;
+            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            if (rig == null)
+                return;
+
+            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            {
+                var hand = rig.GetHandVisual(side);
+                var index = side == VrHandSide.Left ? 0 : 1;
+                var pressed = hand != null ? FindTouchedButton(hand.position) : null;
+                if (pressed != null && pressed != _touchedButtons[index])
+                {
+                    Logger.Log($"[Trade] Button '{pressed.name}' pressed by the {side} hand", LogCat.VR);
+                    _hapticsService.Vibrate(side, VrHapticPreset.Info);
+                    pressed.onClick.Invoke();
+                }
+                _touchedButtons[index] = pressed;
+            }
+        }
+
+        private Button FindTouchedButton(Vector3 position)
+        {
+            foreach (var button in _buttons)
+            {
+                if (button == null || !button.interactable)
+                    continue;
+                var rect = (RectTransform)button.transform;
+                var local = rect.InverseTransformPoint(position);
+                var depth = _touchDepth / Mathf.Max(rect.lossyScale.z, 0.0001f);
+                if (rect.rect.Contains(new Vector2(local.x, local.y)) && Mathf.Abs(local.z) <= depth)
+                    return button;
+            }
+            return null;
         }
 
         private void CreateOfferZones()
@@ -189,18 +242,18 @@ namespace Gothic.VR.Adapters.Trade
             return side == Side.Give ? -x : x;
         }
 
-        private HVRSocket CreateSocket(GameObject socketPrefab, Side side, float x)
+        private IVrSocket CreateSocket(GameObject socketPrefab, Side side, float x)
         {
             var socketGo = Instantiate(socketPrefab, transform);
             socketGo.transform.localPosition = new Vector3(x, 0f, 0f);
             socketGo.transform.localRotation = Quaternion.identity;
             socketGo.transform.localScale = Vector3.one * _socketScale;
 
-            var socket = socketGo.GetComponentInChildren<HVRSocket>();
+            var socket = socketGo.GetComponentInChildren<IVrSocket>();
             if (socket == null)
                 return null;
-            socket.Grabbed.AddListener(OnItemPlaced);
-            socket.Released.AddListener(OnItemTaken);
+            socket.Grabbed += args => OnItemPlaced(socket, args);
+            socket.Released += OnItemTaken;
             _sockets.Add(socket);
             _socketSides[socket] = side;
             return socket;
@@ -333,11 +386,10 @@ namespace Gothic.VR.Adapters.Trade
                     () => Scroll(side, 1), false);
             }
 
-            if (HVRInputModule.Instance != null)
-                HVRInputModule.Instance.AddCanvas(_canvas);
+            _vrUiPointers.RegisterCanvas(_canvas);
         }
 
-        private static void CreateButton(Transform parent, string label, Vector2 position, Color color,
+        private void CreateButton(Transform parent, string label, Vector2 position, Color color,
             UnityEngine.Events.UnityAction onClick, bool isGothicFont = true)
         {
             var buttonGo = new GameObject($"Button_{label}", typeof(RectTransform));
@@ -351,6 +403,7 @@ namespace Gothic.VR.Adapters.Trade
             var button = buttonGo.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(onClick);
+            _buttons.Add(button);
 
             var textGo = new GameObject("Text", typeof(RectTransform));
             textGo.transform.SetParent(buttonGo.transform, false);
@@ -370,9 +423,10 @@ namespace Gothic.VR.Adapters.Trade
             text.color = Color.white;
         }
 
-        private void OnItemPlaced(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        private void OnItemPlaced(IVrSocket socket, VrGrabArgs args)
         {
-            if (_isIgnoringSockets || grabber is not HVRSocket socket || !_socketSides.TryGetValue(socket, out var side) ||
+            var grabbable = args.Interactable;
+            if (_isIgnoringSockets || grabbable == null || !_socketSides.TryGetValue(socket, out var side) ||
                 _placed.ContainsKey(grabbable))
                 return;
 
@@ -420,7 +474,7 @@ namespace Gothic.VR.Adapters.Trade
         /// <summary>
         /// The laid item becomes part of its side's offer - the slots show the offer, rebuilt in RefreshSlots.
         /// </summary>
-        private void JoinOffer(HVRGrabbable grabbable, VobContainer container, VRTradeGoods tradeGoods)
+        private void JoinOffer(VrInteractable grabbable, VobContainer container, VRTradeGoods tradeGoods)
         {
             if (tradeGoods != null)
                 tradeGoods.IsSettled = true;
@@ -463,9 +517,9 @@ namespace Gothic.VR.Adapters.Trade
             return side == Side.Give ? _session.PlayerOffer : _session.TraderOffer;
         }
 
-        private void OnItemTaken(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        private void OnItemTaken(VrGrabArgs args)
         {
-            if (_isIgnoringSockets || !_placed.Remove(grabbable, out var placed))
+            if (_isIgnoringSockets || args.Interactable == null || !_placed.Remove(args.Interactable, out var placed))
                 return;
 
             if (placed.Side == Side.Give)
@@ -542,9 +596,9 @@ namespace Gothic.VR.Adapters.Trade
                 if (side == Side.Take)
                     container.Go.AddComponent<VRTradeGoods>().Init(_session.Trader);
                 container.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
-                var grabbable = container.Go.GetComponentInChildren<HVRGrabbable>();
+                var grabbable = container.Go.GetComponentInChildren<VrInteractable>();
                 _placed[grabbable] = new Placed(side, item.Name, item.Amount);
-                if (!slots[i].TryGrab(grabbable, true))
+                if (!slots[i].TryPlace(grabbable, true))
                 {
                     _placed.Remove(grabbable);
                     Logger.LogWarning($"[Trade] {item.Name} couldn't go into a counter slot", LogCat.VR);
@@ -559,7 +613,7 @@ namespace Gothic.VR.Adapters.Trade
                     : "";
         }
 
-        private void ReleaseIgnored(HVRGrabbable grabbable)
+        private void ReleaseIgnored(VrInteractable grabbable)
         {
             _isIgnoringSockets = true;
             grabbable.ForceRelease();
@@ -569,7 +623,7 @@ namespace Gothic.VR.Adapters.Trade
         /// <summary>
         /// Not tradeable here: back into the hero's inventory (the hand let go of it, so it isn't counted any more).
         /// </summary>
-        private void ReturnToHero(HVRGrabbable grabbable, VobContainer container, string itemName, int amount)
+        private void ReturnToHero(VrInteractable grabbable, VobContainer container, string itemName, int amount)
         {
             ReleaseIgnored(grabbable);
             _playerService.AddItem(itemName, amount);
@@ -642,10 +696,10 @@ namespace Gothic.VR.Adapters.Trade
             _isIgnoringSockets = true;
             foreach (var socket in _sockets)
             {
-                if (socket == null || !socket.IsGrabbing)
+                if (socket == null || !socket.IsOccupied || socket.Held == null)
                     continue;
 
-                var grabbable = socket.GrabbedTarget;
+                var grabbable = socket.Held;
                 var container = grabbable.GetComponentInParent<VobLoader>(true)?.Container;
                 var tradeGoods = grabbable.GetComponentInParent<VRTradeGoods>();
                 if (tradeGoods != null)
@@ -666,4 +720,3 @@ namespace Gothic.VR.Adapters.Trade
         }
     }
 }
-#endif

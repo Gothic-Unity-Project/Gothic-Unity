@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
@@ -9,8 +8,8 @@ using Gothic.Core.Models.Trade;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.Player;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Core.Grabbers;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Models;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
@@ -20,7 +19,7 @@ namespace Gothic.VR.Adapters.Trade
     /// <summary>
     /// A trader's item taken out of his goods during a trade (not paid yet). Let go anywhere but the trader's side of
     /// the counter or his goods - dropped, put into the hero's backpack or holster - it goes back to the trader. Also
-    /// when the trade ends.
+    /// when the trade ends. Any VR backend (VrInteractable).
     /// </summary>
     public class VRTradeGoods : MonoBehaviour
     {
@@ -33,7 +32,7 @@ namespace Gothic.VR.Adapters.Trade
         /// </summary>
         public bool IsSettled { get; set; }
 
-        private HVRGrabbable _grabbable;
+        private VrInteractable _grabbable;
 
         public void Init(NpcContainer trader)
         {
@@ -42,22 +41,22 @@ namespace Gothic.VR.Adapters.Trade
 
         private void Start()
         {
-            _grabbable = GetComponentInChildren<HVRGrabbable>(true);
+            _grabbable = GetComponentInChildren<VrInteractable>(true);
             if (_grabbable != null)
-                _grabbable.Released.AddListener(OnReleased);
+                _grabbable.Released += OnReleased;
             GlobalEventDispatcher.TradeClosed.AddListener(OnTradeClosed);
         }
 
         private void OnDestroy()
         {
             if (_grabbable != null)
-                _grabbable.Released.RemoveListener(OnReleased);
+                _grabbable.Released -= OnReleased;
             GlobalEventDispatcher.TradeClosed.RemoveListener(OnTradeClosed);
         }
 
-        private void OnReleased(HVRGrabberBase grabber, HVRGrabbable grabbable)
+        private void OnReleased(VrGrabArgs args)
         {
-            if (IsSettled || grabber is not HVRHandGrabber)
+            if (IsSettled || !args.IsHandOrDistance)
                 return;
             StartCoroutine(CheckWhereItWent());
         }
@@ -65,7 +64,7 @@ namespace Gothic.VR.Adapters.Trade
         private IEnumerator CheckWhereItWent()
         {
             yield return new WaitForSeconds(_placeCheckDelay);
-            if (IsSettled || _grabbable == null || _grabbable.IsBeingHeld)
+            if (IsSettled || _grabbable == null || IsInHand())
                 yield break;
 
             if (IsOnCounterOrInGoods())
@@ -90,11 +89,29 @@ namespace Gothic.VR.Adapters.Trade
             ReturnToTrader();
         }
 
+        /// <summary>
+        /// In a slot of the counter or of the trader's goods: socket slots re-parent the item's VobLoader.
+        /// </summary>
         private bool IsOnCounterOrInGoods()
         {
-            var socket = _grabbable != null ? _grabbable.Socket : null;
-            return socket != null && (socket.GetComponentInParent<VRTradeCounter>() != null ||
-                                      socket.GetComponentInParent<VRBackpack>() is { IsTradeBackpack: true });
+            if (_grabbable == null || !_grabbable.IsHeld || IsInHand())
+                return false;
+            return GetComponentInParent<VRTradeCounter>() != null ||
+                   GetComponentInParent<VRBackpack>() is { IsTradeBackpack: true };
+        }
+
+        private bool IsInHand()
+        {
+            var rig = ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Context.ContextInteractionService>()
+                ?.GetCurrentPlayerController()?.GetComponent<Gothic.VR.Interaction.Ports.IVrRig>();
+            if (rig == null || _grabbable == null)
+                return false;
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand != null && hand.Held == _grabbable)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -112,7 +129,7 @@ namespace Gothic.VR.Adapters.Trade
                 return;
 
             // Held items count as the hero's - releasing takes it out of his inventory again.
-            if (_grabbable != null && (_grabbable.IsBeingHeld || _grabbable.IsSocketed))
+            if (_grabbable != null && _grabbable.IsHeld)
                 _grabbable.ForceRelease();
 
             var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
@@ -127,4 +144,3 @@ namespace Gothic.VR.Adapters.Trade
         }
     }
 }
-#endif
