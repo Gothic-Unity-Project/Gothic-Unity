@@ -100,6 +100,9 @@ namespace Gothic.Core.Adapters.Properties
 
         // Time.time when this NPC gave up chasing the hero from far away (DeveloperConfig.EnableChaseGiveUpCooldown).
         public float HeroChaseGivenUpTime = float.MinValue;
+        // Time.time since the enemy is out of this NPC's melee reach in height, -1: in reach
+        // (DeveloperConfig.EnableMeleeHeightReach).
+        public float MeleeUnreachableSince = -1f;
         // Time.time of the last threat before a chase (DeveloperConfig.EnablePursuitWarn).
         public float LastPursuitWarnTime = float.MinValue;
         public LoopState CurrentLoopState = LoopState.None;

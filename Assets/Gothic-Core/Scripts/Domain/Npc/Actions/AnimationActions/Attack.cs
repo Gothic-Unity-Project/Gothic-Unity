@@ -21,6 +21,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
 
         private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
 
@@ -56,6 +57,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             if (TryGiveUpOutOfRangedReach())
+                return;
+
+            if (TryHandleOutOfMeleeHeight())
                 return;
 
             var tactic = UpdateSpellMonsterMelee(out var meleeTactic) ? meleeTactic : Vob.FightTactic;
@@ -111,6 +115,103 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Props.CurrentLoopState = NpcProperties.LoopState.End;
             IsFinishedFlag = true;
             return true;
+        }
+
+        // A melee fighter reaches up/down to at least this (m) or its body's height.
+        private const float _minMeleeReachHeight = 1.2f;
+        // An enemy below the feet is reached this far (m) at least - a slope isn't a wall.
+        private const float _minMeleeReachDepth = 2.5f;
+        // The height only counts within this many attack ranges (horizontal) - farther away it chases.
+        private const float _meleeHeightCheckRangeFactor = 1.5f;
+        // Unreachable in melee this long (s) - it gives up.
+        private const float _meleeUnreachableGiveUpSeconds = 8f;
+
+        /// <summary>
+        /// DeveloperConfig.EnableMeleeHeightReach: a melee fighter can't hit an enemy whose feet are above its body (the
+        /// hero on a rock above wolves) or who stands far below it (orcs at the foot of a castle wall). The distance was
+        /// 3D, so wolves bit a hero up a rock and guards ran off the wall into the orcs.
+        /// - Unreachable: no attack, it turns towards the enemy and waits.
+        /// - With a ranged weapon equipped (a guard on the wall): it takes it (the next AI_Attack shoots).
+        /// - Unreachable for _meleeUnreachableGiveUpSeconds: it gives up like an archer out of reach (attack state
+        ///   ends, ZS_Attack_End puts the weapon away, the chase cooldown keeps it from coming back at once).
+        /// </summary>
+        private bool TryHandleOutOfMeleeHeight()
+        {
+            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            var enemy = _enemy.GetUserData();
+            if (!_configService.Dev.EnableMeleeHeightReach || enemy?.Go == null || NpcContainer.IsSpellMonsterInMelee ||
+                weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow or
+                    VmGothicEnums.WeaponState.Mage)
+            {
+                Props.MeleeUnreachableSince = -1f;
+                return false;
+            }
+
+            // Only right at the enemy: farther away it chases him as usual - 1-2 m of slope stopped the chase at once.
+            var offset = enemy.Go.transform.position - NpcGo.transform.position;
+            var horizontalDistance = new Vector2(offset.x, offset.z).magnitude - _npcMonsterVolumina;
+            if (horizontalDistance > GetAttackRange() * _meleeHeightCheckRangeFactor)
+            {
+                Props.MeleeUnreachableSince = -1f;
+                return false;
+            }
+
+            var heightDifference = offset.y;
+            var isAbove = heightDifference > GetBodyHeight(NpcContainer);
+            var isBelow = -heightDifference > Mathf.Max(_minMeleeReachDepth, GetBodyHeight(enemy));
+            if (!isAbove && !isBelow)
+            {
+                Props.MeleeUnreachableSince = -1f;
+                return false;
+            }
+
+            var name = NpcInstance.GetName(NpcNameSlot.Slot0);
+            if (Props.MeleeUnreachableSince < 0f)
+            {
+                Props.MeleeUnreachableSince = Time.time;
+                Logger.Log($"[Attack] {name}: enemy {(isAbove ? "above" : "below")} melee reach " +
+                           $"({heightDifference:F1} m) - no attack", LogCat.Ai);
+
+                if (_npcHelperService.ExtNpcHasEquippedRangedWeapon(NpcInstance))
+                {
+                    Logger.Log($"[Attack] {name} takes the ranged weapon", LogCat.Ai);
+                    _npcAiService.ExtAiReadyRangedWeapon(NpcInstance);
+                    IsFinishedFlag = true;
+                    return true;
+                }
+            }
+
+            if (Time.time - Props.MeleeUnreachableSince > _meleeUnreachableGiveUpSeconds &&
+                Props.CurrentLoopState == NpcProperties.LoopState.Loop)
+            {
+                Logger.Log($"[Attack] {name}: enemy out of melee reach for {_meleeUnreachableGiveUpSeconds:F0} s - " +
+                           "giving up, weapon away, back to the routine", LogCat.Ai);
+                Props.MeleeUnreachableSince = -1f;
+                if (_configService.Dev.EnableChaseGiveUpCooldown && enemy.PrefabProps != null &&
+                    enemy.PrefabProps.IsHero())
+                    Props.HeroChaseGivenUpTime = Time.time;
+                Props.AnimationQueue.Clear();
+                Props.CurrentLoopState = NpcProperties.LoopState.End;
+                IsFinishedFlag = true;
+                return true;
+            }
+
+            _npcAiService.ExtAiTurnToNpc(NpcInstance, _enemy);
+            _npcAiService.ExtAiWait(NpcInstance, 0.5f);
+            IsFinishedFlag = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Height (m) of the NPC's visible body above its feet, at least _minMeleeReachHeight.
+        /// </summary>
+        private static float GetBodyHeight(NpcContainer npc)
+        {
+            var feet = npc.Go.transform.position.y;
+            var top = feet;
+            foreach (var skinnedRenderer in npc.Go.GetComponentsInChildren<SkinnedMeshRenderer>())
+                top = Mathf.Max(top, skinnedRenderer.bounds.max.y);
+            return Mathf.Max(_minMeleeReachHeight, top - feet);
         }
 
         /// <summary>
