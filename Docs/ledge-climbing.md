@@ -2,6 +2,7 @@
 
 The VR player climbs exactly the ledges Gothic's hero can climb: by gripping the lip and pulling up, by a comfort
 fade, or by teleporting onto the top. Behind the DeveloperConfig flag `EnableVrLedgeClimbing`, XRI backend only.
+Why it's built this way: Docs/adr/2026-10-28-vr-ledge-climbing.md.
 
 ## Gothic's rules (Core)
 
