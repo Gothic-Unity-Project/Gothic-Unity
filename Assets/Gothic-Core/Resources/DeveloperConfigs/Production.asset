@@ -19,6 +19,7 @@ MonoBehaviour:
   ModPath: 
   GameControls: 0
   VrInteractionBackend: 0
+  EnableVrLedgeClimbing: 1
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
   EnableZSpyLogs: 0

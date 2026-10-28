@@ -16,6 +16,7 @@ Verify against `ProjectSettings/TagManager.asset` before relying on numbers - th
 | 10 | VobNpcOrMonster | NPC/monster bodies |
 | 11 | VobMovable | chests, doors |
 | 12 | VobHitbox | NPC hit-detection colliders |
+| 13 | ClimbAnchor | VR ledge grab points (VrLedgeAnchor), `Constants.ClimbAnchorLayer`. Collides with nothing; only the XRI hands' near cast (SphereInteractionCaster mask) finds it. Leave it out of maskless queries (e.g. NPC spawn check) |
 | 20 | Grabbable | HVR grabbables |
 | 21 | Hand | HVR hands |
 

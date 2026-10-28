@@ -35,6 +35,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private Func<bool> _isGrounded;
         private Func<float> _getStandingHeight;
         private Func<float> _getMaxSlopeAngle;
+        private Func<Vector3, bool> _isClimbableTop;
         private Action<Vector3, Quaternion> _onTeleport;
         private bool _isInitialized;
         private bool _isAiming;
@@ -44,10 +45,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         /// <summary>
         /// Called by XriRig, which owns the rig references. Aiming starts only after this.
+        /// isClimbableTop: a target higher than MaxJumpDistance is valid if it's the top of a ledge Gothic's hero
+        /// climbs (VR ledge climbing).
         /// </summary>
         public void Init(InputAction stickAction, InputAction cancelAction, Transform hand, Transform head,
             CharacterController character, LayerMask blockingLayers, Func<bool> isAllowed, Func<bool> isGrounded,
-            Func<float> getStandingHeight, Func<float> getMaxSlopeAngle, Action<Vector3, Quaternion> onTeleport)
+            Func<float> getStandingHeight, Func<float> getMaxSlopeAngle, Func<Vector3, bool> isClimbableTop,
+            Action<Vector3, Quaternion> onTeleport)
         {
             _stickAction = stickAction;
             _cancelAction = cancelAction;
@@ -59,6 +63,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _isGrounded = isGrounded;
             _getStandingHeight = getStandingHeight;
             _getMaxSlopeAngle = getMaxSlopeAngle;
+            _isClimbableTop = isClimbableTop;
             _onTeleport = onTeleport;
 
             _stickAction.Enable();
@@ -184,9 +189,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         /// <summary>
         /// Walkable slope (OpenGothic MoveAlgo::testSlide: the NPC slides once normal.y < cos(slide_angle)), height
-        /// difference to the capsule's bottom (HVR CheckVerticalDistance / CheckFallDistance), enough room for the
-        /// player's standing capsule (also while crouching, as the player stands up afterwards) and a free line of
-        /// sight from the head (HVR CheckDestinationLineOfSight).
+        /// difference to the capsule's bottom (HVR CheckVerticalDistance / CheckFallDistance; higher onto a climbable
+        /// ledge), enough room for the player's standing capsule (also while crouching, as the player stands up
+        /// afterwards) and a free line of sight from the head (HVR CheckDestinationLineOfSight).
         /// </summary>
         private bool IsValidTarget(Vector3 point, Vector3 normal)
         {
@@ -198,8 +203,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             // Same as HVR's GetBottom() for a CharacterController.
             var capsuleBottom = _character.transform.TransformPoint(_character.center).y - _character.height * 0.5f;
-            if (point.y > capsuleBottom + _settings.MaxJumpDistance ||
-                point.y < capsuleBottom - _settings.MaxDropDistance)
+            if (point.y < capsuleBottom - _settings.MaxDropDistance)
                 return false;
 
             var radius = _character.radius;
@@ -210,7 +214,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (Physics.CheckCapsule(bottom, top, radius * 0.95f, _blockingLayers, QueryTriggerInteraction.Ignore))
                 return false;
 
-            return HasLineOfSight(point);
+            if (!HasLineOfSight(point))
+                return false;
+
+            // Last, as it probes the most.
+            return point.y <= capsuleBottom + _settings.MaxJumpDistance ||
+                   (_isClimbableTop != null && _isClimbableTop(point));
         }
 
         /// <summary>

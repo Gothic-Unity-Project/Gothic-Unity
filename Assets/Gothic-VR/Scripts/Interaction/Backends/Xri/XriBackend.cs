@@ -14,8 +14,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// (VrSocketSlot + XriSocketBridge, "VR Socket Slot.prefab"), the backpack ("BackPack XRI.prefab") on the
     /// shoulder and the hip/shoulder holsters (VrBodyAnchor "Shoulders"/"Waist" on the rig), chest slots
     /// (VrChestSlots, lid opened by hand: VrHinge), NPC loot slots, doors (VrHinge) and ladders (ClimbProvider
-    /// on the rig, ClimbInteractable + VrLadderExit on oCMobLadder), block hands (VrBlockHand under each
-    /// controller) and physical hands (VrPhysicsHand next to VrBlockHand; held items follow it, contact haptics).
+    /// on the rig, ClimbInteractable + VrLadderExit on oCMobLadder), ledges (VrLedgeReach on the rig moves a
+    /// ClimbInteractable ("VR Ledge Anchor XRI.prefab") under the hands, VrLedgeLocomotion makes GothicJumpProvider
+    /// jump as high as Gothic's ledges need and lets teleports reach climbable tops), block hands (VrBlockHand
+    /// under each controller) and physical hands (VrPhysicsHand next to VrBlockHand; held items follow it, contact
+    /// haptics).
     /// Missing: teleport/ladder/swim handling of physical hands (5d).
     /// </summary>
     public class XriBackend : IVrBackend

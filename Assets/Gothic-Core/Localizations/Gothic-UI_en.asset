@@ -226,6 +226,30 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Climbing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Gripped ledges: pull yourself up or fade onto them (less motion)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: pull up|fade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Ledge Hints
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: How a hand near a climbable ledge shows it
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: off|touch|near|assist
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

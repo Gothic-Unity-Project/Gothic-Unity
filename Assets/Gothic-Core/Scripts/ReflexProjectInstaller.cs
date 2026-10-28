@@ -8,6 +8,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Movement;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.StaticCache;
@@ -106,6 +107,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
+            containerBuilder.AddSingleton(typeof(LedgeService));
 
             // Misc
             containerBuilder.AddSingleton(typeof(AudioService));
