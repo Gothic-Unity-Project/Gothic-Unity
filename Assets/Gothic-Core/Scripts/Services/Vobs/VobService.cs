@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -55,10 +56,8 @@ namespace Gothic.Core.Services.Vobs
         private readonly char[] _itemCountSeparators = { ':', '.' };
 
 
-        private const int VobInitBatchSize = 10;
-
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
-        private Queue<VobLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<VobLoader> _objectsToInitQueue = new();
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
@@ -167,59 +166,66 @@ namespace Gothic.Core.Services.Vobs
             }
 
             loaderComp.IsQueued = true;
-            _objectsToInitQueue.Enqueue(loaderComp);
+            _objectsToInitQueue.Enqueue(loaderComp, go.transform.position);
         }
 
-        // DEBUG - Check how many frames it took to initialize all the objects
-        // private int firstFrameQueueFilledUp;
+        /// <summary>
+        /// Whether a VOB within radius of center still waits for its lazy initialization.
+        /// </summary>
+        public bool HasQueuedVobWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.HasEntryWithin(center, radius);
+        }
 
+        /// <summary>
+        /// Only VOBs within radius of center are initialized until ClearInitFocus(), e.g. while the view is black
+        /// after loading. The others wait, so the near ones (and NPCs) get the whole budget.
+        /// </summary>
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued VOBs nearest to the camera first, until this frame's share is used up.
+        /// </summary>
         private IEnumerator InitVobCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp != 0)
-                    // {
-                    //     Logger.LogWarning($"It took {Time.frameCount - firstFrameQueueFilledUp} frames to clear the queue.");
-                    //     firstFrameQueueFilledUp = 0;
-                    // }
-                    yield return null;
-                }
-                else
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp == 0)
-                    // {
-                    //     firstFrameQueueFilledUp = Time.frameCount;
-                    // }
+                var camera = Camera.main;
+                if (_objectsToInitQueue.Count > 0 && camera != null)
+                    _objectsToInitQueue.UpdateOrder(camera.transform.position);
 
-                    for (var i = 0; i < VobInitBatchSize && !_objectsToInitQueue.IsEmpty(); i++)
+                while (_objectsToInitQueue.TryDequeue(out var item))
+                {
+                    // Destroyed in the meantime (e.g. world change).
+                    if (item == null)
+                        continue;
+
+                    item.IsLoaded = true;
+
+                    // We assume that each loaded VOB is centered at parent=0,0,0.
+                    // Should work smoothly until we start lazy loading sub-vobs ;-)
+                    try
                     {
-                        var item = _objectsToInitQueue.Dequeue();
-
-                        // Destroyed in the meantime (e.g. world change).
-                        if (item == null)
-                            continue;
-
-                        item.IsLoaded = true;
-
-                        // We assume that each loaded VOB is centered at parent=0,0,0.
-                        // Should work smoothly until we start lazy loading sub-vobs ;-)
-                        try
-                        {
-                            _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
-                        }
-
+                        _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
                     }
 
-                    yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                    if (_frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
+
+                yield return null;
             }
         }
 
