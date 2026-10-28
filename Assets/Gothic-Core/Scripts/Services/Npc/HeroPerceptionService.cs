@@ -26,6 +26,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly RoomService _roomService;
+        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
+        [Inject] private readonly Gothic.Core.Services.Caches.MultiTypeCacheService _multiTypeCacheService;
 
         private const float _walkStepInterval = 0.55f;
         private const float _runStepInterval = 0.35f;
@@ -81,6 +83,99 @@ namespace Gothic.Core.Services.Npc
                 heroInstance, heroInstance);
             Logger.Log($"[HeroPerc] AssessUseMob '{mob.Name}' {mob.Visual?.Name} (owner '{(mob as IMovableObject)?.Owner}', guild " +
                        $"'{(mob as IMovableObject)?.OwnerGuild}') sent to {notified} NPC(s)", LogCat.Ai);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableItemTheftPerception: like the engine taking an item (OpenGothic Npc::takeItem), the hero
+        /// taking an item lying in the world sends PERC_ASSESSTHEFT with it as the global item. The scripts decide
+        /// (B_AssessTheft: the item's owner, the owner of the room - "Thief!" in Lares' hut or a citizen's house).
+        /// Only the first take of a world item counts, nothing out of an inventory (VobContainer.IsTakenWithoutTheft).
+        /// </summary>
+        public void OnHeroTakesItem(VobContainer container)
+        {
+            if (!_configService.Dev.EnableItemTheftPerception || container == null || container.IsTakenWithoutTheft ||
+                container.Vob is not IItem vobItem)
+                return;
+            container.IsTakenWithoutTheft = true;
+
+            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
+                return;
+            var hero = heroInstance.GetUserData();
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var item = _vmCacheService.TryGetItemData(instanceName);
+            if (hero == null || item == null)
+                return;
+
+            var vm = _gameStateService.GothicVm;
+            var oldItem = vm.GlobalItem;
+            try
+            {
+                vm.GlobalItem = item;
+                LogTheftChecks(hero, heroInstance, item);
+                var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
+                    heroInstance, heroInstance);
+                Logger.Log($"[HeroPerc] AssessTheft '{instanceName}' (room '{_roomService.HeroRoom}') sent to " +
+                           $"{notified} NPC(s)", LogCat.Ai);
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"[HeroPerc] AssessTheft '{instanceName}' failed: {e.Message}", LogCat.Ai);
+            }
+            finally
+            {
+                vm.GlobalItem = oldItem;
+            }
+        }
+
+        // Diagnostics: who could call the theft and why not.
+        private const float _theftDiagnosticRange = 10f;
+
+        /// <summary>
+        /// What G2's B_AssessTheft checks, per NPC nearby: height, sight, the room's guild and its helpers
+        /// (C_IsTakenItemMyPossession, C_WantToAttackThief) - a theft nobody reacted to shows the failing check.
+        /// </summary>
+        private void LogTheftChecks(NpcContainer hero, NpcInstance heroInstance, ItemInstance item)
+        {
+            var vm = _gameStateService.GothicVm;
+            var possession = vm.GetSymbolByName("C_IsTakenItemMyPossession");
+            var wantAttack = vm.GetSymbolByName("C_WantToAttackThief");
+            var heroPosition = hero.Go.transform.position;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc?.Go == null || npc == hero || npc.Instance == null ||
+                    (npc.Go.transform.position - heroPosition).sqrMagnitude > _theftDiagnosticRange * _theftDiagnosticRange)
+                    continue;
+
+                var oldSelf = vm.GlobalSelf;
+                var oldOther = vm.GlobalOther;
+                try
+                {
+                    vm.GlobalSelf = npc.Instance;
+                    vm.GlobalOther = heroInstance;
+                    var hasPerception = npc.Props.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessTheft,
+                        out var function) && function >= 0;
+                    var isMine = possession != null &&
+                                 vm.Call<int, NpcInstance, NpcInstance, ItemInstance>(possession.Index, npc.Instance,
+                                     heroInstance, item) != 0;
+                    var wants = wantAttack != null &&
+                                vm.Call<int, NpcInstance, NpcInstance>(wantAttack.Index, npc.Instance, heroInstance) != 0;
+                    var height = _npcAiService.ExtNpcGetHeightToNpc(npc.Instance, heroInstance);
+                    var canSee = _npcAiService.ExtNpcCanSeeNpc(npc.Instance, heroInstance, false);
+                    Logger.Log($"[HeroPerc] Theft check {npc.Instance.GetName(NpcNameSlot.Slot0)} (guild " +
+                               $"{npc.Instance.Guild}): perception={hasPerception} height={height} canSee={canSee} " +
+                               $"roomGuild={_roomService.GuildOfRoom(_roomService.HeroRoom)} myPossession={isMine} " +
+                               $"wantsToAttack={wants}", LogCat.Ai);
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"[HeroPerc] Theft check failed: {e.Message}", LogCat.Ai);
+                }
+                finally
+                {
+                    vm.GlobalSelf = oldSelf;
+                    vm.GlobalOther = oldOther;
+                }
+            }
         }
 
         /// <summary>

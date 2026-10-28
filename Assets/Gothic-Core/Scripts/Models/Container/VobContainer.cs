@@ -27,6 +27,13 @@ namespace Gothic.Core.Models.Container
         /// </summary>
         public bool IsHeldByPlayer;
 
+        /// <summary>
+        /// TRUE if taking this item is no theft for the NPCs (no PERC_ASSESSTHEFT): spawned at runtime (backpack, chest,
+        /// stack pieces - VobService.CreateItem) or taken by the hero once already. Items of the world and of
+        /// Wld_InsertItem start FALSE (DeveloperConfig.EnableItemTheftPerception).
+        /// </summary>
+        public bool IsTakenWithoutTheft;
+
 
         [Inject] private readonly VmCacheService _vmCacheService;
         

@@ -43,6 +43,7 @@ namespace Gothic.VR.Adapters.Player
 
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private VrInteractable _backpack;
         private IVrSocket _putIntoSocket;
@@ -281,6 +282,9 @@ namespace Gothic.VR.Adapters.Player
         {
             _dwellTimes.Remove(item);
 
+            // DeveloperConfig.EnableItemTheftPerception: sucked in is taken too - witnesses may call it theft.
+            var container = item.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
+
             if (_putIntoSocket.IsOccupied || !_putIntoSocket.TryPlace(item, false))
             {
                 Logger.Log($"[VRBackpackVacuum] Couldn't store '{item.name}' (socket busy or item filtered).", LogCat.VR);
@@ -288,6 +292,7 @@ namespace Gothic.VR.Adapters.Player
             }
 
             Logger.Log($"[VRBackpackVacuum] Stored '{item.name}'.", LogCat.VR);
+            _heroPerceptionService.OnHeroTakesItem(container);
         }
     }
 }
