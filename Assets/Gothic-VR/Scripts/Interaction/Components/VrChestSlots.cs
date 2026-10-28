@@ -19,8 +19,10 @@ namespace Gothic.VR.Interaction.Components
     /// <summary>
     /// Content of a chest (oCMobContainer), independent of the lid: the lid (IVrHinge, VrHinge) opens and closes
     /// it by its Opened/Closed events.
-    /// - The prefab carries a slot inventory (IVrSocketContainer) per VR backend. The active one is used, others
-    ///   stay hidden.
+    /// - The slot inventory (IVrSocketContainer with 12 slots and the drop zone) is its own prefab, created on the
+    ///   first open. Chests are built within 100 m (medium VOB culling group, ~110 around the Old Camp) and only
+    ///   switched off when the player walks away, but most of them are never opened. Copying the slots cost
+    ///   ~2 ms per chest, starting them up another ~1 ms.
     /// - First open: the slots are laid out to the size of the chest mesh and the content (IContainer.Contents) is
     ///   spawned into them, without socket sounds.
     /// - Closing hides the slots (and the items inside).
@@ -33,9 +35,12 @@ namespace Gothic.VR.Interaction.Components
         private const float SlotRadius = 0.1f;
         private const float SlotCollectionMargin = SlotRadius / 2;
 
-        [Tooltip("Slot inventories (with an IVrSocketContainer), one per VR backend. The first active one is used. " +
-                 "A BoxCollider below it (drop zone / collector) is resized to the chest.")]
-        [SerializeField] private List<GameObject> _inventories = new();
+        [Tooltip("Slot inventory (with an IVrSocketContainer), created on the first open. A BoxCollider below it " +
+                 "(drop zone / collector) is resized to the chest.")]
+        [SerializeField] private GameObject _slotsPrefab;
+
+        [Tooltip("Where the slot inventory is created: the chest's base, not the lid.")]
+        [SerializeField] private Transform _slotsParent;
 
         [Tooltip("Seconds after spawning the content until socket sounds play again (HVR snaps items in later).")]
         [SerializeField] private float _silentAfterSpawnTime = 1f;
@@ -45,7 +50,7 @@ namespace Gothic.VR.Interaction.Components
         private GameObject _inventoryGo;
         private IVrSocketContainer _container;
         private BoxCollider _collector;
-        private bool _isResolved;
+        private bool _isSlotsMissing;
         private bool _isContentSpawned;
         private bool _isSpawning;
         private IVrHinge _hinge;
@@ -54,23 +59,12 @@ namespace Gothic.VR.Interaction.Components
         public bool IsOpen => _isOpen;
 
         /// <summary>
-        /// Slots of the active backend. Null if the chest has no active inventory.
+        /// Slots of the chest. Null until it's opened for the first time.
         /// </summary>
-        public IVrSocketContainer Container
-        {
-            get
-            {
-                Resolve();
-                return _container;
-            }
-        }
+        public IVrSocketContainer Container => _container;
 
         private void Start()
         {
-            Resolve();
-            if (!_isOpen && _inventoryGo != null)
-                _inventoryGo.SetActive(false);
-
             _hinge = VrHinges.FindActive(this);
             if (_hinge == null)
             {
@@ -93,8 +87,7 @@ namespace Gothic.VR.Interaction.Components
 
         public void Open()
         {
-            Resolve();
-            if (_inventoryGo == null)
+            if (!TryCreateSlots())
                 return;
 
             _isOpen = true;
@@ -117,31 +110,34 @@ namespace Gothic.VR.Interaction.Components
                 _inventoryGo.SetActive(false);
         }
 
-        private void Resolve()
+        /// <summary>
+        /// Creates the slot inventory on the first open. False if the chest has none.
+        /// </summary>
+        private bool TryCreateSlots()
         {
-            if (_isResolved)
-                return;
+            if (_container != null)
+                return true;
+            if (_isSlotsMissing)
+                return false;
 
-            _isResolved = true;
-            foreach (var inventory in _inventories)
+            if (_slotsPrefab == null || _slotsParent == null)
             {
-                if (inventory == null)
-                    continue;
-
-                var container = inventory.GetComponent<IVrSocketContainer>();
-                if (_container == null && container != null && container.IsActive)
-                {
-                    _container = container;
-                    _inventoryGo = inventory;
-                    _collector = inventory.GetComponentInChildren<BoxCollider>(true);
-                    continue;
-                }
-
-                inventory.SetActive(false);
+                Logger.LogWarning($"[Chest] {name} has no slot inventory prefab or parent set.", LogCat.VR);
+                _isSlotsMissing = true;
+                return false;
             }
 
-            if (_container == null)
-                Logger.LogWarning($"[Chest] {name} has no slot inventory for the active VR backend.", LogCat.VR);
+            _inventoryGo = Instantiate(_slotsPrefab, _slotsParent);
+            _container = _inventoryGo.GetComponent<IVrSocketContainer>();
+            _collector = _inventoryGo.GetComponentInChildren<BoxCollider>(true);
+            if (_container != null)
+                return true;
+
+            Logger.LogWarning($"[Chest] {name}: {_slotsPrefab.name} has no {nameof(IVrSocketContainer)}.", LogCat.VR);
+            Destroy(_inventoryGo);
+            _inventoryGo = null;
+            _isSlotsMissing = true;
+            return false;
         }
 
         /// <summary>
