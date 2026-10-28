@@ -165,6 +165,8 @@ namespace Gothic.VR.Adapters.Player
         private const float _minDownEyeHeight = 0.2f;
         private const float _deathMenuDelay = 4f;
         private DownPhase _downPhase;
+        // Down because of a sleep spell, not a knockout (DeveloperConfig.EnableHeroSleepBody).
+        private bool _isSleepDown;
 
         /// <summary>
         /// The body lies or stands up (EnableHeroFallCamera) - the lowered camera isn't crouching (VRHeroMovement).
@@ -333,7 +335,13 @@ namespace Gothic.VR.Adapters.Player
                     _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
                 _wasMenuOpenWhileDead = isMenuOpen;
             }
-            var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead;
+            // DeveloperConfig.EnableHeroSleepBody: put to sleep by a spell (HeroMagicState), the body falls asleep
+            // (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE) and wakes up (T_VICTIM_SLE_2_STAND) like an NPC's ZS_MagicSleep.
+            var isAsleep = _configService.Dev.EnableHeroSleepBody &&
+                           hero.Vob.CurrentStateName == Gothic.Core.Adapters.Npc.HeroMagicState.SleepStateName &&
+                           bodyState != VmGothicEnums.BodyState.BsDead;
+            var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
+                         isAsleep;
             if (!_configService.Dev.EnableHeroFallCamera || _animator == null || !_animator.IsValid ||
                 _headBone == null || _standingScale <= 0f)
             {
@@ -346,6 +354,11 @@ namespace Gothic.VR.Adapters.Player
                 if (!isDown)
                     return false;
                 StartDown(head);
+                if (isAsleep)
+                {
+                    _isSleepDown = true;
+                    SetDownAnimations("T_STAND_2_VICTIM_SLE", "S_VICTIM_SLE");
+                }
             }
 
             if (bodyState == VmGothicEnums.BodyState.BsDead && _downPhase != DownPhase.Dead)
@@ -363,7 +376,8 @@ namespace Gothic.VR.Adapters.Player
             }
             else if (!isDown && _downPhase == DownPhase.Knockout)
             {
-                SetDownAnimations("T_WOUNDEDB_2_STAND");
+                SetDownAnimations(_isSleepDown ? "T_VICTIM_SLE_2_STAND" : "T_WOUNDEDB_2_STAND");
+                _isSleepDown = false;
                 _downPhase = DownPhase.Rising;
             }
 
@@ -466,6 +480,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _downPhase = DownPhase.None;
+            _isSleepDown = false;
             IsHeroDown = false;
             _downAnimation = null;
             _downAnimations.Clear();
@@ -539,6 +554,8 @@ namespace Gothic.VR.Adapters.Player
         {
             _leftArm.FistRoll = _configService.Dev.HeroHandsRollDegrees;
             _rightArm.FistRoll = _configService.Dev.HeroHandsRollDegrees;
+            _leftArm.IsWholeArmStretch = _configService.Dev.EnableWholeArmStretch;
+            _rightArm.IsWholeArmStretch = _configService.Dev.EnableWholeArmStretch;
             _leftArm.Solve(_vrPlayerService.GetHandModelGo(VrHandSide.Left), _body.transform, _rig?.LeftHand,
                 GetSecondHandGripPose(VrHandSide.Left));
             _rightArm.Solve(_vrPlayerService.GetHandModelGo(VrHandSide.Right), _body.transform, _rig?.RightHand,
@@ -682,10 +699,17 @@ namespace Gothic.VR.Adapters.Player
             _animator.SetOverlay("S_SWIMF", swimCrawl);
             UpdateSwimSounds(bodyState == VmGothicEnums.BodyState.BsSwim, isMoving, isBackwards, swimCrawl);
 
+            // DeveloperConfig.EnableSwimTurnAnimation: drifting (not moving) while turning plays the swim/dive turn.
+            var isDriftTurning = _configService.Dev.EnableSwimTurnAnimation && !isMoving &&
+                                 Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed;
+            var turnSide = _bodyYawSpeed < 0f ? "L" : "R";
+
             if (bodyState == VmGothicEnums.BodyState.BsSwim)
-                animation = isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
+                animation = isDriftTurning && _animator.HasAnimation("T_SWIMTURN" + turnSide) ? "T_SWIMTURN" + turnSide
+                    : isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
             else if (bodyState == VmGothicEnums.BodyState.BsDive)
-                animation = isMoving ? "S_DIVEF" : "S_DIVE";
+                animation = isDriftTurning && _animator.HasAnimation("T_DIVETURN" + turnSide) ? "T_DIVETURN" + turnSide
+                    : isMoving ? "S_DIVEF" : "S_DIVE";
             else if (_rig != null && !_rig.IsGrounded && velocity.y < -1f && !isInWater &&
                 _animator.HasAnimation(_fallAnimation))
                 animation = _fallAnimation;
@@ -1256,6 +1280,8 @@ namespace Gothic.VR.Adapters.Player
             private Transform _hand;
             private Vector3 _foreRestLocal;
             private Vector3 _handRestLocal;
+            private Vector3 _upperRestScale = Vector3.one;
+            private Vector3 _handRestScale = Vector3.one;
 
             // Palm side of the model's hand (towards its item slot ZS_*HAND, across the fingers) in the forearm's space.
             private Vector3 _modelPalmLocal;
@@ -1281,6 +1307,12 @@ namespace Gothic.VR.Adapters.Player
             public bool IsFist { get; set; }
 
             /// <summary>
+            /// DeveloperConfig.EnableWholeArmStretch: reaching farther than the arm, the whole arm gets longer (scaled,
+            /// the hand kept its size) - moving the bones apart stretched only the skin between them, the wrist.
+            /// </summary>
+            public bool IsWholeArmStretch { get; set; }
+
+            /// <summary>
             /// DeveloperConfig.HeroHandsRollDegrees: turn of the fist's thumb around its fingers, outwards (0 = up).
             /// </summary>
             public float FistRoll { get; set; }
@@ -1301,6 +1333,8 @@ namespace Gothic.VR.Adapters.Player
 
                 _foreRestLocal = _fore.localPosition;
                 _handRestLocal = _hand.localPosition;
+                _upperRestScale = _upper.localScale;
+                _handRestScale = _hand.localScale;
                 BindModelPalm(bones, handMeshes);
             }
 
@@ -1441,8 +1475,7 @@ namespace Gothic.VR.Adapters.Player
                 }
 
                 // Last frame's stretch must not add up.
-                _fore.localPosition = _foreRestLocal;
-                _hand.localPosition = _handRestLocal;
+                ResetStretch();
 
                 // The body is scaled to the player's height - lengths from the current pose.
                 var upperLength = Vector3.Distance(_upper.position, _fore.position);
@@ -1457,12 +1490,7 @@ namespace Gothic.VR.Adapters.Player
                 var distance = Mathf.Max(toTarget.magnitude, 0.05f);
                 var direction = toTarget / distance;
 
-                var missing = distance - (upperLength + foreLength) * 0.99f;
-                if (missing > 0f)
-                {
-                    upperLength += missing * _upperStretchShare;
-                    foreLength += missing * (1f - _upperStretchShare);
-                }
+                Stretch(distance, ref upperLength, ref foreLength);
 
                 // Elbow plane from a hint below, outside and a bit behind the shoulder; the elbow is rotated TOWARDS it.
                 var outward = _side == "L" ? -body.right : body.right;
@@ -1494,8 +1522,7 @@ namespace Gothic.VR.Adapters.Player
             /// </summary>
             private void SolveFist(Vector3 handPosition, Transform body, Quaternion handRotation)
             {
-                _fore.localPosition = _foreRestLocal;
-                _hand.localPosition = _handRestLocal;
+                ResetStretch();
 
                 var fingers = handRotation * Vector3.forward;
                 var thumb = Quaternion.AngleAxis(_side == "L" ? FistRoll : -FistRoll, fingers) *
@@ -1524,12 +1551,7 @@ namespace Gothic.VR.Adapters.Player
                 var toTarget = wrist - shoulder;
                 var distance = Mathf.Max(toTarget.magnitude, 0.05f);
                 var direction = toTarget / distance;
-                var missing = distance - (upperLength + foreLength) * 0.99f;
-                if (missing > 0f)
-                {
-                    upperLength += missing * _upperStretchShare;
-                    foreLength += missing * (1f - _upperStretchShare);
-                }
+                Stretch(distance, ref upperLength, ref foreLength);
 
                 var outward = _side == "L" ? -body.right : body.right;
                 var hint = Vector3.down * 0.5f + outward * 0.35f - body.forward * 0.2f;
@@ -1546,6 +1568,39 @@ namespace Gothic.VR.Adapters.Player
                 _upper.rotation = Quaternion.FromToRotation(_fore.position - shoulder, elbow - shoulder) * _upper.rotation;
                 _fore.position = elbow;
                 _fore.rotation = Quaternion.FromToRotation(_hand.position - elbow, wrist - elbow) * _fore.rotation;
+            }
+
+            private void ResetStretch()
+            {
+                _fore.localPosition = _foreRestLocal;
+                _hand.localPosition = _handRestLocal;
+                _upper.localScale = _upperRestScale;
+                _hand.localScale = _handRestScale;
+            }
+
+            /// <summary>
+            /// The arm is too short for the distance: the whole arm scaled up (the hand scaled back, so the fist keeps
+            /// its size) - or, without EnableWholeArmStretch, the bones moved apart (the skin between them stretches).
+            /// </summary>
+            private void Stretch(float distance, ref float upperLength, ref float foreLength)
+            {
+                var reach = (upperLength + foreLength) * 0.99f;
+                var missing = distance - reach;
+                if (missing <= 0f)
+                    return;
+
+                if (IsWholeArmStretch && reach > 0.0001f)
+                {
+                    var factor = distance / reach;
+                    _upper.localScale = _upperRestScale * factor;
+                    _hand.localScale = _handRestScale / factor;
+                    upperLength *= factor;
+                    foreLength *= factor;
+                    return;
+                }
+
+                upperLength += missing * _upperStretchShare;
+                foreLength += missing * (1f - _upperStretchShare);
             }
 
             private void RollForearm(Vector3 elbow, Vector3 wrist)
