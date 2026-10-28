@@ -7,11 +7,13 @@ architecture; these files cover workflow and hard-won gotchas.
 
 | Skill | Use for |
 |---|---|
+| `design` | before coding: decisions with the human, plan, ADR draft, checked by `architecture-reviewer` |
 | `daedalus-bridge` | externals, AI states, perceptions, XP/attributes, inventory - anything crossing C# ↔ Daedalus |
 | `unity-mcp-debug` | debugging a play session via Unity MCP: logs first, filtering, no compile in play mode |
 | `mod-triage` | getting a G1/G2 mod to boot and play, recognising native/engine blockers |
 | `feature-checklist` | implementing features: DeveloperConfig flags + asset values, logging, DI, layers, save/load |
-| `commit-pr` | staging/committing in reviewable steps, PR description with manual test steps |
+| `local-review` | before the PR: both reviewer agents, reports stored in `review/<branch>/`, author's response |
+| `commit-pr` | staging/committing in reviewable steps, PR description and review comments from `local-review` |
 
 ## Agents (`agents/`) - ask e.g. "use daedalus-scout to look up Npc_GetNextTarget"
 
@@ -19,7 +21,13 @@ architecture; these files cover workflow and hard-won gotchas.
 |---|---|
 | `daedalus-scout` | read-only lookup in Gothic scripts / OpenGothic / ZenKit, returns a short brief |
 | `gothic-reviewer` | reviews your diff against project-specific pitfalls before commit/PR |
+| `architecture-reviewer` | structural review against `Docs/architecture.md` of a branch, `--wip` changes, a plan or a folder: layers, boundaries, extension points, token-cheap code |
 | `playtest-planner` | turns branch changes into an in-game test checklist for G1/G2 |
+
+## Scripts (`scripts/`)
+
+- `architecture-facts.sh [<range> | --wip]` - structural facts of a change (layers, usings, DI, events, public API).
+  Used by `architecture-reviewer`, readable on its own as a review starting point.
 
 ## Settings
 

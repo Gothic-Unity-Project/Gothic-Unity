@@ -462,12 +462,45 @@ namespace Gothic.Core.Services.Vobs
             }
 
             // We need to move into next elements starting from VobLoader root.
-            var zm = go.transform.GetChild(0).GetChild(0);
+            var root = goTransform.GetChild(0);
+            if (root.childCount == 0)
+                return null;
 
-            return zm.gameObject.GetAllDirectChildren()
-                .Where(i => i.name.ContainsIgnoreCase("ZS"))
-                .OrderBy(i => Vector3.Distance(i.transform.position, position))
-                .FirstOrDefault();
+            var zm = root.GetChild(0);
+
+            // Plain loop instead of LINQ: routine loops call this through Wld_IsMobAvailable very often.
+            GameObject nearest = null;
+            var nearestSqrDistance = float.MaxValue;
+            for (var i = 0; i < zm.childCount; i++)
+            {
+                var child = zm.GetChild(i);
+                if (!child.name.ContainsIgnoreCase("ZS"))
+                    continue;
+
+                var sqrDistance = (child.position - position).sqrMagnitude;
+                if (sqrDistance >= nearestSqrDistance)
+                    continue;
+
+                nearest = child.gameObject;
+                nearestSqrDistance = sqrDistance;
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// Like Gothic, a mob needs a spot to be used from. A mob not built yet counts as usable and is checked on use.
+        /// </summary>
+        public bool IsMobUsableFrom(VobContainer mob, Vector3 position)
+        {
+            if (!mob.Go || !mob.Go.TryGetComponent<VobLoader>(out var loader))
+            {
+                Logger.LogWarning($"Mob {mob.Vob.Name} has no GameObject or VobLoader. Treating it as unusable.",
+                    LogCat.Vob);
+                return false;
+            }
+
+            return !loader.IsLoaded || GetNearestSlot(mob.Go, position) != null;
         }
         
         /// <summary>
