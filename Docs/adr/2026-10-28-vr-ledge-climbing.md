@@ -1,6 +1,6 @@
 # ADR: VR ledge climbing
 
-- Status: accepted (PR #456), tested in the headset
+- Status: accepted (PR #456)
 - Date: 2026-10-28
 - Technical details: Docs/ledge-climbing.md
 
