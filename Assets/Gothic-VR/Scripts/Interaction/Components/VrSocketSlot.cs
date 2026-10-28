@@ -250,6 +250,14 @@ namespace Gothic.VR.Interaction.Components
             Backend?.SetDetectionEnabled(isEnabled);
         }
 
+        /// <summary>
+        /// The interactable's socket sound or the slot's fallback, as if it was put in (e.g. stashed through the slot).
+        /// </summary>
+        public void PlayPlacedSound(VrInteractable interactable)
+        {
+            PlaySound(interactable.SocketedSound != null ? interactable.SocketedSound : _placedSoundFallback, false);
+        }
+
         public bool TryPlace(VrInteractable interactable, bool silent)
         {
             if (interactable == null || IsOccupied)
@@ -326,7 +334,7 @@ namespace Gothic.VR.Interaction.Components
                 return;
 
             _isPlacedEventRaised = true;
-            PlaySound(interactable.SocketedSound != null ? interactable.SocketedSound : _placedSoundFallback, false);
+            PlayPlacedSound(interactable);
             Grabbed?.Invoke(CreateArgs(interactable));
         }
 

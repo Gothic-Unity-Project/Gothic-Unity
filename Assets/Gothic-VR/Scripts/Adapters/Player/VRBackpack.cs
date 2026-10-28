@@ -4,6 +4,7 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Culling;
@@ -196,14 +197,47 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>(true);
-            var vobContainer = vobLoader.Container;
+            MoveIntoInventory(vobLoader.Container);
 
+            UpdateInventoryView();
+        }
+
+        /// <summary>
+        /// A Gothic item (not the backpack, not a mob) that TryStash() takes.
+        /// </summary>
+        public bool CanStash(VrInteractable item)
+        {
+            return VrSocketSlot.IsItem(item);
+        }
+
+        /// <summary>
+        /// Over-the-shoulder stash (VrShoulderStash): the item goes into the inventory like into a backpack slot, but
+        /// leaves the world at once, the backpack stays on the shoulder.
+        /// </summary>
+        public bool TryStash(VrInteractable item)
+        {
+            if (!CanStash(item) || item.IsHeld)
+                return false;
+
+            var vobLoader = item.GetComponentInParent<VobLoader>(true);
+            MoveIntoInventory(vobLoader.Container);
+
+            vobLoader.gameObject.SetActive(false);
+            StartCoroutine(DestroyNextFrame(vobLoader.gameObject));
+
+            UpdateInventoryView();
+            return true;
+        }
+
+        /// <summary>
+        /// The item leaves the world (culling, save game's VOB list) and is added to the hero's inventory.
+        /// </summary>
+        private void MoveIntoInventory(VobContainer vobContainer)
+        {
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
 
             _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
-
-            UpdateInventoryView();
         }
 
         /// <summary>

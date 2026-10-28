@@ -24,7 +24,10 @@ namespace Gothic.VR.Interaction.Backends.Hvr
             new (0.5f, 0.6f, 80f),
 
             // Contact (not sent on HVR: physical hands with contact haptics are Xri only)
-            new (0.04f, 0.8f, 0f)
+            new (0.04f, 0.8f, 0f),
+
+            // Touch (not sent on HVR: body slot feedback is Xri only)
+            new (0.04f, 0.25f, 0f)
         };
 
         public void Vibrate(VrHandSide side, VrHapticPreset preset)
