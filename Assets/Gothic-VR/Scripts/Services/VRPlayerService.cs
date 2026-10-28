@@ -47,6 +47,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly DocService _docService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -105,10 +106,14 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
+            var container = grabbable.GetComponentInParent<VobLoader>()?.Container;
+            var vobItem = container?.VobAs<IItem>();
             if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.AddItem(instanceName, vobItem.Amount);
+
+            // DeveloperConfig.EnableItemTheftPerception: NPCs who see it may call it theft.
+            _heroPerceptionService.OnHeroTakesItem(container);
         }
 
         /// <summary>
@@ -149,6 +154,10 @@ namespace Gothic.VR.Services
             if (vobItem == null) return;
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.RemoveItem(instanceName, vobItem.Amount);
+
+            // DeveloperConfig.EnableShoulderStash: let go of at the backpack on the shoulder - into the backpack.
+            if (_configService.Dev.EnableShoulderStash)
+                Gothic.VR.Adapters.Player.VRBackpack.ShoulderBackpack?.TryStashAtShoulder(grabbable);
         }
 
         /// <summary>

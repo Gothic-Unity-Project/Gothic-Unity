@@ -54,6 +54,16 @@ namespace Gothic.VR.Adapters.Player
 
         private Quaternion GetTargetRotation()
         {
+            // DeveloperConfig.EnableBodyAnchorLockedToHead: always the head's yaw at once, also looking down at the
+            // hips - the anchor lagged behind the head (slow catch-up) and the holsters had to be "turned in" by head.
+            if (IsLockedToHead())
+            {
+                var lockedYaw = GetHeadYawDirection();
+                return lockedYaw.sqrMagnitude < 0.0001f
+                    ? transform.rotation
+                    : Quaternion.LookRotation(lockedYaw, Vector3.up);
+            }
+
             var headForward = _head.forward;
             var flatForward = Vector3.ProjectOnPlane(headForward, Vector3.up);
             if (flatForward.sqrMagnitude < 0.0001f)
@@ -69,6 +79,35 @@ namespace Gothic.VR.Adapters.Player
                 return current;
 
             return Quaternion.RotateTowards(current, headYaw, _catchUpSpeed * Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Where the face points, flat: the forward flattened, plus the head's up flattened - looking down the up points
+        /// ahead (looking up, behind), so the direction stays right where the forward alone gets unreliable.
+        /// </summary>
+        private Vector3 GetHeadYawDirection()
+        {
+            var flatForward = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
+            var flatUp = Vector3.ProjectOnPlane(_head.up, Vector3.up) * (_head.forward.y < 0f ? 1f : -1f);
+            var direction = flatForward + flatUp;
+            return direction.sqrMagnitude < 0.0001f ? Vector3.zero : direction.normalized;
+        }
+
+        private bool _isLockedToHeadResolved;
+        private bool _isLockedToHead;
+
+        private bool IsLockedToHead()
+        {
+            if (_isLockedToHeadResolved)
+                return _isLockedToHead;
+
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
+                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            if (config?.Dev == null)
+                return false;
+            _isLockedToHead = config.Dev.EnableBodyAnchorLockedToHead;
+            _isLockedToHeadResolved = true;
+            return _isLockedToHead;
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
@@ -58,6 +59,16 @@ namespace Gothic.VR.Adapters.Player
         private readonly List<IVrSocket> _slots = new();
         private readonly Dictionary<Collider, Vector3> _grabVolumeSizes = new();
 
+        // DeveloperConfig.EnableShoulderStash: the hero's backpack on the shoulder (null in a hand or elsewhere), its
+        // shoulder slot and how close (m) to it a let go item is stashed.
+        public static VRBackpack ShoulderBackpack { get; private set; }
+        private Transform _shoulderSlot;
+        private const float _shoulderStashRadius = 0.3f;
+        // Per hand (left, right): in the shoulder stash zone, and the held item lit up over it.
+        private readonly bool[] _isHandAtShoulder = new bool[2];
+        private readonly GameObject[] _stashHighlighted = new GameObject[2];
+        private static readonly string[] _putIntoSlotNames = { "BackpackPutIntoSlot", "PutIntoSlot" };
+
         private bool _isZenKitBootstrapped;
         private int _currentPage = 1;
         private int _totalPages;
@@ -88,6 +99,8 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly Gothic.Core.Services.Meshes.DynamicMaterialService _dynamicMaterialService;
 
         // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
         private const string _takeAllButtonName = "TakeAllButton";
@@ -185,6 +198,15 @@ namespace Gothic.VR.Adapters.Player
                 grabbable.SetupGrabColliders();
             }
 #endif
+            // DeveloperConfig.EnableLootBackpackStays: the backpack's hull doesn't collide with the world (it's worn on the
+            // shoulder) - a loot backpack fell through the ground. It stays where it is (and where it's let go: XRI
+            // restores the kinematic state on drop).
+            if (_configService != null && _configService.Dev.EnableLootBackpackStays)
+            {
+                foreach (var body in GetComponentsInChildren<Rigidbody>())
+                    body.isKinematic = true;
+            }
+
             Tint(_npcBackpackTint);
             RegisterUiCanvases();
             Init();
@@ -539,6 +561,8 @@ namespace Gothic.VR.Adapters.Player
 
             SetSlotDetectionEnabled(false);
             SetShoulderGrabVolumes(true);
+            ShoulderBackpack = this;
+            _shoulderSlot = args.GrabberGo != null ? args.GrabberGo.transform : null;
         }
 
         private void OnBackpackReleased(VrGrabArgs args)
@@ -552,6 +576,100 @@ namespace Gothic.VR.Adapters.Player
             SetShoulderGrabVolumes(false);
             SetSlotDetectionEnabled(true);
             UpdateInventoryView();
+            if (ShoulderBackpack == this)
+                ShoulderBackpack = null;
+            _shoulderSlot = null;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableShoulderStash: an item let go of right at the backpack on the shoulder goes into it
+        /// (its put-into slot, like the vacuum) - picking something up and stashing it without taking the backpack down.
+        /// Called by VRPlayerService when a hand lets go of an item; stored in the next frame (the release is still
+        /// going on).
+        /// </summary>
+        /// <summary>
+        /// DeveloperConfig.EnableShoulderStash: a hand reaching into the stash zone gives a light vibration, an item held
+        /// there lights up (like hovered items) - it would go into the backpack when let go.
+        /// </summary>
+        private void Update()
+        {
+            var rig = ShoulderBackpack == this && _shoulderSlot != null && _configService != null &&
+                      _configService.Dev.EnableShoulderStash
+                ? _vrPlayerService.VRContextInteractionService?.Rig
+                : null;
+            if (rig == null)
+            {
+                for (var i = 0; i < 2; i++)
+                {
+                    _isHandAtShoulder[i] = false;
+                    SetStashHighlight(i, null);
+                }
+                return;
+            }
+
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand == null)
+                    continue;
+                var index = hand.HandSide == VrHandSide.Left ? 0 : 1;
+                var handVisual = rig.GetHandVisual(hand.HandSide);
+                var isAtShoulder = handVisual != null && IsAtShoulder(handVisual.position);
+                if (isAtShoulder && !_isHandAtShoulder[index])
+                    _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
+                _isHandAtShoulder[index] = isAtShoulder;
+
+                var held = hand.Held;
+                var isStashable = held != null && held != _interactable && VrSocketSlot.IsItem(held) &&
+                                  IsAtShoulder(held.transform.position);
+                SetStashHighlight(index, isStashable ? held.GetComponentInParent<VobLoader>()?.gameObject : null);
+            }
+        }
+
+        private bool IsAtShoulder(Vector3 position)
+        {
+            return Vector3.Distance(position, _shoulderSlot.position) <= _shoulderStashRadius;
+        }
+
+        private void SetStashHighlight(int index, GameObject itemGo)
+        {
+            var current = _stashHighlighted[index];
+            if (current == itemGo)
+                return;
+
+            if (current != null)
+                _dynamicMaterialService.ResetDynamicValue(current, Constants.ShaderPropertyFocusBrightness,
+                    Constants.ShaderPropertyFocusBrightnessDefault);
+            if (itemGo != null)
+                _dynamicMaterialService.SetDynamicValue(itemGo, Constants.ShaderPropertyFocusBrightness,
+                    Constants.ShaderPropertyFocusBrightnessValue);
+            _stashHighlighted[index] = itemGo;
+        }
+
+        public void TryStashAtShoulder(VrInteractable item)
+        {
+            if (_shoulderSlot == null || item == null || !VrSocketSlot.IsItem(item) ||
+                Vector3.Distance(item.transform.position, _shoulderSlot.position) > _shoulderStashRadius)
+                return;
+
+            StartCoroutine(StashNextFrame(item));
+        }
+
+        private IEnumerator StashNextFrame(VrInteractable item)
+        {
+            yield return null;
+            if (item == null || item.IsHeld || _shoulderSlot == null)
+                yield break;
+
+            var putInto = GetComponentsInChildren<MonoBehaviour>(true)
+                .OfType<IVrSocket>()
+                .FirstOrDefault(i => _putIntoSlotNames.Contains(((MonoBehaviour)i).name) &&
+                                     (i is not IVrSocketBackend backend || backend.IsActive));
+            if (putInto == null || putInto.IsOccupied || !putInto.TryPlace(item, false))
+            {
+                Logger.LogWarning($"[VRBackpack] '{item.name}' couldn't be stashed at the shoulder", LogCat.VR);
+                yield break;
+            }
+            Logger.Log($"[VRBackpack] '{item.name}' stashed at the shoulder", LogCat.VR);
         }
 
         /// <summary>
