@@ -1,6 +1,6 @@
 ---
 name: playtest-planner
-description: Builds a manual playtest plan from the current branch's changes - concrete in-game steps for
+description: Builds a manual play test plan from the current branch's changes - concrete in-game steps for
     Gothic 1 and Gothic 2 (and mods if relevant), required DeveloperConfig flags, expected results, and which log tags to watch.
     Use before a playtest session, a PR, or a release build.
 tools: Read, Grep, Glob, Bash, WebFetch

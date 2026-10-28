@@ -15,7 +15,7 @@ Data flow: Unity → ZenKit.dll (.NET Standard 2.1) → libzenkitcapi (native) �
 3. Create a `GameConfiguration` ScriptableObject via `Right-click > Create > ScriptableObjects > GameConfiguration` in `Gothic-Core/Resources/GameConfigurations/` and assign it to `GameManager`'s Config slot if you need a custom config. A Production config exists by default.
 4. Configuration is accessed at runtime via `GameGlobals.Config`, which exposes Gothic.ini, GothicGame.ini, GameSettings.json, and DeveloperConfig settings.
 
-**Without HurricaneVR** (paid asset): Remove `GOTHIC_HVR_INSTALLED` from Project Settings scripting defines, then set `GameManager.DeveloperConfig → Controls.GameControls` to `Flat`.
+**Without HurricaneVR** (paid asset): Remove `GOTHIC_HVR_INSTALLED` from Project Settings scripting defines, then set `GameManager.DeveloperConfig → VrInteractionBackend` to `Xri` (free XR Interaction Toolkit backend), or `Controls.GameControls` to `Flat`.
 
 **Purple HVR hands**: Run `Gothic > VR > HVR - Convert Materials to URP` to fix URP material conversion.
 
@@ -29,6 +29,10 @@ Builds are performed via the Unity Editor or CI using `game-ci/unity-builder`. T
 CI triggers on PRs labeled `pipeline-test-build`. HurricaneVR (commercial asset) is sourced from a private asset repo and injected into `Assets/HurricaneVR/` before building.
 
 PlayMode tests live in `Assets/Gothic-Tests/PlayMode/` (assembly: `Gothic.Tests.PlayMode.asmdef`). Run them via the Unity Test Runner window.
+
+EditMode tests live in `Assets/Gothic-Tests/EditMode/`. `CoreArchitectureTest` enforces the Core layer model (see
+Architecture). Known violations are in `ArchitectureBaseline.txt` next to it; it may only shrink. Fix new violations
+by moving code to the right layer - never add baseline lines to make the test pass.
 
 ## Architecture
 
@@ -48,7 +52,12 @@ Gothic.Core               with engine, services, domain logic
 
 **Assembly topology**: Every module depends on `Gothic.Core` and has **no interaction with other Gothic modules** (star topology — no lateral dependencies).
 
-Within Core, responsibility is further split into four layers: **Model** (data) → **Domain** (business logic) → **Service** (orchestration) → **Adapter** (Unity integration). Dependencies flow upward only.
+Within Core, responsibility is further split into layers: **Model** (data) ← **Domain** (business logic) ⇄ **Service** (orchestration) ← **Adapter** (Unity integration). Arrows point to what a layer may use:
+- Models only use Models.
+- Domain and Services are one rank and may use each other. Domain classes are workers owned by a Service, created via `new XDomain().Inject()` (not registered in Reflex), and may `[Inject]` Services.
+- Nothing below Adapters uses Adapters.
+
+Principles, dependency rules and "where does my code go": `Docs/architecture.md`.
 
 ### Dependency Injection (Reflex)
 
@@ -70,7 +79,7 @@ Injection approaches:
 (Each pattern lives in its folder representation like Adapters in `/Adapters/`.)
 - **Adapters**: MonoBehaviour classes that bridge Unity lifecycle (Start/Update/etc.) to domain services. They are thin wrappers — logic belongs in services.
 - **Services**: Pure C# classes injected via DI.
-- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_).
+- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_). Created and owned by a Service, never by an Adapter.
 - **Models**: Data containers, often with a `Container` suffix (e.g. `NpcContainer`, `VobContainer`) wrapping entity state.
 - **GlobalEventDispatcher**: Central event bus (`Assets/Gothic-Core/Scripts/GlobalEventDispatcher.cs`) used for cross-service communication (scene loading, NPC creation, fight events, time changes, etc.). Used for all! events at runtime for easy seekability.
 
@@ -80,7 +89,7 @@ Gothic 1 vs Gothic 2 differences are isolated to `Gothic-Gothic1/` and `Gothic-G
 
 ### VR Framework
 
-HurricaneVR (HVR) is the VR interaction framework. Its presence is gated by the `GOTHIC_HVR_INSTALLED` scripting define symbol. VR-specific services live in `Gothic-VR/Scripts/Services/` and adapters in `Gothic-VR/Scripts/Adapters/`.
+VR interaction goes through Gothic-owned ports (`Gothic-VR/Scripts/Interaction/Ports/`) with two backends: XR Interaction Toolkit (`Interaction/Backends/Xri/`, free, always compiled) and HurricaneVR (`Interaction/Backends/Hvr/`, commercial, gated by the `GOTHIC_HVR_INSTALLED` scripting define, being replaced: `Docs/HVR-replacement/`). `DeveloperConfig.VrInteractionBackend` picks one. Game code never uses XRI or HVR types; Gothic behaviour lives in backend-neutral components (`Interaction/Components/`). Folder rules and the building blocks to reuse: `Docs/architecture.md` > "Inside Gothic-VR". VR-specific services live in `Gothic-VR/Scripts/Services/` and adapters in `Gothic-VR/Scripts/Adapters/`.
 
 ### Asset Loading Pipeline
 
@@ -153,7 +162,8 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 - **ZenKit** — Gothic asset parser (runtime loading of meshes, worlds, scripts, audio). It is symlinked at **./ZenKitCS/** (Use it, whenever information are needed)
 - **dmusic** — DirectMusic reimplementation for Gothic's original music system
 - **Reflex** — IoC/DI container (`com.gustavopsantos.reflex`)
-- **HurricaneVR** — Commercial VR interaction framework (private repo, not in this repo)
+- **XR Interaction Toolkit** — Unity's free VR interaction framework (the `Xri` backend)
+- **HurricaneVR** — Commercial VR interaction framework (private repo, not in this repo; the `Hvr` backend)
 - **Unity URP** — Universal Render Pipeline for graphics
 - **Unity OpenXR + Pico OpenXR** — XR platform support
 - **Newtonsoft JSON** — serialization
@@ -166,6 +176,8 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 ## Workflow Notes
 
 - Branch from `main`, submit PRs with detailed descriptions of what changed and how to test manually.
+- Before coding a feature, design it with the `design` skill (plan, ADR draft, `architecture-reviewer` on the plan).
+- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`).
 - Commits end with `Co-Authored-By: Claude <MODEL VERSION> <noreply@anthropic.com>` (e.g. Opus 5.5, Sonnet 5.5);
   PR descriptions end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Staging, commit style and PR template: see the `commit-pr` skill.

@@ -99,6 +99,11 @@ namespace Gothic.Core.Adapters.Animations
         private const float _rootColliderUpdateThreshold = 0.05f;
         private float _lastMovementLogTime = -999f;
 
+        // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
+        // one is logged once only, as every log captures a stack trace, also in builds.
+        private static readonly HashSet<string> _missingAnimationsLogged = new();
+        private static bool _isHeadAnimationWarningLogged;
+
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
         private List<AnimationTrackInstance> _updateSnapshot = new();
@@ -534,7 +539,9 @@ namespace Gothic.Core.Adapters.Animations
 
             if (newTrack == null)
             {
-                Logger.LogWarning($"Animation {animationName} not found and therefore can't be played.", LogCat.Animation);
+                if (_missingAnimationsLogged.Add(animationName))
+                    Logger.LogWarning($"Animation {animationName} not found and therefore can't be played.",
+                        LogCat.Animation);
                 return false;
             }
 
@@ -1102,7 +1109,7 @@ namespace Gothic.Core.Adapters.Animations
             if (!_configService.Dev.EnableFaceAnimations)
             {
                 // FIXME - Implement
-                Logger.LogWarning("PlayHeadAnimation not yet implemented.", LogCat.Animation);
+                LogHeadAnimationWarning();
                 return;
             }
 
@@ -1116,7 +1123,7 @@ namespace Gothic.Core.Adapters.Animations
             if (!_configService.Dev.EnableFaceAnimations)
             {
                 // FIXME - Implement
-                Logger.LogWarning("StopHeadAnimation not yet implemented.", LogCat.Animation);
+                LogHeadAnimationWarning();
                 return;
             }
 
@@ -1283,6 +1290,15 @@ namespace Gothic.Core.Adapters.Animations
         public void MoveWithWallCollision(Vector3 worldMove)
         {
             Go.transform.localPosition += SlideAlongWalls(worldMove);
+        }
+
+        private static void LogHeadAnimationWarning()
+        {
+            if (_isHeadAnimationWarningLogged)
+                return;
+
+            _isHeadAnimationWarningLogged = true;
+            Logger.LogWarning("Play/StopHeadAnimation not yet implemented (logged once).", LogCat.Animation);
         }
 
         public bool IsPlaying(string animationName)
