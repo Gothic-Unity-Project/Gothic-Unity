@@ -1525,7 +1525,7 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("V1: While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
                  "had to be grabbed very precisely. 1 = off.")]
-        public float BackpackShoulderGrabScale = 2f;
+        public float BackpackShoulderGrabScale = 4f;
 
         [Tooltip("V1: The Marvin panel released in the air (not in the hand dock) floats there relative to the head and " +
                  "lazily follows it (turns after it only when looking away further) - it stayed where it was put in the " +
@@ -1610,6 +1610,30 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: The trade counter's buttons (OK, X, arrows) are pressed by pushing a hand into them, on any VR " +
                  "backend - besides the UI laser, which didn't click them on XRI.")]
         public bool EnableTradeTouchButtons = true;
+
+        [Tooltip("V1: Important infos are never a choice for the hero, and after one the NPC starts the next one by itself " +
+                 "(like the engine) - Hanna's second important info showed up as an empty dialog option.")]
+        public bool EnableImportantInfoQueue = true;
+
+        [Tooltip("V1: With two hands on an item, a hand far from its controller isn't 'stuck' (the item holds it at its " +
+                 "grip while turning/swinging) - the second hand let go of the sword mid-swing.")]
+        public bool EnableTwoHandHoldNoStuckRelease = true;
+
+        [Tooltip("V1: The VR hero's arm reaching farther than it is long gets longer as a whole (upper arm and forearm " +
+                 "scaled, the fist keeps its size) - only the wrist stretched, like Mr. Elastic.")]
+        public bool EnableWholeArmStretch = true;
+
+        [Tooltip("V1: An item let go of right at the backpack on the shoulder (30 cm) goes into the backpack - pick up and " +
+                 "stash without taking the backpack down.")]
+        public bool EnableShoulderStash = true;
+
+        [Tooltip("V1: Holsters and shoulder slots (VrBodyAnchor) turn with the head's direction at once, also looking down " +
+                 "at them - they lagged behind (slow catch-up) and had to be turned into place with the head.")]
+        public bool EnableBodyAnchorLockedToHead = true;
+
+        [Tooltip("V1: XRI: items are no ground to stand on (grounded check, ground snap) - a held bow under the feet " +
+                 "was ground, jumping off it again and again flew.")]
+        public bool EnableItemsNoGround = true;
 
         [Tooltip("V1: The game version / profile scene puts the player onto its floor like the logo and menu scenes - the " +
                  "XRI player fell from the floorless Player scene before the floor existed and kept falling.")]

@@ -23,7 +23,6 @@ MonoBehaviour:
   GameControls: 0
   VrInteractionBackend: 0
   EnableVRDeviceSimulator: 0
-  VrSimulatorControls: 0
   PreselectMarvinMode: 0
   EnableZSpyLogs: 0
   AllDebugChannels: 0
@@ -368,7 +367,7 @@ MonoBehaviour:
   EnableMobDoorNonDoorVisuals: 1
   EnableLockedTouchComment: 1
   EnableLinkedSocketReturn: 1
-  BackpackShoulderGrabScale: 2
+  BackpackShoulderGrabScale: 4
   EnableMarvinHeadFollow: 1
   EnableSwimTurnAnimation: 1
   EnableMeleeHeightReach: 1
@@ -382,6 +381,19 @@ MonoBehaviour:
   EnableHeroHandsHoldInPalm: 1
   HeroHandsHoldShift: 0.3
   EnableXriSecondHandFixed: 1
+  EnableXriGrabAtRayHit: 1
+  EnableSecondFistOnShownGrip: 1
+  EnableNoDistanceGrabOfHeldItem: 1
+  EnableTrailFromWeaponLength: 1
+  EnableHeroSleepBody: 1
+  EnableLootBackpackStays: 1
+  EnableTradeTouchButtons: 1
+  EnableImportantInfoQueue: 1
+  EnableTwoHandHoldNoStuckRelease: 1
+  EnableWholeArmStretch: 1
+  EnableShoulderStash: 1
+  EnableBodyAnchorLockedToHead: 1
+  EnableItemsNoGround: 1
   EnableGameVersionScenePlacement: 1
   EnableHeroHands: 1
   HeroHandsRollDegrees: 0
