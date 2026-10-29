@@ -30,10 +30,10 @@ namespace Gothic.Core.Services.Vm
 
         // Lock picking
         public string DoorLockSoundName => "DOOR_LOCK.WAV";
-        public string PickLockFailureSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_FAILURE").GetString(0);
-        public string PickLockBrokenSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_BROKEN").GetString(0);
-        public string PickLockSuccessSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_SUCCESS").GetString(0);
-        public string PickLockUnlockSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_UNLOCK").GetString(0);
+        public string PickLockFailureSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_FAILURE")?.GetString(0);
+        public string PickLockBrokenSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_BROKEN")?.GetString(0);
+        public string PickLockSuccessSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_SUCCESS")?.GetString(0);
+        public string PickLockUnlockSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_UNLOCK")?.GetString(0);
         // public string DoorUnlockSoundName => "DOOR_UNLOCK.WAV"; // _STR_*_UNLOCK value above couldn't be found/isn't used in G1, therefore we use this as fallback.
 
         public string[] MobSit => _gameStateService.GothicVm.GetSymbolByName("MOB_SIT").GetString(0).Split(',');

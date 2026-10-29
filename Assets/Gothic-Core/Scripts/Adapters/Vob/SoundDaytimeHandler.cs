@@ -79,7 +79,9 @@ namespace Gothic.Core.Adapters.Vob
                 Logger.LogError($"Object {gameObject.name} has no audio source 1! Fix it!", LogCat.Audio);
             
             // Either it's not yet initialized (no clip) or it's no random loop
-            if (_audioSource1.clip == null || _vobContainer.VobAs<ISoundDaytime>().Mode != SoundMode.Random)
+            // Not every VOB with this handler is an ISoundDaytime - VobAs threw an InvalidCastException.
+            if (_audioSource1.clip == null || _vobContainer.Vob is not ISoundDaytime soundDaytime ||
+                soundDaytime.Mode != SoundMode.Random)
             {
                 return;
             }

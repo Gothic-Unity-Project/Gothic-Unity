@@ -433,6 +433,15 @@ namespace Gothic.VR.Interaction.Components
         /// </summary>
         internal void OnContact(Collision collision, bool isHeldItem, bool isEnter)
         {
+            // DeveloperConfig.EnableLockToolThroughLockables: a held lock pick or key passes through the door/chest into
+            // its lock until it's out again - the body of the door or chest stopped it before the lock.
+            if (isHeldItem && IsLockToolThroughLockables() && IsLockTool(_heldBody) && IsLockable(collision.collider))
+            {
+                foreach (var heldCollider in _heldColliders)
+                    _heldPassThrough.Add(heldCollider, collision.collider);
+                return;
+            }
+
             var time = Time.fixedTime;
             var lastContactTime = isHeldItem ? _lastHeldContactTime : _lastBodyContactTime;
             if (isHeldItem)
@@ -456,6 +465,33 @@ namespace Gothic.VR.Interaction.Components
 
             _lastContactHapticTime = time;
             GlobalEventDispatcher.PhysicalHandContact.Invoke((int)_side, speed);
+        }
+
+        private static bool IsLockable(Collider other)
+        {
+            var vob = other != null
+                ? other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob
+                : null;
+            return vob is ZenKit.Vobs.IContainer or ZenKit.Vobs.IDoor;
+        }
+
+        /// <summary>
+        /// Lock picks and keys - G1 and G2 name them all ITKE_* (ItKe_Lockpick, ItKe_Orlan_HotelZimmer, ...).
+        /// </summary>
+        private static bool IsLockTool(Rigidbody body)
+        {
+            var vob = body != null
+                ? body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as ZenKit.Vobs.IItem
+                : null;
+            var instance = vob == null ? null : !string.IsNullOrEmpty(vob.Instance) ? vob.Instance : vob.Name;
+            return instance != null && instance.StartsWith("ITKE_", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsLockToolThroughLockables()
+        {
+            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
+                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            return config?.Dev != null && config.Dev.EnableLockToolThroughLockables;
         }
 
         private bool IsBlocking(Rigidbody other)

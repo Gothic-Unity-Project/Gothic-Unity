@@ -1648,6 +1648,14 @@ namespace Gothic.Core.Models.Config
                  "hand's laser points at - it had to be touched with the hand to be read, the laser grabbed it.")]
         public bool EnableItemPopupOnRayHover = true;
 
+        [Tooltip("V1: A locked door/chest opens when touched with the empty hand while its key is in the inventory (like " +
+                 "the engine) - the key had to be taken out of the backpack and held into the lock.")]
+        public bool EnableKeyInInventoryUnlocks = true;
+
+        [Tooltip("V1: A held lock pick or key (ITKE_*) passes through doors and chests into their lock until it's " +
+                 "out again - the door's or chest's body stopped it before the lock.")]
+        public bool EnableLockToolThroughLockables = true;
+
         [Tooltip("V1: An item taken by the hero is reported to the NPCs without a victim (like the engine) - with the hero " +
                  "as the victim, G1 took it for pickpocketing and the NPCs warned him (\"Behind you!\") for every item.")]
         public bool EnableTakenItemTheftWithoutVictim = true;

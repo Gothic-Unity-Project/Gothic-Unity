@@ -30,6 +30,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.NpcInventoryService _npcInventoryService;
+        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
 
         private const float _lockedTouchRadius = 0.1f;
         private const float _lockedCommentCooldown = 8f;
@@ -121,13 +124,40 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 var wasTouching = _isHandTouching[index];
                 _isHandTouching[index] = hand.Held == null && IsHandTouchingLockable(rig, hand.HandSide);
 
-                if (!_isHandTouching[index] || wasTouching || Time.time < _nextLockedCommentTime)
+                if (!_isHandTouching[index] || wasTouching)
+                    continue;
+
+                if (TryUnlockWithKeyInInventory(hand.HandSide))
+                    return;
+                if (Time.time < _nextLockedCommentTime)
                     continue;
 
                 _nextLockedCommentTime = Time.time + _lockedCommentCooldown;
                 _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
                 _dialogService.HeroSaySvm(GetLockedSvms());
             }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableKeyInInventoryUnlocks: like the engine, the key in the inventory opens it - touching
+        /// the door/chest with the empty hand is enough, the key doesn't have to be taken out of the backpack.
+        /// </summary>
+        private bool TryUnlockWithKeyInInventory(VrHandSide side)
+        {
+            if (!_configService.Dev.EnableKeyInInventoryUnlocks || string.IsNullOrEmpty(_keyInstance))
+                return false;
+
+            var hero = _playerService.HeroContainer;
+            var key = _vmCacheService.TryGetItemData(_keyInstance);
+            if (hero?.Instance == null || key == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, key.Index) <= 0)
+                return false;
+
+            Logger.Log($"[Lock] Key '{_keyInstance}' in the inventory - '{_lockable.Vob.Name}' unlocked by touch.",
+                LogCat.VR);
+            PlaySound(_vmService.PickLockSuccessSoundName, _vmService.DoorLockSoundName);
+            GlobalEventDispatcher.LockPickComboFinished.Invoke(null, _lockable, (int)side);
+            UnlockAndPushOpen();
+            return true;
         }
 
         private bool IsHandTouchingLockable(IVrRig rig, VrHandSide side)
@@ -332,7 +362,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
         private void PlaySound(string soundName, string fallback = null)
         {
-            var clip = _audioService.GetRandomSoundClip(soundName);
+            // G2 has no _STR_SOUND_PICKLOCK_* symbols (null) - the fallback plays.
+            var clip = string.IsNullOrEmpty(soundName) ? null : _audioService.GetRandomSoundClip(soundName);
 
             if (clip == null && fallback != null)
             {

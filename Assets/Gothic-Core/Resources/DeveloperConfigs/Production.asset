@@ -412,6 +412,8 @@ MonoBehaviour:
   EnableDownHandsNoCollision: 1
   EnableNoSelfSpellStateWithoutTarget: 1
   EnableItemPopupOnRayHover: 1
+  EnableKeyInInventoryUnlocks: 1
+  EnableLockToolThroughLockables: 1
   EnableTakenItemTheftWithoutVictim: 1
   EnableSvmKeyTrim: 1
   EnableDeathZeroHitPoints: 1
