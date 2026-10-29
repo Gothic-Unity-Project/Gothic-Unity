@@ -108,7 +108,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         /// <summary>
-        /// The weapon away without the animation (an NPC coming back from culling).
+        /// The weapon away without the animation: an NPC going out of sight (culling), knocked out or killed.
         /// </summary>
         public static void SheathAtOnce(NpcContainer npc)
         {
@@ -116,7 +116,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (weaponState == VmGothicEnums.WeaponState.NoWeapon)
                 return;
 
-            if (weaponState is not (VmGothicEnums.WeaponState.Fist or VmGothicEnums.WeaponState.Mage))
+            // Out of sight, an NPC has no GameObject: only its fight mode changes.
+            var hasWeaponVisual = weaponState is not (VmGothicEnums.WeaponState.Fist or VmGothicEnums.WeaponState.Mage);
+            if (hasWeaponVisual && npc.Go != null)
                 MoveWeaponBackToStowSlot(npc.Go, weaponState);
             SheathState(npc);
         }

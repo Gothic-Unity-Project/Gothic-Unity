@@ -136,6 +136,9 @@ namespace Gothic.Core.Services.Npc
         private void KnockOut(NpcContainer npc, NpcContainer attacker)
         {
             _npcService.SetAttribute(npc, NpcAttribute.HitPoints, 1);
+            // The engine drops the weapon to the ground, and G1's ZS_Unconscious_End picks it up again. Our NPCs can't
+            // pick up items yet - they would stay unarmed - so it goes back on the belt or back.
+            UndrawWeapon.SheathAtOnce(npc);
 
             var zsUnconscious = _gameStateService.GothicVm.GetSymbolByName("ZS_UNCONSCIOUS");
             if (zsUnconscious == null)

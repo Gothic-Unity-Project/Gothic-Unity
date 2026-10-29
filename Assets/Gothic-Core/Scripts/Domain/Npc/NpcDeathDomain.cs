@@ -54,6 +54,10 @@ namespace Gothic.Core.Domain.Npc
             npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
             Logger.Log($"[NpcDeath] {npc.Instance.GetName(NpcNameSlot.Slot0)} is dead.", LogCat.Npc);
 
+            // The engine drops a drawn weapon next to the body; it goes back on the belt or back here, like a knockout's
+            // (FightService.KnockOut). It stays in the inventory, so it is looted from the body.
+            UndrawWeapon.SheathAtOnce(npc);
+
             // Dead is 0 hit points like in the engine (C_Kill, finishing move) - a finished off NPC kept the
             // knockout's 1 HP on its bar.
             if (npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) > 0)
