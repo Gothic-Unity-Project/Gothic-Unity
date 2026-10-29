@@ -116,16 +116,19 @@ namespace Gothic.Core.Adapters.Npc
                     case NpcProperties.LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
                         {
-                            Properties.CurrentLoopState = NpcProperties.LoopState.Start;
+                            Properties.CurrentLoopState = IsRoutineStateOver()
+                                ? NpcProperties.LoopState.End
+                                : NpcProperties.LoopState.Start;
                             return;
                         }
 
                         var loopResponse = CallAiFunction(Properties.StateLoop);
-                        
-                        // Some ZS_*_Loop return !=0 when they want to quit.
-                        if (loopResponse != _daedalusLoopContinue)
+
+                        // Some ZS_*_Loop return !=0 when they want to quit. Like the engine, the state also ends when
+                        // the time of its routine entry is over.
+                        if (loopResponse != _daedalusLoopContinue || IsRoutineStateOver())
                             Properties.CurrentLoopState = NpcProperties.LoopState.End;
-                        
+
                         break;
                     case NpcProperties.LoopState.End:
                         if (Properties.StateEnd != 0)
@@ -152,6 +155,50 @@ namespace Gothic.Core.Adapters.Npc
                 Logger.LogEditor($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 PlayNextAnimation(Properties.AnimationQueue.Dequeue());
             }
+        }
+
+        /// <summary>
+        /// AI_ContinueRoutine, like the engine (OpenGothic Npc::resumeAiRoutine): the current state ends with its _End,
+        /// then the daily routine starts again - through the state machine like StartState (StartNextRoutine). Starting
+        /// the routine directly kept a prepared next state and the old state's other/victim.
+        /// </summary>
+        public void ResumeRoutine()
+        {
+            var hasStateEnded = Properties.CurrentLoopState is NpcProperties.LoopState.End or
+                NpcProperties.LoopState.AfterEnd;
+            if (Properties.StateEnd != 0 && !hasStateEnded)
+                CallStateEnd(Properties.StateEnd, Properties.StateOther, Properties.StateVictim);
+
+            Properties.StateEnd = 0;
+            Vob.NextStateValid = false;
+            ClearState(false);
+        }
+
+        /// <summary>
+        /// The time of the routine entry is over and the NPC is free for the next one. Like the engine (OpenGothic
+        /// Npc::tickRoutine), a fight or a talk isn't interrupted - here: a drawn weapon against a living target, a
+        /// dialog - and neither is lying knocked out.
+        /// </summary>
+        private bool IsRoutineStateOver()
+        {
+            if (!Properties.IsRoutineTimeOver)
+                return false;
+
+            var dialogs = _gameStateService.Dialogs;
+            if (dialogs.IsInDialog && dialogs.CurrentDialogNpc == NpcData)
+                return false;
+
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return false;
+
+            var target = Properties.TargetNpc?.GetUserData();
+            if (target != null && !NpcHelperService.IsDown(target) &&
+                (VmGothicEnums.WeaponState)Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
+                return false;
+
+            Logger.LogEditor($"[Routine] {NpcInstance.GetName(NpcNameSlot.Slot0)}: the time of {Vob.CurrentStateName} " +
+                             "is over - next routine entry", LogCat.Ai);
+            return true;
         }
 
         /// <summary>
@@ -286,9 +333,10 @@ namespace Gothic.Core.Adapters.Npc
             // If we have nothing prepared, start daily Routine.
             else
             {
-                // Back to the routine: its states get the hero as "other" again.
+                // Back to the routine: its states get the hero as "other" again, and the new entry's time runs.
                 Properties.StateOther = null;
                 Properties.StateVictim = null;
+                Properties.IsRoutineTimeOver = false;
 
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)

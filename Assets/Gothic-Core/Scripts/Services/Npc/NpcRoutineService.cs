@@ -30,9 +30,10 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Advance the time-based daily routine of all NPCs - including culled ones, so that the world progresses
-        /// while we're not looking. Visible NPCs pick the new routine up with their next StartNextRoutine().
-        /// For culled NPCs, the culling sphere follows the schedule to the new waypoint.
-        /// FIXME - Original G1 interrupts the current ZS_* state of visible NPCs when their routine changes.
+        /// while we're not looking. For culled NPCs, the culling sphere follows the schedule to the new waypoint.
+        /// Like the engine, the current state of an NPC ends when its routine entry's time is over (IsRoutineTimeOver,
+        /// AiHandler): its _End runs (standing up from the bench), then the new entry starts. Before, the routine states
+        /// looped forever - NPCs in sight never went to bed or to work.
         /// </summary>
         private void OnGameTimeMinuteChanged(DateTime now)
         {
@@ -45,6 +46,7 @@ namespace Gothic.Core.Services.Npc
                 if (!CalculateCurrentRoutine(npc.Instance))
                     continue;
 
+                npc.Props.IsRoutineTimeOver = true;
                 _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
             }
         }
@@ -79,23 +81,26 @@ namespace Gothic.Core.Services.Npc
 
         public void ExchangeRoutine(NpcInstance npc, int routineIndex)
         {
-            // Monsters
-            // e.g. Monsters have no routine, and we just need to send StartAiState function.
-            if (routineIndex == 0)
-            {
-                // FIXME - Call StartRoutine somehow again.
-                // We always need to set "self" before executing any Daedalus function.
-                // GameData.GothicVm.GlobalSelf = npcInstance;
-                // go.GetComponent<AiHandler>().StartRoutine(npcInstance.StartAiState);
-                return;
-            }
-
             var npcContainer = npc.GetUserData();
             if (npcContainer == null)
             {
                 Logger.LogWarning(
                     $"Npc_ExchangeRoutine: NPC {npc.Id} has no Unity data (not spawned?) - skipping routine exchange.",
                     LogCat.Npc);
+                return;
+            }
+
+            // No daily routine (monsters): AiHandler starts the start state (start_aistate) when no routine entry is
+            // set. An NPC already running ends its current state for it, like at the end of a routine entry.
+            if (routineIndex == 0)
+            {
+                var hadRoutine = npcContainer.Props.RoutineCurrent != null;
+                npcContainer.Props.Routines.Clear();
+                npcContainer.Props.RoutineCurrent = null;
+                npcContainer.Props.RoutinePrevious = null;
+                npcContainer.Vob.HasRoutine = false;
+                if (hadRoutine)
+                    npcContainer.Props.IsRoutineTimeOver = true;
                 return;
             }
 

@@ -18,6 +18,9 @@ namespace Gothic.Core.Adapters.Properties
         public List<RoutineData> Routines = new();
         public RoutineData RoutinePrevious;
         public RoutineData RoutineCurrent;
+        // The time of the routine entry the current state belongs to is over (the engine: the state's end time passed).
+        // The state ends at its next loop unless the NPC fights, talks or is down (AiHandler).
+        public bool IsRoutineTimeOver;
 
         // WayNet
         public WayPoint CurrentWayPoint;
