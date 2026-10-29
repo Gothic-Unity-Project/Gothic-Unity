@@ -108,12 +108,19 @@ namespace Gothic.Core.Services.Npc
 
             var vm = _gameStateService.GothicVm;
             var oldItem = vm.GlobalItem;
+            var oldVictim = vm.GlobalVictim;
+            // DeveloperConfig.EnableTakenItemTheftWithoutVictim: like the engine, a taken item has no victim - the scripts
+            // tell it from pickpocketing by "item && !victim" (G1's B_AssessTheft): with the hero as the victim, Ghorri
+            // warned him "Behind you!" for every item picked up on the jetty.
+            var isWithoutVictim = _configService.Dev.EnableTakenItemTheftWithoutVictim;
             try
             {
                 vm.GlobalItem = item;
+                if (isWithoutVictim)
+                    vm.GlobalVictim = null;
                 LogTheftChecks(hero, heroInstance, item);
                 var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
-                    heroInstance, heroInstance);
+                    isWithoutVictim ? null : heroInstance, heroInstance);
                 Logger.Log($"[HeroPerc] AssessTheft '{instanceName}' (room '{_roomService.HeroRoom}') sent to " +
                            $"{notified} NPC(s)", LogCat.Ai);
             }
@@ -124,6 +131,7 @@ namespace Gothic.Core.Services.Npc
             finally
             {
                 vm.GlobalItem = oldItem;
+                vm.GlobalVictim = oldVictim;
             }
         }
 

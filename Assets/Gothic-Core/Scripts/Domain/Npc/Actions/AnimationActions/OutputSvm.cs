@@ -18,12 +18,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             var svm = VmCacheService.TryGetSvmData(NpcInstance.Voice);
-            _preparedSvmFileName = svm?.GetAudioName(Action.String0);
+            // DeveloperConfig.EnableSvmKeyTrim: G1's ZS_ClearRoom says "$WhyAreYouInHere " (trailing space) - not mapped,
+            // the NPC moved his lips without sound and subtitle.
+            var key = Action.String0;
+            if (ConfigService.Dev.EnableSvmKeyTrim && key != null)
+                key = key.Trim();
+            _preparedSvmFileName = svm?.GetAudioName(key);
 
             // ZenKit's SvmInstance only knows G1's C_SVM members. Vanilla scripts name every entry SVM_<voice>_<key>,
             // like the OU.BIN subtitle.
-            if (_preparedSvmFileName == null && svm != null && !string.IsNullOrEmpty(Action.String0))
-                _preparedSvmFileName = $"SVM_{NpcInstance.Voice}_{Action.String0.TrimStart('$')}";
+            if (_preparedSvmFileName == null && svm != null && !string.IsNullOrEmpty(key))
+                _preparedSvmFileName = $"SVM_{NpcInstance.Voice}_{key.TrimStart('$')}";
 
             if (_preparedSvmFileName == null)
             {

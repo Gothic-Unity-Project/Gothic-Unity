@@ -1611,6 +1611,10 @@ namespace Gothic.Core.Models.Config
                  "backend - besides the UI laser, which didn't click them on XRI.")]
         public bool EnableTradeTouchButtons = true;
 
+        [Tooltip("V1: Npc_GetPortalGuild is -1 for an NPC outdoors (no room) - G2's B_AssessEnterRoom took a guard outside " +
+                 "(0) for one in another room: nobody came when the hero walked into a house that isn't his.")]
+        public bool EnableNpcOutdoorPortalGuild = true;
+
         [Tooltip("V1: Important infos are never a choice for the hero, and after one the NPC starts the next one by itself " +
                  "(like the engine) - Hanna's second important info showed up as an empty dialog option.")]
         public bool EnableImportantInfoQueue = true;
@@ -1630,6 +1634,14 @@ namespace Gothic.Core.Models.Config
         [Tooltip("V1: Holsters and shoulder slots (VrBodyAnchor) turn with the head's direction at once, also looking down " +
                  "at them - they lagged behind (slow catch-up) and had to be turned into place with the head.")]
         public bool EnableBodyAnchorLockedToHead = true;
+
+        [Tooltip("V1: An item taken by the hero is reported to the NPCs without a victim (like the engine) - with the hero " +
+                 "as the victim, G1 took it for pickpocketing and the NPCs warned him (\"Behind you!\") for every item.")]
+        public bool EnableTakenItemTheftWithoutVictim = true;
+
+        [Tooltip("V1: SVM keys from the scripts are trimmed - G1's ZS_ClearRoom says \"$WhyAreYouInHere \" (trailing " +
+                 "space): the NPC moved his lips without sound and subtitle.")]
+        public bool EnableSvmKeyTrim = true;
 
         [Tooltip("V1: XRI: items are no ground to stand on (grounded check, ground snap) - a held bow under the feet " +
                  "was ground, jumping off it again and again flew.")]

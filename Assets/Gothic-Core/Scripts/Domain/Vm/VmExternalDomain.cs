@@ -2209,7 +2209,17 @@ namespace Gothic.Core.Domain.Vm
         public int Npc_GetPortalGuild(NpcInstance npc)
         {
             var go = npc?.GetUserData()?.Go;
-            return go == null ? 0 : _roomService.GuildOfRoom(_roomService.GetRoomAt(go.transform.position));
+            if (go == null)
+                return 0;
+
+            // DeveloperConfig.EnableNpcOutdoorPortalGuild: outdoors (no room) is below GIL_NONE - G2's
+            // B_AssessEnterRoom only reacts when "!(Npc_GetPortalGuild(self) < GIL_NONE) && !Npc_IsInPlayersRoom(self)"
+            // is false: with 0 a guard outside counted as being in another room and never came in (only the comment on
+            // leaving was said).
+            var room = _roomService.GetRoomAt(go.transform.position);
+            if (_configService.Dev.EnableNpcOutdoorPortalGuild && string.IsNullOrEmpty(room))
+                return -1;
+            return _roomService.GuildOfRoom(room);
         }
 
         public int Npc_IsInPlayersRoom(NpcInstance npc)

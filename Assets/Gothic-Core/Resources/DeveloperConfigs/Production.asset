@@ -408,6 +408,9 @@ MonoBehaviour:
   EnableVrStabFinish: 1
   EnableStabFinishHold: 1
   EnableFinishedNpcLyingDeath: 1
+  EnableNpcOutdoorPortalGuild: 1
+  EnableTakenItemTheftWithoutVictim: 1
+  EnableSvmKeyTrim: 1
   EnableDeathZeroHitPoints: 1
   EnableDeadSkipsRoutine: 1
   EnableDroppedItemColliderLayer: 1
