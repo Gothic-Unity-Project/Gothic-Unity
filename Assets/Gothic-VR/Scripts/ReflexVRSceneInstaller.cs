@@ -26,6 +26,7 @@ namespace Gothic.VR
             containerBuilder.AddSingleton(typeof(VrHapticsService));
             containerBuilder.AddSingleton(typeof(VRCinemaService));
             containerBuilder.AddSingleton(typeof(VRUiOnTopService));
+            containerBuilder.AddSingleton(typeof(VRGameViewFallbackService));
         }
     }
 }

@@ -64,6 +64,7 @@ namespace Gothic.Core.Domain.Culling
             // Set main camera as reference point
             var mainCamera = Camera.main!;
             CullingGroup.targetCamera = mainCamera; // Needed for FrustumCulling and OcclusionCulling to work.
+            // The group only updates while this camera renders a frame: Docs/adr/2026-10-29-editor-without-headset.md
             CullingGroup.SetDistanceReferencePoint(mainCamera.transform); // Needed for BoundingDistances to work.
             ReferencePoint = mainCamera.transform;
 
