@@ -34,6 +34,10 @@ namespace Gothic.VR.Adapters
         private VRNpcLoot _npcLoot;
         private VrInteractable _interactable;
         private StatusBarAdapter _healthBar;
+        private Coroutine _holdToLoot;
+
+        // DeveloperConfig.EnableCorpseHoldToLoot: seconds the grip is held on a corpse until its loot opens/closes.
+        private const float _lootHoldSeconds = 1f;
 
         private void Awake()
         {
@@ -72,6 +76,26 @@ namespace Gothic.VR.Adapters
                 _healthBar.DisableBar();
         }
 
+        private System.Collections.IEnumerator ToggleLootWhenHeld(VrInteractable interactable)
+        {
+            var heldTime = 0f;
+            while (heldTime < _lootHoldSeconds)
+            {
+                yield return null;
+                if (interactable == null || !interactable.IsHeld)
+                {
+                    _holdToLoot = null;
+                    yield break;
+                }
+                heldTime += Time.deltaTime;
+            }
+
+            _holdToLoot = null;
+            Logger.Log($"[VRNpc] Grip held on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' - loot toggled",
+                LogCat.VR);
+            _npcLoot.Toggle(_npcData);
+        }
+
         private void OnGrabbed(VrGrabArgs args)
         {
             if (_vrPlayerService.IsSpellActive)
@@ -98,6 +122,20 @@ namespace Gothic.VR.Adapters
 
             if ((isDead || isUnconscious) && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
+                if (_npcLoot.TryMakeEmptyCorpseInert(_npcData))
+                    return;
+
+                // DeveloperConfig.EnableCorpseHoldToLoot: the loot opens/closes only after the grip is held on the
+                // body for a moment - a grab in passing (fighting, picking up an item next to it) opened the loot.
+                // Select-only (XRI) only: the grab lasts as long as the grip is held.
+                if (_configService.Dev.EnableCorpseHoldToLoot && args.Interactable.IsSelectOnly)
+                {
+                    if (_holdToLoot != null)
+                        StopCoroutine(_holdToLoot);
+                    _holdToLoot = StartCoroutine(ToggleLootWhenHeld(args.Interactable));
+                    return;
+                }
+
                 _npcLoot.Toggle(_npcData);
                 // Grabbing turns physics on (VRPlayerItemAdapter); release immediately and freeze the corpse.
                 // Select-only interactables (XRI) neither move the NPC nor turn its physics on.

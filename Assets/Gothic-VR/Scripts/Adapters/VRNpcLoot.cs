@@ -228,9 +228,54 @@ namespace Gothic.VR.Adapters
             _vrWeaponService.DrawSoundsActive = true;
         }
 
+        /// <summary>
+        /// Something left to take: equipped weapons and inventory items, without armor (BuildLootList).
+        /// </summary>
+        public bool HasLoot(NpcContainer npc)
+        {
+            var previous = _npcContainer;
+            _npcContainer = npc;
+            try
+            {
+                return BuildLootList().Count > 0;
+            }
+            finally
+            {
+                if (_isOpen)
+                    _npcContainer = previous;
+            }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableEmptyCorpseInert: a dead NPC with nothing left to take closes its loot (the backpack
+        /// goes) and can't be hovered or grabbed anymore - the looted corpse still lit up and opened an empty loot.
+        /// </summary>
+        public bool TryMakeEmptyCorpseInert(NpcContainer npc)
+        {
+            if (!_configService.Dev.EnableEmptyCorpseInert || npc?.Props == null ||
+                npc.Props.BodyState != VmGothicEnums.BodyState.BsDead || HasLoot(npc))
+                return false;
+
+            if (_isOpen)
+                Close();
+            var interactable = VrInteractable.Find(this);
+            if (interactable != null)
+            {
+                if (interactable.IsHeld)
+                    interactable.ForceRelease();
+                interactable.IsGrabEnabled = false;
+            }
+            Logger.Log($"[VRNpcLoot] {npc.Instance.GetName(NpcNameSlot.Slot0)} looted empty - corpse no longer " +
+                       "grabbable", LogCat.VR);
+            return true;
+        }
+
         private void OnNpcInventoryChanged(NpcContainer npc)
         {
             if (!_isOpen || npc != _npcContainer)
+                return;
+
+            if (TryMakeEmptyCorpseInert(npc))
                 return;
 
             if (_pendingRefresh != null)

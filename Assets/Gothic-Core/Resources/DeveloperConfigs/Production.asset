@@ -414,6 +414,8 @@ MonoBehaviour:
   EnableItemPopupOnRayHover: 1
   EnableKeyInInventoryUnlocks: 1
   EnableLockToolThroughLockables: 1
+  EnableCorpseHoldToLoot: 1
+  EnableEmptyCorpseInert: 1
   EnableTakenItemTheftWithoutVictim: 1
   EnableSvmKeyTrim: 1
   EnableDeathZeroHitPoints: 1
