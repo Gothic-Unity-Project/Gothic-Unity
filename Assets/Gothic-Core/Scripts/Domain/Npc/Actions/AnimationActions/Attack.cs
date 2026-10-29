@@ -1,4 +1,4 @@
-using System;
+using System.Collections.Generic;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -7,7 +7,6 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
-using Mathf = UnityEngine.Mathf;
 using Random = UnityEngine.Random;
 using Vector3 = UnityEngine.Vector3;
 
@@ -16,6 +15,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class Attack : AbstractAnimationAction
     {
         [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly FightService _fightService;
+
+        // AI_Attack runs on every pass of ZS_*_Attack_Loop: its warnings are logged once per NPC.
+        private static readonly HashSet<int> _missingEnemyLogged = new();
 
         // Like the engine, without an enemy set the state's other (ZS_Attack started against it) is fought.
         private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
@@ -25,10 +28,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         
         private FightAiMove _move;
         
-        // e.g., when a Zombie is spawned away, it won't fight, but instead start to walk again. We need to say to the game: you're about 30cm closer than the center of NPC/Monster/Hero.
-        // TODO - We might need a more mature alternative in the future if other monsters need different distances.
-        private const float _npcMonsterVolumina = 0.3f;
-        private const float _minAttackRange = 1.5f;
 
         
         public Attack(AnimationAction action, NpcContainer npcData) : base(action, npcData)
@@ -37,11 +36,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            // Without an enemy, the action would never end and the NPC's AI would stand still for good. The state's
-            // loop ends or attacks again once it found one.
-            if (_enemy == null)
+            // Without an enemy (or one that was never built), the action would never end and the NPC's AI would stand
+            // still for good. The state's loop ends or attacks again once it found one.
+            if (_enemy?.GetUserData()?.Go == null)
             {
-                Logger.LogWarning($"AI_Attack() of {Vob.Name} without enemy - skipping.", LogCat.Ai);
+                if (_missingEnemyLogged.Add(NpcInstance.Index))
+                    Logger.LogWarning($"AI_Attack() of {Vob.Name} without enemy in the world - skipping.", LogCat.Ai);
                 IsFinishedFlag = true;
                 return;
             }
@@ -66,9 +66,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private string FindAiFunctionTemplate()
         {
-            var isInFocus = _npcAiService.ExtNpcCanSeeNpc(NpcInstance, _enemy, false, 30f); // 60° is also assumed by Open Gothic.
+            // 60° is also assumed by OpenGothic.
+            var isInFocus = _npcAiService.ExtNpcCanSeeNpc(NpcInstance, _enemy, false, 30f);
             var distance = GetDistance();
-            var attackRange = GetAttackRange();
+            var attackRange = _fightService.GetMeleeReach(NpcContainer);
             var isInWRange = distance <= attackRange; // W-Range == Weapon range
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
@@ -86,14 +87,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return isInFocus ? FightConst.AttackActions.MyFkFocus : FightConst.AttackActions.MyGFkNoFocus;
         }
 
-        // FIXME - In the future, we need to handle more information than just playing the attack animations. But fine for the first iteration.
         private void StartAttackAction()
         {
-            // The combo isn't continued: its animation stops (the engine ends an attack at its hit end).
-            if (Props.ComboContinueAnimation != null && _move != FightAiMove.Attack)
+            // The combo isn't continued: its animation stops (the engine ends an attack at its hit end), the next swing
+            // starts a new combo.
+            var combo = Props.AttackCombo;
+            if (combo.ContinueAnimation != null && _move != FightAiMove.Attack)
             {
-                PrefabProps.AnimationSystem.StopAnimation(Props.ComboContinueAnimation);
-                Props.ComboContinueAnimation = null;
+                PrefabProps.AnimationSystem.StopAnimation(combo.ContinueAnimation);
+                combo.ContinueAnimation = null;
+                combo.Length = 0;
             }
 
             switch (_move)
@@ -176,25 +179,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(swing), FightAiMove.Attack, _enemy);
         }
 
+        /// <summary>
+        /// The distance between the bodies (the fight ranges are measured from them).
+        /// </summary>
         private float GetDistance()
         {
-            return Vector3.Distance(NpcGo.transform.position, _enemy.GetUserData()!.Go.transform.position) - _npcMonsterVolumina;
-        }
-
-        /// Fight range is calculated by base range + weapon attack range.
-        private float GetAttackRange()
-        {
-            var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
-
-            // A drawn melee weapon reaches as far as its range (G1 has no FIGHT_RANGE_1HA/2HA guild values), else the
-            // fists do. CurrentItem can be the last used item then (a joint), not a weapon.
-            var isMeleeWeaponDrawn = (VmGothicEnums.WeaponState)Vob.FightMode is VmGothicEnums.WeaponState.W1H or
-                VmGothicEnums.WeaponState.W2H;
-            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
-            var weaponRange = item?.Range ?? GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-
-            // At least 1.5 m: NPCs without fight values in their guild looped in G-Range forever.
-            return Mathf.Max((baseRange + weaponRange) / 100f, _minAttackRange);
+            var enemyPosition = _enemy.GetUserData().GetFightPosition();
+            return Vector3.Distance(NpcGo.transform.position, enemyPosition) - MeleeDamageDomain.BodyVolume;
         }
 
         /// <summary>

@@ -36,10 +36,9 @@ namespace Gothic.Core.Adapters.Properties
         // Visual
         public string MdmName;
         public string MdsNameBase;
+        // The overlay played: the newest of the scripts' (Vob.Overlays), or while a weapon is drawn the fight stance of
+        // the NPC's talent (HUMANS_1HST1.MDS).
         public string MdsNameOverlay;
-        // The overlay of the scripts (Mdl_ApplyOverlayMds). A drawn weapon replaces MdsNameOverlay with the fight
-        // overlay of the NPC's talent (HUMANS_1HST1.MDS), putting it away brings this one back.
-        public string MdsNameRoutineOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
         // An MDS file has always an MDH file named identically
@@ -63,13 +62,7 @@ namespace Gothic.Core.Adapters.Properties
         public NpcInstance StateOther;
         public NpcInstance StateVictim;
 
-        // Fight combos (AttackPlayAni): attacks chained in combo windows since the last one that played to its end,
-        // and the attack animation that keeps playing for the next attack to continue with its part.
-        public int AttackComboLength;
-        public string ComboContinueAnimation;
-        public int ComboContinueIndex;
-        // The weapon of the hero's VR hit, set only during its FightHit event: the held weapon isn't equipped in VR.
-        public ItemInstance MeleeHitWeapon;
+        public readonly AttackCombo AttackCombo = new();
 
         public enum LoopState
         {

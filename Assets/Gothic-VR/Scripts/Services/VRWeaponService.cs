@@ -12,6 +12,7 @@ using Gothic.VR.Models.Vob;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 
 namespace Gothic.VR.Services
 {
@@ -176,7 +177,7 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer attacker, NpcContainer __, Vector3 ___)
+        private void OnHit(NpcContainer attacker, NpcContainer __, Vector3 ___, ItemInstance ____)
         {
             // NPCs hit too (AttackPlayAni) - only the hero's own hits move his weapon's attack state on.
             if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())

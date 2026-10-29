@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
@@ -21,6 +22,9 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+
+        // Reused by SendPerceptionToWitnesses() on every hit.
+        private readonly List<NpcContainer> _witnessBuffer = new();
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -187,15 +191,22 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
+        /// <summary>
+        /// AI_StartState: the new state gets the scripts' current other and victim.
+        /// </summary>
+        public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName)
+        {
+            var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
+            var victim = (NpcInstance)_gameStateService.GothicVm.GlobalVictim;
+            StartState(npc, action, stopCurrentState, wayPointName, other, victim, true);
+        }
+
         /// <param name="isScriptCall">False for state changes of the engine itself (knockout): like the engine, the old
         /// state's _End isn't called and the queue doesn't wait for dialog lines - ZS_Attack_End queued putting the
         /// weapon away and a new state, which replaced ZS_Unconscious.</param>
-        public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName,
-            bool isScriptCall = true)
+        public void StartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName,
+            NpcInstance other, NpcInstance victim, bool isScriptCall)
         {
-            var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
-            var victim = (NpcInstance)_gameStateService.GothicVm.GlobalVictim;   
-
             var container = npc.GetUserData();
 
             // Like the engine, AI_StartState(..., 1, ...) ends the current state with its _End function first - StartState
@@ -476,8 +487,7 @@ namespace Gothic.Core.Services.Npc
 
             // The hero runs no Daedalus states. Knocked out, he is in ZS_Unconscious for the scripts - their
             // C_NpcIsDown(other) ends the fight against him.
-            if (container.PrefabProps != null && container.PrefabProps.IsHero() &&
-                container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+            if (container.IsHero() && container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
 
             return container.Vob.CurrentStateIndex == state;
@@ -511,15 +521,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool ExtNpcIsInFightMode(NpcInstance npc, VmGothicEnums.FightMode fightMode)
         {
-            var category = (VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode switch
-            {
-                VmGothicEnums.WeaponState.Fist => VmGothicEnums.FightMode.Fists,
-                VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H => VmGothicEnums.FightMode.Melee,
-                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow => VmGothicEnums.FightMode.Far,
-                VmGothicEnums.WeaponState.Mage => VmGothicEnums.FightMode.Magic,
-                _ => VmGothicEnums.FightMode.None
-            };
-            return category == fightMode;
+            return ((VmGothicEnums.WeaponState)npc.GetUserData().Vob.FightMode).ToFightMode() == fightMode;
         }
 
         public bool ExtNpcOwnedByNpc(ItemInstance item, NpcInstance npc)
@@ -600,8 +602,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Npc_GetNextTarget: the nearest living, hostile NPC within the senses range becomes target and enemy (and
-        /// "other"). ZS_Attack_Loop looks for the next one this way once its enemy is down.
+        /// Npc_GetNextTarget: the nearest NPC the NPC senses and is hostile to becomes target and enemy (and "other").
+        /// ZS_Attack_Loop looks for the next one this way once its enemy is down. Without one the target is cleared,
+        /// like the engine - the next Npc_GetTarget doesn't return the downed one again.
         /// </summary>
         public bool ExtGetNextTarget(NpcInstance npc)
         {
@@ -609,38 +612,103 @@ namespace Gothic.Core.Services.Npc
             if (self?.Go == null)
                 return false;
 
+            var closest = FindNearestHostile(self);
+            if (closest == null)
+            {
+                self.Props.TargetNpc = null;
+                return false;
+            }
+
+            self.Props.TargetNpc = closest.Instance;
+            self.Props.EnemyNpc = closest.Instance;
+            _gameStateService.GothicVm.GlobalOther = closest.Instance;
+            return true;
+        }
+
+        /// <summary>
+        /// The nearest NPC within the senses range that the NPC is hostile to and senses (PERC_ASSESSENEMY and
+        /// Npc_GetNextTarget). Not the downed (corpses, knocked out) and not fellow guild members, whatever the
+        /// attitude table says - the scripts never fight them this way.
+        /// </summary>
+        private NpcContainer FindNearestHostile(NpcContainer self)
+        {
+            var npc = self.Instance;
             var selfPosition = self.Go.transform.position;
             var sensesRange = npc.SensesRange / 100f;
             var closestSqrDistance = sensesRange * sensesRange;
             NpcContainer closest = null;
 
+            // FIXME - Performance - Can we clean this up to support only spawned and visible NPCs/Monsters?
+            //         A spatial lookup (e.g. the culling system's distance buckets) would avoid the full scan.
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
-                if (candidate.Go == null || candidate.Instance.Index == npc.Index || NpcHelperService.IsDown(candidate))
+                // Fast-fail checks in order of cheapest first
+                if (candidate.Props == null || candidate.Go == null || candidate.Instance.Index == npc.Index)
+                    continue;
+                if (candidate.IsDown() || candidate.Instance.Guild == npc.Guild)
                     continue;
 
-                // The scripts never fight a fellow guild member this way, whatever the attitude table says.
-                if (candidate.Instance.Guild == npc.Guild)
-                    continue;
-
+                // Range and closest-so-far gates before the expensive attitude and senses checks
+                // (senses may include a line-of-sight raycast for see-only monsters).
                 var sqrDistance = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDistance > closestSqrDistance)
+                if (sqrDistance >= closestSqrDistance)
                     continue;
 
                 if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
+                    continue;
+
+                if (!_npcHelperService.CanSenseNpc(npc, candidate.Instance, true))
                     continue;
 
                 closestSqrDistance = sqrDistance;
                 closest = candidate;
             }
 
-            if (closest == null)
-                return false;
+            return closest;
+        }
 
-            self.Props.TargetNpc = closest.Instance;
-            self.Props.EnemyNpc = closest.Instance;
-            _gameStateService.GothicVm.GlobalOther = closest.Instance;
-            return true;
+        /// <summary>
+        /// The perceptions for every NPC who registered them and sees the attacker within their range (Perc_SetRange,
+        /// capped by the senses range): victim = the victim, other = the attacker. Not the two themselves, not the
+        /// hero, not downed or culled NPCs. One pass for all perceptions, over a reused copy of the NPC list (a
+        /// perception function can insert or remove NPCs).
+        /// </summary>
+        public void SendPerceptionToWitnesses(NpcContainer victim, NpcContainer attacker,
+            params VmGothicEnums.PerceptionType[] perceptions)
+        {
+            if (attacker?.Go == null)
+                return;
+
+            var attackerPosition = attacker.Go.transform.position;
+            _witnessBuffer.Clear();
+            _witnessBuffer.AddRange(_multiTypeCacheService.NpcCache);
+
+            foreach (var witness in _witnessBuffer)
+            {
+                if (witness == victim || witness == attacker || witness.Props == null || witness.Go == null ||
+                    !witness.Go.activeInHierarchy || witness.IsDown() || witness.IsHero())
+                    continue;
+
+                var distance = (witness.Go.transform.position - attackerPosition).magnitude;
+                var sensesRange = witness.Instance.SensesRange / 100f;
+                bool? isSeen = null;
+                foreach (var perception in perceptions)
+                {
+                    if (!witness.Props.Perceptions.TryGetValue(perception, out var function) || function < 0)
+                        continue;
+                    if (distance > Mathf.Min(_npcHelperService.GetPerceptionRange(perception), sensesRange))
+                        continue;
+
+                    // NPCs behind walls don't come running.
+                    isSeen ??= ExtNpcCanSeeNpc(witness.Instance, attacker.Instance, true);
+                    if (isSeen == false)
+                        break;
+
+                    ExecutePerception(perception, witness.Props, witness.Instance, victim.Instance, attacker.Instance);
+                }
+            }
+
+            _witnessBuffer.Clear();
         }
 
         public void Npc_SendPassivePerc(NpcInstance npc,VmGothicEnums.PerceptionType perc, NpcInstance victim, NpcInstance other)
@@ -666,58 +734,7 @@ namespace Gothic.Core.Services.Npc
         public void UpdateEnemyNpc(NpcInstance self)
         {
             var selfNpc = self.GetUserData();
-            var selfPosition = selfNpc.Go.transform.position; // Cache position
-
-            NpcContainer closestEnemy = null;
-            var closestSqrDist = float.MaxValue;
-
-            var sensesRangeMeters = self.SensesRange / 100f;
-            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
-
-            // FIXME - Performance - Can we clean this up to support only spawned and visible NPCs/Monsters?
-            //         A spatial lookup (e.g. the culling system's distance buckets) would avoid the full scan.
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                // Fast-fail checks in order of cheapest first
-                if (candidate.Props == null || candidate.Go == null)
-                {
-                    continue;
-                }
-
-                if (candidate.Instance.Index == self.Index)
-                {
-                    continue;
-                }
-
-                // Corpses aren't enemies.
-                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
-                {
-                    continue;
-                }
-
-                // Range and closest-so-far gates before the expensive attitude and senses checks
-                // (senses may include a line-of-sight raycast for see-only monsters).
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
-                {
-                    continue;
-                }
-
-                if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
-                {
-                    continue;
-                }
-
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
-                {
-                    continue;
-                }
-
-                closestSqrDist = sqrDist;
-                closestEnemy = candidate;
-            }
-
-            selfNpc.Props.EnemyNpc = closestEnemy?.Instance;
+            selfNpc.Props.EnemyNpc = FindNearestHostile(selfNpc)?.Instance;
         }
 
         public void ExtSetRefuseTalk(NpcInstance self, int refuseSeconds)

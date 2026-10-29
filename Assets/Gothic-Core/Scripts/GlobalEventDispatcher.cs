@@ -96,12 +96,14 @@ namespace Gothic.Core
         /// <summary>
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
-        /// Vector3      - at which position
+        /// Vector3      - where the hit landed (on the target)
+        /// ItemInstance - the weapon it was made with: the VR hero's held weapon isn't equipped. Null for NPCs (their
+        ///                equipped weapon counts) and fists.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, ItemInstance> FightHit = new();
 
         /// <summary>
-        /// An NPC died (NpcDeathDomain), by a hit or a script.
+        /// An NPC died (NpcDeathDomain), by a hit or a script. Its ZS_Dead follows one frame later.
         /// NpcContainer - who died
         /// NpcContainer - who killed (null if nobody, e.g. a script)
         /// </summary>

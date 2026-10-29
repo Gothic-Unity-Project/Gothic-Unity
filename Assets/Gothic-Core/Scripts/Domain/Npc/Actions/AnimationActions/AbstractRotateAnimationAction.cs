@@ -1,3 +1,4 @@
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
@@ -120,7 +121,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private void HandleRotation(Transform npcTransform)
         {
             // For rotation speed, we use the guild value for human if any type of human or the monster guild itself.
-            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var guild = NpcInstance.GetValuesGuild();
 
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
             var currentRotation =

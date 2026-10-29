@@ -125,10 +125,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public static string GetHandSlotName(VmGothicEnums.WeaponState weaponState)
         {
-            // Bows and crossbows are held in the left hand (the right hand draws the arrow/bolt), the rest in the right.
-            return weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
-                ? Constants.SlotLeftHand
-                : Constants.SlotRightHand;
+            // Bows and crossbows are held in the left hand (the right hand draws the arrow/bolt), the rest in the
+            // right.
+            return weaponState.IsRanged() ? Constants.SlotLeftHand : Constants.SlotRightHand;
         }
 
         private void PlayDrawSound(VmGothicEnums.WeaponState weaponState)
@@ -137,9 +136,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 VmGothicEnums.WeaponState.Mage)
                 return;
 
-            var soundName = weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
-                ? DaedalusConst.SoundDrawWood
-                : DaedalusConst.SoundDrawMetal;
+            var soundName = weaponState.IsRanged() ? DaedalusConst.SoundDrawWood : DaedalusConst.SoundDrawMetal;
             var clip = _audioService.GetRandomSoundClip(soundName);
             if (clip != null && PrefabProps.NpcSound != null)
                 PrefabProps.NpcSound.PlayOneShot(clip);

@@ -94,17 +94,8 @@ namespace Gothic.Core.Adapters.Npc
             // Queue is empty. Check if we want to start Looping
             if (Properties.AnimationQueue.Count == 0)
             {
-                // We always need to set "self" before executing any Daedalus function.
-                // "other" is the one the state was started with (ZS_Attack against a wolf), else the hero so routine
-                // states (ZS_*_Loop) have a sensible fallback.
-                // Perception calls (ExecutePerception) override GlobalOther themselves with their own save/restore.
                 if (NpcInstance != null)
-                {
-                    Vm.GlobalSelf = NpcInstance;
-                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
-                    if (Properties.StateVictim != null)
-                        Vm.GlobalVictim = Properties.StateVictim;
-                }
+                    SetStateGlobals();
 
                 switch (Properties.CurrentLoopState)
                 {
@@ -173,10 +164,7 @@ namespace Gothic.Core.Adapters.Npc
                 return;
 
             attack.MarkNextAttackRequested();
-            Vm.GlobalSelf = NpcInstance;
-            Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
-            if (Properties.StateVictim != null)
-                Vm.GlobalVictim = Properties.StateVictim;
+            SetStateGlobals();
 
             if (CallAiFunction(Properties.StateLoop) != _daedalusLoopContinue)
                 Properties.CurrentLoopState = NpcProperties.LoopState.End;
@@ -188,25 +176,20 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         public void CallStateEnd(int endFunction, NpcInstance other, NpcInstance victim)
         {
-            var oldSelf = Vm.GlobalSelf;
-            var oldOther = Vm.GlobalOther;
-            var oldVictim = Vm.GlobalVictim;
-            Vm.GlobalSelf = NpcInstance;
-            if (other != null)
-                Vm.GlobalOther = other;
-            if (victim != null)
-                Vm.GlobalVictim = victim;
+            _vmService.CallAsNpc(endFunction, NpcInstance, other, victim, LogCat.Ai);
+        }
 
-            try
-            {
-                CallAiFunction(endFunction);
-            }
-            finally
-            {
-                Vm.GlobalSelf = oldSelf;
-                Vm.GlobalOther = oldOther;
-                Vm.GlobalVictim = oldVictim;
-            }
+        /// <summary>
+        /// The globals of the NPC's state, set before its functions run. "self" always; "other" is the one the state was
+        /// started with (ZS_Attack against a wolf), else the hero so routine states (ZS_*_Loop) have a sensible
+        /// fallback. Perception calls (ExecutePerception) set their own with their own save/restore.
+        /// </summary>
+        private void SetStateGlobals()
+        {
+            Vm.GlobalSelf = NpcInstance;
+            Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+            if (Properties.StateVictim != null)
+                Vm.GlobalVictim = Properties.StateVictim;
         }
 
         private int CallAiFunction(int symbolIndex)

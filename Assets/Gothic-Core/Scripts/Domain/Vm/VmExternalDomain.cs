@@ -675,12 +675,9 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtSetModelFatness(npc, fatness);
         }
 
-        private bool _isLoggedOnceRemoveOverlayMds;
         public void Mdl_RemoveOverlayMDS(NpcInstance npc, string overlayName)
         {
-            if (!_isLoggedOnceRemoveOverlayMds)
-                Logger.LogWarning("Method >Mdl_RemoveOverlayMDS< not yet implemented in DaedalusVM. Logging once only!", LogCat.ZenKit);
-            _isLoggedOnceRemoveOverlayMds = true;
+            _npcService.ExtRemoveOverlayMds(npc, overlayName);
         }
 
         #endregion
@@ -1197,23 +1194,19 @@ namespace Gothic.Core.Domain.Vm
         /// </summary>
         public int Npc_HasReadiedWeapon(NpcInstance npc)
         {
-            var fightMode = GetFightMode(npc);
-            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
-                or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow or VmGothicEnums.WeaponState.Mage);
+            var ret = Convert.ToInt32(GetFightMode(npc).IsWeaponReadied());
             return LogInstantExternal(nameof(Npc_HasReadiedWeapon), ret, npc);
         }
 
         public int Npc_HasReadiedMeleeWeapon(NpcInstance npc)
         {
-            var fightMode = GetFightMode(npc);
-            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H);
+            var ret = Convert.ToInt32(GetFightMode(npc).IsMelee());
             return LogInstantExternal(nameof(Npc_HasReadiedMeleeWeapon), ret, npc);
         }
 
         public int Npc_HasReadiedRangedWeapon(NpcInstance npc)
         {
-            var fightMode = GetFightMode(npc);
-            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow);
+            var ret = Convert.ToInt32(GetFightMode(npc).IsRanged());
             return LogInstantExternal(nameof(Npc_HasReadiedRangedWeapon), ret, npc);
         }
 
@@ -1228,14 +1221,10 @@ namespace Gothic.Core.Domain.Vm
 
         public ItemInstance Npc_GetReadiedWeapon(NpcInstance npc)
         {
-            var item = GetFightMode(npc) switch
-            {
-                VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
-                    => _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc),
-                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
-                    => _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc),
-                _ => null
-            };
+            var fightMode = GetFightMode(npc);
+            var item = fightMode.IsMelee() ? _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc)
+                : fightMode.IsRanged() ? _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc)
+                : null;
             return LogInstantExternal(nameof(Npc_GetReadiedWeapon), item, npc);
         }
 

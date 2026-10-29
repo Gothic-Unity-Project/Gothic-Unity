@@ -95,9 +95,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             MoveWeaponBackToStowSlot(_weaponState);
 
-            var soundName = _weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
-                ? DaedalusConst.SoundUndrawWood
-                : DaedalusConst.SoundUndrawMetal;
+            var soundName = _weaponState.IsRanged() ? DaedalusConst.SoundUndrawWood : DaedalusConst.SoundUndrawMetal;
             var clip = _audioService.GetRandomSoundClip(soundName);
             if (clip != null && PrefabProps.NpcSound != null)
                 PrefabProps.NpcSound.PlayOneShot(clip);
@@ -107,7 +105,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             // From here on, follow-up animations are weaponless again (s_RunL, ...) and the routine's stance is back.
             Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
-            Props.MdsNameOverlay = Props.MdsNameRoutineOverlay;
+            Props.MdsNameOverlay = NpcContainer.GetScriptOverlay();
             Props.CurrentItem = -1;
         }
 

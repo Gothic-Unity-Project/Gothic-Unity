@@ -800,75 +800,34 @@ namespace Gothic.Core.Adapters.Animations
         }
 
         /// <summary>
-        /// Combo windows of the current attack animation: DEF_WINDOW holds start/end frame pairs, one per follow-up hit
-        /// (lurker s_FistAttack 10,20 = one, human s_1hAttack 12,36,47,71,82,106 = three).
+        /// The event frames of the current attack animation (AttackCombo applies them).
         /// </summary>
-        public int ComboWindowCount => AttackWindowFrames == null ? 0 : AttackWindowFrames.Count / 2;
+        public AttackFrames AttackFrames => new(AttackOptFrame, AttackHitEnd, AttackWindowFrames);
 
         /// <summary>
-        /// DEF_OPT_FRAME entries (hit frames) of the current attack animation, one per part of a combo.
+        /// Time, frame rate and length of the playing track of the attack animation. Not one blending out: the previous
+        /// attack with the same animation may still blend out, its time past the hit frame - it would count as a hit of
+        /// the new attack.
         /// </summary>
-        public int OptimalFrameCount => AttackOptFrame?.Count ?? 0;
-
-        /// <summary>
-        /// The combo part's hit frame (DEF_OPT_FRAME[index]) passed - the frame the engine applies the hit at. Like the
-        /// engine, a combo continues the same attack animation: its parts hit at their own frames (a master's
-        /// s_1hAttack: 4 hits).
-        /// </summary>
-        public bool HasOptimalFrameReached(string animationName, int index)
+        public bool TryGetAttackTrackTime(string animationName, out float time, out float fps, out float duration)
         {
             var track = GetPlayingAttackTrack(animationName);
-            return track != null && TryGetFrame(AttackOptFrame, index, out var frame) &&
-                   track.CurrentTime >= frame / track.Track.FpsSource;
+            time = track?.CurrentTime ?? 0f;
+            fps = track?.Track.FpsSource ?? 0f;
+            duration = track?.Track.Duration ?? 0f;
+            return track != null && fps > 0f;
         }
 
         /// <summary>
-        /// The combo part's window (DEF_WINDOW pair index) is open now - an attack asked for in it continues the combo.
+        /// Moves the playing attack track forward to the time (a combo continues the animation from there).
         /// </summary>
-        public bool IsComboWindowOpen(string animationName, int index)
+        public void SetAttackTrackTime(string animationName, float time)
         {
             var track = GetPlayingAttackTrack(animationName);
-            if (track == null || !TryGetFrame(AttackWindowFrames, index * 2, out var start) ||
-                !TryGetFrame(AttackWindowFrames, index * 2 + 1, out var end))
-                return false;
-
-            var time = track.CurrentTime;
-            return time >= start / track.Track.FpsSource && time <= end / track.Track.FpsSource;
-        }
-
-        /// <summary>
-        /// The combo part ended (DEF_HIT_END[index]) - like the engine, the attack is over there unless continued.
-        /// False if the animation has no hit end for it (it plays to its end then).
-        /// </summary>
-        public bool HasHitEndReached(string animationName, int index)
-        {
-            var track = GetPlayingAttackTrack(animationName);
-            return track != null && TryGetFrame(AttackHitEnd, index, out var frame) &&
-                   track.CurrentTime >= frame / track.Track.FpsSource;
-        }
-
-        /// <summary>
-        /// Continues the combo like the engine (OpenGothic Pose::continueCombo): the playing attack animation jumps to
-        /// the end of the part that just hit (DEF_HIT_END[index - 1]) and runs on to the next part's hit frame.
-        /// Returns the seconds left of the animation, or a negative value if it can't continue.
-        /// </summary>
-        public float ContinueCombo(string animationName, int index)
-        {
-            var track = GetPlayingAttackTrack(animationName);
-            if (track == null || !TryGetFrame(AttackOptFrame, index, out _) ||
-                !TryGetFrame(AttackHitEnd, index - 1, out var hitEnd))
-                return -1f;
-
-            var time = hitEnd / track.Track.FpsSource;
-            if (track.CurrentTime < time)
+            if (track != null && track.CurrentTime < time)
                 track.CurrentTime = time;
-            return Mathf.Max(0f, track.Track.Duration - track.CurrentTime);
         }
 
-        /// <summary>
-        /// The playing (not blending out) track of the attack animation. The track of the previous attack with the same
-        /// animation may still blend out, its time past the hit frame - it would count as a hit of the new attack.
-        /// </summary>
         private AnimationTrackInstance GetPlayingAttackTrack(string animationName)
         {
             foreach (var trackInstance in _trackInstances)
@@ -881,16 +840,6 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             return null;
-        }
-
-        private static bool TryGetFrame(List<int> frames, int index, out int frame)
-        {
-            frame = 0;
-            if (frames == null || index < 0 || index >= frames.Count)
-                return false;
-
-            frame = frames[index];
-            return true;
         }
 
         public bool IsPlaying(string animationName)

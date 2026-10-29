@@ -112,17 +112,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the hit).
+            // The weapon in the hand isn't equipped in VR - the hit carries it, FightService takes its damage from it.
             var weaponName = _weaponVobContainer?.Vob?.Name;
-            attacker.Props.MeleeHitWeapon = weaponName != null ? _vmCacheService.TryGetItemData(weaponName) : null;
-            try
-            {
-                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
-            }
-            finally
-            {
-                attacker.Props.MeleeHitWeapon = null;
-            }
+            var weapon = weaponName != null ? _vmCacheService.TryGetItemData(weaponName) : null;
+            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position, weapon);
             return true;
         }
     }

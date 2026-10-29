@@ -358,29 +358,5 @@ namespace Gothic.Core.Services.Npc
         {
             return PerceptionRanges.TryGetValue(type, out var range) ? range : float.MaxValue;
         }
-
-        /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS). ZS_MagicFreeze sets the same body state, but like the scripts' C_NpcIsDown a
-        /// frozen NPC isn't down: fighters would leave it alone and the next hit wouldn't kill it.
-        /// </summary>
-        public static bool IsKnockedOut(NpcContainer npc)
-        {
-            return npc?.Props != null && npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious &&
-                   !IsMagicFrozen(npc);
-        }
-
-        /// <summary>
-        /// Dead or knocked out.
-        /// </summary>
-        public static bool IsDown(NpcContainer npc)
-        {
-            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
-        }
-
-        public static bool IsMagicFrozen(NpcContainer npc)
-        {
-            var state = npc?.Vob?.CurrentStateName;
-            return state != null && state.StartsWith("ZS_MAGICFREEZE", StringComparison.OrdinalIgnoreCase);
-        }
     }
 }
