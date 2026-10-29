@@ -61,6 +61,14 @@ namespace Gothic.Core.Services.Npc
             return _meleeDamageDomain.GetMeleeReach(npc);
         }
 
+        /// <summary>
+        /// The distance between the bodies - compared with GetMeleeReach for the fight AI, the run and the hit.
+        /// </summary>
+        public float GetFightDistance(NpcContainer attacker, NpcContainer target)
+        {
+            return _meleeDamageDomain.GetFightDistance(attacker, target);
+        }
+
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, ItemInstance weapon)
         {
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)

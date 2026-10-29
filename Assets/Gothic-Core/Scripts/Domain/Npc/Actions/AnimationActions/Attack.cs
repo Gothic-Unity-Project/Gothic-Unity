@@ -184,8 +184,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private float GetDistance()
         {
-            var enemyPosition = _enemy.GetUserData().GetFightPosition();
-            return Vector3.Distance(NpcGo.transform.position, enemyPosition) - MeleeDamageDomain.BodyVolume;
+            return _fightService.GetFightDistance(NpcContainer, _enemy.GetUserData());
         }
 
         /// <summary>

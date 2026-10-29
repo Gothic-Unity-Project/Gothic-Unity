@@ -23,7 +23,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // Running: control goes back to the state loop this often, so ZS_*_Attack_Loop can check the chase (it gives
         // up, $RUNCOWARD). The run animation keeps playing into the next step.
         private const float _runStepSeconds = 0.5f;
-        private const float _minRunStopDistance = 1.11f;
         private const float _runArrivalThreshold = 0.3f;
         private const float _turnThresholdDegrees = 10f;
         // A swing hits within the weapon's reach (+ the bodies' volume) and this angle to each side, so the target can
@@ -283,10 +282,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var targetPosition = _enemy.GetFightPosition();
             var toTarget = new Vector3(targetPosition.x - myPosition.x, 0f, targetPosition.z - myPosition.z);
 
-            // The run ends where the next AI_Attack's weapon range starts.
-            var reach = _fightService.GetMeleeReach(NpcContainer);
-            var stopDistance = Mathf.Max(reach + MeleeDamageDomain.BodyVolume, _minRunStopDistance);
-            if (toTarget.magnitude <= stopDistance)
+            // The run ends where the next AI_Attack's weapon range starts - measured like AI_Attack measures it.
+            var tooFarBy = _fightService.GetFightDistance(NpcContainer, _enemy) -
+                           _fightService.GetMeleeReach(NpcContainer);
+            if (tooFarBy <= 0f)
             {
                 StopRunning();
                 return;
@@ -294,7 +293,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // Each attacker runs to the point on its own side of the enemy, so several spread around it instead of
             // stacking up.
-            var approachDistance = Mathf.Max(0f, stopDistance - _runArrivalThreshold);
+            var approachDistance = Mathf.Max(0f, toTarget.magnitude - tooFarBy - _runArrivalThreshold);
             var approachPoint = targetPosition - toTarget.normalized * approachDistance;
             var toApproachPoint = new Vector3(approachPoint.x - myPosition.x, 0f, approachPoint.z - myPosition.z);
             if (toApproachPoint.magnitude <= _runArrivalThreshold)
@@ -345,13 +344,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            var targetPosition = target.GetFightPosition();
-            var toTarget = targetPosition - NpcGo.transform.position;
-            toTarget.y = 0f;
-
-            var reach = _fightService.GetMeleeReach(NpcContainer) + MeleeDamageDomain.BodyVolume;
-            if (toTarget.magnitude > reach)
+            if (_fightService.GetFightDistance(NpcContainer, target) > _fightService.GetMeleeReach(NpcContainer))
                 return;
+
+            var toTarget = target.GetFightPosition() - NpcGo.transform.position;
+            toTarget.y = 0f;
 
             if (Vector3.Angle(NpcGo.transform.forward, toTarget.normalized) > _hitArcDegrees)
                 return;

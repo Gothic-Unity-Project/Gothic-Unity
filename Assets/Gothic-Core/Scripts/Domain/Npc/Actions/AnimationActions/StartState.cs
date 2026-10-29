@@ -1,5 +1,6 @@
 using Gothic.Core.Models.Container;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using ZenKit.Daedalus;
 
@@ -29,8 +30,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var ai = PrefabProps.AiHandler;
 
             // The old state ends with its own other/victim (G1 ZS_Talk_End: the hero's AIV_INVINCIBLE goes back).
+            // Without one, other is the hero like for the state's own functions (AiHandler.SetStateGlobals).
             if (EndFunction != 0)
-                ai.CallStateEnd(EndFunction, Props.StateOther, Props.StateVictim);
+            {
+                var other = Props.StateOther ?? (NpcInstance)GameStateService.GothicVm.GlobalHero;
+                VmService.CallAsNpc(EndFunction, NpcInstance, other, Props.StateVictim, LogCat.Ai);
+            }
 
             Vob.NextStateIndex = _action;
             Vob.NextStateName = GameStateService.GothicVm.GetSymbolByIndex(_action)!.Name;

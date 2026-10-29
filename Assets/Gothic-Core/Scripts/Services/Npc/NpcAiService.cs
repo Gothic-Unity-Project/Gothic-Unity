@@ -220,20 +220,26 @@ namespace Gothic.Core.Services.Npc
                 // it: the state already ended, its _End would run a second time.
                 var hasStateEnded = container.Props.CurrentLoopState is NpcProperties.LoopState.End or
                     NpcProperties.LoopState.AfterEnd;
-                // A second AI_StartState in the same frame: the first one, cleared below, still carried the old end.
-                var pendingEnd = container.Props.AnimationQueue.OfType<StartState>()
-                    .Select(i => i.EndFunction).LastOrDefault(i => i != 0);
-                var stateEnd = container.Props.StateEnd != 0 ? container.Props.StateEnd : pendingEnd;
-                endFunction = hasStateEnded || !isScriptCall ? 0 : stateEnd;
-                container.Props.StateEnd = 0;
-                container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
 
                 // Abandon the current state's actions so the new one starts next frame - but like the engine
                 // (AI_StartState is an AI message) dialog lines still queued are said first, and a queued sheath or
                 // stand up plays out.
                 var isSheathOrStandUpPending = container.Props.CurrentAction is UndrawWeapon or StandUp ||
                                                container.Props.AnimationQueue.Any(i => i is UndrawWeapon or StandUp);
-                if (!isScriptCall || (!IsTalking(container) && !isSheathOrStandUpPending))
+                var isQueueCleared = !isScriptCall || (!IsTalking(container) && !isSheathOrStandUpPending);
+
+                // A second AI_StartState in the same frame: the first one, cleared below, still carried the old end.
+                // Left in the queue, the first one runs it - taking it here too ran it twice.
+                var pendingEnd = isQueueCleared
+                    ? container.Props.AnimationQueue.OfType<StartState>().Select(i => i.EndFunction)
+                        .LastOrDefault(i => i != 0)
+                    : 0;
+                var stateEnd = container.Props.StateEnd != 0 ? container.Props.StateEnd : pendingEnd;
+                endFunction = hasStateEnded || !isScriptCall ? 0 : stateEnd;
+                container.Props.StateEnd = 0;
+                container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
+
+                if (isQueueCleared)
                     container.PrefabProps?.AiHandler?.ClearState(false);
             }
 

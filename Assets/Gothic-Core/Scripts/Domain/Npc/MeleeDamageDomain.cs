@@ -7,6 +7,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
 
 namespace Gothic.Core.Domain.Npc
@@ -17,10 +18,8 @@ namespace Gothic.Core.Domain.Npc
     /// </summary>
     public class MeleeDamageDomain
     {
-        /// <summary>
-        /// The bodies' volume: fights measure from the NPCs' roots, the weapons reach from their bodies.
-        /// </summary>
-        public const float BodyVolume = 0.3f;
+        // The bodies' volume: positions are the NPCs' roots, the weapons reach from their bodies.
+        private const float _bodyVolume = 0.3f;
 
         // NPCs without fight values in their guild looped in G-Range forever.
         private const float _minMeleeReach = 1.5f;
@@ -31,6 +30,9 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ContextMeleeDamageService _contextMeleeDamageService;
+
+        private DaedalusVm _minimalDamageVm;
+        private int _minimalDamage;
 
         /// <summary>
         /// Fight range base + the drawn melee weapon's range (G1 has no FIGHT_RANGE_1HA/2HA guild values), else the
@@ -47,6 +49,16 @@ namespace Gothic.Core.Domain.Npc
                 : null;
             var weaponRange = item?.Range ?? guildValues.GetFightRangeFist(npc.Vob.GuildTrue);
             return Mathf.Max((baseRange + weaponRange) / 100f, _minMeleeReach);
+        }
+
+        /// <summary>
+        /// The distance between the bodies, the one measure for the reach: the fight AI picks its moves by it, the run
+        /// to the enemy stops by it and a swing hits by it. 3D like the engine (OpenGothic Npc::fightDistanceTo) - an
+        /// enemy on a rock above is out of reach.
+        /// </summary>
+        public float GetFightDistance(NpcContainer attacker, NpcContainer target)
+        {
+            return Vector3.Distance(attacker.Go.transform.position, target.GetFightPosition()) - _bodyVolume;
         }
 
         /// <summary>
@@ -102,7 +114,14 @@ namespace Gothic.Core.Domain.Npc
 
         private int GetMinimalDamage()
         {
-            return _gameStateService.GothicVm.GetSymbolByName("NPC_MINIMAL_DAMAGE")?.GetInt(0) ?? 0;
+            // A script constant: looked up once per game (a load brings a new VM).
+            var vm = _gameStateService.GothicVm;
+            if (_minimalDamageVm != vm)
+            {
+                _minimalDamageVm = vm;
+                _minimalDamage = vm.GetSymbolByName("NPC_MINIMAL_DAMAGE")?.GetInt(0) ?? 0;
+            }
+            return _minimalDamage;
         }
 
         /// <summary>

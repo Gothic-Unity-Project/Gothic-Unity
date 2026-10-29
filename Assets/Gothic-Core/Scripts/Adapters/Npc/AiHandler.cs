@@ -174,15 +174,6 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
-        /// A state's _End function, called when AI_StartState(..., 1, ...) is reached in the queue - with the old
-        /// state's other/victim. The globals are restored afterwards.
-        /// </summary>
-        public void CallStateEnd(int endFunction, NpcInstance other, NpcInstance victim)
-        {
-            _vmService.CallAsNpc(endFunction, NpcInstance, other, victim, LogCat.Ai);
-        }
-
-        /// <summary>
         /// The globals of the NPC's state, set before its functions run. "self" always; "other" is the one the state
         /// was started with (ZS_Attack against a wolf), else the hero so routine states (ZS_*_Loop) have a sensible
         /// fallback. Perception calls (ExecutePerception) set their own with their own save/restore.
@@ -371,9 +362,6 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
-        /// Clear ZS functions. If callEndFunction=true, then ZS_*_End() animations will play before moving to new animation.
-        /// </summary>
-        /// <summary>
         /// The running action is dropped for a new state: it's stopped first, so it doesn't leave its job half done (a
         /// sheath cut short kept the NPC armed in fight stance).
         /// </summary>
@@ -383,6 +371,10 @@ namespace Gothic.Core.Adapters.Npc
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
         }
 
+        /// <summary>
+        /// Clear ZS functions. If callEndFunction=true, then ZS_*_End() animations will play before moving to new
+        /// animation.
+        /// </summary>
         public void ClearState(bool callEndFunction)
         {
             if (callEndFunction)

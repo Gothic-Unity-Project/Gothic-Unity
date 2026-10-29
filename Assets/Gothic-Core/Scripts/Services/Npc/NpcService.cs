@@ -37,6 +37,8 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService
     {
+        private static readonly int _attributeCount = Enum.GetNames(typeof(NpcAttribute)).Length;
+
         public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
 
         [Inject] private readonly GameStateService _gameStateService;
@@ -296,7 +298,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// The NPC dies now, killed by the killer (a fight). The scripts' part follows (ZS_Dead, FightService).
+        /// The NPC dies now, killed by the killer (a fight). The scripts' part follows (ZS_Dead, NpcDeathDomain).
         /// </summary>
         public void Kill(NpcContainer npc, NpcContainer killer)
         {
@@ -329,18 +331,33 @@ namespace Gothic.Core.Services.Npc
         public void SyncHeroInstanceToVob()
         {
             var hero = GetHeroContainer();
-            if (hero == null)
+            // It runs after every NPC's state start (a state may pay the hero): mostly there's nothing to copy.
+            if (hero == null || IsHeroVobInSync(hero))
                 return;
 
             hero.Vob.Level = hero.Instance.Level;
             hero.Vob.Xp = hero.Instance.Exp;
             hero.Vob.XpNextLevel = hero.Instance.ExpNext;
             hero.Vob.Lp = hero.Instance.Lp;
-            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
+            for (var i = 0; i < _attributeCount; i++)
                 hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
 
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPointsMax);
+        }
+
+        private static bool IsHeroVobInSync(NpcContainer hero)
+        {
+            if (hero.Vob.Level != hero.Instance.Level || hero.Vob.Xp != hero.Instance.Exp ||
+                hero.Vob.XpNextLevel != hero.Instance.ExpNext || hero.Vob.Lp != hero.Instance.Lp)
+                return false;
+
+            for (var i = 0; i < _attributeCount; i++)
+            {
+                if (hero.Vob.GetAttribute(i) != hero.Instance.GetAttribute((NpcAttribute)i))
+                    return false;
+            }
+            return true;
         }
 
         public GameObject GetHeroGameObject()
