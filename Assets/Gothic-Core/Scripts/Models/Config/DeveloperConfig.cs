@@ -1664,6 +1664,14 @@ namespace Gothic.Core.Models.Config
                  "grabbed anymore - the looted corpse still lit up and opened an empty loot.")]
         public bool EnableEmptyCorpseInert = true;
 
+        [Tooltip("V1: Sleeping NPCs (in bed, or by the sleep spell) can be pickpocketed and don't notice it - no sight " +
+                 "check, no roll to get caught, like Gothic.")]
+        public bool EnablePickpocketSleeping = true;
+
+        [Tooltip("V1 (VR): Sneaking, the hands and the player's body pass through sleeping NPCs nearby (in bed, magic " +
+                 "sleep), and the personal space doesn't push them - reaching for a sleeper's purse bumped into him.")]
+        public bool EnableSleepingNpcPassThrough = true;
+
         [Tooltip("V1: An item taken by the hero is reported to the NPCs without a victim (like the engine) - with the hero " +
                  "as the victim, G1 took it for pickpocketing and the NPCs warned him (\"Behind you!\") for every item.")]
         public bool EnableTakenItemTheftWithoutVictim = true;

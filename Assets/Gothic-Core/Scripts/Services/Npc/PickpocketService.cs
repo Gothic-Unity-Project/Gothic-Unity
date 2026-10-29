@@ -98,11 +98,27 @@ namespace Gothic.Core.Services.Npc
                 return false;
             if (npc.PrefabProps != null && npc.PrefabProps.IsHero())
                 return false;
-            if (npc.Instance.Guild >= GetHumanSeparator() || NpcHelperService.IsDown(npc))
+            if (npc.Instance.Guild >= GetHumanSeparator())
+                return false;
+            if (IsAsleep(npc))
+                return true;
+            if (NpcHelperService.IsDown(npc))
                 return false;
             if ((VmGothicEnums.WeaponState)npc.Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
                 return false;
             return !_npcHelperService.CanSeeNpc(npc.Instance, hero.Instance, false);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnablePickpocketSleeping: asleep in bed (ZS_Sleep, G1's ZS_Babe_Sleep/ZS_Sleeper) or by the
+        /// sleep spell (ZS_MagicSleep) - can be robbed and doesn't notice it (no sight check, no roll).
+        /// </summary>
+        public bool IsAsleep(NpcContainer npc)
+        {
+            if (!_configService.Dev.EnablePickpocketSleeping)
+                return false;
+            var state = npc?.Vob?.CurrentStateName?.ToUpperInvariant();
+            return state is "ZS_SLEEP" or "ZS_MAGICSLEEP" or "ZS_BABE_SLEEP" or "ZS_SLEEPER";
         }
 
         /// <summary>

@@ -5,6 +5,8 @@ using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -40,6 +42,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly ConfigService _configService;
 
         // The active backend's backpack prefab (VRBackpack.PrefabPath).
         private static string _backpackPrefabPath => VRBackpack.PrefabPath;
@@ -56,6 +59,8 @@ namespace Gothic.VR.Adapters.Player
         // Hanging out of the hip towards the back (in the body it couldn't be reached) - tried out on Lukis and Ghorri.
         private static readonly Vector3 _purseOffset = new(0f, 0f, -0.1f);
         private static readonly Quaternion _purseRotation = Quaternion.Euler(-90f, 0f, 90f);
+        // Meters above a sleeping NPC's pelvis (lying in bed, the hip is under the blanket).
+        private const float _sleepingPurseHeight = 0.3f;
         private const float _robRange = 2.5f;
         private const float _caughtCooldown = 30f;
         private const float _pulseSpeed = 3f;
@@ -63,6 +68,8 @@ namespace Gothic.VR.Adapters.Player
 
         private readonly Dictionary<NpcContainer, Purse> _purses = new();
         private readonly Dictionary<NpcContainer, float> _caughtUntil = new();
+        private readonly Dictionary<NpcContainer, List<Collider>> _passThroughSleepers = new();
+        private float _nextSleeperScan;
         private float _nextScan;
         private Mesh _purseMesh;
         private Material _purseMaterial;
@@ -94,6 +101,12 @@ namespace Gothic.VR.Adapters.Player
 
         private void Update()
         {
+            if (Time.time >= _nextSleeperScan)
+            {
+                _nextSleeperScan = Time.time + _scanInterval;
+                UpdateSleeperPassThrough();
+            }
+
             if (IsRobbing)
             {
                 UpdateRobbery();
@@ -113,6 +126,62 @@ namespace Gothic.VR.Adapters.Player
             }
             UpdatePurses();
             UpdateHover();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableSleepingNpcPassThrough: sneaking, the hands and the player's body pass through sleeping
+        /// NPCs nearby - reaching for the purse of a sleeper in bed bumped into him and pushed the player away.
+        /// </summary>
+        private void UpdateSleeperPassThrough()
+        {
+            var hero = _pickpocketService.Hero;
+            var isSneaking = _configService.Dev.EnableSleepingNpcPassThrough && hero?.Go != null &&
+                             hero.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
+            var heroPosition = isSneaking ? hero.Go.transform.position : Vector3.zero;
+
+            var sleepers = isSneaking
+                ? _multiTypeCacheService.NpcCache
+                    .Where(npc => npc?.Go != null && npc.Go.activeInHierarchy && npc != hero &&
+                                  (npc.Go.transform.position - heroPosition).sqrMagnitude <=
+                                  _purseRange * _purseRange &&
+                                  _pickpocketService.IsAsleep(npc))
+                    .ToList()
+                : new List<NpcContainer>();
+
+            foreach (var npc in _passThroughSleepers.Keys.Where(npc => !sleepers.Contains(npc)).ToList())
+            {
+                SetSleeperPassThrough(_passThroughSleepers[npc], false);
+                _passThroughSleepers.Remove(npc);
+                Logger.Log($"[Pickpocket] Hands collide with sleeping {npc.Go?.name} again", LogCat.VR);
+            }
+
+            foreach (var npc in sleepers.Where(npc => !_passThroughSleepers.ContainsKey(npc)))
+            {
+                var colliders = npc.Go.GetComponentsInChildren<Collider>(true).Where(c => !c.isTrigger).ToList();
+                _passThroughSleepers[npc] = colliders;
+                SetSleeperPassThrough(colliders, true);
+                Logger.Log($"[Pickpocket] Hands pass through sleeping {npc.Go.name} ({colliders.Count} collider(s))",
+                    LogCat.VR);
+            }
+        }
+
+        private void SetSleeperPassThrough(List<Collider> colliders, bool isIgnored)
+        {
+            var hands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (hands != null)
+            {
+                foreach (var hand in hands)
+                    hand?.IgnoreCollisions(colliders, isIgnored);
+            }
+
+            var controller = Rig?.CharacterController;
+            if (controller == null)
+                return;
+            foreach (var npcCollider in colliders)
+            {
+                if (npcCollider != null)
+                    Physics.IgnoreCollision(controller, npcCollider, isIgnored);
+            }
         }
 
         private void Scan()
@@ -231,7 +300,11 @@ namespace Gothic.VR.Adapters.Player
 
                 var root = purse.Npc.Go.transform;
                 Vector3 position;
-                if (purse.SwordSlot != null)
+                // DeveloperConfig.EnablePickpocketSleeping: lying in bed the body isn't upright - the hip mirrored on the
+                // root's middle plane was inside the bed, the purse couldn't be seen. Above the pelvis instead.
+                if (purse.Pelvis != null && _pickpocketService.IsAsleep(purse.Npc))
+                    position = purse.Pelvis.position + Vector3.up * _sleepingPurseHeight;
+                else if (purse.SwordSlot != null)
                 {
                     var slot = purse.SwordSlot.position;
                     position = slot - 2f * Vector3.Dot(slot - root.position, root.right) * root.right;
@@ -373,6 +446,12 @@ namespace Gothic.VR.Adapters.Player
 
             Logger.Log($"[Pickpocket] Took {amount}x {itemInstanceName} from " +
                        $"{_victim.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.VR);
+            if (_pickpocketService.IsAsleep(_victim))
+            {
+                Logger.Log("[Pickpocket] The victim sleeps - no roll", LogCat.VR);
+                return;
+            }
+
             // Inside the socket event - the backpack goes in the next Update.
             if (_pickpocketService.RollCaught())
                 _isCaught = true;
@@ -397,14 +476,16 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateRobbery()
         {
-            if (_victim?.Go == null || !_victim.Go.activeInHierarchy || NpcHelperService.IsDown(_victim))
+            var isAsleep = _pickpocketService.IsAsleep(_victim);
+            if (_victim?.Go == null || !_victim.Go.activeInHierarchy ||
+                (!isAsleep && NpcHelperService.IsDown(_victim)))
             {
                 EndRobbery();
                 return;
             }
 
             var hero = _pickpocketService.Hero;
-            if (!_isCaught && hero?.Instance != null &&
+            if (!_isCaught && !isAsleep && hero?.Instance != null &&
                 _npcHelperService.CanSeeNpc(_victim.Instance, hero.Instance, false))
             {
                 Logger.Log($"[Pickpocket] {_victim.Instance.GetName(NpcNameSlot.Slot0)} sees the hero robbing him",

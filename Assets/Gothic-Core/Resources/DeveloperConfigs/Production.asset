@@ -416,6 +416,8 @@ MonoBehaviour:
   EnableLockToolThroughLockables: 1
   EnableCorpseHoldToLoot: 1
   EnableEmptyCorpseInert: 1
+  EnablePickpocketSleeping: 1
+  EnableSleepingNpcPassThrough: 1
   EnableTakenItemTheftWithoutVictim: 1
   EnableSvmKeyTrim: 1
   EnableDeathZeroHitPoints: 1

@@ -17,6 +17,7 @@ namespace Gothic.Core.Adapters.Npc
     {
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.Npc.PickpocketService _pickpocketService;
 
         private const float _radius = 1.0f;
         private const float _maxHeightDifference = 2f;
@@ -61,6 +62,9 @@ namespace Gothic.Core.Adapters.Npc
                 // Humans with their weapon away can be walked up to and grabbed to talk - pushed 1 m away they were out
                 // of reach and no NPC could be talked to. Monsters and anyone with a drawn weapon keep their distance.
                 if (IsTalkableHuman(npc))
+                    continue;
+                // DeveloperConfig.EnableSleepingNpcPassThrough: a sleeper stays in his bed while the hero robs him.
+                if (_configService.Dev.EnableSleepingNpcPassThrough && _pickpocketService.IsAsleep(npc))
                     continue;
 
                 var npcTransform = npc.Go.transform;
