@@ -1,6 +1,5 @@
 using Gothic.Core;
-using Gothic.Core.Services.Config;
-using Gothic.VR.Adapters.Context;
+using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Core;
@@ -17,10 +16,8 @@ namespace Gothic.VR
         {
             containerBuilder.OnContainerBuilt += (container) => ReflexProjectInstaller.DIContainer = container;
 
-            // VR ports (IVrInput, IVrHaptics, ...) come from the active backend (DeveloperConfig.VrInteractionBackend).
-            // At this point, DIContainer is still the parent (project) container.
-            var developerConfig = ReflexProjectInstaller.DIContainer?.Resolve<ConfigService>().Dev;
-            var backend = VRContextBootstrap.SelectBackend(developerConfig);
+            // VR ports (IVrInput, IVrHaptics, ...) come from the XR Interaction Toolkit backend.
+            var backend = new XriBackend();
             backend.InstallBindings(containerBuilder);
             containerBuilder.AddSingleton(backend, typeof(IVrBackend));
 

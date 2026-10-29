@@ -24,6 +24,9 @@ To all coders and VR developers: Welcome, you're at the right spot.
 We're mainly building Gothic by leveraging C# classes and building core Unity magic.
 (Nearly no 2D/3D designs are needed as we load _everything_ from original assets at runtime).
 
+The project opens and builds without any paid assets. No headset at hand? Turn on `EnableVRDeviceSimulator` in the
+DeveloperConfig to play the VR version with mouse and keyboard.
+
 If you want to build Gothic together, then you're encouraged to join our active developer base. Feel free to grab a ticket you'd like to drive and reach out to us on our [Discord](https://discord.gg/nvnaWwEu5Y) Server for further questions.
 
 ### We Develop with GitHub

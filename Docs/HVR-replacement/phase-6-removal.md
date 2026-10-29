@@ -12,21 +12,27 @@ HVR dependency and can land before or after - see phase-5-hands.md)
 - [ ] The playtest checklists of Phases 0-4 pass on Quest 3, Pico 4 and PCVR (Index).
 - [ ] Nobody on Discord has open work that depends on HVR components.
 
+Decided on 2026-10-28: XRI is the only VR backend from now on, so the removal starts without waiting for these
+checks. The playtests happen on the removal branch instead.
+
 ## Work items
 
 ### Code
 
-- [ ] Delete `Gothic-VR/Scripts/Interaction/Backends/Hvr/` (incl. `VRPlayerController`-based `HvrRig`, `VRSocket`,
+- [x] Delete `Gothic-VR/Scripts/Interaction/Backends/Hvr/` (incl. `VRPlayerController`-based `HvrRig`, `VRSocket`,
       `VRShoulderSocket`, `VRSimulatorControlsGUI`, `VRVobContainerPhysicsChest` HVR version, bridges).
-- [ ] Remove `DeveloperConfig.VrInteractionBackend` (C# field **and** asset value), or keep it with only `Xri`
-      if a future backend is planned. The removal is easier to read.
-- [ ] `VRContextBootstrap`: no backend selection, no `#if`.
-- [ ] Remove `GOTHIC_HVR_INSTALLED` from `ProjectSettings/ProjectSettings.asset` (Android + Standalone defines) and
+- [x] Remove `DeveloperConfig.VrInteractionBackend` (C# field **and** asset value), or keep it with only `Xri`
+      if a future backend is planned. The removal is easier to read. (Removed with its enum and `IVrBackend.Kind`;
+      `ReflexVRSceneInstaller` creates the XRI backend.)
+- [x] `VRContextBootstrap`: no backend selection, no `#if`.
+- [x] Remove `GOTHIC_HVR_INSTALLED` from `ProjectSettings/ProjectSettings.asset` (Android + Standalone defines) and
       from every remaining file (`grep -rn GOTHIC_HVR_INSTALLED Assets` = 0).
-- [ ] Delete `Gothic-VR/Editor/HurricaneActions.cs` (URP material conversion) and `Gothic-VR/Editor/VRContextToolActions.cs`
-      (define toggling).
-- [ ] Remove `HurricaneVR.*` references from asmdefs if any (`Gothic.VR.asmdef`, `Gothic.VR.Editor`, Lab, Tests).
-- [ ] `grep -rni "hvr\|hurricane" Assets --include=*.cs` = 0 (comments too).
+- [x] Delete `Gothic-VR/Editor/HurricaneActions.cs` (URP material conversion) and
+      `Gothic-VR/Editor/VRContextToolActions.cs` (define toggling).
+- [x] Remove `HurricaneVR.*` references from asmdefs if any (`Gothic.VR.asmdef`, `Gothic.VR.Editor`, Lab, Tests).
+      (None found.)
+- [ ] `grep -rni "hvr\|hurricane" Assets --include=*.cs` = 0 (comments too). (Open: the wording clean-up below, in its
+      own PR.)
 
 ### Clean-room cleanup (distance to HVR)
 
@@ -77,31 +83,40 @@ Work items (no behaviour change):
 
 ### Packages and assets
 
-- [ ] `Packages/manifest.json`: remove `com.hurricanevrextensions.simulator`.
-- [ ] Delete your local `Assets/HurricaneVR/` (it isn't in git: `.gitignore:106`; CI injects it). Keep the ignore
-      entry so nobody commits it by accident.
-- [ ] **Prefabs (UnityMCP):** remove all HVR components from the 11 VR prefabs (`HVRGrabbable`, `HVRTagSocketable`,
+- [x] `Packages/manifest.json`: remove `com.hurricanevrextensions.simulator`.
+- [x] Delete your local `Assets/HurricaneVR/` (it isn't in git: `.gitignore:106`; CI injects it). Keep the ignore
+      entry so nobody commits it by accident. (The CI build now fails if the folder exists.)
+- [x] **Prefabs (UnityMCP):** remove all HVR components from the 11 VR prefabs (`HVRGrabbable`, `HVRTagSocketable`,
       `HVRPhysicsDoor`, `HVRRotationTracker`, `HVRClimbable`, socket components …), delete `HVR - Player.prefab`,
-      `HVRGlobal` instance in `Player.unity` / `Lab.unity`, `UIManager` (HVR) instance.
-- [ ] Rename `VR - Player XRI.prefab` → `VR - Player.prefab`.
-- [ ] Delete `Gothic-VR/Resources/VR/HVR Settings/`, `GUZ-VR-Socketables.asset`,
-      `Player-Elements/BackPack/backpack_*_hand_pose.asset` (no replacement while 5f posing is on hold), old slot prefabs.
-- [ ] Open every VR prefab and scene once and check for "Missing script" (UnityMCP `find_gameobjects` / console).
+      `HVRGlobal` instance in `Player.unity` / `Lab.unity`, `UIManager` (HVR) instance. (Done for 10 VOB prefabs plus
+      their variants. Also deleted `HVR - XRDeviceSimulator`, the old `BackPack`, the HVR chest inventory, the broken
+      `TechDemoXRRigOpenXR` variant, the unused `VRHands` materials, and the HVR demo props in `Lab.unity`. The GUID
+      scan against an HVR 2.9 copy is empty.)
+- [ ] Rename `VR - Player XRI.prefab` → `VR - Player.prefab`. (Later, together with the other `XRI` names, once the open
+      PRs that edit these prefabs are merged.)
+- [x] Delete `Gothic-VR/Resources/VR/HVR Settings/`, `GUZ-VR-Socketables.asset`,
+      `Player-Elements/BackPack/backpack_*_hand_pose.asset` (no replacement while 5f posing is on hold), old slot
+      prefabs.
+- [x] Open every VR prefab and scene once and check for "Missing script" (UnityMCP `find_gameobjects` / console). (All
+      prefabs and scenes in `Gothic-*`: no missing HVR scripts. Two old non-HVR leftovers stay: a dead script on the
+      Flat `Player.prefab` and one in Lab `SpatialPanelBase.prefab`.)
 
 ### Build and CI
 
-- [ ] Remove the private HVR asset-repo checkout/injection from the CI workflow.
-- [ ] `pipeline-test-build` label: VR builds (Windows64, Pico, Quest) run for every contributor's PR.
-- [ ] `VRBuilderActions`: nothing HVR-specific (check).
+- [x] Remove the private HVR asset-repo checkout/injection from the CI workflow.
+- [x] `pipeline-test-build` label: VR builds (Windows64, Pico, Quest) run for every contributor's PR. (One build job, no
+      HVR secret needed.)
+- [x] `VRBuilderActions`: nothing HVR-specific (check).
 
 ### Docs
 
-- [ ] `CLAUDE.md`: remove the "Without HurricaneVR" and "Purple HVR hands" setup notes, the `GOTHIC_HVR_INSTALLED`
+- [x] `CLAUDE.md`: remove the "Without HurricaneVR" and "Purple HVR hands" setup notes, the `GOTHIC_HVR_INSTALLED`
       text, and "HurricaneVR" in Key Dependencies / VR Framework; describe `Gothic.VR.Interaction` + XRI.
-- [ ] `README.md`, `CONTRIBUTING.md`: VR works out of the box; the simulator explains how to play without a headset.
+- [x] `README.md`, `CONTRIBUTING.md`: VR works out of the box; the simulator explains how to play without a headset.
+      (README links to the wiki; CONTRIBUTING got the note.)
 - [ ] Wiki (`../Gothic-Unity.wiki`, edit there, not the in-repo copy): VR setup page, architecture page.
-- [ ] `Docs/HVR-replacement/`: add a short "Done in <PR>" note to `README.md`; keep the docs as history.
-- [ ] Project memory/skills that mention HVR (e.g. `feature-checklist`, `unity-mcp-debug`): update the wording.
+- [x] `Docs/HVR-replacement/`: add a short "Done in <PR>" note to `README.md`; keep the docs as history. (#459)
+- [x] Project memory/skills that mention HVR (e.g. `feature-checklist`, `unity-mcp-debug`): update the wording.
 
 ## Test plan
 

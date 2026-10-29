@@ -61,11 +61,7 @@ namespace Gothic.Core.Models.Config
         public Controls GameControls = Controls.VR;
 
         [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
-        [Tooltip("VR interaction framework. Hvr falls back to Xri if HVR isn't installed (no GOTHIC_HVR_INSTALLED).")]
-        public VrInteractionBackend VrInteractionBackend = VrInteractionBackend.Hvr;
-
-        [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
-        [Tooltip("V1: Climb ledges like Gothic's hero (Xri only): grab the lip and pull up, comfort fade onto it, " +
+        [Tooltip("V1: Climb ledges like Gothic's hero: grab the lip and pull up, comfort fade onto it, " +
                  "teleport onto it and jump high enough to reach it. Gothic.ini ledgeClimbMode/ledgeHints.")]
         public bool EnableVrLedgeClimbing;
 

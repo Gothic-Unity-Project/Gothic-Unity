@@ -1,20 +1,14 @@
-using Gothic.Core.Models.Context;
 using Reflex.Core;
 
 namespace Gothic.VR.Interaction.Ports
 {
     /// <summary>
     /// A VR interaction framework that provides the implementations of our VR ports.
-    /// The active backend is selected by VRContextBootstrap.
+    /// The backend is created by ReflexVRSceneInstaller.
     /// </summary>
     public interface IVrBackend
     {
         string Name { get; }
-
-        /// <summary>
-        /// Which DeveloperConfig.VrInteractionBackend this is.
-        /// </summary>
-        VrInteractionBackend Kind { get; }
 
         /// <summary>
         /// Registers the backend's implementations of IVrInput, IVrHaptics, IVrUiPointers and IVrSfxPlayer.

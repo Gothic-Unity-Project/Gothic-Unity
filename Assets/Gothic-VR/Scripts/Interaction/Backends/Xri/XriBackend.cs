@@ -1,5 +1,4 @@
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Context;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Core;
 using Logger = Gothic.Core.Logging.Logger;
@@ -24,7 +23,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
     public class XriBackend : IVrBackend
     {
         public string Name => "XR Interaction Toolkit";
-        public VrInteractionBackend Kind => VrInteractionBackend.Xri;
 
         public void InstallBindings(ContainerBuilder containerBuilder)
         {
