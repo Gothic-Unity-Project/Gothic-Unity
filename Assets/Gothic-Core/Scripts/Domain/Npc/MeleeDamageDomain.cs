@@ -58,7 +58,7 @@ namespace Gothic.Core.Domain.Npc
         /// </summary>
         public float GetFightDistance(NpcContainer attacker, NpcContainer target)
         {
-            return Vector3.Distance(attacker.Go.transform.position, target.GetFightPosition()) - _bodyVolume;
+            return Vector3.Distance(attacker.GetFightPosition(), target.GetFightPosition()) - _bodyVolume;
         }
 
         /// <summary>

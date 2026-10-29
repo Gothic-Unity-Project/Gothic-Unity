@@ -331,33 +331,33 @@ namespace Gothic.Core.Services.Npc
         public void SyncHeroInstanceToVob()
         {
             var hero = GetHeroContainer();
-            // It runs after every NPC's state start (a state may pay the hero): mostly there's nothing to copy.
-            if (hero == null || IsHeroVobInSync(hero))
+            if (hero == null)
                 return;
 
-            hero.Vob.Level = hero.Instance.Level;
-            hero.Vob.Xp = hero.Instance.Exp;
-            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
-            hero.Vob.Lp = hero.Instance.Lp;
+            // It runs after every NPC's state start (a state may pay the hero): mostly nothing changed, and then
+            // nothing is announced. Each field is compared where it's copied, so a new one can't miss the check.
+            var vob = hero.Vob;
+            var instance = hero.Instance;
+            var isChanged = vob.Level != instance.Level;
+            vob.Level = instance.Level;
+            isChanged |= vob.Xp != instance.Exp;
+            vob.Xp = instance.Exp;
+            isChanged |= vob.XpNextLevel != instance.ExpNext;
+            vob.XpNextLevel = instance.ExpNext;
+            isChanged |= vob.Lp != instance.Lp;
+            vob.Lp = instance.Lp;
             for (var i = 0; i < _attributeCount; i++)
-                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
+            {
+                var value = instance.GetAttribute((NpcAttribute)i);
+                isChanged |= vob.GetAttribute(i) != value;
+                vob.SetAttribute(i, value);
+            }
+
+            if (!isChanged)
+                return;
 
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPointsMax);
-        }
-
-        private static bool IsHeroVobInSync(NpcContainer hero)
-        {
-            if (hero.Vob.Level != hero.Instance.Level || hero.Vob.Xp != hero.Instance.Exp ||
-                hero.Vob.XpNextLevel != hero.Instance.ExpNext || hero.Vob.Lp != hero.Instance.Lp)
-                return false;
-
-            for (var i = 0; i < _attributeCount; i++)
-            {
-                if (hero.Vob.GetAttribute(i) != hero.Instance.GetAttribute((NpcAttribute)i))
-                    return false;
-            }
-            return true;
         }
 
         public GameObject GetHeroGameObject()
