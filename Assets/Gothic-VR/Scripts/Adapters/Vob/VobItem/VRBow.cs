@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
@@ -14,9 +13,6 @@ using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
 using Gothic.VR.Interaction.Components;
-using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -273,20 +269,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// While the bow is held, the other hand's grip draws the string instead of grabbing the bow (see VRBowStringFilter).
-        /// The filter stays on the item and is only active while a VRBow exists.
+        /// While the bow is held, the other hand's grip draws the string instead of grabbing the bow.
         /// </summary>
         private void AddStringFilter()
         {
-            // Other VR backends (XRI) ask the interactable.
             if (TryGetComponent<VrInteractable>(out var interactable))
                 interactable.CanSecondHandGrabAt = position => !IsAtString(position);
-
-            if (!TryGetComponent<HVRGrabbable>(out var grabbable) || TryGetComponent<VRBowStringFilter>(out _))
-                return;
-
-            gameObject.AddComponent<VRBowStringFilter>().Grabbable = grabbable;
-            grabbable.LoadFilters();
         }
 
         private bool TryGetFreeHand(out VrHandSide side)
@@ -585,4 +573,3 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
     }
 }
-#endif

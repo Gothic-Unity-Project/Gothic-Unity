@@ -10,7 +10,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
@@ -40,20 +39,13 @@ namespace Gothic.VR.Adapters
         private const float SocketHeight = 0.8f;
         private const float SocketSpacing = 0.22f;
 
-        [Tooltip("Loot slot on the HVR backend (HVR socket).")]
-        [SerializeField] private GameObject _socketPrefab;
-
-        [Tooltip("Loot slot on the other backends (VrSocketSlot, e.g. \"VR Socket Slot.prefab\" for XRI).")]
+        [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
 
-        [Inject] private readonly IVrBackend _vrBackend;
-
         /// <summary>
-        /// The loot socket of the active backend - also used for the trade counter's offer zones.
+        /// The loot socket - also used for the trade counter's offer zones.
         /// </summary>
-        public GameObject SocketPrefab => _vrBackend == null || _vrBackend.Kind == VrInteractionBackend.Hvr
-            ? _socketPrefab
-            : _slotPrefab;
+        public GameObject SocketPrefab => _slotPrefab;
 
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
@@ -319,11 +311,9 @@ namespace Gothic.VR.Adapters
         private void CreateSockets()
         {
             var totalWidth = (MaxVisibleSlots - 1) * SocketSpacing;
-            var prefab = SocketPrefab;
-
             for (var i = 0; i < MaxVisibleSlots; i++)
             {
-                var socketGo = Instantiate(prefab, transform);
+                var socketGo = Instantiate(_slotPrefab, transform);
                 var xOffset = -totalWidth / 2f + i * SocketSpacing;
                 socketGo.transform.localPosition = new Vector3(xOffset, SocketHeight, 0f);
                 socketGo.transform.localRotation = Quaternion.identity;

@@ -147,17 +147,17 @@ namespace Gothic.VR.Services.Context
             // We call this method once at the very beginning of game start. We can safely assume we are in the Player.unity scene.
             var activeScene = SceneManager.GetActiveScene();
 
-            // VR Player: Gothic part and the backend's rig live on the same GameObject. The scene contains one
-            // (inactive) player prefab per VR backend. We use the one of the active backend and remove the others, so
-            // that scene-wide lookups (dialog, canvases, ...) find only ours.
+            // VR Player: Gothic part and the backend's rig live on the same GameObject (inactive in the scene). We use
+            // the one with the backend's rig and remove any other, so that scene-wide lookups (dialog, canvases, ...)
+            // find only ours.
             var players = activeScene.GetRootGameObjects()
                 .SelectMany(i => i.GetComponentsInChildren<VRPlayer>(true))
                 .ToList();
             _player = players.FirstOrDefault(i => _vrBackend.OwnsRig(i.GetComponent<IVrRig>()));
             if (_player == null)
             {
-                var message = $"No VR player with a rig of the active VR backend ({_vrBackend.Name}) found. " +
-                              "Check DeveloperConfig.VrInteractionBackend and the player prefabs in Player.unity.";
+                var message = $"No VR player with a rig of the VR backend ({_vrBackend.Name}) found. " +
+                              "Check the player prefab in Player.unity.";
                 Logger.LogError(message, LogCat.VR);
                 throw new MissingComponentException(message);
             }
@@ -186,7 +186,7 @@ namespace Gothic.VR.Services.Context
             _vrInput.SetDeviceSimulatorActive(isSimulatorEnabled);
 
             // Marvin Mode
-            // Searched inside our player only: the other backends' players are destroyed at the end of this frame.
+            // Searched inside our player only: other players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
             _marvinRoot.SetActive(_marvinService.IsMarvinMode);
             if (developerConfig.EnableUiGrabBars)
@@ -227,12 +227,6 @@ namespace Gothic.VR.Services.Context
                 equipToggle.transform.SetParent(_player.transform, false);
             }
 
-            // DeveloperConfig.EnableWeaponGripGrab: the first hand on a weapon closes around its grip.
-            if (developerConfig.EnableWeaponGripGrab)
-            {
-                var gripGrab = new GameObject("_WeaponGripGrab").AddComponent<VRWeaponGripGrab>();
-                gripGrab.transform.SetParent(_player.transform, false);
-            }
             // DeveloperConfig.EnableHolsterSaveState: the holsters keep their items over saving and loading.
             if (developerConfig.EnableHolsterSaveState)
             {

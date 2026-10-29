@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -90,4 +89,3 @@ namespace Gothic.VR.Adapters.Marvin
         }
     }
 }
-#endif

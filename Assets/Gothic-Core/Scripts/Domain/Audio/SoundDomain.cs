@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Audio;
 using Gothic.Core.Services.Caches;
@@ -25,7 +26,8 @@ namespace Gothic.Core.Domain.Audio
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ConfigService _configService;
 
-        private ImaadpcmDecoderDomain _decoderDomain = new();
+        // Clips being decoded in the background, so a sound used by many VOBs is decoded once.
+        private readonly Dictionary<string, Task<AudioClip>> _clipsInProgress = new();
 
 
         /// <param name="soundFolder">Folder under _WORK/DATA/SOUND looked in first (SFX for sound effects), null = by
@@ -58,6 +60,63 @@ namespace Gothic.Core.Domain.Audio
                 return null;
             }
 
+            return AddClip(fileName, cacheKey, soundData);
+        }
+
+        /// <summary>
+        /// Like CreateAudioClip(), but the file is decoded on a worker thread: decoding a long sound takes up to
+        /// ~400 ms (CS_Inextremo), reading it and creating the clip only a few ms. Must be called on the main thread,
+        /// the clip is created there after the decoding.
+        /// </summary>
+        public Task<AudioClip> CreateAudioClipAsync(string fileName, string soundFolder = null)
+        {
+            fileName = Path.GetFileNameWithoutExtension(fileName);
+            var cacheKey = soundFolder == null ? fileName : $"{soundFolder}/{fileName}";
+
+            if (_multiTypeCacheService.AudioClips.TryGetValue(cacheKey, out var cachedClip))
+                return Task.FromResult(cachedClip);
+
+            if (_clipsInProgress.TryGetValue(cacheKey, out var clipInProgress))
+                return clipInProgress;
+
+            var task = DecodeAndAddClipAsync(fileName, soundFolder, cacheKey);
+            if (!task.IsCompleted)
+                _clipsInProgress[cacheKey] = task;
+            return task;
+        }
+
+        private async Task<AudioClip> DecodeAndAddClipAsync(string fileName, string soundFolder, string cacheKey)
+        {
+            try
+            {
+                var soundBytes = _resourceCacheService.TryGetSoundBytes(fileName, soundFolder);
+                if (soundBytes == null)
+                    return null;
+
+                SoundModel soundData;
+                try
+                {
+                    soundData = await Task.Run(() => ConvertWavByteArrayToFloatArray(soundBytes));
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"Failed to decode audio clip '{fileName}': {e.Message}", LogCat.Audio);
+                    return null;
+                }
+
+                // Back on the main thread. CreateAudioClip() might have loaded it meanwhile.
+                return _multiTypeCacheService.AudioClips.TryGetValue(cacheKey, out var cachedClip)
+                    ? cachedClip
+                    : AddClip(fileName, cacheKey, soundData);
+            }
+            finally
+            {
+                _clipsInProgress.Remove(cacheKey);
+            }
+        }
+
+        private AudioClip AddClip(string fileName, string cacheKey, SoundModel soundData)
+        {
             var audioClip = AudioClip.Create(fileName, soundData.Sound.Length / soundData.Channels, soundData.Channels,
                 soundData.SampleRate, false);
             audioClip.SetData(soundData.Sound, 0);
@@ -66,6 +125,9 @@ namespace Gothic.Core.Domain.Audio
             return audioClip;
         }
 
+        /// <summary>
+        /// Thread safe: no Unity calls and no shared state (CreateAudioClipAsync() runs it on a worker thread).
+        /// </summary>
         public SoundModel ConvertWavByteArrayToFloatArray(byte[] fileBytes)
         {
             // Some mods (e.g. New Balance's dubbing) ship Ogg Vorbis with a ".wav" extension slapped
@@ -142,7 +204,8 @@ namespace Gothic.Core.Domain.Audio
             string formatCode = FormatCode(formatType);
             if (formatCode == "IMA ADPCM")
             {
-                return ConvertWavByteArrayToFloatArray(_decoderDomain.Decode(fileBytes));
+                // A decoder per file: it keeps the file's header in fields.
+                return ConvertWavByteArrayToFloatArray(new ImaadpcmDecoderDomain().Decode(fileBytes));
             }
 
             // Copy WAV data section into a new array

@@ -1,11 +1,10 @@
-#if GOTHIC_HVR_INSTALLED
 using System.Collections;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Adapters.Player;
-using HurricaneVR.Framework.Core;
+using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -76,11 +75,11 @@ namespace Gothic.VR.Adapters.Vob.Container
             _lootBackpack.SetContainerOwner(new ContainerInventoryOwner(_container));
 
             // Lying untouched for a while: gone. Held, it stays; let go, the time starts again.
-            var backpackGrabbable = _lootBackpack.GetComponent<HVRGrabbable>();
-            if (backpackGrabbable != null)
+            var backpackInteractable = VrInteractable.Find(_lootBackpack);
+            if (backpackInteractable != null)
             {
-                backpackGrabbable.Grabbed.AddListener((_, _) => StopTimeout());
-                backpackGrabbable.Released.AddListener((_, _) => StartTimeout());
+                backpackInteractable.Grabbed += _ => StopTimeout();
+                backpackInteractable.Released += _ => StartTimeout();
             }
             StartTimeout();
             Logger.Log($"[VRStaticContainerLoot] '{_container.Name}' opened ({_container.Contents})", LogCat.VR);
@@ -127,4 +126,3 @@ namespace Gothic.VR.Adapters.Vob.Container
         }
     }
 }
-#endif

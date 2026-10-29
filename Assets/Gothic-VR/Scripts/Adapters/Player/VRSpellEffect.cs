@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
 using UnityEngine;
@@ -142,4 +141,3 @@ namespace Gothic.VR.Adapters.Player
         }
     }
 }
-#endif

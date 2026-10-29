@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
@@ -42,6 +43,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
         [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
+
+        private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
 
         // DAM_FIRE in Constants.d (bit after DAM_EDGE).
         private const int _damFire = 8;
@@ -1965,18 +1968,8 @@ namespace Gothic.Core.Services.Npc
 
         private void OnDyingChangeAnimation(NpcContainer target)
         {
-            // Clear pending AI queue and stop all running animations (e.g. s_walk still looping).
-            // Death takes priority over everything — bypass the queue and play directly.
-            target.Props.AnimationQueue.Clear();
-            target.PrefabProps.AnimationSystem.StopAllAnimations();
-            _physicsService.DisablePhysicsForNpc(target.PrefabProps);
-
-            // Drop any queued non-death actions (e.g. a GoToWp/UseMob enqueued the same frame the killing hit
-            // landed). Otherwise AiHandler's dead-NPC branch would play them out on the corpse before dying.
-            target.Props.AnimationQueue.Clear();
-
-            var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, target);
-            target.PrefabProps.AnimationSystem.PlayAnimation(animName);
+            // Dead state, AI queue dropped, animations stopped, physics off and the dying animation.
+            _deathDomain.Die(target);
         }
 
         private void OnHitChangeAnimation(NpcContainer target)

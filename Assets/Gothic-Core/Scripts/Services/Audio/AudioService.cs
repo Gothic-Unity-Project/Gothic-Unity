@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Gothic.Core.Domain.Audio;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
@@ -135,6 +136,15 @@ namespace Gothic.Core.Manager
             return _soundDomain.CreateAudioClip(fileName, _configService.Dev.EnableSfxFromSfxFolder ? _sfxFolder : null);
         }
 
+        /// <summary>
+        /// Like CreateSfxAudioClip(), but decodes on a worker thread (see SoundDomain.CreateAudioClipAsync()).
+        /// </summary>
+        public Task<AudioClip> CreateSfxAudioClipAsync(string fileName)
+        {
+            return _soundDomain.CreateAudioClipAsync(fileName,
+                _configService.Dev.EnableSfxFromSfxFolder ? _sfxFolder : null);
+        }
+
         private const string _sfxFolder = "SFX";
 
         /// <summary>
@@ -145,6 +155,15 @@ namespace Gothic.Core.Manager
         public AudioClip CreateAudioClip(string fileName)
         {
             return _soundDomain.CreateAudioClip(fileName);
+        }
+
+        /// <summary>
+        /// Like CreateAudioClip(), but decodes on a worker thread (see SoundDomain.CreateAudioClipAsync()).
+        /// The result is null if the file is missing or broken.
+        /// </summary>
+        public Task<AudioClip> CreateAudioClipAsync(string fileName)
+        {
+            return _soundDomain.CreateAudioClipAsync(fileName);
         }
         
         /// <summary>

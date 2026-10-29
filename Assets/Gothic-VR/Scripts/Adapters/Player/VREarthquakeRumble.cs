@@ -1,10 +1,8 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
-using HurricaneVR.Framework.Shared;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -54,4 +52,3 @@ namespace Gothic.VR.Adapters.Player
         }
     }
 }
-#endif

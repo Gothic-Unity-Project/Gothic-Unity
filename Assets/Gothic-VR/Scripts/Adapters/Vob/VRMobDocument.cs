@@ -1,5 +1,4 @@
-﻿#if GOTHIC_HVR_INSTALLED
-using Gothic.VR.Adapters.Vob.VobItem;
+﻿using Gothic.VR.Adapters.Vob.VobItem;
 using UnityEngine;
 
 namespace Gothic.VR.Adapters.Vob
@@ -68,4 +67,3 @@ namespace Gothic.VR.Adapters.Vob
         }
     }
 }
-#endif

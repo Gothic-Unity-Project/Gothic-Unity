@@ -5,9 +5,6 @@ on:
     types:
       - published
 
-env:
-  HVRversion: 'v2.9.3.a-Unity-6'
-
 jobs:
   #########
   # BUILD #
@@ -46,8 +43,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: Library
-          key: Library-${{ matrix.targetPlatform }}
-          restore-keys: Library-
+          key: Library-Xri-${{ matrix.targetPlatform }}
+          restore-keys: Library-Xri-
 
       # Set Version
       - name: set Version
@@ -56,20 +53,6 @@ jobs:
           tag="${ref#refs/tags/}"
           echo "Version: $tag"
           sed -i "s/bundleVersion: 0.1/bundleVersion: $tag/"  ProjectSettings/ProjectSettings.asset
-
-      # Checkout and install HurricaneVR
-      # PAT_ASSET_REPO_CHECKOUT expires once per year. An Admin need to create a new one as ORG_PAT if expired.
-      - name: Check out HVR .unitypackage from private repository
-        uses: actions/checkout@v4
-        with:
-          repository: Gothic-Unity-Project/asset-dependencies
-          ref: main
-          path: Checkout/AssetRepo
-          token: ${{ secrets.PAT_ASSET_REPO_CHECKOUT }}
-      - name: Copy HVR package
-        run: |
-          mkdir Assets/HuricaneVR;
-          mv Checkout/AssetRepo/HVR/${{env.HVRversion}}/ Assets/HurricaneVR;
 
       # Build
       - name: Build project

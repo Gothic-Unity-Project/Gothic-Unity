@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
@@ -42,4 +41,3 @@ namespace Gothic.VR.Services
         public static Bounds GetLocalBounds(GameObject root) => ProjectileService.GetLocalBounds(root);
     }
 }
-#endif

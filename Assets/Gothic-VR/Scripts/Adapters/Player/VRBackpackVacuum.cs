@@ -12,10 +12,6 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
-#if GOTHIC_HVR_INSTALLED
-using HurricaneVR.Framework.Core.Grabbers;
-using HurricaneVR.Framework.Core.Sockets;
-#endif
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -52,10 +48,6 @@ namespace Gothic.VR.Adapters.Player
         private readonly HashSet<VrInteractable> _seenThisScan = new();
         private float _scanTimer;
         private int _itemLayerMask;
-#if GOTHIC_HVR_INSTALLED
-        private HVRSocketHoverAction[] _hoverActions;
-        private VrInteractable _hoverShownFor;
-#endif
 
 
         private void Awake()
@@ -79,9 +71,6 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-#if GOTHIC_HVR_INSTALLED
-            _hoverActions = _putIntoSocket.Transform.GetComponents<HVRSocketHoverAction>();
-#endif
         }
 
         /// <summary>
@@ -214,8 +203,6 @@ namespace Gothic.VR.Adapters.Player
             // Forget items that left the pull radius (or got grabbed/stored meanwhile).
             foreach (var gone in _dwellTimes.Keys.Where(i => !_seenThisScan.Contains(i)).ToList())
                 _dwellTimes.Remove(gone);
-
-            UpdateHoverFeedback(inside);
         }
 
         private bool IsPullable(VrInteractable item)
@@ -244,38 +231,6 @@ namespace Gothic.VR.Adapters.Player
         private void UntrackAll()
         {
             _dwellTimes.Clear();
-            UpdateHoverFeedback(null);
-        }
-
-        /// <summary>
-        /// HVR: same visual feedback as hovering an item into the socket by hand (scale/material hover actions).
-        /// </summary>
-        private void UpdateHoverFeedback(VrInteractable inside)
-        {
-#if GOTHIC_HVR_INSTALLED
-            if (inside == _hoverShownFor || _hoverActions == null || _putIntoSocket?.Transform == null)
-                return;
-
-            var socket = _putIntoSocket.Transform.GetComponent<HVRSocket>();
-            if (socket == null)
-                return;
-
-            if (_hoverShownFor != null)
-            {
-                var previous = _hoverShownFor.GetComponent<HurricaneVR.Framework.Core.HVRGrabbable>();
-                foreach (var action in _hoverActions)
-                    action.OnHoverExit(socket, previous, true);
-            }
-
-            if (inside != null)
-            {
-                var current = inside.GetComponent<HurricaneVR.Framework.Core.HVRGrabbable>();
-                foreach (var action in _hoverActions)
-                    action.OnHoverEnter(socket, current, true);
-            }
-
-            _hoverShownFor = inside;
-#endif
         }
 
         private void TryStore(VrInteractable item)

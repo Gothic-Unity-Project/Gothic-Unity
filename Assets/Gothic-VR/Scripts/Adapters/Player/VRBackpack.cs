@@ -121,16 +121,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public bool IsTradeBackpack => _trader != null;
 
-        private const string _prefabPathHvr = "VR/Prefabs/Player-Elements/BackPack";
-        private const string _prefabPathXri = "VR/Prefabs/Player-Elements/BackPack XRI";
-
         /// <summary>
-        /// Resources path of the active backend's backpack prefab (copies for NPC loot, trader goods, purses).
+        /// Resources path of the backpack prefab (copies for NPC loot, trader goods, purses).
         /// </summary>
-        public static string PrefabPath =>
-            ReflexProjectInstaller.DIContainer?.Resolve<IVrBackend>()?.Kind == VrInteractionBackend.Xri
-                ? _prefabPathXri
-                : _prefabPathHvr;
+        public const string PrefabPath = "VR/Prefabs/Player-Elements/BackPack XRI";
 
         /// <summary>
         /// A copy of the hero's backpack prefab (NPC loot, trader goods). spawnedRoot is the prefab root to destroy.
@@ -187,17 +181,6 @@ namespace Gothic.VR.Adapters.Player
             SelectFirstFilledCategory();
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
 
-#if GOTHIC_HVR_INSTALLED
-            // The prefab's GrabColliders hold one empty entry: that turns on HVR's grab collider filter, which then lets
-            // no collider through - the hero's backpack is only taken from the shoulder socket, a loot backpack lies
-            // on the ground and couldn't be grabbed (nor force grabbed).
-            var grabbable = GetComponent<HurricaneVR.Framework.Core.HVRGrabbable>();
-            if (grabbable != null)
-            {
-                grabbable.GrabColliders = System.Array.Empty<Collider>();
-                grabbable.SetupGrabColliders();
-            }
-#endif
             // DeveloperConfig.EnableLootBackpackStays: the backpack's hull doesn't collide with the world (it's worn on the
             // shoulder) - a loot backpack fell through the ground. It stays where it is (and where it's let go: XRI
             // restores the kinematic state on drop).

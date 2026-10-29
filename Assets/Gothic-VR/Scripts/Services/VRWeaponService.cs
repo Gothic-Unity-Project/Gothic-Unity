@@ -26,9 +26,6 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
 using Gothic.Core.Extensions;
-#if GOTHIC_HVR_INSTALLED
-using Gothic.VR.Interaction.Backends.Hvr;
-#endif
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -264,9 +261,6 @@ namespace Gothic.VR.Services
 
                 if (isFist)
                 {
-#if GOTHIC_HVR_INSTALLED
-                    KeepFistPose(side);
-#endif
                     TickFistSwing(hand, hitbox);
                     hitbox.SetDebugVisible(_configService.Dev.ShowNpcColliders);
                 }
@@ -282,36 +276,6 @@ namespace Gothic.VR.Services
             Logger.Log($"[VRFist] Fists {(isAnyFist ? "up" : "down")}", LogCat.Fight);
             UpdateHeroWeaponState();
         }
-
-        /// <summary>
-        /// The held grip + trigger win over the hover pose: HVR opens the hand over a highlighted NPC/item, which is
-        /// always the case when punching. The highlight itself stays. NPCs and items further away are hovered by the
-        /// force grabber, with a hover pose of its own - only the hand grabber's was reset and the fist still opened.
-        /// </summary>
-#if GOTHIC_HVR_INSTALLED
-        private void KeepFistPose(VrHandSide side)
-        {
-            // HVR's hand poser only - the block hands of the other backends close with the grip by themselves.
-            var rig = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<HvrRig>();
-            var hand = rig == null ? null : side == VrHandSide.Left ? rig.LeftHand : rig.RightHand;
-            if (hand == null)
-                return;
-
-            var animator = hand.HandAnimator;
-            if (animator == null || animator.CurrentPoser == null)
-                return;
-
-            var current = animator.CurrentPoser;
-            var force = hand.ForceGrabber;
-            var isHoverPose = current == hand.HoverPoser ||
-                              (force != null && (current == force.HoverPoser || current == force.GrabPoser));
-            if (!isHoverPose)
-                return;
-
-            animator.ResetToDefault();
-            hand.ResetCloneAnimator();
-        }
-#endif
 
         /// <summary>
         /// A swing (hand faster than a punch needs) is heard and felt like a weapon swing: the fist attack's sound from

@@ -1,4 +1,3 @@
-#if GOTHIC_HVR_INSTALLED
 using System;
 using System.Linq;
 using Gothic.Core.Adapters.Properties.Vobs;
@@ -17,9 +16,7 @@ using Gothic.Core.Services.World;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
-using HurricaneVR.Framework.ControllerInput;
-using HurricaneVR.Framework.Core;
-using HurricaneVR.Framework.Shared;
+using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -175,9 +172,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void ReleaseFromHands()
         {
-            var grabbable = GetComponent<HVRGrabbable>();
-            if (grabbable != null && grabbable.IsBeingHeld)
-                grabbable.ForceRelease();
+            var interactable = VrInteractable.Find(this);
+            if (interactable != null && interactable.IsHeld)
+                interactable.ForceRelease();
         }
 
         private bool IsConsumedOnUse() => IsConsumedOnUse(_item, _resourceCacheService);
@@ -208,8 +205,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 item.Amount--;
                 // The held stack counts as inventory (added with its full amount on grab, removed with its then-current
                 // amount on release) - take the used one out now, or it stays in the inventory as a ghost.
-                var grabbable = GetComponent<HVRGrabbable>();
-                if (grabbable != null && grabbable.IsBeingHeld)
+                var interactable = VrInteractable.Find(this);
+                if (interactable != null && interactable.IsHeld)
                     _playerService.RemoveItem(instanceName, 1);
 
                 Logger.Log($"[VRItemUser] {_item.Name} used, remaining={item.Amount}", LogCat.VR);
@@ -223,4 +220,3 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
     }
 }
-#endif

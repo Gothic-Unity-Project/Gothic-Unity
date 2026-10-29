@@ -16,8 +16,8 @@ Verify against `ProjectSettings/TagManager.asset` before relying on numbers - th
 | 10 | VobNpcOrMonster | NPC/monster bodies |
 | 11 | VobMovable | chests, doors |
 | 12 | VobHitbox | NPC hit-detection colliders |
-| 20 | Grabbable | HVR grabbables |
-| 21 | Hand | HVR hands |
+| 20 | Grabbable | grabbable parts (hands' near grab) |
+| 21 | Hand | VR hands |
 
 ## Collision matrix
 

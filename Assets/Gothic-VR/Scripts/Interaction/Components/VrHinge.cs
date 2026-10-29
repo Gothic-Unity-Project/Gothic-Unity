@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Context;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -28,7 +27,6 @@ namespace Gothic.VR.Interaction.Components
     ///   blocked movement along the leaf's swing direction at the contact turns the leaf, at most MaxHandSpeed.
     ///
     /// The grab itself is done by the backend (GothicGrabInteractable + XriInteractableBridge, with tracking off).
-    /// Inactive on HVR, where HVRPhysicsDoor next to HvrHingeBridge is the hinge.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class VrHinge : MonoBehaviour, IVrHinge
@@ -103,7 +101,7 @@ namespace Gothic.VR.Interaction.Components
         public event Action Opened;
         public event Action Closed;
 
-        public bool IsActive => _vrBackend != null && _vrBackend.Kind == VrInteractionBackend.Xri;
+        public bool IsActive => _vrBackend != null;
         public bool IsOpen => _isOpen;
         public bool IsClosed => _isClosed;
         public bool IsLocked => _isLocked;
@@ -181,7 +179,7 @@ namespace Gothic.VR.Interaction.Components
 
         /// <summary>
         /// Collects the push of physical hands touching the leaf. Kinematic leaf vs. dynamic hand still reports
-        /// contacts. Unity sends this to disabled components as well (Hvr), hence the _isStarted check.
+        /// contacts. Unity sends this to disabled components as well, hence the _isStarted check.
         /// </summary>
         private void OnCollisionStay(Collision collision)
         {
