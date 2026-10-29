@@ -209,10 +209,10 @@ namespace Gothic.Core.Services.Npc
         {
             var container = npc.GetUserData();
 
-            // Like the engine, AI_StartState(..., 1, ...) ends the current state with its _End function first - StartState
-            // calls it when the queue reaches it. Zeroing it here meant it never ran: a G1 dialog that ends in a fight
-            // (AI_StartState(self, ZS_Attack, 1, "")) skipped ZS_Talk_End, the hero kept the dialog's AIV_INVINCIBLE and
-            // nobody fought him. 0 starts the new state without the old one's _End.
+            // Like the engine, AI_StartState(..., 1, ...) ends the current state with its _End function first -
+            // StartState calls it when the queue reaches it. Zeroing it here meant it never ran: a G1 dialog that ends
+            // in a fight (AI_StartState(self, ZS_Attack, 1, "")) skipped ZS_Talk_End, the hero kept the dialog's
+            // AIV_INVINCIBLE and nobody fought him. 0 starts the new state without the old one's _End.
             var endFunction = 0;
             if (stopCurrentState)
             {
@@ -220,15 +220,20 @@ namespace Gothic.Core.Services.Npc
                 // it: the state already ended, its _End would run a second time.
                 var hasStateEnded = container.Props.CurrentLoopState is NpcProperties.LoopState.End or
                     NpcProperties.LoopState.AfterEnd;
-                endFunction = hasStateEnded || !isScriptCall ? 0 : container.Props.StateEnd;
+                // A second AI_StartState in the same frame: the first one, cleared below, still carried the old end.
+                var pendingEnd = container.Props.AnimationQueue.OfType<StartState>()
+                    .Select(i => i.EndFunction).LastOrDefault(i => i != 0);
+                var stateEnd = container.Props.StateEnd != 0 ? container.Props.StateEnd : pendingEnd;
+                endFunction = hasStateEnded || !isScriptCall ? 0 : stateEnd;
                 container.Props.StateEnd = 0;
                 container.Props.CurrentWayPoint = null; // forces GoToWp to use nearest WP, not stale pre-interrupt WP
 
                 // Abandon the current state's actions so the new one starts next frame - but like the engine
                 // (AI_StartState is an AI message) dialog lines still queued are said first, and a queued sheath or
                 // stand up plays out.
-                if (!isScriptCall ||
-                    (!IsTalking(container) && !container.Props.AnimationQueue.Any(i => i is UndrawWeapon or StandUp)))
+                var isSheathOrStandUpPending = container.Props.CurrentAction is UndrawWeapon or StandUp ||
+                                               container.Props.AnimationQueue.Any(i => i is UndrawWeapon or StandUp);
+                if (!isScriptCall || (!IsTalking(container) && !isSheathOrStandUpPending))
                     container.PrefabProps?.AiHandler?.ClearState(false);
             }
 
@@ -239,12 +244,13 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Lines of a dialog (or its start/stop) still waiting in the NPC's queue.
+        /// A line being said, or lines of a dialog (or its start/stop) still waiting in the NPC's queue.
         /// </summary>
         private static bool IsTalking(NpcContainer container)
         {
-            return container.Props.AnimationQueue.Any(i =>
-                i is Output or OutputSvm or StartProcessInfos or StopProcessInfos);
+            return container.Props.CurrentAction is Output or OutputSvm ||
+                   container.Props.AnimationQueue.Any(i => i is Output or OutputSvm or StartProcessInfos or
+                       StopProcessInfos);
         }
 
         public void ExtAiLookAt(NpcInstance npc, string wayPointName)
@@ -516,8 +522,8 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// The scripts ask for a category (FMODE_MELEE = 1h or 2h, FMODE_FAR = bow or crossbow), our fight mode is the
-        /// weapon itself. Compared directly, only 1h and crossbow matched: a guard with a two-hander or a bow counted as
-        /// unarmed and drew his weapon again and again (OpenGothic npc_isinfightmode).
+        /// weapon itself. Compared directly, only 1h and crossbow matched: a guard with a two-hander or a bow counted
+        /// as unarmed and drew his weapon again and again (OpenGothic npc_isinfightmode).
         /// </summary>
         public bool ExtNpcIsInFightMode(NpcInstance npc, VmGothicEnums.FightMode fightMode)
         {

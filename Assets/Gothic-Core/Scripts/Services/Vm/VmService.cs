@@ -195,9 +195,9 @@ namespace Gothic.Core.Services.Vm
         //
 
         /// <summary>
-        /// Calls a Daedalus function (a state function, ZS_Dead, ...) with the globals the engine sets for an NPC: self,
-        /// and other/victim if given. Restores them afterwards. Returns the int result (0 without one or on a script
-        /// error, which is logged - an exception mustn't escape into the VM's own call).
+        /// Calls a Daedalus function (a state function, ZS_Dead, ...) with the globals the engine sets for an NPC:
+        /// self, and other/victim if given. Restores them afterwards. Returns the int result (0 without one or on a
+        /// script error, which is logged - an exception mustn't escape into the VM's own call).
         /// </summary>
         public int CallAsNpc(int symbolIndex, NpcInstance self, NpcInstance other, NpcInstance victim, LogCat cat)
         {

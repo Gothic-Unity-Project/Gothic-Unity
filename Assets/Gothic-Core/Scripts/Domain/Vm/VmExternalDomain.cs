@@ -1168,8 +1168,8 @@ namespace Gothic.Core.Domain.Vm
         }
 
         /// <summary>
-        /// The fight scripts check these before and during a fight (B_DrawWeapon, ZS_Attack, orc AI). Unregistered, they
-        /// returned 0: nobody had a weapon drawn or a next target. Only registered if the game declares them.
+        /// The fight scripts check these before and during a fight (B_DrawWeapon, ZS_Attack, orc AI). Unregistered,
+        /// they returned 0: nobody had a weapon drawn or a next target. Only registered if the game declares them.
         /// </summary>
         private void RegisterFightExternals(DaedalusVm vm)
         {
@@ -1239,7 +1239,9 @@ namespace Gothic.Core.Domain.Vm
         /// </summary>
         public int Npc_GetGuildAttitude(NpcInstance self, NpcInstance other)
         {
-            var ret = self == null || other == null ? 0 : Wld_GetGuildAttitude(self.Guild, other.Guild);
+            var ret = self == null || other == null
+                ? (int)VmGothicEnums.Attitude.Neutral
+                : Wld_GetGuildAttitude(self.Guild, other.Guild);
             return LogInstantExternal(nameof(Npc_GetGuildAttitude), ret, self, other);
         }
 

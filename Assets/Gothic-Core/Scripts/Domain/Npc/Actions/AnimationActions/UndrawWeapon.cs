@@ -5,6 +5,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
+using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -103,16 +104,40 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void SheathState()
         {
+            SheathState(NpcContainer);
+        }
+
+        /// <summary>
+        /// The weapon away without the animation (an NPC coming back from culling).
+        /// </summary>
+        public static void SheathAtOnce(NpcContainer npc)
+        {
+            var weaponState = (VmGothicEnums.WeaponState)npc.Vob.FightMode;
+            if (weaponState == VmGothicEnums.WeaponState.NoWeapon)
+                return;
+
+            if (weaponState is not (VmGothicEnums.WeaponState.Fist or VmGothicEnums.WeaponState.Mage))
+                MoveWeaponBackToStowSlot(npc.Go, weaponState);
+            SheathState(npc);
+        }
+
+        private static void SheathState(NpcContainer npc)
+        {
             // From here on, follow-up animations are weaponless again (s_RunL, ...) and the routine's stance is back.
-            Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
-            Props.MdsNameOverlay = NpcContainer.GetScriptOverlay();
-            Props.CurrentItem = -1;
+            npc.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
+            npc.Props.MdsNameOverlay = npc.GetScriptOverlay();
+            npc.Props.CurrentItem = -1;
         }
 
         private void MoveWeaponBackToStowSlot(VmGothicEnums.WeaponState weaponState)
         {
-            var handGo = NpcGo.FindChildRecursively(DrawWeapon.GetHandSlotName(weaponState));
-            var slotGo = NpcGo.FindChildRecursively(DrawWeapon.GetStowSlotName(weaponState));
+            MoveWeaponBackToStowSlot(NpcGo, weaponState);
+        }
+
+        private static void MoveWeaponBackToStowSlot(GameObject npcGo, VmGothicEnums.WeaponState weaponState)
+        {
+            var handGo = npcGo.FindChildRecursively(DrawWeapon.GetHandSlotName(weaponState));
+            var slotGo = npcGo.FindChildRecursively(DrawWeapon.GetStowSlotName(weaponState));
 
             if (handGo == null || slotGo == null || handGo.transform.childCount == 0)
                 return;

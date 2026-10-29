@@ -41,12 +41,16 @@ namespace Gothic.Core.Services.Npc
 
         private readonly MeleeDamageDomain _meleeDamageDomain = new MeleeDamageDomain().Inject();
 
+        // Counts the hero's knockouts and loaded games: a recovery from an older one doesn't unlock the player.
+        private int _heroKnockoutId;
+
         public void Init()
         {
             if (!_configService.Dev.EnableCombatSystem)
                 return;
 
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
+            GlobalEventDispatcher.LoadGameStart.AddListener(() => _heroKnockoutId++);
         }
 
         /// <summary>
@@ -62,8 +66,8 @@ namespace Gothic.Core.Services.Npc
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
-            // Like the engine, nobody is hurt during a dialog.
-            if (_gameStateService.Dialogs.IsInDialog)
+            // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.
+            if (IsInDialog(attacker) || IsInDialog(target))
                 return;
 
             var isHero = target.IsHero();
@@ -98,6 +102,12 @@ namespace Gothic.Core.Services.Npc
             }
 
             ReactToDamage(attacker, target);
+        }
+
+        private bool IsInDialog(NpcContainer npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            return dialogs.IsInDialog && (npc.IsHero() || npc == dialogs.CurrentDialogNpc);
         }
 
         /// <summary>
@@ -185,14 +195,16 @@ namespace Gothic.Core.Services.Npc
             }
 
             _npcAiService.SendPerceptionToWitnesses(hero, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
-            _unityMonoService.StartCoroutine(RecoverHero(hero));
+            _unityMonoService.StartCoroutine(RecoverHero(hero, ++_heroKnockoutId));
         }
 
-        private IEnumerator RecoverHero(NpcContainer hero)
+        private IEnumerator RecoverHero(NpcContainer hero, int knockoutId)
         {
             yield return new WaitForSeconds(_heroKnockoutSeconds);
 
-            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            // A game loaded in the meantime: its locks (dialog, lock picking) aren't the knockout's.
+            if (knockoutId != _heroKnockoutId || hero != _npcService.GetHeroContainer() ||
+                hero.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
                 yield break;
 
             hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;

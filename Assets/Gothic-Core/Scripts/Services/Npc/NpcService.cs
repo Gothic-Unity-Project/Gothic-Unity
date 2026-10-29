@@ -428,8 +428,8 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Like the engine, the NPC keeps the scripts' overlays in a list (saved with it), the newest one plays. A drawn
-        /// weapon keeps its fight stance until it's put away (UndrawWeapon).
+        /// Like the engine, the NPC keeps the scripts' overlays in a list (saved with it), the newest one plays. A
+        /// drawn weapon keeps its fight stance until it's put away (UndrawWeapon).
         /// </summary>
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
