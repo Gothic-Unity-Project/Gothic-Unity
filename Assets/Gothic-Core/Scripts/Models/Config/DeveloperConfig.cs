@@ -64,6 +64,11 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
         public bool EnableVRDeviceSimulator;
 
+        [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
+        [Tooltip("Editor: while the headset renders nothing (not worn, asleep, session ended), the camera renders to " +
+                 "the Game view. NPCs and objects around the player keep loading - for tests without the headset.")]
+        public bool RenderGameViewWithoutHeadset = true;
+
         [Tooltip("Start with Marvin mode on (shortcut). Without it, Marvin mode can still be activated in game.")]
         public bool PreselectMarvinMode;
 

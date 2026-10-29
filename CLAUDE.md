@@ -17,6 +17,8 @@ Data flow: Unity → ZenKit.dll (.NET Standard 2.1) → libzenkitcapi (native) �
 
 **Without a headset**: enable `DeveloperConfig.EnableVRDeviceSimulator` to play VR with mouse and keyboard, or set `GameManager.DeveloperConfig → Controls.GameControls` to `Flat`.
 
+Headset connected but not worn or asleep: `DeveloperConfig.RenderGameViewWithoutHeadset` (on by default) renders the camera to the Game view after a second without a headset frame, so NPCs and objects around the player keep loading.
+
 ## Build & Test
 
 Builds are performed via the Unity Editor or CI using `game-ci/unity-builder`. The CI build methods are:
