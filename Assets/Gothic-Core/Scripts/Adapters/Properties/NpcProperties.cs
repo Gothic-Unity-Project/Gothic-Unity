@@ -28,6 +28,10 @@ namespace Gothic.Core.Adapters.Properties
         // DeveloperConfig.EnableRingItemSlots: the hero's favorite (not equippable) items in the VR favorites ring -
         // Daedalus symbol names, saved in UNITYSAVE.json.
         public List<string> FavoriteItems = new();
+        // DeveloperConfig.EnableHolsterSaveState: the hero's VR holster contents as "slot|instance|amount" (the holster
+        // items are world items, not inventory) - saved in UNITYSAVE.json, put back into their holsters after a load.
+        public List<string> HolsterItems = new();
+        public bool IsHolsterRestorePending;
         public string UsedItemSlot;
         public bool HasItemEquipped;
         public int CurrentItem = -1;

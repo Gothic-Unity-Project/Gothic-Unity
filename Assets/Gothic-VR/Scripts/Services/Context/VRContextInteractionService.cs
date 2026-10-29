@@ -233,6 +233,12 @@ namespace Gothic.VR.Services.Context
                 var gripGrab = new GameObject("_WeaponGripGrab").AddComponent<VRWeaponGripGrab>();
                 gripGrab.transform.SetParent(_player.transform, false);
             }
+            // DeveloperConfig.EnableHolsterSaveState: the holsters keep their items over saving and loading.
+            if (developerConfig.EnableHolsterSaveState)
+            {
+                var holsterSaveState = new GameObject("_HolsterSaveState").AddComponent<VRHolsterSaveState>();
+                holsterSaveState.transform.SetParent(_player.transform, false);
+            }
             ApplyMarvinVisibility();
 
             // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).

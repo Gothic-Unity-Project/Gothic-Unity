@@ -120,6 +120,14 @@ namespace Gothic.Core.Services.World
         // Null in older saves.
         public List<string> HeroFavoriteItems;
 
+        // DeveloperConfig.EnableHolsterSaveState: the hero's VR holster contents ("slot|instance|amount"). Null in older
+        // saves.
+        public List<string> HeroHolsterItems;
+
+        // DeveloperConfig.EnableHeroTalentSaveState: the hero's talents as skill/value pairs per talent index - the
+        // loaded hero is created fresh, his learned talents (pickpocketing, ...) were gone. Null in older saves.
+        public int[] HeroTalents;
+
         // Guild attitude matrix — flat int[] indexed as [guild1 * GuildCount + guild2]
         public int[] GuildAttitudes;
 

@@ -134,7 +134,14 @@ namespace Gothic.Core.Adapters.UI.Menus
                     SetItemText(keyDescription, $"{_npcHelperService.GetTalentPercent(hero, i)}%");
             });
 
-            Logger.Log($"[StatusMenu] Talents: count={vob.TalentCount}, titles={talentTitles.Count}, rows filled={filledRows}", LogCat.Ui);
+            // Which talents the hero really has - a talent without a menu row (G2's menu shows fewer rows than talents)
+            // looks lost after loading although it's there.
+            var learned = string.Join(", ", Enumerable.Range(0, vob.TalentCount)
+                .Select(i => (Index: i, Talent: vob.GetTalent(i)))
+                .Where(t => t.Talent.Skill != 0 || t.Talent.Value != 0)
+                .Select(t => $"{t.Index}={t.Talent.Skill}/{t.Talent.Value}"));
+            Logger.Log($"[StatusMenu] Talents: count={vob.TalentCount}, titles={talentTitles.Count}, rows filled={filledRows}, " +
+                       $"learned (index=skill/value): {learned}", LogCat.Ui);
         }
 
         /// <summary>

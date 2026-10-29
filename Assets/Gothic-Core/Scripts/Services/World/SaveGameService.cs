@@ -626,6 +626,14 @@ namespace Gothic.Core.Services.World
                 HeroProtection = Enumerable.Range(0, ProtectionCount).Select(i => vob.GetProtection(i)).ToArray(),
                 HeroEquippedItems = GetEquippedSymbolNames(heroContainer),
                 HeroFavoriteItems = heroContainer.Props.FavoriteItems.ToList(),
+                HeroHolsterItems = _configService.Dev.EnableHolsterSaveState
+                    ? heroContainer.Props.HolsterItems.ToList()
+                    : null,
+                HeroTalents = _configService.Dev.EnableHeroTalentSaveState
+                    ? Enumerable.Range(0, vob.TalentCount)
+                        .SelectMany(i => new[] { vob.GetTalent(i)?.Skill ?? 0, vob.GetTalent(i)?.Value ?? 0 })
+                        .ToArray()
+                    : null,
                 GuildAttitudes = _gameStateService.GuildAttitudes != null
                     ? (int[])_gameStateService.GuildAttitudes.Clone()
                     : null
@@ -981,6 +989,26 @@ namespace Gothic.Core.Services.World
                 Logger.LogWarning($"TryLoadNpcInitForWorld: file '{pathToUse}' is empty or invalid", LogCat.Loading);
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableHeroTalentSaveState: the saved skill/value per talent onto the freshly created hero.
+        /// </summary>
+        private void RestoreHeroTalents(NpcProxy vob, int[] talents)
+        {
+            if (!_configService.Dev.EnableHeroTalentSaveState || talents == null)
+                return;
+
+            var learned = 0;
+            for (var i = 0; i * 2 + 1 < talents.Length; i++)
+            {
+                while (vob.TalentCount <= i)
+                    vob.AddTalent(new Talent { Type = vob.TalentCount });
+                vob.SetTalent(i, new Talent { Type = i, Skill = talents[i * 2], Value = talents[i * 2 + 1] });
+                if (talents[i * 2] != 0 || talents[i * 2 + 1] != 0)
+                    learned++;
+            }
+            Logger.Log($"ApplyHeroRestore: {talents.Length / 2} talents restored, {learned} learned", LogCat.Loading);
+        }
+
         private void ApplyHeroRestore(UnityCustomSave data)
         {
             Logger.Log($"ApplyHeroRestore: data level={data.HeroLevel} hp={data.HeroAttributes?[0]}/{data.HeroAttributes?[1]} attrs={data.HeroAttributes?.Length}", LogCat.Loading);
@@ -1049,6 +1077,11 @@ namespace Gothic.Core.Services.World
             // attributes already include everything that was worn.
             RestoreEquipment(heroContainer, data.HeroProtection, data.HeroEquippedItems);
             heroContainer.Props.FavoriteItems = data.HeroFavoriteItems?.ToList() ?? new List<string>();
+            // DeveloperConfig.EnableHolsterSaveState: VRHolsterSaveState empties the holsters (they belong to the player,
+            // the previous game's items stayed in them) and puts this save's items back once the holsters exist.
+            heroContainer.Props.HolsterItems = data.HeroHolsterItems?.ToList() ?? new List<string>();
+            heroContainer.Props.IsHolsterRestorePending = _configService.Dev.EnableHolsterSaveState;
+            RestoreHeroTalents(vob, data.HeroTalents);
             Logger.Log($"ApplyHeroRestore: equipped items={heroContainer.Props.EquippedItems.Count}, " +
                        $"protection={string.Join(",", data.HeroProtection ?? Array.Empty<int>())}", LogCat.Loading);
 

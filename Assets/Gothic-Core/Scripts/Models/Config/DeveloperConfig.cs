@@ -1668,6 +1668,14 @@ namespace Gothic.Core.Models.Config
                  "check, no roll to get caught, like Gothic.")]
         public bool EnablePickpocketSleeping = true;
 
+        [Tooltip("V1 (VR): Items in the hip/shoulder holsters are saved (UNITYSAVE.json) and put back into them after " +
+                 "loading - they were saved as world items and floated where the holster had been.")]
+        public bool EnableHolsterSaveState = true;
+
+        [Tooltip("V1: The hero's talents (skill and value) are saved in UNITYSAVE.json and restored on loading - the loaded " +
+                 "hero is created fresh: learned pickpocketing, smithing, ... were gone after loading.")]
+        public bool EnableHeroTalentSaveState = true;
+
         [Tooltip("V1 (VR): Sneaking, the hands and the player's body pass through sleeping NPCs nearby (in bed, magic " +
                  "sleep), and the personal space doesn't push them - reaching for a sleeper's purse bumped into him.")]
         public bool EnableSleepingNpcPassThrough = true;
