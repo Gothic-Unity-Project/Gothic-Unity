@@ -1635,9 +1635,18 @@ namespace Gothic.Core.Models.Config
                  "at them - they lagged behind (slow catch-up) and had to be turned into place with the head.")]
         public bool EnableBodyAnchorLockedToHead = true;
 
+        [Tooltip("V1: Lying on the floor (knocked out, asleep, dead), the VR hands follow the controllers without physics, " +
+                 "and the arms don't count for putting the body on the floor - a hand moved down lifted the lying body " +
+                 "and the camera (the floor pushed the player up, the view shook).")]
+        public bool EnableDownHandsNoCollision = true;
+
         [Tooltip("V1: The hero's own Sleep/Ice spell without a target doesn't put the hero himself to sleep / freeze him " +
                  "(the script's 'other' was the hero) - like the engine, without a target nothing happens.")]
         public bool EnableNoSelfSpellStateWithoutTarget = true;
+
+        [Tooltip("V1: The item details popup also shows the item in the backpack (or on the trade counter) the free " +
+                 "hand's laser points at - it had to be touched with the hand to be read, the laser grabbed it.")]
+        public bool EnableItemPopupOnRayHover = true;
 
         [Tooltip("V1: An item taken by the hero is reported to the NPCs without a victim (like the engine) - with the hero " +
                  "as the victim, G1 took it for pickpocketing and the NPCs warned him (\"Behind you!\") for every item.")]

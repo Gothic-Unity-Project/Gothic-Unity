@@ -127,6 +127,16 @@ namespace Gothic.VR.Adapters.Player
                     return IsItem(held) ? held.gameObject : null;
                 }
 
+                // DeveloperConfig.EnableItemPopupOnRayHover: the item the hand's laser points at - the laser grabs it,
+                // the hand had to be moved to the item only to read it.
+                if (_configService.Dev.EnableItemPopupOnRayHover)
+                {
+                    var hovered = rig.GetDistanceHovered(hand.HandSide);
+                    if (hovered != null && hovered != _backpack && hovered.transform.IsChildOf(transform) &&
+                        IsItem(hovered))
+                        return hovered.gameObject;
+                }
+
                 var handVisual = rig.GetHandVisual(hand.HandSide);
                 var handPosition = handVisual != null ? handVisual.position
                     : _vrPlayerService.GetHandModelGo(hand.HandSide)?.transform.position;

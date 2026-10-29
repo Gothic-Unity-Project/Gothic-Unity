@@ -167,6 +167,8 @@ namespace Gothic.VR.Adapters.Player
         private DownPhase _downPhase;
         // Down because of a sleep spell, not a knockout (DeveloperConfig.EnableHeroSleepBody).
         private bool _isSleepDown;
+        // DeveloperConfig.EnableDownHandsNoCollision: the hands' physics before the hero went down.
+        private readonly Dictionary<VrPhysicsHand, bool> _physicalBeforeDown = new();
 
         /// <summary>
         /// The body lies or stands up (EnableHeroFallCamera) - the lowered camera isn't crouching (VRHeroMovement).
@@ -400,7 +402,7 @@ namespace Gothic.VR.Adapters.Player
             _animator.Update(Time.deltaTime);
 
             if (_bodyBones == null || _bodyBones.Length == 0 || _bodyBones[0] == null)
-                _bodyBones = _body.GetComponentsInChildren<Transform>();
+                _bodyBones = GetFloorBones();
             var lowestY = float.MaxValue;
             foreach (var bone in _bodyBones)
             {
@@ -433,6 +435,56 @@ namespace Gothic.VR.Adapters.Player
             return true;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableDownHandsNoCollision: lying on the floor (knocked out, asleep, dead), the hands follow
+        /// the controllers without physics - the physical hands bounced on the floor and shook the lying body.
+        /// </summary>
+        private void SetHandsThroughFloor(bool isDown)
+        {
+            var hands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (hands == null)
+                return;
+
+            if (isDown)
+            {
+                if (!_configService.Dev.EnableDownHandsNoCollision)
+                    return;
+                foreach (var hand in hands)
+                {
+                    if (hand == null || _physicalBeforeDown.ContainsKey(hand))
+                        continue;
+                    _physicalBeforeDown[hand] = hand.IsPhysical;
+                    hand.IsPhysical = false;
+                }
+                return;
+            }
+
+            foreach (var (hand, wasPhysical) in _physicalBeforeDown)
+            {
+                if (hand != null)
+                    hand.IsPhysical = wasPhysical;
+            }
+            _physicalBeforeDown.Clear();
+        }
+
+        /// <summary>
+        /// The bones that put the lying body on the floor (its lowest one). DeveloperConfig.EnableDownHandsNoCollision:
+        /// not the arms - they follow the controllers, a hand moved down to the floor lifted the whole body and the
+        /// camera with it (the floor "pushed" the player up, the view shook).
+        /// </summary>
+        private Transform[] GetFloorBones()
+        {
+            var bones = _body.GetComponentsInChildren<Transform>();
+            if (!_configService.Dev.EnableDownHandsNoCollision)
+                return bones;
+
+            var leftUpper = _leftArm.Upper;
+            var rightUpper = _rightArm.Upper;
+            return System.Array.FindAll(bones, bone =>
+                (leftUpper == null || !bone.IsChildOf(leftUpper)) &&
+                (rightUpper == null || !bone.IsChildOf(rightUpper)));
+        }
+
         private Gothic.Core.Adapters.UI.Menus.MenuHandler GetMenuHandler()
         {
             var player = _contextInteractionService.GetCurrentPlayerController();
@@ -454,6 +506,7 @@ namespace Gothic.VR.Adapters.Player
             _bodyBones = null;
             _downPhase = DownPhase.Knockout;
             IsHeroDown = true;
+            SetHandsThroughFloor(true);
             SetDownAnimations("T_STAND_2_WOUNDEDB", "S_WOUNDEDB");
             Logger.Log("[VRHeroBody] Hero down - body falls, camera follows its head", LogCat.VR);
         }
@@ -482,6 +535,7 @@ namespace Gothic.VR.Adapters.Player
             _downPhase = DownPhase.None;
             _isSleepDown = false;
             IsHeroDown = false;
+            SetHandsThroughFloor(false);
             _downAnimation = null;
             _downAnimations.Clear();
             if (_rig != null)
@@ -1305,6 +1359,11 @@ namespace Gothic.VR.Adapters.Player
             private const float _minFistAnisotropy = 1.5f;
 
             public bool IsFist { get; set; }
+
+            /// <summary>
+            /// The arm's root bone (BIP01 * UPPERARM), null before Bind.
+            /// </summary>
+            public Transform Upper => _upper;
 
             /// <summary>
             /// DeveloperConfig.EnableWholeArmStretch: reaching farther than the arm, the whole arm gets longer (scaled,

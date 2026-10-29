@@ -409,7 +409,9 @@ MonoBehaviour:
   EnableStabFinishHold: 1
   EnableFinishedNpcLyingDeath: 1
   EnableNpcOutdoorPortalGuild: 1
+  EnableDownHandsNoCollision: 1
   EnableNoSelfSpellStateWithoutTarget: 1
+  EnableItemPopupOnRayHover: 1
   EnableTakenItemTheftWithoutVictim: 1
   EnableSvmKeyTrim: 1
   EnableDeathZeroHitPoints: 1
