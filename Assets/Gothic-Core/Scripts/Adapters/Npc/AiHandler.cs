@@ -167,7 +167,10 @@ namespace Gothic.Core.Adapters.Npc
             var hasStateEnded = Properties.CurrentLoopState is NpcProperties.LoopState.End or
                 NpcProperties.LoopState.AfterEnd;
             if (Properties.StateEnd != 0 && !hasStateEnded)
-                CallStateEnd(Properties.StateEnd, Properties.StateOther, Properties.StateVictim);
+            {
+                var other = Properties.StateOther ?? (NpcInstance)Vm.GlobalHero;
+                _vmService.CallAsNpc(Properties.StateEnd, NpcInstance, other, Properties.StateVictim, LogCat.Ai);
+            }
 
             Properties.StateEnd = 0;
             Vob.NextStateValid = false;
