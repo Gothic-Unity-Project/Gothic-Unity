@@ -2638,6 +2638,10 @@ PrefabInstance:
       propertyPath: m_LocalRotation.y
       value: 0.7071068
       objectReference: {fileID: 0}
+    - target: {fileID: 6523535316780004576, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      propertyPath: _size
+      value: 0.3
+      objectReference: {fileID: 0}
     - target: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       propertyPath: m_Name
       value: PutIntoSlot

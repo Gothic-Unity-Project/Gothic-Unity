@@ -134,8 +134,8 @@ namespace Gothic.Tests.PlayMode
             Assert.That(item.Grabbable.transform.localPosition.magnitude, Is.LessThan(Tolerance));
             Assert.IsTrue(item.Rigidbody.isKinematic);
 
-            // Scale-to-fit: half of the largest side becomes Size.
-            var expectedScale = slot.Size / (CubeSize / 2);
+            // Scale-to-fit: the largest side becomes Size (as HVR's sockets).
+            var expectedScale = slot.Size / CubeSize;
             Assert.That(item.Loader.transform.localScale.x, Is.EqualTo(expectedScale).Within(Tolerance));
             Assert.That(Vector3.Distance(item.Cube.bounds.center, slot.AttachPoint.position),
                 Is.LessThan(Tolerance), "The item must be centered in the slot.");
