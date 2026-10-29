@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
@@ -15,8 +16,9 @@ namespace Gothic.VR.Services
     /// asleep, session ended), the main camera renders to the Game view. Unity culls a VR camera only for the
     /// headset's frames - without them culling stands still and no NPC or object around the player gets built.
     /// The headset's next frame switches back.
+    /// It flips Camera.main on purpose: the NPC and VOB culling target Camera.main too.
     /// </summary>
-    public class VRGameViewFallbackService
+    public class VRGameViewFallbackService : IDisposable
     {
         // Seconds without a headset frame before the Game view takes over. Short gaps (loading, reconnects) don't.
         private const float _secondsWithoutHeadsetFrame = 1f;
@@ -35,14 +37,15 @@ namespace Gothic.VR.Services
             _isActive = true;
             _lastHeadsetFrameTime = Time.unscaledTime;
             RenderPipelineManager.beginContextRendering += OnBeginContextRendering;
-            // Without a domain reload, the static event would keep this play session's service.
-            Application.quitting += Stop;
         }
 
-        private void Stop()
+        /// <summary>
+        /// Reflex disposes the service with its scope. Without a domain reload, the static event would otherwise
+        /// keep this play session's service.
+        /// </summary>
+        public void Dispose()
         {
             RenderPipelineManager.beginContextRendering -= OnBeginContextRendering;
-            Application.quitting -= Stop;
             _isActive = false;
         }
 

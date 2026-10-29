@@ -5,7 +5,7 @@
 
 ## Context
 
-In the editor, the game stood still around the player as soon as the headset was taken off, fell asleep or lost its connection. Unity only works out what is near the camera while the camera draws a picture for the headset. Without those pictures, no NPC or object near the player was built, and NPCs walking in from afar never appeared. Tests without wearing the headset weren't possible.
+In the editor, the game stood still around the player as soon as the headset was taken off, fell asleep or lost its connection. Unity only works out what is near the camera while the camera draws a picture for the headset. Without those pictures, no NPC or object near the player was built, and NPCs walking in from afar never appeared. Tests without wearing the headset weren't possible. This was seen on Linux with a Quest streamed through WiVRn. Other headset software may keep sending pictures while the headset is off; then nothing changes there.
 
 ## Decisions
 
