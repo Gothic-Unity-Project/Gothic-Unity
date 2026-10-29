@@ -4,6 +4,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,7 +21,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// </summary>
     public class VRWeaponAttackAdapter : MonoBehaviour
     {
-        [Inject] private readonly VRWeaponService _vrWeaponService; 
+        [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
@@ -110,7 +112,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
+            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the hit).
+            var weaponName = _weaponVobContainer?.Vob?.Name;
+            attacker.Props.MeleeHitWeapon = weaponName != null ? _vmCacheService.TryGetItemData(weaponName) : null;
+            try
+            {
+                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
+            }
+            finally
+            {
+                attacker.Props.MeleeHitWeapon = null;
+            }
             return true;
         }
     }

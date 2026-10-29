@@ -83,6 +83,8 @@ namespace Gothic.Core.Adapters.Npc
                 Properties.StateTime += Time.deltaTime;
             }
 
+            PreloadNextAttack();
+
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
             if (!Properties.CurrentAction.IsFinished())
             {
@@ -93,12 +95,15 @@ namespace Gothic.Core.Adapters.Npc
             if (Properties.AnimationQueue.Count == 0)
             {
                 // We always need to set "self" before executing any Daedalus function.
-                // "other" defaults to hero here so routine states (ZS_*_Loop) have a sensible fallback.
+                // "other" is the one the state was started with (ZS_Attack against a wolf), else the hero so routine
+                // states (ZS_*_Loop) have a sensible fallback.
                 // Perception calls (ExecutePerception) override GlobalOther themselves with their own save/restore.
                 if (NpcInstance != null)
                 {
                     Vm.GlobalSelf = NpcInstance;
-                    Vm.GlobalOther = Vm.GlobalHero;
+                    Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+                    if (Properties.StateVictim != null)
+                        Vm.GlobalVictim = Properties.StateVictim;
                 }
 
                 switch (Properties.CurrentLoopState)
@@ -152,6 +157,55 @@ namespace Gothic.Core.Adapters.Npc
                 // plus file sink would be measurable noise on device.
                 Logger.LogEditor($"Start playing >{Properties.AnimationQueue.Peek().GetType()}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 PlayNextAnimation(Properties.AnimationQueue.Dequeue());
+            }
+        }
+
+        /// <summary>
+        /// The engine's fight AI runs all the time, so the next attack is asked for before the swing's combo window
+        /// closes. Our state loop only runs once the queue is empty - the swing would play to its end and a combo
+        /// never happen. Once the window opens with nothing queued, the state's loop runs once now.
+        /// </summary>
+        private void PreloadNextAttack()
+        {
+            if (Properties.CurrentAction is not AttackPlayAni { IsWaitingForNextAttack: true } attack ||
+                Properties.AnimationQueue.Count > 0 || Properties.CurrentLoopState != NpcProperties.LoopState.Loop ||
+                Properties.StateLoop == 0)
+                return;
+
+            attack.MarkNextAttackRequested();
+            Vm.GlobalSelf = NpcInstance;
+            Vm.GlobalOther = Properties.StateOther ?? Vm.GlobalHero;
+            if (Properties.StateVictim != null)
+                Vm.GlobalVictim = Properties.StateVictim;
+
+            if (CallAiFunction(Properties.StateLoop) != _daedalusLoopContinue)
+                Properties.CurrentLoopState = NpcProperties.LoopState.End;
+        }
+
+        /// <summary>
+        /// A state's _End function, called when AI_StartState(..., 1, ...) is reached in the queue - with the old state's
+        /// other/victim. The globals are restored afterwards.
+        /// </summary>
+        public void CallStateEnd(int endFunction, NpcInstance other, NpcInstance victim)
+        {
+            var oldSelf = Vm.GlobalSelf;
+            var oldOther = Vm.GlobalOther;
+            var oldVictim = Vm.GlobalVictim;
+            Vm.GlobalSelf = NpcInstance;
+            if (other != null)
+                Vm.GlobalOther = other;
+            if (victim != null)
+                Vm.GlobalVictim = victim;
+
+            try
+            {
+                CallAiFunction(endFunction);
+            }
+            finally
+            {
+                Vm.GlobalSelf = oldSelf;
+                Vm.GlobalOther = oldOther;
+                Vm.GlobalVictim = oldVictim;
             }
         }
 
@@ -255,6 +309,10 @@ namespace Gothic.Core.Adapters.Npc
             // If we have nothing prepared, start daily Routine.
             else
             {
+                // Back to the routine: its states get the hero as "other" again.
+                Properties.StateOther = null;
+                Properties.StateVictim = null;
+
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)
                     StartRoutine(currentRoutine.Action, currentRoutine.Waypoint);

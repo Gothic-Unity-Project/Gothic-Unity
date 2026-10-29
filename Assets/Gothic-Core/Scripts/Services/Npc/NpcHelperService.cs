@@ -223,9 +223,27 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
-                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            // Like the engine, an NPC has its own attitude to the player only: the temporary one (e.g. because the
+            // hero stole something), else the permanent one of the scripts (Npc_SetAttitude). Unset: the guilds'.
+            if (other.PrefabProps.IsHero())
+            {
+                if (self.Vob.AttitudeTemp != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+                if (self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.Attitude;
+            }
+
+            return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+        }
+
+        /// <summary>
+        /// Npc_GetPermAttitude: like GetPersonAttitude(), but never the temporary attitude. ZS_Attack_End and the
+        /// knockout rule ask it whether the fight was a brawl among friends or meant to kill.
+        /// </summary>
+        public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
+        {
+            if (other.PrefabProps.IsHero() && self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                return (VmGothicEnums.Attitude)self.Vob.Attitude;
 
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
@@ -339,6 +357,30 @@ namespace Gothic.Core.Services.Npc
         public float GetPerceptionRange(VmGothicEnums.PerceptionType type)
         {
             return PerceptionRanges.TryGetValue(type, out var range) ? range : float.MaxValue;
+        }
+
+        /// <summary>
+        /// Knocked out (BS_UNCONSCIOUS). ZS_MagicFreeze sets the same body state, but like the scripts' C_NpcIsDown a
+        /// frozen NPC isn't down: fighters would leave it alone and the next hit wouldn't kill it.
+        /// </summary>
+        public static bool IsKnockedOut(NpcContainer npc)
+        {
+            return npc?.Props != null && npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious &&
+                   !IsMagicFrozen(npc);
+        }
+
+        /// <summary>
+        /// Dead or knocked out.
+        /// </summary>
+        public static bool IsDown(NpcContainer npc)
+        {
+            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
+        }
+
+        public static bool IsMagicFrozen(NpcContainer npc)
+        {
+            var state = npc?.Vob?.CurrentStateName;
+            return state != null && state.StartsWith("ZS_MAGICFREEZE", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

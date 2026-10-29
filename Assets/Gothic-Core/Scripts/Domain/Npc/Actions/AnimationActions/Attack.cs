@@ -7,6 +7,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Mathf = UnityEngine.Mathf;
 using Random = UnityEngine.Random;
 using Vector3 = UnityEngine.Vector3;
 
@@ -16,13 +17,18 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly NpcAiService _npcAiService;
 
-        private NpcInstance _enemy => Props.EnemyNpc;
+        // Like the engine, without an enemy set the state's other (ZS_Attack started against it) is fought.
+        private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
+
+        // Fight turns stop inside the focus angle (30) with this tolerance.
+        private const float _fightTurnToleranceDegrees = 20f;
         
         private FightAiMove _move;
         
         // e.g., when a Zombie is spawned away, it won't fight, but instead start to walk again. We need to say to the game: you're about 30cm closer than the center of NPC/Monster/Hero.
         // TODO - We might need a more mature alternative in the future if other monsters need different distances.
         private const float _npcMonsterVolumina = 0.3f;
+        private const float _minAttackRange = 1.5f;
 
         
         public Attack(AnimationAction action, NpcContainer npcData) : base(action, npcData)
@@ -31,9 +37,20 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            if (Vob.GuildTrue < (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM)
+            // Without an enemy, the action would never end and the NPC's AI would stand still for good. The state's
+            // loop ends or attacks again once it found one.
+            if (_enemy == null)
             {
-                Logger.Log($"AI_Attack() on human NPC (guild={Vob.GuildTrue}) — not yet implemented, skipping.", LogCat.Ai);
+                Logger.LogWarning($"AI_Attack() of {Vob.Name} without enemy - skipping.", LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
+
+            // Like the engine (OpenGothic Npc::implAttack, "vanilla behavior, required for orcs in G1 orcgraveyard"),
+            // AI_Attack without a drawn weapon draws the melee weapon first. The next AI_Attack of the loop fights.
+            if ((VmGothicEnums.WeaponState)Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon)
+            {
+                _npcAiService.ExtAiDrawWeapon(NpcInstance);
                 IsFinishedFlag = true;
                 return;
             }
@@ -56,15 +73,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
 
-            switch ((VmGothicEnums.WeaponState)Vob.FightMode)
-            {
-                case VmGothicEnums.WeaponState.Bow:
-                case VmGothicEnums.WeaponState.CBow:
-                case VmGothicEnums.WeaponState.Mage:
-                    // Ranged/magic fight AI isn't implemented yet. Behave like a melee fighter so fights continue.
-                    Logger.LogWarning($"Ai_Attack() with {(VmGothicEnums.WeaponState)Vob.FightMode} not yet implemented. Using melee behavior.", LogCat.Ai);
-                    break;
-            }
+            // Ranged/magic fight AI isn't implemented yet: such NPCs move like melee fighters, so fights continue
+            // (AttackPlayAni logs it once per NPC - here it was every AI_Attack).
 
             // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
             if (isInWRange)
@@ -79,6 +89,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // FIXME - In the future, we need to handle more information than just playing the attack animations. But fine for the first iteration.
         private void StartAttackAction()
         {
+            // The combo isn't continued: its animation stops (the engine ends an attack at its hit end).
+            if (Props.ComboContinueAnimation != null && _move != FightAiMove.Attack)
+            {
+                PrefabProps.AnimationSystem.StopAnimation(Props.ComboContinueAnimation);
+                Props.ComboContinueAnimation = null;
+            }
+
             switch (_move)
             {
                 case FightAiMove.Wait:
@@ -99,7 +116,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     break;
                 case FightAiMove.Turn:
                 case FightAiMove.TurnToHit:
-                    _npcAiService.ExtAiTurnToNpc(NpcInstance, _enemy);
+                    _npcAiService.ExtAiTurnToNpcInFight(NpcInstance, _enemy, _fightTurnToleranceDegrees);
                     break;
                 // Some attacks have no action. Therefore TryGetFightAiData() returns Nop as fallback.
                 case FightAiMove.Nop:
@@ -110,13 +127,22 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     else
                         _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackR), _move, _enemy);
                     break;
-                // The combo attacks (triple/whirl/master) are chained hit windows of the base swing in the
-                // original engine. Until attack combos are implemented, the base swing is the closest match.
+                // Combo moves chain several swings, played back to back before the next AI_Attack of the loop.
                 case FightAiMove.AttackFront:
+                    QueueSwings(VmGothicEnums.AnimationType.AttackL, VmGothicEnums.AnimationType.AttackR);
+                    break;
                 case FightAiMove.AttackTriple:
+                    QueueSwings(VmGothicEnums.AnimationType.Attack, VmGothicEnums.AnimationType.AttackL,
+                        VmGothicEnums.AnimationType.AttackR);
+                    break;
                 case FightAiMove.AttackWhirl:
+                    QueueSwings(VmGothicEnums.AnimationType.AttackL, VmGothicEnums.AnimationType.AttackR,
+                        VmGothicEnums.AnimationType.AttackL, VmGothicEnums.AnimationType.AttackR);
+                    break;
                 case FightAiMove.AttackMaster:
-                    _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), _move, _enemy);
+                    QueueSwings(VmGothicEnums.AnimationType.AttackL, VmGothicEnums.AnimationType.AttackR,
+                        VmGothicEnums.AnimationType.Attack, VmGothicEnums.AnimationType.AttackL,
+                        VmGothicEnums.AnimationType.AttackR, VmGothicEnums.AnimationType.Attack);
                     break;
                 case FightAiMove.Parry:
                     _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.AttackBlock), _move, _enemy);
@@ -144,6 +170,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             IsFinishedFlag = true;
         }
 
+        private void QueueSwings(params VmGothicEnums.AnimationType[] swings)
+        {
+            foreach (var swing in swings)
+                _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(swing), FightAiMove.Attack, _enemy);
+        }
+
         private float GetDistance()
         {
             return Vector3.Distance(NpcGo.transform.position, _enemy.GetUserData()!.Go.transform.position) - _npcMonsterVolumina;
@@ -154,38 +186,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
 
-            // By default, use Fist range.
-            float weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
+            // A drawn melee weapon reaches as far as its range (G1 has no FIGHT_RANGE_1HA/2HA guild values), else the
+            // fists do. CurrentItem can be the last used item then (a joint), not a weapon.
+            var isMeleeWeaponDrawn = (VmGothicEnums.WeaponState)Vob.FightMode is VmGothicEnums.WeaponState.W1H or
+                VmGothicEnums.WeaponState.W2H;
+            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
+            var weaponRange = item?.Range ?? GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
 
-            // If NPC has a weapon equipped, then use it's length in G1 (as FIGHT_RANGE_1HA and FIGHT_RANGE_1HS aren't set. Same for 2H).
-            // FIXME - Check how G2 is handling ranges. Also via weapon range or guild values?
-            var item = VmCacheService.TryGetItemData(Props.CurrentItem);
-            if (item != null)
-            {
-                weaponRange = item.Range;
-            }
-            else
-            {
-                switch ((VmGothicEnums.WeaponState)Vob.FightMode)
-                {
-                    case VmGothicEnums.WeaponState.NoWeapon:
-                    case VmGothicEnums.WeaponState.Fist:
-                        weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-                        break;
-                    case VmGothicEnums.WeaponState.W1H:
-                    case VmGothicEnums.WeaponState.W2H:
-                    case VmGothicEnums.WeaponState.Bow:
-                    case VmGothicEnums.WeaponState.CBow:
-                    case VmGothicEnums.WeaponState.Mage:
-                        weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-                        Logger.LogWarning($"WeaponState attackrange not yet handled for {(VmGothicEnums.WeaponState)Vob.FightMode}. Assuming fist range.", LogCat.Npc);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            return (baseRange + weaponRange) / 100f; // cm -> m
+            // At least 1.5 m: NPCs without fight values in their guild looped in G-Range forever.
+            return Mathf.Max((baseRange + weaponRange) / 100f, _minAttackRange);
         }
 
         /// <summary>

@@ -99,6 +99,13 @@ namespace Gothic.Core
         /// Vector3      - at which position
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+
+        /// <summary>
+        /// An NPC died (NpcDeathDomain), by a hit or a script.
+        /// NpcContainer - who died
+        /// NpcContainer - who killed (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> NpcDied = new();
         
 
         // LockPicking events

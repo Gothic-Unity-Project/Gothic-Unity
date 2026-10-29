@@ -294,6 +294,15 @@ namespace Gothic.Core.Services.Npc
                 _deathDomain.Die(npc);
         }
 
+        /// <summary>
+        /// The NPC dies now, killed by the killer (a fight). The scripts' part follows (ZS_Dead, FightService).
+        /// </summary>
+        public void Kill(NpcContainer npc, NpcContainer killer)
+        {
+            if (npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                _deathDomain.Die(npc, killer);
+        }
+
         public void SetLevel(NpcContainer npc, int level)
         {
             npc.Vob.Level = level;
@@ -419,7 +428,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
-            npc.GetUserData().Props.MdsNameOverlay = overlayName;
+            var props = npc.GetUserData().Props;
+            props.MdsNameOverlay = overlayName;
+            props.MdsNameRoutineOverlay = overlayName;
         }
 
         public void ExtNpcSetToFistMode(NpcInstance npc)

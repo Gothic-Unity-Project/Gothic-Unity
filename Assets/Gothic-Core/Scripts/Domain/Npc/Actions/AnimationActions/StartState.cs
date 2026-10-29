@@ -12,6 +12,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string _wayPoint => Action.String0;
         private NpcInstance _other => Action.Instance0;
         private NpcInstance _victim => Action.Instance1;
+        // The _End function of the state this one replaces (AI_StartState(..., 1, ...)), 0 for none.
+        private int _endFunction => Action.Int1;
         
         public StartState(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -23,6 +25,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // if we're already in this state and leave the StateTime intact.
 
             var ai = PrefabProps.AiHandler;
+
+            // The old state ends with its own other/victim (G1 ZS_Talk_End: the hero's AIV_INVINCIBLE goes back).
+            if (_endFunction != 0)
+                ai.CallStateEnd(_endFunction, Props.StateOther, Props.StateVictim);
 
             Vob.NextStateIndex = _action;
             Vob.NextStateName = GameStateService.GothicVm.GetSymbolByIndex(_action)!.Name;
@@ -37,6 +43,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             GameStateService.GothicVm.GlobalOther = _other;
             GameStateService.GothicVm.GlobalVictim = _victim;
+
+            // The state's loop gets them too (AiHandler), like the engine keeps them per NPC.
+            Props.StateOther = _other;
+            Props.StateVictim = _victim;
         }
 
         /// <summary>

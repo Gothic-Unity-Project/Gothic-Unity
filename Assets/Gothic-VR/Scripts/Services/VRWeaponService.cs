@@ -176,8 +176,12 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___)
+        private void OnHit(NpcContainer attacker, NpcContainer __, Vector3 ___)
         {
+            // NPCs hit too (AttackPlayAni) - only the hero's own hits move his weapon's attack state on.
+            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
+                return;
+
             // Find which domain's weapon caused this hit and advance its state.
             // We check based on the attacker being the owner of one of our domains.
             if (_firstAttackDomain.GetOwner() != null && _firstAttackDomain.IsInAttackState())

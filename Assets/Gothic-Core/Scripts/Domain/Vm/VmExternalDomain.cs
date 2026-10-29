@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -207,6 +208,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
+            RegisterFightExternals(vm);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_SetTrueGuild", Npc_SetTrueGuild);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
@@ -914,7 +916,7 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_GetPermAttitude(NpcInstance self, NpcInstance other)
         {
-            var ret = (int)_npcAiService.ExtGetAttitude(self, other);
+            var ret = (int)_npcAiService.ExtGetPermAttitude(self, other);
             return LogInstantExternal(nameof(Npc_GetPermAttitude), ret, self, other);
         }
 
@@ -1166,6 +1168,95 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcOwnedByNpc(item, npc));
             return LogInstantExternal(nameof(Npc_OwnedByNpc), ret, item, npc);
+        }
+
+        /// <summary>
+        /// The fight scripts check these before and during a fight (B_DrawWeapon, ZS_Attack, orc AI). Unregistered, they
+        /// returned 0: nobody had a weapon drawn or a next target. Only registered if the game declares them.
+        /// </summary>
+        private void RegisterFightExternals(DaedalusVm vm)
+        {
+            if (vm.GetSymbolByName("Npc_HasReadiedWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedWeapon", Npc_HasReadiedWeapon);
+            if (vm.GetSymbolByName("Npc_HasReadiedMeleeWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedMeleeWeapon", Npc_HasReadiedMeleeWeapon);
+            if (vm.GetSymbolByName("Npc_HasReadiedRangedWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedRangedWeapon", Npc_HasReadiedRangedWeapon);
+            if (vm.GetSymbolByName("Npc_IsDrawingWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingWeapon", Npc_IsDrawingWeapon);
+            if (vm.GetSymbolByName("Npc_GetReadiedWeapon") != null)
+                vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetReadiedWeapon", Npc_GetReadiedWeapon);
+            if (vm.GetSymbolByName("Npc_GetNextTarget") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
+            if (vm.GetSymbolByName("Npc_GetGuildAttitude") != null)
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetGuildAttitude", Npc_GetGuildAttitude);
+        }
+
+        /// <summary>
+        /// Engine: any weapon in the hands - melee, ranged or magic (not fists).
+        /// </summary>
+        public int Npc_HasReadiedWeapon(NpcInstance npc)
+        {
+            var fightMode = GetFightMode(npc);
+            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
+                or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow or VmGothicEnums.WeaponState.Mage);
+            return LogInstantExternal(nameof(Npc_HasReadiedWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedMeleeWeapon(NpcInstance npc)
+        {
+            var fightMode = GetFightMode(npc);
+            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H);
+            return LogInstantExternal(nameof(Npc_HasReadiedMeleeWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedRangedWeapon(NpcInstance npc)
+        {
+            var fightMode = GetFightMode(npc);
+            var ret = Convert.ToInt32(fightMode is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow);
+            return LogInstantExternal(nameof(Npc_HasReadiedRangedWeapon), ret, npc);
+        }
+
+        /// <summary>
+        /// G2: the NPC is drawing its weapon right now (AI_DrawWeapon running).
+        /// </summary>
+        public int Npc_IsDrawingWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(npc?.GetUserData()?.Props.CurrentAction is DrawWeapon);
+            return LogInstantExternal(nameof(Npc_IsDrawingWeapon), ret, npc);
+        }
+
+        public ItemInstance Npc_GetReadiedWeapon(NpcInstance npc)
+        {
+            var item = GetFightMode(npc) switch
+            {
+                VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H
+                    => _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc),
+                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow
+                    => _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc),
+                _ => null
+            };
+            return LogInstantExternal(nameof(Npc_GetReadiedWeapon), item, npc);
+        }
+
+        public int Npc_GetNextTarget(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(_npcAiService.ExtGetNextTarget(npc));
+            return LogInstantExternal(nameof(Npc_GetNextTarget), ret, npc);
+        }
+
+        /// <summary>
+        /// The attitude between the guilds of both NPCs (= Wld_GetGuildAttitude(self.guild, other.guild)).
+        /// </summary>
+        public int Npc_GetGuildAttitude(NpcInstance self, NpcInstance other)
+        {
+            var ret = self == null || other == null ? 0 : Wld_GetGuildAttitude(self.Guild, other.Guild);
+            return LogInstantExternal(nameof(Npc_GetGuildAttitude), ret, self, other);
+        }
+
+        private static VmGothicEnums.WeaponState GetFightMode(NpcInstance npc)
+        {
+            return (VmGothicEnums.WeaponState)(npc?.GetUserData()?.Vob.FightMode ?? 0);
         }
 
         public int Npc_GetTarget(NpcInstance npc)
