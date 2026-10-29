@@ -39,7 +39,7 @@ namespace Gothic.VR.Domain.Player
         private const float _thrustAlignment = 0.85f;
         private const float _twistAngle = 45f;
         // DeveloperConfig.EnableStabFinishHold: the blade in the body this long kills.
-        private const float _holdSeconds = 3f;
+        private const float _holdSeconds = 2f;
         private const float _holdPulseSeconds = 1f;
         // Meters back out of the body (against the tip) / sideways that let go.
         private const float _maxPullBackDistance = 0.15f;

@@ -1635,6 +1635,10 @@ namespace Gothic.Core.Models.Config
                  "at them - they lagged behind (slow catch-up) and had to be turned into place with the head.")]
         public bool EnableBodyAnchorLockedToHead = true;
 
+        [Tooltip("V1: The hero's own Sleep/Ice spell without a target doesn't put the hero himself to sleep / freeze him " +
+                 "(the script's 'other' was the hero) - like the engine, without a target nothing happens.")]
+        public bool EnableNoSelfSpellStateWithoutTarget = true;
+
         [Tooltip("V1: An item taken by the hero is reported to the NPCs without a victim (like the engine) - with the hero " +
                  "as the victim, G1 took it for pickpocketing and the NPCs warned him (\"Behind you!\") for every item.")]
         public bool EnableTakenItemTheftWithoutVictim = true;
@@ -1699,7 +1703,7 @@ namespace Gothic.Core.Models.Config
                  "picks) instead of any slash - the 'Finishing' option in the Immersion menu (off: any hit).")]
         public bool EnableVrStabFinish = true;
 
-        [Tooltip("V1 (VR): The stab finish kills when the blade stays in the body for 3 seconds (a pulse every second) " +
+        [Tooltip("V1 (VR): The stab finish kills when the blade stays in the body for 2 seconds (a pulse every second) " +
                  "instead of the twist of the wrist - the twist was too finicky.")]
         public bool EnableStabFinishHold = true;
 

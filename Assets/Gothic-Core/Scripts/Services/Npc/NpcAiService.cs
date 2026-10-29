@@ -397,6 +397,17 @@ namespace Gothic.Core.Services.Npc
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(action)?.Name;
                 if (stateName is "ZS_MAGICSLEEP" or "ZS_MAGICFREEZE")
                 {
+                    // DeveloperConfig.EnableNoSelfSpellStateWithoutTarget: the hero's own spell without a target - the
+                    // script's other was the hero himself (OpenGothic: no other, nothing happens), Sleep cast past Ignaz
+                    // put the hero to sleep.
+                    var self = _gameStateService.GothicVm.GlobalSelf as NpcInstance;
+                    if (_configService.Dev.EnableNoSelfSpellStateWithoutTarget && self != null &&
+                        self.Index == npc.Index)
+                    {
+                        Logger.Log($"[NpcAiService] Hero's own {stateName} without a target ignored", LogCat.Fight);
+                        return;
+                    }
+
                     Gothic.Core.Adapters.Npc.HeroMagicState.Apply(container, stateName);
                     return;
                 }
