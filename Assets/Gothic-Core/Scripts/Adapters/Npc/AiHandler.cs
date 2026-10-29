@@ -192,7 +192,7 @@ namespace Gothic.Core.Adapters.Npc
                 return false;
 
             var target = Properties.TargetNpc?.GetUserData();
-            if (target != null && !NpcHelperService.IsDown(target) &&
+            if (target != null && !target.IsDown() &&
                 (VmGothicEnums.WeaponState)Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
                 return false;
 
