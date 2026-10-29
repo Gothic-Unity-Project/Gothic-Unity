@@ -20,7 +20,7 @@ Quest 2/3, Pico, PCVR, including Index / Steam Frame finger tracking.
 | 3 | [phase-3-sockets-inventory.md](phase-3-sockets-inventory.md) - backpack, holsters, chest slots, NPC loot | L |
 | 4 | [phase-4-doors-chests-ladders.md](phase-4-doors-chests-ladders.md) - hinges, lock picking, chest lids, ladders | M |
 | 5 | [phase-5-hands.md](phase-5-hands.md) - physical hand presence + block hands (**5a-5d implemented**); finger curls/posing on hold | L |
-| 6 | [phase-6-removal.md](phase-6-removal.md) - delete HVR, define, CI injection; update docs | S |
+| 6 | [phase-6-removal.md](phase-6-removal.md) - delete HVR, define, CI injection; update docs (**done in #459**; wording clean-up and renames follow) | S |
 
 Bugs found on the way (not caused by the replacement): [found-bugs.md](found-bugs.md).
 

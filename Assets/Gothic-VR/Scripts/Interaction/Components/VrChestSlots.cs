@@ -17,10 +17,10 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Interaction.Components
 {
     /// <summary>
-    /// Content of a chest (oCMobContainer), independent of the lid: the lid (IVrHinge of the active
-    /// backend: HvrHingeBridge or VrHinge) opens and closes it by its Opened/Closed events.
-    /// - The prefab carries one slot inventory (IVrSocketContainer) per VR backend. The active one is used, the
-    ///   others stay hidden.
+    /// Content of a chest (oCMobContainer), independent of the lid: the lid (IVrHinge, VrHinge) opens and closes
+    /// it by its Opened/Closed events.
+    /// - The prefab carries a slot inventory (IVrSocketContainer) per VR backend. The active one is used, others
+    ///   stay hidden.
     /// - First open: the slots are laid out to the size of the chest mesh and the content (IContainer.Contents) is
     ///   spawned into them, without socket sounds.
     /// - Closing hides the slots (and the items inside).

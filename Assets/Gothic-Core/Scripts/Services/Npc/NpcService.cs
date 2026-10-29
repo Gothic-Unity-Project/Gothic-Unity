@@ -55,6 +55,7 @@ namespace Gothic.Core.Services.Npc
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
+        private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
 
 
         private Queue<NpcLoader> _objectsToInitQueue = new();
@@ -287,6 +288,10 @@ namespace Gothic.Core.Services.Npc
             npc.Vob.SetAttribute((int)attribute, value);
             npc.Instance.SetAttribute(attribute, value);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, attribute);
+
+            if (attribute == NpcAttribute.HitPoints && value <= 0 &&
+                npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                _deathDomain.Die(npc);
         }
 
         public void SetLevel(NpcContainer npc, int level)

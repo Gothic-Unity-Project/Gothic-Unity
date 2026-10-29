@@ -37,6 +37,15 @@ namespace Gothic.Core.Adapters.Vob
             StartCoroutine();
         }
 
+        /// <summary>
+        /// The clip is set once it's decoded (VobInitializerDomain). A random sound starts its loop then.
+        /// </summary>
+        public void OnClipLoaded()
+        {
+            if (isActiveAndEnabled && _vob != null)
+                StartCoroutine();
+        }
+
         private void OnDisable()
         {
             // Coroutines are stopped when GameObject gets disabled. But we need to restart during OnEnable() manually.

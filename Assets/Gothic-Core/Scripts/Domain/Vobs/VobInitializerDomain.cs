@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
@@ -633,13 +634,47 @@ namespace Gothic.Core.Domain.Vobs
             source.loop = soundData.Mode == SoundMode.Loop;
             source.spatialBlend = soundData.Ambient3d ? 1f : 0f;
 
-            source.clip = GetSoundClip(soundName);
+            _ = SetClipWhenDecodedAsync(source, soundName).AwaitAndLog();
+        }
+
+        /// <summary>
+        /// Decoding a sound takes up to ~400 ms (CS_Inextremo in the Old Camp), so it happens on a worker thread and
+        /// the clip is set afterwards. A sound that should play already starts then, a random one starts its loop.
+        /// </summary>
+        private async Task SetClipWhenDecodedAsync(AudioSource source, string soundName)
+        {
+            var fileName = GetSoundFileName(soundName);
+            if (fileName == null)
+                return;
+
+            var clip = await _audioService.CreateAudioClipAsync(fileName);
+
+            // Unloaded meanwhile (e.g. world change).
+            if (source == null || clip == null)
+                return;
+
+            source.clip = clip;
+            if (source.playOnAwake && source.isActiveAndEnabled && !source.isPlaying)
+                source.Play();
+
+            if (source.TryGetComponent(out SoundHandler soundHandler))
+                soundHandler.OnClipLoaded();
+            if (source.TryGetComponent(out SoundDaytimeHandler soundDaytimeHandler))
+                soundDaytimeHandler.OnClipLoaded();
         }
 
         public AudioClip GetSoundClip(string soundName)
         {
-            AudioClip clip;
+            var fileName = GetSoundFileName(soundName);
+            return fileName == null ? null : _audioService.CreateAudioClip(fileName);
+        }
 
+        /// <summary>
+        /// The .wav file of a sound (C_SFX_DEF instance or file name). Null for no sound.
+        /// </summary>
+        [CanBeNull]
+        private string GetSoundFileName(string soundName)
+        {
             if (soundName.EqualsIgnoreCase(AudioService.NoSoundName))
             {
                 //instead of decoding nosound.wav which might be decoded incorrectly, just return null
@@ -648,33 +683,27 @@ namespace Gothic.Core.Domain.Vobs
 
             // Bugfix - Normally the data is to get C_SFX_DEF entries from VM. But sometimes there might be the real .wav file stored.
             if (soundName.EndsWithIgnoreCase(".wav"))
-            {
-                clip = _audioService.CreateAudioClip(soundName);
-            }
-            else
-            {
-                var sfxContainer = _vmCacheService.TryGetSfxData(soundName);
+                return soundName;
 
-                if (sfxContainer == null)
-                    return null;
+            var sfxContainer = _vmCacheService.TryGetSfxData(soundName);
 
-                var firstSound = sfxContainer.GetFirstSound();
-                if (firstSound == null)
-                    return null;
+            if (sfxContainer == null)
+                return null;
 
-                // Instead of decoding nosound.wav which might be decoded incorrectly, just return null.
-                if (firstSound.File.EqualsIgnoreCase(AudioService.NoSoundName))
-                    return null;
+            var firstSound = sfxContainer.GetFirstSound();
+            if (firstSound == null)
+                return null;
 
-                if (sfxContainer.Count > 1)
-                    Logger.LogWarning(
-                        $"Multiple random elements exist for >{firstSound.File}< but only first is selected.",
-                        LogCat.Audio);
+            // Instead of decoding nosound.wav which might be decoded incorrectly, just return null.
+            if (firstSound.File.EqualsIgnoreCase(AudioService.NoSoundName))
+                return null;
 
-                clip = _audioService.CreateAudioClip(firstSound.File);
-            }
+            if (sfxContainer.Count > 1)
+                Logger.LogWarning(
+                    $"Multiple random elements exist for >{firstSound.File}< but only first is selected.",
+                    LogCat.Audio);
 
-            return clip;
+            return firstSound.File;
         }
 
         private GameObject CreateZoneMusic(ZoneMusic vob, GameObject parent)

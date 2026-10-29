@@ -3,7 +3,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -15,7 +14,6 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private AudioService _audioService;
         [Inject] private AnimationService _animationService;
-        [Inject] private PhysicsService _physicsService;
         [Inject] private NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
@@ -34,18 +32,13 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+            // A deadly hit: setting the HP ran the death already (NpcDeathDomain).
             if (OnHitUpdateHealth(attacker, target))
-            {
-                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
-                target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                OnDyingChangeAnimation(target);
-            }
-            else
-            {
-                Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
-                OnHitChangeAnimation(target);
-                OnHitPlaySound(target);
-            }
+                return;
+
+            Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
+            OnHitChangeAnimation(target);
+            OnHitPlaySound(target);
         }
 
         /// <summary>
@@ -99,22 +92,6 @@ namespace Gothic.Core.Services.Npc
             }
 
             return (int)DamageType.Blunt;
-        }
-
-        private void OnDyingChangeAnimation(NpcContainer target)
-        {
-            // Clear pending AI queue and stop all running animations (e.g. s_walk still looping).
-            // Death takes priority over everything — bypass the queue and play directly.
-            target.Props.AnimationQueue.Clear();
-            target.PrefabProps.AnimationSystem.StopAllAnimations();
-            _physicsService.DisablePhysicsForNpc(target.PrefabProps);
-
-            // Drop any queued non-death actions (e.g. a GoToWp/UseMob enqueued the same frame the killing hit
-            // landed). Otherwise AiHandler's dead-NPC branch would play them out on the corpse before dying.
-            target.Props.AnimationQueue.Clear();
-
-            var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, target);
-            target.PrefabProps.AnimationSystem.PlayAnimation(animName);
         }
 
         private void OnHitChangeAnimation(NpcContainer target)
