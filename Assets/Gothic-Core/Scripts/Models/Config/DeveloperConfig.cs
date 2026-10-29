@@ -1668,6 +1668,10 @@ namespace Gothic.Core.Models.Config
                  "check, no roll to get caught, like Gothic.")]
         public bool EnablePickpocketSleeping = true;
 
+        [Tooltip("V1: Walking out of the dialog chooses END once - an END that doesn't end the dialog (mod 63's " +
+                 "quartermaster) was chosen every frame and the choices never showed; now the dialog is closed then.")]
+        public bool EnableWalkAwayEndOnce = true;
+
         [Tooltip("V1 (VR): Items in the hip/shoulder holsters are saved (UNITYSAVE.json) and put back into them after " +
                  "loading - they were saved as world items and floated where the holster had been.")]
         public bool EnableHolsterSaveState = true;

@@ -417,6 +417,7 @@ MonoBehaviour:
   EnableCorpseHoldToLoot: 1
   EnableEmptyCorpseInert: 1
   EnablePickpocketSleeping: 1
+  EnableWalkAwayEndOnce: 1
   EnableHolsterSaveState: 1
   EnableHeroTalentSaveState: 1
   EnableSleepingNpcPassThrough: 1

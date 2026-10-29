@@ -639,6 +639,7 @@ namespace Gothic.Core.Manager
         {
             var dialogs = _gameStateService.Dialogs;
             var outsideSeconds = 0f;
+            var hasChosenWalkAwayEnd = false;
             while (dialogs.IsInDialog && dialogs.CurrentDialogNpc == npcContainer)
             {
                 var canWalkAway = dialogs.IsChoosing && dialogs.ExitInfo != null;
@@ -652,8 +653,25 @@ namespace Gothic.Core.Manager
                 }
                 else if (canWalkAway)
                 {
+                    // DeveloperConfig.EnableWalkAwayEndOnce: an END that doesn't end the dialog (mod 63's quartermaster)
+                    // was chosen again every frame - the choices never showed. Once is enough, then it's closed.
+                    if (_configService.Dev.EnableWalkAwayEndOnce && hasChosenWalkAwayEnd)
+                    {
+                        Logger.LogWarning($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: END didn't " +
+                                          "end the dialog - closing it", LogCat.Dialog);
+                        StopDialog(npcContainer);
+                        yield break;
+                    }
+
+                    var hero = _npcService.GetHeroContainer();
+                    var dialogGo = GetDialogGo(npcContainer);
+                    var height = hero?.Go != null && dialogGo != null
+                        ? hero.Go.transform.position.y - dialogGo.transform.position.y
+                        : 0f;
                     Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero walked away - " +
-                               "choosing END", LogCat.Dialog);
+                               $"choosing END (distance {horizontalDistance:0.00} m of {GetDialogRadius(npcContainer):0.00}, " +
+                               $"height {height:0.00} m of {Constants.DialogMaxHeightDifference:0.00})", LogCat.Dialog);
+                    hasChosenWalkAwayEnd = true;
                     MainSelectionClicked(npcContainer, dialogs.ExitInfo);
                 }
                 else
