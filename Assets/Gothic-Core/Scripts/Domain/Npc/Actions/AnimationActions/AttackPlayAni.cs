@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
