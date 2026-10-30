@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Gothic.Core.Domain.Npc;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
@@ -62,6 +63,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly AudioService _audioService;
 
         private readonly SpellDataDomain _spellData = new SpellDataDomain().Inject();
         private readonly SpellEffectDomain _spellEffects = new SpellEffectDomain().Inject();
@@ -381,6 +383,7 @@ namespace Gothic.Core.Services.Npc
             cast.Phase = SpellCastPhase.Done;
 
             var effect = GetSpellEffect(cast.SpellId);
+            PlayCastSound(cast, origin);
             if (_spellData.IsProjectile(cast.SpellId))
             {
                 var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
@@ -521,6 +524,23 @@ namespace Gothic.Core.Services.Npc
 
                 _npcAiService.StartState(other.Instance, state, true, string.Empty, caller.Instance, null, true);
             }
+        }
+
+        /// <summary>
+        /// The cast's sound: the cast key's sound (spellFX_[name]_KEY_CAST sfxID), else MFX_[name]_Cast (found on
+        /// BoroBongo's branch).
+        /// </summary>
+        private void PlayCastSound(SpellCast cast, Vector3 position)
+        {
+            var name = _spellData.GetName(cast.SpellId);
+            if (string.IsNullOrEmpty(name))
+                return;
+
+            var keySound = _spellEffects.GetKey($"spellFX_{name}_KEY_CAST")?.SfxId;
+            var clip = (string.IsNullOrEmpty(keySound) ? null : _audioService.GetRandomSoundClip(keySound)) ??
+                       _audioService.GetRandomSoundClip($"MFX_{name}_Cast");
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, position);
         }
 
         private void OnProjectileHit(SpellCast cast, NpcContainer victim, Vector3 position)
