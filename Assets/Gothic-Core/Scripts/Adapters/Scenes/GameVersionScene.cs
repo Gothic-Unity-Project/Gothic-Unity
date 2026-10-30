@@ -1,6 +1,7 @@
 using System;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -36,7 +37,7 @@ namespace Gothic.Core.Adapters.Scenes
              */
 
             // Whatever comes next, we don't want the player to move around right now.
-            _contextInteractionService.LockPlayerInPlace();
+            _contextInteractionService.LockPlayer(PlayerLocks.Loading);
 
             var isG1Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic1);
             var isG2Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic2);

@@ -8,6 +8,7 @@ using Gothic.Core.Creator;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -250,7 +251,8 @@ namespace Gothic.Core.Adapters.Scenes
         private void TeleportPlayerToStart(Vector3 position, Quaternion rotation)
         {
             _contextInteractionService.TeleportPlayerTo(position, rotation);
-            _contextInteractionService.UnlockPlayer();
+            // A world starts free. Only a video playing on keeps its lock until it ends.
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Loading | PlayerLocks.Dialog | PlayerLocks.Seat);
             _playerService.ResetSpawn();
         }
     }

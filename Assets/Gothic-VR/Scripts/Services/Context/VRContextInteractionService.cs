@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -54,6 +55,9 @@ namespace Gothic.VR.Services.Context
         private int _keepWithinLastFrame = -1;
         private Vector3 _keepWithinLastPosition;
         private VrPhysicsHand[] _physicsHands = System.Array.Empty<VrPhysicsHand>();
+        private PlayerControls _blockedControls;
+        // Teleporting is off in water (wading, swimming, diving), whatever the locks say.
+        private bool _isTeleportAllowedHere = true;
 
         /// <summary>
         /// The player body of the active VR backend. null before SetupPlayerController().
@@ -145,6 +149,8 @@ namespace Gothic.VR.Services.Context
             playerRoot.SetActive(true);
             _defaultStepOffset = _rig.StepOffset;
             ApplyComfortSettings(true);
+            // A new rig starts unlocked - locks taken before (loading) apply to it too.
+            ApplyBlockedControls();
 
             _physicsHands = _player.GetComponentsInChildren<VrPhysicsHand>(true);
             if (_configService.Gothic != null)
@@ -265,23 +271,28 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Disable certain actions to keep player stuck in current position.
+        /// Physics stays on while locked: a teleport only finishes once the player is grounded. Only the controls are
+        /// switched off.
         /// </summary>
-        public void LockPlayerInPlace()
+        public void SetBlockedControls(PlayerControls blockedControls)
         {
-            // HINT: Disable physics
-            // We can't disable physics as it would prevent the teleport from finishing (HVR checks for IsGrounded
-            // every frame). Therefore, we need to ground the player always on a plane and disable movement only.
-            _rig.MovementEnabled = false;
-            _rig.TurnEnabled = false;
-            _rig.TeleportEnabled = false;
+            _blockedControls = blockedControls;
+            ApplyBlockedControls();
         }
 
-        public void UnlockPlayer()
+        private void ApplyBlockedControls()
         {
-            _rig.MovementEnabled = true;
-            _rig.TurnEnabled = true;
-            _rig.TeleportEnabled = true;
+            if (_rig == null)
+                return;
+
+            _rig.MovementEnabled = (_blockedControls & PlayerControls.Move) == 0;
+            _rig.TurnEnabled = (_blockedControls & PlayerControls.Turn) == 0;
+            _rig.TeleportEnabled = IsTeleportAllowed();
+        }
+
+        private bool IsTeleportAllowed()
+        {
+            return _isTeleportAllowedHere && (_blockedControls & PlayerControls.Teleport) == 0;
         }
 
         public void SetWalkingControls()
@@ -290,7 +301,8 @@ namespace Gothic.VR.Services.Context
 
             _rig.CanCrouch = true;
             _rig.CanJump = true;
-            _rig.TeleportEnabled = true;
+            _isTeleportAllowedHere = true;
+            _rig.TeleportEnabled = IsTeleportAllowed();
             _rig.StepOffset = _defaultStepOffset;
         }
 
@@ -300,6 +312,7 @@ namespace Gothic.VR.Services.Context
 
             _rig.CanCrouch = false;
             _rig.CanJump = false;
+            _isTeleportAllowedHere = false;
             _rig.TeleportEnabled = false;
             _rig.StepOffset = _player.SwimDiveStepHeight;
         }
@@ -311,6 +324,7 @@ namespace Gothic.VR.Services.Context
 
             _rig.CanCrouch = false;
             _rig.CanJump = false;
+            _isTeleportAllowedHere = false;
             _rig.TeleportEnabled = false;
             _rig.StepOffset = _player.SwimDiveStepHeight;
         }

@@ -9,6 +9,7 @@ using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
@@ -133,8 +134,7 @@ namespace Gothic.Core.Manager
             }
             else
             {
-                // WIP: locking movement
-                _contextInteractionService.LockPlayerInPlace();
+                _contextInteractionService.LockPlayer(PlayerLocks.Dialog);
             }
 
             // We are already inside a sub-dialog
@@ -492,8 +492,7 @@ namespace Gothic.Core.Manager
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
 
-            // WIP: unlocking movement
-            _contextInteractionService.UnlockPlayer();
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Dialog);
 
             _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();

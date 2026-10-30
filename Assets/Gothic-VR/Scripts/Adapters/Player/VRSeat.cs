@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
 using Gothic.Core;
 using Gothic.Core.Extensions;
@@ -106,7 +107,7 @@ namespace Gothic.VR.Adapters.Player
 
         private IEnumerator SitDown(GameObject player)
         {
-            _contextInteractionService.LockPlayerInPlace();
+            _contextInteractionService.LockPlayer(PlayerLocks.Seat);
             _currentSnapPoint = GetNearestSnapPoint(player.transform.position);
 
             // Fade in
@@ -130,7 +131,7 @@ namespace Gothic.VR.Adapters.Player
 
             // Move player
             player.transform.position += player.transform.TransformDirection(new Vector3(0, 0.5f, 1f));
-            _contextInteractionService.UnlockPlayer();
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Seat);
 
             // Fade out
             _rig.Fade(0f, _fadeSpeed);
