@@ -61,17 +61,11 @@ namespace Gothic.Core.Services.Npc
             var oldVictim = _gameStateService.GothicVm.GlobalVictim;
             var oldOther = _gameStateService.GothicVm.GlobalOther;
 
+            // Like the engine (OpenGothic invokeState), other and victim are this perception's, null included - a
+            // left-over victim made B_AssessWarn or B_AssessUseMob see a crime that wasn't there.
             _gameStateService.GothicVm.GlobalSelf = self;
-
-            if(other != null)
-            {
-                _gameStateService.GothicVm.GlobalOther = other;
-            }
-
-            if(victim != null)
-            {
-                _gameStateService.GothicVm.GlobalVictim = victim;
-            }
+            _gameStateService.GothicVm.GlobalOther = other;
+            _gameStateService.GothicVm.GlobalVictim = victim;
 
             // The finally block ensures a throwing perception function doesn't leave the globals
             // polluted for every subsequent script call of all NPCs.
@@ -553,21 +547,25 @@ namespace Gothic.Core.Services.Npc
                 _sentPassivePerceptions.Clear();
             }
 
-            if (_deliveredPassivePerceptions.Count == 0 || properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (_deliveredPassivePerceptions.Count == 0)
                 return;
 
             // The hero doesn't react to perceptions.
             if (self.Index == (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.Index)
                 return;
 
+            // Like the engine (OpenGothic passivePerceptionProcess): the dead and the unconscious don't notice.
             var selfContainer = self.GetUserData();
-            if (selfContainer?.Go == null)
+            if (selfContainer?.Go == null || properties.BodyState is VmGothicEnums.BodyState.BsDead
+                    or VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
             var position = selfContainer.Go.transform.position;
             foreach (var perception in _deliveredPassivePerceptions)
             {
-                if (perception.Sender.Index == self.Index)
+                // The sender itself by object - NPCs of the same instance (a wolf pack, the camp's guards) share the
+                // instance index and would all be skipped.
+                if (perception.Sender.GetUserData() == selfContainer)
                     continue;
 
                 // Like Gothic: the range of the perception (Perc_SetRange()), else the senses range. Passive
