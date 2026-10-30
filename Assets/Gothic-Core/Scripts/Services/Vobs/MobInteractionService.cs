@@ -31,8 +31,10 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
-        // Per mob scheme (PAN, BSFIRE, ...): the item its use turns the used item into, null for none.
+        // Per mob scheme (PAN, BSFIRE, ...): the item its use turns the used item into, null for none, and whether its
+        // use destroys the used item.
         private readonly Dictionary<string, string> _exchangeItems = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, bool> _destroyingSchemes = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// A mob used with an item and without a script of its own (pan, forge, anvil, cooling barrel, grindstone):
@@ -90,6 +92,11 @@ namespace Gothic.Core.Services.Vobs
             return end > 0 ? visual.Substring(0, end) : visual;
         }
 
+        /// <summary>
+        /// The item the scheme's use animations swap the used one for (ItemExchange), null for none. Like the engine,
+        /// both transitions count: G1's pan, forge, anvil and cooling barrel swap on the way out (t_SCHEME_S1_2_S0), G2's
+        /// forge on the way in (t_BSFIRE_S0_2_S1, found on BoroBongo's branch).
+        /// </summary>
         private string GetExchangeItem(string scheme)
         {
             if (string.IsNullOrEmpty(scheme))
@@ -98,25 +105,41 @@ namespace Gothic.Core.Services.Vobs
                 return cached;
 
             string result = null;
+            var isDestroying = false;
             var humans = _resourceCacheService.TryGetModelScript("Humans");
             if (humans != null)
             {
+                var useStart = $"t_{scheme}_S0_2_S1";
                 var useEnd = $"t_{scheme}_S1_2_S0";
                 foreach (var animation in humans.Animations)
                 {
-                    if (!animation.Name.EqualsIgnoreCase(useEnd))
+                    if (!animation.Name.EqualsIgnoreCase(useStart) && !animation.Name.EqualsIgnoreCase(useEnd))
                         continue;
 
                     foreach (var tag in animation.EventTags)
                     {
                         if (tag.Type == ZenKit.EventType.ItemExchange && !string.IsNullOrEmpty(tag.Item))
-                            result = tag.Item;
+                            result ??= tag.Item;
+                        else if (tag.Type == ZenKit.EventType.ItemDestroy)
+                            isDestroying = true;
                     }
                 }
             }
 
             _exchangeItems[scheme] = result;
+            _destroyingSchemes[scheme] = isDestroying;
             return result;
+        }
+
+        /// <summary>
+        /// The scheme's use animations destroy the used item (ItemDestroy) without swapping it for another.
+        /// </summary>
+        private bool IsDestroyingScheme(string scheme)
+        {
+            if (GetExchangeItem(scheme) != null)
+                return false;
+
+            return _destroyingSchemes.TryGetValue(scheme ?? "", out var isDestroying) && isDestroying;
         }
 
         /// <summary>
@@ -227,6 +250,14 @@ namespace Gothic.Core.Services.Vobs
                     Logger.Log($"[MobDialog] '{loader.name}' needs '{mob.Item}'.", LogCat.Dialog);
                     PlayMobMissingItemReaction(hero);
                     return true;
+                }
+
+                // G2's anvil: its use animation destroys the hot steel before SMITHWEAPON offers the weapons (the
+                // script's end choice gives it back). Found on BoroBongo's branch.
+                if (item != null && IsDestroyingScheme(GetScheme(loader.Container.Vob)))
+                {
+                    _npcInventoryService.ExtRemoveInvItems(hero.Instance, item.Index, 1);
+                    Logger.Log($"[MobDialog] '{loader.name}' takes {mob.Item}.", LogCat.Dialog);
                 }
             }
 
