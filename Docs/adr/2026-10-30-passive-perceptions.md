@@ -12,7 +12,8 @@ Our game ran the signal on the sender only, right away and inside the sender's o
 ## Decisions
 
 1. **A signal is collected and handed out in the next frame, like in Gothic.** Every NPC that is awake, alive and not the player gets it, if it's within the signal's range of where the sender stood. Not chosen: handing it out right away, which keeps the nested script calls.
-2. **The sender doesn't get its own signal.** That is how the scripts expect it, and it ends the loop of a guard warning itself.
+2. **The sender doesn't get its own signal.** That is how the scripts expect it, and it ends the loop of a guard warning itself. Only the sender itself is left out: other guards or wolves of the same kind get it.
+3. **Knocked out NPCs don't notice signals**, like the dead (found comparing with BoroBongo's branch). Each signal carries its own victim, also when it has none, so a victim from an earlier signal can't make the scripts see a crime that didn't happen.
 
 ## Consequences
 
