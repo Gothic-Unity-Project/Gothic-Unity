@@ -203,6 +203,30 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Key: menuitem.ledgeClimbMode.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Key: menuitem.ledgeClimbMode.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Key: menuitem.ledgeClimbMode.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Key: menuitem.ledgeHints.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Key: menuitem.ledgeHints.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Key: menuitem.ledgeHints.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

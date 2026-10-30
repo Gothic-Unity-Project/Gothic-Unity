@@ -60,6 +60,11 @@ namespace Gothic.Core.Models.Config
 
         public Controls GameControls = Controls.VR;
 
+        [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
+        [Tooltip("V1: Climb ledges like Gothic's hero: grab the lip and pull up, comfort fade onto it, " +
+                 "teleport onto it and jump high enough to reach it. Gothic.ini ledgeClimbMode/ledgeHints.")]
+        public bool EnableVrLedgeClimbing;
+
         [Separator("Debug")]
         [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
         public bool EnableVRDeviceSimulator;

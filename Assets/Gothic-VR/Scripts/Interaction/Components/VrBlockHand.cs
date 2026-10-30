@@ -35,6 +35,9 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Finger angle in degrees while the hand holds an item (less than closed: no clipping into it).")]
         [SerializeField] private float _fingerHoldingAngle = 70f;
 
+        [Tooltip("Finger angle in degrees at full HintCurl (a climbable lip within reach): half closed.")]
+        [SerializeField] private float _fingerHintAngle = 40f;
+
         [Header("Thumb")]
         [Tooltip("Thumb hinge. Its local rotation is set around Thumb Axis while the thumb touches a button/stick.")]
         [SerializeField] private Transform _thumbHinge;
@@ -56,6 +59,11 @@ namespace Gothic.VR.Interaction.Components
         private float _thumbAngle;
 
         public VrHandSide Side => _side;
+
+        /// <summary>
+        /// 0 (none) to 1: the fingers close at least this part of the hint angle (VrLedgeClimb, a lip within reach).
+        /// </summary>
+        public float HintCurl { get; set; }
 
         private void Awake()
         {
@@ -104,7 +112,7 @@ namespace Gothic.VR.Interaction.Components
             thumb = _vrInput.IsThumbTouching(_side) ? _thumbClosedAngle : 0f;
             finger = _grabber?.Held != null
                 ? _fingerHoldingAngle
-                : _vrInput.GetGripValue(_side) * _fingerClosedAngle;
+                : Mathf.Max(_vrInput.GetGripValue(_side) * _fingerClosedAngle, HintCurl * _fingerHintAngle);
         }
 
         /// <summary>

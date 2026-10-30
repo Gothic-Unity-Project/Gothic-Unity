@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -397,9 +398,11 @@ namespace Gothic.Core.Domain.Npc
             // Some FP/WP are on a hill. The spawn check will therefore lift the location for a little to not interfere with world mesh collision check.
             var groundControlDifference = new Vector3(0, 1f, 0);
             var initialSpawnPointGroundControl = positionToScan + groundControlDifference;
+            // VR ledge grab points near the player's hands aren't in the way.
+            var blockingLayers = Physics.DefaultRaycastLayers & ~(1 << Constants.ClimbAnchorLayer);
 
             // Check if the spawn point is free.
-            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2))
+            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2, blockingLayers))
             {
                 return positionToScan;
             }
@@ -417,7 +420,7 @@ namespace Gothic.Core.Domain.Npc
                     var checkPointGroundControl = initialSpawnPointGroundControl + offsetPoint;
 
                     // Check if the point is clear (no obstacles)
-                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2))
+                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2, blockingLayers))
                     {
                         return positionToScan + offsetPoint;
                     }

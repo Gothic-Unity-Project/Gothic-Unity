@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
 using MyBox;
 using UnityEngine;
@@ -55,6 +56,18 @@ namespace Gothic.Core.Extensions
         public static NpcContainer GetUserData(this NpcInstance instance)
         {
             return instance?.UserData as NpcContainer;
+        }
+
+        /// <summary>
+        /// The GIL_VALUES slot holding the values (turn speed, jump heights, ...) of the NPC's guild. The scripts fill
+        /// only GIL_HUMAN for all human guilds ("set constants for ALL human guilds", Constants.d), monsters have their
+        /// own slot. The hero is human: its values are in GIL_HUMAN.
+        /// </summary>
+        public static int GetValuesGuild(this NpcInstance npc)
+        {
+            return npc.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM
+                ? (int)VmGothicEnums.Guild.GIL_HUMAN
+                : npc.Guild;
         }
 
         public static TextureFormat AsUnityTextureFormat(this ZenKit.TextureFormat format)
