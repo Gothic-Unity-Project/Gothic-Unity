@@ -189,6 +189,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedMeleeWeapon", Npc_HasEquippedMeleeWeapon);
             vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetEquippedRangedWeapon", Npc_GetEquippedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedRangedWeapon", Npc_HasEquippedRangedWeapon);
+            vm.RegisterExternal<int, NpcInstance>("Npc_HasRangedWeaponWithAmmo", Npc_HasRangedWeaponWithAmmo);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestRangedWeapon", AI_EquipBestRangedWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestMeleeWeapon", AI_EquipBestMeleeWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_StopAim", AI_StopAim);
             vm.RegisterExternal<int, NpcInstance, string>("Npc_GetDistToWP", Npc_GetDistToWP);
             vm.RegisterExternal<NpcInstance, int>("Npc_PercDisable", Npc_PercDisable);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpc", Npc_CanSeeNpc);
@@ -455,6 +459,28 @@ namespace Gothic.Core.Domain.Vm
         public void AI_ReadyRangedWeapon(NpcInstance npc)
         {
             _npcAiService.ExtAiReadyRangedWeapon(npc);
+        }
+
+        public int Npc_HasRangedWeaponWithAmmo(NpcInstance npc)
+        {
+            return _npcHelperService.ExtNpcHasRangedWeaponWithAmmo(npc) ? 1 : 0;
+        }
+
+        public void AI_EquipBestRangedWeapon(NpcInstance npc)
+        {
+            _npcHelperService.ExtAiEquipBestWeapon(npc, VmGothicEnums.ItemFlags.ItemKatFf);
+        }
+
+        public void AI_EquipBestMeleeWeapon(NpcInstance npc)
+        {
+            _npcHelperService.ExtAiEquipBestWeapon(npc, VmGothicEnums.ItemFlags.ItemKatNf);
+        }
+
+        /// <summary>
+        /// Aiming is part of each shot (ShootRanged) - there is nothing to stop between shots.
+        /// </summary>
+        public void AI_StopAim(NpcInstance npc)
+        {
         }
 
         public void AI_RemoveWeapon(NpcInstance npc)
