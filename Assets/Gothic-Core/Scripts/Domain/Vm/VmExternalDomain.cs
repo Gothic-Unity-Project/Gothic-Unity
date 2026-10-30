@@ -204,7 +204,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInState", Npc_IsInState);
             vm.RegisterExternal<NpcInstance>("Npc_SetToFistMode", Npc_SetToFistMode);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetToFightMode", Npc_SetToFightMode);
-            vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
@@ -220,6 +219,8 @@ namespace Gothic.Core.Domain.Vm
             if (_contextGameVersionService.IsGothic2())
             {
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
+                vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni);
+                vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining);
             }
 
 
@@ -253,7 +254,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int>("Wld_SetTime", Wld_SetTime);
             vm.RegisterExternal("Wld_GetDay", Wld_GetDay);
             vm.RegisterExternal<int, int, int, int, int>("Wld_IsTime", Wld_IsTime);
-            vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_GetMobState", Wld_GetMobState);
             vm.RegisterExternal<int, string>("Wld_InsertItem", Wld_InsertItem);
             vm.RegisterExternal<string>("Wld_ExchangeGuildAttitudes", Wld_ExchangeGuildAttitudes);
