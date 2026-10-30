@@ -29,6 +29,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -83,6 +84,7 @@ namespace Gothic.VR.Services
             var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.AddItem(instanceName, vobItem.Amount);
+            _heroPerceptionService.OnHeroTookItem(vobItem);
         }
 
         /// <summary>

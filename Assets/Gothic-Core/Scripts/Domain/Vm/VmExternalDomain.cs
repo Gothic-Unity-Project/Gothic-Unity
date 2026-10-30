@@ -44,6 +44,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -205,6 +206,14 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
+            if (vm.GetSymbolByName("Npc_GetDetectedMob") != null)
+                vm.RegisterExternal<string, NpcInstance>("Npc_GetDetectedMob", Npc_GetDetectedMob);
+            if (vm.GetSymbolByName("Npc_IsDetectedMobOwnedByNpc") != null)
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_IsDetectedMobOwnedByNpc",
+                    Npc_IsDetectedMobOwnedByNpc);
+            if (vm.GetSymbolByName("Npc_IsDetectedMobOwnedByGuild") != null)
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_IsDetectedMobOwnedByGuild",
+                    Npc_IsDetectedMobOwnedByGuild);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
@@ -1160,6 +1169,21 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcIsPlayer(npc));
             return LogInstantExternal(nameof(Npc_IsPlayer), ret, npc);
+        }
+
+        public string Npc_GetDetectedMob(NpcInstance npc)
+        {
+            return _heroPerceptionService.GetDetectedMobScheme(npc);
+        }
+
+        public int Npc_IsDetectedMobOwnedByNpc(NpcInstance user, NpcInstance owner)
+        {
+            return _heroPerceptionService.IsDetectedMobOwnedByNpc(user, owner) ? 1 : 0;
+        }
+
+        public int Npc_IsDetectedMobOwnedByGuild(NpcInstance user, int guild)
+        {
+            return _heroPerceptionService.IsDetectedMobOwnedByGuild(user, guild) ? 1 : 0;
         }
 
         public int Npc_OwnedByNpc(ItemInstance item, NpcInstance npc)

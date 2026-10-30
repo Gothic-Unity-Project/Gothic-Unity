@@ -25,9 +25,9 @@ namespace Gothic.Core.Services.Npc
 
         // Npc_SendPassivePerc() of this frame, delivered to the NPCs around the sender in their next AI update.
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcInstance Sender,
-            NpcInstance Victim, NpcInstance Other)> _sentPassivePerceptions = new();
+            NpcInstance Victim, NpcInstance Other, ItemInstance Item)> _sentPassivePerceptions = new();
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcInstance Sender,
-            NpcInstance Victim, NpcInstance Other)> _deliveredPassivePerceptions = new();
+            NpcInstance Victim, NpcInstance Other, ItemInstance Item)> _deliveredPassivePerceptions = new();
         private int _deliveryFrame = -1;
 
 
@@ -536,7 +536,21 @@ namespace Gothic.Core.Services.Npc
             if (sender?.Go == null || other == null)
                 return;
 
-            _sentPassivePerceptions.Add((perc, sender.Go.transform.position, npc, victim, other));
+            _sentPassivePerceptions.Add((perc, sender.Go.transform.position, npc, victim, other, null));
+        }
+
+        /// <summary>
+        /// A passive perception about an item (PERC_ASSESSTHEFT): like the engine, the scripts find it in their
+        /// global "item" while they react.
+        /// </summary>
+        public void SendPassivePerception(NpcInstance sender, VmGothicEnums.PerceptionType perc, NpcInstance victim,
+            NpcInstance other, ItemInstance item)
+        {
+            var senderContainer = sender.GetUserData();
+            if (senderContainer?.Go == null || other == null)
+                return;
+
+            _sentPassivePerceptions.Add((perc, senderContainer.Go.transform.position, sender, victim, other, item));
         }
 
         /// <summary>
@@ -578,7 +592,23 @@ namespace Gothic.Core.Services.Npc
                 if ((perception.Position - position).sqrMagnitude > range * range)
                     continue;
 
-                ExecutePerception(perception.Type, properties, self, perception.Victim, perception.Other);
+                if (perception.Item == null)
+                {
+                    ExecutePerception(perception.Type, properties, self, perception.Victim, perception.Other);
+                    continue;
+                }
+
+                var vm = _gameStateService.GothicVm;
+                var oldItem = vm.GlobalItem;
+                vm.GlobalItem = perception.Item;
+                try
+                {
+                    ExecutePerception(perception.Type, properties, self, perception.Victim, perception.Other);
+                }
+                finally
+                {
+                    vm.GlobalItem = oldItem;
+                }
             }
         }
 

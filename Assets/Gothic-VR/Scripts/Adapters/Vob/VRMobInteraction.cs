@@ -1,5 +1,6 @@
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -18,6 +19,7 @@ namespace Gothic.VR.Adapters.Vob
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private bool _mobActivated;
         private VrInteractable _interactable;
@@ -50,6 +52,8 @@ namespace Gothic.VR.Adapters.Vob
 
             var vobLoader = GetComponentInParent<VobLoader>();
             var vob = vobLoader?.Container?.Vob;
+            // Chests and doors too: the NPCs around notice whose things the hero touches.
+            _heroPerceptionService.OnHeroUsedMob(vob);
             if (!_mobInteractionService.ShouldHandleGrab(vob))
                 return;
 
