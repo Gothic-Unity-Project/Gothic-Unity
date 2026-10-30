@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
@@ -21,6 +22,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+
+        // Npc_SendPassivePerc() of this frame, delivered to the NPCs around the sender in their next AI update.
+        private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcInstance Sender,
+            NpcInstance Victim, NpcInstance Other)> _sentPassivePerceptions = new();
+        private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcInstance Sender,
+            NpcInstance Victim, NpcInstance Other)> _deliveredPassivePerceptions = new();
+        private int _deliveryFrame = -1;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -515,9 +523,63 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.TargetNpc = target;
         }
 
+        /// <summary>
+        /// Like Gothic (OpenGothic: WorldObjects::sendPassivePerc), a passive perception goes to the NPCs around the
+        /// sender, not to the sender itself, and not right away: it's delivered in their next AI update
+        /// (DeliverPassivePerceptions()). Running it on the sender, inside its own script call, made guards never
+        /// warn each other and re-ran the sender's own reaction (ZS_ObservePlayer -> PERC_ASSESSWARN ->
+        /// B_AssessWarn -> ZS_ObservePlayer).
+        /// </summary>
         public void Npc_SendPassivePerc(NpcInstance npc,VmGothicEnums.PerceptionType perc, NpcInstance victim, NpcInstance other)
         {
-            ExecutePerception(perc, npc.GetUserData().Props, npc, victim, other);
+            var sender = npc.GetUserData();
+            if (sender?.Go == null || other == null)
+                return;
+
+            _sentPassivePerceptions.Add((perc, sender.Go.transform.position, npc, victim, other));
+        }
+
+        /// <summary>
+        /// Called by every awake NPC once per frame: runs the passive perceptions sent in the frames before on it, if
+        /// it's within the perception's range of the sender (Perc_SetRange()).
+        /// </summary>
+        public void DeliverPassivePerceptions(NpcInstance self, NpcProperties properties)
+        {
+            if (_deliveryFrame != Time.frameCount)
+            {
+                _deliveryFrame = Time.frameCount;
+                _deliveredPassivePerceptions.Clear();
+                _deliveredPassivePerceptions.AddRange(_sentPassivePerceptions);
+                _sentPassivePerceptions.Clear();
+            }
+
+            if (_deliveredPassivePerceptions.Count == 0 || properties.BodyState == VmGothicEnums.BodyState.BsDead)
+                return;
+
+            // The hero doesn't react to perceptions.
+            if (self.Index == (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.Index)
+                return;
+
+            var selfContainer = self.GetUserData();
+            if (selfContainer?.Go == null)
+                return;
+
+            var position = selfContainer.Go.transform.position;
+            foreach (var perception in _deliveredPassivePerceptions)
+            {
+                if (perception.Sender.Index == self.Index)
+                    continue;
+
+                // Like Gothic: the range of the perception (Perc_SetRange()), else the senses range. Passive
+                // perceptions ignore the senses (hear/see) themselves.
+                var range = _npcHelperService.GetPerceptionRange(perception.Type);
+                if (range >= float.MaxValue)
+                    range = self.SensesRange / 100f;
+                if ((perception.Position - position).sqrMagnitude > range * range)
+                    continue;
+
+                ExecutePerception(perception.Type, properties, self, perception.Victim, perception.Other);
+            }
         }
 
         public void ExtSetTrueGuild(NpcInstance npc, int guild)
