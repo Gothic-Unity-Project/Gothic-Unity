@@ -98,6 +98,7 @@ namespace Gothic.Core.Manager
                     ? MusicDomain.MusicTagsMode.Thrill
                     : MusicDomain.MusicTagsMode.Fight;
 
+            _musicDomain.UpdateZone();
             _musicDomain.SetSituation(timeTag, modeTag);
         }
 

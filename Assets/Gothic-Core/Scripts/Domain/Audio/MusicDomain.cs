@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using DirectMusic;
-using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -50,7 +50,10 @@ namespace Gothic.Core.Domain.Audio
 
         private AudioSource _audioSourceComp;
         private AudioReverbFilter _reverbFilterComp;
-        private Performance _dxPerformance;
+        // Swapped on world load (ResetPerformance) while the audio thread renders - volatile for PCMReaderCallback.
+        private volatile Performance _dxPerformance;
+        // The replaced performance stays referenced until the next reset - the audio thread may still be rendering it.
+        private Performance _retiredPerformance;
 
         private Dictionary<string, MusicThemeInstance> _themes = new();
         private MusicThemeInstance _currentTheme;
@@ -59,10 +62,12 @@ namespace Gothic.Core.Domain.Audio
         // Set once RenderPcm faulted (see PCMReaderCallback). Read and written on the audio thread only.
         private bool _isMusicRenderingDisabled;
 
-        /// <summary>
-        /// Whenever we collide with a musicZoneVobGO, it's entry will be added to the list and the most important theme will be played.
-        /// </summary>
-        private readonly List<GameObject> _musicZones = new();
+        // The world's music zones with their boxes in world order, its default zone, the zone playing and the player
+        // (OpenGothic WorldSound). Empty in the menu and while loading.
+        private readonly List<(IZoneMusic Zone, Bounds Bounds)> _zones = new();
+        private IZoneMusic _defaultZone;
+        private IZoneMusic _currentZone;
+        private Transform _player;
 
 
         public void SetBackgroundMusic(AudioSource audioSource, AudioReverbFilter reverbFilter)
@@ -89,11 +94,32 @@ namespace Gothic.Core.Domain.Audio
 
         /// <summary>
         /// Play a specific music theme without using musicZones and modes.
-        /// e.g., for MainMenu music.
+        /// e.g., for MainMenu music. The last world's zones don't take the music back until the next world is loaded.
         /// </summary>
         public void Play(string musicInstanceName)
         {
+            ClearZones();
             PlayInternal(musicInstanceName);
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic WorldSound::tickSoundZone): the zone playing stays while the player is inside it,
+        /// else the last zone containing him in world order plays, else the default zone. Zones by priority picked the
+        /// big zone around G2's pirate camp instead of the camp's.
+        /// </summary>
+        public void UpdateZone()
+        {
+            if (_player == null)
+                return;
+
+            var zone = FindZone(_player.position);
+            if (zone == _currentZone)
+                return;
+
+            Logger.Log($"[Music] Zone '{_currentZone?.Name ?? "-"}' -> '{zone?.Name ?? _defaultZone?.Name ?? "-"}'",
+                LogCat.Audio);
+            _currentZone = zone;
+            Play();
         }
         
         /// <summary>
@@ -116,9 +142,7 @@ namespace Gothic.Core.Domain.Audio
         /// </summary>
         private void PlayInternal()
         {
-            var zones = _musicZones
-                .Select(i => i.GetComponentInParent<VobLoader>().Container.VobAs<IZoneMusic>())
-                .OrderByDescending(i => i.Priority);
+            var zones = new[] { _currentZone, _defaultZone }.Where(i => i != null);
 
             var timeTags = TimeTag == MusicTagsTime.Night ? new[] { "NGT", "DAY" } : new[] { "DAY" };
             var modeTags = ModeTag switch
@@ -264,31 +288,68 @@ namespace Gothic.Core.Domain.Audio
             };
         }
 
+        /// <summary>
+        /// The player walked through a zone's border: the zone is picked again at once instead of with the next check.
+        /// </summary>
         public void MusicZoneExited(GameObject go)
         {
-            RemoveMusicZone(go);
-            Play();
-
+            UpdateZone();
         }
 
         public void MusicZoneEntered(GameObject go)
         {
-            AddMusicZone(go);
-            Play();
+            UpdateZone();
         }
 
-        public void AddMusicZone(GameObject newMusicZoneGo)
+        private IZoneMusic FindZone(Vector3 position)
         {
-            // If a collider triggers multiple times or we added the zone manually: Skip as duplicate
-            if (_musicZones.Contains(newMusicZoneGo))
+            if (_currentZone != null && IsInside(_currentZone, position))
+                return _currentZone;
+
+            IZoneMusic found = null;
+            foreach (var (zone, bounds) in _zones)
+            {
+                if (bounds.Contains(position))
+                    found = zone;
+            }
+
+            return found;
+        }
+
+        private bool IsInside(IZoneMusic zone, Vector3 position)
+        {
+            foreach (var (candidate, bounds) in _zones)
+            {
+                if (candidate == zone && bounds.Contains(position))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void ClearZones()
+        {
+            _zones.Clear();
+            _defaultZone = null;
+            _currentZone = null;
+            _player = null;
+        }
+
+        /// <summary>
+        /// A world's music starts on a fresh DirectMusic performance. dmusic crashes natively (DmPerformance_renderPcm on
+        /// the audio thread, editor/game gone) once a world theme plays after gamestart.sgt (menu/loading music) on the
+        /// same performance - found by BoroBongo, reproduced outside Unity. G2: leaving the pirate camp crashed the
+        /// editor.
+        /// </summary>
+        private void ResetPerformance()
+        {
+            if (_dxPerformance == null)
                 return;
 
-            _musicZones.Add(newMusicZoneGo);
-        }
-
-        public void RemoveMusicZone(GameObject newMusicZoneGo)
-        {
-            _musicZones.Remove(newMusicZoneGo);
+            _retiredPerformance = _dxPerformance;
+            _dxPerformance = Performance.Create(_frequencyRate);
+            _currentTheme = null;
+            Logger.Log("[Music] Fresh DirectMusic performance for the world's music", LogCat.Audio);
         }
 
         // Some mod compositions (e.g. Gothic II New Balance's EGE_DAY_Std.sgt) embed an automatic
@@ -327,29 +388,29 @@ namespace Gothic.Core.Domain.Audio
 
         public void OnWorldLoaded()
         {
-            _musicZones.Clear();
+            ClearZones();
+            ResetPerformance();
             // A fight of the world before is over. The time follows with AudioService's next check.
             ModeTag = MusicTagsMode.Standard;
 
-            var zones = _multiTypeCacheService.VobCache.Where(i => i.Vob is IZoneMusic); // IZoneMusic | IZoneMusicDefault
-            var playerPosition = GameObject.FindWithTag(Constants.PlayerTag).transform.position;
-
-            foreach (var zone in zones)
+            foreach (var container in _multiTypeCacheService.VobCache)
             {
-                // We always set default music as fallback.
-                if (zone.Vob.GetType() == typeof(ZoneMusicDefault))
+                if (container?.Vob is not IZoneMusic zone)
+                    continue;
+
+                if (zone is ZoneMusicDefault)
                 {
-                    AddMusicZone(zone.Go);
+                    _defaultZone = zone;
                     continue;
                 }
 
-                // If it's a normal music, we check if we're standing inside.
-                if (zone.Go.GetComponentInChildren<BoxCollider>().bounds.Contains(playerPosition))
-                {
-                    AddMusicZone(zone.Go);
-                }
+                var bounds = new Bounds(zone.BoundingBox.Min.ToUnityVector(), Vector3.zero);
+                bounds.Encapsulate(zone.BoundingBox.Max.ToUnityVector());
+                _zones.Add((zone, bounds));
             }
 
+            _player = GameObject.FindWithTag(Constants.PlayerTag)?.transform;
+            _currentZone = _player != null ? FindZone(_player.position) : null;
             Play();
         }
     }
