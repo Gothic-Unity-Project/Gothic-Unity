@@ -39,7 +39,7 @@ namespace Gothic.Core.Services.Npc
             }
 
             var y = rigidbody.position.y;
-            var verticalSpeed = rigidbody.velocity.y;
+            var verticalSpeed = rigidbody.linearVelocity.y;
             if (props.FallStartY == null)
             {
                 if (verticalSpeed < _fallingSpeed)
