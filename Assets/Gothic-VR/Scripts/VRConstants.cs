@@ -23,6 +23,9 @@ namespace Gothic.VR
 
             // 0 = normal, 1 = large, 2 = larger: size of subtitles and dialog choices.
             public const string TextSize = "textSize";
+
+            // ColorVisionMode: 0 = normal, 1 = red-weak, 2 = green-weak, 3 = blue-weak.
+            public const string ColorVision = "colorVision";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
@@ -45,6 +48,8 @@ namespace Gothic.VR
         public const int MoveVignetteDefaultValue = 0;
 
         public const int TextSizeDefaultValue = 0;
+
+        public const int ColorVisionDefaultValue = 0;
 
         // Scale of subtitles and dialog choices per textSize value.
         private static readonly float[] _textSizeScales = { 1f, 1.25f, 1.5f };

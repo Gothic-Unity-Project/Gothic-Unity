@@ -52,10 +52,16 @@ namespace Gothic.VR.Services.Context
 
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
 
-            // VR hides all of the game menu but its subtitles option: the subtitles' text size goes below it.
+            // VR hides all of the game menu but its subtitles option: the subtitles' text size and the color vision go
+            // below it.
             gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
             if (gameBackIndex < 0)
                 gameBackIndex = gameMenu.Items.Count;
+            gameMenu.Items.Insert(gameBackIndex, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION",
+                "colorVision", VRConstants.IniNames.ColorVision, VRConstants.IniSectionImmersion,
+                VRConstants.ColorVisionDefaultValue, menuStartY + menuDY * 2));
+            gameMenu.Items.Insert(gameBackIndex, CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION",
+                "colorVision", menuStartY + menuDY * 2));
             gameMenu.Items.Insert(gameBackIndex, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE",
                 "textSize", VRConstants.IniNames.TextSize, VRConstants.IniSectionImmersion,
                 VRConstants.TextSizeDefaultValue, menuStartY + menuDY * 1));

@@ -119,6 +119,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(FontService));
             containerBuilder.AddSingleton(typeof(UIEventsService));
             containerBuilder.AddSingleton(typeof(LocalizationService));
+            containerBuilder.AddSingleton(typeof(ColorVisionService));
 
             // Marvin
             containerBuilder.AddSingleton(typeof(MarvinService));
