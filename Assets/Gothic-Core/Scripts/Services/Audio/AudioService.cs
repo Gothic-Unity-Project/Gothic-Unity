@@ -177,7 +177,7 @@ namespace Gothic.Core.Manager
                 if (sfxContainer.GetFirstSound() == null || sfxContainer.GetFirstSound()!.File.EqualsIgnoreCase(NoSoundName))
                     return null;
 
-                clip = CreateSfxAudioClip(sfxContainer.GetRandomSound());
+                clip = CreateAudioClip(sfxContainer.GetRandomSound());
             }
 
             return clip;
