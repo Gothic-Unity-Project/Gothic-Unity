@@ -187,8 +187,9 @@ namespace Gothic.Core.Services.Meshes
             return CreateVobPfx(vob.Visual!.Name, position, rotation, parent);
         }
 
+        /// <param name="isFullRate">Emit at Gothic's own rate (spell effects), not a hundredth of it.</param>
         public GameObject CreateVobPfx(string pfxName, Vector3 position = default, Quaternion rotation = default,
-            GameObject parent = null, bool destroyAfterPlay = false)
+            GameObject parent = null, bool destroyAfterPlay = false, bool isFullRate = false)
         {
             var vobPfxBuilder = new VobPfxMeshBuilder().Inject();
             vobPfxBuilder.SetGameObject(null, pfxName);
@@ -196,6 +197,7 @@ namespace Gothic.Core.Services.Meshes
             vobPfxBuilder.SetRootPosAndRot(position, rotation);
             vobPfxBuilder.SetPfxData(pfxName);
             vobPfxBuilder.SetDestroyAfterPlay(destroyAfterPlay);
+            vobPfxBuilder.SetFullRate(isFullRate);
 
             return vobPfxBuilder.Build();
         }

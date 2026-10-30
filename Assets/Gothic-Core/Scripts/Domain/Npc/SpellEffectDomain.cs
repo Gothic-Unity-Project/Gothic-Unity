@@ -36,6 +36,7 @@ namespace Gothic.Core.Domain.Npc
         private const int _damageMagic = 1 << 5;
 
         private readonly Dictionary<string, EffectBaseInstance> _effects = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ParticleEffectEmitKeyInstance> _keys = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<Color, Material> _coreMaterials = new();
         private DaedalusVm _vfxVm;
         private bool _isVfxVmLoaded;
@@ -69,13 +70,48 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
+        /// A key of a visual effect (spellFX_Firebolt_KEY_CAST: what flies, what the cast creates), null without one.
+        /// </summary>
+        public ParticleEffectEmitKeyInstance GetKey(string name)
+        {
+            LoadVm();
+            if (_vfxVm == null || string.IsNullOrEmpty(name))
+                return null;
+            if (_keys.TryGetValue(name, out var cached))
+                return cached;
+
+            ParticleEffectEmitKeyInstance key = null;
+            if (_vfxVm.IsInstanceOf(_vfxVm.GetSymbolByName(name), "C_PARTICLEFXEMITKEY"))
+            {
+                try
+                {
+                    key = _vfxVm.InitInstance<ParticleEffectEmitKeyInstance>(name);
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"[Magic] Visual effect key {name} failed: {e.Message}", LogCat.Fight);
+                }
+            }
+
+            _keys[name] = key;
+            return key;
+        }
+
+        /// <summary>
         /// The effect's particles at the position. Null if it shows none.
         /// </summary>
         /// <param name="lifetimeSeconds">They vanish after this long (looping ones too). 0 keeps them.</param>
         public GameObject CreateParticles(EffectBaseInstance effect, Vector3 position, Quaternion rotation,
             float lifetimeSeconds)
         {
-            var pfxName = effect?.VisNameS;
+            return CreateParticles(effect?.VisNameS, position, rotation, lifetimeSeconds);
+        }
+
+        /// <summary>
+        /// The particles of that PFX at Gothic's own rate. Null if it isn't one (some effects show a mesh or texture).
+        /// </summary>
+        public GameObject CreateParticles(string pfxName, Vector3 position, Quaternion rotation, float lifetimeSeconds)
+        {
             if (string.IsNullOrEmpty(pfxName))
                 return null;
 
@@ -85,24 +121,52 @@ namespace Gothic.Core.Domain.Npc
                 return null;
 
             var particles = _meshService.CreateVobPfx(pfxName, position, rotation,
-                destroyAfterPlay: lifetimeSeconds > 0f);
+                destroyAfterPlay: lifetimeSeconds > 0f, isFullRate: true);
             if (particles != null && lifetimeSeconds > 0f)
                 Object.Destroy(particles, lifetimeSeconds);
             return particles;
         }
 
         /// <summary>
-        /// A flying spell: its effect's particles and a glowing core (fire orange, wind white, other magic blue).
+        /// What shows where a spell hits: the effect's collision effect (emFXCollDyn_S on an NPC, emFXCollStat_S on a
+        /// wall), else for an NPC the one of the effect its cast key creates (ice wave: the ice on the victim).
         /// </summary>
-        public GameObject CreateProjectile(EffectBaseInstance effect, SpellInstance spell, Vector3 position,
-            Quaternion rotation)
+        public EffectBaseInstance GetImpactEffect(string spellName, bool isNpcHit)
         {
-            var projectile = new GameObject($"Spell {effect?.VisNameS}");
+            var effect = GetEffect($"spellFX_{spellName}");
+            var impact = GetEffect(isNpcHit ? effect?.EmFxCollDynS : effect?.EmFxCollStatS);
+            if (impact != null || !isNpcHit)
+                return impact;
+
+            var created = GetEffect(GetKey($"spellFX_{spellName}_KEY_CAST")?.EmCreateFxId);
+            return GetEffect(created?.EmFxCollDynS) ?? created;
+        }
+
+        /// <summary>
+        /// A flying spell: the particles of its cast key (spellFX_[name]_KEY_CAST, what the engine flies - the effect's
+        /// own particles are the glow in the hand), looping, and a glowing core (fire orange, wind white, other magic
+        /// blue).
+        /// </summary>
+        public GameObject CreateProjectile(string spellName, SpellInstance spell, Vector3 position, Quaternion rotation)
+        {
+            var projectile = new GameObject($"Spell {spellName}");
             projectile.transform.SetPositionAndRotation(position, rotation);
 
-            var particles = CreateParticles(effect, position, rotation, 0f);
+            var castKey = GetKey($"spellFX_{spellName}_KEY_CAST");
+            var pfxName = !string.IsNullOrEmpty(castKey?.VisNameS)
+                ? castKey.VisNameS
+                : GetEffect($"spellFX_{spellName}")?.VisNameS;
+            var particles = CreateParticles(pfxName, position, rotation, 0f);
             if (particles != null)
+            {
                 particles.transform.SetParent(projectile.transform, true);
+                foreach (var particleSystem in particles.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    var main = particleSystem.main;
+                    main.loop = true;
+                    particleSystem.Play();
+                }
+            }
 
             var core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             // Flights and the player's queries mustn't hit the projectile itself.

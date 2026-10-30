@@ -378,7 +378,8 @@ namespace Gothic.Core.Services.Npc
             if (_spellData.IsProjectile(cast.SpellId))
             {
                 var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
-                var visual = _spellEffects.CreateProjectile(effect, cast.Spell, origin, rotation);
+                var visual = _spellEffects.CreateProjectile(_spellData.GetName(cast.SpellId), cast.Spell, origin,
+                    rotation);
                 _spellFlight ??= new SpellFlightDomain(OnProjectileHit).Inject();
                 _spellFlight.Launch(cast, visual, origin, direction);
             }
@@ -422,6 +423,7 @@ namespace Gothic.Core.Services.Npc
                 ? 180f
                 : cast.Spell.TargetCollectAzi / 2f;
             var forward = new Vector3(direction.x, 0f, direction.z);
+            var impact = _spellEffects.GetImpactEffect(_spellData.GetName(cast.SpellId), true);
 
             foreach (var npc in _multiTypeCacheService.NpcCache.ToArray())
             {
@@ -437,6 +439,7 @@ namespace Gothic.Core.Services.Npc
                 if (halfAngle < 180f && forward.sqrMagnitude > 0.0001f && Vector3.Angle(forward, toNpc) > halfAngle)
                     continue;
 
+                _spellEffects.CreateParticles(impact, FightService.GetAimPoint(npc), Quaternion.identity, _impactSeconds);
                 HitWithSpell(cast, npc, 1);
             }
         }
@@ -512,8 +515,7 @@ namespace Gothic.Core.Services.Npc
 
         private void OnProjectileHit(SpellCast cast, NpcContainer victim, Vector3 position)
         {
-            var effect = GetSpellEffect(cast.SpellId);
-            var impact = _spellEffects.GetEffect(victim != null ? effect?.EmFxCollDynS : effect?.EmFxCollStatS);
+            var impact = _spellEffects.GetImpactEffect(_spellData.GetName(cast.SpellId), victim != null);
             _spellEffects.CreateParticles(impact, position, Quaternion.identity, _impactSeconds);
 
             if (victim != null)
