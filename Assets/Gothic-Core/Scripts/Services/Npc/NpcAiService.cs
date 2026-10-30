@@ -299,6 +299,16 @@ namespace Gothic.Core.Services.Npc
             container?.Props.AnimationQueue.Enqueue(new UseItem(new AnimationAction(int0: itemId), container));
         }
 
+        public void ExtAiWhirlAround(NpcInstance npc, NpcInstance other)
+        {
+            if (other == null)
+                return;
+
+            npc.GetUserData().Props.AnimationQueue.Enqueue(new WhirlAround(
+                new AnimationAction(instance0: other),
+                npc.GetUserData()));
+        }
+
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
         {
             if (other == null)

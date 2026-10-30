@@ -531,11 +531,11 @@ namespace Gothic.Core.Domain.Vm
         }
 
         /// <summary>
-        /// Like the engine, a quick turn to the other one (OpenGothic plays t_surprise_CW/CCW).
+        /// Like the engine, the startled jump around to the other one (OpenGothic plays t_surprise_CW/CCW).
         /// </summary>
         public void AI_WhirlAround(NpcInstance npc, NpcInstance other)
         {
-            _npcAiService.ExtAiTurnToNpc(npc, other);
+            _npcAiService.ExtAiWhirlAround(npc, other);
         }
 
         public void AI_TurnAway(NpcInstance npc, NpcInstance other)
