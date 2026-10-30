@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -191,9 +192,25 @@ namespace Gothic.Core.Services.Npc
             return 0;
         }
         
+        /// <summary>
+        /// Npc_ClearInventory like the engine (OpenGothic Inventory::clear): everything goes except the items worn or
+        /// held (equipped) and mission items. Found comparing with BoroBongo's branch.
+        /// </summary>
         public void ExtNpcClearInventory(NpcInstance npc)
         {
-            npc.GetUserData()!.Vob.ClearItems();
+            var container = npc?.GetUserData();
+            if (container?.Vob == null)
+                return;
+
+            foreach (var item in GetAllInventoryItems(npc))
+            {
+                var itemData = _vmCacheService.TryGetItemData(item.Name);
+                if (itemData == null || ((ItemFlags)itemData.Flags).HasFlag(ItemFlags.ItemMission) ||
+                    container.Props.EquippedItems.Any(equipped => equipped?.Index == itemData.Index))
+                    continue;
+
+                ExtRemoveInvItems(npc, itemData.Index, item.Amount);
+            }
         }
     }
 }
