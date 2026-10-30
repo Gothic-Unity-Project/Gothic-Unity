@@ -114,11 +114,12 @@ namespace Gothic.Core.Adapters.Npc
                         _npcService.SyncHeroInstanceToVob();
                         break;
                     case NpcProperties.LoopState.Loop:
+                        // A state without _Loop, like the engine (OpenGothic tickRoutine): Gothic 2 ends it at once,
+                        // Gothic 1 keeps it until its routine time is over. Its init doesn't run again meanwhile.
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
                         {
-                            Properties.CurrentLoopState = IsRoutineStateOver()
-                                ? NpcProperties.LoopState.End
-                                : NpcProperties.LoopState.Start;
+                            if (!_contextGameVersionService.IsGothic1() || IsRoutineStateOver())
+                                Properties.CurrentLoopState = NpcProperties.LoopState.End;
                             return;
                         }
 
@@ -409,6 +410,11 @@ namespace Gothic.Core.Adapters.Npc
                 }
                 Logger.Log($"Start new routine >{routineSymbol.Name}< on >{Go.transform.parent.name}<", LogCat.Ai);
                 Properties.StateTime = 0;
+
+                // Like the engine (OpenGothic Npc::startState), every new state starts without perceptions and its init
+                // enables its own. Back on its routine an NPC kept e.g. ZS_AssessFighter's and answered every later
+                // weapon removal with "$WISEMOVE" (found on BoroBongo's branch). StartState already clears them.
+                Properties.Perceptions.Clear();
             }
         }
 
