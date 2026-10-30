@@ -49,6 +49,22 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// The time jumped (Wld_SetTime): every NPC's routine entry for the new time. Culled NPCs follow it with their
+        /// culling sphere, the others are put on it (NpcService.ResetNpcsToRoutines).
+        /// </summary>
+        public void RecalculateAllRoutines()
+        {
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc.Props == null || npc.Props.Routines.Count == 0)
+                    continue;
+
+                if (CalculateCurrentRoutine(npc.Instance))
+                    _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
+            }
+        }
+
         public void ExtNpcExchangeRoutine(NpcInstance npcInstance, string routineName)
         {
             if (npcInstance == null)

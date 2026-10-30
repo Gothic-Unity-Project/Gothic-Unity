@@ -132,10 +132,14 @@ namespace Gothic.Core.Services.World
             var daysToAdd = hour / 24;
             var normalizedHour = hour % 24;
 
-            _time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0);
-            
-            if (daysToAdd > 0)
-                _time = _time.AddDays(daysToAdd);
+            var time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0).AddDays(daysToAdd);
+
+            // Like the engine (OpenGothic World::setDayTime), a time earlier than now is tomorrow: sleeping until the
+            // morning starts a new day.
+            if (daysToAdd == 0 && time < _time)
+                time = time.AddDays(1);
+
+            _time = time;
         }
 
         public float GetSkyTime()

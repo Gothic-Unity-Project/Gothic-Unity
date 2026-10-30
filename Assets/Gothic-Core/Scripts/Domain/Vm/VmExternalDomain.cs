@@ -1282,6 +1282,7 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_SetTime(int hour, int minute)
         {
             _gameTimeService.SetTime(hour, minute);
+            _npcService.ResetNpcsToRoutines();
         }
 
         public int Wld_GetDay()

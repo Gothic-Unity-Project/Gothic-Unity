@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcRoutineService _npcRoutineService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -60,6 +61,8 @@ namespace Gothic.Core.Services.Npc
 
         private Queue<NpcLoader> _objectsToInitQueue = new();
         private Queue<NpcContainer> _objectToReEnableQueue = new();
+        // NPCs to put back on their routine after the time jumped - culled ones once they show up again.
+        private readonly HashSet<NpcContainer> _routineResets = new();
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
@@ -84,6 +87,7 @@ namespace Gothic.Core.Services.Npc
         {
             _objectsToInitQueue.Clear();
             _objectToReEnableQueue.Clear();
+            _routineResets.Clear();
         }
 
         private IEnumerator InitNpcCoroutine()
@@ -137,7 +141,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     var npcData = _objectToReEnableQueue.Dequeue();
                     // If we walked to an NPC in our game, the NPC will be re-enabled and Routines get reset.
-                    npcData.PrefabProps?.AiHandler?.ReEnableNpc();
+                    if (_routineResets.Remove(npcData))
+                        npcData.PrefabProps?.AiHandler?.ResetToRoutine();
+                    else
+                        npcData.PrefabProps?.AiHandler?.ReEnableNpc();
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
                 }
             }
@@ -500,6 +507,33 @@ namespace Gothic.Core.Services.Npc
         public void ReEnableNpc(NpcContainer npcData)
         {
             _objectToReEnableQueue.Enqueue(npcData);
+        }
+
+        /// <summary>
+        /// The time jumped (the hero slept, Wld_SetTime): like the engine (OpenGothic WorldObjects::resetPositionToTA)
+        /// every living NPC is put on the routine point of the new time and starts it over (found on BoroBongo's
+        /// branch). Before, NPCs stood where they were and kept chasing the hero. One per frame, so they don't spawn
+        /// into each other; culled ones when they show up again. The dead and the unconscious stay.
+        /// </summary>
+        public void ResetNpcsToRoutines()
+        {
+            _npcRoutineService.RecalculateAllRoutines();
+
+            var heroIndex = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.Index;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc?.Props == null || npc.Instance == null || npc.Instance.Index == heroIndex)
+                    continue;
+                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                    continue;
+                if (!_routineResets.Add(npc))
+                    continue;
+
+                if (npc.Go != null && npc.Go.activeInHierarchy)
+                    _objectToReEnableQueue.Enqueue(npc);
+            }
+
+            Logger.Log($"[NpcService] Time jumped - {_routineResets.Count} NPCs go back to their routine", LogCat.Ai);
         }
 
         public string ExtNpcGetNextWp(NpcInstance npc)

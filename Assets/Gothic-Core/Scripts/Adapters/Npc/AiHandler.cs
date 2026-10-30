@@ -456,6 +456,25 @@ namespace Gothic.Core.Adapters.Npc
             }
         }
 
+        /// <summary>
+        /// The time jumped (NpcService.ResetNpcsToRoutines): like the engine (OpenGothic Npc::resetPositionToTA) the NPC
+        /// is put on its routine point, its state ends without _End, its fight is forgotten and the weapon put away.
+        /// Monsters go back to their start state, not the one they were in (an attack).
+        /// </summary>
+        public void ResetToRoutine()
+        {
+            Properties.EnemyNpc = null;
+            Properties.TargetNpc = null;
+
+            var isWeaponDrawn = (VmGothicEnums.WeaponState)Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon;
+            ReEnableNpc();
+
+            if (Properties.RoutineCurrent == null && NpcInstance.StartAiState != 0)
+                StartRoutine(NpcInstance.StartAiState);
+            if (isWeaponDrawn)
+                _npcAiService.ExtAiUndrawWeapon(NpcInstance);
+        }
+
         public void DisableNpc()
         {
             // Stop all animations and reset to T-Pose
