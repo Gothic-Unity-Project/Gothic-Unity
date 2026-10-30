@@ -130,17 +130,15 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// A hurtful spell hit the target (MagicService). Like the engine (OpenGothic Npc::takeDamage), a spell kills at
         /// 0 hit points unless the scripts say it doesn't (COLL_DONTKILL: G2's shock spells) - then the knockout rule of
-        /// melee hits applies. A spell without damage still makes the victim fight back.
+        /// melee hits applies. A spell without damage (fear, ice cube) leaves the reaction to the victim's
+        /// PERC_ASSESSMAGIC: its damage reaction attacked the caster instead of fleeing.
         /// </summary>
         public void OnSpellHit(NpcContainer caster, NpcContainer target, int damage, bool canKill)
         {
-            if (!CanBeHit(caster, target) || target.IsDown())
+            if (damage <= 0 || !CanBeHit(caster, target) || target.IsDown())
                 return;
 
-            if (damage > 0)
-                ApplyDamage(caster, target, damage, !canKill);
-            else
-                ReactToDamage(caster, target);
+            ApplyDamage(caster, target, damage, !canKill);
         }
 
         /// <summary>
