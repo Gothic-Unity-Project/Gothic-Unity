@@ -13,6 +13,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using MyBox;
@@ -44,6 +45,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly DocService _docService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -219,6 +221,8 @@ namespace Gothic.Core.Domain.Vm
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
             }
 
+
+            RegisterDocExternals(vm);
 
             // Print
             vm.RegisterExternal<string>("PrintDebug", PrintDebug);
@@ -797,6 +801,98 @@ namespace Gothic.Core.Domain.Vm
         public void Snd_Play(string soundName)
         {
             _audioService.PlaySound2D(soundName);
+        }
+
+        /// <summary>
+        /// Books, letters and maps (DocService). Only the ones the game's scripts declare (Doc_SetLevelCoords is G2
+        /// only) - registering an unknown symbol throws.
+        /// </summary>
+        private void RegisterDocExternals(DaedalusVm vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("Doc_Create"))
+                vm.RegisterExternal<int>("Doc_Create", Doc_Create);
+            if (IsDeclared("Doc_CreateMap"))
+                vm.RegisterExternal<int>("Doc_CreateMap", Doc_CreateMap);
+            if (IsDeclared("Doc_SetPages"))
+                vm.RegisterExternal<int, int>("Doc_SetPages", Doc_SetPages);
+            if (IsDeclared("Doc_SetPage"))
+                vm.RegisterExternal<int, int, string, int>("Doc_SetPage", Doc_SetPage);
+            if (IsDeclared("Doc_SetFont"))
+                vm.RegisterExternal<int, int, string>("Doc_SetFont", Doc_SetFont);
+            if (IsDeclared("Doc_SetMargins"))
+                vm.RegisterExternal<int, int, int, int, int, int, int>("Doc_SetMargins", Doc_SetMargins);
+            if (IsDeclared("Doc_PrintLine"))
+                vm.RegisterExternal<int, int, string>("Doc_PrintLine", Doc_PrintLine);
+            if (IsDeclared("Doc_PrintLines"))
+                vm.RegisterExternal<int, int, string>("Doc_PrintLines", Doc_PrintLines);
+            if (IsDeclared("Doc_Show"))
+                vm.RegisterExternal<int>("Doc_Show", Doc_Show);
+            if (IsDeclared("Doc_SetLevel"))
+                vm.RegisterExternal<int, string>("Doc_SetLevel", Doc_SetLevel);
+            if (IsDeclared("Doc_SetLevelCoords"))
+                vm.RegisterExternal<int, int, int, int, int>("Doc_SetLevelCoords", Doc_SetLevelCoords);
+        }
+
+        public int Doc_Create()
+        {
+            return _docService.Create(false);
+        }
+
+        public int Doc_CreateMap()
+        {
+            return _docService.Create(true);
+        }
+
+        public void Doc_SetPages(int document, int count)
+        {
+            _docService.SetPages(document, count);
+        }
+
+        /// <param name="scale">Whether the texture is scaled to the page - our viewer always does.</param>
+        public void Doc_SetPage(int document, int page, string texture, int scale)
+        {
+            _docService.SetPage(document, page, texture);
+        }
+
+        public void Doc_SetFont(int document, int page, string font)
+        {
+            _docService.SetFont(document, page, font);
+        }
+
+        /// <param name="isInPixels">Margins in pixels of the page texture (1) - the scripts always use pixels.</param>
+        public void Doc_SetMargins(int document, int page, int left, int top, int right, int bottom, int isInPixels)
+        {
+            _docService.SetMargins(document, page, left, top, right, bottom);
+        }
+
+        public void Doc_PrintLine(int document, int page, string text)
+        {
+            _docService.PrintLine(document, page, text);
+        }
+
+        /// <summary>
+        /// A paragraph that wraps at the page's margins (the viewer wraps every line).
+        /// </summary>
+        public void Doc_PrintLines(int document, int page, string text)
+        {
+            _docService.PrintLine(document, page, text);
+        }
+
+        public void Doc_Show(int document)
+        {
+            _docService.Show(document);
+        }
+
+        public void Doc_SetLevel(int document, string level)
+        {
+            _docService.SetLevel(document, level);
+        }
+
+        public void Doc_SetLevelCoords(int document, int left, int top, int right, int bottom)
+        {
+            _docService.SetLevelCoords(document, left, top, right, bottom);
         }
 
         public void PrintDebug(string message)

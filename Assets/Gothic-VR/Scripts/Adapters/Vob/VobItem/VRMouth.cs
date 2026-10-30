@@ -9,6 +9,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -30,6 +31,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         
         // Do not eat them twice during destroy time.
@@ -47,6 +50,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             Logger.Log($"Eating item: {go.name}", LogCat.VR);
+            // Its use function does what it's for: a potion heals, food feeds.
+            _npcInventoryService.UseItem(_npcService.GetHeroContainer(), item);
 
             // Defines after which time period the object will be destroyed in hand.
             var destroyTime = 1f;

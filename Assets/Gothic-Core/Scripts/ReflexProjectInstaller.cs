@@ -81,6 +81,7 @@ namespace Gothic.Core
             // Player
             containerBuilder.AddSingleton(typeof(DialogService));
             containerBuilder.AddSingleton(typeof(PlayerService));
+            containerBuilder.AddSingleton(typeof(DocService));
             
             // NPC
             containerBuilder.AddSingleton(typeof(NpcService));

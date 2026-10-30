@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -16,6 +18,35 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
+
+        // VmService leads back to this service through its own dependencies - resolved on first use.
+        private VmService _vmService;
+        private VmService VmService => _vmService ??= ReflexProjectInstaller.DIContainer.Resolve<VmService>();
+
+        /// <summary>
+        /// Like the engine (OpenGothic Inventory::use): the item's use function (on_state[0]) runs with the NPC as self
+        /// and the item as item - a potion heals, food feeds, a letter or map is shown (Doc_*). The caller takes care of
+        /// the item itself (eaten or kept).
+        /// </summary>
+        public void UseItem(NpcContainer npc, ItemInstance item)
+        {
+            var function = item.GetOnState(ItemStateSlot.Slot0);
+            if (function <= 0 || npc?.Instance == null)
+                return;
+
+            var vm = _gameStateService.GothicVm;
+            var oldItem = vm.GlobalItem;
+            vm.GlobalItem = item;
+            try
+            {
+                Logger.Log($"[NpcInventory] {npc.Instance.GetName(NpcNameSlot.Slot0)} uses {item.Name}", LogCat.Npc);
+                VmService.CallAsNpc(function, npc.Instance, null, null, LogCat.Npc);
+            }
+            finally
+            {
+                vm.GlobalItem = oldItem;
+            }
+        }
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)

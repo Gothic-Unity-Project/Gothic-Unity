@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Doc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -126,6 +127,9 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        // A book, letter or map is shown (Doc_Show) - the platform's viewer opens it.
+        public static readonly UnityEvent<DocModel> DocShown = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 
