@@ -25,10 +25,7 @@ namespace Gothic.Core.Services.Npc
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {
-            var props = npc.GetUserData().Props;
-            var itemData = _vmCacheService.TryGetItemData(itemId);
-            
-            props.EquippedItems.Add(itemData);
+            Equipment.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
         }
         
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)

@@ -88,6 +88,50 @@ namespace Gothic.Core.Services.Npc
             return true;
         }
 
+        /// <summary>
+        /// The scripts' EquipItem: like the engine, it puts the item on without checking its conditions (an NPC's armor
+        /// protects it, found on BoroBongo's branch). While the NPC's instance is built (no object yet), only the
+        /// instance gets the protection: a new NPC copies it to its vob, a loaded one keeps its saved values - added
+        /// again they would count twice. Running on_equip inside the instance's constructor is left out then.
+        /// </summary>
+        public void EquipByScript(NpcContainer npc, ItemInstance item)
+        {
+            if (npc?.Props == null || item == null)
+                return;
+
+            if (!IsWearable(item))
+            {
+                npc.Props.EquippedItems.Add(item);
+                return;
+            }
+
+            if (IsEquipped(npc, item))
+                return;
+
+            var isBeingBuilt = npc.Go == null;
+            if (!IsRing(item))
+            {
+                var worn = npc.Props.EquippedItems.FirstOrDefault(i => IsSameSlot(i, item));
+                if (worn != null)
+                {
+                    if (isBeingBuilt)
+                        npc.Props.EquippedItems.Remove(worn);
+                    else
+                        Unequip(npc, worn);
+                }
+            }
+
+            npc.Props.EquippedItems.Add(item);
+            if (isBeingBuilt)
+            {
+                ChangeInstanceProtection(npc, item);
+                return;
+            }
+
+            ChangeProtection(npc, item, 1);
+            CallItemFunction(npc, item, item.OnEquip);
+        }
+
         public bool Unequip(NpcContainer npc, ItemInstance item)
         {
             var worn = npc.Props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
@@ -195,6 +239,16 @@ namespace Gothic.Core.Services.Npc
                 var value = npc.Vob.GetProtection(i) + change;
                 npc.Vob.SetProtection(i, value);
                 npc.Instance.SetProtection((DamageType)i, value);
+            }
+        }
+
+        private static void ChangeInstanceProtection(NpcContainer npc, ItemInstance item)
+        {
+            for (var i = 0; i < _protectionCount; i++)
+            {
+                var change = item.GetProtection((DamageType)i);
+                if (change != 0)
+                    npc.Instance.SetProtection((DamageType)i, npc.Instance.GetProtection((DamageType)i) + change);
             }
         }
 
