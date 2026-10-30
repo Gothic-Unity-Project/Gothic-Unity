@@ -1,6 +1,6 @@
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.UI;
-using Gothic.Core.Services.Audio;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
