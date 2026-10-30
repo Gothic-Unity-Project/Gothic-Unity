@@ -8,6 +8,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
 using Reflex.Attributes;
+using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
@@ -68,18 +69,38 @@ namespace Gothic.Core.Services.Caches
             }
 
             ItemInstance newData = null;
-            try
+            // ZenKit aborts the whole process (not an exception) when asked to initialize anything else as an item.
+            if (IsItemInstance(_gameStateService.GothicVm.GetSymbolByName(preparedKey)))
             {
-                newData = _gameStateService.GothicVm.InitInstance<ItemInstance>(preparedKey);
-            }
-            catch (Exception)
-            {
-                // ignored
+                try
+                {
+                    newData = _gameStateService.GothicVm.InitInstance<ItemInstance>(preparedKey);
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
             }
 
             _itemDataCache[preparedKey] = newData;
 
             return newData;
+        }
+
+        /// <summary>
+        /// An instance whose class (directly or through its prototype) is C_ITEM.
+        /// </summary>
+        private bool IsItemInstance([CanBeNull] DaedalusSymbol symbol)
+        {
+            if (symbol == null || symbol.Type != DaedalusDataType.Instance)
+                return false;
+
+            var vm = _gameStateService.GothicVm;
+            var parent = symbol.Parent >= 0 ? vm.GetSymbolByIndex(symbol.Parent) : null;
+            if (parent is { Type: DaedalusDataType.Prototype })
+                parent = parent.Parent >= 0 ? vm.GetSymbolByIndex(parent.Parent) : null;
+
+            return parent != null && parent.Name.Equals("C_ITEM", StringComparison.OrdinalIgnoreCase);
         }
 
         public FightAiProxy TryGetFightAiData(string nameTemplate, int instanceId)
