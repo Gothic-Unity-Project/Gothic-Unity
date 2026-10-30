@@ -22,8 +22,9 @@ namespace Gothic.VR.Adapters.UI
         private const float _heightBelowEyes = 0.15f;
         private const float _pageHeight = 0.45f;
         private const float _mapHeight = 0.6f;
-        // Gothic's book and letter fonts in page pixels.
-        private const float _fontSize = 22f;
+        // Font size range in page pixels: as large as the page's margins allow.
+        private const float _maxFontSize = 22f;
+        private const float _minFontSize = 6f;
         private const float _markerSize = 24f;
         private const float _fallbackPagePixels = 512f;
 
@@ -111,7 +112,9 @@ namespace Gothic.VR.Adapters.UI
             GothicText.Apply(text);
             if (!string.IsNullOrEmpty(page.Font))
                 text.spriteAsset = fontService.TryGetFont(page.Font) ?? fontService.DefaultSpriteAsset;
-            text.fontSize = _fontSize;
+            text.enableAutoSizing = true;
+            text.fontSizeMax = _maxFontSize;
+            text.fontSizeMin = _minFontSize;
             text.horizontalAlignment = HorizontalAlignmentOptions.Left;
             text.verticalAlignment = VerticalAlignmentOptions.Top;
             text.textWrappingMode = TextWrappingModes.Normal;
