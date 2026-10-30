@@ -30,6 +30,12 @@ namespace Gothic.Core.Services.Npc
         // s_FistWalkL moves only 0.45m per loop) must count, while slow pose drifts (t_Warn) must not.
         private const float _minMovementSpeed = 0.1f; // m/s
 
+        /// <summary>
+        /// Marks an animation's ground sound (*eventSFXGrnd, the steps of walk and run loops) among its sound events:
+        /// the ground's group is added when it plays (AnimationSystem).
+        /// </summary>
+        public const string GroundSoundPrefix = "GROUND:";
+
         // Track cache, two levels: MDS name (as passed by callers, any casing/extension) -> animation name -> track.
         // Both levels ignore case, so the per-PlayAnimation hot path runs without any string normalization
         // allocations (ToLower/extension stripping) - important on mobile chipsets (GC pressure).
@@ -188,6 +194,30 @@ namespace Gothic.Core.Services.Npc
             return mdsTracks;
         }
 
+        /// <summary>
+        /// The animation's sound events, its ground sounds (footsteps) included - they were skipped: NPCs and monsters
+        /// walked without a sound. Found on BoroBongo's branch.
+        /// </summary>
+        private static List<IEventSoundEffect> GetSoundEffects(IAnimation anim)
+        {
+            var soundEffects = anim.SoundEffects.Select(i => i.Cache()).ToList();
+            if (anim.SoundEffectGroundCount == 0)
+                return soundEffects;
+
+            foreach (var ground in anim.SoundEffectsGround)
+            {
+                soundEffects.Add(new CachedEventSoundEffect
+                {
+                    Frame = ground.Frame,
+                    Name = GroundSoundPrefix + ground.Name,
+                    Range = ground.Range,
+                    EmptySlot = ground.EmptySlot
+                });
+            }
+
+            return soundEffects;
+        }
+
         private AnimationTrack CreateTrack(IModelAnimation modelAnimation,
             AnimationSkeleton skeleton, IAnimation anim, IAnimationAlias animAlias, AnimationTrack bakedSource)
         {
@@ -216,7 +246,7 @@ namespace Gothic.Core.Services.Npc
                 // Cache() turns the native interop objects into plain managed copies once. The event lists are
                 // read-only at runtime, so tracks sharing baked data also share them instead of re-marshalling.
                 EventTags = bakedSource?.EventTags ?? anim.EventTags.Select(i => i.Cache()).ToList(),
-                SoundEffects = bakedSource?.SoundEffects ?? anim.SoundEffects.Select(i => i.Cache()).ToList(),
+                SoundEffects = bakedSource?.SoundEffects ?? GetSoundEffects(anim),
                 ParticleEffects = bakedSource?.ParticleEffects ?? anim.ParticleEffects.Select(i => i.Cache()).ToList(),
                 MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList()
             };

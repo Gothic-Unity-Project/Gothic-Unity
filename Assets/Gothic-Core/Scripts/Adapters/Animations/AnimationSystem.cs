@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -726,11 +727,35 @@ namespace Gothic.Core.Adapters.Animations
 
             foreach (var sfx in sfxEvents)
             {
+                if (sfx.Name.StartsWith(AnimationService.GroundSoundPrefix, StringComparison.Ordinal))
+                {
+                    PlayGroundSound(sfx.Name.Substring(AnimationService.GroundSoundPrefix.Length));
+                    continue;
+                }
+
                 var clip = _audioService.GetRandomSoundClip(sfx.Name);
                 PrefabProps.NpcSound.clip = clip;
                 PrefabProps.NpcSound.maxDistance = sfx.Range.ToMeter();
                 PrefabProps.NpcSound.Play();
             }
+        }
+
+        /// <summary>
+        /// A step, like the engine (OpenGothic Npc::emitSoundGround): the sound with the ground's group, RUN_WATER while
+        /// the feet are in water, else RUN_UNDEF (G1's world has almost only UNDEF grounds - stone steps). On top of the
+        /// NPC's other sounds, a step mustn't cut a swing or a scream.
+        /// </summary>
+        private void PlayGroundSound(string soundName)
+        {
+            if (PrefabProps.NpcSound == null)
+                return;
+
+            var feet = Go.transform.position - Vector3.up * _restRootHeight;
+            var isInWater = Physics.Raycast(feet, Vector3.up, _restRootHeight, 1 << Constants.WaterLayer);
+            var clip = (isInWater ? _audioService.GetRandomSoundClip($"{soundName}_WATER") : null) ??
+                       _audioService.GetRandomSoundClip($"{soundName}_UNDEF");
+            if (clip != null)
+                PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
