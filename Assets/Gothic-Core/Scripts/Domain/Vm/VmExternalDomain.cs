@@ -44,6 +44,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly RoomService _roomService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -257,6 +258,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int, string, int>("Wld_SetObjectRoutine", Wld_SetObjectRoutine);
             vm.RegisterExternal<int, int, string, int>("Wld_SetMobRoutine", Wld_SetMobRoutine);
             vm.RegisterExternal<string, int>("Wld_AssignRoomToGuild", Wld_AssignRoomToGuild);
+            RegisterRoomExternals(vm);
             vm.RegisterExternal<int, int, int>("Wld_GetGuildAttitude", Wld_GetGuildAttitude);
             vm.RegisterExternal<string>("Wld_SendTrigger", Wld_SendTrigger);
             vm.RegisterExternal<string>("Wld_SendUntrigger", Wld_SendUntrigger);
@@ -1367,14 +1369,51 @@ namespace Gothic.Core.Domain.Vm
             _npcService.MobRoutines[name].Add((hour, minute, status));
         }
 
-        private bool _debugWld_AssignRoomToGuildExecuted;
         public void Wld_AssignRoomToGuild(string room, int guild)
         {
-            if (!_debugWld_AssignRoomToGuildExecuted)
-            {
-                Logger.LogWarningEditor($"Method >Wld_AssignRoomToGuild< not yet implemented in DaedalusVM.", LogCat.ZenKit);
-                _debugWld_AssignRoomToGuildExecuted = true;
-            }
+            _roomService.AssignRoomToGuild(room, guild);
+        }
+
+        /// <summary>
+        /// Rooms (RoomService), like OpenGothic: registered where the game's scripts declare them.
+        /// </summary>
+        private void RegisterRoomExternals(DaedalusVm vm)
+        {
+            if (vm.GetSymbolByName("Wld_GetPlayerPortalGuild") != null)
+                vm.RegisterExternal("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild);
+            if (vm.GetSymbolByName("Wld_GetFormerPlayerPortalGuild") != null)
+                vm.RegisterExternal("Wld_GetFormerPlayerPortalGuild", Wld_GetFormerPlayerPortalGuild);
+            if (vm.GetSymbolByName("Npc_GetPortalGuild") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild);
+            if (vm.GetSymbolByName("Npc_IsInPlayersRoom") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom);
+        }
+
+        public int Wld_GetPlayerPortalGuild()
+        {
+            return _roomService.GetGuildOfRoom(_roomService.HeroRoom);
+        }
+
+        public int Wld_GetFormerPlayerPortalGuild()
+        {
+            return _roomService.GetGuildOfRoom(_roomService.HeroFormerRoom);
+        }
+
+        public int Npc_GetPortalGuild(NpcInstance npc)
+        {
+            return _roomService.GetGuildOfRoom(_roomService.GetRoomOf(npc?.GetUserData()));
+        }
+
+        /// <summary>
+        /// Like OpenGothic: the NPC's room is the hero's - outdoors counts as one room too.
+        /// </summary>
+        public int Npc_IsInPlayersRoom(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Go == null)
+                return 0;
+
+            return _roomService.GetRoomOf(container).EqualsIgnoreCase(_roomService.HeroRoom) ? 1 : 0;
         }
 
         public int Wld_GetGuildAttitude(int guild1, int guild2)
