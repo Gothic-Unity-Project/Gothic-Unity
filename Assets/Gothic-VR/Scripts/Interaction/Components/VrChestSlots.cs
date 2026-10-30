@@ -29,8 +29,7 @@ namespace Gothic.VR.Interaction.Components
     /// </summary>
     public class VrChestSlots : MonoBehaviour
     {
-        // Need to be updated if oCMobContainer.prefab is changed.
-        private const int SlotRows = 3;
+        // The slot count comes from the slots prefab, the rows follow from it.
         private const int SlotsPerRow = 4;
         private const float SlotRadius = 0.1f;
         private const float SlotCollectionMargin = SlotRadius / 2;
@@ -188,8 +187,9 @@ namespace Gothic.VR.Interaction.Components
             var centeredMainBound = new Bounds(Vector3.zero, mainMeshBounds.size);
 
             // Align all slots in row+column based on actual sizes.
+            var slotRows = Math.Max(1, (_container.Sockets.Count + SlotsPerRow - 1) / SlotsPerRow);
             var rowWidth = (centeredMainBound.size.x - 2 * SlotCollectionMargin) / SlotsPerRow;
-            var rowDepth = (centeredMainBound.size.z - 2 * SlotCollectionMargin) / SlotRows;
+            var rowDepth = (centeredMainBound.size.z - 2 * SlotCollectionMargin) / slotRows;
 
             // Calculate center of a grid-element for a slot ring entry.
             var middleAlignmentX = (rowWidth - SlotRadius * 2) / 2;
