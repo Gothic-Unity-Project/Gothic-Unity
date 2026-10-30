@@ -128,6 +128,24 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
+        /// The spell's effects spread a wave that touches NPCs (emCheckCollision), e.g. G1's fear: spellFX_Fear's cast key
+        /// creates spellFX_Fear_Face, which creates spellFX_Fear_WAVE - whoever it touches perceives the spell.
+        /// </summary>
+        public bool HasCollidingWave(string spellName)
+        {
+            var effect = GetEffect(GetKey($"spellFX_{spellName}_KEY_CAST")?.EmCreateFxId);
+            for (var depth = 0; effect != null && depth < 3; depth++)
+            {
+                if (effect.EmCheckCollision != 0)
+                    return true;
+
+                effect = GetEffect(effect.EmFxCreateS);
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// What shows where a spell hits: the effect's collision effect (emFXCollDyn_S on an NPC, emFXCollStat_S on a
         /// wall), else for an NPC the one of the effect its cast key creates (ice wave: the ice on the victim).
         /// </summary>

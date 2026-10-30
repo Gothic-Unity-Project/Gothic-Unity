@@ -38,6 +38,8 @@ namespace Gothic.Core.Services.Npc
         // C_Spell.targetCollectAlgo: TARGET_COLLECT_ALL, TARGET_COLLECT_ALL_FALLBACK_NONE - everybody around.
         private const int _targetCollectAll = 3;
         private const int _targetCollectAllFallbackNone = 6;
+        // In m: how far the colliding wave of a spell without target reaches (G1 fear: 1000 cm in its comment).
+        private const float _waveRange = 10f;
         // Wld_SpawnNpcRange puts summons this far from the caster (OpenGothic fixNpcPosition: 100 cm).
         private const float _summonDistance = 1f;
         // Spell scripts write these on the instance (G2 Spell_Cast_*: self.attribute[ATR_MANA] = ...).
@@ -391,9 +393,13 @@ namespace Gothic.Core.Services.Npc
             {
                 _spellEffects.CreateParticles(effect, origin, Quaternion.identity, _castEffectSeconds);
                 if (cast.Spell.TargetCollectAlgo is _targetCollectAll or _targetCollectAllFallbackNone)
-                    HitEverybodyAround(cast, direction);
+                    HitEverybodyAround(cast, direction, cast.Spell.TargetCollectRange / 100f,
+                        cast.Spell.TargetCollectAzi);
                 else if (cast.Target != null)
                     HitWithSpell(cast, cast.Target, 1);
+                else if (cast.Spell.SpellType == _spellBad && _spellEffects.HasCollidingWave(
+                             _spellData.GetName(cast.SpellId)))
+                    HitEverybodyAround(cast, direction, _waveRange, 360);
             }
 
             Logger.Log($"[Magic] {cast.Caster.Instance.GetName(NpcNameSlot.Slot0)}'s {cast.Item.Name} goes off at " +
@@ -416,16 +422,16 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Spells for everybody around (fire rain, ice wave, mass death): every NPC within the spell's
-        /// targetCollectRange and its horizontal angle (targetCollectAzi) in front of the caster is hit.
+        /// Spells for everybody around (fire rain, ice wave, mass death: the spell's targetCollectRange and
+        /// targetCollectAzi; G1 fear: the reach of its wave): every NPC within the range and the horizontal angle in front
+        /// of the caster is hit.
         /// </summary>
-        private void HitEverybodyAround(SpellCast cast, Vector3 direction)
+        /// <param name="range">In m.</param>
+        /// <param name="angle">Degrees, 360 (or 0) all around.</param>
+        private void HitEverybodyAround(SpellCast cast, Vector3 direction, float range, int angle)
         {
             var center = cast.Caster.Go.transform.position;
-            var range = cast.Spell.TargetCollectRange / 100f;
-            var halfAngle = cast.Spell.TargetCollectAzi >= 360 || cast.Spell.TargetCollectAzi <= 0
-                ? 180f
-                : cast.Spell.TargetCollectAzi / 2f;
+            var halfAngle = angle >= 360 || angle <= 0 ? 180f : angle / 2f;
             var forward = new Vector3(direction.x, 0f, direction.z);
             var impact = _spellEffects.GetImpactEffect(_spellData.GetName(cast.SpellId), true);
 
