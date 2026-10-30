@@ -8,6 +8,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToWp : AbstractWalkAnimationAction2
     {
+        // Within this distance (m) the NPC stands on the waypoint it reached last (OpenGothic: 40 cm, more for shared
+        // points - our NPCs stop a bit less exactly).
+        private const float _onWayPointDistance = 1f;
+
         private string Destination => Action.String0;
 
         private Stack<DijkstraWaypoint> _route;
@@ -18,7 +22,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
+            // Like the engine (OpenGothic World::wayTo), the route starts at the waypoint the NPC stands on, else at the
+            // nearest one. The stored one alone made an NPC interrupted on its way walk back to it first.
+            var currentWaypoint = Props.CurrentWayPoint;
+            if (currentWaypoint == null || (currentWaypoint.Position - NpcGo.transform.position).sqrMagnitude >
+                _onWayPointDistance * _onWayPointDistance)
+                currentWaypoint = WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
             
             /*
@@ -59,7 +68,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override void OnDestinationReached()
         {
-            _route.Pop();
+            // The waypoint the NPC is at now - where its next route starts (found on BoroBongo's branch).
+            if (WayNetService.GetWayNetPoint(_route.Pop().Name) is WayPoint reached)
+                Props.CurrentWayPoint = reached;
 
             if (_route.Count != 0)
             {

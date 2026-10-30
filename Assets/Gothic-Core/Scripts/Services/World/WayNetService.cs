@@ -203,12 +203,27 @@ namespace Gothic.Core.Creator
 
         public WayPoint FindNearestWayPoint(Vector3 lookupPosition, bool findSecondNearest = false)
         {
-            var wayPoint = _gameStateService.WayPoints
-                .OrderBy(pair => Vector3.Distance(pair.Value.Position, lookupPosition))
-                .Skip(findSecondNearest ? 1 : 0)
-                .FirstOrDefault();
+            // One pass without sorting all waypoints (G1 has thousands) - every route start calls it.
+            WayPoint nearest = null, secondNearest = null;
+            float nearestDistance = float.MaxValue, secondDistance = float.MaxValue;
+            foreach (var wayPoint in _gameStateService.WayPoints.Values)
+            {
+                var distance = (wayPoint.Position - lookupPosition).sqrMagnitude;
+                if (distance < nearestDistance)
+                {
+                    secondNearest = nearest;
+                    secondDistance = nearestDistance;
+                    nearest = wayPoint;
+                    nearestDistance = distance;
+                }
+                else if (distance < secondDistance)
+                {
+                    secondNearest = wayPoint;
+                    secondDistance = distance;
+                }
+            }
 
-            return wayPoint.Value;
+            return findSecondNearest ? secondNearest : nearest;
         }
 
         /// <summary>
