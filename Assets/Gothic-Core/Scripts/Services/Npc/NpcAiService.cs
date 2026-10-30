@@ -535,6 +535,39 @@ namespace Gothic.Core.Services.Npc
         }
         
 
+        /// <summary>
+        /// The nearest dead NPC this one senses (OpenGothic updateNearestBody, free line of sight), within the
+        /// perception's range if it has one.
+        /// </summary>
+        public NpcInstance FindNearestBody(NpcInstance self)
+        {
+            var selfNpc = self.GetUserData();
+            if (selfNpc?.Go == null)
+                return null;
+
+            var selfPosition = selfNpc.Go.transform.position;
+            var range = Mathf.Min(self.SensesRange / 100f,
+                _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessBody));
+            var closestSqrDist = range * range;
+            NpcContainer closest = null;
+
+            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            {
+                if (candidate == selfNpc || candidate.Props == null || candidate.Go == null ||
+                    candidate.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                    continue;
+
+                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+                if (sqrDist > closestSqrDist || !_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
+                    continue;
+
+                closestSqrDist = sqrDist;
+                closest = candidate;
+            }
+
+            return closest?.Instance;
+        }
+
         public void UpdateEnemyNpc(NpcInstance self)
         {
             var selfNpc = self.GetUserData();

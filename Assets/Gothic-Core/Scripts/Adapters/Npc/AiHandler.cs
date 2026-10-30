@@ -217,8 +217,19 @@ namespace Gothic.Core.Adapters.Npc
             }
 
 
+            // Like the engine (OpenGothic Npc::perceptionProcess): the nearest body the NPC senses - monsters eat it,
+            // humans look at the dead (found on BoroBongo's branch).
+            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessBody, out var bodyPerception) &&
+                bodyPerception >= 0)
+            {
+                var body = _npcAiService.FindNearestBody(NpcInstance);
+                if (body != null)
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessBody, Properties, NpcInstance,
+                        null, body);
+            }
+
             // FIXME - We need to add other active perceptions here:
-            //         PERC_ASSESSBODY, PERC_ASSESSITEM, PERC_ASSESSFIGHTER
+            //         PERC_ASSESSITEM, PERC_ASSESSFIGHTER
             //         But at best when we test it immediately
 
             // Reset timer if we executed Perceptions.
