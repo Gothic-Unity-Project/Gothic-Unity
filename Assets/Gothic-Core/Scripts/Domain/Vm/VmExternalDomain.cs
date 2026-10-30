@@ -90,6 +90,7 @@ namespace Gothic.Core.Domain.Vm
             // AI
             vm.RegisterExternal<NpcInstance>("Ai_Attack", Ai_Attack);
             vm.RegisterExternal<NpcInstance>("AI_StandUp", AI_StandUp);
+            vm.RegisterExternal<NpcInstance>("AI_Flee", AI_Flee);
             vm.RegisterExternal<NpcInstance>("AI_StandUpQuick", AI_StandUpQuick);
             vm.RegisterExternal<NpcInstance, int>("AI_SetWalkMode", AI_SetWalkMode);
             vm.RegisterExternal<NpcInstance>("AI_AlignToFP", AI_AlignToFP);
@@ -358,6 +359,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_StandUp(NpcInstance npc)
         {
             _npcAiService.ExtAiStandUp(npc);
+        }
+
+        public void AI_Flee(NpcInstance npc)
+        {
+            _npcAiService.ExtAiFlee(npc);
         }
 
         public void AI_StandUpQuick(NpcInstance npc)

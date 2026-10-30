@@ -276,6 +276,12 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// G1 docs: like AI_StandUp, but pops out of a mob without its back transitions.
         /// </summary>
+        public void ExtAiFlee(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            container?.Props.AnimationQueue.Enqueue(new Flee(new AnimationAction(), container));
+        }
+
         public void ExtAiStandUpQuick(NpcInstance npc)
         {
             var container = npc.GetUserData();
