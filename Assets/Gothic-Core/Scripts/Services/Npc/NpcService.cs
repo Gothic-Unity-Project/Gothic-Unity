@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly EquipmentService _equipmentService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -242,8 +243,9 @@ namespace Gothic.Core.Services.Npc
 
             if (data.Armor >= 0)
             {
+                // Like the engine (OpenGothic mdl_setvisualbody): the armor is worn like with EquipItem - it protects.
                 var armorData = _vmCacheService.TryGetItemData(data.Armor);
-                props.EquippedItems.Add(_vmCacheService.TryGetItemData(data.Armor));
+                _equipmentService.EquipByScript(data.Npc.GetUserData(), armorData);
                 props.MdmName = armorData.VisualChange;
             }
             else
