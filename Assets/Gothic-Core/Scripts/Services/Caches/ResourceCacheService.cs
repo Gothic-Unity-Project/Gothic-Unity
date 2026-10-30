@@ -31,6 +31,9 @@ namespace Gothic.Core.Services.Caches
         private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default);
 
         private readonly HashSet<string> _brokenSegments = new();
+        // Segments loaded and downloaded once - music zones switch themes back and forth, no need to parse and download
+        // a theme again on the main thread while the audio thread renders (found on BoroBongo's branch).
+        private readonly Dictionary<string, Segment> _downloadedSegments = new(StringComparer.OrdinalIgnoreCase);
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -219,6 +222,8 @@ namespace Gothic.Core.Services.Caches
         {
             if (_brokenSegments.Contains(key))
                 return null;
+            if (_downloadedSegments.TryGetValue(key, out var downloaded))
+                return downloaded;
 
             Segment segment = null;
 
@@ -227,9 +232,10 @@ namespace Gothic.Core.Services.Caches
                 segment = _dmLoader.GetSegment(key);
 
                 // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
-                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
-                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                // whose instrument data dmusic can't download.
                 segment?.Download(_dmLoader);
+                if (segment != null)
+                    _downloadedSegments[key] = segment;
                 return segment;
             }
             catch (Exception e)
