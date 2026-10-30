@@ -8,6 +8,7 @@ using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -30,6 +31,7 @@ namespace Gothic.Core.Domain.Npc
 
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VobService _vobService;
 
         // MagicService: the cast, the NPC hit (null at a wall or the end of the flight), where.
         private readonly Action<SpellCast, NpcContainer, Vector3> _onHit;
@@ -68,6 +70,7 @@ namespace Gothic.Core.Domain.Npc
             List<NpcContainer> candidates)
         {
             var position = start;
+            var hitZones = new HashSet<Collider>();
             for (var time = 0f; time < _maxFlightSeconds; time += Time.deltaTime)
             {
                 yield return null;
@@ -81,6 +84,7 @@ namespace Gothic.Core.Domain.Npc
                     yield break;
                 }
 
+                _vobService.DispatchDamageAlong(position, next, hitZones);
                 if (Physics.Linecast(position, next, out var hit, _blockingLayers, QueryTriggerInteraction.Ignore))
                 {
                     End(visual);

@@ -62,6 +62,8 @@ namespace Gothic.Core.Services.Vobs
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
+        // Trigger zones a projectile crosses in one step (DispatchDamageAlong).
+        private readonly RaycastHit[] _zoneHits = new RaycastHit[8];
 
         // Important: All of them are not culled!
         private static readonly VirtualObjectType[] _vobTypesNonLazyLoading =
@@ -582,6 +584,32 @@ namespace Gothic.Core.Services.Vobs
         /// Used by Wld_SendTrigger, trigger VOBs and mob-grab targets.
         /// senderName: name of the VOB that initiated the trigger (needed by CodeMaster slave matching).
         /// </summary>
+        /// <summary>
+        /// A projectile (arrow, spell) flew from one point to the next: the trigger zones it crossed get the damage, once
+        /// per flight. Like the engine (zCTrigger reactToOnDamage), those reacting to it fire - G2 Irdorath's far
+        /// switches of the big bridge are shot.
+        /// </summary>
+        /// <param name="hitZones">The zones this projectile already crossed.</param>
+        public void DispatchDamageAlong(Vector3 from, Vector3 to, HashSet<Collider> hitZones)
+        {
+            var direction = to - from;
+            var distance = direction.magnitude;
+            if (distance < 0.0001f)
+                return;
+
+            var count = Physics.RaycastNonAlloc(from, direction / distance, _zoneHits, distance,
+                LayerMask.GetMask("Ignore Raycast"), QueryTriggerInteraction.Collide);
+            for (var i = 0; i < count; i++)
+            {
+                var zone = _zoneHits[i].collider;
+                if (zone == null || !zone.isTrigger || !hitZones.Add(zone))
+                    continue;
+
+                zone.GetComponentInParent<TriggerZoneHandler>()?.ReceiveDamage();
+                zone.GetComponentInParent<TriggerScriptHandler>()?.ReceiveDamage();
+            }
+        }
+
         public void DispatchTrigger(string name, string senderName = "")
         {
             if (string.IsNullOrEmpty(name))

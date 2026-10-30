@@ -35,6 +35,18 @@ namespace Gothic.Core.Adapters.Vob
             FireTarget();
         }
 
+        /// <summary>
+        /// A projectile flew through the zone (VobService.DispatchDamageAlong): it fires if it reacts to damage.
+        /// </summary>
+        public void ReceiveDamage()
+        {
+            if (!_trigger.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[TriggerZone] '{_trigger.Name}' hit", LogCat.Vob);
+            FireTarget();
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (!_trigger.ReactToOnTouch || !RespondsTo(other))

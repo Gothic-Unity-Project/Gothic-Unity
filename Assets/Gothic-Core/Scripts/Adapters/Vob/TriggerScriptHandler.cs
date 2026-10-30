@@ -56,6 +56,16 @@ namespace Gothic.Core.Adapters.Vob
             _vmService.Vm.Call(sym.Index);
         }
 
+        /// <summary>
+        /// A projectile flew through the zone (VobService.DispatchDamageAlong): it calls its function if it reacts to
+        /// damage.
+        /// </summary>
+        public void ReceiveDamage()
+        {
+            if (_triggerScript.ReactToOnDamage)
+                Trigger();
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (!other.CompareTag(Constants.PlayerTag))

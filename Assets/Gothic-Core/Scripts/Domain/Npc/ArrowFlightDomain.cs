@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -27,6 +29,7 @@ namespace Gothic.Core.Domain.Npc
         private const float _missedArrowSeconds = 15f;
 
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly VobService _vobService;
 
         // FightService.OnRangedHit(shooter, target, weapon, flight distance).
         private readonly Action<NpcContainer, NpcContainer, ItemInstance, float> _onHit;
@@ -63,6 +66,7 @@ namespace Gothic.Core.Domain.Npc
         {
             var position = start;
             var travelled = 0f;
+            var hitZones = new HashSet<Collider>();
             for (var time = 0f; time < _maxFlightSeconds; time += Time.deltaTime)
             {
                 yield return null;
@@ -80,6 +84,7 @@ namespace Gothic.Core.Domain.Npc
                     yield break;
                 }
 
+                _vobService.DispatchDamageAlong(position, next, hitZones);
                 if (Physics.Linecast(position, next, out var hit, _blockingLayers, QueryTriggerInteraction.Ignore))
                 {
                     Place(arrow, hit.point, step);
