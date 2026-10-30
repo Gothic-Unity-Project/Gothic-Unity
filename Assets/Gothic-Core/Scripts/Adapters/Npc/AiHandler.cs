@@ -33,6 +33,7 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcFallService _npcFallService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VmService _vmService;
 
@@ -72,6 +73,7 @@ namespace Gothic.Core.Adapters.Npc
                 return;
             }
 
+            _npcFallService.Tick(NpcData);
             ExecuteActivePerceptions();
             ExecuteStates();
 

@@ -55,6 +55,10 @@ namespace Gothic.Core.Adapters.Properties
         // AI topics
 
         public NpcInstance EnemyNpc;
+
+        // Falling (NpcFallService): the height (body y) it fell from, null while not in the air, and the last ground.
+        public float? FallStartY;
+        public float LastGroundY;
         public NpcInstance TargetNpc;
 
         // Like the engine, a state keeps the other/victim it was started with (AI_StartState): ZS_Attack_Loop fights
