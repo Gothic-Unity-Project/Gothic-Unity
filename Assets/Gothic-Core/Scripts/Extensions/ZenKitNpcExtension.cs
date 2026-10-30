@@ -22,9 +22,9 @@ namespace Gothic.Core.Extensions
 
         /// <summary>
         /// ZenKitCAPI's ZkNpc_setAiVars copies the array length as BYTES (memcpy(aivar, vars, len)), i.e.
-        /// Npc.AiVars = int[50] only stores the first 13 values. ZkNpc_getAiVars returns the native int[100] array,
+        /// Npc.AiVars = int[50] only stores the first 12 values. ZkNpc_getAiVars returns the native int[100] array,
         /// we therefore write through it. Returns false if the VOB has no native handle.
-        /// FIXME - Remove once ZenKitCAPI copies len * sizeof(int).
+        /// FIXME - Remove once https://github.com/GothicKit/ZenKitCAPI/pull/5 is merged and shipped with ZenKitCS.
         /// </summary>
         public static bool TrySetAiVars(this IVirtualObject npc, int[] values)
         {
