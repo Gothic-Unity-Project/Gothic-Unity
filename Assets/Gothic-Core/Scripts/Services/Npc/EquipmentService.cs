@@ -24,6 +24,7 @@ namespace Gothic.Core.Services.Npc
     {
         private const int _maxRings = 2;
         private const int _protectionCount = 8;
+        private const int _attributeCount = 8;
         // VR moves an item between hand and backpack by taking it out of the inventory and back in. Only an item that
         // stays gone this long is taken off.
         private const float _goneCheckSeconds = 0.5f;
@@ -212,6 +213,28 @@ namespace Gothic.Core.Services.Npc
             finally
             {
                 vm.GlobalItem = oldItem;
+            }
+
+            CopyStatsFromInstance(npc);
+        }
+
+        /// <summary>
+        /// The item's script changes the instance (self.protection[], self.attribute[]) - the vob keeps the same
+        /// values for C# (damage, health bars).
+        /// </summary>
+        private static void CopyStatsFromInstance(NpcContainer npc)
+        {
+            for (var i = 0; i < _protectionCount; i++)
+                npc.Vob.SetProtection(i, npc.Instance.GetProtection((DamageType)i));
+
+            for (var i = 0; i < _attributeCount; i++)
+            {
+                var value = npc.Instance.GetAttribute((NpcAttribute)i);
+                if (npc.Vob.GetAttribute(i) == value)
+                    continue;
+
+                npc.Vob.SetAttribute(i, value);
+                GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, (NpcAttribute)i);
             }
         }
     }
