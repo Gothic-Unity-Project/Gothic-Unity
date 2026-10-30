@@ -38,6 +38,9 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
   passes within 0.45 m of him and stops at walls. `RangedDamageDomain`: certain up close, the shooter's chance at the
   reference range (G1 dexterity, G2 hit chance), none beyond 45 m; damage per type minus protection (G2 plus
   dexterity, G1 critical by the bow/crossbow talent). Arrows kill, they don't knock out, and leave the downed alone.
+- **The VR hero's bow and crossbow** (`VRBowShooter`): the trigger draws a bow and shoots on release, a crossbow shoots
+  on the press and reloads 1.5 s. `FightService.ShootByHand` takes the munition and flies the arrow where the hand
+  points (`ArrowFlightDomain.LaunchFree`, slower when not fully drawn); it hits the first NPC it passes, no hit chance.
 - `AI_FinishingMove` (scripts' `ZS_Attack_End` against a hostile enemy who is down) walks there, turns and stabs
   (`FinishingMove`, `T_1HSFINISH`/`T_2HSFINISH`); the enemy dies as the stab starts, the hero as well.
 

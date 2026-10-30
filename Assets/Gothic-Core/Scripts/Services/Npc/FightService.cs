@@ -28,6 +28,8 @@ namespace Gothic.Core.Services.Npc
     {
         // Seconds the knocked out hero lies down before he can move again.
         private const float _heroKnockoutSeconds = 10f;
+        // A bow shot without drawing flies at this part of the full speed.
+        private const float _minDrawSpeedFactor = 0.25f;
         // Arrows aim at the VR hero's chest, this far below his head.
         private const float _heroChestBelowHead = 0.4f;
 
@@ -99,8 +101,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// An arrow or bolt reached the target (ArrowFlight). Like the engine, it hits by the shooter's chance at that
-        /// distance and always kills instead of knocking out (MeleeDamageDomain.IsKnockedOutNotKilled).
+        /// An arrow or bolt reached the target (ArrowFlight). Like the engine, an NPC's shot hits by the shooter's chance
+        /// at that distance - the hero aims with his own hands, what his arrow touches is hit. Arrows always kill instead
+        /// of knocking out.
         /// </summary>
         /// <param name="distance">How far the arrow flew, in m.</param>
         public void OnRangedHit(NpcContainer shooter, NpcContainer target, ItemInstance weapon, float distance)
@@ -108,7 +111,7 @@ namespace Gothic.Core.Services.Npc
             if (!CanBeHit(shooter, target))
                 return;
 
-            if (!_rangedDamageDomain.RollHit(shooter, weapon, distance))
+            if (!shooter.IsHero() && !_rangedDamageDomain.RollHit(shooter, weapon, distance))
             {
                 Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} misses " +
                            $"{target.Instance.GetName(NpcNameSlot.Slot0)} at {distance:0.0} m", LogCat.Fight);
@@ -119,7 +122,30 @@ namespace Gothic.Core.Services.Npc
             if (target.IsDown())
                 return;
 
-            ApplyDamage(shooter, target, _rangedDamageDomain.CalculateDamage(shooter, target, weapon));
+            ApplyDamage(shooter, target, _rangedDamageDomain.CalculateDamage(shooter, target, weapon), false);
+        }
+
+        /// <summary>
+        /// The VR hero's bow or crossbow (VRBowShooter): one arrow or bolt of its munition leaves his inventory and flies
+        /// where he aims, at the engine's 30 m/s - slower from a bow not fully drawn.
+        /// </summary>
+        /// <param name="draw">0..1, how far the bow was drawn (a crossbow: 1).</param>
+        /// <returns>False without munition.</returns>
+        public bool ShootByHand(NpcContainer shooter, ItemInstance weapon, Vector3 start, Vector3 direction, float draw)
+        {
+            var munition = _vmCacheService.TryGetItemData(weapon.Munition);
+            if (munition == null || _npcInventoryService.ExtNpcHasItems(shooter.Instance, weapon.Munition) <= 0)
+                return false;
+
+            _npcInventoryService.ExtRemoveInvItems(shooter.Instance, weapon.Munition, 1);
+            Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} shoots {weapon.Name} " +
+                       $"(drawn {draw:0.00})", LogCat.Fight);
+
+            var arrow = CreateArrow(munition, start);
+            _arrowFlightDomain ??= new ArrowFlightDomain(OnRangedHit).Inject();
+            _arrowFlightDomain.LaunchFree(arrow, shooter, weapon, start, direction,
+                Mathf.Lerp(_minDrawSpeedFactor, 1f, draw));
+            return true;
         }
 
         /// <summary>
@@ -208,13 +234,14 @@ namespace Gothic.Core.Services.Npc
             return true;
         }
 
-        private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage)
+        /// <param name="mayKnockOut">False for spells that kill at 0 hit points.</param>
+        private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage, bool mayKnockOut = true)
         {
             var isHero = target.IsHero();
             if (UpdateHealth(attacker, target, damage))
             {
                 // The hero follows the same rule as everybody: monsters and hostile humans kill him.
-                var isKnockedOut = _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
+                var isKnockedOut = mayKnockOut && _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
                 if (isHero && isKnockedOut)
                     KnockOutHero(target, attacker);
                 else if (isKnockedOut)
