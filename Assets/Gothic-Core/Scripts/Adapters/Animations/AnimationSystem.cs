@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using MyBox;
@@ -48,6 +50,7 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly GameStateService _gameStateService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -77,6 +80,8 @@ namespace Gothic.Core.Adapters.Animations
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
         private const float _rootColliderUpdateThreshold = 0.05f;
+        // How far ahead (m) a moving NPC looks for an edge it mustn't walk over.
+        private const float _ledgeProbeDistance = 0.5f;
 
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
@@ -648,7 +653,28 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             // Pos change is applied with rotated value.
-            Go.transform.localPosition += Go.transform.rotation * finalMovement;
+            var move = Go.transform.rotation * finalMovement;
+            if (IsDeepDropAhead(move))
+                move = new Vector3(0f, move.y, 0f);
+            Go.transform.localPosition += move;
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic MoveAlgo::tryMove), an NPC doesn't walk over an edge whose drop is 3/4 of its
+        /// guild's FALLDOWN_HEIGHT or more - lower steps down are fine. Chasing NPCs ran off cliffs and fell to their
+        /// death. One ray down half a meter ahead while it moves.
+        /// </summary>
+        private bool IsDeepDropAhead(Vector3 move)
+        {
+            var horizontal = new Vector3(move.x, 0f, move.z);
+            if (horizontal.sqrMagnitude < 0.000001f || _restRootHeight <= 0f || PrefabProps.CurrentInteractable != null ||
+                _gameStateService.GuildValues == null)
+                return false;
+
+            var maxDrop = _gameStateService.GuildValues.GetFallDownHeight(NpcData.Instance.GetValuesGuild()) * 0.0075f;
+            var probe = Go.transform.position + horizontal.normalized * _ledgeProbeDistance;
+            return !Physics.Raycast(probe, Vector3.down, _restRootHeight + maxDrop, 1 << Constants.DefaultLayer,
+                QueryTriggerInteraction.Ignore);
         }
 
         private void ApplyEvents()
