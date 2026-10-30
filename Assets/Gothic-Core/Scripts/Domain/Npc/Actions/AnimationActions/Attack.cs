@@ -23,6 +23,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // Like the engine, without an enemy set the state's other (ZS_Attack started against it) is fought.
         private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
 
+        // The fight AI's focus (OpenGothic: 30 degrees each side).
+        private const float _focusAngleDegrees = 30f;
         // Fight turns stop inside the focus angle (30) with this tolerance.
         private const float _fightTurnToleranceDegrees = 20f;
         
@@ -72,9 +74,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // Like the engine (OpenGothic FightAlgo::fillQueue), archers and crossbowmen use the far ranged moves only:
             // aim and shoot within their weapon's range, else close in or turn.
+            // The focus is an angle, not a free line of sight (OpenGothic FightAlgo::isInFocusAngle): behind a pillar
+            // the archer froze, only turning (found on BoroBongo's branch).
             if (IsRangedWeaponDrawn())
             {
-                return distance <= _fightService.GetAttackReach(NpcContainer) && isInFocus
+                return distance <= _fightService.GetAttackReach(NpcContainer) && IsInFocusAngle()
                     ? FightConst.AttackActions.MyFkFocusFar
                     : FightConst.AttackActions.MyFkNoFocusFar;
             }
@@ -186,6 +190,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             IsFinishedFlag = true;
+        }
+
+        private bool IsInFocusAngle()
+        {
+            var toEnemy = _enemy.GetUserData().Go.transform.position - NpcGo.transform.position;
+            toEnemy.y = 0f;
+            var forward = NpcGo.transform.forward;
+            forward.y = 0f;
+            return toEnemy.sqrMagnitude < 0.0001f || Vector3.Angle(forward, toEnemy) <= _focusAngleDegrees;
         }
 
         private bool IsRangedWeaponDrawn()

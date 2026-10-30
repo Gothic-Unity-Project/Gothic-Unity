@@ -4,12 +4,14 @@ using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -39,6 +41,8 @@ namespace Gothic.Core.Services.Npc
         private NpcInventoryService _npcInventory;
         private NpcInventoryService _npcInventoryService => _npcInventory ??=
             ReflexProjectInstaller.DIContainer.Resolve<NpcInventoryService>();
+        private MeshService _meshService;
+        private MeshService MeshService => _meshService ??= ReflexProjectInstaller.DIContainer.Resolve<MeshService>();
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -158,8 +162,46 @@ namespace Gothic.Core.Services.Npc
             if (best == null || container.Props.EquippedItems.Any(i => i.Index == best.Index))
                 return;
 
+            var replaced = container.Props.EquippedItems.Where(i => i.MainFlag == (int)kind).ToList();
             container.Props.EquippedItems.RemoveAll(i => i.MainFlag == (int)kind);
             container.Props.EquippedItems.Add(best);
+            ReplaceWeaponMesh(container, replaced, best);
+        }
+
+        /// <summary>
+        /// The new weapon shows on the body instead of the old one (found on BoroBongo's branch: a newly chosen bow was
+        /// invisible). An NPC out of sight gets its weapons from EquippedItems when it's built.
+        /// </summary>
+        private void ReplaceWeaponMesh(NpcContainer npc, List<ItemInstance> replaced, ItemInstance weapon)
+        {
+            if (npc.Go == null)
+                return;
+
+            foreach (var item in replaced)
+            {
+                var slot = npc.Go.FindChildRecursively(DrawWeapon.GetStowSlotName(GetWeaponState(item)));
+                if (slot == null)
+                    continue;
+
+                for (var i = slot.transform.childCount - 1; i >= 0; i--)
+                    UnityEngine.Object.Destroy(slot.transform.GetChild(i).gameObject);
+            }
+
+            MeshService.CreateNpcWeapon(npc.Go, weapon, (VmGothicEnums.ItemFlags)weapon.MainFlag,
+                (VmGothicEnums.ItemFlags)weapon.Flags);
+        }
+
+        private static VmGothicEnums.WeaponState GetWeaponState(ItemInstance weapon)
+        {
+            var flags = (VmGothicEnums.ItemFlags)weapon.Flags;
+            if (weapon.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf)
+                return flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow)
+                    ? VmGothicEnums.WeaponState.CBow
+                    : VmGothicEnums.WeaponState.Bow;
+
+            return flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) || flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd)
+                ? VmGothicEnums.WeaponState.W2H
+                : VmGothicEnums.WeaponState.W1H;
         }
 
         private IEnumerable<ItemInstance> GetWeapons(NpcInstance npc, VmGothicEnums.ItemFlags kind)
@@ -172,9 +214,16 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => i.MainFlag == (int)kind);
         }
 
+        /// <summary>
+        /// A bow or crossbow needs its munition in the inventory - one without munition set has none, like the engine
+        /// (OpenGothic hasAmmunition): a mod archer aimed forever without shooting. Melee weapons need nothing.
+        /// </summary>
         private bool HasMunition(NpcInstance npc, ItemInstance weapon)
         {
-            return weapon.Munition <= 0 || _npcInventoryService.ExtNpcHasItems(npc, weapon.Munition) > 0;
+            if (weapon.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatFf)
+                return true;
+
+            return weapon.Munition > 0 && _npcInventoryService.ExtNpcHasItems(npc, weapon.Munition) > 0;
         }
 
         private static bool MeetsConditions(NpcContainer npc, ItemInstance item)

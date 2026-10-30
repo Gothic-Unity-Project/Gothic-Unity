@@ -28,6 +28,9 @@ namespace Gothic.Core.Services.Npc
     {
         // Seconds the knocked out hero lies down before he can move again.
         private const float _heroKnockoutSeconds = 10f;
+        // In m: a missed shot flies this far beside its target.
+        private const float _missMinOffset = 0.7f;
+        private const float _missMaxOffset = 1.6f;
         // Arrows aim at the VR hero's chest, this far below his head.
         private const float _heroChestBelowHead = 0.4f;
 
@@ -99,21 +102,16 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// An arrow or bolt reached the target (ArrowFlight). Like the engine, it hits by the shooter's chance at that
-        /// distance and always kills instead of knocking out (MeleeDamageDomain.IsKnockedOutNotKilled).
+        /// An arrow or bolt hit an NPC on its way (ArrowFlight) - whether it would hit was rolled at the shot. Like the
+        /// engine (OpenGothic Bullet::onCollide, isFriendlyFire), it doesn't hurt those the shooter is friendly with,
+        /// and a party member's arrow doesn't hurt the hero. It always kills instead of knocking out
+        /// (MeleeDamageDomain.IsKnockedOutNotKilled).
         /// </summary>
         /// <param name="distance">How far the arrow flew, in m.</param>
         public void OnRangedHit(NpcContainer shooter, NpcContainer target, ItemInstance weapon, float distance)
         {
-            if (!CanBeHit(shooter, target))
+            if (!CanBeHit(shooter, target) || IsFriendlyFire(shooter, target))
                 return;
-
-            if (!_rangedDamageDomain.RollHit(shooter, weapon, distance))
-            {
-                Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} misses " +
-                           $"{target.Instance.GetName(NpcNameSlot.Slot0)} at {distance:0.0} m", LogCat.Fight);
-                return;
-            }
 
             // Like the engine, an arrow doesn't finish off whoever lies on the ground.
             if (target.IsDown())
@@ -149,8 +147,44 @@ namespace Gothic.Core.Services.Npc
             var start = GetShotStart(shooter);
             var arrow = CreateArrow(munition, start);
             _arrowFlightDomain ??= new ArrowFlightDomain(OnRangedHit).Inject();
-            _arrowFlightDomain.Launch(arrow, shooter, target, weapon, start, GetAimPoint(target));
+            _arrowFlightDomain.Launch(arrow, shooter, weapon, start, GetShotAimPoint(shooter, target, weapon, start));
             return true;
+        }
+
+        /// <summary>
+        /// Like the engine, the shooter's chance at the distance decides whether the shot hits - rolled at the shot, so a
+        /// miss flies visibly past the target, 0.7 to 1.6 m beside it (found on BoroBongo's branch: misses vanished in
+        /// the player's chest).
+        /// </summary>
+        private Vector3 GetShotAimPoint(NpcContainer shooter, NpcContainer target, ItemInstance weapon, Vector3 start)
+        {
+            var aimPoint = GetAimPoint(target);
+            if (_rangedDamageDomain.RollHit(shooter, weapon, Vector3.Distance(start, aimPoint)))
+                return aimPoint;
+
+            var toTarget = aimPoint - start;
+            var side = Vector3.Cross(Vector3.up, toTarget).normalized;
+            var offset = (Random.value < 0.5f ? -side : side) * Random.Range(_missMinOffset, _missMaxOffset) +
+                         Vector3.up * Random.Range(-0.3f, 0.5f);
+            Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} misses " +
+                       $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            return aimPoint + offset;
+        }
+
+        /// <summary>
+        /// OpenGothic GameScript::isFriendlyFire: the hero's arrows hurt everybody, NPCs' don't hurt whom they're friendly
+        /// with, a party member's don't hurt the hero.
+        /// </summary>
+        private bool IsFriendlyFire(NpcContainer shooter, NpcContainer target)
+        {
+            if (shooter.IsHero())
+                return false;
+
+            if (_npcAiService.ExtGetAttitude(shooter.Instance, target.Instance) == VmGothicEnums.Attitude.Friendly)
+                return true;
+
+            var partyMember = _gameStateService.GothicVm.GetSymbolByName("AIV_PARTYMEMBER");
+            return target.IsHero() && partyMember != null && shooter.Instance.GetAiVar(partyMember.GetInt(0)) != 0;
         }
 
         /// <summary>
@@ -184,7 +218,9 @@ namespace Gothic.Core.Services.Npc
 
         private bool CanBeHit(NpcContainer attacker, NpcContainer target)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            // Nobody down hits anybody: the knocked out or dead VR hero's weapon kept swinging (found on BoroBongo's
+            // branch).
+            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead || attacker.IsDown())
                 return false;
 
             // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.

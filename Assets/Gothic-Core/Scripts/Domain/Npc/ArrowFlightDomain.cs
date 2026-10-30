@@ -1,8 +1,11 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -25,8 +28,11 @@ namespace Gothic.Core.Domain.Npc
         // An arrow flies at most this long, then falls out of the game.
         private const float _maxFlightSeconds = 3f;
         private const float _missedArrowSeconds = 15f;
+        // Only NPCs this close to the shooter can be hit (the longest flight with some margin).
+        private const float _candidateRange = _speed * _maxFlightSeconds + 5f;
 
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
         // FightService.OnRangedHit(shooter, target, weapon, flight distance).
         private readonly Action<NpcContainer, NpcContainer, ItemInstance, float> _onHit;
@@ -38,11 +44,30 @@ namespace Gothic.Core.Domain.Npc
             _blockingLayers = LayerMask.GetMask("Default");
         }
 
-        public void Launch(GameObject arrow, NpcContainer shooter, NpcContainer target, ItemInstance weapon,
-            Vector3 start, Vector3 aimPoint)
+        /// <summary>
+        /// An NPC's shot on a ballistic arc to the aim point. Like the engine (OpenGothic Bullet), it hits whoever it
+        /// passes first, not only whom it was shot at (found on BoroBongo's branch).
+        /// </summary>
+        public void Launch(GameObject arrow, NpcContainer shooter, ItemInstance weapon, Vector3 start, Vector3 aimPoint)
         {
-            _unityMonoService.StartCoroutine(Fly(arrow, shooter, target, weapon, start, GetLaunchVelocity(start,
-                aimPoint)));
+            _unityMonoService.StartCoroutine(Fly(arrow, shooter, GetCandidates(shooter, start), weapon, start,
+                GetLaunchVelocity(start, aimPoint)));
+        }
+
+        private List<NpcContainer> GetCandidates(NpcContainer shooter, Vector3 start)
+        {
+            var candidates = new List<NpcContainer>();
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc == shooter || npc?.Go == null || !npc.Go.activeInHierarchy ||
+                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                    continue;
+
+                if ((npc.Go.transform.position - start).sqrMagnitude <= _candidateRange * _candidateRange)
+                    candidates.Add(npc);
+            }
+
+            return candidates;
         }
 
         /// <summary>
@@ -58,8 +83,8 @@ namespace Gothic.Core.Domain.Npc
             return velocity;
         }
 
-        private IEnumerator Fly(GameObject arrow, NpcContainer shooter, NpcContainer target, ItemInstance weapon,
-            Vector3 start, Vector3 velocity)
+        private IEnumerator Fly(GameObject arrow, NpcContainer shooter, List<NpcContainer> targets,
+            ItemInstance weapon, Vector3 start, Vector3 velocity)
         {
             var position = start;
             var travelled = 0f;
@@ -73,7 +98,8 @@ namespace Gothic.Core.Domain.Npc
                 velocity.y -= _gravity * Time.deltaTime;
                 var next = position + step;
 
-                if (target?.Go != null && DistanceToSegment(GetTargetPoint(target), position, next) < _hitRadius)
+                var target = FindTarget(targets, position, next);
+                if (target != null)
                 {
                     _onHit(shooter, target, weapon, travelled + step.magnitude);
                     Object.Destroy(arrow);
@@ -93,6 +119,18 @@ namespace Gothic.Core.Domain.Npc
             }
 
             Object.Destroy(arrow);
+        }
+
+        private static NpcContainer FindTarget(List<NpcContainer> targets, Vector3 from, Vector3 to)
+        {
+            foreach (var target in targets)
+            {
+                if (target?.Go != null && target.Props?.BodyState != VmGothicEnums.BodyState.BsDead &&
+                    DistanceToSegment(GetTargetPoint(target), from, to) < _hitRadius)
+                    return target;
+            }
+
+            return null;
         }
 
         private static Vector3 GetTargetPoint(NpcContainer target)
