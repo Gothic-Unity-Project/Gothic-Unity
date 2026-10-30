@@ -717,6 +717,51 @@ namespace Gothic.Core.Services.Vobs
             Logger.LogWarning($"[VobService] DispatchUntrigger: '{name}' - no handler found", LogCat.Vob);
         }
 
+        /// <summary>
+        /// A message filter's Enable, Disable or Toggle: like the engine (OpenGothic AbstractTrigger, T_Enable/
+        /// T_Disable/T_ToggleEnable) the named triggers, trigger lists, trigger scripts and movers are switched on or
+        /// off - a disabled one ignores triggers and untriggers. Stored in the VOB's own enabled flag, which Gothic's
+        /// save keeps. Found comparing with BoroBongo's branch.
+        /// </summary>
+        public void DispatchEnable(string name, MessageFilterAction action)
+        {
+            if (string.IsNullOrEmpty(name))
+                return;
+
+            var targets = new List<VobContainer>();
+            if (TryGetMovers(name, out var movers))
+                targets.AddRange(movers);
+
+            var key = name.ToUpper();
+            foreach (var registry in new[]
+                     {
+                         _gameStateService.VobsTrigger, _gameStateService.VobsTriggerList,
+                         _gameStateService.VobsTriggerScript
+                     })
+            {
+                if (registry.TryGetValue(key, out var container))
+                    targets.Add(container);
+            }
+
+            foreach (var target in targets)
+            {
+                if (target?.Vob is not ITrigger trigger)
+                    continue;
+
+                trigger.IsEnabled = action switch
+                {
+                    MessageFilterAction.Enable => true,
+                    MessageFilterAction.Disable => false,
+                    _ => !trigger.IsEnabled
+                };
+                Logger.Log($"[VobService] {action} '{name}' -> {(trigger.IsEnabled ? "enabled" : "disabled")}",
+                    LogCat.Vob);
+            }
+
+            if (targets.Count == 0)
+                Logger.LogWarning($"[VobService] {action} '{name}': no trigger or mover of that name", LogCat.Vob);
+        }
+
         private static bool TryGetTriggerVob(Dictionary<string, VobContainer> registry, string key,
             out VobContainer container)
         {
