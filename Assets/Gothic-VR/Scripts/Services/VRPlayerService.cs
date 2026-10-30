@@ -12,6 +12,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
@@ -29,6 +30,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -186,7 +188,45 @@ namespace Gothic.VR.Services
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
+            var vob = loader.Container?.Vob;
+            if (_mobInteractionService.IsItemExchangeMob(vob))
+            {
+                UseMobWithItem(vob);
+                return;
+            }
+
             _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
+        }
+
+        /// <summary>
+        /// A pan, forge, anvil, cooling barrel or grindstone: the item it needs is taken from the other hand if it holds
+        /// one (it disappears, the new item goes to the inventory), else from the inventory.
+        /// </summary>
+        private void UseMobWithItem(IVirtualObject mob)
+        {
+            var neededItem = ((IInteractiveObject)mob).Item;
+            var heldItem = FindHeldItem(neededItem);
+            if (_mobInteractionService.TryExchangeMobItem(mob, heldItem != null) == null || heldItem == null)
+                return;
+
+            // Releasing it on destroy takes it out of the inventory (UnsetGrab). It doesn't lie in the world anymore.
+            var vobLoader = heldItem.GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container?.Vob != null)
+                _saveGameService.CurrentWorldData.Vobs.Remove(vobLoader.Container.Vob);
+            Object.Destroy(vobLoader != null ? vobLoader.gameObject : heldItem);
+        }
+
+        private GameObject FindHeldItem(string instanceName)
+        {
+            foreach (var held in new[] { GrabbedItemLeft, GrabbedItemRight })
+            {
+                var item = held != null ? held.GetComponentInParent<VobLoader>()?.Container?.VobAs<IItem>() : null;
+                var name = item == null ? null : !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                if (name != null && name.Equals(instanceName, System.StringComparison.OrdinalIgnoreCase))
+                    return held;
+            }
+
+            return null;
         }
 
         /// <summary>

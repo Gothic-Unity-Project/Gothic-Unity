@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -28,6 +29,95 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+
+        // Per mob scheme (PAN, BSFIRE, ...): the item its use turns the used item into, null for none.
+        private readonly Dictionary<string, string> _exchangeItems = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// A mob used with an item and without a script of its own (pan, forge, anvil, cooling barrel, grindstone):
+        /// like the engine, its animation swaps the item (Humans.mds t_SCHEME_S1_2_S0, ItemExchange) - raw mutton
+        /// becomes fried mutton, raw steel hot steel, then a hot blade, a blade and a sword.
+        /// </summary>
+        public bool IsItemExchangeMob(IVirtualObject vob)
+        {
+            return vob is IInteractiveObject mob && vob is not IContainer && vob is not IDoor &&
+                   !string.IsNullOrEmpty(mob.Item) && string.IsNullOrEmpty(mob.OnStateChangeFunction) &&
+                   GetExchangeItem(GetScheme(vob)) != null;
+        }
+
+        /// <summary>
+        /// Turns the mob's item into what the mob makes of it. The hero needs the item: held in his hand (the platform
+        /// takes the held one away, so only the new item is added here) or in his inventory (taken from there).
+        /// </summary>
+        /// <returns>The new item's instance name, null if nothing changed.</returns>
+        public string TryExchangeMobItem(IVirtualObject vob, bool isItemHeld)
+        {
+            if (!IsItemExchangeMob(vob))
+                return null;
+
+            var mob = (IInteractiveObject)vob;
+            var hero = _playerService.HeroContainer;
+            var usedItem = _vmCacheService.TryGetItemData(mob.Item);
+            var newItem = _vmCacheService.TryGetItemData(GetExchangeItem(GetScheme(vob)));
+            if (usedItem == null || newItem == null)
+                return null;
+
+            if (!isItemHeld)
+            {
+                if (_npcInventoryService.ExtNpcHasItems(hero.Instance, usedItem.Index) <= 0)
+                {
+                    Logger.Log($"[MobInteractionService] '{vob.Name}' needs '{mob.Item}'.", LogCat.Vob);
+                    PlayMobMissingItemReaction(hero);
+                    return null;
+                }
+
+                _npcInventoryService.ExtRemoveInvItems(hero.Instance, usedItem.Index, 1);
+            }
+
+            _npcInventoryService.ExtCreateInvItems(hero.Instance, newItem.Index, 1);
+            var newItemName = _gameStateService.GothicVm.GetSymbolByIndex(newItem.Index)?.Name;
+            Logger.Log($"[MobInteractionService] '{vob.Name}' turns {mob.Item} into {newItemName}", LogCat.Vob);
+            return newItemName;
+        }
+
+        private static string GetScheme(IVirtualObject vob)
+        {
+            var visual = vob.Visual?.Name ?? string.Empty;
+            var end = visual.IndexOf('_');
+            if (end < 0)
+                end = visual.IndexOf('.');
+            return end > 0 ? visual.Substring(0, end) : visual;
+        }
+
+        private string GetExchangeItem(string scheme)
+        {
+            if (string.IsNullOrEmpty(scheme))
+                return null;
+            if (_exchangeItems.TryGetValue(scheme, out var cached))
+                return cached;
+
+            string result = null;
+            var humans = _resourceCacheService.TryGetModelScript("Humans");
+            if (humans != null)
+            {
+                var useEnd = $"t_{scheme}_S1_2_S0";
+                foreach (var animation in humans.Animations)
+                {
+                    if (!animation.Name.EqualsIgnoreCase(useEnd))
+                        continue;
+
+                    foreach (var tag in animation.EventTags)
+                    {
+                        if (tag.Type == ZenKit.EventType.ItemExchange && !string.IsNullOrEmpty(tag.Item))
+                            result = tag.Item;
+                    }
+                }
+            }
+
+            _exchangeItems[scheme] = result;
+            return result;
+        }
 
         /// <summary>
         /// Doors use VR hinge physics and chests their lid physics - not the mob/trigger path.
