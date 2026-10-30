@@ -216,8 +216,10 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;
 
-        [Tooltip("The hero can move during dialogs (inside Constants.DialogMaxDistance); walking away chooses END if offered.")]
-        public bool EnableDialogFreeMovement = true;
+        [Tooltip("On: the hero can move during dialogs (inside Constants.DialogFreeMovementRadius around the NPC), " +
+                 "walking away chooses END if offered, a dialog only starts within that radius. " +
+                 "Off: the hero is pinned where he stood when the dialog opened, until it ends.")]
+        public bool EnableDialogFreeMovement;
 
         [Separator("Debug")]
         [Tooltip("Draw wireframe boxes for all NPC bone colliders. Green = active (attack window), White = inactive. Works in all builds including release.")]

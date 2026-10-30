@@ -32,6 +32,9 @@ namespace Gothic.VR.Adapters.UI
         [NonSerialized]
         public List<string> CurrentDialogOptionTexts;
         
+        // Meters from the player's head; a box at a farther NPC is shown on the way to it.
+        private const float _maxDistanceToPlayer = 4f;
+
         private float _dialogItemHeight;
         private int _dialogItemsInUse;
 
@@ -65,6 +68,13 @@ namespace Gothic.VR.Adapters.UI
         {
             var npcDialog = npcGo.FindChildRecursively("DialogMenuRootPos");
             _dialogRoot.SetParent(npcDialog, true, true, true);
+
+            // An NPC can open a dialog up to 20 m away (DialogService): the box comes towards the player then, so it
+            // stays readable. Placed when shown - the player is pinned during the dialog.
+            var cameraPosition = Camera.main!.transform.position;
+            var toBox = _dialogRoot.transform.position - cameraPosition;
+            if (toBox.magnitude > _maxDistanceToPlayer)
+                _dialogRoot.transform.position = cameraPosition + toBox.normalized * _maxDistanceToPlayer;
 
             var rootRectHeight = _dialogItemHeight * _dialogItemsInUse;
             _dialogRoot.GetComponent<RectTransform>().SetHeight(rootRectHeight);
