@@ -21,7 +21,7 @@ Possible, and admittedly a bit romantic these days.
 - Every AI-assisted change is reviewed and tested by a human before it lands, and a human on the team owns it.
 - We don't use AI to generate game assets, art or audio.
 - Gothic's original assets are never part of this repository. They are loaded at runtime from your own Gothic installation.
-- We say so when something is AI-assisted, instead of passing it off as hand-written.
+- We are open about it: assume most of this codebase (starting Q3 2026) is AI-assisted under the team's guidance. We say so here once instead of tagging every commit, and a human stays the author of each change.
 
 ## How we instruct the agent
 
