@@ -307,10 +307,13 @@ namespace Gothic.Core.Services.Npc
                 return cast.Phase;
 
             var code = ProcessMana(cast, "Spell_ProcessMana");
-            if (_contextGameVersionService.IsGothic1())
+            var isHero = cast.ExpectedInvest <= 0;
+            var isHeldOnly = isHero && code == SpellCode.DontInvest;
+            // G1's engine takes 1 mana per portion - not while the hero only holds a spell the scripts want no more mana
+            // for, which would drain it every frame.
+            if (_contextGameVersionService.IsGothic1() && !isHeldOnly)
                 ChangeMana(cast.Caster, -1);
 
-            var isHero = cast.ExpectedInvest <= 0;
             if (!isHero && cast.ExpectedInvest <= cast.ManaInvested)
             {
                 cast.Phase = SpellCastPhase.Casting;
@@ -326,6 +329,7 @@ namespace Gothic.Core.Services.Npc
                     cast.ManaInvested++;
                     break;
                 case SpellCode.DontInvest when isHero:
+                    cast.NextInvestTime += Mathf.Max(cast.Spell.TimePerMana, 1f) / 1000f;
                     break;
                 default:
                     // Like the engine, any other answer ends the invest with the spell going off.

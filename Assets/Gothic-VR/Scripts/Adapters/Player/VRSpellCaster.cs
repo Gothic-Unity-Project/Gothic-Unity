@@ -75,7 +75,8 @@ namespace Gothic.VR.Adapters.Player
         private void UpdateDrawnSpell()
         {
             var hero = _npcService.GetHeroContainer();
-            if (hero?.Props == null || hero.Vob == null)
+            // A cast going on keeps its spell active until it's over.
+            if (hero?.Props == null || hero.Vob == null || hero.Props.SpellCast != null)
                 return;
 
             var held = GetSpellItem(_vrPlayerService.GrabbedItemRight) ?? GetSpellItem(_vrPlayerService.GrabbedItemLeft);
