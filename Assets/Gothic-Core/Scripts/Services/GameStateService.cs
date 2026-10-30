@@ -58,6 +58,10 @@ namespace Gothic.Core.Services
         // [zCMessageFilter] keyed by VOB Name — converts OnTrigger/OnUntrigger to another action on its Target
         public readonly Dictionary<string, VobContainer> VobsMessageFilter = new();
 
+        // [oCMobContainer] keyed by VOB Name — chests asked by Mob_HasItems. Like the engine, the first one of a
+        // name counts.
+        public readonly Dictionary<string, VobContainer> VobsContainer = new();
+
         public int GuildHumanCount;
         public int GuildCount;
         public int[] GuildAttitudes;
@@ -87,13 +91,13 @@ namespace Gothic.Core.Services
             WayPoints.Clear();
             FreePoints.Clear();
             VobsInteractable.Clear();
-            ClearTriggerVobs();
+            ClearNamedVobs();
 
             Dialogs.Dispose();
         }
 
         /// <summary>
-        /// Registers movers and trigger VOBs (root and child VOBs alike) in their by-name lookups.
+        /// Registers movers, trigger VOBs and chests (root and child VOBs alike) in their by-name lookups.
         /// Does nothing for other VOB types or empty names.
         /// </summary>
         public void RegisterNamedVob(VobContainer container)
@@ -109,6 +113,10 @@ namespace Gothic.Core.Services
                     if (!VobsMover.TryGetValue(moverKey, out var moverList))
                         VobsMover[moverKey] = moverList = new();
                     moverList.Add(container);
+                    return;
+                case VirtualObjectType.oCMobContainer:
+                    // Hundreds per world - not logged.
+                    VobsContainer.TryAdd(name.ToUpper(), container);
                     return;
                 case VirtualObjectType.oCTriggerScript:
                     VobsTriggerScript[name.ToUpper()] = container;
@@ -136,9 +144,9 @@ namespace Gothic.Core.Services
         }
 
         /// <summary>
-        /// Movers and trigger VOBs are looked up by name - none of them may survive a world change.
+        /// Movers, trigger VOBs and chests are looked up by name - none of them may survive a world change.
         /// </summary>
-        public void ClearTriggerVobs()
+        public void ClearNamedVobs()
         {
             VobsMover.Clear();
             VobsTriggerScript.Clear();
@@ -147,6 +155,7 @@ namespace Gothic.Core.Services
             VobsTrigger.Clear();
             VobsMoverController.Clear();
             VobsMessageFilter.Clear();
+            VobsContainer.Clear();
         }
     }
 }
