@@ -143,6 +143,8 @@ namespace Gothic.Core.Services.Npc
             }
 
             _npcInventoryService.ExtRemoveInvItems(shooter.Instance, weapon.Munition, 1);
+            Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} shoots at " +
+                       $"{target.Instance.GetName(NpcNameSlot.Slot0)} with {weapon.Name}", LogCat.Fight);
 
             var start = GetShotStart(shooter);
             var arrow = CreateArrow(munition, start);
