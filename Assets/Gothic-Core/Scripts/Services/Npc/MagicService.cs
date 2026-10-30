@@ -34,6 +34,9 @@ namespace Gothic.Core.Services.Npc
         private const int _spellGood = 0;
         private const int _spellBad = 2;
         private const int _talentMageFallback = 7;
+        // C_Spell.targetCollectAlgo: TARGET_COLLECT_NONE, TARGET_COLLECT_CASTER.
+        private const int _targetCollectNone = 0;
+        private const int _targetCollectCaster = 1;
         // How long the particles of a hit stay.
         private const float _impactSeconds = 2f;
         private const float _castEffectSeconds = 3f;
@@ -221,6 +224,10 @@ namespace Gothic.Core.Services.Npc
                 Logger.LogWarning($"[Magic] Spell {item.Spell} of {item.Name} has no C_Spell instance", LogCat.Fight);
                 return null;
             }
+
+            // Spells for the caster or nobody (heal, light, teleport) have no victim.
+            if (spell.TargetCollectAlgo is _targetCollectNone or _targetCollectCaster)
+                target = null;
 
             caster.Props.ActiveSpellItem = item;
             if (caster.Vob.GetAttribute((int)NpcAttribute.Mana) <= 0)

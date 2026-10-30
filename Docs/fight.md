@@ -38,6 +38,13 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
   passes within 0.45 m of him and stops at walls. `RangedDamageDomain`: certain up close, the shooter's chance at the
   reference range (G1 dexterity, G2 hit chance), none beyond 45 m; damage per type minus protection (G2 plus
   dexterity, G1 critical by the bow/crossbow talent). Arrows kill, they don't knock out, and leave the downed alone.
+- **Mages** (`CastSpell`, queued by `AI_Attack` while a spell is drawn by `AI_ReadySpell`) cast within 35 m
+  (`FA_MY_FK_FOCUS_MAG`). `MagicService` runs the engine's cast: `Spell_ProcessMana` for each portion of mana every
+  `C_Spell.time_per_mana` (G1 takes 1 mana per portion), the NPC casts when its `AI_ReadySpell` invest is in, the VR
+  hero when he lets go of the trigger (`Spell_ProcessMana_Release`, `VRSpellCaster`); G2 calls `Spell_Cast_<name>`.
+  Projectiles (`SpellFlightDomain`, 10 m/s straight) hit the first NPC they pass; `SpellDamageDomain` takes
+  `damage_per_level` x level per damage type minus protection, G1 by target type, G2 by `C_CanNpcCollideWithSpell`.
+  Spells kill unless the scripts say `COLL_DONTKILL`. Other spells reach their target through `PERC_ASSESSMAGIC`.
 - `AI_FinishingMove` (scripts' `ZS_Attack_End` against a hostile enemy who is down) walks there, turns and stabs
   (`FinishingMove`, `T_1HSFINISH`/`T_2HSFINISH`); the enemy dies as the stab starts, the hero as well.
 
@@ -63,4 +70,6 @@ Each hit, knockout and death asks all NPCs of the world once whether they saw it
 - A swing hits by reach and angle, not by the weapon's bone touching the target (`DEF_HIT_LIMB`).
 - A knocked out or killed NPC puts the weapon away at once; the original drops it to the ground and the NPC picks it
   up again when it wakes up. Our NPCs can't pick items up yet.
-- Not there yet: hits of mages, parrying, fleeing. See the ADR.
+- Spells show only the particles of their visual effects - no lights, sounds or invest stages. Area spells (fire rain,
+  storms) don't hurt anybody yet.
+- Not there yet: parrying. See the ADRs.
