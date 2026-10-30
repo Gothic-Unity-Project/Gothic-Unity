@@ -1033,6 +1033,7 @@ GameObject:
   - component: {fileID: 5460697659480693705}
   - component: {fileID: 7497269210671564284}
   - component: {fileID: 859851073591128817}
+  - component: {fileID: 7916225700807591552}
   m_Layer: 8
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1268,6 +1269,28 @@ MonoBehaviour:
   _fadeSpeed: 6
   _teleportDistance: 1
   _distanceIterations: 5
+--- !u!114 &7916225700807591552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4282864642912822117}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f21881187975147a5b9136ff73d20baa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrKnockoutView
+  _material: {fileID: 2100000, guid: a1f4f8da7cd546f4b93f709efaea8dc1, type: 2}
+  _veilColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  _veilStartAlpha: 0.85
+  _veilEndAlpha: 0.15
+  _lyingEyeHeight: 0.3
+  _fadeSpeed: 3
+  _heartbeatInterval: 1.2
+  _heartbeatAmplitude: 0.4
+  _size: 0.3
+  _layer: 5
 --- !u!1 &4284475928212711861
 GameObject:
   m_ObjectHideFlags: 0
