@@ -13,6 +13,7 @@ using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
 
 namespace Gothic.VR.Adapters.Player
