@@ -494,6 +494,19 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), npc.GetUserData()));
         }
 
+        /// <summary>
+        /// AI_ReadySpell. Like the engine, without mana to invest nothing is drawn.
+        /// </summary>
+        public void ExtAiReadySpell(NpcInstance npc, int spellId, int investMana)
+        {
+            var container = npc.GetUserData();
+            if (container == null || investMana <= 0)
+                return;
+
+            container.Props.AnimationQueue.Enqueue(new ReadySpell(new AnimationAction(int0: spellId, int1: investMana),
+                container));
+        }
+
         public void ExtAiUndrawWeapon(NpcInstance npc)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new UndrawWeapon(new AnimationAction(), npc.GetUserData()));

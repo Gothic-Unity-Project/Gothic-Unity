@@ -64,6 +64,14 @@ namespace Gothic.Core.Adapters.Properties
 
         public readonly AttackCombo AttackCombo = new();
 
+        // Magic: the rune or scroll drawn (AI_ReadySpell, the VR hero's cast) with the mana an NPC invests before it
+        // casts, the cast going on, and the last spell that hit the NPC (Npc_GetLastHitSpellID).
+        public ItemInstance ActiveSpellItem;
+        public int ExpectedSpellInvest;
+        public SpellCast SpellCast;
+        public int LastHitSpell = -1;
+        public int SpellInfo;
+
         public enum LoopState
         {
             None,

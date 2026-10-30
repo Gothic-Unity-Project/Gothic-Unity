@@ -28,6 +28,8 @@ namespace Gothic.Core.Services.Npc
     {
         // Seconds the knocked out hero lies down before he can move again.
         private const float _heroKnockoutSeconds = 10f;
+        // In m: casters cast from this far (OpenGothic MaxMagRange).
+        private const float _magicRange = 35f;
         // Arrows aim at the VR hero's chest, this far below his head.
         private const float _heroChestBelowHead = 0.4f;
 
@@ -89,13 +91,16 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// How far the NPC attacks from with what it has drawn: a bow or crossbow from its reference range (the fight
-        /// AI's FK focus moves, like OpenGothic FightAlgo::weaponRange), anything else from its melee reach.
+        /// AI's FK focus moves, like OpenGothic FightAlgo::weaponRange), a spell from the magic range, anything else from
+        /// its melee reach.
         /// </summary>
         public float GetAttackReach(NpcContainer npc)
         {
-            return ((VmGothicEnums.WeaponState)npc.Vob.FightMode).IsRanged()
-                ? _rangedDamageDomain.ReferenceRange
-                : GetMeleeReach(npc);
+            var weaponState = (VmGothicEnums.WeaponState)npc.Vob.FightMode;
+            if (weaponState == VmGothicEnums.WeaponState.Mage)
+                return _magicRange;
+
+            return weaponState.IsRanged() ? _rangedDamageDomain.ReferenceRange : GetMeleeReach(npc);
         }
 
         /// <summary>
@@ -120,6 +125,22 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             ApplyDamage(shooter, target, _rangedDamageDomain.CalculateDamage(shooter, target, weapon));
+        }
+
+        /// <summary>
+        /// A hurtful spell hit the target (MagicService). Like the engine (OpenGothic Npc::takeDamage), a spell kills at
+        /// 0 hit points unless the scripts say it doesn't (COLL_DONTKILL: G2's shock spells) - then the knockout rule of
+        /// melee hits applies. A spell without damage still makes the victim fight back.
+        /// </summary>
+        public void OnSpellHit(NpcContainer caster, NpcContainer target, int damage, bool canKill)
+        {
+            if (!CanBeHit(caster, target) || target.IsDown())
+                return;
+
+            if (damage > 0)
+                ApplyDamage(caster, target, damage, !canKill);
+            else
+                ReactToDamage(caster, target);
         }
 
         /// <summary>
@@ -208,13 +229,14 @@ namespace Gothic.Core.Services.Npc
             return true;
         }
 
-        private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage)
+        /// <param name="mayKnockOut">False for spells that kill at 0 hit points.</param>
+        private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage, bool mayKnockOut = true)
         {
             var isHero = target.IsHero();
             if (UpdateHealth(attacker, target, damage))
             {
                 // The hero follows the same rule as everybody: monsters and hostile humans kill him.
-                var isKnockedOut = _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
+                var isKnockedOut = mayKnockOut && _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
                 if (isHero && isKnockedOut)
                     KnockOutHero(target, attacker);
                 else if (isKnockedOut)

@@ -79,13 +79,18 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     : FightConst.AttackActions.MyFkNoFocusFar;
             }
 
+            // Casters cast within the magic range (OpenGothic FightAlgo::fillQueue, MaxMagRange), else close in.
+            if (IsMagicDrawn())
+            {
+                return distance <= _fightService.GetAttackReach(NpcContainer)
+                    ? FightConst.AttackActions.MyFkFocusMag
+                    : FightConst.AttackActions.MyFkNoFocusMag;
+            }
+
             var attackRange = _fightService.GetMeleeReach(NpcContainer);
             var isInWRange = distance <= attackRange; // W-Range == Weapon range
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
-
-            // Magic fight AI isn't implemented yet: casters move like melee fighters, so fights continue
-            // (AttackPlayAni logs it once per NPC - here it was every AI_Attack).
 
             // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
             if (isInWRange)
@@ -119,6 +124,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 case FightAiMove.Attack or FightAiMove.AttackSide or FightAiMove.AttackFront or FightAiMove.AttackTriple
                     or FightAiMove.AttackWhirl or FightAiMove.AttackMaster when IsRangedWeaponDrawn():
                     Props.AnimationQueue.Enqueue(new ShootRanged(new AnimationAction(instance0: _enemy), NpcContainer));
+                    break;
+                // So does a spell.
+                case FightAiMove.Attack or FightAiMove.AttackSide or FightAiMove.AttackFront or FightAiMove.AttackTriple
+                    or FightAiMove.AttackWhirl or FightAiMove.AttackMaster when IsMagicDrawn():
+                    Props.AnimationQueue.Enqueue(new CastSpell(new AnimationAction(instance0: _enemy), NpcContainer));
                     break;
                 case FightAiMove.Attack:
                     _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), _move, _enemy);
@@ -191,6 +201,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private bool IsRangedWeaponDrawn()
         {
             return ((VmGothicEnums.WeaponState)Vob.FightMode).IsRanged();
+        }
+
+        private bool IsMagicDrawn()
+        {
+            return (VmGothicEnums.WeaponState)Vob.FightMode == VmGothicEnums.WeaponState.Mage &&
+                   Props.ActiveSpellItem != null;
         }
 
         private void QueueSwings(params VmGothicEnums.AnimationType[] swings)

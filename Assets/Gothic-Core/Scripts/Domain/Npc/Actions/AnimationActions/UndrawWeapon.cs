@@ -129,6 +129,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             npc.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
             npc.Props.MdsNameOverlay = npc.GetScriptOverlay();
             npc.Props.CurrentItem = -1;
+            npc.Props.ActiveSpellItem = null;
+            npc.Props.SpellCast = null;
         }
 
         private void MoveWeaponBackToStowSlot(VmGothicEnums.WeaponState weaponState)

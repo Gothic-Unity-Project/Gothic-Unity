@@ -356,5 +356,21 @@ namespace Gothic.Core.Extensions
 
             return fileName;
         }
+
+        /// <summary>
+        /// The symbol is an instance whose class (directly or through its prototype) is this one. ZenKit aborts the
+        /// process when asked to initialize anything else as that class, so check before InitInstance.
+        /// </summary>
+        public static bool IsInstanceOf(this DaedalusVm vm, [CanBeNull] DaedalusSymbol symbol, string className)
+        {
+            if (vm == null || symbol == null || symbol.Type != DaedalusDataType.Instance)
+                return false;
+
+            var parent = symbol.Parent >= 0 ? vm.GetSymbolByIndex(symbol.Parent) : null;
+            if (parent is { Type: DaedalusDataType.Prototype })
+                parent = parent.Parent >= 0 ? vm.GetSymbolByIndex(parent.Parent) : null;
+
+            return parent != null && parent.Name.Equals(className, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

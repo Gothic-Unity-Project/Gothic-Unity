@@ -39,6 +39,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly MagicService _magicService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly AudioService _audioService;
@@ -214,6 +215,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
             RegisterFightExternals(vm);
+            RegisterMagicExternals(vm);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_SetTrueGuild", Npc_SetTrueGuild);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
@@ -1219,6 +1221,104 @@ namespace Gothic.Core.Domain.Vm
                 vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
             if (vm.GetSymbolByName("Npc_GetGuildAttitude") != null)
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetGuildAttitude", Npc_GetGuildAttitude);
+        }
+
+        /// <summary>
+        /// Spells (MagicService). Only the ones the game's scripts declare: the scroll and last-hit externals are G2's.
+        /// </summary>
+        private void RegisterMagicExternals(DaedalusVm vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("AI_ReadySpell"))
+                vm.RegisterExternal<NpcInstance, int, int>("AI_ReadySpell", AI_ReadySpell);
+            if (IsDeclared("AI_UnreadySpell"))
+                vm.RegisterExternal<NpcInstance>("AI_UnreadySpell", AI_UnreadySpell);
+            if (IsDeclared("Npc_GetActiveSpell"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
+            if (IsDeclared("Npc_GetActiveSpellCat"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
+            if (IsDeclared("Npc_GetActiveSpellLevel"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
+            if (IsDeclared("Npc_GetActiveSpellIsScroll"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
+            if (IsDeclared("Npc_SetActiveSpellInfo"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
+            if (IsDeclared("Npc_HasSpell"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_HasSpell", Npc_HasSpell);
+            if (IsDeclared("Npc_IsDrawingSpell"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
+            if (IsDeclared("Npc_GetLastHitSpellID"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellID", Npc_GetLastHitSpellID);
+            if (IsDeclared("Npc_GetLastHitSpellCat"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellCat", Npc_GetLastHitSpellCat);
+        }
+
+        public void AI_ReadySpell(NpcInstance npc, int spellId, int investMana)
+        {
+            _npcAiService.ExtAiReadySpell(npc, spellId, investMana);
+        }
+
+        /// <summary>
+        /// Like the engine, putting the spell away is putting the weapon away.
+        /// </summary>
+        public void AI_UnreadySpell(NpcInstance npc)
+        {
+            _npcAiService.ExtAiUndrawWeapon(npc);
+        }
+
+        public int Npc_GetActiveSpell(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpell(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpell), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellCat(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpellCategory(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpellCat), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellLevel(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpellLevel(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpellLevel), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellIsScroll(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(_magicService.IsActiveSpellScroll(npc));
+            return LogInstantExternal(nameof(Npc_GetActiveSpellIsScroll), ret, npc);
+        }
+
+        public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)
+        {
+            _magicService.SetActiveSpellInfo(npc, info);
+            return 0;
+        }
+
+        public int Npc_HasSpell(NpcInstance npc, int spellId)
+        {
+            var ret = Convert.ToInt32(_magicService.HasSpell(npc, spellId));
+            return LogInstantExternal(nameof(Npc_HasSpell), ret, npc, spellId);
+        }
+
+        public int Npc_IsDrawingSpell(NpcInstance npc)
+        {
+            var ret = _magicService.GetDrawnScroll(npc);
+            return LogInstantExternal(nameof(Npc_IsDrawingSpell), ret, npc);
+        }
+
+        public int Npc_GetLastHitSpellID(NpcInstance npc)
+        {
+            var ret = _magicService.GetLastHitSpell(npc);
+            return LogInstantExternal(nameof(Npc_GetLastHitSpellID), ret, npc);
+        }
+
+        public int Npc_GetLastHitSpellCat(NpcInstance npc)
+        {
+            var ret = _magicService.GetLastHitSpellCategory(npc);
+            return LogInstantExternal(nameof(Npc_GetLastHitSpellCat), ret, npc);
         }
 
         /// <summary>

@@ -9,6 +9,8 @@ using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
+using Reflex.Core;
+using Reflex.Injectors;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -24,6 +26,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly Container _container;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
         public MenuHandler MenuHandler;
@@ -77,6 +80,8 @@ namespace Gothic.VR.Adapters.Player
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+
+            AttributeInjector.Inject(gameObject.AddComponent<VRSpellCaster>(), _container);
         }
 
         private void OnDestroy()
