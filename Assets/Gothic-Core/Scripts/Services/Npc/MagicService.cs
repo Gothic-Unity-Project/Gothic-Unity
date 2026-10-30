@@ -9,7 +9,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
-using Gothic.Core.Services.World;
+using Gothic.Core.Creator;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
