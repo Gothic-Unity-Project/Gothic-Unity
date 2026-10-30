@@ -73,17 +73,16 @@ namespace Gothic.Core.Manager
         ///     - TRUE - check if there's one important dialog untold.
         ///     - FALSE - check if there's one unimportant dialog untold. (unused in G1)
         /// </summary>
+        /// <summary>
+        /// Like the engine (OpenGothic npc_checkinfo), an info of the asked kind (important or not) is available: not
+        /// told yet or permanent, and its condition true. G2's undead dragon asks for a non-important one after his
+        /// first talk (found on BoroBongo's branch).
+        /// </summary>
         public bool ExtCheckInfo(NpcInstance npc, bool important)
         {
-            if (!important)
-            {
-                // Don't worry. I assume this even makes no sense at all, as also the "END" dialog would always trigger a return true.
-                Logger.LogError("Npc_CheckInfo isn't implemented for important=0.", LogCat.Dialog);
-            }
-
             _npcService.SetDialogs(npc.GetUserData());
-            
-            return TryGetImportant(npc.GetUserData(), out _);
+
+            return TryGetInfo(npc.GetUserData(), important ? 1 : 0, out _);
         }
 
         /// <summary>
@@ -207,16 +206,25 @@ namespace Gothic.Core.Manager
         /// </summary>
         private bool TryGetImportant(NpcContainer npcContainer, out InfoInstance item)
         {
+            return TryGetInfo(npcContainer, 1, out item);
+        }
+
+        /// <summary>
+        /// The first info (lowest nr) with this "important" value that is available: not told yet (or permanent), its
+        /// condition true.
+        /// </summary>
+        private bool TryGetInfo(NpcContainer npcContainer, int important, out InfoInstance item)
+        {
             // Like the engine: lowest nr first.
             foreach (var dialog in npcContainer.Props.Dialogs.OrderBy(d => d.Nr))
             {
-                // Dialog is not important.
-                if (dialog.Important != 1)
+                // Not the kind asked for (important or not).
+                if (dialog.Important != important)
                 {
                     continue;
                 }
 
-                // Important dialog has already been told.
+                // Dialog has already been told.
                 if (dialog.Permanent != 1 && GetInfoState(dialog.Index).Told)
                 {
                     continue;
@@ -253,9 +261,9 @@ namespace Gothic.Core.Manager
 
         public void ExtAiOutput(NpcInstance self, NpcInstance target, string outputName)
         {
-            var isHero = self.Id == 0;
+            var isHero = IsHero(self);
             // Always the NPC we're talking to!
-            var speakerId = self.Id;
+            var speakerId = GetSpeakerId(self, isHero);
 
             var npcTalkingTo = isHero ? target : self;
 
@@ -266,7 +274,7 @@ namespace Gothic.Core.Manager
 
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
-            var isHero = npc.Id == 0;
+            var isHero = IsHero(npc);
 
             // Hero SVM: enqueue on target's queue (hero's queue is never processed); hero container provides voice ID.
             if (isHero && target != null)
@@ -284,8 +292,28 @@ namespace Gothic.Core.Manager
 
             var npcContainer = GetNpcContainer(npc);
             npcContainer.Props.AnimationQueue.Enqueue(new OutputSvm(
-                new AnimationAction(int0: npcContainer.Instance.Id, string0: svmName),
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, false), string0: svmName),
                 npcContainer));
+        }
+
+        /// <summary>
+        /// The hero by his instance, not by C_NPC.id 0 - monsters have no id either: G2's undead dragon "was the hero",
+        /// his lines went to the hero's queue, which never runs (found on BoroBongo's branch).
+        /// </summary>
+        private bool IsHero(NpcInstance npc)
+        {
+            return _gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        /// <summary>
+        /// Output and OutputSvm take speaker id 0 for the hero - anybody else without an id gets -1.
+        /// </summary>
+        private static int GetSpeakerId(NpcInstance npc, bool isHero)
+        {
+            if (isHero)
+                return 0;
+
+            return npc.Id != 0 ? npc.Id : -1;
         }
 
         public bool ExtInfoManagerHasFinished()
