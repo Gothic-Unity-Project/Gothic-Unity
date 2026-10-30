@@ -60,8 +60,12 @@ namespace Gothic.Core.Services.Npc
         {
             var npc = GetNpc(npcInstance);
             var container = _vobService.GetFreeInteractableWithin10M(npc.transform.position, vobName);
+            if (container == null)
+                return false;
 
-            return container != null;
+            // Without a spot, AI_UseMob gave up at once and routine loops (e.g. ZS_Repair_Hut_Loop) asked again
+            // every frame.
+            return _vobService.IsMobUsableFrom(container, npc.transform.position);
         }
 
         public int ExtWldGetMobState(NpcInstance npcInstance, string scheme)

@@ -37,6 +37,13 @@ direct collaborators - never grep the repo root or all of `Assets/`.
 - Layer changes without updating both rows of the collision matrix
 - Logic in adapters that belongs in a service/domain; lateral module dependencies
 
+**Per-frame cost** (Quest 2 is the floor, `Docs/architecture.md` > "Performance")
+- Allocations in `Update`/`FixedUpdate`/`LateUpdate` or code they call: LINQ, capturing lambdas, string
+  concatenation/interpolation, `new List`/arrays per call, boxing
+- `GetComponent`, `FindChildRecursively`, `Find*` or `Camera.main` per frame instead of a cached reference
+- `Physics.OverlapSphere`/`RaycastAll`/... instead of the `NonAlloc` variant with a buffer, or without a layer mask
+- `Logger.Log` on a per-frame path instead of `LogEditor` or a one-shot guard
+
 **Save/load**
 - New runtime state: saved? restored once? lost? double-applied on load?
 
