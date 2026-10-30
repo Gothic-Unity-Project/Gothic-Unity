@@ -1282,16 +1282,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrMoveVignette
   _material: {fileID: 2100000, guid: e76299c43df729ed4ad16eb988169c66, type: 2}
-  _distance: 0.1
-  _radius: 0.4
+  _distance: 1.5
+  _coverAngle: 75
   _layer: 5
   _fullMoveSpeed: 3
   _fullTurnSpeed: 90
   _fadeSpeed: 4
-  _closedApertures:
-  - 0.7
-  - 0.45
-  _feather: 0.25
+  _closedClearAngles:
+  - 35
+  - 25
+  _featherAngle: 15
 --- !u!1 &4284475928212711861
 GameObject:
   m_ObjectHideFlags: 0
