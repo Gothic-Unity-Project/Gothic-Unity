@@ -193,6 +193,7 @@ namespace Gothic.Core.Services.Npc
             _contextInteractionService.LockPlayerInPlace();
             Logger.Log($"[Fight] The hero is knocked out by {attacker.Instance.GetName(NpcNameSlot.Slot0)}",
                 LogCat.Fight);
+            SetHasDefeatedHero(attacker);
 
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
@@ -210,6 +211,20 @@ namespace Gothic.Core.Services.Npc
             _npcAiService.SendPerceptionToWitnesses(hero, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
             _unityMonoService.StartCoroutine(RecoverHero(hero, ++_heroKnockoutId));
             GlobalEventDispatcher.HeroKnockedOut.Invoke(_heroKnockoutSeconds);
+        }
+
+        /// <summary>
+        /// G1's ZS_Unconscious ends with "if (Npc_IsPlayer(self)) other.aivar[AIV_HASDEFEATEDSC] = TRUE", but the hero
+        /// runs no states: the winner of a duel never knew it won, and the dialogs after a lost fight didn't come (found on
+        /// BoroBongo's branch). G2 has no such aivar.
+        /// </summary>
+        private void SetHasDefeatedHero(NpcContainer attacker)
+        {
+            var aiVar = _gameStateService.GothicVm.GetSymbolByName("AIV_HASDEFEATEDSC");
+            if (aiVar == null || attacker?.Instance == null || attacker.IsHero())
+                return;
+
+            attacker.Instance.SetAiVar(aiVar.GetInt(0), 1);
         }
 
         private IEnumerator RecoverHero(NpcContainer hero, int knockoutId)

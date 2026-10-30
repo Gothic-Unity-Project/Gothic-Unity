@@ -361,6 +361,11 @@ namespace Gothic.Core.Services.Npc
 
             container.Props.AnimationQueue.Enqueue(new GoToNpc(new AnimationAction(instance0: other), container));
             container.Props.AnimationQueue.Enqueue(new TurnToNpc(new AnimationAction(instance0: other), container));
+            // The stab needs a melee weapon in the hand, but a knockout of the hero puts the attackers' weapons away
+            // (FightService.KnockOutHero) - nobody finished him off (found on BoroBongo's branch).
+            if ((VmGothicEnums.WeaponState)container.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
+                VmGothicEnums.WeaponState.W2H))
+                ExtAiDrawWeapon(self);
             container.Props.AnimationQueue.Enqueue(new FinishingMove(new AnimationAction(instance0: other), container));
         }
 
