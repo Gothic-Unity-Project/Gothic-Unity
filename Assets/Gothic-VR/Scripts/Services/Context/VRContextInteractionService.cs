@@ -58,6 +58,8 @@ namespace Gothic.VR.Services.Context
         private PlayerControls _blockedControls;
         // Teleporting is off in water (wading, swimming, diving), whatever the locks say.
         private bool _isTeleportAllowedHere = true;
+        // Grabbing is off while swimming and diving (as in G1), whatever the locks say.
+        private bool _isGrabbingAllowedHere = true;
 
         /// <summary>
         /// The player body of the active VR backend. null before SetupPlayerController().
@@ -288,6 +290,7 @@ namespace Gothic.VR.Services.Context
             _rig.MovementEnabled = (_blockedControls & PlayerControls.Move) == 0;
             _rig.TurnEnabled = (_blockedControls & PlayerControls.Turn) == 0;
             _rig.TeleportEnabled = IsTeleportAllowed();
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
         }
 
         private bool IsTeleportAllowed()
@@ -295,9 +298,15 @@ namespace Gothic.VR.Services.Context
             return _isTeleportAllowedHere && (_blockedControls & PlayerControls.Teleport) == 0;
         }
 
+        private bool IsGrabbingAllowed()
+        {
+            return _isGrabbingAllowedHere && (_blockedControls & PlayerControls.Grab) == 0;
+        }
+
         public void SetWalkingControls()
         {
-            _rig.SetGrabbingEnabled(true);
+            _isGrabbingAllowedHere = true;
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
 
             _rig.CanCrouch = true;
             _rig.CanJump = true;
@@ -308,7 +317,8 @@ namespace Gothic.VR.Services.Context
 
         public void SetWaterWalkingControls()
         {
-            _rig.SetGrabbingEnabled(true);
+            _isGrabbingAllowedHere = true;
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
 
             _rig.CanCrouch = false;
             _rig.CanJump = false;
@@ -320,6 +330,7 @@ namespace Gothic.VR.Services.Context
         public void SetSwimmingControls()
         {
             // Disable grabbing of objects (as in G1)
+            _isGrabbingAllowedHere = false;
             _rig.SetGrabbingEnabled(false);
 
             _rig.CanCrouch = false;

@@ -134,7 +134,7 @@ namespace Gothic.Core.Manager
             }
             else
             {
-                _contextInteractionService.LockPlayer(PlayerLocks.Dialog);
+                _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.InPlace);
             }
 
             // We are already inside a sub-dialog

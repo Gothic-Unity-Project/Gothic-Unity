@@ -12,8 +12,8 @@ In the original game this can't happen, because the hero's state decides what he
 ## Decisions
 
 1. **Each lock names its owner, and the player is free once every owner has unlocked.** Ending a dialog only removes the dialog's lock, a bench keeps its own. Not chosen: a counter of locks, because a forgotten or doubled unlock would shift it for good and nobody could tell which part holds the player.
-2. **A lock says which controls it blocks.** Most block moving, turning and teleporting; a lock can leave turning free, which the pinned dialogs need. Not chosen: one fixed kind of lock, because then each new kind would need its own way around it again.
-3. **Water decides about teleporting separately from the locks.** Teleporting is off in water whatever the locks say, and comes back on land only if no lock blocks it.
+2. **A lock says which controls it blocks: moving, turning, teleporting, grabbing.** Dialogs and seats keep the player on the spot but leave the hands free; a knockout blocks everything, grabbing too; a lock can leave turning free, which the pinned dialogs need. Not chosen: one fixed kind of lock, because then each new kind would need its own way around it again.
+3. **Water decides about teleporting and grabbing separately from the locks.** Teleporting is off in water and grabbing while swimming, whatever the locks say, and both come back only if no lock blocks them.
 4. **A new world starts free.** Loading clears all locks except the one of a video that still plays, as before.
 
 ## Consequences

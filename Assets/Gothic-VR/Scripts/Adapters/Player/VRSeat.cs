@@ -107,7 +107,7 @@ namespace Gothic.VR.Adapters.Player
 
         private IEnumerator SitDown(GameObject player)
         {
-            _contextInteractionService.LockPlayer(PlayerLocks.Seat);
+            _contextInteractionService.LockPlayer(PlayerLocks.Seat, PlayerControls.InPlace);
             _currentSnapPoint = GetNearestSnapPoint(player.transform.position);
 
             // Fade in
