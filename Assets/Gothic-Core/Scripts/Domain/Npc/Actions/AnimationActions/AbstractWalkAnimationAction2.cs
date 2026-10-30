@@ -2,6 +2,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
+using Reflex.Attributes;
 using UnityEngine;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
@@ -15,6 +16,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // recalculating the name would stop the wrong animation when walk/fight mode changed mid-walk
         // (e.g. via an immediately executed AI_SetWalkmode), leaving the walk loop sliding the NPC forever.
         private string _startedWalkAnimationName;
+
+        [Inject] protected readonly NpcClimbService NpcClimbService;
+        private bool _isClimbing;
 
         protected AbstractWalkAnimationAction2(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -60,6 +64,18 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (IsFinishedFlag)
             {
                 return;
+            }
+
+            // Climbing a ledge on the way (NpcClimbService): the walk goes on on top.
+            if (NpcClimbService.IsClimbing(NpcContainer))
+            {
+                _isClimbing = true;
+                return;
+            }
+            if (_isClimbing)
+            {
+                _isClimbing = false;
+                StartWalk();
             }
 
             if (IsDestinationReached())

@@ -46,6 +46,8 @@ namespace Gothic.Core.Adapters.Animations
 #endif
 
         [Inject] private readonly AnimationService _animationService;
+
+        [Inject] private readonly NpcClimbService _npcClimbService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
@@ -638,6 +640,13 @@ namespace Gothic.Core.Adapters.Animations
 
         private void ApplyFinalMovement()
         {
+            // Climbing a ledge: the climb places the NPC, not the root motion.
+            if (_npcClimbService.IsClimbing(NpcData))
+            {
+                _npcClimbService.Tick(NpcData);
+                return;
+            }
+
             var finalMovement = Vector3.zero;
             foreach (var instance in _trackInstances)
             {
@@ -677,6 +686,13 @@ namespace Gothic.Core.Adapters.Animations
                 return move;
 
             var wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+
+            // Head-on against a ledge Gothic climbs: the NPC climbs it instead (OpenGothic MoveAlgo::onMoveFailed).
+            var feet = Go.transform.position - Vector3.up * _restRootHeight;
+            if (_npcClimbService.TryStartClimb(NpcData, feet, horizontal / distance, wallNormal, radius,
+                    _restRootHeight * 2f))
+                return Vector3.zero;
+
             var slide = Vector3.ProjectOnPlane(horizontal, wallNormal);
             return new Vector3(slide.x, move.y, slide.z);
         }

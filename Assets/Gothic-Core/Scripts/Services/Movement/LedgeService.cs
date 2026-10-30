@@ -10,8 +10,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Services.Movement
 {
     /// <summary>
-    /// Gothic's ledge climbing rules for the hero: which ledges can be climbed and how (see LedgeProbeDomain and
-    /// Docs/ledge-climbing.md). The values come from the scripts' GIL_VALUES.
+    /// Gothic's ledge climbing rules for the hero and NPCs: which ledges can be climbed and how (see LedgeProbeDomain
+    /// and Docs/ledge-climbing.md). The values come from the scripts' GIL_VALUES.
     /// </summary>
     public class LedgeService
     {
@@ -25,40 +25,45 @@ namespace Gothic.Core.Services.Movement
         /// Climbing values of the hero. The hero is human, its values are in the GIL_HUMAN slot (see
         /// ZenKitExtension.GetValuesGuild). Without them (scripts not loaded yet), Gothic's values are used.
         /// </summary>
-        public LedgeRules HeroRules
+        public LedgeRules HeroRules => GetRules((int)VmGothicEnums.Guild.GIL_HUMAN);
+
+        /// <summary>
+        /// Climbing values of a guild's GIL_VALUES slot (an NPC's values guild). A monster guild without them uses
+        /// GIL_HUMAN's, without those Gothic's values are used.
+        /// </summary>
+        public LedgeRules GetRules(int guild)
         {
-            get
+            var values = _gameStateService.GuildValues;
+            const int humanGuild = (int)VmGothicEnums.Guild.GIL_HUMAN;
+
+            // Before the scripts are loaded (boot): nothing to warn about yet.
+            if (values == null)
+                return LedgeRules.GothicHumanDefaults;
+
+            if (guild != humanGuild && (values.GetJumpUpHeight(guild) <= 0 || values.GetJumpLowHeight(guild) <= 0))
+                guild = humanGuild;
+
+            if (values.GetJumpUpHeight(guild) <= 0 || values.GetJumpLowHeight(guild) <= 0)
             {
-                var values = _gameStateService.GuildValues;
-                const int guild = (int)VmGothicEnums.Guild.GIL_HUMAN;
-
-                // Before the scripts are loaded (boot): nothing to warn about yet.
-                if (values == null)
-                    return LedgeRules.GothicHumanDefaults;
-
-                if (values.GetJumpUpHeight(guild) <= 0 || values.GetJumpLowHeight(guild) <= 0)
+                if (!_isMissingValuesLogged)
                 {
-                    if (!_isMissingValuesLogged)
-                    {
-                        _isMissingValuesLogged = true;
-                        Logger.LogWarning("[Ledge] No climbing values of GIL_HUMAN in GIL_VALUES. Using Gothic's.",
-                            LogCat.Misc);
-                    }
-
-                    return LedgeRules.GothicHumanDefaults;
+                    _isMissingValuesLogged = true;
+                    Logger.LogWarning("[Ledge] No climbing values of GIL_HUMAN in GIL_VALUES. Using Gothic's.",
+                        LogCat.Misc);
                 }
-
-                var defaults = LedgeRules.GothicHumanDefaults;
-                return new LedgeRules
-                {
-                    StepHeight = Metres(values.GetStepHeight(guild), defaults.StepHeight),
-                    JumpLowHeight = Metres(values.GetJumpLowHeight(guild), defaults.JumpLowHeight),
-                    JumpMidHeight = Metres(values.GetJumpMidHeight(guild), defaults.JumpMidHeight),
-                    JumpUpHeight = Metres(values.GetJumpUpHeight(guild), defaults.JumpUpHeight),
-                    SlideAngle = Degrees(values.GetSlideAngle(guild), defaults.SlideAngle),
-                    ClimbHeadingAngle = Degrees(values.GetClimbHeadingAngle(guild), defaults.ClimbHeadingAngle)
-                };
+                return LedgeRules.GothicHumanDefaults;
             }
+
+            var defaults = LedgeRules.GothicHumanDefaults;
+            return new LedgeRules
+            {
+                StepHeight = Metres(values.GetStepHeight(guild), defaults.StepHeight),
+                JumpLowHeight = Metres(values.GetJumpLowHeight(guild), defaults.JumpLowHeight),
+                JumpMidHeight = Metres(values.GetJumpMidHeight(guild), defaults.JumpMidHeight),
+                JumpUpHeight = Metres(values.GetJumpUpHeight(guild), defaults.JumpUpHeight),
+                SlideAngle = Degrees(values.GetSlideAngle(guild), defaults.SlideAngle),
+                ClimbHeadingAngle = Degrees(values.GetClimbHeadingAngle(guild), defaults.ClimbHeadingAngle)
+            };
         }
 
         /// <summary>
@@ -67,6 +72,14 @@ namespace Gothic.Core.Services.Movement
         public LedgeInfo ProbeAhead(Vector3 feet, Vector3 forward, LedgeBody body)
         {
             return _probeDomain.ProbeAhead(feet, forward, body, HeroRules);
+        }
+
+        /// <summary>
+        /// What Gothic's jump does for a body with the given climbing values (an NPC's).
+        /// </summary>
+        public LedgeInfo ProbeAhead(Vector3 feet, Vector3 forward, LedgeBody body, LedgeRules rules)
+        {
+            return _probeDomain.ProbeAhead(feet, forward, body, rules);
         }
 
         /// <summary>
