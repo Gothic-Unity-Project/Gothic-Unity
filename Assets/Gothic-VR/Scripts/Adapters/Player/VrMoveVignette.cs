@@ -47,6 +47,7 @@ namespace Gothic.VR.Adapters.Player
         private Material _materialInstance;
         private MeshRenderer _renderer;
         private int _setting;
+        private bool _isSettingRead;
         private float _strength;
         private Vector3 _lastRootPosition;
         private float _lastRootYaw;
@@ -64,7 +65,6 @@ namespace Gothic.VR.Adapters.Player
             if (_rig == null)
                 Logger.LogWarning($"[VrMoveVignette] No IVrRig above {name} - no vignette.", LogCat.VR);
 
-            ReadSetting();
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
@@ -78,18 +78,27 @@ namespace Gothic.VR.Adapters.Player
         private void OnPlayerPrefUpdated(string key, object value)
         {
             if (key == VRConstants.IniNames.MoveVignette)
-                ReadSetting();
+                TryReadSetting();
         }
 
-        private void ReadSetting()
+        /// <summary>
+        /// The rig exists before Gothic.ini is loaded (game version selection): no vignette until then.
+        /// </summary>
+        private bool TryReadSetting()
         {
-            _setting = Mathf.Clamp(_configService.Gothic.GetInt(VRConstants.IniNames.MoveVignette,
+            var gothicIni = _configService?.Gothic;
+            if (gothicIni == null)
+                return false;
+
+            _setting = Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.MoveVignette,
                 VRConstants.MoveVignetteDefaultValue), 0, _closedApertures.Length);
+            _isSettingRead = true;
+            return true;
         }
 
         private void LateUpdate()
         {
-            if (_renderer == null || _rig == null)
+            if (_renderer == null || _rig == null || (!_isSettingRead && !TryReadSetting()))
                 return;
 
             var root = _rig.Root;
