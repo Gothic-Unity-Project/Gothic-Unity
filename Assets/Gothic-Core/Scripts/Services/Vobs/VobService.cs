@@ -587,7 +587,7 @@ namespace Gothic.Core.Services.Vobs
         /// <summary>
         /// A projectile (arrow, spell) flew from one point to the next: the trigger zones it crossed get the damage, once
         /// per flight. Like the engine (zCTrigger reactToOnDamage), those reacting to it fire - G2 Irdorath's far
-        /// switches of the big bridge are shot.
+        /// switches of the big bridge are shot. Found together with BoroBongo's branch, which does the same.
         /// </summary>
         /// <param name="hitZones">The zones this projectile already crossed.</param>
         public void DispatchDamageAlong(Vector3 from, Vector3 to, HashSet<Collider> hitZones)
@@ -608,6 +608,15 @@ namespace Gothic.Core.Services.Vobs
                 zone.GetComponentInParent<TriggerZoneHandler>()?.ReceiveDamage();
                 zone.GetComponentInParent<TriggerScriptHandler>()?.ReceiveDamage();
             }
+        }
+
+        /// <summary>
+        /// A projectile stopped at something solid: a mover reacting to damage moves (G1's Sleeper temple switches).
+        /// </summary>
+        public void DispatchDamage(Collider solid)
+        {
+            if (solid != null)
+                solid.GetComponentInParent<MoverAdapter>()?.ReceiveDamage();
         }
 
         public void DispatchTrigger(string name, string senderName = "")

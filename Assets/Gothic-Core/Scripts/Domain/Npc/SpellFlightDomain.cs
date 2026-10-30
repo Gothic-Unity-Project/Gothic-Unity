@@ -87,6 +87,7 @@ namespace Gothic.Core.Domain.Npc
                 _vobService.DispatchDamageAlong(position, next, hitZones);
                 if (Physics.Linecast(position, next, out var hit, _blockingLayers, QueryTriggerInteraction.Ignore))
                 {
+                    _vobService.DispatchDamage(hit.collider);
                     End(visual);
                     _onHit(cast, null, hit.point);
                     yield break;

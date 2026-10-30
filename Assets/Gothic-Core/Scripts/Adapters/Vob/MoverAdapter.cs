@@ -97,6 +97,19 @@ namespace Gothic.Core.Adapters.Vob
         }
 
         /// <summary>
+        /// A projectile hit the mover (VobService.DispatchDamage): like the engine (zCMover reactToOnDamage), it acts as
+        /// if triggered.
+        /// </summary>
+        public void ReceiveDamage()
+        {
+            if (_mover == null || !_mover.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[MoverAdapter] '{_mover.Name}' hit", LogCat.Vob);
+            OnTrigger();
+        }
+
+        /// <summary>
         /// Trigger event, behaves per zCMover behavior (OpenGothic MoveTrigger::onTrigger).
         /// SingleKeys movers ignore it - they are driven by goto messages only (GoToKey*).
         /// Loop movers toggle only; continuous looping isn't implemented.

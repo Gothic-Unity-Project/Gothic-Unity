@@ -9,7 +9,7 @@ Some of Gothic's triggers react to being hit instead of being touched. On Irdora
 
 ## Decisions
 
-1. **A projectile flying through a trigger zone counts as damage.** Arrows, bolts and spells set off every trigger zone they pass that reacts to damage, once per flight, and fly on. A plain trigger fires its target, a script trigger calls its function.
+1. **A projectile flying through a trigger zone counts as damage.** Arrows, bolts and spells set off every trigger zone they pass that reacts to damage, once per flight, and fly on. A plain trigger fires its target, a script trigger calls its function. A moving part (mover) that reacts to damage moves when a projectile stops at it, like Gothic 1's switches in the Sleeper's temple. BoroBongo's branch found and does the same.
 2. **Melee hits don't count yet.** The triggers that need damage in the original game are out of sword reach; a sword hit on a trigger zone can follow when a case needs it.
 
 ## Consequences
