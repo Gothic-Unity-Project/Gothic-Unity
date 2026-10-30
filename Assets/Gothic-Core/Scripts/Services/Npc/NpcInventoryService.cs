@@ -18,6 +18,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         // VmService leads back to this service through its own dependencies - resolved on first use.
         private VmService _vmService;
@@ -46,6 +47,36 @@ namespace Gothic.Core.Services.Npc
             {
                 vm.GlobalItem = oldItem;
             }
+        }
+
+        /// <summary>
+        /// Like the engine, an item is used up by its use if the end of its use animation (t_[scheme]_S0_2_Stand)
+        /// destroys it: food, potions, G1's sealed letter (MAPSEALED). A map (MAP) or a book stays. Found on BoroBongo's
+        /// branch.
+        /// </summary>
+        public bool IsUsedUpOnUse(ItemInstance item)
+        {
+            if (string.IsNullOrEmpty(item?.SchemeName))
+                return false;
+
+            var animationName = $"t_{item.SchemeName}_S0_2_Stand";
+            var humans = _resourceCacheService.TryGetModelScript("Humans");
+            if (humans == null)
+                return false;
+
+            foreach (var animation in humans.Animations)
+            {
+                if (!animation.Name.EqualsIgnoreCase(animationName))
+                    continue;
+
+                foreach (var tag in animation.EventTags)
+                {
+                    if (tag.Type == ZenKit.EventType.ItemDestroy)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         

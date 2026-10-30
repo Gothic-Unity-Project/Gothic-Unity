@@ -29,6 +29,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly VobService _vobService;
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -122,6 +123,36 @@ namespace Gothic.VR.Services
             var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             _playerService.RemoveItem(instanceName, vobItem.Amount);
+        }
+
+        /// <summary>
+        /// Like the engine, a use takes one item (a bite, a read sealed letter): a stack loses one and stays where it is,
+        /// the last one leaves the hand, the inventory and the world's item list (found on BoroBongo's branch).
+        /// </summary>
+        public void UseUpItem(GameObject itemGo)
+        {
+            var container = itemGo.GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not IItem vobItem)
+                return;
+
+            var interactable = container.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
+            var isHeld = interactable != null &&
+                         (GrabbedItemLeft == interactable.gameObject || GrabbedItemRight == interactable.gameObject);
+            if (vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                // A held stack counts as inventory with its amount (SetGrab/UnsetGrab).
+                if (isHeld)
+                    _playerService.RemoveItem(!string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name);
+                Logger.Log($"[VRPlayerService] One {vobItem.Name} used up, {vobItem.Amount} left", LogCat.VR);
+                return;
+            }
+
+            // Letting go takes it out of the inventory like any dropped item.
+            if (isHeld)
+                interactable.ForceRelease();
+            _vobService.RemoveWorldItem(container);
+            Logger.Log($"[VRPlayerService] {vobItem.Name} used up", LogCat.VR);
         }
 
         /// <summary>

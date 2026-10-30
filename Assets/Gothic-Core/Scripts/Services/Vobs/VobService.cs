@@ -451,6 +451,19 @@ namespace Gothic.Core.Services.Vobs
             _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
         }
 
+        /// <summary>
+        /// A used-up item (eaten, a read sealed letter) leaves the world: its object, its culling entry and its entry in
+        /// the world's item list, so it isn't back after loading.
+        /// </summary>
+        public void RemoveWorldItem(VobContainer container)
+        {
+            _vobMeshCullingService.RemoveCullingEntry(container);
+            _multiTypeCacheService.VobCache.Remove(container);
+            _saveGameService.CurrentWorldData?.Vobs.Remove(container.Vob);
+            if (container.Go != null)
+                Object.Destroy(container.Go);
+        }
+
         [CanBeNull]
         public GameObject GetNearestSlot(GameObject go, Vector3 position)
         {

@@ -13,9 +13,10 @@ Books, letters and maps couldn't be read: the scripts build them page by page wi
 2. **The document functions build a document, showing it hands it to the platform.** A page setting for all pages also counts for pages added later.
 3. **In VR, the trigger on a held book, letter or map reads it.** Its pages appear side by side in front of the player, each with its background and the lines in the page's Gothic font within its margins. The trigger again or letting go closes it. Not chosen: reading by bringing the item close to the face, which is easy to trigger by accident.
 4. **A map marks the hero only where the map says which part of the world it shows.** Gothic 2 maps do; Gothic 1 maps carry no coordinates, so they show no mark for now.
+5. **Taken over from BoroBongo's branch:** an item is used up when the end of its use animation destroys it, like in the engine. Food and potions go one bite at a time, a stack stays in the hand with one less. Gothic 1's sealed letter to the fire mages goes once it's closed, and the opened letter its script hands out stays. Only items held in a hand are eaten, not the ones in the backpack passing the face. An eaten item is gone from the saved world too. A bookstand's page closes when the bookstand is touched again or the player walks 3 m away.
 
 ## Consequences
 
 - Letters, books and maps can be read in both games; potions and food work.
-- Documents aren't consumed by reading, like in the original.
+- Documents aren't consumed by reading, like in the original, except the sealed ones.
 - Gothic 1 maps need calibrated edges per world before they can show the hero.

@@ -20,10 +20,15 @@ namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
     /// Reading in VR: the trigger on a held book, letter or map uses it like Gothic's inventory does (its use function
-    /// builds and shows the document, VRDocViewer). The trigger again or letting go of it closes it.
+    /// builds and shows the document, VRDocViewer). The trigger again or letting go of it closes it. A document its use
+    /// animation destroys (G1's sealed letter to the fire mages) is used up when it's closed.
+    /// A page a mob shows (G2's bookstands) closes on the next touch of the mob or 3 m away (found on BoroBongo's
+    /// branch).
     /// </summary>
     public class VRDocReader : MonoBehaviour
     {
+        private const float _mobDocCloseDistance = 3f;
+
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly NpcService _npcService;
@@ -34,6 +39,10 @@ namespace Gothic.VR.Adapters.Player
 
         // The held document that is shown, to close the viewer once it's let go.
         private GameObject _shownDocItem;
+        private bool _isShownDocUsedUp;
+        private bool _isReadingHeldDoc;
+        // Where the player stood when a mob's page opened, null while none is shown.
+        private Vector3? _mobDocPlayerPosition;
 
         private void Start()
         {
@@ -49,6 +58,8 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_shownDocItem != null && !IsHeld(_shownDocItem))
                 Close();
+            if (_mobDocPlayerPosition != null && (!VRDocViewer.IsShown || IsAwayFromMobDoc()))
+                CloseMobDoc();
 
             TryRead(VrHandSide.Left, _vrPlayerService.GrabbedItemLeft);
             TryRead(VrHandSide.Right, _vrPlayerService.GrabbedItemRight);
@@ -69,19 +80,75 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
+            if (_shownDocItem != null)
+                Close();
+
             _shownDocItem = heldItem;
-            _npcInventoryService.UseItem(_npcService.GetHeroContainer(), item);
+            _isShownDocUsedUp = _npcInventoryService.IsUsedUpOnUse(item);
+            _isReadingHeldDoc = true;
+            try
+            {
+                _npcInventoryService.UseItem(_npcService.GetHeroContainer(), item);
+            }
+            finally
+            {
+                _isReadingHeldDoc = false;
+            }
         }
 
         private void OnDocShown(DocModel doc)
         {
+            if (!_isReadingHeldDoc)
+            {
+                // A mob's page: touching the mob again runs its script again - that closes the page instead.
+                if (_mobDocPlayerPosition != null)
+                {
+                    CloseMobDoc();
+                    return;
+                }
+
+                if (_shownDocItem != null)
+                    Close();
+                _mobDocPlayerPosition = GetPlayerPosition();
+            }
+            else
+            {
+                CloseMobDoc();
+            }
+
             VRDocViewer.Show(doc, _docService, _textureCacheService, _fontService,
                 _npcService.GetHeroGameObject()?.transform);
         }
 
+        private void CloseMobDoc()
+        {
+            if (_mobDocPlayerPosition == null)
+                return;
+
+            _mobDocPlayerPosition = null;
+            VRDocViewer.Hide();
+        }
+
+        private bool IsAwayFromMobDoc()
+        {
+            var position = GetPlayerPosition();
+            return position != null && Vector3.Distance(position.Value, _mobDocPlayerPosition.Value) >
+                _mobDocCloseDistance;
+        }
+
+        private static Vector3? GetPlayerPosition()
+        {
+            return Camera.main != null ? Camera.main.transform.position : null;
+        }
+
         private void Close()
         {
+            // Used up once the reading ends, not while it's in front of the player (found on BoroBongo's branch).
+            if (_isShownDocUsedUp && _shownDocItem != null)
+                _vrPlayerService.UseUpItem(_shownDocItem);
+
             _shownDocItem = null;
+            _isShownDocUsedUp = false;
             VRDocViewer.Hide();
         }
 
