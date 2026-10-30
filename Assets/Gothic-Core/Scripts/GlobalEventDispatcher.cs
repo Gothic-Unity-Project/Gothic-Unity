@@ -120,6 +120,12 @@ namespace Gothic.Core
         /// (LoadGameStart ends the knockout).
         /// </summary>
         public static readonly UnityEvent HeroRecovered = new();
+
+        /// <summary>
+        /// The hero died (NpcDeathDomain), right after NpcDied. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroDied = new();
         
 
         // LockPicking events

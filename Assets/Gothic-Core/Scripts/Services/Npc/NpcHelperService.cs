@@ -245,6 +245,11 @@ namespace Gothic.Core.Services.Npc
             if (other.PrefabProps.IsHero() && self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
                 return (VmGothicEnums.Attitude)self.Vob.Attitude;
 
+            // Like the engine (OpenGothic personAttitude), the attitude between the hero and an NPC is the NPC's, both
+            // ways: whether the hero dies or is knocked out depends on the attacker's attitude to him.
+            if (self.IsHero() && other.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                return (VmGothicEnums.Attitude)other.Vob.Attitude;
+
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
 

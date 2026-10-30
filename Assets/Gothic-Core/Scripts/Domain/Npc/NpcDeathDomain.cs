@@ -2,11 +2,13 @@ using System;
 using System.Collections;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
@@ -23,6 +25,7 @@ namespace Gothic.Core.Domain.Npc
     /// 1. it dies (body state, 0 HP, dying animation, scream) and GlobalEventDispatcher.NpcDied tells it,
     /// 2. one frame later ZS_Dead runs like the engine's state: experience, loot, quest variables,
     /// 3. the NPCs around who see it learn about the murder (PERC_ASSESSMURDER).
+    /// The hero dies the same way; for him the game is over until a game is loaded.
     /// Owned by NpcService.
     /// </summary>
     public class NpcDeathDomain
@@ -38,6 +41,9 @@ namespace Gothic.Core.Domain.Npc
         // resolved on first use, not while NpcService is built.
         private NpcAiService _npcAiService;
         private NpcAiService NpcAi => _npcAiService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcAiService>();
+        private ContextInteractionService _contextInteractionService;
+        private ContextInteractionService ContextInteraction => _contextInteractionService ??=
+            ReflexProjectInstaller.DIContainer.Resolve<ContextInteractionService>();
 
         private readonly Action _syncHeroInstanceToVob;
 
@@ -86,7 +92,28 @@ namespace Gothic.Core.Domain.Npc
             }
 
             GlobalEventDispatcher.NpcDied.Invoke(npc, killer);
+            if (npc.IsHero())
+                EndGame(npc, killer);
+
             _unityMonoService.StartCoroutine(RunDeadState(npc, killer));
+        }
+
+        /// <summary>
+        /// The hero's death ends the game like in Gothic: he can't move or act any more (until a load, WorldScene
+        /// unlocks), and the menu offers loading but no saving or continuing (InGameAndAlive). ZS_Dead runs for him
+        /// too, like in the engine.
+        /// </summary>
+        private void EndGame(NpcContainer hero, NpcContainer killer)
+        {
+            _gameStateService.InGameAndAlive = false;
+            ContextInteraction.LockPlayerInPlace();
+            // The VR hero has no body to animate - only his scream comes from where his lines come from.
+            if (hero.PrefabProps?.AnimationSystem == null)
+                PlayDeathScream(hero);
+
+            var killerName = killer?.Instance.GetName(NpcNameSlot.Slot0) ?? "nobody";
+            Logger.Log($"[NpcDeath] The hero was killed by {killerName}. Game over.", LogCat.Npc);
+            GlobalEventDispatcher.HeroDied.Invoke(killer);
         }
 
         /// <summary>
@@ -129,12 +156,14 @@ namespace Gothic.Core.Domain.Npc
         /// </summary>
         private void PlayDeathScream(NpcContainer npc)
         {
-            if (npc.Instance.Voice <= 0 || npc.PrefabProps.NpcSound == null)
+            // The hero speaks from his own GameObject (Output).
+            var source = npc.IsHero() && npc.Go != null ? npc.Go.GetComponent<AudioSource>() : npc.PrefabProps?.NpcSound;
+            if (npc.Instance.Voice <= 0 || source == null)
                 return;
 
             var clip = _audioService.GetRandomSoundClip($"SVM_{npc.Instance.Voice}_DEAD");
             if (clip != null)
-                npc.PrefabProps.NpcSound.PlayOneShot(clip);
+                source.PlayOneShot(clip);
         }
     }
 }

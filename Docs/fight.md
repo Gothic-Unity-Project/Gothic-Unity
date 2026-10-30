@@ -24,11 +24,15 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
 - Above 0 hit points: a stumble and a hurt sound. The victim perceives `PERC_ASSESSDAMAGE`, the NPCs around
   `PERC_ASSESSOTHERSDAMAGE` and `PERC_ASSESSFIGHTSOUND`.
 - At 0 hit points, one of three:
-  - **The hero** is knocked out for 10 seconds (`KnockOutHero`), his attackers calm down. He can't die yet.
   - **A human not hostile to the attacker** (`MeleeDamageDomain.IsKnockedOutNotKilled`) is knocked out: 1 hit point,
     the weapon put away, `ZS_Unconscious` started as an engine state change (the old state's `_End` doesn't run), the
     fall played. The NPCs around perceive `PERC_ASSESSDEFEAT`.
-  - **Everybody else dies**: `NpcService.Kill`.
+  - **The hero, knocked out**, lies for 10 seconds (`KnockOutHero`), his attackers calm down. Between the hero and an
+    NPC the NPC's attitude counts both ways (`NpcHelperService.GetPermanentAttitude`, like OpenGothic
+    `personAttitude`).
+  - **Everybody else dies**: `NpcService.Kill`. Monsters and hostile humans kill the hero too.
+- `AI_FinishingMove` (scripts' `ZS_Attack_End` against a hostile enemy who is down) walks there, turns and stabs
+  (`FinishingMove`, `T_1HSFINISH`/`T_2HSFINISH`); the enemy dies as the stab starts, the hero as well.
 
 ## A death
 
@@ -39,6 +43,11 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
    hero's own kills, loot, quest variables. The hero's instance is copied to his VOB.
 3. The NPCs around perceive `PERC_ASSESSMURDER`.
 
+The hero dies the same way, and the game is over (`NpcDeathDomain.EndGame`): he stays locked until a game is loaded,
+`GameStateService.InGameAndAlive` is false (the menu offers no saving or continuing), and
+`GlobalEventDispatcher.HeroDied` follows `NpcDied`. In VR the view falls and darkens (`VrKnockoutView`) and the menu
+opens after 5 seconds (`VRPlayer`).
+
 Each hit, knockout and death asks all NPCs of the world once whether they saw it
 (`NpcAiService.SendPerceptionToWitnesses`).
 
@@ -47,4 +56,4 @@ Each hit, knockout and death asks all NPCs of the world once whether they saw it
 - A swing hits by reach and angle, not by the weapon's bone touching the target (`DEF_HIT_LIMB`).
 - A knocked out or killed NPC puts the weapon away at once; the original drops it to the ground and the NPC picks it
   up again when it wakes up. Our NPCs can't pick items up yet.
-- Not there yet: hits of archers and mages, parrying, finishing moves, the hero's death, fleeing. See the ADR.
+- Not there yet: hits of archers and mages, parrying, fleeing. See the ADR.

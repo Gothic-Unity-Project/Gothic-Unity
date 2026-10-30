@@ -349,6 +349,21 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
+        /// <summary>
+        /// AI_FinishingMove: walk to the knocked out enemy, face it, kill it with a stab (FinishingMove). Scripts call it
+        /// from ZS_Attack_End for hostile enemies - also for the hero.
+        /// </summary>
+        public void ExtAiFinishingMove(NpcInstance self, NpcInstance other)
+        {
+            var container = self.GetUserData();
+            if (other == null || container == null)
+                return;
+
+            container.Props.AnimationQueue.Enqueue(new GoToNpc(new AnimationAction(instance0: other), container));
+            container.Props.AnimationQueue.Enqueue(new TurnToNpc(new AnimationAction(instance0: other), container));
+            container.Props.AnimationQueue.Enqueue(new FinishingMove(new AnimationAction(instance0: other), container));
+        }
+
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
         {
             if (other == null)

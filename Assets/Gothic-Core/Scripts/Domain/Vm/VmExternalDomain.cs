@@ -98,6 +98,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_GotoFP", AI_GotoFP);
             vm.RegisterExternal<NpcInstance, string>("AI_GotoWP", AI_GotoWP);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_GotoNpc", AI_GotoNpc);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_FinishingMove", AI_FinishingMove);
             vm.RegisterExternal<NpcInstance, string>("AI_PlayAni", AI_PlayAni);
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
@@ -395,6 +396,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_GotoNpc(NpcInstance self, NpcInstance other)
         {
             _npcAiService.ExtAiGoToNpc(self, other);
+        }
+
+        public void AI_FinishingMove(NpcInstance self, NpcInstance other)
+        {
+            _npcAiService.ExtAiFinishingMove(self, other);
         }
 
         public void AI_PlayAni(NpcInstance npc, string name)

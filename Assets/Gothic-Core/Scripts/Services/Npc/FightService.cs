@@ -93,9 +93,11 @@ namespace Gothic.Core.Services.Npc
 
             if (UpdateHealth(attacker, target, weapon))
             {
-                if (isHero)
+                // The hero follows the same rule as everybody: monsters and hostile humans kill him.
+                var isKnockedOut = _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
+                if (isHero && isKnockedOut)
                     KnockOutHero(target, attacker);
-                else if (_meleeDamageDomain.IsKnockedOutNotKilled(attacker, target))
+                else if (isKnockedOut)
                     KnockOut(target, attacker);
                 else
                     _npcService.Kill(target, attacker);
