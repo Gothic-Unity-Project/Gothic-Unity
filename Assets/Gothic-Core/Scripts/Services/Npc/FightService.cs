@@ -130,9 +130,12 @@ namespace Gothic.Core.Services.Npc
         /// where he aims, at the engine's 30 m/s - slower from a bow not fully drawn.
         /// </summary>
         /// <param name="draw">0..1, how far the bow was drawn (a crossbow: 1).</param>
-        /// <returns>False without munition.</returns>
+        /// <returns>False without munition, while down, or when the shooter lacks the weapon's requirements.</returns>
         public bool ShootByHand(NpcContainer shooter, ItemInstance weapon, Vector3 start, Vector3 direction, float draw)
         {
+            if (shooter.IsDown() || !MeetsWeaponRequirements(shooter, weapon))
+                return false;
+
             var munition = _vmCacheService.TryGetItemData(weapon.Munition);
             if (munition == null || _npcInventoryService.ExtNpcHasItems(shooter.Instance, weapon.Munition) <= 0)
                 return false;
@@ -176,6 +179,42 @@ namespace Gothic.Core.Services.Npc
             var arrow = CreateArrow(munition, start);
             _arrowFlightDomain ??= new ArrowFlightDomain(OnRangedHit).Inject();
             _arrowFlightDomain.Launch(arrow, shooter, target, weapon, start, GetAimPoint(target));
+            return true;
+        }
+
+        /// <summary>
+        /// Like Gothic, a bow or crossbow needs its attribute conditions (cond_atr/cond_value: dexterity, in G2 strength
+        /// for crossbows); without them it doesn't shoot and the scripts say why (G_CanNotUse, found on BoroBongo's
+        /// branch).
+        /// </summary>
+        private bool MeetsWeaponRequirements(NpcContainer shooter, ItemInstance weapon)
+        {
+            foreach (var slot in new[] { ItemConditionSlot.Slot0, ItemConditionSlot.Slot1, ItemConditionSlot.Slot2 })
+            {
+                var value = weapon.GetCondValue(slot);
+                var attribute = weapon.GetCondAtr(slot);
+                if (value == 0 || shooter.Vob.GetAttribute(attribute) >= value)
+                    continue;
+
+                var vm = _gameStateService.GothicVm;
+                var canNotUse = vm.GetSymbolByName("G_CanNotUse");
+                if (canNotUse != null && !canNotUse.IsExternal)
+                {
+                    var oldSelf = vm.GlobalSelf;
+                    vm.GlobalSelf = shooter.Instance;
+                    try
+                    {
+                        vm.Call(canNotUse.Index, shooter.IsHero() ? 1 : 0, attribute, value);
+                    }
+                    finally
+                    {
+                        vm.GlobalSelf = oldSelf;
+                    }
+                }
+
+                return false;
+            }
+
             return true;
         }
 

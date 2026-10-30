@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
@@ -33,11 +34,13 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly AudioService _audioService;
 
         private IVrRig _rig;
         private readonly Dictionary<VrHandSide, float> _drawStartTimes = new();
         private readonly HashSet<VrHandSide> _fullyDrawn = new();
         private float _crossbowReadyTime;
+        private VrHandSide? _pendingReloadSide;
 
         private void Start()
         {
@@ -55,6 +58,12 @@ namespace Gothic.VR.Adapters.Player
 
         private void HandleHand(VrHandSide side, GameObject heldItem)
         {
+            if (_pendingReloadSide == side && Time.time >= _crossbowReadyTime)
+            {
+                _pendingReloadSide = null;
+                PlaySound(side, "CrossbowReload");
+            }
+
             var weapon = GetRangedWeapon(heldItem);
             if (weapon == null)
             {
@@ -72,7 +81,10 @@ namespace Gothic.VR.Adapters.Player
                 if (Time.time < _crossbowReadyTime)
                     _haptics.Vibrate(side, VrHapticPreset.Warning);
                 else if (Shoot(side, weapon, 1f))
+                {
                     _crossbowReadyTime = Time.time + _crossbowReloadSeconds;
+                    _pendingReloadSide = side;
+                }
                 return;
             }
 
@@ -81,6 +93,7 @@ namespace Gothic.VR.Adapters.Player
                 _drawStartTimes[side] = Time.time;
                 _fullyDrawn.Remove(side);
                 _haptics.Vibrate(side, VrHapticPreset.Info);
+                PlaySound(side, "BowReload");
             }
             else if (trigger.IsActive && _drawStartTimes.TryGetValue(side, out var drawStart) &&
                      !_fullyDrawn.Contains(side) && Time.time - drawStart >= _fullDrawSeconds)
@@ -108,7 +121,19 @@ namespace Gothic.VR.Adapters.Player
             }
 
             _haptics.Vibrate(side, VrHapticPreset.Success);
+            var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
+            PlaySound(side, isCrossbow ? "CrossbowShoot" : "BowShoot");
             return true;
+        }
+
+        /// <summary>
+        /// Gothic's bow and crossbow sounds at the hand (found on BoroBongo's branch).
+        /// </summary>
+        private void PlaySound(VrHandSide side, string soundName)
+        {
+            var clip = _audioService.GetRandomSoundClip(soundName);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, (side == VrHandSide.Left ? _rig.LeftHand : _rig.RightHand).position);
         }
 
         private static ItemInstance GetRangedWeapon(GameObject heldItem)
