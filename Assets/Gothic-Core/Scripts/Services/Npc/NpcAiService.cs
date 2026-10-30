@@ -283,6 +283,22 @@ namespace Gothic.Core.Services.Npc
             container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
         }
 
+        public void ExtAiTurnAway(NpcInstance npc, NpcInstance other)
+        {
+            var container = npc.GetUserData();
+            if (other == null || container == null)
+                return;
+
+            container.Props.AnimationQueue.Enqueue(new TurnAwayFromNpc(new AnimationAction(instance0: other),
+                container));
+        }
+
+        public void ExtAiUseItem(NpcInstance npc, int itemId)
+        {
+            var container = npc.GetUserData();
+            container?.Props.AnimationQueue.Enqueue(new UseItem(new AnimationAction(int0: itemId), container));
+        }
+
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
         {
             if (other == null)

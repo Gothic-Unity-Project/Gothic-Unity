@@ -118,6 +118,14 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
+            if (vm.GetSymbolByName("AI_WhirlAround") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WhirlAround", AI_WhirlAround);
+            if (vm.GetSymbolByName("AI_TurnAway") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnAway", AI_TurnAway);
+            if (vm.GetSymbolByName("AI_UseItem") != null)
+                vm.RegisterExternal<NpcInstance, int>("AI_UseItem", AI_UseItem);
+            if (vm.GetSymbolByName("AI_UnequipWeapons") != null)
+                vm.RegisterExternal<NpcInstance>("AI_UnequipWeapons", AI_UnequipWeapons);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
@@ -502,6 +510,33 @@ namespace Gothic.Core.Domain.Vm
         public void AI_ContinueRoutine(NpcInstance npc)
         {
             _npcAiService.ExtAiContinueRoutine(npc);
+        }
+
+        /// <summary>
+        /// Like the engine, a quick turn to the other one (OpenGothic plays t_surprise_CW/CCW).
+        /// </summary>
+        public void AI_WhirlAround(NpcInstance npc, NpcInstance other)
+        {
+            _npcAiService.ExtAiTurnToNpc(npc, other);
+        }
+
+        public void AI_TurnAway(NpcInstance npc, NpcInstance other)
+        {
+            _npcAiService.ExtAiTurnAway(npc, other);
+        }
+
+        public void AI_UseItem(NpcInstance npc, int itemId)
+        {
+            _npcAiService.ExtAiUseItem(npc, itemId);
+        }
+
+        /// <summary>
+        /// The NPC takes off its melee and ranged weapons (into the inventory).
+        /// </summary>
+        public void AI_UnequipWeapons(NpcInstance npc)
+        {
+            npc.GetUserData()?.Props.EquippedItems.RemoveAll(i =>
+                i.MainFlag is (int)VmGothicEnums.ItemFlags.ItemKatNf or (int)VmGothicEnums.ItemFlags.ItemKatFf);
         }
 
         public void AI_TurnToNPC(NpcInstance npc, NpcInstance target)
