@@ -86,6 +86,11 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
+            // Like the engine, a mob used with an item needs it to send its trigger too, e.g. G2's Jharkendar portal
+            // (ItMi_PortalRing_Addon) opened without the ornament ring. The item isn't taken, as in OpenGothic.
+            if (IsMissingRequiredItem(mob, loader.name))
+                return;
+
             // Like the engine (OpenGothic Interactive::implTick): the mob keeps its state. Used from state 0 it sends a
             // trigger, used again from its upper state an untrigger (e.g. a TriggerControl gate closes again).
             // Movers react per their behavior (MoverAdapter.OnTrigger/OnUntrigger), other targets (CodeMaster,
@@ -128,17 +133,8 @@ namespace Gothic.Core.Services.Vobs
             }
 
             // Like the engine: a mob used with an item needs it in the inventory (e.g. a lab flask).
-            var hero = _playerService.HeroContainer;
-            if (!string.IsNullOrEmpty(mob.Item))
-            {
-                var item = _vmCacheService.TryGetItemData(mob.Item);
-                if (item != null && _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) <= 0)
-                {
-                    Logger.Log($"[MobDialog] '{loader.name}' needs '{mob.Item}'.", LogCat.Dialog);
-                    PlayMobMissingItemReaction(hero);
-                    return true;
-                }
-            }
+            if (IsMissingRequiredItem(mob, loader.name))
+                return true;
 
             _dialogService.PrepareMobDialog(createDialogAnchor());
             _vmService.CallAsHero(functionName, LogCat.Dialog);
@@ -147,6 +143,25 @@ namespace Gothic.Core.Services.Vobs
             // Not every _S1 opens a dialog (e.g. a script only prints a message) - then the anchor isn't needed.
             _dialogService.ReleaseUnusedMobDialogAnchor();
 
+            return true;
+        }
+
+        /// <summary>
+        /// Like the engine: a mob used with an item (useWithItem) needs it in the hero's inventory. Without it the hero
+        /// says he's missing something.
+        /// </summary>
+        private bool IsMissingRequiredItem(IInteractiveObject mob, string mobName)
+        {
+            if (string.IsNullOrEmpty(mob.Item))
+                return false;
+
+            var hero = _playerService.HeroContainer;
+            var item = _vmCacheService.TryGetItemData(mob.Item);
+            if (hero == null || item == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) > 0)
+                return false;
+
+            Logger.Log($"[MobInteractionService] '{mobName}' needs '{mob.Item}'.", LogCat.Vob);
+            PlayMobMissingItemReaction(hero);
             return true;
         }
 
