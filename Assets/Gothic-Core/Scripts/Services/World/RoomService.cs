@@ -20,7 +20,7 @@ namespace Gothic.Core.Services.World
     /// <summary>
     /// Gothic's rooms (huts, houses, castle halls) are the world's BSP sectors. Like the engine (OpenGothic MoveAlgo:
     /// the sector of the ground polygon under the feet), the room of a position is the sector of the floor below it -
-    /// outdoors there is none. The scripts give rooms to guilds (Wld_AssignRoomToGuild, run by every world's startup,
+    /// outdoors there is none. A room's polygons have materials named "S:ROOM_TEXTURE". The scripts give rooms to guilds (Wld_AssignRoomToGuild, run by every world's startup,
     /// so nothing is saved). When the hero walks into another room or out of one, the NPCs around perceive
     /// PERC_ASSESSENTERROOM, which makes owners chase intruders out.
     /// </summary>
@@ -157,28 +157,59 @@ namespace Gothic.Core.Services.World
                 return;
 
             var stopwatch = Stopwatch.StartNew();
+            var sectorByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var sector in world.BspTree.Sectors)
+            {
+                sectorByName.TryAdd(sector.Name ?? string.Empty, _sectorNames.Count);
                 _sectorNames.Add(sector.Name ?? string.Empty);
+            }
 
             var mesh = world.Mesh;
+            var materialSectors = GetMaterialSectors(mesh, sectorByName);
             var positions = mesh.Positions;
             var floorCount = 0;
             for (var i = 0; i < mesh.PolygonCount; i++)
             {
                 var polygon = mesh.GetPolygon(i);
-                if (!polygon.IsSector || polygon.SectorIndex < 0 || polygon.SectorIndex >= _sectorNames.Count)
+                var sector = polygon.IsSector ? materialSectors[polygon.MaterialIndex] : -1;
+                if (sector < 0)
                     continue;
 
                 var indices = polygon.PositionIndices;
                 if (indices.Count < 3 || !IsFloor(positions, indices))
                     continue;
 
-                AddFloor(polygon.SectorIndex, positions, indices);
+                AddFloor(sector, positions, indices);
                 floorCount++;
             }
 
             Logger.Log($"[Rooms] {_sectorNames.Count} rooms, {floorCount} floor polygons in {_floorCells.Count} cells " +
                        $"({stopwatch.ElapsedMilliseconds} ms)", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// The room of each material: "S:NLHU25_OCWOODFLOOR" belongs to NLHU25, like OpenGothic's guildOfRoom reads it.
+        /// The G1 mesh leaves the polygons' own sector index empty.
+        /// </summary>
+        private static int[] GetMaterialSectors(IMesh mesh, Dictionary<string, int> sectorByName)
+        {
+            var result = new int[mesh.MaterialCount];
+            for (var i = 0; i < result.Length; i++)
+            {
+                result[i] = -1;
+                var name = mesh.GetMaterial(i).Name;
+                if (name == null || !name.StartsWith("S:", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var room = name.Substring(2);
+                var end = room.IndexOf('_');
+                if (end > 0)
+                    room = room.Substring(0, end);
+                if (sectorByName.TryGetValue(room, out var sector))
+                    result[i] = sector;
+            }
+
+            return result;
         }
 
         private static bool IsFloor(List<System.Numerics.Vector3> positions, List<int> indices)
