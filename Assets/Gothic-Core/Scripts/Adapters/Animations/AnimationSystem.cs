@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -77,6 +78,9 @@ namespace Gothic.Core.Adapters.Animations
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
         private const float _rootColliderUpdateThreshold = 0.05f;
+        // Walls: a sphere at hip height (the NPC root) probes the move; steeper than this (normal's up part) is a wall.
+        private const float _wallProbeRadius = 0.3f;
+        private const float _wallMinNormalY = 0.5f;
 
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
@@ -648,7 +652,33 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             // Pos change is applied with rotated value.
-            Go.transform.localPosition += Go.transform.rotation * finalMovement;
+            Go.transform.localPosition += SlideAlongWalls(Go.transform.rotation * finalMovement);
+        }
+
+        /// <summary>
+        /// Root motion moves the NPC directly, physics only pushes it out afterwards: runners stuck in walls and fast
+        /// ones went through rocks. Against a wall only the part of the move along it stays, like the engine slides
+        /// along (OpenGothic MoveAlgo). Floors and slopes don't block, nor do mobs the NPC walks into on purpose (benches,
+        /// beds). Found on BoroBongo's branch.
+        /// </summary>
+        private Vector3 SlideAlongWalls(Vector3 move)
+        {
+            if (_restRootHeight <= 0f || PrefabProps.CurrentInteractable != null)
+                return move;
+
+            var horizontal = new Vector3(move.x, 0f, move.z);
+            var distance = horizontal.magnitude;
+            if (distance < 0.0001f)
+                return move;
+
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (!Physics.SphereCast(Go.transform.position, radius, horizontal / distance, out var hit, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+                return move;
+
+            var wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+            var slide = Vector3.ProjectOnPlane(horizontal, wallNormal);
+            return new Vector3(slide.x, move.y, slide.z);
         }
 
         private void ApplyEvents()
