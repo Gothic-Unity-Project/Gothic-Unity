@@ -86,6 +86,40 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// The hero readied or put away a melee weapon (found on BoroBongo's branch). Like the engine (oCNpc::
+        /// SetWeaponMode, OpenGothic closeWeapon) the fight mode is stored - Npc_IsInFightMode reads it - and the NPCs
+        /// around get PERC_DRAWWEAPON or PERC_ASSESSREMOVEWEAPON. Putting the melee weapon away leaves a readied rune
+        /// or bow alone. While he's armed, NPCs that see him get PERC_ASSESSFIGHTER (AiHandler).
+        /// </summary>
+        public void OnHeroMeleeWeaponChanged(VmGothicEnums.WeaponState meleeState)
+        {
+            var hero = GetHero();
+            var vob = hero?.GetUserData()?.Vob;
+            if (vob == null)
+                return;
+
+            var oldState = (VmGothicEnums.WeaponState)vob.FightMode;
+            var wasMelee = oldState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
+            if (oldState == meleeState || (meleeState == VmGothicEnums.WeaponState.NoWeapon && !wasMelee))
+                return;
+
+            vob.FightMode = (int)meleeState;
+            var isArmed = IsArmed(meleeState);
+            if (isArmed == IsArmed(oldState))
+                return;
+
+            Logger.Log($"[HeroPerception] The hero {(isArmed ? "draws" : "puts away")} his weapon", LogCat.Npc);
+            _npcAiService.SendPassivePerception(hero, isArmed
+                ? VmGothicEnums.PerceptionType.DrawWeapon
+                : VmGothicEnums.PerceptionType.AssessRemoveWeapon, null, hero, null);
+        }
+
+        public static bool IsArmed(VmGothicEnums.WeaponState state)
+        {
+            return state is not (VmGothicEnums.WeaponState.NoWeapon or VmGothicEnums.WeaponState.Fist);
+        }
+
+        /// <summary>
         /// Npc_IsDetectedMobOwnedByNpc: the mob the NPC (the hero) uses belongs to the owner.
         /// </summary>
         public bool IsDetectedMobOwnedByNpc(NpcInstance user, NpcInstance owner)

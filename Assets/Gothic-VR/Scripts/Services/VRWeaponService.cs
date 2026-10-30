@@ -4,6 +4,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;
@@ -28,6 +29,7 @@ namespace Gothic.VR.Services
         [Inject] private AudioService _audioService;
         [Inject] private PlayerService _playerService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private HeroPerceptionService _heroPerceptionService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -54,6 +56,8 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon grabbed with another hand.
                 _secondAttackDomain.TryHandle(vobContainer, weaponConfig, handSide, heroContainer);
             }
+
+            UpdateHeroWeaponState();
         }
 
         public void OnReleased(VrHandSide handSide, WeaponPhysicsConfig weaponConfig)
@@ -63,6 +67,21 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon released from another hand.
                 _secondAttackDomain.TryUnHandle(weaponConfig, handSide);
             }
+
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// A melee weapon in a hand is a drawn weapon for Gothic (found on BoroBongo's branch). Gothic knows one at a
+        /// time - with two, the first one counts.
+        /// </summary>
+        private void UpdateHeroWeaponState()
+        {
+            var state = _firstAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = _secondAttackDomain.GetWeaponState();
+
+            _heroPerceptionService.OnHeroMeleeWeaponChanged(state);
         }
 
         public void PlayDrawSound(VobContainer weapon)
