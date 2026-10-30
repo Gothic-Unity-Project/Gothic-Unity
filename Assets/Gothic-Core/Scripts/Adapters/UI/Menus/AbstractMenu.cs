@@ -240,7 +240,13 @@ namespace Gothic.Core.Adapters.UI.Menus
 
             if (!item.AlphaMode.IsNullOrEmpty())
             {
-                backPic.ToTransparentMode();
+                // Gothic's BLEND is plain alpha blending. The premultiplied, alpha-tested transparent mode used before
+                // needs a shader variant that builds strip - the G1 menu logo looked different in a build than in the
+                // Editor (found on BoroBongo's branch). ADD adds the picture's colors.
+                if (item.AlphaMode.EqualsIgnoreCase("ADD"))
+                    backPic.ToAdditiveMode();
+                else
+                    backPic.ToFadeMode();
                 var color = backPic.GetColor("_BaseColor");
                 var alpha = item.Alpha / 255f;
                 backPic.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));
