@@ -1252,6 +1252,31 @@ namespace Gothic.Core.Domain.Vm
                 vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellID", Npc_GetLastHitSpellID);
             if (IsDeclared("Npc_GetLastHitSpellCat"))
                 vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellCat", Npc_GetLastHitSpellCat);
+            // What spells do through the scripts: teleport runes, summons, fear.
+            if (IsDeclared("AI_Teleport"))
+                vm.RegisterExternal<NpcInstance, string>("AI_Teleport", AI_Teleport);
+            if (IsDeclared("Wld_SpawnNpcRange"))
+                vm.RegisterExternal<NpcInstance, int, int, float>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
+            if (IsDeclared("AI_SetNpcsToState"))
+                vm.RegisterExternal<NpcInstance, int, int>("AI_SetNpcsToState", AI_SetNpcsToState);
+        }
+
+        public void AI_Teleport(NpcInstance npc, string pointName)
+        {
+            _magicService.Teleport(npc, pointName);
+        }
+
+        /// <summary>
+        /// The last parameter is a float in the scripts' declaration (the summons' lifetime).
+        /// </summary>
+        public void Wld_SpawnNpcRange(NpcInstance npc, int npcInstance, int count, float lifeTime)
+        {
+            _magicService.SpawnAround(npc, npcInstance, count, lifeTime);
+        }
+
+        public void AI_SetNpcsToState(NpcInstance npc, int state, int radius)
+        {
+            _magicService.SetNpcsToState(npc, state, radius);
         }
 
         public void AI_ReadySpell(NpcInstance npc, int spellId, int investMana)

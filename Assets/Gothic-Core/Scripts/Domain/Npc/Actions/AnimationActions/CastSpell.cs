@@ -100,6 +100,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         protected override void AnimationEnd()
         {
             StopPlayedAnimation();
+            // The hands come down (T_FBTSHOOT_2_STAND) instead of staying up in the cast pose.
+            if (_isCommitted && _letters != null)
+                PrefabProps.AnimationSystem.PlayAnimation($"T_{_letters}SHOOT_2_STAND");
             base.AnimationEnd();
         }
 

@@ -9,6 +9,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
@@ -34,6 +35,13 @@ namespace Gothic.Core.Services.Npc
         private const int _spellGood = 0;
         private const int _spellBad = 2;
         private const int _talentMageFallback = 7;
+        // C_Spell.targetCollectAlgo: TARGET_COLLECT_ALL, TARGET_COLLECT_ALL_FALLBACK_NONE - everybody around.
+        private const int _targetCollectAll = 3;
+        private const int _targetCollectAllFallbackNone = 6;
+        // Wld_SpawnNpcRange puts summons this far from the caster (OpenGothic fixNpcPosition: 100 cm).
+        private const float _summonDistance = 1f;
+        // Spell scripts write these on the instance (G2 Spell_Cast_*: self.attribute[ATR_MANA] = ...).
+        private static readonly NpcAttribute[] _scriptWrittenAttributes = { NpcAttribute.HitPoints, NpcAttribute.Mana };
         // C_Spell.targetCollectAlgo: TARGET_COLLECT_NONE, TARGET_COLLECT_CASTER.
         private const int _targetCollectNone = 0;
         private const int _targetCollectCaster = 1;
@@ -49,6 +57,9 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
         private readonly SpellDataDomain _spellData = new SpellDataDomain().Inject();
         private readonly SpellEffectDomain _spellEffects = new SpellEffectDomain().Inject();
@@ -270,6 +281,9 @@ namespace Gothic.Core.Services.Npc
 
             Logger.Log($"[Magic] {caster.Instance.GetName(NpcNameSlot.Slot0)} casts {item.Name}" +
                        (target != null ? $" at {target.Instance.GetName(NpcNameSlot.Slot0)}" : ""), LogCat.Fight);
+            // The NPCs around notice somebody casting (B_AssessCaster) - guards react to the hero's fire rune.
+            _npcAiService.Npc_SendPassivePerc(caster.Instance, VmGothicEnums.PerceptionType.AssessCaster,
+                caster.Instance, caster.Instance);
             return cast;
         }
 
@@ -371,7 +385,9 @@ namespace Gothic.Core.Services.Npc
             else
             {
                 _spellEffects.CreateParticles(effect, origin, Quaternion.identity, _castEffectSeconds);
-                if (cast.Target != null)
+                if (cast.Spell.TargetCollectAlgo is _targetCollectAll or _targetCollectAllFallbackNone)
+                    HitEverybodyAround(cast, direction);
+                else if (cast.Target != null)
                     HitWithSpell(cast, cast.Target, 1);
             }
 
@@ -392,6 +408,106 @@ namespace Gothic.Core.Services.Npc
             cast.Phase = SpellCastPhase.Stopped;
             if (cast.Caster.Props.SpellCast == cast)
                 cast.Caster.Props.SpellCast = null;
+        }
+
+        /// <summary>
+        /// Spells for everybody around (fire rain, ice wave, mass death): every NPC within the spell's
+        /// targetCollectRange and its horizontal angle (targetCollectAzi) in front of the caster is hit.
+        /// </summary>
+        private void HitEverybodyAround(SpellCast cast, Vector3 direction)
+        {
+            var center = cast.Caster.Go.transform.position;
+            var range = cast.Spell.TargetCollectRange / 100f;
+            var halfAngle = cast.Spell.TargetCollectAzi >= 360 || cast.Spell.TargetCollectAzi <= 0
+                ? 180f
+                : cast.Spell.TargetCollectAzi / 2f;
+            var forward = new Vector3(direction.x, 0f, direction.z);
+
+            foreach (var npc in _multiTypeCacheService.NpcCache.ToArray())
+            {
+                if (npc == cast.Caster || npc?.Go == null || !npc.Go.activeInHierarchy ||
+                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                    continue;
+
+                var toNpc = npc.Go.transform.position - center;
+                if (toNpc.sqrMagnitude > range * range)
+                    continue;
+
+                toNpc.y = 0f;
+                if (halfAngle < 180f && forward.sqrMagnitude > 0.0001f && Vector3.Angle(forward, toNpc) > halfAngle)
+                    continue;
+
+                HitWithSpell(cast, npc, 1);
+            }
+        }
+
+        /// <summary>
+        /// AI_Teleport (teleport runes, scripts): the NPC or the hero stands at the waypoint or free point at once
+        /// (OpenGothic AI_Teleport).
+        /// </summary>
+        public void Teleport(NpcInstance npc, string pointName)
+        {
+            var container = npc?.GetUserData();
+            var point = _wayNetService.GetWayNetPoint(pointName);
+            if (container == null || point == null)
+            {
+                Logger.LogWarning($"[Magic] AI_Teleport: point '{pointName}' not found", LogCat.Npc);
+                return;
+            }
+
+            var rotation = point.Direction.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(new Vector3(point.Direction.x, 0f, point.Direction.z))
+                : Quaternion.identity;
+            if (container.IsHero())
+                _contextInteractionService.TeleportPlayerTo(point.Position, rotation);
+            else if (container.Go != null)
+                container.Go.transform.SetPositionAndRotation(point.Position, rotation);
+
+            Logger.Log($"[Magic] {npc.GetName(NpcNameSlot.Slot0)} teleports to {pointName}", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// Wld_SpawnNpcRange (summon spells): the NPCs appear around the caster, spread on a circle 1 m away like
+        /// OpenGothic. The lifetime isn't used, like there - the summons' scripts decide when they go.
+        /// </summary>
+        public void SpawnAround(NpcInstance caster, int npcInstance, int count, float lifeTime)
+        {
+            var container = caster?.GetUserData();
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(npcInstance);
+            if (container?.Go == null || symbol == null || count <= 0)
+                return;
+
+            var origin = container.Go.transform;
+            for (var i = 0; i < count; i++)
+            {
+                var direction = Quaternion.Euler(0f, 360f * i / count, 0f) * origin.forward;
+                _npcService.SpawnNpcByName(symbol.Name, origin.position + direction * _summonDistance,
+                    origin.rotation);
+            }
+
+            Logger.Log($"[Magic] {caster.GetName(NpcNameSlot.Slot0)} summons {count}x {symbol.Name}", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// AI_SetNpcsToState (fear): the NPCs within the radius (cm) start the state, with the caller as their other
+        /// to flee from. The hero runs no states.
+        /// </summary>
+        public void SetNpcsToState(NpcInstance npc, int state, int radius)
+        {
+            var caller = npc?.GetUserData();
+            if (caller?.Go == null)
+                return;
+
+            var range = radius / 100f;
+            foreach (var other in _multiTypeCacheService.NpcCache.ToArray())
+            {
+                if (other?.Go == null || other == caller || other.IsHero() || !other.Go.activeInHierarchy ||
+                    other.Props?.BodyState == VmGothicEnums.BodyState.BsDead ||
+                    (other.Go.transform.position - caller.Go.transform.position).sqrMagnitude > range * range)
+                    continue;
+
+                _npcAiService.StartState(other.Instance, state, true, string.Empty, caller.Instance, null, true);
+            }
         }
 
         private void OnProjectileHit(SpellCast cast, NpcContainer victim, Vector3 position)
@@ -491,11 +607,13 @@ namespace Gothic.Core.Services.Npc
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = caster.Instance;
-            if (target != null)
-                vm.GlobalOther = target.Instance;
+            // Without a target the scripts get the caster, not whoever was other before (G1 Spell_Logic_Sleep checks
+            // C_NpcIsHuman(other)).
+            vm.GlobalOther = (target ?? caster).Instance;
             try
             {
                 call();
+                SyncScriptAttributes(caster);
             }
             catch (Exception e)
             {
@@ -506,6 +624,20 @@ namespace Gothic.Core.Services.Npc
             {
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
+            }
+        }
+
+        /// <summary>
+        /// Spell scripts write the caster's attributes on the instance directly (G2 Spell_Cast_*: self.attribute[ATR_MANA]
+        /// = ...): the VOB, which the mana bar, save games and the next cast read, gets them too.
+        /// </summary>
+        private void SyncScriptAttributes(NpcContainer caster)
+        {
+            foreach (var attribute in _scriptWrittenAttributes)
+            {
+                var value = caster.Instance.GetAttribute(attribute);
+                if (value != caster.Vob.GetAttribute((int)attribute))
+                    _npcService.SetAttribute(caster, attribute, value);
             }
         }
 
