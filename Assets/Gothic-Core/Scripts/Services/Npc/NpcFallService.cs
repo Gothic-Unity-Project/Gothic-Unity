@@ -11,9 +11,10 @@ namespace Gothic.Core.Services.Npc
 {
     /// <summary>
     /// NPCs falling, like the engine (OpenGothic MoveAlgo and DamageCalculator::damageFall): a walking NPC drops by
-    /// physics, and landing from higher than its guild's FALLDOWN_HEIGHT costs FALLDOWN_DAMAGE per meter beyond it, less
-    /// its fall protection - a negative protection makes it immune. A deadly fall kills. Before, NPCs that ran or fell
-    /// off a cliff landed unhurt. Found on BoroBongo's branch.
+    /// physics, and landing from higher than its guild's FALLDOWN_HEIGHT costs FALLDOWN_DAMAGE per meter beyond it,
+    /// less its fall protection - a negative protection makes it immune. A deadly fall kills, falling into water deep
+    /// enough to swim doesn't hurt swimmers. Before, NPCs that ran or fell off a cliff landed unhurt. Found on
+    /// BoroBongo's branch.
     /// </summary>
     public class NpcFallService
     {
@@ -23,6 +24,7 @@ namespace Gothic.Core.Services.Npc
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
         /// <summary>
         /// Called by every awake NPC once per frame.
@@ -63,6 +65,9 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void Land(NpcContainer npc, float height)
         {
+            if (_npcWaterService.TrySwimAfterFall(npc))
+                return;
+
             var damage = GetFallDamage(npc, height);
             if (damage <= 0)
                 return;
@@ -74,8 +79,8 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// OpenGothic DamageCalculator::damageFall: FALLDOWN_DAMAGE per meter (cm values) beyond FALLDOWN_HEIGHT, less the
-        /// fall protection. 0 below that height or with a negative (immune) protection.
+        /// OpenGothic DamageCalculator::damageFall: FALLDOWN_DAMAGE per meter (cm values) beyond FALLDOWN_HEIGHT, less
+        /// the fall protection. 0 below that height or with a negative (immune) protection.
         /// </summary>
         public int GetFallDamage(NpcContainer npc, float height)
         {

@@ -80,7 +80,8 @@ namespace Gothic.Core.Services.Npc
                 if (isDeeper)
                 {
                     if (_loggedBarriers.Add(npc))
-                        Logger.Log($"[NpcWater] {npc.Go.name} can't swim - deep water ({depth:F2} m) blocks it.", LogCat.Ai);
+                        Logger.Log($"[NpcWater] {npc.Go.name} can't swim - deep water ({depth:F2} m) blocks it.",
+                            LogCat.Ai);
                     worldMove.x = 0f;
                     worldMove.z = 0f;
                 }
@@ -97,7 +98,8 @@ namespace Gothic.Core.Services.Npc
             {
                 worldMove.y = MoveToHeight(pos.y, waterY - restRootHeight * _swimRootDepthFactor - rootBoneOffset);
                 if (_loggedSwimHeights.Add(npc))
-                    Logger.Log($"[NpcWater] {npc.Go.name} swims: water={waterY:F2} rootY={pos.y:F2} rest={restRootHeight:F2} " +
+                    Logger.Log($"[NpcWater] {npc.Go.name} swims: water={waterY:F2} rootY={pos.y:F2} " +
+                               $"rest={restRootHeight:F2} " +
                                $"rootBoneOffset={rootBoneOffset:F2}", LogCat.Ai);
             }
 
@@ -107,7 +109,8 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Flying monsters (demon, bloodfly) over water: the surface is their ground - before they flew on the bottom.
         /// </summary>
-        private Vector3 ApplyFlying(NpcContainer npc, Vector3 pos, Vector3 next, Vector3 worldMove, float restRootHeight)
+        private Vector3 ApplyFlying(NpcContainer npc, Vector3 pos, Vector3 next, Vector3 worldMove,
+            float restRootHeight)
         {
             var isOverWater = TryGetWater(next, pos.y, out var groundY, out var waterY) && waterY > groundY;
             if (!isOverWater)
@@ -134,7 +137,8 @@ namespace Gothic.Core.Services.Npc
         private static void SetGravity(NpcContainer npc, bool useGravity)
         {
             var rootMotion = npc.PrefabProps?.ColliderRootMotion;
-            if (rootMotion == null || !rootMotion.TryGetComponent<Rigidbody>(out var body) || body.useGravity == useGravity)
+            if (rootMotion == null || !rootMotion.TryGetComponent<Rigidbody>(out var body) ||
+                body.useGravity == useGravity)
                 return;
 
             body.useGravity = useGravity;
@@ -167,10 +171,22 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Water surface and ground at the position (VR transformation puppet: swims at the surface).
+        /// Called when the NPC lands from a fall. In water deep enough to swim it swims and the fall doesn't hurt, like
+        /// the engine (OpenGothic MoveAlgo: falling into such water switches to swimming). Non-swimmers hit the bottom.
         /// </summary>
-        public bool TryGetWaterSurface(Vector3 position, out float groundY, out float waterY) =>
-            TryGetWater(position, position.y, out groundY, out waterY);
+        public bool TrySwimAfterFall(NpcContainer npc)
+        {
+            if (npc?.Vob?.AiHuman == null || npc.Go == null || !HasSwimAnimations(npc))
+                return false;
+
+            GetDepths(npc, out _, out var chest, out var isFlying);
+            var pos = npc.Go.transform.position;
+            if (isFlying || !TryGetWater(pos, pos.y, out var groundY, out var waterY) || waterY - groundY <= chest)
+                return false;
+
+            SetWaterLevel(npc, ZenGineConst.WaterLevel.Chest);
+            return true;
+        }
 
         /// <summary>
         /// Ground below the position and the water surface above that ground - only if nothing solid lies in between
