@@ -17,4 +17,4 @@ Gothic's scripts look at how the hero moves: a running hero gets away from a cha
 
 - Sneaking past guards works with the talent; NPCs notice a hero running or walking around them.
 - The step length for the noise is an estimate (about a metre), as VR has no step animation.
-- Sitting, lying and swimming keep their own states.
+- Swimming and diving count as such, so monsters that don't follow into the water give up, as in Gothic. Sitting and lying keep their own states.
