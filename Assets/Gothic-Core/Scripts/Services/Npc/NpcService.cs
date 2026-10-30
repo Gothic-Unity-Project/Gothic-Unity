@@ -37,7 +37,6 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService
     {
-        public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmService _vmService;
@@ -51,6 +50,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly MobRoutineService _mobRoutineService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -171,8 +171,7 @@ namespace Gothic.Core.Services.Npc
 
         public async Task CreateWorldNpcs(LoadingService loading)
         {
-            MobRoutines.ClearAndReleaseMemory();
-            MobRoutines = new();
+            _mobRoutineService.ClearRoutines();
             
             if (_saveGameService.IsNewGame)
                 await _initializerDomain.InitNpcsNewGame(loading);

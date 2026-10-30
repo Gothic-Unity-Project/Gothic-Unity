@@ -76,6 +76,7 @@ namespace Gothic.Core
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
+            containerBuilder.AddSingleton(typeof(MobRoutineService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player

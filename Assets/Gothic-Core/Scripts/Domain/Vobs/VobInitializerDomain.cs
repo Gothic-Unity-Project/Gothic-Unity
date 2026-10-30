@@ -17,6 +17,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
@@ -46,6 +47,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly MobRoutineService _mobRoutineService;
 
 
         /// <summary>
@@ -416,15 +418,15 @@ namespace Gothic.Core.Domain.Vobs
 
         /// <summary>
         /// Some fire slots have the light too low to cast light onto the mesh and the surroundings.
+        /// A fireplace without a fire tree is still a mesh with children (found on BoroBongo's branch).
         /// </summary>
         [CanBeNull]
         private GameObject CreateFire(Fire vob, GameObject parent, Vector3 worldPosition)
         {
             var go = CreateDefaultMesh(vob, parent);
-
-            if (vob.VobTree == "")
+            if (go == null || vob.VobTree == "")
             {
-                return null;
+                return go;
             }
 
             var fireWorld = _resourceCacheService.TryGetWorld(vob.VobTree, _contextGameVersionService.Version, true);
@@ -432,10 +434,14 @@ namespace Gothic.Core.Domain.Vobs
             if (fireWorld == null)
             {
                 Logger.LogWarning($"Fire world {vob.VobTree} not found. Skipping usage...", LogCat.Loading);
-                return null;
+                return go;
             }
 
-            CreateFireVobs(fireWorld.RootObjects, go.FindChildRecursively(vob.Slot) ?? go, worldPosition);
+            // The fire tree in its own object, so the scheme's mob routine can light it or put it out.
+            var fireTree = new GameObject("FireTree");
+            fireTree.SetParent(go.FindChildRecursively(vob.Slot) ?? go, true, true);
+            CreateFireVobs(fireWorld.RootObjects, fireTree, worldPosition);
+            _mobRoutineService.RegisterFire(GetScheme(vob), fireTree);
 
             return go;
         }
@@ -447,12 +453,38 @@ namespace Gothic.Core.Domain.Vobs
         {
             foreach (var vob in vobs)
             {
-                // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
-                vob.Position = default;
+                // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
+                // positioning. Their children (the smoke below a fire's light) carry the tree's absolute positions
+                // too - relative to their root now, or every FIRETREE_MEDIUM smoke stood at the same spot of the world
+                // (found on BoroBongo's branch). The tree is cached, so a root is only moved once.
+                if (vob.Position != System.Numerics.Vector3.Zero)
+                {
+                    ShiftFireTreeChildren(vob.Children, vob.Position);
+                    vob.Position = default;
+                }
 
                 // Call normal mesh and Prefab loading logic
                 InitVob(vob, parent, worldPosition, false);
             }
+        }
+
+        private static void ShiftFireTreeChildren(List<IVirtualObject> children, System.Numerics.Vector3 offset)
+        {
+            foreach (var child in children)
+            {
+                child.Position -= offset;
+                ShiftFireTreeChildren(child.Children, offset);
+            }
+        }
+
+        /// <summary>
+        /// The mob scheme of a fire, its visual's name up to the first '_' (FIREPLACE_HIGH2.ASC: FIREPLACE).
+        /// </summary>
+        private static string GetScheme(IVirtualObject vob)
+        {
+            var visual = vob.Visual?.Name ?? string.Empty;
+            var end = visual.IndexOf('_');
+            return end > 0 ? visual.Substring(0, end) : visual;
         }
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
