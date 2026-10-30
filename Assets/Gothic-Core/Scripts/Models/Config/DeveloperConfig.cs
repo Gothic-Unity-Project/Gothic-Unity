@@ -208,10 +208,6 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public MonsterTypesCollection SpawnMonsterInstances = new();
 
-        [Tooltip("WIP - Not production ready.")]
-        [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
-        public bool EnableNpcEyeBlinking;
-        
         [Separator("WIP")]
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;

@@ -148,6 +148,11 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
             vm.RegisterExternal<NpcInstance, string>("Mdl_RemoveOverlayMDS", Mdl_RemoveOverlayMDS);
+            if (vm.GetSymbolByName("Mdl_StartFaceAni") != null)
+                vm.RegisterExternal<NpcInstance, string, float, float>("Mdl_StartFaceAni", Mdl_StartFaceAni);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomFaceAni") != null)
+                vm.RegisterExternal<NpcInstance, string, float, float, float, float, float>("Mdl_ApplyRandomFaceAni",
+                    Mdl_ApplyRandomFaceAni);
 
             // Mission
 
@@ -679,6 +684,28 @@ namespace Gothic.Core.Domain.Vm
             if (!_isLoggedOnceRemoveOverlayMds)
                 Logger.LogWarning("Method >Mdl_RemoveOverlayMDS< not yet implemented in DaedalusVM. Logging once only!", LogCat.ZenKit);
             _isLoggedOnceRemoveOverlayMds = true;
+        }
+
+        /// <summary>
+        /// A face animation on the NPC's head (MMB), e.g. S_FRIGHTENED, S_ANGRY of B_SetFaceExpression. holdTime -1 =
+        /// until another mood replaces it.
+        /// </summary>
+        public void Mdl_StartFaceAni(NpcInstance npc, string name, float intensity, float holdTime)
+        {
+            var headMorph = npc.GetUserData()?.PrefabProps?.HeadMorph;
+            if (headMorph != null)
+                headMorph.StartFaceAnimation(name, intensity, holdTime);
+        }
+
+        /// <summary>
+        /// A face animation played again and again (the scripts' commented R_EyesBlink example).
+        /// </summary>
+        public void Mdl_ApplyRandomFaceAni(NpcInstance npc, string name, float timeMin, float timeMinVar, float timeMax,
+            float timeMaxVar, float probMin)
+        {
+            var headMorph = npc.GetUserData()?.PrefabProps?.HeadMorph;
+            if (headMorph != null)
+                headMorph.ApplyRandomFaceAnimation(name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
         }
 
         #endregion
