@@ -54,6 +54,9 @@ namespace Gothic.Core.Services.Vobs
         private readonly char[] _itemNameSeparators = { ';', ',' };
         private readonly char[] _itemCountSeparators = { ':', '.' };
 
+        // Mob_HasItems asks for the same chests on every dialog check - warned once per name and world.
+        private readonly HashSet<string> _missingContainerNames = new();
+
 
         private const int VobInitBatchSize = 10;
 
@@ -111,7 +114,8 @@ namespace Gothic.Core.Services.Vobs
         public void PreWorldCreate()
         {
             _gameStateService.VobsInteractable.Clear();
-            _gameStateService.ClearTriggerVobs();
+            _gameStateService.ClearNamedVobs();
+            _missingContainerNames.Clear();
         }
 
         /// <summary>
@@ -424,6 +428,34 @@ namespace Gothic.Core.Services.Vobs
                 .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position))
                 .FirstOrDefault();
         }
+        /// <summary>
+        /// Mob_HasItems: how many of the item the chest of that name holds (OpenGothic WorldObjects::hasItems), 0 if
+        /// there is no such chest. Its content string is what the chest holds: filled from the world, written back by
+        /// the chest's slots once it was opened.
+        /// </summary>
+        public int ExtMobHasItems(string mobName, int itemInstance)
+        {
+            if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpper(),
+                    out var container))
+            {
+                if (_missingContainerNames.Add(mobName ?? string.Empty))
+                    Logger.LogWarning($"Mob_HasItems: no chest named '{mobName}' in this world - answering 0.",
+                        LogCat.Vob);
+                return 0;
+            }
+
+            var itemName = _gameStateService.GothicVm.GetSymbolByIndex(itemInstance)?.Name;
+            if (itemName == null)
+            {
+                Logger.LogWarning($"Mob_HasItems: item {itemInstance} is no script symbol - answering 0.", LogCat.Vob);
+                return 0;
+            }
+
+            return UnpackItems(container.VobAs<IContainer>().Contents)
+                .Where(i => i.Name.EqualsIgnoreCase(itemName))
+                .Sum(i => i.Amount);
+        }
+
         public void ExtWldInsertItem(int itemInstance, string spawnPoint)
         {
             if (string.IsNullOrEmpty(spawnPoint) || itemInstance <= 0)
@@ -555,6 +587,10 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
+                    // Chests are also asked by name (Mob_HasItems).
+                    if (container.Vob.Type == VirtualObjectType.oCMobContainer)
+                        _gameStateService.RegisterNamedVob(container);
+
                     var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
                     
                     if (visualScheme.IsNullOrEmpty())
