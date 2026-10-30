@@ -13,6 +13,8 @@ Gothic's music has themes per area for day and night, and for calm, threat and f
 2. **Missing themes fall back like in the engine.** Night falls back to day, threat to fight, both to calm, and an area without a fitting theme to the world's default music.
 3. **A dead hero keeps the danger music.** Like in the engine, until a game is loaded.
 4. **A new world starts calm.**
+5. **The area is picked by position, like the engine.** The area playing stays while the player is inside it, else the last area containing him in the world's order plays, else the default music. Picking by priority played the big area around Gothic 2's pirate camp instead of the camp's own music. (Found by BoroBongo.)
+6. **Each world's music starts on a fresh music engine.** The DirectMusic library crashed the game natively when world themes followed the menu music on the same engine, for example when leaving Gothic 2's pirate camp. (Found and fixed by BoroBongo.)
 
 ## Consequences
 
