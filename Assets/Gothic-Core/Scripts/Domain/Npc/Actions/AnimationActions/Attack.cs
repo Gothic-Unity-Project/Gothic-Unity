@@ -69,12 +69,22 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // 60° is also assumed by OpenGothic.
             var isInFocus = _npcAiService.ExtNpcCanSeeNpc(NpcInstance, _enemy, false, 30f);
             var distance = GetDistance();
+
+            // Like the engine (OpenGothic FightAlgo::fillQueue), archers and crossbowmen use the far ranged moves only:
+            // aim and shoot within their weapon's range, else close in or turn.
+            if (IsRangedWeaponDrawn())
+            {
+                return distance <= _fightService.GetAttackReach(NpcContainer) && isInFocus
+                    ? FightConst.AttackActions.MyFkFocusFar
+                    : FightConst.AttackActions.MyFkNoFocusFar;
+            }
+
             var attackRange = _fightService.GetMeleeReach(NpcContainer);
             var isInWRange = distance <= attackRange; // W-Range == Weapon range
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
 
-            // Ranged/magic fight AI isn't implemented yet: such NPCs move like melee fighters, so fights continue
+            // Magic fight AI isn't implemented yet: casters move like melee fighters, so fights continue
             // (AttackPlayAni logs it once per NPC - here it was every AI_Attack).
 
             // NoWeapon behaves like Fist: an NPC attacked before its AI_DrawWeapon finished still needs a fight move.
@@ -104,6 +114,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 case FightAiMove.Wait:
                     // We reuse this flag and close the attack action after 200ms.
                     _npcAiService.ExtAiWait(NpcInstance, 0.2f);
+                    break;
+                // A ranged weapon shoots on every attack move.
+                case FightAiMove.Attack or FightAiMove.AttackSide or FightAiMove.AttackFront or FightAiMove.AttackTriple
+                    or FightAiMove.AttackWhirl or FightAiMove.AttackMaster when IsRangedWeaponDrawn():
+                    Props.AnimationQueue.Enqueue(new ShootRanged(new AnimationAction(instance0: _enemy), NpcContainer));
                     break;
                 case FightAiMove.Attack:
                     _npcAiService.PlayAttackAni(NpcInstance, GetAnimName(VmGothicEnums.AnimationType.Attack), _move, _enemy);
@@ -171,6 +186,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
             
             IsFinishedFlag = true;
+        }
+
+        private bool IsRangedWeaponDrawn()
+        {
+            return ((VmGothicEnums.WeaponState)Vob.FightMode).IsRanged();
         }
 
         private void QueueSwings(params VmGothicEnums.AnimationType[] swings)

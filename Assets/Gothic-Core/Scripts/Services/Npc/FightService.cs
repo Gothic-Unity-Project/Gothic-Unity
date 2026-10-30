@@ -10,6 +10,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -27,6 +28,8 @@ namespace Gothic.Core.Services.Npc
     {
         // Seconds the knocked out hero lies down before he can move again.
         private const float _heroKnockoutSeconds = 10f;
+        // Arrows aim at the VR hero's chest, this far below his head.
+        private const float _heroChestBelowHead = 0.4f;
 
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly AnimationService _animationService;
@@ -38,8 +41,15 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly MeshService _meshService;
 
         private readonly MeleeDamageDomain _meleeDamageDomain = new MeleeDamageDomain().Inject();
+        private readonly RangedDamageDomain _rangedDamageDomain = new RangedDamageDomain().Inject();
+        private ArrowFlightDomain _arrowFlightDomain;
 
         // Counts the hero's knockouts and loaded games: a recovery from an older one doesn't unlock the player.
         private int _heroKnockoutId;
@@ -71,27 +81,135 @@ namespace Gothic.Core.Services.Npc
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, ItemInstance weapon)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (!CanBeHit(attacker, target) || TryFinishOff(attacker, target))
                 return;
 
-            // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.
-            if (IsInDialog(attacker) || IsInDialog(target))
+            ApplyDamage(attacker, target, _meleeDamageDomain.CalculateDamage(attacker, target, weapon));
+        }
+
+        /// <summary>
+        /// How far the NPC attacks from with what it has drawn: a bow or crossbow from its reference range (the fight
+        /// AI's FK focus moves, like OpenGothic FightAlgo::weaponRange), anything else from its melee reach.
+        /// </summary>
+        public float GetAttackReach(NpcContainer npc)
+        {
+            return ((VmGothicEnums.WeaponState)npc.Vob.FightMode).IsRanged()
+                ? _rangedDamageDomain.ReferenceRange
+                : GetMeleeReach(npc);
+        }
+
+        /// <summary>
+        /// An arrow or bolt reached the target (ArrowFlight). Like the engine, it hits by the shooter's chance at that
+        /// distance and always kills instead of knocking out (MeleeDamageDomain.IsKnockedOutNotKilled).
+        /// </summary>
+        /// <param name="distance">How far the arrow flew, in m.</param>
+        public void OnRangedHit(NpcContainer shooter, NpcContainer target, ItemInstance weapon, float distance)
+        {
+            if (!CanBeHit(shooter, target))
                 return;
 
-            var isHero = target.IsHero();
-            if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
-                return;
-
-            // A hit on a knocked out NPC finishes it off.
-            if (!isHero && target.IsKnockedOut())
+            if (!_rangedDamageDomain.RollHit(shooter, weapon, distance))
             {
-                Logger.Log($"[Fight] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off " +
-                           $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-                _npcService.Kill(target, attacker);
+                Logger.Log($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} misses " +
+                           $"{target.Instance.GetName(NpcNameSlot.Slot0)} at {distance:0.0} m", LogCat.Fight);
                 return;
             }
 
-            if (UpdateHealth(attacker, target, weapon))
+            // Like the engine, an arrow doesn't finish off whoever lies on the ground.
+            if (target.IsDown())
+                return;
+
+            ApplyDamage(shooter, target, _rangedDamageDomain.CalculateDamage(shooter, target, weapon));
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic Npc::shootBow, World::shootBullet): one arrow or bolt of the ranged weapon's
+        /// munition leaves the inventory and flies on a ballistic arc at 30 m/s towards the target (ArrowFlight).
+        /// Without munition, nothing is shot.
+        /// </summary>
+        /// <returns>True if an arrow was shot.</returns>
+        public bool Shoot(NpcContainer shooter, NpcContainer target)
+        {
+            var weapon = _npcHelperService.ExtNpcGetEquippedRangedWeapon(shooter.Instance);
+            if (weapon == null || target?.Go == null || shooter.Go == null)
+                return false;
+
+            var munition = _vmCacheService.TryGetItemData(weapon.Munition);
+            if (munition == null || _npcInventoryService.ExtNpcHasItems(shooter.Instance, weapon.Munition) <= 0)
+            {
+                Logger.LogWarning($"[Fight] {shooter.Instance.GetName(NpcNameSlot.Slot0)} has no munition for " +
+                                  $"{weapon.Name}", LogCat.Fight);
+                return false;
+            }
+
+            _npcInventoryService.ExtRemoveInvItems(shooter.Instance, weapon.Munition, 1);
+
+            var start = GetShotStart(shooter);
+            var arrow = CreateArrow(munition, start);
+            _arrowFlightDomain ??= new ArrowFlightDomain(OnRangedHit).Inject();
+            _arrowFlightDomain.Launch(arrow, shooter, target, weapon, start, GetAimPoint(target));
+            return true;
+        }
+
+        /// <summary>
+        /// Where an arrow aims at: the hero's chest, an NPC's body (BIP01).
+        /// </summary>
+        public static Vector3 GetAimPoint(NpcContainer target)
+        {
+            if (target.IsHero() && target.PrefabProps?.Head != null)
+                return target.PrefabProps.Head.position + Vector3.down * _heroChestBelowHead;
+
+            var body = target.PrefabProps?.Bip01;
+            return body != null ? body.position : target.Go.transform.position + Vector3.up * 1f;
+        }
+
+        private static Vector3 GetShotStart(NpcContainer shooter)
+        {
+            var hand = shooter.Go.FindChildRecursively("ZS_RIGHTHAND");
+            var forward = shooter.Go.transform.forward;
+            return (hand != null ? hand.transform.position : shooter.Go.transform.position + Vector3.up * 1.4f) +
+                   forward * 0.3f;
+        }
+
+        private GameObject CreateArrow(ItemInstance munition, Vector3 position)
+        {
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(munition.Visual, false);
+            var arrow = mrm != null
+                ? _meshService.CreateVob(munition.Visual, mrm, position, Quaternion.identity, false)
+                : null;
+            return arrow != null ? arrow : new GameObject(munition.Visual);
+        }
+
+        private bool CanBeHit(NpcContainer attacker, NpcContainer target)
+        {
+            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                return false;
+
+            // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.
+            if (IsInDialog(attacker) || IsInDialog(target))
+                return false;
+
+            return !(target.IsHero() && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious);
+        }
+
+        /// <summary>
+        /// A hit on a knocked out NPC finishes it off.
+        /// </summary>
+        private bool TryFinishOff(NpcContainer attacker, NpcContainer target)
+        {
+            if (target.IsHero() || !target.IsKnockedOut())
+                return false;
+
+            Logger.Log($"[Fight] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off " +
+                       $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            _npcService.Kill(target, attacker);
+            return true;
+        }
+
+        private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage)
+        {
+            var isHero = target.IsHero();
+            if (UpdateHealth(attacker, target, damage))
             {
                 // The hero follows the same rule as everybody: monsters and hostile humans kill him.
                 var isKnockedOut = _meleeDamageDomain.IsKnockedOutNotKilled(attacker, target);
@@ -123,9 +241,8 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Takes the damage off. Returns true if the target is at 0 hit points (knocked out or dead).
         /// </summary>
-        private bool UpdateHealth(NpcContainer attacker, NpcContainer target, ItemInstance weapon)
+        private bool UpdateHealth(NpcContainer attacker, NpcContainer target, int damage)
         {
-            var damage = _meleeDamageDomain.CalculateDamage(attacker, target, weapon);
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints) - damage;
             Logger.Log($"[Fight] {attacker.Instance.GetName(NpcNameSlot.Slot0)} hits " +
                        $"{target.Instance.GetName(NpcNameSlot.Slot0)}: {damage} damage, {hitPoints} HP left",

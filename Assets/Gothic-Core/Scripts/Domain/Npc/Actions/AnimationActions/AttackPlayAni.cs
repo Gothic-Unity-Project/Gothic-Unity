@@ -284,7 +284,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // The run ends where the next AI_Attack's weapon range starts - measured like AI_Attack measures it.
             var tooFarBy = _fightService.GetFightDistance(NpcContainer, _enemy) -
-                           _fightService.GetMeleeReach(NpcContainer);
+                           _fightService.GetAttackReach(NpcContainer);
             if (tooFarBy <= 0f)
             {
                 StopRunning();

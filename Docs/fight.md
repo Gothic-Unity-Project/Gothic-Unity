@@ -31,6 +31,13 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
     NPC the NPC's attitude counts both ways (`NpcHelperService.GetPermanentAttitude`, like OpenGothic
     `personAttitude`).
   - **Everybody else dies**: `NpcService.Kill`. Monsters and hostile humans kill the hero too.
+- **Archers and crossbowmen** (`ShootRanged`, queued by `AI_Attack` while a bow or crossbow is drawn) aim, shoot and
+  reload (`S_BOWAIM`, `S_BOWSHOOT`, `T_BOWRELOAD`). The fight AI uses the far ranged moves only (`FA_MY_FK_FOCUS_FAR`
+  within the reference range of 20 m in G1, 15 m in G2). `FightService.Shoot` takes one arrow or bolt of the weapon's
+  munition (none, no shot) and `ArrowFlightDomain` flies it at 30 m/s on a ballistic arc: it hits the target if it
+  passes within 0.45 m of him and stops at walls. `RangedDamageDomain`: certain up close, the shooter's chance at the
+  reference range (G1 dexterity, G2 hit chance), none beyond 45 m; damage per type minus protection (G2 plus
+  dexterity, G1 critical by the bow/crossbow talent). Arrows kill, they don't knock out, and leave the downed alone.
 - `AI_FinishingMove` (scripts' `ZS_Attack_End` against a hostile enemy who is down) walks there, turns and stabs
   (`FinishingMove`, `T_1HSFINISH`/`T_2HSFINISH`); the enemy dies as the stab starts, the hero as well.
 
@@ -56,4 +63,4 @@ Each hit, knockout and death asks all NPCs of the world once whether they saw it
 - A swing hits by reach and angle, not by the weapon's bone touching the target (`DEF_HIT_LIMB`).
 - A knocked out or killed NPC puts the weapon away at once; the original drops it to the ground and the NPC picks it
   up again when it wakes up. Our NPCs can't pick items up yet.
-- Not there yet: hits of archers and mages, parrying, fleeing. See the ADR.
+- Not there yet: hits of mages, parrying, fleeing. See the ADR.
