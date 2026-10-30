@@ -70,6 +70,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VobSoundCullingService));
             containerBuilder.AddSingleton(typeof(SpeechToTextService));
             containerBuilder.AddSingleton(typeof(GameTimeService));
+            containerBuilder.AddSingleton(typeof(PauseService));
             containerBuilder.AddSingleton(typeof(MeshService));
             containerBuilder.AddSingleton(typeof(AnimationService));
 

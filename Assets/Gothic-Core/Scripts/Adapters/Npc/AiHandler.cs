@@ -13,6 +13,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -35,6 +36,7 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly PauseService _pauseService;
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
@@ -55,6 +57,10 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void Update()
         {
+            // Menu or video: no states, perceptions or scripts run while the world waits.
+            if (_pauseService.IsPaused)
+                return;
+
             // If NPC/Monster is dead, only play out the already queued animations (e.g. the dying animation
             // enqueued by FightService), then stop any further process logic.
             if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)

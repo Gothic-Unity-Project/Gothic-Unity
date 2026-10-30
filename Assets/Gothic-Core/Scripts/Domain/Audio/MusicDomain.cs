@@ -71,6 +71,12 @@ namespace Gothic.Core.Domain.Audio
             _reverbFilterComp = reverbFilter;
         }
 
+        public void SetPlaysWhilePaused(bool isPlaying)
+        {
+            if (_audioSourceComp != null)
+                _audioSourceComp.ignoreListenerPause = isPlaying;
+        }
+
         public void Init()
         {
             _dxPerformance = Performance.Create(_frequencyRate);

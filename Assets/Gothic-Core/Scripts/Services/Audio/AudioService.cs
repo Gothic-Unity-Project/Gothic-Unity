@@ -35,6 +35,14 @@ namespace Gothic.Core.Manager
             _musicDomain.SetBackgroundMusic(audioSource, reverbFilter);
         }
 
+        /// <summary>
+        /// Whether the music goes on while the world's sounds are paused (PauseService: on in the menu).
+        /// </summary>
+        public void SetMusicPlaysWhilePaused(bool isPlaying)
+        {
+            _musicDomain.SetPlaysWhilePaused(isPlaying);
+        }
+
         public void InitMusic()
         {
             // Skipping Init() leaves _themes empty, so every Play*/Zone* call below safely no-ops and

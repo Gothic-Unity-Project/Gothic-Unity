@@ -3,6 +3,8 @@ using Gothic.Core;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.UI;
+using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -20,7 +22,7 @@ namespace Gothic.VR.Adapters.UI
     /// The player is locked meanwhile: no movement, turning, crouching, jumping or menu.
     /// Skip the current video: any trigger or A/X (keyboard Space/Escape).
     /// The original Bink videos (.bik) are decoded by BinkPlayer.
-    /// The world is paused (Time.timeScale 0) like in the engine, where the video blocks the game - otherwise dialog
+    /// The world is paused (PauseService) like in the engine, where the video blocks the game - otherwise dialog
     /// lines queued meanwhile would all play at once after the video.
     /// </summary>
     public class VRCinema : MonoBehaviour
@@ -49,7 +51,7 @@ namespace Gothic.VR.Adapters.UI
         private int _savedCullingMask;
         private CameraClearFlags _savedClearFlags;
         private Color _savedBackground;
-        private float _savedTimeScale = 1f;
+        private PauseService _pauseService;
 
         private VRPlayer _player;
         private IVrRig _rig;
@@ -145,16 +147,15 @@ namespace Gothic.VR.Adapters.UI
             _camera.cullingMask = 1 << Constants.UILayer;
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Color.black;
-            AudioListener.pause = true;
-            _savedTimeScale = Time.timeScale;
-            Time.timeScale = 0f;
+            _pauseService ??= ReflexProjectInstaller.DIContainer.Resolve<PauseService>();
+            _pauseService.Pause(PauseReasons.Video);
             LockPlayer();
 
             // Stays where it is (no head following). PlayVideo often comes before the script teleports the hero - the
             // screen is placed anew then.
             _screenPlacement.Configure(_camera.transform, _screenDistance);
 
-            // The world is paused via AudioListener.pause - the video's own source ignores it. Not serialized by Unity.
+            // The world's sounds are paused (PauseService) - the video's own source ignores it. Not serialized by Unity.
             _audioSource.ignoreListenerPause = true;
             return true;
         }
@@ -215,8 +216,7 @@ namespace Gothic.VR.Adapters.UI
         {
             RestoreCamera();
             UnlockPlayer();
-            AudioListener.pause = false;
-            Time.timeScale = _savedTimeScale;
+            _pauseService?.Resume(PauseReasons.Video);
         }
 
         private void RestoreCamera()
