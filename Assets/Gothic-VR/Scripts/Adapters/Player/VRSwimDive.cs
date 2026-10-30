@@ -47,6 +47,7 @@ namespace Gothic.VR.Adapters.Player
         private float _initialFallSpeed;
 
         private VmGothicEnums.WalkMode _mode = VmGothicEnums.WalkMode.Walk;
+        private VmGothicEnums.WalkMode _bodyStateMode = VmGothicEnums.WalkMode.Walk;
 
         // Swim + Dive properties
         private Vector3 _currentVelocity;
@@ -176,10 +177,32 @@ namespace Gothic.VR.Adapters.Player
             if (_playerAi == null)
                 return;
 
+            UpdateHeroBodyState();
+
             if (_mode == VmGothicEnums.WalkMode.Swim)
                 HandleSwim();
             else if (_mode == VmGothicEnums.WalkMode.Dive)
                 HandleDive();
+        }
+
+        /// <summary>
+        /// Like the engine, a swimming or diving hero has the body state BS_SWIM / BS_DIVE - the scripts read it
+        /// (ZS_MM_Master: monsters that don't follow into the water give up). Back on his feet he stands; walking and
+        /// running follow from there (HeroPerceptionService). Found on BoroBongo's branch.
+        /// </summary>
+        private void UpdateHeroBodyState()
+        {
+            var props = _playerService.HeroContainer?.Props;
+            if (props == null || _bodyStateMode == _mode)
+                return;
+
+            _bodyStateMode = _mode;
+            props.BodyState = _mode switch
+            {
+                VmGothicEnums.WalkMode.Swim => VmGothicEnums.BodyState.BsSwim,
+                VmGothicEnums.WalkMode.Dive => VmGothicEnums.BodyState.BsDive,
+                _ => VmGothicEnums.BodyState.BsStand
+            };
         }
         
         private void FixedUpdate()
