@@ -187,14 +187,15 @@ VR interaction runs on a backend: XR Interaction Toolkit (free, `VrInteractionBa
 4. **Haptics:** only `VrHapticsService` picks preset and strength. A new kind of vibration is a `VrHapticPreset`
    with its values in both backends' tables (`XriHaptics`, `HvrHaptics`, same index).
 5. **Don't act inside a backend event.** Destroying, re-parenting or placing objects within an XRI select or hover
-   event breaks the interaction in progress: do it in the next `Update` (`VrContainerDropZone`).
+   event breaks the interaction in progress: do it a frame later, only while something is pending, never by polling
+   in `Update` (`VrDropZoneService`).
 6. **Reuse the building blocks** before writing a new one:
 
 | Need | Use |
 |---|---|
 | "is it a Gothic item?" | `VrSocketSlot.IsItem` |
 | a slot for one item (holster, chest, loot) | `VrSocketSlot` and its backend part |
-| "item let go in a zone, put it somewhere" | `VrContainerDropZone` |
+| "item let go in a zone, put it somewhere" | `VrDropZone` (trigger adapter, reports to `VrDropZoneService`) plus an `IVrDropTarget` on it or a parent |
 | something worn on the body | `VrBodyAnchor` |
 | the layers the player collides with | `VrCollisionPassThrough.GetCollidingLayers` |
 | a vibration | an event `VrHapticsService` listens to |

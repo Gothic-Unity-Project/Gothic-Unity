@@ -6146,6 +6146,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4233170170883495270}
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2930096339307632488}
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!4 &596995636331250637 stripped
 Transform:
@@ -6202,7 +6205,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28847abf5b0bcdc95b6baacf9ededbe2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrShoulderStash
-  _zone: {fileID: 0}
+--- !u!114 &2930096339307632488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 767420233899986700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f382102bd1096d438da29068db36ed0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Interaction.VrDropZone
 --- !u!114 &3580726154319805747 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6523535316780004576, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}

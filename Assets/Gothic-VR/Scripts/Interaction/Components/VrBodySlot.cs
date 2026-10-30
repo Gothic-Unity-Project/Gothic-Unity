@@ -19,9 +19,14 @@ namespace Gothic.VR.Interaction.Components
         private IVrRig _rig;
         private VrInteractable _content;
 
+        // Takes items beyond the slot itself (e.g. the shoulder stash). A hand holding one of these counts as
+        // holding something the slot takes.
+        private IVrDropTarget _extraTarget;
+
         private void Awake()
         {
             _slot = GetComponent<VrSocketSlot>();
+            _extraTarget = GetComponent<IVrDropTarget>();
             _rig = GetComponentInParent<IVrRig>();
         }
 
@@ -42,17 +47,19 @@ namespace Gothic.VR.Interaction.Components
         }
 
         /// <summary>
-        /// The hand reached the slot with something it can use (also for uses beyond the slot, e.g. VrShoulderStash).
+        /// A held item reached the slot (hover, or a drop zone contact): announces the holding hand if the slot or
+        /// an IVrDropTarget on it takes the item. The one place that decides "usable by this grabber".
         /// </summary>
-        public void AnnounceReached(VrHandSide side)
+        public void OnReached(VrInteractable held)
         {
-            GlobalEventDispatcher.BodySlotReached.Invoke((int)side);
+            if (held != null && (_slot.IsValidFor(held) || (_extraTarget != null && _extraTarget.CanTake(held))) &&
+                TryGetHand(held, out var side))
+                GlobalEventDispatcher.BodySlotReached.Invoke((int)side);
         }
 
         private void OnSlotHoverEntered(VrInteractable interactable)
         {
-            if (_slot.IsValidFor(interactable) && TryGetHand(interactable, out var side))
-                AnnounceReached(side);
+            OnReached(interactable);
         }
 
         private void OnPlaced(VrGrabArgs args)
@@ -78,7 +85,7 @@ namespace Gothic.VR.Interaction.Components
         private void OnContentHoverEntered(VrGrabArgs args)
         {
             if (args.Kind == VrGrabberKind.Hand && TryGetHand(null, out var side, args.HandSide))
-                AnnounceReached(side);
+                GlobalEventDispatcher.BodySlotReached.Invoke((int)side);
         }
 
         /// <summary>
