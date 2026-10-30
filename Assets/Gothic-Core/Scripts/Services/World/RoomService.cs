@@ -26,10 +26,9 @@ namespace Gothic.Core.Services.World
     /// </summary>
     public class RoomService
     {
-        // Wld_GetPlayerPortalGuild outdoors, like OpenGothic's guildOfRoom without a room.
-        public const int NoRoomGuild = -1;
 
-        private const float _cellSize = 0.5f;
+        // Grid cells pointing to the floor polygons over them. Coarse: each polygon is checked by its own bounds.
+        private const float _cellSize = 4f;
         private const float _heroCheckSeconds = 0.25f;
         // A floor polygon counts for feet up to this far above it (stairs, uneven floors) or below it.
         private const float _floorReachAbove = 0.6f;
@@ -47,9 +46,27 @@ namespace Gothic.Core.Services.World
         private NpcAiService NpcAi => _npcAiService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcAiService>();
 
         private readonly Dictionary<string, int> _roomGuilds = new(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<long, List<(int Sector, float MinY, float MaxY)>> _floorCells;
+        private readonly List<Floor> _floors = new();
+        private Dictionary<long, List<int>> _floorCells;
         private List<string> _sectorNames;
         private Coroutine _heroTracking;
+
+        /// <summary>
+        /// A room's floor polygon: its room and bounds in meters.
+        /// </summary>
+        private readonly struct Floor
+        {
+            public readonly int Sector;
+            public readonly Vector3 Min;
+            public readonly Vector3 Max;
+
+            public Floor(int sector, Vector3 min, Vector3 max)
+            {
+                Sector = sector;
+                Min = min;
+                Max = max;
+            }
+        }
 
         public string HeroRoom { get; private set; } = string.Empty;
         public string HeroFormerRoom { get; private set; } = string.Empty;
@@ -66,12 +83,13 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// The guild owning the room: GIL_NONE for a room nobody owns, NoRoomGuild outdoors.
+        /// The guild owning the room. GIL_NONE for a room nobody owns and outdoors: the scripts check
+        /// "portalguild != GIL_NONE" before asking for the guild's attitude (G1 B_AssessEnterRoom).
         /// </summary>
         public int GetGuildOfRoom(string room)
         {
             if (string.IsNullOrEmpty(room))
-                return NoRoomGuild;
+                return _guildNone;
 
             return _roomGuilds.TryGetValue(room, out var guild) ? guild : _guildNone;
         }
@@ -82,19 +100,24 @@ namespace Gothic.Core.Services.World
         public string GetRoomAt(Vector3 feet)
         {
             BuildFloorCells();
-            if (!_floorCells.TryGetValue(ToCell(feet.x, feet.z), out var floors))
+            if (!_floorCells.TryGetValue(ToCell(feet.x, feet.z), out var floorIndices))
                 return string.Empty;
 
             var bestSector = -1;
             var bestHeight = float.MinValue;
-            foreach (var (sector, minY, maxY) in floors)
+            foreach (var index in floorIndices)
             {
-                // The highest floor the feet stand on, not one of a storey above.
-                if (feet.y < minY - _floorReachBelow || feet.y > maxY + _floorReachAbove || maxY <= bestHeight)
+                var floor = _floors[index];
+                if (feet.x < floor.Min.x || feet.x > floor.Max.x || feet.z < floor.Min.z || feet.z > floor.Max.z)
                     continue;
 
-                bestSector = sector;
-                bestHeight = maxY;
+                // The highest floor the feet stand on, not one of a storey above.
+                if (feet.y < floor.Min.y - _floorReachBelow || feet.y > floor.Max.y + _floorReachAbove ||
+                    floor.Max.y <= bestHeight)
+                    continue;
+
+                bestSector = floor.Sector;
+                bestHeight = floor.Max.y;
             }
 
             return bestSector >= 0 && bestSector < _sectorNames.Count ? _sectorNames[bestSector] : string.Empty;
@@ -108,6 +131,7 @@ namespace Gothic.Core.Services.World
         private void OnWorldLoaded()
         {
             _floorCells = null;
+            _floors.Clear();
             _sectorNames = null;
             HeroRoom = string.Empty;
             HeroFormerRoom = string.Empty;
@@ -142,7 +166,7 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// Every floor polygon of a room into a grid of cells, with its height range. Built once per world, on first
+        /// Every floor polygon of a room with its bounds, found through a coarse grid. Built once per world, on first
         /// use (the world mesh is already loaded then).
         /// </summary>
         private void BuildFloorCells()
@@ -150,7 +174,7 @@ namespace Gothic.Core.Services.World
             if (_floorCells != null)
                 return;
 
-            _floorCells = new Dictionary<long, List<(int, float, float)>>();
+            _floorCells = new Dictionary<long, List<int>>();
             _sectorNames = new List<string>();
             var world = _saveGameService.CurrentWorldName != null ? _saveGameService.CurrentWorldData : null;
             if (world?.Mesh == null || world.BspTree == null)
@@ -183,7 +207,7 @@ namespace Gothic.Core.Services.World
                 floorCount++;
             }
 
-            Logger.Log($"[Rooms] {_sectorNames.Count} rooms, {floorCount} floor polygons in {_floorCells.Count} cells " +
+            Logger.Log($"[Rooms] {_sectorNames.Count} rooms, {floorCount} floor polygons over {_floorCells.Count} cells " +
                        $"({stopwatch.ElapsedMilliseconds} ms)", LogCat.Npc);
         }
 
@@ -232,14 +256,16 @@ namespace Gothic.Core.Services.World
                 max = Vector3.Max(max, position);
             }
 
+            var floorIndex = _floors.Count;
+            _floors.Add(new Floor(sector, min, max));
             for (var x = Mathf.FloorToInt(min.x / _cellSize); x <= Mathf.FloorToInt(max.x / _cellSize); x++)
             {
                 for (var z = Mathf.FloorToInt(min.z / _cellSize); z <= Mathf.FloorToInt(max.z / _cellSize); z++)
                 {
                     var key = ToCell(x, z);
                     if (!_floorCells.TryGetValue(key, out var floors))
-                        _floorCells[key] = floors = new List<(int, float, float)>(1);
-                    floors.Add((sector, min.y, max.y));
+                        _floorCells[key] = floors = new List<int>(2);
+                    floors.Add(floorIndex);
                 }
             }
         }
