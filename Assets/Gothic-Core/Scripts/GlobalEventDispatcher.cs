@@ -126,6 +126,11 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        // Trading (TradeService) started with this NPC: the trade window opens, the dialog's choices wait.
+        public static readonly UnityEvent<NpcContainer> TradeStarted = new();
+        // Trading with this NPC ended (closed by the player or the dialog ended).
+        public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 
