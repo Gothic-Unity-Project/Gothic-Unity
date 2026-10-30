@@ -12,11 +12,17 @@ namespace Gothic.VR
             public const string SmoothRotationSpeed = "smoothRotationSpeed";
             public const string SmoothSpectator = "smoothSpectator";
 
+            // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
+            public const string LedgeClimbMode = "ledgeClimbMode";
+
             // Immersion
             public const string Microphone = "microphone";
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
+
+            // VrLedgeHint: 0 = off, 1 = touch, 2 = near (glow), 3 = assist.
+            public const string LedgeHints = "ledgeHints";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
@@ -35,6 +41,9 @@ namespace Gothic.VR
         public const int SnapRotationAmountSettingTickAmount = 5;
 
         public const int PhysicalHandsDefaultValue = 1;
+
+        public const int LedgeClimbModeDefaultValue = 0;
+        public const int LedgeHintsDefaultValue = 2;
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;

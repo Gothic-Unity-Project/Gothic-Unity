@@ -353,6 +353,7 @@ MonoBehaviour:
   _fingerAxis: {x: 0, y: 1, z: 0}
   _fingerClosedAngle: 100
   _fingerHoldingAngle: 70
+  _fingerHintAngle: 40
   _thumbHinge: {fileID: 1018307891754206832}
   _thumbAxis: {x: 1, y: 0, z: 0}
   _thumbClosedAngle: 35
@@ -377,6 +378,7 @@ MonoBehaviour:
   _maxAngularSpeed: 50
   _maxAngularAcceleration: 2500
   _maxDepenetrationSpeed: 2
+  _blockedDistance: 0.005
   _ghostShowDistance: 0.05
   _ghostHideDistance: 0.03
   _maxDistance: 0.5
@@ -384,6 +386,16 @@ MonoBehaviour:
   _rigSnapAngle: 10
   _rigSnapDistance: 1
   _restoreCollisionMargin: 0.02
+  _inactiveBlendTime: 0.15
+  _heldLeadDistance: 0.02
+  _heldLeadAngle: 5
+  _heldMaxGripDistance: 0.15
+  _heldBlockedMemory: 0.1
+  _heldBlockingMinMass: 5
+  _heldVisualBlendTime: 0.15
+  _contactMinSpeed: 0.3
+  _contactCooldown: 0.15
+  _contactRearmTime: 0.1
 --- !u!1 &1610683798722831076
 GameObject:
   m_ObjectHideFlags: 0
@@ -847,7 +859,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 3580888346999583535}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3cd49dc1a38aff4fa00676ddd64cf4e, type: 3}
+  m_Script: {fileID: 11500000, guid: 6c8b8b5e31c138ffabdbe9635a3c49e2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Locomotion.Jump.JumpProvider
   m_Mediator: {fileID: 3925867730616114923}
@@ -1321,6 +1333,7 @@ MonoBehaviour:
   _fingerAxis: {x: 0, y: -1, z: 0}
   _fingerClosedAngle: 100
   _fingerHoldingAngle: 70
+  _fingerHintAngle: 40
   _thumbHinge: {fileID: 1736383300901980585}
   _thumbAxis: {x: 1, y: 0, z: 0}
   _thumbClosedAngle: 35
@@ -1345,6 +1358,7 @@ MonoBehaviour:
   _maxAngularSpeed: 50
   _maxAngularAcceleration: 2500
   _maxDepenetrationSpeed: 2
+  _blockedDistance: 0.005
   _ghostShowDistance: 0.05
   _ghostHideDistance: 0.03
   _maxDistance: 0.5
@@ -1352,6 +1366,16 @@ MonoBehaviour:
   _rigSnapAngle: 10
   _rigSnapDistance: 1
   _restoreCollisionMargin: 0.02
+  _inactiveBlendTime: 0.15
+  _heldLeadDistance: 0.02
+  _heldLeadAngle: 5
+  _heldMaxGripDistance: 0.15
+  _heldBlockedMemory: 0.1
+  _heldBlockingMinMass: 5
+  _heldVisualBlendTime: 0.15
+  _contactMinSpeed: 0.3
+  _contactCooldown: 0.15
+  _contactRearmTime: 0.1
 --- !u!1 &4786995511277724993
 GameObject:
   m_ObjectHideFlags: 0
@@ -2105,7 +2129,7 @@ MonoBehaviour:
   m_AimTargetObject: {fileID: 0}
   m_PhysicsLayerMask:
     serializedVersion: 2
-    m_Bits: 1051840
+    m_Bits: 1060032
   m_PhysicsTriggerInteraction: 1
   m_CastRadius: 0.1
 --- !u!114 &3337548623410234358
@@ -3226,7 +3250,7 @@ MonoBehaviour:
   m_AimTargetObject: {fileID: 0}
   m_PhysicsLayerMask:
     serializedVersion: 2
-    m_Bits: 1051840
+    m_Bits: 1060032
   m_PhysicsTriggerInteraction: 1
   m_CastRadius: 0.1
 --- !u!114 &1489026597932994268
@@ -3958,6 +3982,9 @@ GameObject:
   - component: {fileID: 3925867730616114923}
   - component: {fileID: 2157509798102132288}
   - component: {fileID: 1622587261020372793}
+  - component: {fileID: 2042546989322546298}
+  - component: {fileID: 3316551991688186268}
+  - component: {fileID: 427930836854133848}
   m_Layer: 8
   m_Name: XR Origin
   m_TagString: Player
@@ -4158,6 +4185,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _waterBobAmplitude: 0.001
   _waterBobFrequency: 2.5
+  _outOfWaterCheckHeight: 100
   _swimStartDiveVerticalVelocity: -1
   _swimHandMovementMultiplier: 4
   _swimVelocityFadeRate: 0.25
@@ -4318,6 +4346,53 @@ MonoBehaviour:
   _crouchHeight: 0.7
   _crouchSpeed: 1.5
   _minCalibrationHeight: 0.5
+--- !u!114 &2042546989322546298
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8467730262558146822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f281645109e46f189b2a5c9512bf5f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrLedgeReach
+  _anchorPrefab: {fileID: 7852649876368062262, guid: 9db3c69fb33eebf45887dddfcc67d8e9, type: 3}
+  _touchRange: 0.2
+  _glowRange: 0.45
+  _tickAmplitude: 0.3
+  _anchorKeepMargin: 0.05
+--- !u!114 &3316551991688186268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8467730262558146822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c31dedf26f9f8261aa610e8d045531e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrLedgeClimb
+  _minPull: 0.25
+  _headAboveTop: 0.15
+  _retryInterval: 0.5
+  _fadeSpeed: 4
+--- !u!114 &427930836854133848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8467730262558146822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff8972b9357b4fee9843f1a7a0c1623f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrLedgeLocomotion
+  _armReach: 0.6
+  _jumpReachMargin: 0.15
 --- !u!1 &8603939626496884405
 GameObject:
   m_ObjectHideFlags: 0

@@ -207,6 +207,32 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Wspinaczka
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: "Chwycone kraw\u0119dzie: podci\u0105gnij si\u0119 albo przenie\u015B
+      si\u0119 z wygaszeniem (mniej ruchu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: "podci\u0105ganie|wygaszenie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: "Wskaz\xF3wki kraw\u0119dzi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "Jak d\u0142o\u0144 przy kraw\u0119dzi pokazuje, \u017Ce mo\u017Cna
+      si\u0119 wspi\u0105\u0107"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: "wy\u0142\u0105czone|dotyk|blisko|pomoc"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

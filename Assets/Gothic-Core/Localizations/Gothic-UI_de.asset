@@ -207,6 +207,31 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Klettern
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Gegriffene Kanten: selbst hochziehen oder hinaufblenden (weniger
+      Bewegung)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: hochziehen|blenden
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Kletterhinweise
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: Wie eine Hand an einer erkletterbaren Kante es zeigt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: aus|tasten|nah|hilfe
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

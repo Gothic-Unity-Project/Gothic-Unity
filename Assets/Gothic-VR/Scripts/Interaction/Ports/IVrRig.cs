@@ -89,5 +89,19 @@ namespace Gothic.VR.Interaction.Ports
         /// Fades the screen towards alpha (0 = clear, 1 = black) with speed alpha per second.
         /// </summary>
         void Fade(float alpha, float speed);
+
+        /// <summary>
+        /// Camera height above the feet once standing: CameraHeight without a crouch of the backend.
+        /// Default: CameraHeight, for backends without crouching (HVR).
+        /// </summary>
+        float StandingCameraHeight => CameraHeight;
+
+        /// <summary>
+        /// Asked by jumps and teleports near ledges (ledge climbing). null: normal jumps and teleports only.
+        /// Default: ignored, for backends without (HVR).
+        /// </summary>
+        void SetLedgeHandler(IVrLedgeHandler handler)
+        {
+        }
     }
 }
