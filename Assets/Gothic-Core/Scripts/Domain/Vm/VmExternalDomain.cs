@@ -44,6 +44,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly SkyService _skyService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -117,6 +118,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
+            vm.RegisterExternal<NpcInstance>("AI_Dodge", AI_Dodge);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
 
@@ -202,6 +204,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInState", Npc_IsInState);
             vm.RegisterExternal<NpcInstance>("Npc_SetToFistMode", Npc_SetToFistMode);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetToFightMode", Npc_SetToFightMode);
+            vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
             vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
@@ -250,6 +253,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, int>("Wld_SetTime", Wld_SetTime);
             vm.RegisterExternal("Wld_GetDay", Wld_GetDay);
             vm.RegisterExternal<int, int, int, int, int>("Wld_IsTime", Wld_IsTime);
+            vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_GetMobState", Wld_GetMobState);
             vm.RegisterExternal<int, string>("Wld_InsertItem", Wld_InsertItem);
             vm.RegisterExternal<string>("Wld_ExchangeGuildAttitudes", Wld_ExchangeGuildAttitudes);
@@ -493,6 +497,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_StopLookAt(NpcInstance npc)
         {
             _npcAiService.ExtAiStopLookAt(npc);
+        }
+
+        public void AI_Dodge(NpcInstance npc)
+        {
+            _npcAiService.ExtAiDodge(npc);
         }
 
         public void AI_ContinueRoutine(NpcInstance npc)
@@ -1132,6 +1141,11 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_IsDead), ret, npc);
         }
 
+        public void Npc_StopAni(NpcInstance npc, string name)
+        {
+            _npcAiService.ExtNpcStopAni(npc, name);
+        }
+
         public int Npc_IsInState(NpcInstance npc, int state)
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcIsInState(npc, state));
@@ -1288,6 +1302,15 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = _gameTimeService.GetDay();
             return LogInstantExternal(nameof(Wld_GetDay), ret);
+        }
+
+        /// <summary>
+        /// G2's NPCs complain about the weather in their greetings while it rains.
+        /// </summary>
+        public int Wld_IsRaining()
+        {
+            var ret = Convert.ToInt32(_skyService.IsRaining);
+            return LogInstantExternal(nameof(Wld_IsRaining), ret);
         }
 
         public int Wld_IsTime(int beginHour, int beginMinute, int endHour, int endMinute)

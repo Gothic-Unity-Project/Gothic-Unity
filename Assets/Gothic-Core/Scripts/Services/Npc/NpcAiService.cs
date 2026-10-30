@@ -236,6 +236,45 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
+        /// <summary>
+        /// AI_Dodge: a jump back, like the engine (OpenGothic: AI_Dodge plays Anim::MoveBack) - the parade jump of the
+        /// drawn melee weapon or fists, otherwise the plain jump back. G1's orcs dodge when hit or watching a fight.
+        /// </summary>
+        public void ExtAiDodge(NpcInstance npc)
+        {
+            var npcContainer = npc.GetUserData();
+            if (npcContainer == null)
+            {
+                Logger.LogWarning($"AI_Dodge: NPC {npc?.Id} has no Unity data (not spawned?) - skipping.", LogCat.Ai);
+                return;
+            }
+
+            var weaponState = (VmGothicEnums.WeaponState)npcContainer.Vob.FightMode;
+            var animationName = weaponState is VmGothicEnums.WeaponState.Fist or VmGothicEnums.WeaponState.W1H or
+                VmGothicEnums.WeaponState.W2H
+                ? $"T_{AnimationService.GetWeaponAnimationPrefix(weaponState)}PARADEJUMPB"
+                : "T_JUMPB";
+
+            npcContainer.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(animationName), npcContainer));
+        }
+
+        /// <summary>
+        /// Npc_StopAni: stops an animation right away, not queued. A queued AI_PlayAni of it then ends (PlayAni). G2's
+        /// praying NPCs stop their random prayer with it before they stand up.
+        /// </summary>
+        public void ExtNpcStopAni(NpcInstance npc, string name)
+        {
+            var animationSystem = npc.GetUserData()?.PrefabProps?.AnimationSystem;
+            if (animationSystem == null)
+            {
+                Logger.LogWarning($"Npc_StopAni: NPC {npc?.Id} has no animations (not spawned?) - {name} not stopped.",
+                    LogCat.Ai);
+                return;
+            }
+
+            animationSystem.StopAnimation(name);
+        }
+
         public void ExtAiContinueRoutine(NpcInstance npc)
         {
             if (npc == null || npc.GetUserData() == null)

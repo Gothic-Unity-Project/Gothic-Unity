@@ -29,6 +29,7 @@ namespace Gothic.Core.Services.World
 
         private Vector3 _sunDirection;
         private bool _isRaining;
+        public bool IsRaining => _isRaining;
 
         private float _masterTime;
         private bool _noSky = true;
