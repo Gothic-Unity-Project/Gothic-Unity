@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
@@ -19,14 +21,13 @@ namespace Gothic.Core.Adapters.Vob
     public class CodeMasterHandler : MonoBehaviour
     {
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly GameStateService _gameStateService;
 
         private ICodeMaster _codeMaster;
         // Slaves is a native marshal which allocates a new list on every access. Read once.
         private List<string> _slaves;
         private HashSet<string> _distinctSlaves;
-        // Per slave position: pressed (in its turn, if ordered). And the presses since the code was last judged.
-        private bool[] _pressedSlots;
-        private int _pressCount;
+        private CodeMasterState _ownState;
 
         private void Awake() => this.Inject();
 
@@ -35,7 +36,29 @@ namespace Gothic.Core.Adapters.Vob
             _codeMaster = codeMaster;
             _slaves = codeMaster.Slaves;
             _distinctSlaves = new HashSet<string>(_slaves, StringComparer.OrdinalIgnoreCase);
-            _pressedSlots = new bool[_slaves.Count];
+        }
+
+        /// <summary>
+        /// The progress lives with the code master's container, so a save game keeps it (CodeMastersSaveSection) - also
+        /// one restored after this handler was created.
+        /// </summary>
+        private CodeMasterState State
+        {
+            get
+            {
+                _gameStateService.VobsCodeMaster.TryGetValue(_codeMaster.Name.ToUpper(), out var container);
+                var state = container != null ? container.CodeMasterState : _ownState;
+                if (state == null || state.PressedSlots.Length != _slaves.Count)
+                {
+                    state = new CodeMasterState(_slaves.Count);
+                    if (container != null)
+                        container.CodeMasterState = state;
+                    else
+                        _ownState = state;
+                }
+
+                return state;
+            }
         }
 
         public void ReceiveTrigger(string senderName)
@@ -50,23 +73,24 @@ namespace Gothic.Core.Adapters.Vob
             var slot = FindSlot(senderName);
             if (slot >= 0)
             {
-                _pressedSlots[slot] = true;
+                State.PressedSlots[slot] = true;
             }
             else if (_codeMaster.FirstFalseIsFailure)
             {
-                Logger.Log($"[CodeMaster] '{_codeMaster.Name}': wrong press '{senderName}' at {_pressCount}",
+                Logger.Log($"[CodeMaster] '{_codeMaster.Name}': wrong press '{senderName}' at {State.PressCount}",
                     LogCat.Vob);
                 Fail();
                 return;
             }
 
-            _pressCount++;
-            Logger.Log($"[CodeMaster] '{_codeMaster.Name}': '{senderName}' pressed ({_pressCount}/{_slaves.Count}, " +
+            State.PressCount++;
+            Logger.Log($"[CodeMaster] '{_codeMaster.Name}': '{senderName}' pressed " +
+                       $"({State.PressCount}/{_slaves.Count}, " +
                        $"{(slot >= 0 ? "right" : "wrong")})", LogCat.Vob);
-            if (_pressCount < _slaves.Count)
+            if (State.PressCount < _slaves.Count)
                 return;
 
-            if (Array.TrueForAll(_pressedSlots, isPressed => isPressed))
+            if (Array.TrueForAll(State.PressedSlots, isPressed => isPressed))
             {
                 Logger.Log($"[CodeMaster] '{_codeMaster.Name}': solved -> '{_codeMaster.Target}'", LogCat.Vob);
                 Reset();
@@ -97,9 +121,9 @@ namespace Gothic.Core.Adapters.Vob
         {
             if (_codeMaster.Ordered)
             {
-                return _pressCount < _slaves.Count &&
-                       string.Equals(_slaves[_pressCount], senderName, StringComparison.OrdinalIgnoreCase)
-                    ? _pressCount
+                return State.PressCount < _slaves.Count &&
+                       string.Equals(_slaves[State.PressCount], senderName, StringComparison.OrdinalIgnoreCase)
+                    ? State.PressCount
                     : -1;
             }
 
@@ -108,7 +132,7 @@ namespace Gothic.Core.Adapters.Vob
             {
                 if (!string.Equals(_slaves[i], senderName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (!_pressedSlots[i])
+                if (!State.PressedSlots[i])
                     return i;
                 pressedSlot = i;
             }
@@ -132,8 +156,8 @@ namespace Gothic.Core.Adapters.Vob
 
         private void Reset()
         {
-            Array.Clear(_pressedSlots, 0, _pressedSlots.Length);
-            _pressCount = 0;
+            Array.Clear(State.PressedSlots, 0, State.PressedSlots.Length);
+            State.PressCount = 0;
         }
     }
 }

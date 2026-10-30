@@ -1,5 +1,6 @@
 using System;
 using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -32,6 +33,11 @@ namespace Gothic.Core.Models.Container
         /// of states): MobStatesSaveSection saves it.
         /// </summary>
         public int MobState;
+
+        /// <summary>
+        /// A code master's progress (CodeMasterHandler), saved by CodeMastersSaveSection. Null until its first press.
+        /// </summary>
+        [CanBeNull] public CodeMasterState CodeMasterState;
 
 
         [Inject] private readonly VmCacheService _vmCacheService;

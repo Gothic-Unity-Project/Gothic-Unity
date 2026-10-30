@@ -46,6 +46,7 @@ Everything Gothic's format can hold is stored in it (loading original saves stay
 | Float, string and NPC script variables (Gothic saves ints only) | `UNITYSAVE.json` section `core.scriptVars` |
 | Rain window of the day | `UNITYSAVE.json` section `core.sky` (`SkyService`; Gothic's sky controller can't be used, see pitfalls) |
 | Current mob states (wheels, levers, open doors and chests) | `UNITYSAVE.json` section `core.mobStates` (`VobContainer.MobState`, per world, by type and position) |
+| Code master progress (pressed switches and plates, press count) | `UNITYSAVE.json` section `core.codeMasters` (`VobContainer.CodeMasterState`, per world, by name; OpenGothic saves it too) |
 | VR holster items | `UNITYSAVE.json` section `vr.carriedItems` |
 
 Items in the VR hands are inventory (`VRPlayerService.SetGrab()`). They're inside the backpack after loading.
