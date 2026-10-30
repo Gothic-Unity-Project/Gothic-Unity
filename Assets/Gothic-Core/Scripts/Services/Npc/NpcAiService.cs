@@ -598,9 +598,13 @@ namespace Gothic.Core.Services.Npc
                     continue;
                 }
 
+                // Like the engine, the scripts see this perception's victim even if there is none: B_AssessTheft
+                // takes a valid victim for picked pockets, a victim left from an earlier call made theft one.
                 var vm = _gameStateService.GothicVm;
                 var oldItem = vm.GlobalItem;
+                var oldVictim = vm.GlobalVictim;
                 vm.GlobalItem = perception.Item;
+                vm.GlobalVictim = perception.Victim;
                 try
                 {
                     ExecutePerception(perception.Type, properties, self, perception.Victim, perception.Other);
@@ -608,6 +612,7 @@ namespace Gothic.Core.Services.Npc
                 finally
                 {
                     vm.GlobalItem = oldItem;
+                    vm.GlobalVictim = oldVictim;
                 }
             }
         }
