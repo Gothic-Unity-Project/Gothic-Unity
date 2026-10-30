@@ -102,10 +102,30 @@ namespace Gothic.Core.Manager
                 _scriptSoundSource.PlayOneShot(clip);
         }
 
+        // Sound effects are files of _WORK/DATA/SOUND/SFX, speech of _WORK/DATA/SOUND/SPEECH.
+        private const string _sfxFolder = "SFX";
+
         [CanBeNull]
         public AudioClip CreateAudioClip(SoundEffectInstance soundEffectInstance)
         {
-            return CreateAudioClip(soundEffectInstance.File);
+            return CreateSfxAudioClip(soundEffectInstance.File);
+        }
+
+        /// <summary>
+        /// A sound effect's file (C_SFX, world sounds): from _WORK/DATA/SOUND/SFX first, like the engine.
+        /// </summary>
+        [CanBeNull]
+        public AudioClip CreateSfxAudioClip(string fileName)
+        {
+            return _soundDomain.CreateAudioClip(fileName, _sfxFolder);
+        }
+
+        /// <summary>
+        /// Like CreateSfxAudioClip(), but decodes on a worker thread.
+        /// </summary>
+        public Task<AudioClip> CreateSfxAudioClipAsync(string fileName)
+        {
+            return _soundDomain.CreateAudioClipAsync(fileName, _sfxFolder);
         }
 
         /// <summary>
@@ -144,7 +164,7 @@ namespace Gothic.Core.Manager
             // Bugfix - Normally the data is to get C_SFX_DEF entries from VM. But sometimes there might be the real .wav file stored.
             if (soundName.EndsWithIgnoreCase(".wav"))
             {
-                clip = CreateAudioClip(soundName);
+                clip = CreateSfxAudioClip(soundName);
             }
             else
             {
@@ -157,7 +177,7 @@ namespace Gothic.Core.Manager
                 if (sfxContainer.GetFirstSound() == null || sfxContainer.GetFirstSound()!.File.EqualsIgnoreCase(NoSoundName))
                     return null;
 
-                clip = CreateAudioClip(sfxContainer.GetRandomSound());
+                clip = CreateSfxAudioClip(sfxContainer.GetRandomSound());
             }
 
             return clip;

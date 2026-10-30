@@ -214,6 +214,24 @@ namespace Gothic.Core.Services.Caches
             return node == null ? null : node.Buffer.Bytes;
         }
 
+        /// <summary>
+        /// Like the engine, a sound effect is a file of _WORK/DATA/SOUND/SFX: found by its name only, a newer archive's
+        /// speech file of the same name won - G1's hero death scream and pain sounds (svm_2_dead.wav, ...) came from
+        /// Speech.vdf instead of sound.VDF (found on BoroBongo's branch). Falls back to the name.
+        /// </summary>
+        [CanBeNull]
+        public byte[] TryGetSoundBytes([NotNull] string key, [CanBeNull] string soundFolder)
+        {
+            if (soundFolder != null)
+            {
+                var node = Vfs.Resolve($"/_WORK/DATA/SOUND/{soundFolder}/{GetPreparedKey(key)}.wav");
+                if (node != null)
+                    return node.Buffer.Bytes;
+            }
+
+            return TryGetSoundBytes(key);
+        }
+
         [CanBeNull]
         public Segment TryGetSegment([NotNull] string key)
         {

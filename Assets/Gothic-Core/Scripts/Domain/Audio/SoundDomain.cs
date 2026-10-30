@@ -30,14 +30,17 @@ namespace Gothic.Core.Domain.Audio
         private readonly Dictionary<string, Task<AudioClip>> _clipsInProgress = new();
 
 
-        public AudioClip CreateAudioClip(string fileName)
+        /// <param name="soundFolder">Folder below _WORK/DATA/SOUND looked in first (SFX for sound effects), null to find
+        /// the file by its name only.</param>
+        public AudioClip CreateAudioClip(string fileName, string soundFolder = null)
         {
             fileName = Path.GetFileNameWithoutExtension(fileName);
+            var cacheKey = GetCacheKey(fileName, soundFolder);
 
-            if (_multiTypeCacheService.AudioClips.TryGetValue(fileName, out AudioClip cachedClip))
+            if (_multiTypeCacheService.AudioClips.TryGetValue(cacheKey, out AudioClip cachedClip))
                 return cachedClip;
 
-            var soundBytes = _resourceCacheService.TryGetSoundBytes(fileName);
+            var soundBytes = _resourceCacheService.TryGetSoundBytes(fileName, soundFolder);
             if (soundBytes == null)
                 return null;
 
@@ -57,7 +60,12 @@ namespace Gothic.Core.Domain.Audio
                 return null;
             }
 
-            return AddClip(fileName, soundData);
+            return AddClip(cacheKey, soundData);
+        }
+
+        private static string GetCacheKey(string fileName, string soundFolder)
+        {
+            return soundFolder == null ? fileName : $"{soundFolder}/{fileName}";
         }
 
         /// <summary>
@@ -65,27 +73,28 @@ namespace Gothic.Core.Domain.Audio
         /// ~400 ms (CS_Inextremo), reading it and creating the clip only a few ms. Must be called on the main thread,
         /// the clip is created there after the decoding.
         /// </summary>
-        public Task<AudioClip> CreateAudioClipAsync(string fileName)
+        public Task<AudioClip> CreateAudioClipAsync(string fileName, string soundFolder = null)
         {
             fileName = Path.GetFileNameWithoutExtension(fileName);
+            var cacheKey = GetCacheKey(fileName, soundFolder);
 
-            if (_multiTypeCacheService.AudioClips.TryGetValue(fileName, out var cachedClip))
+            if (_multiTypeCacheService.AudioClips.TryGetValue(cacheKey, out var cachedClip))
                 return Task.FromResult(cachedClip);
 
-            if (_clipsInProgress.TryGetValue(fileName, out var clipInProgress))
+            if (_clipsInProgress.TryGetValue(cacheKey, out var clipInProgress))
                 return clipInProgress;
 
-            var task = DecodeAndAddClipAsync(fileName);
+            var task = DecodeAndAddClipAsync(fileName, soundFolder, cacheKey);
             if (!task.IsCompleted)
-                _clipsInProgress[fileName] = task;
+                _clipsInProgress[cacheKey] = task;
             return task;
         }
 
-        private async Task<AudioClip> DecodeAndAddClipAsync(string fileName)
+        private async Task<AudioClip> DecodeAndAddClipAsync(string fileName, string soundFolder, string cacheKey)
         {
             try
             {
-                var soundBytes = _resourceCacheService.TryGetSoundBytes(fileName);
+                var soundBytes = _resourceCacheService.TryGetSoundBytes(fileName, soundFolder);
                 if (soundBytes == null)
                     return null;
 
@@ -101,13 +110,13 @@ namespace Gothic.Core.Domain.Audio
                 }
 
                 // Back on the main thread. CreateAudioClip() might have loaded it meanwhile.
-                return _multiTypeCacheService.AudioClips.TryGetValue(fileName, out var cachedClip)
+                return _multiTypeCacheService.AudioClips.TryGetValue(cacheKey, out var cachedClip)
                     ? cachedClip
-                    : AddClip(fileName, soundData);
+                    : AddClip(cacheKey, soundData);
             }
             finally
             {
-                _clipsInProgress.Remove(fileName);
+                _clipsInProgress.Remove(cacheKey);
             }
         }
 
