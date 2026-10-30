@@ -231,6 +231,13 @@ namespace Gothic.Core.Domain.Vobs
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
+                    // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
+                    // move its pillars and gates. Root ones: VobService made their children roots already.
+                    if (!isRootVob)
+                    {
+                        foreach (var childVob in vob.Children)
+                            InitVob(childVob, parent, worldPosition, false, vob);
+                    }
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -241,6 +248,16 @@ namespace Gothic.Core.Domain.Vobs
                     return;
             }
 
+            // A decal/particle VOB skipped because those visuals are off (both off in Production) still carries its
+            // children: an empty GameObject holds them. G2 Irdorath's trap and bridge triggers are children of particle
+            // VOBs, G2's treasure X marks children of decals. Root ones: VobService made their children roots already.
+            if (!go && !isRootVob && vob.Children.Count > 0 && IsVisualDisabled(vob))
+            {
+                go = new GameObject($"{vob.Name} (visual off)");
+                go.SetParent(parent);
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+            }
+
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
@@ -248,10 +265,40 @@ namespace Gothic.Core.Domain.Vobs
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
 
+            // Trigger zones and scripts are scaled to their bounding box - their children are created next to them.
+            var childParent = vob.Type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
+                VirtualObjectType.oCTriggerScript
+                ? parent
+                : go;
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false, vob);
+                InitVob(childVob, childParent, worldPosition, false, vob);
             }
+        }
+
+        /// <summary>
+        /// Decal and particle VOBs aren't built while those visuals are off.
+        /// </summary>
+        public bool IsVisualDisabled(IVirtualObject vob)
+        {
+            return vob.Visual?.Type switch
+            {
+                VisualType.Decal => !_configService.Dev.EnableDecalVisuals,
+                VisualType.ParticleEffect => !_configService.Dev.EnableParticleEffects,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// VOB types InitVob only creates an empty placeholder for (cutscene cameras, fog zones, ...).
+        /// </summary>
+        public static bool IsUnbuiltVobType(VirtualObjectType type)
+        {
+            return type is VirtualObjectType.zCVobScreenFX or VirtualObjectType.oCCSTrigger or
+                VirtualObjectType.zCVobLensFlare or VirtualObjectType.zCZoneZFog or VirtualObjectType.zCZoneZFogDefault or
+                VirtualObjectType.zCZoneVobFarPlane or VirtualObjectType.zCZoneVobFarPlaneDefault or
+                VirtualObjectType.zCCSCamera or VirtualObjectType.zCCamTrj_KeyFrame or VirtualObjectType.oCTouchDamage or
+                VirtualObjectType.zCEarthquake;
         }
 
         public void SetPosAndRot(GameObject obj, System.Numerics.Vector3 position, Matrix3x3 rotation)

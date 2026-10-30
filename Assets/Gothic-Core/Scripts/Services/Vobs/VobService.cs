@@ -336,7 +336,8 @@ namespace Gothic.Core.Services.Vobs
             }
         }
 
-        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
+        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs,
+            IVirtualObject parentVob = null)
         {
             foreach (var vob in vobs)
             {
@@ -362,6 +363,15 @@ namespace Gothic.Core.Services.Vobs
                 }
 
                 var container = CreateContainerWithLoader(vob);
+                container.ParentVob = parentVob;
+
+                // Cutscene cameras, fog zones, ... aren't built (no visual, never lazy loaded), nor are decal/particle
+                // VOBs while those visuals are off (both off in Production). Their children become VOBs of their own:
+                // G2 Irdorath's camera VOBs carry the trigger lists that move its pillars and gates, its trap and bridge
+                // triggers sit below particle VOBs, G2's treasure X marks below decals.
+                if (vob.Children.Count > 0 &&
+                    (VobInitializerDomain.IsUnbuiltVobType(vob.Type) || _initializerDomain.IsVisualDisabled(vob)))
+                    await CreateWorldVobs(config, loading, vob.Children, vob);
 
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
