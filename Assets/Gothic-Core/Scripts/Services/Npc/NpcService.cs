@@ -74,6 +74,8 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.LoadGameStart.AddListener(() =>
             {
                 ClearQueues();
+                // The new game's VM has its own dialogs (BootstrapDomain).
+                _ambientInfoByPrefix = null;
             });
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
