@@ -17,6 +17,12 @@ namespace Gothic.VR
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
+
+            // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.
+            public const string MoveVignette = "moveVignette";
+
+            // 0 = normal, 1 = large, 2 = larger: size of subtitles and dialog choices.
+            public const string TextSize = "textSize";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
@@ -35,6 +41,18 @@ namespace Gothic.VR
         public const int SnapRotationAmountSettingTickAmount = 5;
 
         public const int PhysicalHandsDefaultValue = 1;
+
+        public const int MoveVignetteDefaultValue = 0;
+
+        public const int TextSizeDefaultValue = 0;
+
+        // Scale of subtitles and dialog choices per textSize value.
+        private static readonly float[] _textSizeScales = { 1f, 1.25f, 1.5f };
+
+        public static float GetTextScale(int textSize)
+        {
+            return _textSizeScales[System.Math.Clamp(textSize, 0, _textSizeScales.Length - 1)];
+        }
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;
