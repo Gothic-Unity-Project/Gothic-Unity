@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
@@ -457,6 +458,31 @@ namespace Gothic.Core.Services.Npc
             return lowerKey.Replace(extension, "");
         }
 
+        /// <summary>
+        /// Like the engine, the water decides the walk animations, AI_SetWalkMode only says walk or run: wading
+        /// (S_WALKWL) knee deep, swimming (S_SWIMF) chest deep - water level set by NpcWaterService. Only if the model
+        /// has them; most monsters have no wading loop. Found on BoroBongo's branch.
+        /// </summary>
+        private VmGothicEnums.WalkMode GetWaterWalkMode(NpcContainer npc, string weaponStateString)
+        {
+            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            if (npc.Vob.Player || walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                return walkMode;
+
+            switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
+            {
+                case ZenGineConst.WaterLevel.Chest
+                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Swim;
+                case ZenGineConst.WaterLevel.Knee
+                    when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) !=
+                         null:
+                    return VmGothicEnums.WalkMode.Water;
+                default:
+                    return walkMode;
+            }
+        }
+
         public string GetAnimationName(VmGothicEnums.AnimationType type, NpcContainer npc, VmGothicEnums.WeaponState? overrideWeaponState = null)
         {
             // The name of the currently active weapon == prefix of animation.
@@ -464,7 +490,10 @@ namespace Gothic.Core.Services.Npc
 
             var weaponStateString = GetWeaponAnimationPrefix(overrideWeaponState ?? fightMode);
 
-            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            var walkMode = GetWaterWalkMode(npc, weaponStateString);
+            // Swimming and diving animations exist only once, without weapon variants (S_SWIM, T_SWIMTURNL, ...).
+            if (walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                weaponStateString = string.Empty;
             var walkModeString = GetWalkModeString(walkMode);
             var animationName = type switch
             {

@@ -51,6 +51,7 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -654,6 +655,9 @@ namespace Gothic.Core.Adapters.Animations
 
             // Pos change is applied with rotated value.
             var move = Go.transform.rotation * finalMovement;
+            // Deep water stops non-swimmers, swimmers float at the surface.
+            move = _npcWaterService.ApplyWater(NpcData, move, _restRootHeight,
+                _rootBone != null ? _rootBone.localPosition.y : 0f);
             if (IsDeepDropAhead(move))
                 move = new Vector3(0f, move.y, 0f);
             Go.transform.localPosition += move;
@@ -673,8 +677,9 @@ namespace Gothic.Core.Adapters.Animations
 
             var maxDrop = _gameStateService.GuildValues.GetFallDownHeight(NpcData.Instance.GetValuesGuild()) * 0.0075f;
             var probe = Go.transform.position + horizontal.normalized * _ledgeProbeDistance;
-            return !Physics.Raycast(probe, Vector3.down, _restRootHeight + maxDrop, 1 << Constants.DefaultLayer,
-                QueryTriggerInteraction.Ignore);
+            // Water counts as ground: swimmers go on, non-swimmers are stopped by NpcWaterService.
+            return !Physics.Raycast(probe, Vector3.down, _restRootHeight + maxDrop,
+                (1 << Constants.DefaultLayer) | (1 << Constants.WaterLayer), QueryTriggerInteraction.Collide);
         }
 
         private void ApplyEvents()
