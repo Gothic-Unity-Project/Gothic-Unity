@@ -25,8 +25,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            // An NPC that draws its weapon doesn't keep the dialog box open.
-            if (GameStateService.Dialogs.IsInDialog && GameStateService.Dialogs.CurrentDialogNpc == NpcContainer)
+            // An NPC that draws its weapon doesn't keep the dialog box open - unless its dialog goes on: like the engine
+            // (OpenGothic AI_DrawWeapon doesn't touch it) a dialog lasts until its AI_StopProcessInfos. Lukis and Rust
+            // draw before their last lines (G1); they were talked without the dialog and couldn't be skipped. Found on
+            // BoroBongo's branch.
+            var isDialogContinuing =
+                Props.AnimationQueue.Any(action => action is Output or OutputSvm or StopProcessInfos);
+            if (GameStateService.Dialogs.IsInDialog && GameStateService.Dialogs.CurrentDialogNpc == NpcContainer &&
+                !isDialogContinuing)
             {
                 Logger.Log($"[DrawWeapon] {NpcInstance.GetName(NpcNameSlot.Slot0)} drew a weapon during the dialog " +
                            "- closing the dialog", LogCat.Dialog);
