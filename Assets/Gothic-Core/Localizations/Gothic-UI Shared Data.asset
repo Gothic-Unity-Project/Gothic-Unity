@@ -227,6 +227,18 @@ MonoBehaviour:
     m_Key: menuitem.textSize.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188218529716502528
+    m_Key: menuitem.colorVision.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Key: menuitem.colorVision.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Key: menuitem.colorVision.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

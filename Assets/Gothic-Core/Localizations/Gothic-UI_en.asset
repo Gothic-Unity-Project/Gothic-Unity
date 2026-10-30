@@ -250,6 +250,18 @@ MonoBehaviour:
     m_Localized: normal|large|larger
     m_Metadata:
       m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: Color vision
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adjusts the colors for color blindness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: normal|red-weak|green-weak|blue-weak
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

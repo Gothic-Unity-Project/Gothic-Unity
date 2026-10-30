@@ -231,6 +231,18 @@ MonoBehaviour:
     m_Localized: "normalny|du\u017Cy|wi\u0119kszy"
     m_Metadata:
       m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: "Widzenie kolor\xF3w"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Dostosowuje kolory do daltonizmu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: "normalne|s\u0142abe czerwone|s\u0142abe zielone|s\u0142abe niebieskie"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
