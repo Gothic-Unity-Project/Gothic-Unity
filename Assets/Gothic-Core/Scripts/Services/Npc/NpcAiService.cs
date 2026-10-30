@@ -595,6 +595,9 @@ namespace Gothic.Core.Services.Npc
 
             if (target == null)
             {
+                // Like the engine (OpenGothic npc_gettarget), no target means no "other" either - scripts mustn't act
+                // on the one from before.
+                _gameStateService.GothicVm.GlobalOther = null;
                 return false;
             }
 
@@ -628,6 +631,7 @@ namespace Gothic.Core.Services.Npc
             if (closest == null)
             {
                 self.Props.TargetNpc = null;
+                _gameStateService.GothicVm.GlobalOther = null;
                 return false;
             }
 
