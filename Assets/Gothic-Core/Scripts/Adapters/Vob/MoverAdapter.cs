@@ -103,6 +103,10 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnTrigger()
         {
+            // Switched off by a message filter (VobService.DispatchEnable), like the engine's disabled trigger.
+            if (!_mover.IsEnabled)
+                return;
+
             switch (_mover.Behavior)
             {
                 case MoverBehavior.TriggerControl:
@@ -122,7 +126,7 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnUntrigger()
         {
-            if (_mover.Behavior == MoverBehavior.TriggerControl)
+            if (_mover.IsEnabled && _mover.Behavior == MoverBehavior.TriggerControl)
                 Close();
         }
 
