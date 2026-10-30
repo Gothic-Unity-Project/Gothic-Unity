@@ -241,10 +241,16 @@ namespace Gothic.Core.Services.Npc
 
             props.BodyData = data;
 
-            if (data.Armor >= 0)
+            // An armor that isn't an item (a mod's broken instance) is worn as no armor - it threw and stopped the
+            // creation of every NPC after this one (found on BoroBongo's branch).
+            var armorData = data.Armor >= 0 ? _vmCacheService.TryGetItemData(data.Armor) : null;
+            if (data.Armor >= 0 && armorData == null)
+                Logger.LogWarning($"[NpcService] Mdl_SetVisualBody: armor {data.Armor} of " +
+                                  $"{data.Npc.GetName(NpcNameSlot.Slot0)} is no item - no armor", LogCat.Npc);
+
+            if (armorData != null)
             {
                 // Like the engine (OpenGothic mdl_setvisualbody): the armor is worn like with EquipItem - it protects.
-                var armorData = _vmCacheService.TryGetItemData(data.Armor);
                 _equipmentService.EquipByScript(data.Npc.GetUserData(), armorData);
                 props.MdmName = armorData.VisualChange;
             }
