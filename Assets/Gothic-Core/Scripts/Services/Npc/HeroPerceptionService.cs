@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.World;
@@ -22,17 +24,24 @@ namespace Gothic.Core.Services.Npc
     {
         // Grabbing the same mob again (a door's handle) within this time is one use.
         private const float _mobUseRepeatSeconds = 3f;
+        // A weapon the hero never had in his hands (picked up from the ground, out of a chest) counts as drawn only
+        // after this time - enough to put it into the backpack.
+        private const float _pickUpGraceSeconds = 3f;
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
 
         // The items lying in the world since it was loaded. Taking one of them is what NPCs can see as theft - items
         // the hero carried before (e.g. taken out of his backpack) are his.
         private readonly HashSet<IVirtualObject> _worldItems = new();
         private IVirtualObject _lastUsedMob;
         private float _lastMobUseTime;
+        // The weapons the hero had in his hands in this world, and the one just picked up whose grace time runs.
+        private readonly HashSet<IVirtualObject> _heldWeapons = new();
+        private IVirtualObject _pickedUpWeapon;
 
         /// <summary>
         /// The mob the hero uses or used last (Npc_GetDetectedMob).
@@ -86,12 +95,45 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// The melee weapon in the hero's hands changed (none: meleeState NoWeapon, weapon null). A weapon he never had
+        /// in his hands counts as drawn only after a short time, so picking one up and putting it into the backpack
+        /// doesn't alarm anybody. One he had before (dropped, from the belt) is drawn at once.
+        /// </summary>
+        public void OnHeroMeleeWeaponChanged(VmGothicEnums.WeaponState meleeState, IVirtualObject weapon)
+        {
+            // Still the one just picked up (e.g. a hand let go while the other holds it): its time runs on.
+            if (weapon != null && weapon == _pickedUpWeapon)
+                return;
+
+            _pickedUpWeapon = null;
+            if (weapon != null && _heldWeapons.Add(weapon))
+            {
+                _pickedUpWeapon = weapon;
+                _unityMonoService.StartCoroutine(DrawAfterPickUp(weapon, meleeState));
+                return;
+            }
+
+            SetHeroMeleeWeaponState(meleeState);
+        }
+
+        private IEnumerator DrawAfterPickUp(IVirtualObject weapon, VmGothicEnums.WeaponState meleeState)
+        {
+            yield return new WaitForSeconds(_pickUpGraceSeconds);
+
+            if (_pickedUpWeapon != weapon)
+                yield break;
+
+            _pickedUpWeapon = null;
+            SetHeroMeleeWeaponState(meleeState);
+        }
+
+        /// <summary>
         /// The hero readied or put away a melee weapon (found on BoroBongo's branch). Like the engine (oCNpc::
         /// SetWeaponMode, OpenGothic closeWeapon) the fight mode is stored - Npc_IsInFightMode reads it - and the NPCs
         /// around get PERC_DRAWWEAPON or PERC_ASSESSREMOVEWEAPON. Putting the melee weapon away leaves a readied rune
         /// or bow alone. While he's armed, NPCs that see him get PERC_ASSESSFIGHTER (AiHandler).
         /// </summary>
-        public void OnHeroMeleeWeaponChanged(VmGothicEnums.WeaponState meleeState)
+        private void SetHeroMeleeWeaponState(VmGothicEnums.WeaponState meleeState)
         {
             var hero = GetHero();
             var vob = hero?.GetUserData()?.Vob;
@@ -169,6 +211,8 @@ namespace Gothic.Core.Services.Npc
         private void OnWorldLoaded()
         {
             _worldItems.Clear();
+            _heldWeapons.Clear();
+            _pickedUpWeapon = null;
             HeroDetectedMob = null;
             _lastUsedMob = null;
             if (_saveGameService.CurrentWorldName == null)

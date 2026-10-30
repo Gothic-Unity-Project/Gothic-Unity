@@ -77,11 +77,8 @@ namespace Gothic.VR.Services
         /// </summary>
         private void UpdateHeroWeaponState()
         {
-            var state = _firstAttackDomain.GetWeaponState();
-            if (state == VmGothicEnums.WeaponState.NoWeapon)
-                state = _secondAttackDomain.GetWeaponState();
-
-            _heroPerceptionService.OnHeroMeleeWeaponChanged(state);
+            var domain = _firstAttackDomain.WeaponVobContainer != null ? _firstAttackDomain : _secondAttackDomain;
+            _heroPerceptionService.OnHeroMeleeWeaponChanged(domain.GetWeaponState(), domain.WeaponVobContainer?.Vob);
         }
 
         public void PlayDrawSound(VobContainer weapon)
