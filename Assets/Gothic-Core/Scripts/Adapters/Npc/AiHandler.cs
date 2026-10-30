@@ -19,6 +19,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Npc
@@ -416,8 +417,8 @@ namespace Gothic.Core.Adapters.Npc
             // point.
             if (Properties.CurrentInteractableStateId >= 0)
             {
-                if (PrefabProps.CurrentInteractable?.Props is InteractiveProperties mobProps)
-                    mobProps.State = -1;
+                if (PrefabProps.CurrentInteractable?.Vob is IInteractiveObject)
+                    PrefabProps.CurrentInteractable.MobState = -1;
 
                 PrefabProps.CurrentInteractable = null;
                 PrefabProps.CurrentInteractableSlot = null;

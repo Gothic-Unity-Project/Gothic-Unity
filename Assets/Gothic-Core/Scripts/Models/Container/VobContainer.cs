@@ -21,6 +21,13 @@ namespace Gothic.Core.Models.Container
         public GameObject Go;
 
         /// <summary>
+        /// Current state of a mob (Gothic's oCMobInter state), e.g. a wheel is turned, a door is open. Starts with 0.
+        /// Gothic's save format has no field for it (the VOB's State is stateNum, the number of states):
+        /// MobStatesSaveSection saves it.
+        /// </summary>
+        public int MobState;
+
+        /// <summary>
         /// Set for child VOBs which have an own VobLoader (e.g. an item lying on a mover). They're part of the world
         /// through their parent until they're taken (SaveGameService.DetachChildVob).
         /// </summary>
