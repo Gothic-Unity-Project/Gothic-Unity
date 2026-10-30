@@ -6,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
+using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -21,6 +22,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
     /// </summary>
     public class VobPfxMeshBuilder : AbstractMeshBuilder
     {
+        // Gothic's units: velocity cm/ms -> m/s, gravity cm/ms^2 -> m/s^2.
+        private const float _velocityToMetersPerSecond = 10f;
+        private const float _gravityToMetersPerSecond2 = 10000f;
+        // Emission rate cap (particles/s) for Quest 2 - Gothic's loops stay far below it (torch 80, fire 25).
+        private const float _maxEmissionRate = 500f;
+        private const int _maxParticles = 1000;
+
+        // One material per texture and blend mode, shared by all emitters (237 torches in G1's world).
+        private static readonly System.Collections.Generic.Dictionary<string, Material> _materials = new();
+
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
@@ -61,29 +72,31 @@ namespace Gothic.Core.Domain.Meshes.Builder
             float gravityX = 0f, gravityY = 0f, gravityZ = 0f;
             if (gravity.Length == 3)
             {
-                // Gravity values in Gothic are very small (e.g., -0.0003)
-                // Multiplying by 1k - Blood effects for Zombies are spreading good then.
-                gravityX = float.Parse(gravity[0]) * 10;
-                gravityY = float.Parse(gravity[1]) * 10;
-                gravityZ = float.Parse(gravity[2]) * 10;
+                // cm/ms^2 like the engine (OpenGothic: dir += flyGravity * dt in ms).
+                gravityX = float.Parse(gravity[0]) * _gravityToMetersPerSecond2;
+                gravityY = float.Parse(gravity[1]) * _gravityToMetersPerSecond2;
+                gravityZ = float.Parse(gravity[2]) * _gravityToMetersPerSecond2;
             }
 
             // Main module
             {
                 var mainModule = particleSystem.main;
-                // I assume we need to change milliseconds to seconds.
                 var minLifeTime = (pfx.LspPartAvg - pfx.LspPartVar) / 1000;
                 var maxLifeTime = (pfx.LspPartAvg + pfx.LspPartVar) / 1000;
-                mainModule.duration = 1f; // I assume pfx data wants a cycle being 1 second long.
+                // Like the engine, ppsScaleKeys are played at ppsFPS keys per second - one cycle is keys/ppsFPS long.
+                mainModule.duration = GetEmissionCycleSeconds(pfx);
                 mainModule.startLifetime = new ParticleSystem.MinMaxCurve(minLifeTime, maxLifeTime);
                 mainModule.loop = Convert.ToBoolean(pfx.PpsIsLooping);
+                // As many as the engine keeps alive at once (OpenGothic: maxLife * maxPps).
+                mainModule.maxParticles = Mathf.Clamp(
+                    Mathf.CeilToInt(maxLifeTime * Mathf.Min(pfx.PpsValue, _maxEmissionRate) * 1.2f) + 1, 1,
+                    _maxParticles);
 
-                // Velocity in Gothic PFX seems already in a small unit (samples use 0.1). 
-                // For blood splatter effects it's tested to work with a scale factor for spreading
-                var velocityScale = 10f; // Empirical value for blood splatter
-                var minSpeed = Mathf.Max(0f, (pfx.VelAvg - pfx.VelVar) * velocityScale);
-                var maxSpeed = Mathf.Max(0f, (pfx.VelAvg + pfx.VelVar) * velocityScale);
+                var minSpeed = Mathf.Max(0f, (pfx.VelAvg - pfx.VelVar) * _velocityToMetersPerSecond);
+                var maxSpeed = Mathf.Max(0f, (pfx.VelAvg + pfx.VelVar) * _velocityToMetersPerSecond);
                 mainModule.startSpeed = new ParticleSystem.MinMaxCurve(minSpeed, maxSpeed);
+                // Far away effects pause instead of simulating unseen.
+                mainModule.cullingMode = ParticleSystemCullingMode.Pause;
                 
                 // Always disable Unity's built-in gravity - use Force over Lifetime instead
                 mainModule.gravityModifier = 0f;
@@ -111,9 +124,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 var emissionModule = particleSystem.emission;
                 
-                // Gothic's ppsValue is particles/second, but we need to scale it down significantly.
-                // dividing by 100 gives the right amount of blood emitter for zombies. Keeping it for now.
-                var scaledEmissionRate = pfx.PpsValue / 100f;
+                // Gothic's ppsValue is particles per second (OpenGothic: ppsValue * ppsScale(t)).
+                var scaledEmissionRate = Mathf.Min(pfx.PpsValue, _maxEmissionRate);
                 
                 // Use ppsScaleKeys to modulate emission over normalized time [0..1]
                 if (pfx.PpsScaleKeysS.NotNullOrEmpty() && pfx.PpsScaleKeysS != "=")
@@ -215,28 +227,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // Renderer module
             {
                 var rendererModule = pfxGo.GetComponent<ParticleSystemRenderer>();
-                // FIXME - Move to a cached constant value
-                var standardShader = Constants.ShaderUnlitParticles;
-                var material = new Material(standardShader);
-                rendererModule.material = material;
-                _textureService.SetTexture(pfx.VisNameS, rendererModule.material);
-                // renderer.material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest; // First check with no change.
-
-                switch (pfx.VisAlphaFuncS.ToUpper())
+                var material = GetMaterial(pfx.VisNameS, pfx.VisAlphaFuncS);
+                if (material == null)
                 {
-                    case "BLEND":
-                        rendererModule.material.ToTransparentMode(); // e.g. leaves.pfx.
-                        break;
-                    case "ADD":
-                        rendererModule.material.ToAdditiveMode();
-                        break;
-                    default:
-                        Logger.LogWarning($"Particle AlphaFunc {pfx.VisAlphaFuncS} not yet handled.", LogCat.Mesh);
-                        break;
+                    // Like the engine, an effect without its texture isn't emitted (white squares otherwise).
+                    UnityEngine.Object.Destroy(RootGo);
+                    return null;
                 }
-
-                // makes the material render both faces
-                rendererModule.material.SetInt("_Cull", (int)CullMode.Off);
+                rendererModule.sharedMaterial = material;
 
                 switch (pfx.VisOrientationS)
                 {
@@ -247,7 +245,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         rendererModule.alignment = ParticleSystemRenderSpace.World;
                         break;
                     case "VELO":
-                        rendererModule.alignment = ParticleSystemRenderSpace.Velocity;
+                        // Like the engine, the quad faces the camera and stretches along its flight (lying flat along
+                        // the velocity it was invisible from the side). Too slow particles stay plain billboards.
+                        if ((pfx.VelAvg - pfx.VelVar) * _velocityToMetersPerSecond >= 0.1f)
+                        {
+                            rendererModule.renderMode = ParticleSystemRenderMode.Stretch;
+                            rendererModule.velocityScale = 0f;
+                            rendererModule.lengthScale = 1f;
+                        }
+                        else
+                        {
+                            rendererModule.alignment = ParticleSystemRenderSpace.View;
+                        }
                         break;
                     default:
                         Logger.LogWarning($"visOrientation {pfx.VisOrientationS} not yet handled.", LogCat.Mesh);
@@ -271,7 +280,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         shapeModule.shapeType = ParticleSystemShapeType.Sphere;
                         break;
                     case "CIRCLE":
+                        // Gothic's circle lies flat (OpenGothic: pos = (sin a, 0, cos a)), Unity's stands upright.
                         shapeModule.shapeType = ParticleSystemShapeType.Circle;
+                        shapeModule.rotation = new Vector3(90f, 0f, 0f);
                         break;
                     case "BOX":
                         shapeModule.shapeType = ParticleSystemShapeType.Box;
@@ -307,12 +318,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
                             shapeModule.radius = r / 100f;
                         break;
                     case 3:
-                        // Box or sphere scale in cm -> m
+                        // Box half extents in cm (OpenGothic: +-dim) -> full size in m
                         if (float.TryParse(shapeDimensions[0], out var sx) &&
                             float.TryParse(shapeDimensions[1], out var sy) &&
                             float.TryParse(shapeDimensions[2], out var sz))
                         {
-                            shapeModule.scale = new Vector3(sx / 100f, sy / 100f, sz / 100f);
+                            shapeModule.scale = new Vector3(sx / 50f, sy / 50f, sz / 50f);
                         }
                         break;
                     default:
@@ -320,24 +331,22 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         break;
                 }
 
-                // Apply direction mode and angle variations
+                // Emitted on the shape's surface, or inside it for shpIsVolume.
+                shapeModule.radiusThickness = pfx.ShpIsVolume != 0 ? 1f : 0f;
+
+                // The flight direction is Gothic's own (OpenGothic PfxBucket), not the shape's normal.
                 if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
                 {
-                    // For random direction with angle spread, use Sphere shape to emit in all directions
-                    // The velocity variations will be handled by start speed and velocity over lifetime
-                    shapeModule.shapeType = ParticleSystemShapeType.Sphere;
-                    shapeModule.radius = 0.01f; // Very small radius for point-like emission
-                    shapeModule.radiusThickness = 0f; // Emit from surface only
-                    
-                    // Enable randomized direction
                     shapeModule.randomDirectionAmount = 1f;
                 }
                 else if (pfx.DirModeS.EqualsIgnoreCase("DIR"))
                 {
-                    // Fixed direction using head/elev angles
-                    shapeModule.angle = 0f;
-                    shapeModule.randomDirectionAmount = 0f;
-                    shapeModule.rotation = new Vector3(pfx.DirAngleElev, pfx.DirAngleHead, 0);
+                    ApplyDirection(particleSystem, pfx);
+                }
+                else if (pfx.DirModeS.EqualsIgnoreCase("NONE"))
+                {
+                    var mainModule = particleSystem.main;
+                    mainModule.startSpeed = 0f;
                 }
 
                 var shapeOffsetVec = pfx.ShpOffsetVecS.Split();
@@ -389,20 +398,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
             }
 
-            // Collision module
-            {
-                var collision = particleSystem.collision;
-                // ZenKit naming uses FlyCollisionDetectionB
-                if (pfx.FlyCollisionDetectionB > 0)
-                {
-                    collision.enabled = true;
-                    collision.type = ParticleSystemCollisionType.World;
-                    collision.mode = ParticleSystemCollisionMode.Collision3D;
-                    collision.collidesWith = ~0; // everything
-                    collision.bounce = 0f;
-                    collision.lifetimeLoss = 0f;
-                }
-            }
+            // Particle collision with the world is too expensive on Quest 2 - left out (flyCollDet).
 
             // Trails module (basic)
             {
@@ -426,6 +422,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
             }
 
+            // Placed relative to the parent like every VOB mesh (fire trees: relative to the fire's slot). Before, the
+            // position was ignored and every effect burned at its parent's origin.
+            SetPosAndRot(RootGo, RootPosition, RootRotation);
+
             particleSystem.Play();
 
             // WARNING: If we provided an existing GO, then it will also destroy other Components. We assume it's a new GO() for Destroy only.
@@ -435,6 +435,102 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             return pfxGo;
+        }
+
+        /// <summary>
+        /// Like the engine, a cycle of ppsScaleKeys lasts keys / ppsFPS seconds; without keys 1 second.
+        /// </summary>
+        private static float GetEmissionCycleSeconds(ZenKit.Daedalus.ParticleEffectInstance pfx)
+        {
+            if (pfx.PpsScaleKeysS.IsNullOrEmpty() || pfx.PpsScaleKeysS == "=" || pfx.PpsFps <= 0f)
+                return 1f;
+
+            var keyCount = pfx.PpsScaleKeysS.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            return keyCount > 1 ? Mathf.Max(0.1f, keyCount / pfx.PpsFps) : 1f;
+        }
+
+        /// <summary>
+        /// DIR: like the engine (OpenGothic PfxBucket), every particle flies in the direction of head (around the up
+        /// axis, + 90 degrees) and elev (up from the horizon), each +- its variance, at velAvg +- velVar. Unity can't vary
+        /// the start direction by angles, so the flight is a velocity picked per particle between the extremes.
+        /// </summary>
+        private static void ApplyDirection(ParticleSystem particleSystem, ZenKit.Daedalus.ParticleEffectInstance pfx)
+        {
+            // HACK of the engine too (STARGATE_PARTICLES): a variance of 180 or more means none.
+            var headVar = pfx.DirAngleHeadVar >= 180f ? 0f : pfx.DirAngleHeadVar;
+            var elevVar = pfx.DirAngleElevVar >= 180f ? 0f : pfx.DirAngleElevVar;
+            var minSpeed = Mathf.Max(0f, (pfx.VelAvg - pfx.VelVar) * _velocityToMetersPerSecond);
+            var maxSpeed = Mathf.Max(0f, (pfx.VelAvg + pfx.VelVar) * _velocityToMetersPerSecond);
+
+            var min = Vector3.positiveInfinity;
+            var max = Vector3.negativeInfinity;
+            foreach (var head in new[] { pfx.DirAngleHead - headVar, pfx.DirAngleHead, pfx.DirAngleHead + headVar })
+            {
+                foreach (var elev in new[] { pfx.DirAngleElev - elevVar, pfx.DirAngleElev, pfx.DirAngleElev + elevVar })
+                {
+                    var headRad = (90f + head) * Mathf.Deg2Rad;
+                    var elevRad = elev * Mathf.Deg2Rad;
+                    var direction = new Vector3(Mathf.Cos(elevRad) * Mathf.Cos(headRad), Mathf.Sin(elevRad),
+                        Mathf.Cos(elevRad) * Mathf.Sin(headRad));
+                    foreach (var speed in new[] { minSpeed, maxSpeed })
+                    {
+                        min = Vector3.Min(min, direction * speed);
+                        max = Vector3.Max(max, direction * speed);
+                    }
+                }
+            }
+
+            var mainModule = particleSystem.main;
+            mainModule.startSpeed = 0f;
+
+            var velocity = particleSystem.velocityOverLifetime;
+            velocity.enabled = true;
+            velocity.space = ParticleSystemSimulationSpace.Local;
+            velocity.x = new ParticleSystem.MinMaxCurve(min.x, max.x);
+            velocity.y = new ParticleSystem.MinMaxCurve(min.y, max.y);
+            velocity.z = new ParticleSystem.MinMaxCurve(min.z, max.z);
+        }
+
+        /// <summary>
+        /// The particles' material, shared per texture and blend mode. Like the engine: BLEND plain alpha blending, ADD
+        /// adds the color (both without alpha test or premultiply - those made particles vanish below half alpha and a
+        /// build render differently), MUL multiplies. Null if the texture doesn't exist.
+        /// </summary>
+        [CanBeNull]
+        private Material GetMaterial(string textureName, string alphaFunc)
+        {
+            var key = $"{textureName}|{alphaFunc}".ToUpperInvariant();
+            if (_materials.TryGetValue(key, out var cached) && cached != null)
+                return cached;
+
+            var material = new Material(Constants.ShaderUnlitParticles);
+            _textureService.SetTexture(textureName, material);
+            if (material.mainTexture == null)
+            {
+                UnityEngine.Object.Destroy(material);
+                return null;
+            }
+
+            switch (alphaFunc?.ToUpperInvariant())
+            {
+                case "ADD":
+                    material.ToParticleMode(UnityEngine.Rendering.BlendMode.SrcAlpha,
+                        UnityEngine.Rendering.BlendMode.One);
+                    break;
+                case "MUL":
+                    material.ToParticleMode(UnityEngine.Rendering.BlendMode.DstColor,
+                        UnityEngine.Rendering.BlendMode.Zero);
+                    break;
+                default:
+                    material.ToParticleMode(UnityEngine.Rendering.BlendMode.SrcAlpha,
+                        UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    break;
+            }
+
+            // Both faces.
+            material.SetInt("_Cull", (int)CullMode.Off);
+            _materials[key] = material;
+            return material;
         }
     }
 }

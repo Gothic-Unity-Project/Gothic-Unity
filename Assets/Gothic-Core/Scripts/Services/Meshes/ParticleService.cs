@@ -28,8 +28,10 @@ namespace Gothic.Core.Services.Meshes
             if (emitter.IsNullOrEmpty())
                 return;
 
-            // Create particle effect at the hit position
-            _meshService.CreateVobPfx(emitter, position, Quaternion.identity, parent: target.Go, destroyAfterPlay: true);
+            // Create particle effect at the hit position (placed relative to the target, which it follows).
+            var localPosition = target.Go != null ? target.Go.transform.InverseTransformPoint(position) : position;
+            _meshService.CreateVobPfx(emitter, localPosition, Quaternion.identity, parent: target.Go,
+                destroyAfterPlay: true);
         }
     }
 }

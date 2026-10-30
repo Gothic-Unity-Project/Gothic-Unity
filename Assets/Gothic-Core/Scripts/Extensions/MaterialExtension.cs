@@ -37,6 +37,24 @@ namespace Gothic.Core.Extensions
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
         }
 
+        /// <summary>
+        /// A transparent particle material with this blend, without alpha test or premultiply (those need shader
+        /// variants builds strip, and the alpha test hid everything below half alpha).
+        /// </summary>
+        public static void ToParticleMode(this Material material, UnityEngine.Rendering.BlendMode source,
+            UnityEngine.Rendering.BlendMode destination)
+        {
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetFloat("_Surface", 1f);
+            material.SetInt("_SrcBlend", (int)source);
+            material.SetInt("_DstBlend", (int)destination);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = (int)RenderQueue.Transparent;
+        }
+
         public static void ToFadeMode(this Material material)
         {
             material.SetOverrideTag("RenderType", "Transparent");
