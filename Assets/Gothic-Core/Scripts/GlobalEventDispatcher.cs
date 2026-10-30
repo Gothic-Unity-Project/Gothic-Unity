@@ -108,6 +108,18 @@ namespace Gothic.Core
         /// NpcContainer - who killed (null if nobody, e.g. a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer> NpcDied = new();
+
+        /// <summary>
+        /// The hero was knocked out (FightService) and lies on the ground.
+        /// float - seconds until he gets up again
+        /// </summary>
+        public static readonly UnityEvent<float> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
         
 
         // LockPicking events

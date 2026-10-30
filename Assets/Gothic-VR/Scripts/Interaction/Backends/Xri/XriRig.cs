@@ -122,6 +122,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isSprintLatched;
         private bool _isCrouching;
         private float _crouchOffset;
+        // SetEyeHeightOverride(): the camera is held at this height, reached at once (behind a fade).
+        private float? _eyeHeightOverride;
+        private bool _isEyeHeightJumpPending;
         private bool _isMovementEnabled;
         private bool _isJumpEnabled;
         private float _lastGroundedTime = float.NegativeInfinity;
@@ -472,12 +475,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 ? 0f
                 : _origin.CameraYOffset;
             var standingCameraHeight = CameraHeight + _crouchOffset;
-            var targetOffset = _isCrouching ? Mathf.Max(0f, standingCameraHeight - _crouchHeight) : 0f;
-            _crouchOffset = Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            var targetHeight = _eyeHeightOverride ?? (_isCrouching ? _crouchHeight : (float?)null);
+            var targetOffset = targetHeight.HasValue ? Mathf.Max(0f, standingCameraHeight - targetHeight.Value) : 0f;
+            _crouchOffset = _isEyeHeightJumpPending
+                ? targetOffset
+                : Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            _isEyeHeightJumpPending = false;
 
             var position = CameraOffset.localPosition;
             position.y = baseOffset - _crouchOffset;
             CameraOffset.localPosition = position;
+        }
+
+        public void SetEyeHeightOverride(float? meters)
+        {
+            _eyeHeightOverride = meters;
+            _isEyeHeightJumpPending = true;
         }
 
         public void ApplyComfortSettings(VrSitStand sitStand, VrMoveDirection direction, VrTurnType turn,

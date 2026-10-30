@@ -207,6 +207,7 @@ namespace Gothic.Core.Services.Npc
 
             _npcAiService.SendPerceptionToWitnesses(hero, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
             _unityMonoService.StartCoroutine(RecoverHero(hero, ++_heroKnockoutId));
+            GlobalEventDispatcher.HeroKnockedOut.Invoke(_heroKnockoutSeconds);
         }
 
         private IEnumerator RecoverHero(NpcContainer hero, int knockoutId)
@@ -221,6 +222,7 @@ namespace Gothic.Core.Services.Npc
             hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             _contextInteractionService.UnlockPlayer();
             Logger.Log("[Fight] The hero recovered from the knockout", LogCat.Fight);
+            GlobalEventDispatcher.HeroRecovered.Invoke();
         }
 
         /// <summary>
