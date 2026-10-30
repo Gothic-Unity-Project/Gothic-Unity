@@ -29,16 +29,17 @@ namespace Gothic.Core.Services.World
     /// <summary>
     /// Usage:
     ///
-    /// Loading:
-    /// 1. LoadNewGame() | LoadSavedGame()  -> Initializes the save game state
-    /// 2. ChangeWorld(worldName:str)       -> Load the required world. Will be fetched from save or from game data itself.
+    /// Loading (each returns false and keeps the running game if the save game or world can't be read):
+    /// * LoadNewGame(world) | LoadSavedGame(slot, world) -> Initializes the game state and its first world.
+    /// * ChangeWorld(world) -> Level change. The world comes from this session, the save game or its .zen.
     ///
     /// Saving:
-    /// 1. + 2. Load*() and ChangeWorld()   -> Needs to be called before to fill the data.
-    /// 3. SaveCurrentGame(saveGameId, title) -> Will use the currently loaded world from runtime and stores changes.
+    /// * CanSave(out reason) -> Like Gothic: no saving while dead, in a dialog or without a world.
+    /// * SaveCurrentGameAtEndOfFrame(slot, title) -> Stores all worlds of this session (needs the frame's end for
+    ///   the thumbnail; SaveCurrentGame() if you're inside such a coroutine already).
     ///
     /// Helper methods:
-    /// * GetSaveGame(saveGameId:int)       -> Return a save game object (or null) if requested. (e.g. used for LoadMenu to prepare data.
+    /// * GetSaveGame(slot) -> Return a save game object (or null), e.g. for the load menu.
     ///
     /// A save game consists of Gothic's files (written by ZenKit) and UNITYSAVE.json for state Gothic doesn't know
     /// (see ISaveStateSection). Details: Docs/save-game.md
@@ -53,21 +54,22 @@ namespace Gothic.Core.Services.World
         public bool IsFirstWorldLoadingFromSaveGame; // Check if we load save game right now!
 
         /// <summary>
-        /// The current world's data comes from a save game file (not from its .zen, not from a world left in this
-        /// session). E.g. world start triggers don't fire then (OpenGothic: no triggerOnStart() when loading).
+        /// The current world's state comes from a save game file or from a visit earlier in this session (not from its
+        /// .zen). E.g. world start triggers don't fire then (OpenGothic: no triggerOnStart() when loading).
         /// </summary>
-        public bool IsWorldLoadedFromSaveGame;
+        public bool IsWorldRestored;
 
         public SaveGame Save;
 
         /// <summary>
         /// INIT_* scripts of a world restored from a save/visit run. Wld_Insert* calls are skipped meanwhile.
         /// </summary>
-        public bool IsRunningInitScriptsOfRestoredWorld;
+        public bool IsRunningInitScriptsOfRestoredWorld { get; private set; }
 
         private const string _savesFolderName = "Saves_GothicUnity";
 
         private readonly Dictionary<string, ISaveStateSection> _sections = new();
+        private bool _isInitialized;
 
         // UNITYSAVE.json of the loaded save game. Its sections without a registered owner are saved again.
         private UnitySaveData _loadedUnitySave;
@@ -124,6 +126,11 @@ namespace Gothic.Core.Services.World
 
         public void Init()
         {
+            if (_isInitialized)
+                return;
+            _isInitialized = true;
+
+            // Core's sections. Modules (VR, Flat, G1/G2, mods) register their own.
             RegisterSection(new ScriptArraysSaveSection().Inject());
             RegisterSection(new ScriptVarsSaveSection().Inject());
             RegisterSection(new SkySaveSection().Inject());
@@ -156,8 +163,15 @@ namespace Gothic.Core.Services.World
                 Logger.LogError($"[SaveGame] Section {section.Key} is registered already.", LogCat.Loading);
         }
 
-        public void LoadNewGame()
+        /// <summary>
+        /// Returns false (and keeps the running game) if the world can't be read.
+        /// </summary>
+        public bool LoadNewGame(string worldName)
         {
+            worldName = GetWorldKey(worldName);
+            if (!TryReadWorld(worldName, null, out var world, out _))
+                return false;
+
             GlobalEventDispatcher.UnloadGameStart.Invoke();
             GlobalEventDispatcher.LoadGameStart.Invoke();
 
@@ -171,13 +185,15 @@ namespace Gothic.Core.Services.World
             _gameTimeService.ResetToStartTime();
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
+            EnterWorld(worldName, world, false);
+            return true;
         }
 
         /// <summary>
         /// Hint: G1 save game folders start with 1. We leverage the same numbering.
-        /// Returns false (and keeps the running game) if the save game can't be read.
+        /// Returns false (and keeps the running game) if the save game or its world can't be read.
         /// </summary>
-        public bool LoadSavedGame(SlotId saveGameId)
+        public bool LoadSavedGame(SlotId saveGameId, string worldName)
         {
             // Check before the running game is replaced (LoadGameStart creates a new VM).
             var save = GetSaveGame(saveGameId);
@@ -187,6 +203,10 @@ namespace Gothic.Core.Services.World
                 return false;
             }
 
+            worldName = GetWorldKey(worldName);
+            if (!TryReadWorld(worldName, save, out var world, out var isWorldInSave))
+                return false;
+
             GlobalEventDispatcher.UnloadGameStart.Invoke();
             GlobalEventDispatcher.LoadGameStart.Invoke();
 
@@ -194,6 +214,7 @@ namespace Gothic.Core.Services.World
             Save = save;
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
+            EnterWorld(worldName, world, isWorldInSave);
             StartPlayTime(save.Metadata.PlayTime.TotalSeconds);
 
             // LoadGameStart created a fresh VM. Script globals, time and guild attitudes come from SAVEDAT.SAV.
@@ -212,69 +233,102 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// Loading logic order:
-        /// 1. Check if the world is already loaded (cached) for this game session (i.e. we visited it already in this session)
+        /// Level change. Loading logic order:
+        /// 1. Check if the world is already loaded (cached) for this game session (i.e. we visited it already in this
+        ///    session)
         /// 2. Try to load the world state from the save game
         /// 3. Either use this saved world data or load it from normal .zen file
+        /// Returns false (and keeps the current world) if the world can't be read.
         /// </summary>
-        public void ChangeWorld(string worldName)
+        public bool ChangeWorld(string worldName)
         {
-            // G2 has for example: AddonWorld\NewWorld.zen --> NewWorld.zen
-            // Linux doesn't see \ as a directory separator, Windows sees both \ and /
-            CurrentWorldName = Path.GetFileName(worldName.Replace("\\","/"));
+            worldName = GetWorldKey(worldName);
 
             // 1. World was already loaded.
-            if (_worlds.ContainsKey(CurrentWorldName))
-            {
-                IsWorldLoadedFromSaveGame = false;
-                IsWorldEnteredFirstTime = false;
-                return;
-            }
+            var isRestored = _worlds.TryGetValue(worldName, out var world);
+            if (!isRestored && !TryReadWorld(worldName, IsLoadedGame ? Save : null, out world, out isRestored))
+                return false;
 
-            ZenKit.World originalWorld = _resourceCacheService.TryGetWorld(CurrentWorldName)!; // Always needed for some data not present in SaveGame.
-            ZenKit.World saveGameWorld = null;
-            bool worldFoundInSaveGame = false;
+            // Keep the state of the world we leave (the caches are cleared when the next world loads).
+            StoreCurrentWorldState();
 
-            // 2. Try to load world from save game.
-            if (IsLoadedGame)
+            EnterWorld(worldName, world, isRestored);
+            return true;
+        }
+
+        /// <summary>
+        /// G2 has for example: AddonWorld\NewWorld.zen --> NewWorld.zen
+        /// Linux doesn't see \ as a directory separator, Windows sees both \ and /
+        /// </summary>
+        private static string GetWorldKey(string worldName)
+        {
+            return Path.GetFileName(worldName.Replace("\\", "/"));
+        }
+
+        private void EnterWorld(string worldName, WorldContainer world, bool isRestored)
+        {
+            _worlds[worldName] = world;
+            CurrentWorldName = worldName;
+            IsWorldRestored = isRestored;
+            IsWorldEnteredFirstTime = !isRestored;
+        }
+
+        /// <summary>
+        /// Reads a world from the save game (if it contains it) or from its .zen. Nothing is changed, so a world which
+        /// can't be read (e.g. an unsupported VOB class in a mod's .zen) keeps the running game.
+        /// </summary>
+        private bool TryReadWorld(string worldName, [CanBeNull] SaveGame save, out WorldContainer world,
+            out bool isWorldInSave)
+        {
+            world = null;
+            isWorldInSave = false;
+            try
             {
+                // Always needed for some data not present in SaveGame.
+                var originalWorld = _resourceCacheService.TryGetWorld(worldName);
+                if (originalWorld == null)
+                {
+                    Logger.LogError($"[SaveGame] World {worldName} doesn't exist.", LogCat.Loading);
+                    return false;
+                }
+
+                // 2. Try to load world from save game.
                 // Worlds are saved upper case without extension (e.g. NEWWORLD.SAV). ZenKit's lookup is case-sensitive.
-                saveGameWorld = Save.LoadWorld(CurrentWorldName.ToGothicWorldName());
-                worldFoundInSaveGame = saveGameWorld != null;
-            }
+                var saveGameWorld = save?.LoadWorld(worldName.ToGothicWorldName());
+                isWorldInSave = saveGameWorld != null;
 
-            ZenKit.World worldToUse;
-            IsWorldLoadedFromSaveGame = worldFoundInSaveGame;
-            if (worldFoundInSaveGame)
-            {
-                worldToUse = saveGameWorld;
-                IsWorldEnteredFirstTime = false;
-            }
-            else
-            {
                 // If there is no save game used or world not saved, we visit it for the first time.
-                worldToUse = originalWorld;
-                IsWorldEnteredFirstTime = true;
+                var worldToUse = saveGameWorld ?? originalWorld;
+
+                // 3. Store this world into runtime data as it's now loaded and cached during gameplay. (To save later
+                // when needed.)
+                // TODO - If we get memory consumption issue, we can consider removing some data to free memory once
+                //        world is loaded later.
+                world = new WorldContainer
+                {
+                    OriginalWorld = originalWorld,
+                    SaveGameWorld = saveGameWorld,
+
+                    // Only existing in normal world (not in save game)
+                    Mesh = (Mesh)originalWorld.Mesh, // Do not cache or memory consumption will be way too high
+                    BspTree = (CachedBspTree)originalWorld.BspTree.Cache(),
+
+                    // Only existing in SaveGame world
+                    Npcs = WrapVobs(worldToUse.Npcs), // (if it's a new world, it's simply null)
+
+                    // Contained inside both: normal .zen file and also saveGame.
+                    Vobs = WrapVobs(FlattenLevelCompos(worldToUse.RootObjects)),
+                    WayNet = (CachedWayNet)worldToUse.WayNet.Cache()
+                };
+                return true;
             }
-
-            // 3. Store this world into runtime data as it's now loaded and cached during gameplay. (To save later when needed.)
-            // TODO - If we get memory consumption issue, we can consider removing some data to free memory once world is loaded later.
-            _worlds[CurrentWorldName] = new WorldContainer
+            catch (Exception e)
             {
-                OriginalWorld = originalWorld,
-                SaveGameWorld = saveGameWorld,
-
-                // Only existing in normal world (not in save game)
-                Mesh = (Mesh)originalWorld.Mesh, // Do not cache or memory consumption will be way too high
-                BspTree = (CachedBspTree)originalWorld.BspTree.Cache(),
-
-                // Only existing in SaveGame world
-                Npcs = WrapVobs(worldToUse.Npcs), // (if it's a new world, it's simply null)
-
-                // Contained inside both: normal .zen file and also saveGame.
-                Vobs = WrapVobs(FlattenLevelCompos(worldToUse!.RootObjects)),
-                WayNet = (CachedWayNet)worldToUse.WayNet.Cache()
-            };
+                // Mirrors PreCachingScene's per-world try/catch: a world can be unparsable without crashing the
+                // whole session.
+                Logger.LogError($"[SaveGame] World {worldName} can't be loaded: {e}", LogCat.Loading);
+                return false;
+            }
         }
 
         /// <summary>
@@ -292,7 +346,7 @@ namespace Gothic.Core.Services.World
 
             if (!Directory.Exists(saveGamePath))
             {
-                Logger.LogError($"SaveGame inside folder >{saveGamePath}< doesn't exist.", LogCat.Loading);
+                Logger.LogWarning($"SaveGame inside folder >{saveGamePath}< doesn't exist.", LogCat.Loading);
                 return null;
             }
 
@@ -491,6 +545,23 @@ namespace Gothic.Core.Services.World
             _multiTypeCacheService.VobCache.Add(container);
         }
 
+        /// <summary>
+        /// Runs the INIT_* scripts of a restored world. Wld_Insert* calls are skipped meanwhile, as its NPCs and items
+        /// exist already.
+        /// </summary>
+        public void RunInitScriptsOfRestoredWorld(Action initScripts)
+        {
+            IsRunningInitScriptsOfRestoredWorld = true;
+            try
+            {
+                initScripts();
+            }
+            finally
+            {
+                IsRunningInitScriptsOfRestoredWorld = false;
+            }
+        }
+
         public void InitNpcInstanceFromSave(NpcContainer npc, Action initInstance)
         {
             _npcDomain.InitInstanceFromSave(npc, initInstance);
@@ -526,7 +597,40 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
+        /// A save interrupted between the two moves of ReplaceSlotFolder() (crash, power loss) left savegameN.bak
+        /// without savegameN: the old slot comes back. Leftover .tmp folders (half-written saves) are removed.
+        /// </summary>
+        public void RecoverInterruptedSaves()
+        {
+            if (!Directory.Exists(SavesFolderPath))
+                return;
+
+            try
+            {
+                foreach (var backupPath in Directory.GetDirectories(SavesFolderPath, "savegame*.bak"))
+                {
+                    var slotPath = backupPath[..^".bak".Length];
+                    if (Directory.Exists(slotPath))
+                        Directory.Delete(backupPath, true);
+                    else
+                    {
+                        Directory.Move(backupPath, slotPath);
+                        Logger.LogWarning($"[SaveGame] Restored {slotPath} from an interrupted save.", LogCat.Loading);
+                    }
+                }
+
+                foreach (var tmpPath in Directory.GetDirectories(SavesFolderPath, "savegame*.tmp"))
+                    Directory.Delete(tmpPath, true);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[SaveGame] Recovering interrupted saves failed: {e}", LogCat.Loading);
+            }
+        }
+
+        /// <summary>
         /// The old slot is removed only once the new one is in place. If moving fails, the old slot comes back.
+        /// A crash in between is recovered by RecoverInterruptedSaves().
         /// </summary>
         private static void ReplaceSlotFolder(string newSlotPath, string slotPath)
         {

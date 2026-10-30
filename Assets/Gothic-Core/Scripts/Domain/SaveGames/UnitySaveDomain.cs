@@ -32,15 +32,23 @@ namespace Gothic.Core.Domain.SaveGames
         public void Write(string folder, [CanBeNull] UnitySaveData previousSave,
             IReadOnlyDictionary<string, ISaveStateSection> sections)
         {
-            var data = new UnitySaveData { Header = CreateHeader() };
+            var data = CreateData(CreateHeader(), previousSave, sections);
+            File.WriteAllText(Path.Combine(folder, FileName), JsonConvert.SerializeObject(data, Formatting.Indented));
+        }
+
+        /// <summary>
+        /// Sections of the previous save without a registered owner are kept. So is the previous data of a section
+        /// which fails to capture.
+        /// </summary>
+        public static UnitySaveData CreateData(UnitySaveHeader header, [CanBeNull] UnitySaveData previousSave,
+            IReadOnlyDictionary<string, ISaveStateSection> sections)
+        {
+            var data = new UnitySaveData { Header = header };
 
             if (previousSave != null)
             {
                 foreach (var (key, section) in previousSave.Sections)
-                {
-                    if (!sections.ContainsKey(key))
-                        data.Sections[key] = section;
-                }
+                    data.Sections[key] = section;
             }
 
             foreach (var (key, section) in sections)
@@ -55,7 +63,7 @@ namespace Gothic.Core.Domain.SaveGames
                 }
             }
 
-            File.WriteAllText(Path.Combine(folder, FileName), JsonConvert.SerializeObject(data, Formatting.Indented));
+            return data;
         }
 
         [CanBeNull]

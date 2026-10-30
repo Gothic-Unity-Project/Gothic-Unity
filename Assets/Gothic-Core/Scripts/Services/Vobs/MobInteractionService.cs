@@ -1,5 +1,4 @@
 using System;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -94,19 +93,16 @@ namespace Gothic.Core.Services.Vobs
             // can match it against its Slaves list.
             // The current state is runtime state (saved by MobStatesSaveSection). The VOB's State is Gothic's
             // stateNum (the number of its states), which a save game must keep.
-            var props = loader.Container.PropsAs<InteractiveProperties>();
-            if (props == null)
-                return;
-
-            var senderName = loader.Container.Vob.Name;
-            if (props.State > 0)
+            var container = loader.Container;
+            var senderName = container.Vob.Name;
+            if (container.MobState > 0)
             {
-                props.State = 0;
+                container.MobState = 0;
                 _vobService.DispatchUntrigger(target, senderName);
             }
             else
             {
-                props.State = 1;
+                container.MobState = 1;
                 _vobService.DispatchTrigger(target, senderName);
             }
         }

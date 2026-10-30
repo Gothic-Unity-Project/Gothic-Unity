@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -416,8 +415,8 @@ namespace Gothic.Core.Adapters.Npc
             // point.
             if (Properties.CurrentInteractableStateId >= 0)
             {
-                if (PrefabProps.CurrentInteractable?.Props is InteractiveProperties mobProps)
-                    mobProps.State = -1;
+                if (PrefabProps.CurrentInteractable != null)
+                    PrefabProps.CurrentInteractable.MobState = -1;
 
                 PrefabProps.CurrentInteractable = null;
                 PrefabProps.CurrentInteractableSlot = null;

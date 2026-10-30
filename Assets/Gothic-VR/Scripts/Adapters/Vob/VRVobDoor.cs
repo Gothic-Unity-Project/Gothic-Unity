@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Caches;
@@ -27,7 +26,7 @@ namespace Gothic.VR.Adapters.Vob
             var vobDoor = GetComponentInParent<VobLoader>().Container.VobAs<IDoor>();
             PrepareSounds(vobDoor);
             VRMobHinge.Follow(VrHinges.FindActive(this),
-                GetComponentInParent<VobLoader>().Container.PropsAs<InteractiveProperties>());
+                GetComponentInParent<VobLoader>().Container);
         }
         
         /// <summary>

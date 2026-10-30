@@ -238,6 +238,14 @@ MonoBehaviour:
     m_Localized: Saving isn't possible during a dialog.
     m_Metadata:
       m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Loading failed: the save game can''t be read.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Saving failed. The previous save game is kept.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

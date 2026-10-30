@@ -4,8 +4,8 @@ namespace Gothic.Core.Services.World
 {
     /// <summary>
     /// State which Gothic's save format doesn't store (or ZenKit can't write correctly) goes into UNITYSAVE.json.
-    /// Every system registers its own section via SaveGameService.RegisterSection(). SaveGameService doesn't need
-    /// to know the sections.
+    /// Core's sections live in Domain/SaveGames and are registered in SaveGameService.Init(). Modules (VR, Flat,
+    /// G1/G2, mods) register their own via SaveGameService.RegisterSection(), Core doesn't know them.
     /// </summary>
     public interface ISaveStateSection
     {

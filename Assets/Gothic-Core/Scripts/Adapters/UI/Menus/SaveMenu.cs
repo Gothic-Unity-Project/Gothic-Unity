@@ -158,6 +158,8 @@ namespace Gothic.Core.Adapters.UI.Menus
             if (!Directory.Exists(saveGameListPath))
                 return;
 
+            _saveGameService.RecoverInterruptedSaves();
+
             foreach (var fullPath in Directory.EnumerateDirectories(saveGameListPath))
             {
                 var saveGameFolderName = Path.GetFullPath(fullPath).Remove(0, saveGameListPath.Length + 1);
@@ -264,15 +266,16 @@ namespace Gothic.Core.Adapters.UI.Menus
                 }
 
                 // Can be triggered from Scene:mainMenu or Scene:AnyWorld, therefore removing active scene.
-                _bootstrapService.LoadWorld(save.Metadata.World, (SaveGameService.SlotId)id, SceneManager.GetActiveScene().name);
+                if (!_bootstrapService.LoadWorld(save.Metadata.World, (SaveGameService.SlotId)id,
+                        SceneManager.GetActiveScene().name))
+                    ShowComment("menuitem.load.failed");
             }
             else
             {
                 // Like Gothic: no saving while dead or in a dialog. The reason shows in the comment line.
                 if (!_saveGameService.CanSave(out var blockReason))
                 {
-                    if (Comment != null)
-                        Comment.text = _localizationService.GetText(blockReason);
+                    ShowComment(blockReason);
                     return;
                 }
 
@@ -299,11 +302,18 @@ namespace Gothic.Core.Adapters.UI.Menus
             // The thumbnail needs the end of the frame (and the keyboard closed).
             _saveGameService.SaveCurrentGameAtEndOfFrame((SaveGameService.SlotId)id, title, isSaved =>
             {
+                // E.g. a dialog started while the keyboard was open.
                 if (!isSaved)
-                    Logger.LogError($"[SaveMenu] Saving into slot {id} failed.", LogCat.Ui);
+                    ShowComment(_saveGameService.CanSave(out var blockReason) ? "menuitem.save.failed" : blockReason);
 
                 FillSaveGameEntries();
             });
+        }
+
+        private void ShowComment(string localizationKey)
+        {
+            if (Comment != null)
+                Comment.text = _localizationService.GetText(localizationKey);
         }
     }
 }

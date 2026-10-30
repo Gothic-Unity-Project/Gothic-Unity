@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Extensions;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.World;
@@ -11,7 +10,7 @@ using ZenKit.Vobs;
 namespace Gothic.Core.Domain.SaveGames
 {
     /// <summary>
-    /// Current states of mobs (InteractiveProperties.State): wheels and levers, open doors and chests, ... Gothic's
+    /// Current states of mobs (VobContainer.MobState): wheels and levers, open doors and chests, ... Gothic's
     /// format has none (oCMobInter stores stateNum only, the number of its states). Stored per world, by type and
     /// position (mobs don't move). Mobs in state 0 aren't stored.
     /// Leaving a world keeps its states for a revisit in the same session.
@@ -86,8 +85,8 @@ namespace Gothic.Core.Domain.SaveGames
             var states = new Dictionary<string, int>();
             foreach (var vobContainer in _multiTypeCacheService.VobCache)
             {
-                if (vobContainer?.Props is InteractiveProperties { State: > 0 } props)
-                    states[GetKey(vobContainer.Vob)] = props.State;
+                if (vobContainer?.MobState > 0)
+                    states[GetKey(vobContainer.Vob)] = vobContainer.MobState;
             }
 
             _states[_saveGameService.CurrentWorldName.ToGothicWorldName()] = states;
@@ -104,9 +103,8 @@ namespace Gothic.Core.Domain.SaveGames
 
             foreach (var vobContainer in _multiTypeCacheService.VobCache)
             {
-                if (vobContainer?.Props is InteractiveProperties props &&
-                    states.TryGetValue(GetKey(vobContainer.Vob), out var state))
-                    props.State = state;
+                if (vobContainer != null && states.TryGetValue(GetKey(vobContainer.Vob), out var state))
+                    vobContainer.MobState = state;
             }
         }
 

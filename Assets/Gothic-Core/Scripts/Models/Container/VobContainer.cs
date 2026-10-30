@@ -26,6 +26,13 @@ namespace Gothic.Core.Models.Container
         /// </summary>
         [CanBeNull] public IVirtualObject ParentVob;
 
+        /// <summary>
+        /// Current state of a mob (Gothic's oCMobInter state), e.g. a wheel is turned, a door is open. Starts with 0,
+        /// -1 while an NPC leaves it. Gothic's save format has no field for it (the VOB's State is stateNum, the number
+        /// of states): MobStatesSaveSection saves it.
+        /// </summary>
+        public int MobState;
+
 
         [Inject] private readonly VmCacheService _vmCacheService;
         

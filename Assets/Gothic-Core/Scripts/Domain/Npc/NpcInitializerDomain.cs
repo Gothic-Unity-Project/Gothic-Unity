@@ -217,15 +217,7 @@ namespace Gothic.Core.Domain.Npc
         private void RunInitScriptsOfRestoredWorld()
         {
             Vm.GlobalSelf = Vm.GlobalHero;
-            _saveGameService.IsRunningInitScriptsOfRestoredWorld = true;
-            try
-            {
-                CallInitScripts();
-            }
-            finally
-            {
-                _saveGameService.IsRunningInitScriptsOfRestoredWorld = false;
-            }
+            _saveGameService.RunInitScriptsOfRestoredWorld(CallInitScripts);
         }
 
         private void CallInitScripts()

@@ -215,6 +215,14 @@ MonoBehaviour:
     m_Key: menuitem.save.blocked.dialog
     m_Metadata:
       m_Items: []
+  - m_Id: 188222179017875456
+    m_Key: menuitem.load.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Key: menuitem.save.failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -26,12 +26,13 @@ namespace Gothic.Core.Domain.SaveGames
         {
             Texture2D screenshot = null;
             Texture2D formattedScreenshot = null;
+            RenderTexture rt = null;
             try
             {
                 screenshot = _contextScreenshotService.CaptureScreenshot();
 
                 // Alter dimensions of screenshots to align with Gothic thumbnail format.
-                var rt = RenderTexture.GetTemporary(_pixelsPerAxis, _pixelsPerAxis);
+                rt = RenderTexture.GetTemporary(_pixelsPerAxis, _pixelsPerAxis);
                 rt.filterMode = FilterMode.Bilinear;
 
                 RenderTexture.active = rt;
@@ -41,9 +42,6 @@ namespace Gothic.Core.Domain.SaveGames
                     false);
                 formattedScreenshot.ReadPixels(new Rect(0, 0, _pixelsPerAxis, _pixelsPerAxis), 0, 0);
                 formattedScreenshot.Apply();
-
-                RenderTexture.active = null;
-                RenderTexture.ReleaseTemporary(rt);
 
                 // Gothic textures need to be flipped to be shown correctly.
                 var originalPixels = formattedScreenshot.GetPixels();
@@ -67,6 +65,11 @@ namespace Gothic.Core.Domain.SaveGames
             }
             finally
             {
+                if (rt != null)
+                {
+                    RenderTexture.active = null;
+                    RenderTexture.ReleaseTemporary(rt);
+                }
                 if (screenshot != null)
                     Object.Destroy(screenshot);
                 if (formattedScreenshot != null)

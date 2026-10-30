@@ -219,6 +219,16 @@ MonoBehaviour:
     m_Localized: "Zapis niemo\u017Cliwy podczas rozmowy."
     m_Metadata:
       m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "Wczytanie nie powiod\u0142o si\u0119: nie mo\u017Cna odczyta\u0107
+      zapisu."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Zapis nie powi\xF3d\u0142 si\u0119. Poprzedni zapis zosta\u0142
+      zachowany."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -12,7 +12,8 @@ namespace Gothic.Core.Adapters.Vob
     /// <summary>
     /// Handles zCTriggerWorldStart: fires Target once when the world finishes loading.
     /// Like OpenGothic (WorldObjects::triggerOnStart):
-    /// - A world loaded from a save game fires nothing. The save game contains the result already.
+    /// - A world restored from a save game or from a visit earlier in this session fires nothing. Its state contains
+    ///   the result already.
     /// - FireOnce triggers fire only when the world is entered for the first time (G1 save games don't store
     ///   HasFired).
     /// </summary>
@@ -29,7 +30,7 @@ namespace Gothic.Core.Adapters.Vob
 
         private void Start()
         {
-            if (_saveGameService.IsWorldLoadedFromSaveGame)
+            if (_saveGameService.IsWorldRestored)
                 return;
             if (_vob.FireOnce && (_vob.HasFired || !_saveGameService.IsWorldEnteredFirstTime))
                 return;
