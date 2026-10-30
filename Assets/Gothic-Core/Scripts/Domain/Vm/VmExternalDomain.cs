@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -421,7 +422,22 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_UseItemToState(NpcInstance npc, int itemId, int expectedInventoryCount)
         {
-            _npcAiService.ExtAiUseItemToState(npc, itemId, expectedInventoryCount);
+            _npcAiService.ExtAiUseItemToState(npc, ResolveItemId(itemId), expectedInventoryCount);
+        }
+
+        /// <summary>
+        /// `AI_UseItem(self, item)` hands over the global `item` variable (G1 ZS_HealSelf: the food found by
+        /// Npc_GetInvItemBySlot) - its symbol, not an item instance. The engine uses the item in it. Initializing the
+        /// variable as an item can abort the process (found on BoroBongo's branch: Lukis froze after a fight).
+        /// </summary>
+        private int ResolveItemId(int itemId)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbol = vm.GetSymbolByIndex(itemId);
+            if (symbol == null || !string.Equals(symbol.Name, "ITEM", StringComparison.OrdinalIgnoreCase))
+                return itemId;
+
+            return vm.GlobalItem is ItemInstance item ? item.Index : -1;
         }
 
         public void AI_Wait(NpcInstance npc, float seconds)
@@ -529,16 +545,36 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_UseItem(NpcInstance npc, int itemId)
         {
-            _npcAiService.ExtAiUseItem(npc, itemId);
+            itemId = ResolveItemId(itemId);
+            if (itemId >= 0)
+                _npcAiService.ExtAiUseItem(npc, itemId);
         }
 
         /// <summary>
-        /// The NPC takes off its melee and ranged weapons (into the inventory).
+        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back too
+        /// (found on BoroBongo's branch).
         /// </summary>
         public void AI_UnequipWeapons(NpcInstance npc)
         {
-            npc.GetUserData()?.Props.EquippedItems.RemoveAll(i =>
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            container.Props.EquippedItems.RemoveAll(i =>
                 i.MainFlag is (int)VmGothicEnums.ItemFlags.ItemKatNf or (int)VmGothicEnums.ItemFlags.ItemKatFf);
+            if (container.Go == null)
+                return;
+
+            foreach (var slotName in new[] { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
+                         Constants.SlotCrossbow })
+            {
+                var slot = container.Go.FindChildRecursively(slotName);
+                if (slot == null)
+                    continue;
+
+                for (var i = slot.transform.childCount - 1; i >= 0; i--)
+                    UnityEngine.Object.Destroy(slot.transform.GetChild(i).gameObject);
+            }
         }
 
         public void AI_TurnToNPC(NpcInstance npc, NpcInstance target)
