@@ -4,6 +4,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.WayNet;
 using Gothic.Core.Extensions;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
@@ -24,6 +25,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // up, $RUNCOWARD). The run animation keeps playing into the next step.
         private const float _runStepSeconds = 0.5f;
         private const float _runArrivalThreshold = 0.3f;
+        // Around an obstacle: a waypoint of the route counts as reached this close (m), and a route is found again
+        // once the enemy moved this far (m) from where it stood.
+        private const float _chaseWayPointReached = 1f;
+        private const float _chaseRouteOutdated = 5f;
         private const float _turnThresholdDegrees = 10f;
         // A swing hits within the weapon's reach (+ the bodies' volume) and this angle to each side, so the target can
         // step back or aside. Gothic checks the weapon's bone (DEF_HIT_LIMB) - this is the same reach without it.
@@ -35,6 +40,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private static readonly HashSet<int> _rangedAttackLogged = new();
 
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
 
         private FightAiMove _move => (FightAiMove)Action.Int0;
         private NpcContainer _enemy => Action.Instance0.GetUserData();
@@ -45,6 +51,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // Which part of a combo animation this swing is (its hit frame, window and end).
         private int _comboPart;
         private float _runStepTime;
+        private bool _isChaseSightChecked;
         private string _turnLeftAnimName;
         private string _turnRightAnimName;
         private string _activeTurnAnimName;
@@ -302,8 +309,65 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            var runDirection = GetChaseWayPointDirection(myPosition, targetPosition) ?? toTarget;
             NpcGo.transform.rotation = Quaternion.RotateTowards(NpcGo.transform.rotation,
-                Quaternion.LookRotation(toTarget), Time.deltaTime * GetTurnSpeed());
+                Quaternion.LookRotation(runDirection), Time.deltaTime * GetTurnSpeed());
+        }
+
+        /// <summary>
+        /// Like the engine's fight run (OpenGothic Npc::implAttack, MV_MOVE): with the enemy within the senses range
+        /// but out of sight, the NPC runs along the waynet - from the waypoint nearest to it towards the one nearest to
+        /// the enemy - instead of into the wall between them. In sight again it runs straight at the enemy. Checked
+        /// once per run step (an action), the route kept in between.
+        /// </summary>
+        /// <returns>The direction to the route's next waypoint, null to run straight at the enemy.</returns>
+        private Vector3? GetChaseWayPointDirection(Vector3 myPosition, Vector3 targetPosition)
+        {
+            var route = Props.ChaseRoute;
+            if (!_isChaseSightChecked)
+            {
+                _isChaseSightChecked = true;
+                var isInSensesRange = (targetPosition - myPosition).sqrMagnitude <=
+                                      Mathf.Pow(NpcInstance.SensesRange / 100f, 2);
+                if (!isInSensesRange || _npcHelperService.CanSeeNpc(NpcInstance, _enemy.Instance, true))
+                {
+                    Props.ChaseRoute = null;
+                    return null;
+                }
+
+                if (route == null || route.Count == 0 ||
+                    (Props.ChaseRouteTarget - targetPosition).sqrMagnitude > _chaseRouteOutdated * _chaseRouteOutdated)
+                    route = Props.ChaseRoute = FindChaseRoute(myPosition, targetPosition);
+            }
+
+            while (route is { Count: > 0 })
+            {
+                var toWayPoint = route.Peek().Position - myPosition;
+                toWayPoint.y = 0f;
+                if (toWayPoint.sqrMagnitude > _chaseWayPointReached * _chaseWayPointReached)
+                    return toWayPoint;
+
+                route.Pop();
+            }
+
+            return null;
+        }
+
+        private Stack<DijkstraWaypoint> FindChaseRoute(Vector3 myPosition, Vector3 targetPosition)
+        {
+            Props.ChaseRouteTarget = targetPosition;
+            var start = WayNetService.FindNearestWayPoint(myPosition);
+            var end = WayNetService.FindNearestWayPoint(targetPosition);
+            if (start == null || end == null || start == end)
+                return null;
+
+            var path = WayNetService.FindFastestPath(start.Name, end.Name);
+            if (path == null)
+                return null;
+
+            Logger.LogEditor($"[Chase] {NpcInstance.GetName(NpcNameSlot.Slot0)} runs around an obstacle: " +
+                             $"{start.Name} -> {end.Name} ({path.Length} waypoints)", LogCat.Fight);
+            return new Stack<DijkstraWaypoint>(path);
         }
 
         private void StopRunning()

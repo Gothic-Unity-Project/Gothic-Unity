@@ -3,6 +3,7 @@ using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.WayNet;
 using ZenKit.Daedalus;
 
 namespace Gothic.Core.Adapters.Properties
@@ -63,6 +64,11 @@ namespace Gothic.Core.Adapters.Properties
         public NpcInstance StateVictim;
 
         public readonly AttackCombo AttackCombo = new();
+
+        // AI_Attack's run around an obstacle: the waynet route to the enemy (next waypoint on top) and where the enemy
+        // stood when it was found.
+        public Stack<DijkstraWaypoint> ChaseRoute;
+        public UnityEngine.Vector3 ChaseRouteTarget;
 
         public enum LoopState
         {
