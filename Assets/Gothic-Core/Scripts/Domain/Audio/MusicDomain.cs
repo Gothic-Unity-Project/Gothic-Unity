@@ -97,39 +97,54 @@ namespace Gothic.Core.Domain.Audio
         }
         
         /// <summary>
-        /// Play active theme with segment tags like NGT + FGT
+        /// The time of day and the danger the hero is in changed (AudioService checks them). Plays the matching theme.
+        /// </summary>
+        public void SetSituation(MusicTagsTime time, MusicTagsMode mode)
+        {
+            if (TimeTag == time && ModeTag == mode)
+                return;
+
+            TimeTag = time;
+            ModeTag = mode;
+            Play();
+        }
+
+        /// <summary>
+        /// Play active theme with segment tags like NGT + FGT. Like the engine (OpenGothic
+        /// WorldSound::tickSoundZone), a zone that has no theme for this situation falls back: night to day, threat to
+        /// fight, both to standard, and at last the zones with lower priority (the world's default zone).
         /// </summary>
         private void PlayInternal()
         {
-            var zone = _musicZones
+            var zones = _musicZones
                 .Select(i => i.GetComponentInParent<VobLoader>().Container.VobAs<IZoneMusic>())
-                .OrderByDescending(i => i.Priority)
-                .FirstOrDefault();
+                .OrderByDescending(i => i.Priority);
 
-            if (zone == null)
-                return;
-
-            // e.g., Towerdungeon_TD => TD is needed only
-            var formattedZoneName = zone.Name.Substring(zone.Name.IndexOf("_") + 1);
-
-            var timeTag = TimeTag switch
+            var timeTags = TimeTag == MusicTagsTime.Night ? new[] { "NGT", "DAY" } : new[] { "DAY" };
+            var modeTags = ModeTag switch
             {
-                MusicTagsTime.Day => "DAY",
-                MusicTagsTime.Night => "NGT",
+                MusicTagsMode.Standard => new[] { "STD" },
+                MusicTagsMode.Thrill => new[] { "THR", "FGT", "STD" },
+                MusicTagsMode.Fight => new[] { "FGT", "STD" },
                 _ => throw new ArgumentOutOfRangeException()
             };
 
-            var modeTag = ModeTag switch
+            foreach (var zone in zones)
             {
-                MusicTagsMode.Standard => "STD",
-                MusicTagsMode.Thrill => "THR",
-                MusicTagsMode.Fight => "FGT",
-                _ => throw new ArgumentOutOfRangeException()
-            };
+                // e.g., Towerdungeon_TD => TD is needed only
+                var formattedZoneName = zone.Name.Substring(zone.Name.IndexOf("_") + 1);
+                foreach (var timeTag in timeTags)
+                {
+                    foreach (var modeTag in modeTags)
+                    {
+                        if (!_themes.TryGetValue($"{formattedZoneName}_{timeTag}_{modeTag}", out var theme))
+                            continue;
 
-            var musicThemeInstanceName = $"{formattedZoneName}_{timeTag}_{modeTag}";
-
-            PlayInternal(musicThemeInstanceName);
+                        PlayInternal(theme);
+                        return;
+                    }
+                }
+            }
         }
         
         private void PlayInternal(string musicInstanceName)
@@ -313,6 +328,8 @@ namespace Gothic.Core.Domain.Audio
         public void OnWorldLoaded()
         {
             _musicZones.Clear();
+            // A fight of the world before is over. The time follows with AudioService's next check.
+            ModeTag = MusicTagsMode.Standard;
 
             var zones = _multiTypeCacheService.VobCache.Where(i => i.Vob is IZoneMusic); // IZoneMusic | IZoneMusicDefault
             var playerPosition = GameObject.FindWithTag(Constants.PlayerTag).transform.position;

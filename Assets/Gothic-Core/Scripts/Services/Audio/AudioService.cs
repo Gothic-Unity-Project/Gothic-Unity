@@ -1,8 +1,12 @@
+using System;
 using System.Threading.Tasks;
 using Gothic.Core.Domain.Audio;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
@@ -19,6 +23,20 @@ namespace Gothic.Core.Manager
         public const string NoSoundName = "nosound.wav";
 
         private readonly MusicDomain _musicDomain = new MusicDomain().Inject();
+
+        // Like the engine, day music plays from 4:00 to 21:00.
+        private static readonly TimeSpan _musicDayStart = TimeSpan.FromHours(4);
+        private static readonly TimeSpan _musicDayEnd = TimeSpan.FromHours(21);
+
+        // Services that lead back to this one through their own dependencies - resolved on first use.
+        private NpcService _npcService;
+        private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
+        private MultiTypeCacheService _multiTypeCacheService;
+        private MultiTypeCacheService MultiTypeCache => _multiTypeCacheService ??=
+            ReflexProjectInstaller.DIContainer.Resolve<MultiTypeCacheService>();
+        private GameTimeService _gameTimeService;
+        private GameTimeService GameTime => _gameTimeService ??=
+            ReflexProjectInstaller.DIContainer.Resolve<GameTimeService>();
         private readonly SoundDomain _soundDomain = new SoundDomain().Inject();
 
         private AudioSource _scriptSoundSource;
@@ -56,12 +74,52 @@ namespace Gothic.Core.Manager
                     _musicDomain.UpdateMusicValuesFromIni();
                 }
             });
-            
-            GlobalEventDispatcher.SetHeroAsTarget.AddListener((enemy, hero) =>
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic WorldSound::tickSoundZone), checked every few seconds (BackgroundMusic): night
+        /// themes at night, and while an NPC attacks the hero the fight theme - the threat theme as long as he has no
+        /// weapon drawn. Ends with the fight.
+        /// </summary>
+        public void UpdateMusicSituation()
+        {
+            var hero = NpcService.GetHeroContainer();
+            if (hero?.Vob == null || hero.Props == null)
+                return;
+
+            var time = GameTime.GetCurrentTime();
+            var timeTag = time >= _musicDayStart && time <= _musicDayEnd
+                ? MusicDomain.MusicTagsTime.Day
+                : MusicDomain.MusicTagsTime.Night;
+
+            var modeTag = MusicDomain.MusicTagsMode.Standard;
+            if (hero.Props.IsDead || IsHeroAttacked(hero))
+                modeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon
+                    ? MusicDomain.MusicTagsMode.Thrill
+                    : MusicDomain.MusicTagsMode.Fight;
+
+            _musicDomain.SetSituation(timeTag, modeTag);
+        }
+
+        /// <summary>
+        /// The engine's check (OpenGothic WorldObjects::isTargetedBy): an NPC has the hero as its target, a weapon drawn
+        /// and is in its attack state.
+        /// </summary>
+        private bool IsHeroAttacked(NpcContainer hero)
+        {
+            foreach (var npc in MultiTypeCache.NpcCache)
             {
-                _musicDomain.ModeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon ? MusicDomain.MusicTagsMode.Thrill : MusicDomain.MusicTagsMode.Fight;
-                _musicDomain.Play();
-            });
+                if (npc == hero || npc.Vob == null || npc.Props?.TargetNpc == null || npc.Props.IsDead ||
+                    npc.Props.TargetNpc.Index != hero.Instance.Index ||
+                    npc.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon)
+                    continue;
+
+                var state = npc.Vob.CurrentStateName;
+                if (state.EqualsIgnoreCase("ZS_ATTACK") || state.EqualsIgnoreCase("ZS_MM_ATTACK"))
+                    return true;
+            }
+
+            return false;
         }
 
         public void PlayMusic(string musicInstanceName)
