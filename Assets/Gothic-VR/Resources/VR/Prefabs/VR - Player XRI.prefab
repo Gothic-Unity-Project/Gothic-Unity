@@ -1033,6 +1033,7 @@ GameObject:
   - component: {fileID: 5460697659480693705}
   - component: {fileID: 7497269210671564284}
   - component: {fileID: 859851073591128817}
+  - component: {fileID: 1749955324209777333}
   m_Layer: 8
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1268,6 +1269,29 @@ MonoBehaviour:
   _fadeSpeed: 6
   _teleportDistance: 1
   _distanceIterations: 5
+--- !u!114 &1749955324209777333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4282864642912822117}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5ef47b3917f09b6c6b75b1e4c9216c47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrMoveVignette
+  _material: {fileID: 2100000, guid: e76299c43df729ed4ad16eb988169c66, type: 2}
+  _distance: 0.1
+  _radius: 0.4
+  _layer: 5
+  _fullMoveSpeed: 3
+  _fullTurnSpeed: 90
+  _fadeSpeed: 4
+  _closedApertures:
+  - 0.7
+  - 0.45
+  _feather: 0.25
 --- !u!1 &4284475928212711861
 GameObject:
   m_ObjectHideFlags: 0

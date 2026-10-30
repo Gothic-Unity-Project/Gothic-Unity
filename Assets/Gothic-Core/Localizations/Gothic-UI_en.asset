@@ -226,6 +226,30 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignette
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Darkens the edges of the view while the stick moves or turns you
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: off|light|strong
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Text size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Size of subtitles and dialog choices
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: normal|large|larger
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -203,6 +203,30 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Key: menuitem.moveVignette.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Key: menuitem.moveVignette.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Key: menuitem.moveVignette.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Key: menuitem.textSize.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Key: menuitem.textSize.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Key: menuitem.textSize.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
