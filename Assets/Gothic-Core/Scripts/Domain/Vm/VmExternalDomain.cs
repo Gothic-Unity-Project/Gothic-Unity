@@ -8,6 +8,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.UI;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -46,6 +47,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly DocService _docService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -187,7 +189,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, string>("Npc_IsOnFP", Npc_IsOnFP);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_WasInState", Npc_WasInState);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItem", Npc_GetInvItem);
-            // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
+            vm.RegisterExternal<int, NpcInstance, int, int>("Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItem", Npc_RemoveInvItem);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int>("EquipItem", EquipItem);
@@ -1133,9 +1135,36 @@ namespace Gothic.Core.Domain.Vm
             // NpcCreator.ExtGetInvItem();
         }
         
-        public void Npc_GetInvItemBySlot(IntPtr vmPtr)
+        /// <summary>
+        /// Like the engine (OpenGothic npc_getinvitembyslot): the slot-th item (counted from 1) of an inventory
+        /// category (INV_WEAPON, INV_FOOD, ...) becomes the scripts' global item, its amount is returned - 0 and no item
+        /// if there's none. G1's ZS_HealSelf finds food this way, B_Plunder what to take.
+        /// </summary>
+        public int Npc_GetInvItemBySlot(NpcInstance npc, int category, int slot)
         {
-            // NpcCreator.ExtGetInvItemBySlot();
+            var vm = _gameStateService.GothicVm;
+            vm.GlobalItem = null;
+            if (npc?.GetUserData() == null || category <= 0 || category >= (int)VmGothicEnums.InvCats.InvCatMax ||
+                slot <= 0)
+                return 0;
+
+            List<ContentItem> items;
+            try
+            {
+                items = _npcInventoryService.GetInventoryItems(npc, (VmGothicEnums.InvCats)category);
+            }
+            catch (Exception)
+            {
+                // A category never filled doesn't exist in the packed inventory.
+                return 0;
+            }
+
+            if (slot > items.Count)
+                return 0;
+
+            var item = _vmCacheService.TryGetItemData(items[slot - 1].Name);
+            vm.GlobalItem = item;
+            return item != null ? items[slot - 1].Amount : 0;
         }
 
         public void Npc_RemoveInvItems(IntPtr vmPtr)

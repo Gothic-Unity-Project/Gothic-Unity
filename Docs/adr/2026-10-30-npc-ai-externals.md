@@ -17,3 +17,4 @@ Several things NPC scripts ask for did nothing: drinking a potion after a fight,
 ## Consequences
 
 - Fights end more like in Gothic: the beaten look away, the hurt drink potions.
+- An NPC can look into its inventory by category (the first food item, the second weapon) like in the engine: G1 NPCs find their food after a fight and plunder the knocked out hero again.
