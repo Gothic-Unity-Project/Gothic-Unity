@@ -248,16 +248,31 @@ namespace Gothic.Core.Services.Npc
             target.PrefabProps.AnimationSystem.PlayAnimation(animName);
         }
 
+        /// <summary>
+        /// Like the engine (OpenGothic Npc::takeDamage), a hit that doesn't take him down makes every second time a
+        /// pain sound in the victim's voice - the hero's too (found on BoroBongo's branch), at his head as he has no
+        /// NPC voice source.
+        /// </summary>
         private void PlayHurtSound(NpcContainer target)
         {
-            // In G1, Humans needs to have stumble sound called via Aargh svm.
-            var clip = _audioService.GetRandomSoundClip($"SVM_{target.Instance.Voice}_AARGH");
-
-            // Monsters will have their stumble sound inside animations itself.
-            if (clip == null || target.PrefabProps?.NpcSound == null)
+            if (target.IsDown() || Random.value >= 0.5f)
                 return;
 
-            target.PrefabProps.NpcSound.PlayOneShot(clip);
+            // In G1, Humans needs to have stumble sound called via Aargh svm.
+            var clip = _audioService.GetRandomSoundClip($"SVM_{target.Instance.Voice}_AARGH");
+            if (clip == null)
+                return;
+
+            if (target.IsHero())
+            {
+                var head = Camera.main != null ? Camera.main.transform.position : target.Go.transform.position;
+                AudioSource.PlayClipAtPoint(clip, head);
+                return;
+            }
+
+            // Monsters will have their stumble sound inside animations itself.
+            if (target.PrefabProps?.NpcSound != null)
+                target.PrefabProps.NpcSound.PlayOneShot(clip);
         }
     }
 }
