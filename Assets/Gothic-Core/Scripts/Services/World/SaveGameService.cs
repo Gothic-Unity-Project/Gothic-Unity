@@ -13,6 +13,7 @@ using Gothic.Core.Models.SaveGames;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
@@ -183,6 +184,14 @@ namespace Gothic.Core.Services.World
 
             // A previously loaded save changed the time.
             _gameTimeService.ResetToStartTime();
+
+            // A new game starts at the world's start: a spawn position or level change left from a loaded save or a
+            // portal put the hero elsewhere, and a level change start the new world lacks crashed the world scene
+            // (found on BoroBongo's branch). PlayerService leads back here through its dependencies - resolved now.
+            var playerService = ReflexProjectInstaller.DIContainer.Resolve<PlayerService>();
+            playerService.ResetSpawn();
+            playerService.LastLevelChangeTriggerVobName = null;
+
             IsFirstWorldLoadingFromSaveGame = true;
             _worlds.ClearAndReleaseMemory();
             EnterWorld(worldName, world, false);
