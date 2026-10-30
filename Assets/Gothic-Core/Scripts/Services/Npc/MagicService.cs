@@ -364,7 +364,7 @@ namespace Gothic.Core.Services.Npc
             if (_spellData.IsProjectile(cast.SpellId))
             {
                 var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
-                var visual = _spellEffects.CreateParticles(effect, origin, rotation, 0f);
+                var visual = _spellEffects.CreateProjectile(effect, cast.Spell, origin, rotation);
                 _spellFlight ??= new SpellFlightDomain(OnProjectileHit).Inject();
                 _spellFlight.Launch(cast, visual, origin, direction);
             }

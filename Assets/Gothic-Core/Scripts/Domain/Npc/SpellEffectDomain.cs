@@ -18,8 +18,9 @@ namespace Gothic.Core.Domain.Npc
     /// <summary>
     /// The look of spells, from the scripts' visual effects (VisualFxInst.d, OpenGothic GameScript::spellVfx):
     /// spellFX_[name] is the glow at the caster or the flying projectile, its emFXCollDyn_S effect shows where the spell
-    /// hits. Only the effects' particles are shown - their meshes, lights, invest keys and sounds aren't yet. Owned by
-    /// MagicService.
+    /// hits. Only the effects' particles are shown - their meshes, lights, invest keys and sounds aren't yet, and the
+    /// particle builder shows few of them - so a flying spell also gets a glowing core in the color of its damage.
+    /// Owned by MagicService.
     /// </summary>
     public class SpellEffectDomain
     {
@@ -27,7 +28,14 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MeshService _meshService;
 
+        private const float _coreDiameter = 0.15f;
+        // DAM_INDEX_FIRE, DAM_INDEX_FLY, DAM_INDEX_MAGIC (C_Spell.damageType bits).
+        private const int _damageFire = 1 << 3;
+        private const int _damageFly = 1 << 4;
+        private const int _damageMagic = 1 << 5;
+
         private readonly Dictionary<string, EffectBaseInstance> _effects = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<Color, Material> _coreMaterials = new();
         private DaedalusVm _vfxVm;
         private bool _isVfxVmLoaded;
 
@@ -80,6 +88,50 @@ namespace Gothic.Core.Domain.Npc
             if (particles != null && lifetimeSeconds > 0f)
                 Object.Destroy(particles, lifetimeSeconds);
             return particles;
+        }
+
+        /// <summary>
+        /// A flying spell: its effect's particles and a glowing core (fire orange, wind white, other magic blue).
+        /// </summary>
+        public GameObject CreateProjectile(EffectBaseInstance effect, SpellInstance spell, Vector3 position,
+            Quaternion rotation)
+        {
+            var projectile = new GameObject($"Spell {effect?.VisNameS}");
+            projectile.transform.SetPositionAndRotation(position, rotation);
+
+            var particles = CreateParticles(effect, position, rotation, 0f);
+            if (particles != null)
+                particles.transform.SetParent(projectile.transform, true);
+
+            var core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // Flights and the player's queries mustn't hit the projectile itself.
+            Object.DestroyImmediate(core.GetComponent<Collider>());
+            core.name = "Core";
+            core.transform.SetParent(projectile.transform, false);
+            core.transform.localScale = Vector3.one * _coreDiameter;
+            core.GetComponent<MeshRenderer>().sharedMaterial = GetCoreMaterial(GetCoreColor(spell));
+            return projectile;
+        }
+
+        private static Color GetCoreColor(SpellInstance spell)
+        {
+            var damageType = spell?.DamageType ?? 0;
+            if ((damageType & _damageFire) != 0)
+                return new Color(1f, 0.55f, 0.15f);
+            if ((damageType & _damageFly) != 0)
+                return new Color(0.9f, 0.9f, 0.9f);
+            return new Color(0.45f, 0.6f, 1f);
+        }
+
+        private Material GetCoreMaterial(Color color)
+        {
+            if (_coreMaterials.TryGetValue(color, out var material) && material != null)
+                return material;
+
+            material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            material.SetColor("_BaseColor", color);
+            _coreMaterials[color] = material;
+            return material;
         }
 
         private void LoadVm()
