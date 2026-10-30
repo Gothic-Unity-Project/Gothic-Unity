@@ -361,6 +361,8 @@ namespace Gothic.Core.Domain.Culling
         /// Child bounds are offset by their position relative to the root VOB. (Their rotation is ignored,
         /// but the resulting sphere uses the full bbox diagonal and therefore stays conservative enough.)
         /// </summary>
+        private const float _particleEffectBoundsSize = 2.8f;
+
         private void AddLocalBounds(IVirtualObject vob, NumericsVector3 rootPosition, ref Bounds? totalBounds)
         {
             Bounds additionalBounds = default;
@@ -373,9 +375,13 @@ namespace Gothic.Core.Domain.Culling
                 default:
                     switch (vob.Visual?.Type)
                     {
-                        // We don't support Decal and Pfx so far.
+                        // We don't support Decals so far.
                         case VisualType.Decal:
+                            break;
+                        // A particle effect has no mesh: a fixed box, so it gets a culling entry at all (it was never
+                        // created) and is switched off at medium distance like the engine's 40 m particle range.
                         case VisualType.ParticleEffect:
+                            additionalBounds = new Bounds(Vector3.zero, Vector3.one * _particleEffectBoundsSize);
                             break;
                         default:
                             additionalBounds = GetLocalMeshBounds(vob);
