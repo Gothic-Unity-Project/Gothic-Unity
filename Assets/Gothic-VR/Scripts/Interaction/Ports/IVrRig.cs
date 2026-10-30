@@ -39,6 +39,11 @@ namespace Gothic.VR.Interaction.Ports
         bool IsGrounded { get; }
         bool IsClimbing { get; }
 
+        /// <summary>
+        /// Crouched with the crouch button or by the player's own head height - the hero sneaks (if he can).
+        /// </summary>
+        bool IsCrouching => false;
+
         bool MovementEnabled { get; set; }
         bool TurnEnabled { get; set; }
         bool TeleportEnabled { get; set; }

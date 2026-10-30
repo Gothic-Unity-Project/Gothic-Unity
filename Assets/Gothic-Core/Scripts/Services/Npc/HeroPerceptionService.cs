@@ -16,12 +16,20 @@ namespace Gothic.Core.Services.Npc
     /// What the NPCs around notice the hero doing with things, like the engine: taking an item lying in the world
     /// (PERC_ASSESSTHEFT - OpenGothic Npc::takeItem; the scripts check its owner, item guards react to any), and using
     /// a mob such as a chest, a door or a bed (PERC_ASSESSUSEMOB - OpenGothic Interactive; the scripts check the mob's
-    /// owner through Npc_IsDetectedMobOwnedByNpc/ByGuild). Platforms report the hero's actions here.
+    /// owner through Npc_IsDetectedMobOwnedByNpc/ByGuild), and how the hero moves (body state, footsteps).
+    /// Platforms report the hero's actions here.
     /// </summary>
     public class HeroPerceptionService
     {
         // Grabbing the same mob again (a door's handle) within this time is one use.
         private const float _mobUseRepeatSeconds = 3f;
+        // Horizontal speed (m/s) from which the hero walks or runs. Moving with the stick is Gothic's run.
+        private const float _walkSpeed = 0.2f;
+        private const float _runSpeed = 1f;
+        // Way (m) per footstep the NPCs around can hear.
+        private const float _walkStride = 0.75f;
+        private const float _runStride = 1.1f;
+        private const string _sneakTalentSymbol = "NPC_TALENT_SNEAK";
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly SaveGameService _saveGameService;
@@ -33,6 +41,7 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<IVirtualObject> _worldItems = new();
         private IVirtualObject _lastUsedMob;
         private float _lastMobUseTime;
+        private float _strideDistance;
 
         /// <summary>
         /// The mob the hero uses or used last (Npc_GetDetectedMob).
@@ -83,6 +92,53 @@ namespace Gothic.Core.Services.Npc
             Logger.Log($"[HeroPerception] The hero uses {mobVob.Name} (owner '{mob.Owner}', guild '{mob.OwnerGuild}')",
                 LogCat.Npc);
             _npcAiService.Npc_SendPassivePerc(hero, VmGothicEnums.PerceptionType.AssessUseMob, null, hero);
+        }
+
+        /// <summary>
+        /// How the hero moved this frame (found on BoroBongo's branch). Like the engine his body state is standing,
+        /// walking, running, or sneaking - crouched, and only with the sneak talent (OpenGothic Npc::canSneak). The
+        /// scripts read it (a running hero gets away, a sneaking one is suspicious). Every step but a sneaking one is
+        /// a quiet sound for the NPCs around (PERC_ASSESSQUIETSOUND, OpenGothic tickAnimationTags). Other body
+        /// states (sitting, lying, swimming, ...) stay as they are.
+        /// </summary>
+        public void OnHeroMoved(float movedMeters, float deltaTime, bool isCrouching)
+        {
+            var hero = GetHero();
+            var props = hero?.GetUserData()?.Props;
+            if (props == null || props.BodyState is not ((VmGothicEnums.BodyState)0
+                    or VmGothicEnums.BodyState.BsStand or VmGothicEnums.BodyState.BsWalk
+                    or VmGothicEnums.BodyState.BsRun or VmGothicEnums.BodyState.BsSneak))
+                return;
+
+            var speed = deltaTime > 0f ? movedMeters / deltaTime : 0f;
+            if (isCrouching && CanSneak(hero))
+                props.BodyState = VmGothicEnums.BodyState.BsSneak;
+            else if (speed >= _runSpeed)
+                props.BodyState = VmGothicEnums.BodyState.BsRun;
+            else if (speed >= _walkSpeed)
+                props.BodyState = VmGothicEnums.BodyState.BsWalk;
+            else
+                props.BodyState = VmGothicEnums.BodyState.BsStand;
+
+            if (props.BodyState is not (VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun))
+                return;
+
+            _strideDistance += movedMeters;
+            var stride = props.BodyState == VmGothicEnums.BodyState.BsRun ? _runStride : _walkStride;
+            if (_strideDistance < stride)
+                return;
+
+            _strideDistance = 0f;
+            _npcAiService.SendPassivePerception(hero, VmGothicEnums.PerceptionType.AssessQuietSound, hero, hero, null);
+        }
+
+        private bool CanSneak(NpcInstance hero)
+        {
+            var talent = _gameStateService.GothicVm.GetSymbolByName(_sneakTalentSymbol);
+            if (talent == null)
+                return true;
+
+            return hero.GetUserData()?.Vob?.GetTalent(talent.GetInt(0))?.Skill > 0;
         }
 
         /// <summary>

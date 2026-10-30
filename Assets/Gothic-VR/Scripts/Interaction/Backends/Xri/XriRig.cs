@@ -104,6 +104,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [Tooltip("Camera height in m while crouching.")] [SerializeField]
         private float _crouchHeight = 0.7f;
 
+        [Tooltip("The camera up to this far (m) above the crouch height counts as crouching (sneaking) - also when " +
+                 "the player really crouches.")] [SerializeField]
+        private float _crouchDetectionMargin = 0.2f;
+
         [Tooltip("Speed in m/s of the camera moving down/up when crouching starts/ends.")] [SerializeField]
         private float _crouchSpeed = 1.5f;
 
@@ -142,6 +146,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public Camera Camera => _camera;
         public CharacterController CharacterController => _characterController;
         public float CameraHeight => _origin.CameraInOriginSpaceHeight;
+        public bool IsCrouching => _isCrouching || CameraHeight <= _crouchHeight + _crouchDetectionMargin;
 
         public bool IsGrounded
         {
