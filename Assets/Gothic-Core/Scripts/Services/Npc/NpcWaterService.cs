@@ -185,6 +185,8 @@ namespace Gothic.Core.Services.Npc
                 return false;
 
             SetWaterLevel(npc, ZenGineConst.WaterLevel.Chest);
+            // Standing NPCs keep their idle animation otherwise - the walk actions only switch it while moving.
+            npc.PrefabProps?.AnimationSystem?.PlayIdleAnimation();
             return true;
         }
 
