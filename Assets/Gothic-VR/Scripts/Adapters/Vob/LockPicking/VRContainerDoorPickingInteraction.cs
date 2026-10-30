@@ -5,6 +5,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using Gothic.VR.Services;
 using Gothic.VR.Adapters.Vob.VobItem;
@@ -27,6 +28,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private bool _isLocked;
         private string _combination;
@@ -119,6 +121,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
             _hapticsService.Vibrate(_handSide, VrHapticPreset.Info);
+            // Like the engine, picking a lock is using the chest or door: the NPCs around notice (found on BoroBongo's
+            // branch).
+            _heroPerceptionService.OnHeroUsedMob(_lockable.Vob);
 
             // For later event usage.
             _lockPick = other.gameObject.GetComponentInParent<VobLoader>().Container;
