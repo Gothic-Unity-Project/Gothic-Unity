@@ -11,6 +11,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
