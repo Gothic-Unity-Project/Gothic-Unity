@@ -20,10 +20,11 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Material with the Gothic/VR Move Vignette shader. A copy is used at runtime.")]
         [SerializeField] private Material _material;
-        [Tooltip("Distance in m of the disc in front of the camera. Has to be beyond the near clip plane.")]
-        [SerializeField] private float _distance = 0.1f;
-        [Tooltip("Radius in m of the disc. Has to cover the view of both eyes at the distance above.")]
-        [SerializeField] private float _radius = 0.4f;
+        [Tooltip("Distance in m of the disc in front of the camera. Far enough that both eyes see it about centered " +
+                 "(it's drawn on top of everything anyway).")]
+        [SerializeField] private float _distance = 1.5f;
+        [Tooltip("Degrees from the view's center the disc covers. Beyond the widest headset's field of view.")]
+        [SerializeField] private float _coverAngle = 75f;
         [Tooltip("Layer of the disc. Has to be rendered by the camera.")]
         [SerializeField] private int _layer = 5;
         [Tooltip("Body speed in m/s at which the vignette is closed completely.")]
@@ -32,15 +33,17 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _fullTurnSpeed = 90f;
         [Tooltip("How fast the vignette closes and opens again, in strength (0..1) per second.")]
         [SerializeField] private float _fadeSpeed = 4f;
-        [Tooltip("Clear part of the disc (0..1 of its radius) when closed completely: option light, option strong.")]
-        [SerializeField] private float[] _closedApertures = { 0.7f, 0.45f };
-        [Tooltip("Width of the soft edge, 0..1 of the disc radius.")]
-        [SerializeField] private float _feather = 0.25f;
+        [Tooltip("Degrees from the view's center that stay clear when closed completely: option light, option strong. " +
+                 "Quest 2 shows about 50 degrees to each side.")]
+        [SerializeField] private float[] _closedClearAngles = { 35f, 25f };
+        [Tooltip("Width of the soft edge in degrees.")]
+        [SerializeField] private float _featherAngle = 15f;
 
         // A bigger step within one frame is a teleport, a bigger turn a snap turn: both are no smooth movement.
         private const float _maxStepPerFrame = 1f;
         private const float _maxTurnPerFrame = 15f;
         private const int _discSegments = 48;
+        private const int _discRings = 12;
 
         private ConfigService _configService;
         private IVrRig _rig;
@@ -91,7 +94,7 @@ namespace Gothic.VR.Adapters.Player
                 return false;
 
             _setting = Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.MoveVignette,
-                VRConstants.MoveVignetteDefaultValue), 0, _closedApertures.Length);
+                VRConstants.MoveVignetteDefaultValue), 0, _closedClearAngles.Length);
             _isSettingRead = true;
             return true;
         }
@@ -131,7 +134,7 @@ namespace Gothic.VR.Adapters.Player
             if (!_renderer.enabled)
                 return;
 
-            var closedAperture = _closedApertures[Mathf.Max(_setting, 1) - 1];
+            var closedAperture = _closedClearAngles[Mathf.Max(_setting, 1) - 1] / _coverAngle;
             _materialInstance.SetFloat(_apertureId, Mathf.Lerp(1f, closedAperture, _strength));
         }
 
@@ -153,7 +156,7 @@ namespace Gothic.VR.Adapters.Player
             disc.AddComponent<MeshFilter>().sharedMesh = CreateDiscMesh();
 
             _materialInstance = new Material(_material);
-            _materialInstance.SetFloat(_featherId, _feather);
+            _materialInstance.SetFloat(_featherId, _featherAngle / _coverAngle);
             _renderer = disc.AddComponent<MeshRenderer>();
             _renderer.sharedMaterial = _materialInstance;
             _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -165,25 +168,53 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// A fan around the center; uv.x is the distance from the center (0..1), the shader fades with it.
+        /// Rings around the center, evenly spaced in viewing angle; uv.x is that angle as a share of the cover angle
+        /// (0..1), the shader fades with it.
         /// </summary>
         private Mesh CreateDiscMesh()
         {
-            var vertices = new Vector3[_discSegments + 1];
-            var uvs = new Vector2[_discSegments + 1];
-            var triangles = new int[_discSegments * 3];
+            var vertices = new Vector3[1 + _discRings * _discSegments];
+            var uvs = new Vector2[vertices.Length];
+            var triangles = new int[_discSegments * 3 + (_discRings - 1) * _discSegments * 6];
 
             vertices[0] = Vector3.zero;
             uvs[0] = Vector2.zero;
+            for (var ring = 0; ring < _discRings; ring++)
+            {
+                var share = (ring + 1f) / _discRings;
+                var radius = _distance * Mathf.Tan(share * _coverAngle * Mathf.Deg2Rad);
+                for (var i = 0; i < _discSegments; i++)
+                {
+                    var angle = i * Mathf.PI * 2f / _discSegments;
+                    var index = 1 + ring * _discSegments + i;
+                    vertices[index] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+                    uvs[index] = new Vector2(share, 0f);
+                }
+            }
+
+            var t = 0;
             for (var i = 0; i < _discSegments; i++)
             {
-                var angle = i * Mathf.PI * 2f / _discSegments;
-                vertices[i + 1] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * _radius;
-                uvs[i + 1] = new Vector2(1f, 0f);
+                var next = (i + 1) % _discSegments;
+                triangles[t++] = 0;
+                triangles[t++] = 1 + i;
+                triangles[t++] = 1 + next;
+            }
 
-                triangles[i * 3] = 0;
-                triangles[i * 3 + 1] = i + 1;
-                triangles[i * 3 + 2] = i + 1 == _discSegments ? 1 : i + 2;
+            for (var ring = 1; ring < _discRings; ring++)
+            {
+                var inner = 1 + (ring - 1) * _discSegments;
+                var outer = 1 + ring * _discSegments;
+                for (var i = 0; i < _discSegments; i++)
+                {
+                    var next = (i + 1) % _discSegments;
+                    triangles[t++] = inner + i;
+                    triangles[t++] = outer + i;
+                    triangles[t++] = outer + next;
+                    triangles[t++] = inner + i;
+                    triangles[t++] = outer + next;
+                    triangles[t++] = inner + next;
+                }
             }
 
             var mesh = new Mesh
