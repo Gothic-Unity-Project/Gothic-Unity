@@ -11,6 +11,7 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Material = UnityEngine.Material;
 using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Domain.Npc
