@@ -167,14 +167,13 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 
 ## Inside Gothic-VR
 
-VR interaction runs on a backend: XR Interaction Toolkit (free, `VrInteractionBackend.Xri`) or HurricaneVR
-(commercial, behind `GOTHIC_HVR_INSTALLED`, being replaced: `Docs/HVR-replacement/`). Game code doesn't know which.
+VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't know it: it talks to the ports.
 
 | Folder (`Gothic-VR/Scripts/`) | Holds | Uses |
 |---|---|---|
 | `Interaction/Models/` | VR value types (`VrHandSide`, `VrGrabArgs`, `VrHapticPreset`) | nothing else |
 | `Interaction/Ports/` | the VR framework as interfaces (`IVrRig`, `IVrInput`, `IVrHaptics`, `IVrSocket`) | Models |
-| `Interaction/Backends/Xri/`, `Hvr/` | the only code with XRI or HVR types: port implementations, bridges | Ports, Models, Components |
+| `Interaction/Backends/Xri/` | the only code with XRI types: port implementations, bridges | Ports, Models, Components |
 | `Interaction/Components/` | backend-neutral MonoBehaviours with the Gothic behaviour (`VrSocketSlot`, `VrPhysicsHand`) | Ports, Models, Core |
 | `Adapters/`, `Services/` | the game in VR (`VRBackpack`, `VrHapticsService`) | all of the above |
 
@@ -183,12 +182,11 @@ VR interaction runs on a backend: XR Interaction Toolkit (free, `VrInteractionBa
    Gothic answer, it asks a port that a component implements.
 2. **Components don't use `Adapters/` or `Services/`.** They announce facts (principle 7) and a service reacts:
    `VrPhysicsHand` raises `PhysicalHandContact`, `VrHapticsService` vibrates.
-3. **New port members are default interface members** while HVR exists, so the HVR backend stays untouched.
-4. **Haptics:** only `VrHapticsService` picks preset and strength. A new kind of vibration is a `VrHapticPreset`
-   with its values in both backends' tables (`XriHaptics`, `HvrHaptics`, same index).
-5. **Don't act inside a backend event.** Destroying, re-parenting or placing objects within an XRI select or hover
+3. **Haptics:** only `VrHapticsService` picks preset and strength. A new kind of vibration is a `VrHapticPreset`
+   with its values in `XriHaptics`.
+4. **Don't act inside a backend event.** Destroying, re-parenting or placing objects within an XRI select or hover
    event breaks the interaction in progress: do it in the next `Update` (`VrContainerDropZone`).
-6. **Reuse the building blocks** before writing a new one:
+5. **Reuse the building blocks** before writing a new one:
 
 | Need | Use |
 |---|---|
@@ -226,7 +224,7 @@ object.
 
 **Rule:** `ResourceCacheService` loads `Resources/<Context>/<path>` before `Resources/<path>`, so VR and Flat can
 replace any Core prefab. The replacement is a **Prefab Variant** of the Core prefab: it adds the platform components
-(HVR grabbables, `VRVobDoor`) and overrides values, nothing else. The same applies to a family inside one module
+(grabbables, `VRVobDoor`) and overrides values, nothing else. The same applies to a family inside one module
 (`StatusBarHealth` is a variant of `StatusBar`).
 
 **Why:** A copy forgets every later change to the Core prefab. Core components then exist in VR only, and Flat
@@ -234,8 +232,7 @@ silently runs without them.
 
 **Today:** all 11 VR VOB prefabs that replace a Core prefab are copies, not variants. The VR `oCNpc` has
 `AnimationSystem`, `NpcHeadAnimationHandler`, `NpcHitboxColliderAdapter` and `NpcPrefabProperties` (all Core
-adapters), the Core `oCNpc` that Flat uses has none of them. The `MENU_*` prefabs don't use `_MenuSkeleton`, and
-`VR - Player XRI`/`BackPack XRI` copy their HVR counterparts. Fix them when touched (principle 9): rebase the copy
+adapters), the Core `oCNpc` that Flat uses has none of them. The `MENU_*` prefabs don't use `_MenuSkeleton`. Fix them when touched (principle 9): rebase the copy
 onto a variant and move Core components into the Core prefab.
 
 ### C. Reference, don't search
@@ -392,7 +389,7 @@ only in the Editor. The PR says what was measured (frame time, GC allocations, d
 - `FindChildRecursively("...")`, `GameObject.Find` or `FindObjectsByType` for an object we created ourselves
 - `Resources.Load("...")` outside `ResourceCacheService`, `Shader.Find("...")` outside `Constants`
 - a Core asset referencing a VR, Flat or Lab asset
-- an XRI or HVR type outside `Gothic-VR/Scripts/Interaction/Backends/`
+- an XRI type outside `Gothic-VR/Scripts/Interaction/Backends/`
 - a VR component calling `IVrHaptics` or a service instead of announcing a fact
 - a new `Update` that polls something an event could announce, or runs for every NPC/VOB in the world
 - LINQ, lambdas, string building, `GetComponent` or an allocating physics query on a per-frame path

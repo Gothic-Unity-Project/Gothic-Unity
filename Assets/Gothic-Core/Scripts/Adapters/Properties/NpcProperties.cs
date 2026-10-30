@@ -69,6 +69,12 @@ namespace Gothic.Core.Adapters.Properties
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
         public VmGothicEnums.BodyState BodyState;
 
+        /// <summary>
+        /// Npc_IsDead(). Like Gothic, it's the death transition (FightService, loading a dead NPC), not HP <= 0:
+        /// scripts set HP directly and prepare NPCs with HP 0.
+        /// </summary>
+        public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
+
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
         public int StateEnd;

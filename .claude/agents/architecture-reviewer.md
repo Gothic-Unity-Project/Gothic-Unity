@@ -45,7 +45,7 @@ The layer ranks are in `CLAUDE.md` (Domain and Services share a rank and may use
 | folder or class | planning a split or a refactor | skip step 1; read the files, output an ordered step plan of PR-sized refactorings instead of findings |
 
 Ignore unrelated local changes (`.asset`, `ProjectSettings/*`, scenes the change doesn't need) and third-party code
-(`ZenKitCS/`, `Assets/HurricaneVR/`, packages). Prefabs, scenes and settings the change does touch are reviewed
+(`ZenKitCS/`, packages). Prefabs, scenes and settings the change does touch are reviewed
 ("Unity assets" below) - by grepping their YAML for facts, never by reading it whole.
 
 ## 1. Collect facts (cheap, deterministic)
@@ -103,8 +103,8 @@ baselined violation). A rule of the doc or CLAUDE.md that itself causes friction
 - A change that decides something (feature, setting, trade-off) without a decision record in `Docs/adr/`.
 - Many new public members that could be private/internal; new public Core types used by one module only.
 
-**VR module** (`Docs/architecture.md` > "Inside Gothic-VR", rules 1-6)
-- An XRI or HVR type outside `Interaction/Backends/`, or a Gothic rule decided inside a backend.
+**VR module** (`Docs/architecture.md` > "Inside Gothic-VR", rules 1-5)
+- An XRI type outside `Interaction/Backends/`, or a Gothic rule decided inside a backend.
 - A component in `Interaction/Components/` using `Adapters/`, `Services/` or `IVrHaptics` directly instead of
   announcing a fact; preset or strength chosen outside `VrHapticsService`.
 - Destroying, re-parenting or placing objects inside a backend's select/hover event instead of the next `Update`.

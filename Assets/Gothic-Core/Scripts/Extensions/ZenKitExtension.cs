@@ -28,6 +28,23 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// Like Gothic, a trigger counts its remaining activations down in CountCanBeActivated, which save games store
+        /// (a .zen sets it to MaxActivationCount: -1 = unlimited, 0 = never, N = N times).
+        /// Returns false if no activation is left.
+        /// </summary>
+        public static bool TryConsumeActivation(this ITrigger trigger)
+        {
+            if (trigger.MaxActivationCount < 0)
+                return true;
+
+            if (trigger.CountCanBeActivated <= 0)
+                return false;
+
+            trigger.CountCanBeActivated--;
+            return true;
+        }
+
+        /// <summary>
         /// A visual name is either extracted from Visual.Name or Name of VOB itself.
         /// </summary>
         public static string GetVisualName([CanBeNull] this IVirtualObject vob)

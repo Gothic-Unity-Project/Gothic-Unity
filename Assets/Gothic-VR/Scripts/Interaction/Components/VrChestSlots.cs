@@ -50,6 +50,7 @@ namespace Gothic.VR.Interaction.Components
         private bool _isSpawning;
         private IVrHinge _hinge;
         private bool _isOpen;
+        private readonly List<ContentItem> _contentNotInSlots = new();
 
         public bool IsOpen => _isOpen;
 
@@ -105,7 +106,43 @@ namespace Gothic.VR.Interaction.Components
 
             _isContentSpawned = true;
             AlignSlots();
+            TrackContentChanges();
             StartCoroutine(SpawnContent());
+        }
+
+        /// <summary>
+        /// Once spawned, the slots are the content. IContainer.Contents follows them, so that save games store what's
+        /// inside the chest (taken out by hand, put into the backpack, put in).
+        /// </summary>
+        private void TrackContentChanges()
+        {
+            if (_container == null)
+                return;
+
+            foreach (var socket in _container.Sockets)
+            {
+                socket.Grabbed += _ => UpdateContents();
+                socket.Released += _ => UpdateContents();
+            }
+        }
+
+        private void UpdateContents()
+        {
+            if (_isSpawning)
+                return;
+
+            var vobContainer = GetComponentInParent<VobLoader>()?.Container?.VobAs<IContainer>();
+            if (vobContainer == null)
+                return;
+
+            var items = _container.Sockets
+                .Select(i => i.Held == null ? null : i.Held.GetComponentInParent<VobLoader>()?.Container)
+                .Where(i => i?.Vob?.Type == VirtualObjectType.oCItem)
+                .Select(i => i.VobAs<IItem>())
+                .Select(i => new ContentItem(i.Name, Math.Max(1, i.Amount)))
+                .Concat(_contentNotInSlots);
+
+            vobContainer.Contents = items.PackItems(',');
         }
 
         public void Close()
@@ -229,7 +266,7 @@ namespace Gothic.VR.Interaction.Components
         private IEnumerator SpawnContent()
         {
             var vobContainer = GetComponentInParent<VobLoader>()?.Container?.VobAs<IContainer>();
-            var contentItems = _vobService.UnpackItems(vobContainer?.Contents);
+            var contentItems = (vobContainer?.Contents).UnpackItems();
             if (contentItems.Count == 0)
                 yield break;
 
@@ -242,6 +279,9 @@ namespace Gothic.VR.Interaction.Components
                 Logger.LogError("There are more items in a container than slots available. Please implement " +
                                 "pagination to ensure everything is visible and can be grabbed!", LogCat.VR);
             }
+
+            // Content without a free slot stays inside the chest.
+            _contentNotInSlots.AddRange(contentItems.Skip(sockets.Count));
 
             for (var i = 0; i < Math.Min(contentItems.Count, sockets.Count); i++)
             {
@@ -258,6 +298,7 @@ namespace Gothic.VR.Interaction.Components
 
             _container.SetSilent(false);
             _isSpawning = false;
+            UpdateContents();
             if (!_isOpen)
                 _inventoryGo.SetActive(false);
         }

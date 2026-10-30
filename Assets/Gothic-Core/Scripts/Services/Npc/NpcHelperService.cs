@@ -74,28 +74,13 @@ namespace Gothic.Core.Services.Npc
 
             var prefabProps = npcInstance.GetUserData().PrefabProps;
 
-            InteractiveProperties props;
+            var mob = prefabProps.CurrentInteractable ??
+                      _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme);
 
-            if (prefabProps.CurrentInteractable != null)
-            {
-                try
-                {
-                    // Check current gameobject and children as well
-                    props = prefabProps.CurrentInteractable.PropsAs<InteractiveProperties>();
-                }
-                catch (Exception)
-                {
-                    Logger.LogError($"Wld_GetMobState() returned an exception for {npcGo.name}", LogCat.Npc);
-                    return -1;
-                }
-            }
-            else
-                props = _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme)?.PropsAs<InteractiveProperties>();
-
-            if (props == null)
+            if (mob?.Props is not InteractiveProperties)
                 return -1;
 
-            return Math.Max(0, props.State);
+            return Math.Max(0, mob.MobState);
         }
 
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)

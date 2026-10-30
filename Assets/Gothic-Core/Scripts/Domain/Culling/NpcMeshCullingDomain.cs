@@ -4,7 +4,6 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
@@ -190,7 +189,7 @@ namespace Gothic.Core.Domain.Culling
             var props = npcData.Props;
 
             // Corpses stay where they are.
-            if (props == null || props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (props == null || props.IsDead)
                 return;
 
             if (props.RoutineCurrent == null)
@@ -240,6 +239,31 @@ namespace Gothic.Core.Domain.Culling
 
                 container.Vob.Position = container.PrefabProps.Bip01.position.ToZkVector();
                 container.Vob.Rotation = container.PrefabProps.Bip01.rotation.ToZkMatrix();
+            }
+        }
+
+        /// <summary>
+        /// Sync the position of every NPC of the world into its VOB (save games, leaving a world).
+        /// The root of a visible NPC follows walking animations only after their loop is done. BIP01 is up to date,
+        /// but at hip height. We therefore combine both.
+        /// </summary>
+        public void UpdateVobPositionOfAllNpcs()
+        {
+            for (var i = 0; i < _count; i++)
+            {
+                var loader = _loaders[i];
+                var container = loader == null ? null : loader.Container;
+                if (container?.Vob == null)
+                    continue;
+
+                var root = loader.transform;
+                var position = root.position;
+                var bip01 = container.PrefabProps == null ? null : container.PrefabProps.Bip01;
+                if (_visibleNpcs.Contains(i) && bip01 != null)
+                    position = new Vector3(bip01.position.x, position.y, bip01.position.z);
+
+                container.Vob.Position = position.ToZkVector();
+                container.Vob.Rotation = root.rotation.ToZkMatrix();
             }
         }
 

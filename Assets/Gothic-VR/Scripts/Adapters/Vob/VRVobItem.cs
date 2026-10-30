@@ -4,6 +4,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.World;
+using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -22,6 +24,7 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -110,6 +113,11 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
+
+            // An item lying on another VOB (e.g. a mover) is no longer part of it.
+            var vobContainer = GetComponentInParent<VobLoader>()?.Container;
+            if (vobContainer != null)
+                _saveGameService.DetachChildVob(vobContainer);
         }
 
         /// <summary>

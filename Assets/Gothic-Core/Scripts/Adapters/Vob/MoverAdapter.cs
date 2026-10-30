@@ -3,6 +3,7 @@ using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
@@ -42,7 +43,119 @@ namespace Gothic.Core.Adapters.Vob
         private bool _isMoving;
         private int _currentKeyIndex;
 
-        private void Awake() => this.Inject();
+        // Key restored from a save game, applied in Start() (after the child VOBs are created).
+        private int _savedKeyIndex;
+
+        // The running move (MoveTo()): segment, its progress (0...1 of its time), direction and destination key.
+        private int _segmentStart;
+        private int _segmentEnd;
+        private float _segmentProgress;
+        private int _moveStep;
+        private int _moveDestination;
+
+        /// <summary>
+        /// The VOB keeps the current key for save games (zCMover actKeyframe).
+        /// </summary>
+        private int CurrentKeyIndex
+        {
+            get => _currentKeyIndex;
+            set
+            {
+                _currentKeyIndex = value;
+                _mover.ActKeyframe = value;
+            }
+        }
+
+        private void Awake()
+        {
+            this.Inject();
+            GlobalEventDispatcher.StoreWorldStateStart.AddListener(StoreMoveState);
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.StoreWorldStateStart.RemoveListener(StoreMoveState);
+        }
+
+        private void Start()
+        {
+            if (_keyframes == null || _savedKeyIndex < 0 || _savedKeyIndex >= _keyframes.Length)
+                return;
+
+            // Chained movers restore their own key and move. No trigger is sent.
+            if (_savedKeyIndex > 0)
+            {
+                (transform.position, transform.rotation) = _keyframes[_savedKeyIndex];
+                _currentKeyIndex = _savedKeyIndex;
+                _isOpen = true;
+                Logger.Log($"[MoverAdapter] {_mover.Name} restored at key {_savedKeyIndex}.", LogCat.Vob);
+            }
+
+            ResumeSavedMove();
+        }
+
+        /// <summary>
+        /// Like Gothic, a save game stores a running move in the mover's save fields: the segment (actKeyframe ->
+        /// nextKeyframe), the position inside it (actKeyframeF), the direction (advanceDir) and opening/closing
+        /// (moverState). Written when the world is saved or left.
+        /// </summary>
+        private void StoreMoveState(bool isSaving)
+        {
+            if (_mover == null)
+                return;
+
+            if (_isMoving)
+            {
+                _mover.ActKeyframe = _segmentStart;
+                _mover.NextKeyframe = _segmentEnd;
+                _mover.ActKeyframeF = _segmentStart + _moveStep * _segmentProgress;
+                _mover.AdvanceDir = _moveStep;
+                _mover.MoverState = (int)(_moveDestination == 0
+                    ? VmGothicEnums.MoverState.Closing
+                    : VmGothicEnums.MoverState.Opening);
+                return;
+            }
+
+            _mover.ActKeyframe = _currentKeyIndex;
+            _mover.NextKeyframe = _currentKeyIndex;
+            _mover.ActKeyframeF = _currentKeyIndex;
+            _mover.AdvanceDir = 0;
+            _mover.MoverState = (int)(_isOpen ? VmGothicEnums.MoverState.Open : VmGothicEnums.MoverState.Closed);
+        }
+
+        /// <summary>
+        /// A move saved while running (StoreMoveState()) continues inside its segment, without start sound. It ends
+        /// like the original move: opening at the last key, closing at the first. SingleKeys movers (goto messages)
+        /// stop at the segment's end key.
+        /// </summary>
+        private void ResumeSavedMove()
+        {
+            var state = (VmGothicEnums.MoverState)_mover.MoverState;
+            var step = Mathf.RoundToInt(_mover.AdvanceDir);
+            var from = _mover.ActKeyframe;
+            var next = _mover.NextKeyframe;
+            if (state is not (VmGothicEnums.MoverState.Opening or VmGothicEnums.MoverState.Closing) ||
+                Mathf.Abs(step) != 1 || _keyframes.Length < 2 || from < 0 || from >= _keyframes.Length ||
+                next != (from + step + _keyframes.Length) % _keyframes.Length)
+                return;
+
+            var isOpening = state == VmGothicEnums.MoverState.Opening;
+            var destination = _mover.Behavior == MoverBehavior.SingleKeys
+                ? next
+                : isOpening ? _keyframes.Length - 1 : 0;
+            var progress = Mathf.Clamp01(Mathf.Abs(_mover.ActKeyframeF - from));
+            Logger.Log($"[MoverAdapter] {_mover.Name} continues its move [{from}]->[{next}] ({progress:P0}) " +
+                       $"to key {destination}.", LogCat.Vob);
+
+            _currentKeyIndex = from;
+            StartCoroutine(MoveTo(from, destination, step, null, isOpening ? _mover.SfxOpenEnd : _mover.SfxCloseEnd,
+                () =>
+                {
+                    CurrentKeyIndex = destination;
+                    _isOpen = destination != 0;
+                    TriggerChainedMover(opening: _isOpen);
+                }, progress));
+        }
 
         public void Init(IMover mover, string chainTarget = "")
         {
@@ -65,6 +178,9 @@ namespace Gothic.Core.Adapters.Vob
 
             if (_keyframes.Length > 0)
                 (transform.position, transform.rotation) = _keyframes[0];
+
+            // A save game (or a world we left) stores the reached key.
+            _savedKeyIndex = mover.ActKeyframe;
 
             Logger.Log($"[MoverAdapter] {mover.Name} init - {_keyframes.Length} keyframes, speed={mover.Speed}",
                 LogCat.Vob);
@@ -148,14 +264,14 @@ namespace Gothic.Core.Adapters.Vob
                 var lastIndex = _keyframes.Length - 1;
                 StartCoroutine(MoveTo(_currentKeyIndex, lastIndex, 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, () =>
                 {
-                    _currentKeyIndex = lastIndex;
+                    CurrentKeyIndex = lastIndex;
                     _isOpen = true;
                     TriggerChainedMover(opening: true);
                 }));
             }
             else
             {
-                _currentKeyIndex = _keyframes != null ? _keyframes.Length - 1 : 0;
+                CurrentKeyIndex = _keyframes != null ? _keyframes.Length - 1 : 0;
                 _isOpen = true;
                 TriggerChainedMover(opening: true);
             }
@@ -171,14 +287,14 @@ namespace Gothic.Core.Adapters.Vob
             {
                 StartCoroutine(MoveTo(_currentKeyIndex, 0, -1, _mover.SfxCloseStart, _mover.SfxCloseEnd, () =>
                 {
-                    _currentKeyIndex = 0;
+                    CurrentKeyIndex = 0;
                     _isOpen = false;
                     TriggerChainedMover(opening: false);
                 }));
             }
             else
             {
-                _currentKeyIndex = 0;
+                CurrentKeyIndex = 0;
                 _isOpen = false;
                 TriggerChainedMover(opening: false);
             }
@@ -194,7 +310,7 @@ namespace Gothic.Core.Adapters.Vob
             Logger.Log($"[MoverAdapter] {_mover.Name} GoToKeyNext() [{from}]->[{to}]", LogCat.Vob);
             StartCoroutine(MoveTo(from, to, 1, _mover.SfxOpenStart, _mover.SfxOpenEnd, () =>
             {
-                _currentKeyIndex = to;
+                CurrentKeyIndex = to;
                 _isOpen = to != 0;
                 TriggerChainedMover(opening: _isOpen);
             }));
@@ -210,7 +326,7 @@ namespace Gothic.Core.Adapters.Vob
             Logger.Log($"[MoverAdapter] {_mover.Name} GoToKeyPrev() [{from}]->[{to}]", LogCat.Vob);
             StartCoroutine(MoveTo(from, to, -1, _mover.SfxCloseStart, _mover.SfxCloseEnd, () =>
             {
-                _currentKeyIndex = to;
+                CurrentKeyIndex = to;
                 _isOpen = to != 0;
                 TriggerChainedMover(opening: _isOpen);
             }));
@@ -232,7 +348,7 @@ namespace Gothic.Core.Adapters.Vob
             {
                 transform.position = _keyframes[key].pos;
                 transform.rotation = _keyframes[key].rot;
-                _currentKeyIndex = key;
+                CurrentKeyIndex = key;
                 _isOpen = key != 0;
                 TriggerChainedMover(opening: _isOpen);
             }
@@ -244,7 +360,7 @@ namespace Gothic.Core.Adapters.Vob
                 var targetKey = key;
                 StartCoroutine(MoveTo(_currentKeyIndex, targetKey, isForward ? 1 : -1, sfxStart, sfxEnd, () =>
                 {
-                    _currentKeyIndex = targetKey;
+                    CurrentKeyIndex = targetKey;
                     _isOpen = targetKey != 0;
                     TriggerChainedMover(opening: _isOpen);
                 }));
@@ -282,11 +398,14 @@ namespace Gothic.Core.Adapters.Vob
 
         /// <summary>
         /// Moves keyframe by keyframe from fromIdx to toIdx (step +1 or -1, cyclic), each segment with its own
-        /// duration.
+        /// duration. startProgress (0...1) skips the beginning of the first segment (a move continued from a save).
         /// </summary>
-        private IEnumerator MoveTo(int fromIdx, int toIdx, int step, string sfxStart, string sfxEnd, Action onDone)
+        private IEnumerator MoveTo(int fromIdx, int toIdx, int step, string sfxStart, string sfxEnd, Action onDone,
+            float startProgress = 0f)
         {
             _isMoving = true;
+            _moveStep = step;
+            _moveDestination = toIdx;
             PlaySfx(sfxStart);
 
             var count = _keyframes.Length;
@@ -299,14 +418,17 @@ namespace Gothic.Core.Adapters.Vob
                 var duration = _segmentSeconds[segmentIndex];
                 var isFirstSegment = segmentStart == fromIdx;
                 var isLastSegment = segmentEnd == toIdx;
+                _segmentStart = segmentStart;
+                _segmentEnd = segmentEnd;
 
                 var (startPos, startRot) = _keyframes[segmentStart];
                 var (endPos, endRot) = _keyframes[segmentEnd];
-                var elapsed = 0f;
+                var elapsed = isFirstSegment ? startProgress * duration : 0f;
                 while (elapsed < duration)
                 {
                     elapsed += Time.deltaTime;
-                    var t = ApplySpeedCurve(Mathf.Clamp01(elapsed / duration), isFirstSegment, isLastSegment);
+                    _segmentProgress = Mathf.Clamp01(elapsed / duration);
+                    var t = ApplySpeedCurve(_segmentProgress, isFirstSegment, isLastSegment);
                     transform.position = Vector3.Lerp(startPos, endPos, t);
                     transform.rotation = Quaternion.Slerp(startRot, endRot, t);
                     yield return null;

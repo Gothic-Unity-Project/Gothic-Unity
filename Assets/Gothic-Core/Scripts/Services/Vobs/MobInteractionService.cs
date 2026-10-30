@@ -91,15 +91,18 @@ namespace Gothic.Core.Services.Vobs
             // Movers react per their behavior (MoverAdapter.OnTrigger/OnUntrigger), other targets (CodeMaster,
             // TriggerList, TriggerScript, ...) run their chain. The mob's VOB name is the sender, so a CodeMaster
             // can match it against its Slaves list.
-            var senderName = loader.Container.Vob.Name;
-            if (mob.State > 0)
+            // The current state is runtime state (saved by MobStatesSaveSection). The VOB's State is Gothic's
+            // stateNum (the number of its states), which a save game must keep.
+            var container = loader.Container;
+            var senderName = container.Vob.Name;
+            if (container.MobState > 0)
             {
-                mob.State = 0;
+                container.MobState = 0;
                 _vobService.DispatchUntrigger(target, senderName);
             }
             else
             {
-                mob.State = 1;
+                container.MobState = 1;
                 _vobService.DispatchTrigger(target, senderName);
             }
         }

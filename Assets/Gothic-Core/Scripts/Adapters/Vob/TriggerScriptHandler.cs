@@ -14,7 +14,6 @@ namespace Gothic.Core.Adapters.Vob
         [Inject] private readonly VmService _vmService;
 
         private ITriggerScript _triggerScript;
-        private int _activationCount;
 
         public void Init(ITriggerScript triggerScript)
         {
@@ -33,20 +32,12 @@ namespace Gothic.Core.Adapters.Vob
             if (_vmService == null)
                 gameObject.Inject();
 
-            if (!_triggerScript.IsEnabled)
+            if (!_triggerScript.IsEnabled || !_triggerScript.TryConsumeActivation())
                 return;
 
-            // MaxActivationCount: -1 = unlimited, 0 = never, N = fire N times.
-            // CountCanBeActivated is a save-game field (starts at 0 on fresh load) — do NOT use as the limit.
-            var max = _triggerScript.MaxActivationCount;
-            if (max == 0)
-                return;
-            if (max > 0 && _activationCount >= max)
-                return;
-
-            _activationCount++;
             var funcName = _triggerScript.Function;
-            Logger.Log($"[TriggerScript] calling '{funcName}' - activation {_activationCount}/{max}", LogCat.Vob);
+            Logger.Log($"[TriggerScript] calling '{funcName}' ({_triggerScript.CountCanBeActivated} of " +
+                       $"{_triggerScript.MaxActivationCount} activations left)", LogCat.Vob);
             var sym = _vmService.Vm.GetSymbolByName(funcName);
             if (sym == null)
             {

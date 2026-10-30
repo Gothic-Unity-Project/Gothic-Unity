@@ -51,8 +51,6 @@ namespace Gothic.Core.Services.Vobs
         
         private const float _interactableLookupDistance = 10f; // meter
         
-        private readonly char[] _itemNameSeparators = { ';', ',' };
-        private readonly char[] _itemCountSeparators = { ':', '.' };
 
 
         private const int VobInitBatchSize = 10;
@@ -412,6 +410,20 @@ namespace Gothic.Core.Services.Vobs
 
             return container;
         }
+
+        /// <summary>
+        /// An item outside the world list, e.g. for inventory pages, holsters and chest slots.
+        /// </summary>
+        public VobContainer CreateItem(string itemName, int amount)
+        {
+            return CreateItem(new Item
+            {
+                Name = itemName,
+                Visual = new VisualMesh(),
+                Instance = itemName,
+                Amount = amount
+            });
+        }
         
         [CanBeNull]
         public VobContainer GetFreeInteractableWithin10M(Vector3 position, string visualScheme)
@@ -429,13 +441,25 @@ namespace Gothic.Core.Services.Vobs
             if (string.IsNullOrEmpty(spawnPoint) || itemInstance <= 0)
                 return;
 
+            // Items of a restored world exist already (INIT_* scripts run again).
+            if (_saveGameService.IsRunningInitScriptsOfRestoredWorld)
+                return;
+
             var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
             if (!_configService.Dev.EnableVOBs || (!activeTypes.IsEmpty() && activeTypes.Contains(VirtualObjectType.oCItem)))
                 return;
 
             var item = _vmCacheService.TryGetItemData(itemInstance);
             var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
-            var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
+            var wp = _wayNetService.GetWayNetPoint(spawnPoint);
+
+            // An exception would abort the calling STARTUP_* script (e.g. G2's STARTUP_OLDWORLD).
+            if (wp == null)
+            {
+                Logger.LogWarning($"Wld_InsertItem: Waypoint {spawnPoint} for {instanceName} doesn't exist. Skipping.",
+                    LogCat.Vob);
+                return;
+            }
 
             var vob = new Item
             {
@@ -448,7 +472,7 @@ namespace Gothic.Core.Services.Vobs
 
             var container = CreateContainerWithLoader(vob);
             _vobMeshCullingService.AddCullingEntry(container);
-            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+            _saveGameService.AddVobToWorld(container.Vob);
         }
 
         [CanBeNull]
@@ -742,34 +766,6 @@ namespace Gothic.Core.Services.Vobs
             if (_gameStateService.VobsMover.TryGetValue(key, out containers))
                 return true;
             return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
-        }
-        
-        public List<ContentItem> UnpackItems(string contents)
-        {
-            List<ContentItem> result = new();
-
-            if (contents.IsNullOrEmpty())
-                return new();
-            
-            var items = contents.Split(_itemNameSeparators);
-        
-            foreach (var item in items)
-            {
-                var count = 1;
-                var nameCountSplit = item.Split(_itemCountSeparators);
-        
-                if (nameCountSplit.Length != 1)
-                    count = int.Parse(nameCountSplit[1]);
-        
-                result.Add(new ContentItem(nameCountSplit[0], count));
-            }
-
-            return result;
-        }
-
-        public string PackItems(List<ContentItem> items)
-        {
-            return string.Join(';', items.Select(i => $"{i.Name}:{i.Amount}"));
         }
     }
 }

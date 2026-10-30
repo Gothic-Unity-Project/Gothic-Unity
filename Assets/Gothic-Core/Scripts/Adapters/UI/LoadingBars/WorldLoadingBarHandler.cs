@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Extensions;
 using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
@@ -30,7 +31,7 @@ namespace Gothic.Core.Adapters.UI.LoadingBars
             // On G1+world.zen it's either Gomez in his throne room (NewGame) or Gorn holding his Axe (LoadGame)
             var textureNameForLoadingScreen = _saveGameService.IsNewGame
                 ? "LOADING.TGA"
-                : $"LOADING_{_saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN")}.TGA";
+                : $"LOADING_{_saveGameService.CurrentWorldName.ToGothicWorldName()}.TGA";
             TextureService.SetTexture(textureNameForLoadingScreen, TextureService.GothicLoadingMenuMaterial);
         }
     }

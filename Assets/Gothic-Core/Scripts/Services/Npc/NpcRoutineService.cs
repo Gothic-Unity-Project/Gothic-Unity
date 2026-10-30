@@ -101,6 +101,10 @@ namespace Gothic.Core.Services.Npc
 
             npcContainer.Props.Routines.Clear();
 
+            // The VOB keeps the active routine for save games (Npc_ExchangeRoutine changes it at runtime).
+            npcContainer.Vob.CurrentRoutine = _gameStateService.GothicVm.GetSymbolByIndex(routineIndex)?.Name
+                                              ?? string.Empty;
+
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npc;
             _gameStateService.GothicVm.Call(routineIndex);

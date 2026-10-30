@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -13,6 +12,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -35,15 +35,36 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly AnimationService _animationService;
+        [Inject] private readonly PhysicsService _physicsService;
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
+        private const string _deadStateAnimation = "S_DeadB";
 
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPCs which died before a save game was written (or before we left the world) are dead from the start.
+            if (Properties.IsDead)
+                StartDead();
+        }
+
+        /// <summary>
+        /// Update() only plays out queued animations of dead NPCs. They lie on the ground already (state ani): the
+        /// dying ani (T_DeadB) would let them fall down again on every load. It's the fallback for models without one.
+        /// </summary>
+        private void StartDead()
+        {
+            var deadAnimation = _animationService.GetTrack(_deadStateAnimation, Properties.MdsNameBase,
+                Properties.MdsNameOverlay) != null
+                ? _deadStateAnimation
+                : _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, NpcData);
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(deadAnimation), NpcData));
+            _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
         }
 
         /// <summary>
@@ -57,7 +78,7 @@ namespace Gothic.Core.Adapters.Npc
         {
             // If NPC/Monster is dead, only play out the already queued animations (e.g. the dying animation
             // enqueued by FightService), then stop any further process logic.
-            if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (Properties.IsDead)
             {
                 Properties.CurrentAction.Tick();
 
@@ -244,7 +265,7 @@ namespace Gothic.Core.Adapters.Npc
             // We have set some "next" state. Use it instead of going back to daily routine first.
             if (Vob.NextStateValid)
             {
-                StartRoutine(Vob.NextStateIndex);
+                StartRoutine(Vob.NextStateIndex, Vob.NextStateIsRoutine);
 
                 // As we use NextStateIndex as new "current" one, we clear it now safely.
                 Vob.NextStateIndex = -1;
@@ -277,14 +298,17 @@ namespace Gothic.Core.Adapters.Npc
             StartRoutine(action);
         }
 
-        public void StartRoutine(int action)
+        /// <param name="isRoutineState">Like Gothic's isRtnState (saved): true if the daily routine (or a monster's
+        /// StartAiState) runs the state, false for states started by AI_StartState. A loaded NPC continues the latter
+        /// (SaveGameNpcDomain).</param>
+        public void StartRoutine(int action, bool isRoutineState = true)
         {
             var didRoutineChange = Vob.CurrentStateIndex != action;
 
             Vob.LastAiState = Vob.CurrentStateIndex;
             Vob.CurrentStateIndex = action;
             Vob.CurrentStateValid = true;
-            Vob.CurrentStateIsRoutine = false;
+            Vob.CurrentStateIsRoutine = isRoutineState;
 
             var routineSymbol = Vm.GetSymbolByIndex(action)!;
             Vob.CurrentStateName = routineSymbol.Name;
@@ -295,11 +319,7 @@ namespace Gothic.Core.Adapters.Npc
 
             var symbolLoop = Vm.GetSymbolByName($"{routineSymbol.Name}_Loop");
             if (symbolLoop != null)
-            {
-                // If we have a _Loop entry, we can safely assume, we are in a routine and not just a monster AiState.
-                Vob.CurrentStateIsRoutine = true;
                 Properties.StateLoop = symbolLoop.Index;
-            }
 
             var symbolEnd = Vm.GetSymbolByName($"{routineSymbol.Name}_End");
             if (symbolEnd != null)
@@ -395,8 +415,8 @@ namespace Gothic.Core.Adapters.Npc
             // point.
             if (Properties.CurrentInteractableStateId >= 0)
             {
-                if (PrefabProps.CurrentInteractable?.Props is InteractiveProperties mobProps)
-                    mobProps.State = -1;
+                if (PrefabProps.CurrentInteractable != null)
+                    PrefabProps.CurrentInteractable.MobState = -1;
 
                 PrefabProps.CurrentInteractable = null;
                 PrefabProps.CurrentInteractableSlot = null;
@@ -452,7 +472,7 @@ namespace Gothic.Core.Adapters.Npc
             else
             {
                 //if we don't have a routine means it's about a monster
-                StartRoutine(Vob.CurrentStateIndex);
+                StartRoutine(Vob.CurrentStateIndex, Vob.CurrentStateIsRoutine);
             }
         }
 

@@ -161,8 +161,6 @@ namespace Gothic.Core.Const
         public const string SlotTorso		= "ZS_TORSO";
 
 
-        public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
-
         // Alter this value to enforce game to recreate cache during next start.
         public const string StaticCacheVersion = "5";
 

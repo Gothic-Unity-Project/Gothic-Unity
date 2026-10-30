@@ -63,6 +63,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRCarriedItemsSaveService _carriedItemsSaveService;
 
         
         private void Awake()
@@ -91,6 +92,7 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            _carriedItemsSaveService.RegisterHolsters(_holsters);
         }
 
         private void OnDestroy()
@@ -179,12 +181,19 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// When putting into holster, culling is already deactivated.
-        /// We simply need to tell the game: add inventory amount.
+        /// We need to tell the game: add inventory amount, remove from world.
         /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
+            // Restored from a save game. It's part of the inventory already.
+            if (_carriedItemsSaveService.ConsumeSilentPlacement(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
             var vobContainer = vobLoader.Container;
+
+            // It's part of the inventory now, not of the world (a save game would contain it twice otherwise).
+            _saveGameService.RemoveVobFromWorld(vobContainer.Vob);
 
             _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
         }
@@ -199,7 +208,7 @@ namespace Gothic.VR.Adapters.Player
             var vobContainer = vobLoader.Container;
 
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
-            _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
+            _saveGameService.RemoveVobFromWorld(vobContainer.Vob);
 
             _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
@@ -208,14 +217,20 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// When putting out of holster, culling is already deactivated.
-        /// We simply need to tell the game: substract inventory amount.
+        /// We need to tell the game: subtract inventory amount, the item is part of the world again.
         /// </summary>
         private void OnItemPutOutOfHolster(VrGrabArgs args)
         {
+            // Emptied for a new game / loaded save. The inventory is replaced anyway.
+            if (_carriedItemsSaveService.ConsumeSilentRelease(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
             if (vobLoader == null)
                 return;
             var vobContainer = vobLoader.Container;
+
+            _saveGameService.AddVobToWorld(vobContainer.Vob);
 
             _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
         }
@@ -229,7 +244,7 @@ namespace Gothic.VR.Adapters.Player
             var vobContainer = vobLoader.Container;
 
             _vobMeshCullingService.AddCullingEntry(vobContainer);
-            _saveGameService.CurrentWorldData.Vobs.Add(vobContainer.Vob);
+            _saveGameService.AddVobToWorld(vobContainer.Vob);
 
             _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
@@ -360,13 +375,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var item in items)
             {
-                var vobContainer = _vobService.CreateItem(new Item
-                {
-                    Name = item.Name,
-                    Visual = new VisualMesh(),
-                    Instance = item.Name,
-                    Amount = item.Amount
-                });
+                var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();

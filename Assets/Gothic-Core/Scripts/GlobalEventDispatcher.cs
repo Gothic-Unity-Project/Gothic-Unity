@@ -41,7 +41,14 @@ namespace Gothic.Core
         public static readonly UnityEvent GothicInisInitialized = new();
         public static readonly UnityEvent<string, object> PlayerPrefUpdated = new();
         
+        // The running game is replaced (new game or loaded save). VM, hero and world still exist. Called before
+        // LoadGameStart, which creates the new VM.
+        public static readonly UnityEvent UnloadGameStart = new();
         public static readonly UnityEvent LoadGameStart = new();
+
+        // The current world's runtime state is stored into its world data: before a save game is written (true) and
+        // before we leave the world (false). E.g. VR decides which items are part of the world or inventory.
+        public static readonly UnityEvent<bool> StoreWorldStateStart = new();
         
         
         public static readonly UnityEvent<NpcContainer, NpcLoader, bool, bool> NpcMeshCullingChanged = new();

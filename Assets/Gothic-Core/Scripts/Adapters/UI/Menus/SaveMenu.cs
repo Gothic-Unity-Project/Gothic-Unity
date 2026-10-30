@@ -8,6 +8,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.World;
+using Gothic.Services.UI;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -46,8 +47,8 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly BootstrapService _bootstrapService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly ContextTextInputService _contextTextInputService;
+        [Inject] private readonly LocalizationService _localizationService;
 
         
         /// <summary>
@@ -153,8 +154,11 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         private void FillSaveGameEntries()
         {
-            var gothicDir = _contextGameVersionService.RootPath;
-            var saveGameListPath = Path.GetFullPath(Path.Join(gothicDir, "Saves"));
+            var saveGameListPath = _saveGameService.SavesFolderPath;
+            if (!Directory.Exists(saveGameListPath))
+                return;
+
+            _saveGameService.RecoverInterruptedSaves();
 
             foreach (var fullPath in Directory.EnumerateDirectories(saveGameListPath))
             {
@@ -228,7 +232,8 @@ namespace Gothic.Core.Adapters.UI.Menus
             World.text = save.Metadata.World;
             SavedAt.text = save.Metadata.SaveDate;
             GameTime.text = $"{save.Metadata.TimeDay} - {save.Metadata.TimeHour}:{save.Metadata.TimeMinute}";
-            PlayTime.text = save.Metadata.PlayTime.ToString();
+            var playTime = save.Metadata.PlayTime;
+            PlayTime.text = $"{(int)playTime.TotalHours}:{playTime.Minutes:00}";
             // Version.text = save.Metadata.VersionAppName;
         }
 
@@ -261,10 +266,19 @@ namespace Gothic.Core.Adapters.UI.Menus
                 }
 
                 // Can be triggered from Scene:mainMenu or Scene:AnyWorld, therefore removing active scene.
-                _bootstrapService.LoadWorld(save.Metadata.World, (SaveGameService.SlotId)id, SceneManager.GetActiveScene().name);
+                if (!_bootstrapService.LoadWorld(save.Metadata.World, (SaveGameService.SlotId)id,
+                        SceneManager.GetActiveScene().name))
+                    ShowComment("menuitem.load.failed");
             }
             else
             {
+                // Like Gothic: no saving while dead or in a dialog. The reason shows in the comment line.
+                if (!_saveGameService.CanSave(out var blockReason))
+                {
+                    ShowComment(blockReason);
+                    return;
+                }
+
                 // Name the save (Gothic asks too). Empty names save too, as in the original.
                 // The slot shows the typed name, like the original's inline edit.
                 var slotText = SaveSlots[id].GetComponentInChildren<TMP_Text>();
@@ -285,8 +299,21 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         private void SaveToSlot(int id, string title)
         {
-            _saveGameService.SaveCurrentGame((SaveGameService.SlotId)id, title);
-            FillSaveGameEntries();
+            // The thumbnail needs the end of the frame (and the keyboard closed).
+            _saveGameService.SaveCurrentGameAtEndOfFrame((SaveGameService.SlotId)id, title, isSaved =>
+            {
+                // E.g. a dialog started while the keyboard was open.
+                if (!isSaved)
+                    ShowComment(_saveGameService.CanSave(out var blockReason) ? "menuitem.save.failed" : blockReason);
+
+                FillSaveGameEntries();
+            });
+        }
+
+        private void ShowComment(string localizationKey)
+        {
+            if (Comment != null)
+                Comment.text = _localizationService.GetText(localizationKey);
         }
     }
 }

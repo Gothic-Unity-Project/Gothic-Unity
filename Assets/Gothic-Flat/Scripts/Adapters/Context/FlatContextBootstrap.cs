@@ -15,6 +15,7 @@ namespace Gothic.Flat.Adapters.Context
     public class FlatContextBootstrap : AbstractContextBootstrap
     {
         [Inject] private readonly ContextTextInputService _contextTextInputService;
+        [Inject] private readonly ContextScreenshotService _contextScreenshotService;
 
         protected override void RegisterControlModule(Controls controls)
         {
@@ -22,6 +23,7 @@ namespace Gothic.Flat.Adapters.Context
                 return;
 
             _contextTextInputService.SetImpl(new FlatContextTextInputService());
+            _contextScreenshotService.SetImpl(new FlatContextScreenshotService());
 
             throw new NotImplementedException("FlatContext needs rework.");
         }

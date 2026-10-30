@@ -203,6 +203,26 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 187128268206768128
+    m_Key: menuitem.save.blocked.noWorld
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Key: menuitem.save.blocked.dead
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Key: menuitem.save.blocked.dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Key: menuitem.load.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Key: menuitem.save.failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

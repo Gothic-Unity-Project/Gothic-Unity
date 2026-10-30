@@ -232,6 +232,7 @@ namespace Gothic.Core.Models.Vm
             ItemMulti = 1 << 21, // is multi
             ItemTorch = 1 << 28, // use like a torch
             ItemThrow = 1 << 29, // item can be thrown
+            ItemActive = 1 << 30, // equipped (engine flag, set on oCNpc inventory items of a save game)
 
             // Item weapon flags
             ItemSwd = 1 << 14, // use like sword

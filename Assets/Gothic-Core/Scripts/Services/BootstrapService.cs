@@ -55,6 +55,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly ParticleService _particleService;
+        [Inject] private readonly DialogService _dialogService;
         
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly StaticCacheService _staticCacheService;
@@ -105,6 +106,8 @@ namespace Gothic.Core.Services
             _npcRoutineService.Init();
             _fightService.Init();
             _particleService.Init();
+            _dialogService.Init();
+            _saveGameService.Init();
         }
 
         /// <summary>
@@ -167,22 +170,29 @@ namespace Gothic.Core.Services
         /// saveGameId = -1 -> Change World
         /// </summary>
         /// <param name="saveGameId">-1-15</param>
-        public void LoadWorld(string worldName, SaveGameService.SlotId saveGameId, string sceneToUnload = null)
+        /// <returns>false if the save game or world can't be read. The running game (or the menu) is kept then.</returns>
+        public bool LoadWorld(string worldName, SaveGameService.SlotId saveGameId, string sceneToUnload = null)
         {
             // We need to add .zen as early as possible as all related data needs the file ending.
             worldName += worldName.EndsWithIgnoreCase(".zen") ? "" : ".zen";
 
             // Pre-load ZenKit save game data now. Can be reused by LoadingSceneManager later.
+            // An unreadable save game or world keeps the running game (or the menu).
             if (saveGameId == SaveGameService.SlotId.NewGame)
             {
-                _saveGameService.LoadNewGame();
+                if (!_saveGameService.LoadNewGame(worldName))
+                    return false;
             }
             else if (saveGameId > 0)
             {
-                _saveGameService.LoadSavedGame(saveGameId);
+                if (!_saveGameService.LoadSavedGame(saveGameId, worldName))
+                    return false;
             }
             else
             {
+                if (!_saveGameService.ChangeWorld(worldName))
+                    return false;
+
                 // World change triggers (level transitions) bypass SaveGameService, so LoadGameStart
                 // is never fired and culling domains don't get PreWorldCreate. Reset them manually.
                 _vobMeshCullingService.PreWorldCreate();
@@ -191,20 +201,9 @@ namespace Gothic.Core.Services
                 _vobService.PreWorldCreate();
                 _npcService.ClearQueues();
             }
-            try
-            {
-                _saveGameService.ChangeWorld(worldName);
-            }
-            catch (Exception e)
-            {
-                // Mirrors PreCachingScene's per-world try/catch: a world can be unparsable (e.g. an
-                // unsupported VOB class in a mod's .zen) without crashing the whole session. Bail out
-                // before LoadScene so we don't proceed into a half-initialized Loading scene.
-                Logger.LogError($"Failed to load world '{worldName}': {e.Message}", LogCat.Loading);
-                return;
-            }
 
             LoadScene(Constants.SceneLoading, sceneToUnload);
+            return true;
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

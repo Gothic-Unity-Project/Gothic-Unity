@@ -53,10 +53,10 @@ namespace Gothic.Core.Adapters.UI.Menus
             throw new NotImplementedException();
         }
 
-        // FIXME - Saving and other elements aren't working yet. We therefore disable it for now.
+        // FIXME - Intro and credits aren't working yet. We therefore disable them for now.
         private string[] _ignoredMainMenuEntries =
         {
-            "MENUITEM_MAIN_SAVEGAME_LOAD", "MENUITEM_MAIN_SAVEGAME_SAVE", "MENUITEM_MAIN_INTRO", "MENUITEM_MAIN_CREDITS"
+            "MENUITEM_MAIN_INTRO", "MENUITEM_MAIN_CREDITS"
         };
         
         protected override bool IsMenuItemActive(string menuItemName)
