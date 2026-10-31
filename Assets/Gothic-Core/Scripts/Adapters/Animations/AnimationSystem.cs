@@ -84,6 +84,10 @@ namespace Gothic.Core.Adapters.Animations
         private static readonly HashSet<string> _missingAnimationsLogged = new();
         private static bool _isHeadAnimationWarningLogged;
 
+        // Step sound names per ground event ("GROUND:RUN" -> RUN_WATER, RUN_UNDEF), built once for all NPCs: a step
+        // mustn't build strings.
+        private static readonly Dictionary<string, (string Water, string Undef)> _groundSoundNames = new();
+
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
         private List<AnimationTrackInstance> _updateSnapshot = new();
@@ -729,7 +733,7 @@ namespace Gothic.Core.Adapters.Animations
             {
                 if (sfx.Name.StartsWith(AnimationService.GroundSoundPrefix, StringComparison.Ordinal))
                 {
-                    PlayGroundSound(sfx.Name.Substring(AnimationService.GroundSoundPrefix.Length));
+                    PlayGroundSound(sfx);
                     continue;
                 }
 
@@ -745,17 +749,28 @@ namespace Gothic.Core.Adapters.Animations
         /// the feet are in water, else RUN_UNDEF (G1's world has almost only UNDEF grounds - stone steps). On top of the
         /// NPC's other sounds, a step mustn't cut a swing or a scream.
         /// </summary>
-        private void PlayGroundSound(string soundName)
+        private void PlayGroundSound(IEventSoundEffect sfx)
         {
             if (PrefabProps.NpcSound == null)
                 return;
 
+            if (!_groundSoundNames.TryGetValue(sfx.Name, out var names))
+            {
+                var soundName = sfx.Name.Substring(AnimationService.GroundSoundPrefix.Length);
+                names = ($"{soundName}_WATER", $"{soundName}_UNDEF");
+                _groundSoundNames[sfx.Name] = names;
+            }
+
             var feet = Go.transform.position - Vector3.up * _restRootHeight;
             var isInWater = Physics.Raycast(feet, Vector3.up, _restRootHeight, 1 << Constants.WaterLayer);
-            var clip = (isInWater ? _audioService.GetRandomSoundClip($"{soundName}_WATER") : null) ??
-                       _audioService.GetRandomSoundClip($"{soundName}_UNDEF");
-            if (clip != null)
-                PrefabProps.NpcSound.PlayOneShot(clip);
+            var clip = (isInWater ? _audioService.GetRandomSoundClip(names.Water) : null) ??
+                       _audioService.GetRandomSoundClip(names.Undef);
+            if (clip == null)
+                return;
+
+            // The step's own range (10 m unless the MDS says otherwise), not what the NPC's last sound left.
+            PrefabProps.NpcSound.maxDistance = sfx.Range.ToMeter();
+            PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
