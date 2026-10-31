@@ -37,7 +37,6 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService
     {
-
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly ConfigService _configService;
