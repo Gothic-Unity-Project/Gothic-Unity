@@ -697,6 +697,10 @@ namespace Gothic.Core.Services.Npc
             {
                 var initializedNow = InitNpc(npcLoader.gameObject);
 
+                // Its first initialization starts the routine anyway: a reset after a time jump is done with it.
+                if (initializedNow)
+                    _routineResets.Remove(npcContainer);
+
                 // If the NPC !wasOutOfDistance (==wasInDistanceAlready), then we spawned our VRPlayer next to the NPC
                 // (e.g. from a save game) and we need to go on with the current routine instead of "resetting" the routine.
                 // (Which would respawn NPC at a waypoint, which is wrong.)

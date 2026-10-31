@@ -36,6 +36,9 @@ namespace Gothic.Core.Services.World
         private DateTime _time = new(1, 1, 1, 15, 0, 0);
         private Coroutine _timeTickCoroutineHandler;
 
+        // A shorter step forward (a script correcting the clock) is no jump: the NPCs stay where they are.
+        private static readonly TimeSpan _minTimeJump = TimeSpan.FromMinutes(5);
+
 
         public void Init()
         {
@@ -54,6 +57,7 @@ namespace Gothic.Core.Services.World
             if (_timeTickCoroutineHandler != null)
             {
                 _unityMonoService.StopCoroutine(_timeTickCoroutineHandler);
+                _timeTickCoroutineHandler = null;
             }
         }
 
@@ -126,7 +130,11 @@ namespace Gothic.Core.Services.World
             return _time.TimeOfDay;
         }
 
-        public void SetTime(int hour, int minute)
+        /// <summary>
+        /// Returns whether the time jumped: forward by more than _minTimeJump while the clock runs, not while a world
+        /// loads (startup scripts). After a jump the NPCs go back to their routine (NpcService.ResetNpcsToRoutines).
+        /// </summary>
+        public bool SetTime(int hour, int minute)
         {
             // From G2: Setzt die Uhrzeit auf hour:min. hour kann größer als 23 sein, um zum nächsten Tag zu springen.
             var daysToAdd = hour / 24;
@@ -139,7 +147,10 @@ namespace Gothic.Core.Services.World
             if (daysToAdd == 0 && time < _time)
                 time = time.AddDays(1);
 
+            var jump = time - _time;
             _time = time;
+
+            return _timeTickCoroutineHandler != null && jump > _minTimeJump;
         }
 
         public float GetSkyTime()

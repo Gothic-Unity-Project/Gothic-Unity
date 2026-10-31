@@ -10,7 +10,7 @@ When the hero sleeps, Gothic jumps the clock forward. The original game then put
 ## Decisions
 
 1. **A clock set to an earlier time of day means tomorrow**, like in Gothic. Sleeping from evening until morning starts the next day.
-2. **After the clock jumps, every living NPC starts its routine over at the routine's place**, like in Gothic (found on BoroBongo's branch). It forgets its fight and puts its weapon away; monsters go back to their usual behaviour. NPCs out of sight get this when they come into sight. The dead and the knocked out stay where they are. NPCs are placed one per frame so they don't land on top of each other.
+2. **After the clock jumps, every living NPC starts its routine over at the routine's place**, like in Gothic (found on BoroBongo's branch). A jump is a step forward of more than a few minutes while the world runs: scripts that correct the clock slightly or set it while a world loads leave the NPCs alone. The Marvin time command counts as sleeping. It forgets its fight and puts its weapon away; monsters go back to their usual behaviour. NPCs out of sight get this when they come into sight. The dead and the knocked out stay where they are. NPCs are placed one per frame so they don't land on top of each other.
 
 ## Consequences
 
