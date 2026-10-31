@@ -11,7 +11,7 @@ In the Old Camp the game stuttered: several times every few seconds a frame took
 
 1. **A spoken line looks up its subtitle directly.** Before, every line, also every "Hey you!" an NPC calls out, built a list of all subtitles of the game to find one. That alone caused the worst stutter.
 2. **NPCs find their way with a proper shortest-path search.** The old search was slow and took the first way it found, not the shortest. NPCs may now walk slightly different, shorter ways.
-3. **NPCs that wake up together don't all check their surroundings at the same moment.** Each one starts at a random point of its rhythm. Its first check comes sooner than before, never later.
+3. **NPCs that wake up together don't all check their surroundings at the same moment.** Whenever the scripts set an NPC's rhythm, it starts at a random point of it. Its next check still comes within one rhythm.
 4. **An NPC only looks for enemies among the player and the NPCs that are awake.** NPCs far away from the player are frozen anyway. Not chosen: searching every NPC of the world, which cost a lot in crowded places for nothing.
 
 ## Consequences

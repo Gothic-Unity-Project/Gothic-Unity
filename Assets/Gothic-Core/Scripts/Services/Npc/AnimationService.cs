@@ -78,14 +78,14 @@ namespace Gothic.Core.Services.Npc
         }
 
 
-        /// <summary>
-        /// Try to load animation based on both MDS values: overlay + base.
-        /// </summary>
         // Profiler markers for the first use of an animation (later uses come from the track cache).
         private static readonly ProfilerMarker _findAnimationMarker = new("AnimationService.FindAnimation");
         private static readonly ProfilerMarker _loadAnimationMarker = new("AnimationService.LoadAnimation");
         private static readonly ProfilerMarker _createTrackMarker = new("AnimationService.CreateTrack");
 
+        /// <summary>
+        /// Try to load animation based on both MDS values: overlay + base.
+        /// </summary>
         public AnimationTrack GetTrack(string animName, string mdsBase, string mdsOverlay)
         {
             var track = GetTrack(animName, mdsOverlay);
@@ -117,22 +117,23 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            var findAnimationMarker = _findAnimationMarker.Auto();
-            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+            IAnimation anim;
             IAnimationAlias animAlias = null;
-
-            // AniAlias lookup
-            // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
-            if (anim == null)
+            using (_findAnimationMarker.Auto())
             {
-                animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
-                if (animAlias != null)
+                anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+
+                // AniAlias lookup
+                // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
+                if (anim == null)
                 {
-                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
+                    animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                    if (animAlias != null)
+                    {
+                        anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
+                    }
                 }
             }
-
-            findAnimationMarker.Dispose();
 
             // Nothing found
             if (anim == null)

@@ -210,9 +210,6 @@ namespace Gothic.Core.Domain.Culling
         }
 
         /// <summary>
-        /// Each frame, we update the visible NPCs' current position.
-        /// </summary>
-        /// <summary>
         /// Fills result with the NPCs that are awake (in visible range). Allocation-free for lookups on every
         /// perception tick: the caller keeps the list.
         /// </summary>
@@ -223,6 +220,9 @@ namespace Gothic.Core.Domain.Culling
                 result.Add(_loaders[index].Container);
         }
 
+        /// <summary>
+        /// Each frame, we update the visible NPCs' current position.
+        /// </summary>
         public void Update()
         {
             foreach (var index in _visibleNpcs)

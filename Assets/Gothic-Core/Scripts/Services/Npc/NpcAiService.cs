@@ -22,6 +22,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
+        [Inject] private readonly NpcService _npcService;
 
         // Reused by UpdateEnemyNpc() on every perception tick.
         private readonly List<NpcContainer> _awakeNpcs = new();
@@ -101,7 +102,12 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcSetPerceptionTime(NpcInstance npc, float time)
         {
-            npc.GetUserData().Props.PerceptionTime = time;
+            var props = npc.GetUserData().Props;
+            props.PerceptionTime = time;
+
+            // NPCs that wake up together (a whole camp after loading) would sense in the same frame, forever: a
+            // random point in the new interval spreads them. The next perception still comes within one interval.
+            props.CurrentPerceptionTime = UnityEngine.Random.Range(0f, time);
         }
 
         public void ExtAiSetWalkMode(NpcInstance npc, VmGothicEnums.WalkMode walkMode)
@@ -552,7 +558,7 @@ namespace Gothic.Core.Services.Npc
 
             // Only the hero and the NPCs that are awake: asleep NPCs are far away and frozen. Scanning every NPC of
             // the world on each perception made crowded places stutter (Old Camp: 52 awake of 992).
-            var hero = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData();
+            var hero = _npcService.GetHeroContainer();
             if (hero != null && IsCloserEnemy(self, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
                 closestEnemy = hero;
 
