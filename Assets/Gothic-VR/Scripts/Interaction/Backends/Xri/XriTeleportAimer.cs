@@ -28,6 +28,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private InputAction _stickAction;
         private InputAction _cancelAction;
         private Transform _hand;
+        private Transform _leftHand;
+        private Transform _rightHand;
         private Transform _head;
         private CharacterController _character;
         private LayerMask _blockingLayers;
@@ -70,6 +72,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _isInitialized = true;
         }
 
+        /// <summary>
+        /// Both hands: the arc starts at the controller whose stick aims - left-handed controls (VrControlLayout) put
+        /// the teleport stick on the left one. Without, it starts at the hand given to Init().
+        /// </summary>
+        public void SetHands(Transform leftHand, Transform rightHand)
+        {
+            _leftHand = leftHand;
+            _rightHand = rightHand;
+        }
+
         private void Update()
         {
             if (!_isInitialized)
@@ -103,8 +115,19 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 return;
             }
 
+            if (!_isAiming)
+                _hand = GetAimingHand();
             _isAiming = true;
             UpdateArc();
+        }
+
+        private Transform GetAimingHand()
+        {
+            if (_leftHand == null || _rightHand == null)
+                return _hand;
+
+            var device = _stickAction.activeControl?.device;
+            return device != null && device.usages.Contains(CommonUsages.LeftHand) ? _leftHand : _rightHand;
         }
 
         private void Stop()

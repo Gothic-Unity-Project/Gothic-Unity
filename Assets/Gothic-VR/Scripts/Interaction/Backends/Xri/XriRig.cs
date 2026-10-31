@@ -433,6 +433,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _teleportAimer.Init(stickAction, cancelAction, _rightController, _camera.transform, _characterController,
                 GetCollidingLayers(gameObject.layer), () => _teleportEnabled, () => IsGrounded,
                 () => CameraHeight + _crouchOffset, GetMaxSlopeAngle, Teleport);
+            _teleportAimer.SetHands(_leftController, _rightController);
         }
 
         /// <summary>
