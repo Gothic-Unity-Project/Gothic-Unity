@@ -63,6 +63,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly TorchService _torchService;
 
         
         private void Awake()
@@ -395,7 +396,9 @@ namespace Gothic.VR.Adapters.Player
             if (item == null)
                 return;
             
-            var matchingItem = inventory.FirstOrDefault(x => x.Name == item.Instance);
+            // A held burning torch counts as a torch in the inventory.
+            var instance = _torchService.GetInventoryInstance(item.Instance);
+            var matchingItem = inventory.FirstOrDefault(x => x.Name == instance);
 
             // == nothing found
             if (matchingItem == null)

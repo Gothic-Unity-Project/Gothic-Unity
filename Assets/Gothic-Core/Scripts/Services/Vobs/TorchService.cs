@@ -21,16 +21,19 @@ using Object = UnityEngine.Object;
 namespace Gothic.Core.Services.Vobs
 {
     /// <summary>
-    /// Torches (ITEM_TORCH) like the engine (OpenGothic Npc::toggleTorch, dropTorch, ItemTorchBurning): a torch is lit
-    /// with the look of the burning torch item (ItLsTorchBurning, its ITLSTORCHBURNING.ZEN: the flame, its light, its
-    /// sound) at its tip. It keeps burning when dropped and lights the world around it. Water puts it out for good: it
-    /// becomes a burnt torch (ItLsTorchBurned). Put away, it is a torch again - the inventory has no burning ones.
-    /// The burning state isn't saved: a loaded torch is out.
+    /// Torches (ITEM_TORCH) like the engine (OpenGothic Npc::toggleTorch, dropTorch, ItemTorchBurning): a lit torch
+    /// becomes the burning torch item (ItLsTorchBurning) and shows its look (ITLSTORCHBURNING.ZEN: the flame, its
+    /// light, its sound) at its tip. The item instance is the state, so a save keeps a lit torch burning. It keeps
+    /// burning when dropped and lights the world around it. Water puts it out for good: it becomes a burnt torch
+    /// (ItLsTorchBurned). Put away, it is a torch again - the inventory has no burning ones.
     /// </summary>
     public class TorchService
     {
-        private const string _burningInstance = "ItLsTorchBurning";
-        private const string _burnedInstance = "ItLsTorchBurned";
+        // Symbol names as Gothic writes them into a save.
+        private const string _torchInstance = "ITLSTORCH";
+        private const string _burningInstance = "ITLSTORCHBURNING";
+        private const string _burnedInstance = "ITLSTORCHBURNED";
+        private const string _fireName = "TorchFire";
         private const string _lightSound = "TORCH_ENLIGHT";
         // What the burning torch shows if its visual can't be read.
         private const string _defaultFire = "TORCH";
@@ -50,8 +53,6 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly UnityMonoService _unityMonoService;
 
-        // Burning torch -> its fire (flame, light anchor and sound) at the tip.
-        private readonly Dictionary<GameObject, GameObject> _fires = new();
         private bool _isLookRead;
         private string _firePfx = _defaultFire;
         private float _lightRange = _defaultLightRange;
@@ -65,7 +66,15 @@ namespace Gothic.Core.Services.Vobs
 
         public bool IsBurning(VobContainer torch)
         {
-            return torch?.Go != null && _fires.TryGetValue(torch.Go, out var fire) && fire != null;
+            return torch?.Vob is IItem && GetInstanceName(torch).EqualsIgnoreCase(_burningInstance);
+        }
+
+        /// <summary>
+        /// The inventory holds no burning torches: a burning torch goes in as a torch (OpenGothic Npc::takeItem).
+        /// </summary>
+        public string GetInventoryInstance(string instanceName)
+        {
+            return instanceName.EqualsIgnoreCase(_burningInstance) ? _torchInstance : instanceName;
         }
 
         /// <summary>
@@ -77,30 +86,40 @@ namespace Gothic.Core.Services.Vobs
             if (torch?.Go == null || torch.Vob is not IItem)
                 return false;
 
-            var item = _vmCacheService.TryGetItemData(GetInstanceName(torch));
-            if (!IsTorch(item))
-                return false;
-
             if (IsBurning(torch))
             {
                 PutOut(torch, false);
                 return true;
             }
 
-            if (GetInstanceName(torch).EqualsIgnoreCase(_burnedInstance))
+            var item = _vmCacheService.TryGetItemData(GetInstanceName(torch));
+            if (!IsTorch(item) || GetInstanceName(torch).EqualsIgnoreCase(_burnedInstance))
                 return false;
 
-            Light(torch);
+            if (!SetInstance(torch, _burningInstance))
+                return false;
+
+            Light(torch, true);
             return true;
         }
 
-        private void Light(VobContainer torch)
+        /// <summary>
+        /// A burning torch item that comes into the world - a loaded game, a level change, a script - gets its fire.
+        /// </summary>
+        public void LightIfBurning(VobContainer vob)
+        {
+            if (IsBurning(vob) && vob.Go != null && FindFire(vob) == null)
+                Light(vob, false);
+        }
+
+        /// <param name="isLitNow">The hero lit it just now: the lighting sound plays.</param>
+        private void Light(VobContainer torch, bool isLitNow)
         {
             ReadBurningLook();
 
             // On the moving part of the item (its rigidbody), not its loader that stays where it was spawned.
             var body = GetBody(torch.Go);
-            var fire = new GameObject("TorchFire");
+            var fire = new GameObject(_fireName);
             fire.transform.SetParent(body.transform, false);
             fire.transform.localPosition = GetTipLocalPosition(body);
             _meshService.CreateVobPfx(_firePfx, Vector3.zero, Quaternion.identity, fire);
@@ -119,38 +138,60 @@ namespace Gothic.Core.Services.Vobs
                 }
             }
 
-            var lightClip = _audioService.GetRandomSoundClip(_lightSound);
+            var lightClip = isLitNow ? _audioService.GetRandomSoundClip(_lightSound) : null;
             if (lightClip != null)
                 AudioSource.PlayClipAtPoint(lightClip, fire.transform.position);
 
             var light = _stationaryLightsService.CreateMovingLight("Torch light", fire.transform.position,
                 _lightRange, _lightColor);
-            _fires[torch.Go] = fire;
             _unityMonoService.StartCoroutine(Burn(torch, fire, light));
-            Logger.Log($"[Torch] {torch.Go.name} lit.", LogCat.Vob);
+            Logger.Log($"[Torch] {torch.Go.name} {(isLitNow ? "lit" : "burning")}.", LogCat.Vob);
         }
 
         /// <param name="isBurnedOut">Water put it out: it becomes a burnt torch.</param>
         private void PutOut(VobContainer torch, bool isBurnedOut)
         {
-            if (torch.Go != null && _fires.Remove(torch.Go, out var fire) && fire != null)
+            var fire = FindFire(torch);
+            if (fire != null)
                 Object.Destroy(fire);
 
-            if (isBurnedOut && _vmCacheService.TryGetItemData(_burnedInstance) != null)
-            {
-                var item = (IItem)torch.Vob;
-                item.Instance = _burnedInstance;
-                item.Name = _burnedInstance;
-                torch.Props.Init();
-            }
-
+            SetInstance(torch, isBurnedOut ? _burnedInstance : _torchInstance);
             Logger.Log($"[Torch] {torch.Go?.name} {(isBurnedOut ? "burnt out in the water" : "put out")}.",
                 LogCat.Vob);
         }
 
         /// <summary>
-        /// The light follows the flame. The torch put into the inventory or the world unloaded ends the fire, water puts it
-        /// out.
+        /// The torch becomes another torch item. Name is the instance name too: the backpack and the focus read it.
+        /// </summary>
+        /// <returns>False if the scripts don't know the item.</returns>
+        private bool SetInstance(VobContainer torch, string instanceName)
+        {
+            if (_vmCacheService.TryGetItemData(instanceName) == null)
+            {
+                Logger.LogWarning($"[Torch] The scripts have no {instanceName} - {torch.Go?.name} stays as it is.",
+                    LogCat.Vob);
+                return false;
+            }
+
+            var item = (IItem)torch.Vob;
+            item.Instance = instanceName;
+            item.Name = instanceName;
+            torch.Props.Init();
+            return true;
+        }
+
+        private static GameObject FindFire(VobContainer torch)
+        {
+            if (torch.Go == null)
+                return null;
+
+            var fire = GetBody(torch.Go).transform.Find(_fireName);
+            return fire != null ? fire.gameObject : null;
+        }
+
+        /// <summary>
+        /// The light follows the flame. The torch put out or into the inventory or the world unloaded ends the fire,
+        /// water puts it out.
         /// </summary>
         private IEnumerator Burn(VobContainer torch, GameObject fire, GameObject light)
         {
@@ -176,19 +217,6 @@ namespace Gothic.Core.Services.Vobs
                 Object.Destroy(light);
             if (isInWater)
                 PutOut(torch, true);
-            CleanUp();
-        }
-
-        private void CleanUp()
-        {
-            var gone = new List<GameObject>();
-            foreach (var pair in _fires)
-            {
-                if (pair.Key == null || pair.Value == null)
-                    gone.Add(pair.Key);
-            }
-            foreach (var key in gone)
-                _fires.Remove(key);
         }
 
         /// <summary>
