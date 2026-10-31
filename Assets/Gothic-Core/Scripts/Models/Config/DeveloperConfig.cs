@@ -348,6 +348,12 @@ namespace Gothic.Core.Models.Config
                  "restore, no NpcCulling tracking. Turn OFF to diagnose monster/NPC init regressions.")]
         public bool EnableSaveLoadSystem;
 
+        [Tooltip("Enable 'Load Game' in the main menu.")]
+        public bool EnableLoadFeature;
+
+        [Tooltip("Enable 'Save Game' in the main menu.")]
+        public bool EnableSaveFeature;
+
 
         /**
          * ##########

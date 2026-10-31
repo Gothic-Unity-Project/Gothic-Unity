@@ -53,15 +53,18 @@ namespace Gothic.Core.Adapters.UI.Menus
             throw new NotImplementedException();
         }
 
-        // FIXME - Saving and other elements aren't working yet. We therefore disable it for now.
         private string[] _ignoredMainMenuEntries =
         {
-            "MENUITEM_MAIN_SAVEGAME_LOAD", "MENUITEM_MAIN_SAVEGAME_SAVE", "MENUITEM_MAIN_INTRO", "MENUITEM_MAIN_CREDITS"
+            "MENUITEM_MAIN_INTRO", "MENUITEM_MAIN_CREDITS"
         };
         
         protected override bool IsMenuItemActive(string menuItemName)
         {
             if (_ignoredMainMenuEntries.Contains(menuItemName))
+                return false;
+            if (menuItemName == "MENUITEM_MAIN_SAVEGAME_LOAD" && !ConfigService.Dev.EnableLoadFeature)
+                return false;
+            if (menuItemName == "MENUITEM_MAIN_SAVEGAME_SAVE" && !ConfigService.Dev.EnableSaveFeature)
                 return false;
             
             return ((MenuItemCache[menuItemName].item.Flags & MenuItemFlag.OnlyInGame) == 0 &&
