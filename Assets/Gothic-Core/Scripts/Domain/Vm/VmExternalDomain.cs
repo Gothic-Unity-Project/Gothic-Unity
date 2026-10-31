@@ -11,7 +11,6 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -43,7 +42,6 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly SkyService _skyService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
@@ -215,13 +213,13 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int>("Npc_SetRefuseTalk", Npc_SetRefuseTalk);
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
 
-            // G2 externals only.
-            if (_contextGameVersionService.IsGothic2())
-            {
+            // G2 externals only: G1's scripts (and mods) that don't declare them would make the registration throw.
+            if (IsDeclared(vm, "Npc_GetHeightToNpc"))
                 vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
+            if (IsDeclared(vm, "Npc_StopAni"))
                 vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni);
+            if (IsDeclared(vm, "Wld_IsRaining"))
                 vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining);
-            }
 
 
             // Print
@@ -737,6 +735,14 @@ namespace Gothic.Core.Domain.Vm
             Logger.Log($"[PlayVideo] {fileName}", LogCat.Misc);
             GlobalEventDispatcher.PlayVideo.Invoke(fileName);
             return 1;
+        }
+
+        /// <summary>
+        /// Whether the loaded scripts declare the external. Registering one they don't declare throws.
+        /// </summary>
+        private static bool IsDeclared(DaedalusVm vm, string name)
+        {
+            return vm.GetSymbolByName(name) != null;
         }
 
         /// <summary>
