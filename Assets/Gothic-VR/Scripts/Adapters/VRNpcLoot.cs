@@ -262,6 +262,21 @@ namespace Gothic.VR.Adapters
             return true;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableCorpseHoldTakesAll: everything the NPC gives away into the hero's inventory (like the
+        /// loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// </summary>
+        public int TakeAll(NpcContainer npc)
+        {
+            var itemCount = VRBackpack.TakeAll(new NpcInventoryOwner(npc));
+            PlayOpenSound();
+            Logger.Log($"[VRNpcLoot] Took all from {npc.Instance.GetName(NpcNameSlot.Slot0)}: {itemCount} item(s)",
+                LogCat.VR);
+            if (!TryMakeEmptyCorpseInert(npc) && _isOpen)
+                Close();
+            return itemCount;
+        }
+
         private void OnNpcInventoryChanged(NpcContainer npc)
         {
             if (!_isOpen || npc != _npcContainer)

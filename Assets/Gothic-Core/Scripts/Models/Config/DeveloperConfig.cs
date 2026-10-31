@@ -1653,9 +1653,14 @@ namespace Gothic.Core.Models.Config
                  "out again - the door's or chest's body stopped it before the lock.")]
         public bool EnableLockToolThroughLockables = true;
 
-        [Tooltip("V1 (XRI): A corpse's loot opens/closes only after the grip is held on it for a second - a grab in " +
-                 "passing (fighting, picking up an item next to it) opened the loot.")]
-        public bool EnableCorpseHoldToLoot = true;
+
+        [Tooltip("V1 (XRI): Holding the grip on a corpse for a second takes everything it has (like the loot's green X); " +
+                 "a short grip opens/closes its loot.")]
+        public bool EnableCorpseHoldTakesAll = true;
+
+        [Tooltip("V1 (VR): A loot backpack held in a hand goes too when its loot closes (e.g. after the green X) - " +
+                 "grabbing took it out of its prefab root, only the root was destroyed and it stayed in the hand/world.")]
+        public bool EnableHeldLootBackpackDespawn = true;
 
         [Tooltip("V1: A dead NPC with nothing left to take closes its loot (its backpack goes) and can't be hovered or " +
                  "grabbed anymore - the looted corpse still lit up and opened an empty loot.")]

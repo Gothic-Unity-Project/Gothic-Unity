@@ -36,8 +36,8 @@ namespace Gothic.VR.Adapters
         private StatusBarAdapter _healthBar;
         private Coroutine _holdToLoot;
 
-        // DeveloperConfig.EnableCorpseHoldToLoot: seconds the grip is held on a corpse until its loot opens/closes.
-        private const float _lootHoldSeconds = 1f;
+        // DeveloperConfig.EnableCorpseHoldTakesAll: seconds the grip is held on a corpse until everything is taken.
+        private const float _takeAllHoldSeconds = 1f;
 
         private void Awake()
         {
@@ -76,24 +76,27 @@ namespace Gothic.VR.Adapters
                 _healthBar.DisableBar();
         }
 
-        private System.Collections.IEnumerator ToggleLootWhenHeld(VrInteractable interactable)
+        /// <summary>
+        /// A short grip on the corpse opens/closes its loot, holding it takes everything.
+        /// </summary>
+        private System.Collections.IEnumerator TakeAllWhenHeld(VrInteractable interactable)
         {
             var heldTime = 0f;
-            while (heldTime < _lootHoldSeconds)
+            while (heldTime < _takeAllHoldSeconds)
             {
                 yield return null;
                 if (interactable == null || !interactable.IsHeld)
                 {
                     _holdToLoot = null;
+                    _npcLoot.Toggle(_npcData);
                     yield break;
                 }
                 heldTime += Time.deltaTime;
             }
 
             _holdToLoot = null;
-            Logger.Log($"[VRNpc] Grip held on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' - loot toggled",
-                LogCat.VR);
-            _npcLoot.Toggle(_npcData);
+            Logger.Log($"[VRNpc] Grip held on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' - takes all", LogCat.VR);
+            _npcLoot.TakeAll(_npcData);
         }
 
         private void OnGrabbed(VrGrabArgs args)
@@ -125,14 +128,13 @@ namespace Gothic.VR.Adapters
                 if (_npcLoot.TryMakeEmptyCorpseInert(_npcData))
                     return;
 
-                // DeveloperConfig.EnableCorpseHoldToLoot: the loot opens/closes only after the grip is held on the
-                // body for a moment - a grab in passing (fighting, picking up an item next to it) opened the loot.
-                // Select-only (XRI) only: the grab lasts as long as the grip is held.
-                if (_configService.Dev.EnableCorpseHoldToLoot && args.Interactable.IsSelectOnly)
+                // DeveloperConfig.EnableCorpseHoldTakesAll: a short grip opens/closes the loot (decided on release),
+                // holding it takes everything. Select-only (XRI) only: the grab lasts as long as the grip is held.
+                if (_configService.Dev.EnableCorpseHoldTakesAll && args.Interactable.IsSelectOnly)
                 {
                     if (_holdToLoot != null)
                         StopCoroutine(_holdToLoot);
-                    _holdToLoot = StartCoroutine(ToggleLootWhenHeld(args.Interactable));
+                    _holdToLoot = StartCoroutine(TakeAllWhenHeld(args.Interactable));
                     return;
                 }
 

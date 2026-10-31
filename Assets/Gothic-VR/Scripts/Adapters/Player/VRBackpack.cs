@@ -251,30 +251,42 @@ namespace Gothic.VR.Adapters.Player
             if (_owner == null || _owner.IsHero || IsTradeBackpack)
                 return;
 
+            var itemCount = TakeAll(_owner);
+            var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, transform.position);
+            // Taking everything may have closed the loot (empty corpse) and despawned this backpack.
+            if (this != null && gameObject.activeInHierarchy)
+                UpdateInventoryView();
+            Logger.Log($"[VRBackpack] Took all from the loot: {itemCount} item(s)", LogCat.VR);
+        }
+
+        /// <summary>
+        /// Everything the owner (NPC, chest) gives away goes into the hero's inventory - the loot's green X and
+        /// DeveloperConfig.EnableCorpseHoldTakesAll. Returns the number of items taken.
+        /// </summary>
+        public static int TakeAll(IInventoryOwner from)
+        {
             var hero = new PlayerInventoryOwner();
             var itemCount = 0;
             for (var category = VmGothicEnums.InvCats.InvWeapon; category < VmGothicEnums.InvCats.InvCatMax; category++)
             {
-                foreach (var item in _owner.GetInventory(category).ToList())
+                foreach (var item in from.GetInventory(category).ToList())
                 {
-                    if (item.Amount <= 0 || !_owner.CanTake(item.Name))
+                    if (item.Amount <= 0 || !from.CanTake(item.Name))
                         continue;
-                    _owner.Remove(item.Name, item.Amount);
+                    from.Remove(item.Name, item.Amount);
                     hero.Add(item.Name, item.Amount);
                     itemCount += item.Amount;
                 }
             }
 
-            var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
-            if (clip != null)
-                AudioSource.PlayClipAtPoint(clip, transform.position);
-            UpdateInventoryView();
             foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (!backpack.IsNpcBackpack && !backpack.IsTradeBackpack)
                     backpack.UpdateInventoryView();
             }
-            Logger.Log($"[VRBackpack] Took all from the loot: {itemCount} item(s)", LogCat.VR);
+            return itemCount;
         }
 
         /// <summary>
@@ -287,10 +299,23 @@ namespace Gothic.VR.Adapters.Player
             _runningRefreshes = 0;
             _tempIgnoreSocketing = true;
             ClearSockets();
+
+            // DeveloperConfig.EnableHeldLootBackpackDespawn: a grab took the backpack out of its prefab root (XRI
+            // parents the held object to the scene) - destroying the root alone left it in the hand.
+            var isDetached = _configService != null && _configService.Dev.EnableHeldLootBackpackDespawn &&
+                             spawnedRoot != null && !transform.IsChildOf(spawnedRoot.transform);
+            if (isDetached && _interactable != null && _interactable.IsHeld)
+                _interactable.ForceRelease();
+
             StartCoroutine(DestroyNextFrame(spawnedRoot != null ? spawnedRoot : gameObject, () =>
             {
                 // A stopped refresh left the draw sounds off.
                 _vrWeaponService.DrawSoundsActive = true;
+                if (isDetached)
+                {
+                    Logger.Log($"[VRBackpack] Held loot backpack '{name}' removed with its loot", LogCat.VR);
+                    Destroy(gameObject);
+                }
             }));
         }
 
