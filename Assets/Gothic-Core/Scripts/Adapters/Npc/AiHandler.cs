@@ -44,6 +44,38 @@ namespace Gothic.Core.Adapters.Npc
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPC was dead at save time (or killed by startup scripts before mesh creation, e.g. Nek).
+            // Also catches HP=1 dead humans: FightService sets HP=1 on knockout; save-restore sets BsDead
+            // before InitNpc runs (via ApplyNpcSavedState in OnNpcCullingChanged), so the BsDead check
+            // here fires even when HP wasn't zeroed on kill.
+            var spawnHp = Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (spawnHp <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                Properties.BodyState = VmGothicEnums.BodyState.BsDead;
+                PlayDeadPose();
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={spawnHp}", LogCat.Npc);
+
+                // NPC died before this session (e.g. killed before save). Run ZS_Dead so Daedalus quest
+                // variables (e.g. CAVALORN_BRAGO_KILLED) are set in the fresh VM — dialog conditions depend on them.
+                // Only for HP=0 deaths (not HP=1 knockout-restores). Guard against double-call if OnNpcDied already ran.
+                if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
+                {
+                    var zsDeadSym = Vm.GetSymbolByName("ZS_Dead");
+                    if (zsDeadSym != null)
+                    {
+                        var oldSelf = Vm.GlobalSelf;
+                        var oldOther = Vm.GlobalOther;
+                        Vm.GlobalSelf = NpcInstance;
+                        Vm.GlobalOther = _npcService.GetHeroContainer().Instance;
+                        Vm.Call(zsDeadSym.Index);
+                        NpcData.IsZsDeadCalled = true;
+                        _npcService.SyncHeroInstanceToVob();
+                        Vm.GlobalSelf = oldSelf;
+                        Vm.GlobalOther = oldOther;
+                    }
+                }
+            }
         }
 
         /// <summary>

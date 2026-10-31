@@ -464,6 +464,9 @@ namespace Gothic.Core.Services.Npc
                 _npcService.SetAttribute(dead, NpcAttribute.HitPoints, 0);
             }
 
+            // Set flag immediately so AiHandler.Start() on the corpse doesn't double-call ZS_Dead.
+            dead.IsZsDeadCalled = true;
+
             // ZS_Dead (B_CheckDeadMissionNPCs + B_GiveDeathInv etc.) takes ~280ms in G2 — too heavy
             // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
             var deadInstance = dead.Instance;

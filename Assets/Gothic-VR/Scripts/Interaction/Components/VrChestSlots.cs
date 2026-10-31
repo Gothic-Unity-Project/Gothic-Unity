@@ -8,6 +8,8 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
@@ -41,6 +43,7 @@ namespace Gothic.VR.Interaction.Components
         [SerializeField] private float _silentAfterSpawnTime = 1f;
 
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         private GameObject _inventoryGo;
         private IVrSocketContainer _container;
@@ -50,6 +53,10 @@ namespace Gothic.VR.Interaction.Components
         private bool _isSpawning;
         private IVrHinge _hinge;
         private bool _isOpen;
+
+        // Items counted in IContainer.Contents (spawned ones and those put in later). See StartTrackingContents.
+        private readonly HashSet<VrInteractable> _contentItems = new();
+        private bool _isTrackingContents;
 
         public bool IsOpen => _isOpen;
 
@@ -84,6 +91,15 @@ namespace Gothic.VR.Interaction.Components
 
         private void OnDestroy()
         {
+            if (_isTrackingContents)
+            {
+                foreach (var socket in _container.Sockets)
+                {
+                    socket.Grabbed -= OnSocketGrabbed;
+                    socket.Released -= OnSocketReleased;
+                }
+            }
+
             if (_hinge == null)
                 return;
 
@@ -231,7 +247,10 @@ namespace Gothic.VR.Interaction.Components
             var vobContainer = GetComponentInParent<VobLoader>()?.Container?.VobAs<IContainer>();
             var contentItems = _vobService.UnpackItems(vobContainer?.Contents);
             if (contentItems.Count == 0)
+            {
+                StartTrackingContents();
                 yield break;
+            }
 
             _isSpawning = true;
             _container.SetSilent(true);
@@ -258,8 +277,95 @@ namespace Gothic.VR.Interaction.Components
 
             _container.SetSilent(false);
             _isSpawning = false;
+            StartTrackingContents();
             if (!_isOpen)
                 _inventoryGo.SetActive(false);
+        }
+
+        /// <summary>
+        /// IContainer.Contents is what a save stores for this chest (DeveloperConfig.EnableWorldItemSaveState): items
+        /// put into the slots join it, items taken out leave it. Two beers taken out were in the backpack and still in
+        /// the chest after loading. Starts after the content is spawned (spawning doesn't count).
+        /// </summary>
+        private void StartTrackingContents()
+        {
+            if (_isTrackingContents || _container == null)
+                return;
+
+            _isTrackingContents = true;
+            foreach (var socket in _container.Sockets)
+            {
+                if (socket.Held != null)
+                    _contentItems.Add(socket.Held);
+                socket.Grabbed += OnSocketGrabbed;
+                socket.Released += OnSocketReleased;
+            }
+        }
+
+        private void OnSocketGrabbed(VrGrabArgs args)
+        {
+            var interactable = args.Interactable;
+            var container = interactable != null ? interactable.GetComponentInParent<VobLoader>()?.Container : null;
+            if (container?.Vob is not IItem item || !_contentItems.Add(interactable))
+                return;
+
+            ChangeContents(GetInstanceName(item), Math.Max(1, item.Amount));
+            _saveGameService.RemoveItemFromWorld(container);
+        }
+
+        /// <summary>
+        /// Taken out when it isn't in one of our slots a frame later (a hand holds it) - not when it only moves to
+        /// another slot of this chest or the slot lets go and takes it again.
+        /// </summary>
+        private void OnSocketReleased(VrGrabArgs args)
+        {
+            var interactable = args.Interactable;
+            var container = interactable != null ? interactable.GetComponentInParent<VobLoader>()?.Container : null;
+            if (container?.Vob is not IItem item)
+                return;
+
+            StartCoroutine(RemoveFromContentsIfTaken(interactable, GetInstanceName(item), Math.Max(1, item.Amount)));
+        }
+
+        private IEnumerator RemoveFromContentsIfTaken(VrInteractable interactable, string itemName, int amount)
+        {
+            yield return null;
+            if (interactable != null && _container.Sockets.Any(i => i.Held == interactable))
+                yield break;
+            if (!_contentItems.Remove(interactable))
+                yield break;
+
+            ChangeContents(itemName, -amount);
+        }
+
+        private void ChangeContents(string itemName, int amountChange)
+        {
+            var vobContainer = GetComponentInParent<VobLoader>()?.Container?.VobAs<IContainer>();
+            if (vobContainer == null || string.IsNullOrEmpty(itemName))
+                return;
+
+            var items = _vobService.UnpackItems(vobContainer.Contents);
+            var entry = items.FirstOrDefault(i => i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+            if (entry == null)
+            {
+                if (amountChange > 0)
+                    items.Add(new ContentItem(itemName, amountChange));
+            }
+            else
+            {
+                entry.Amount += amountChange;
+                if (entry.Amount <= 0)
+                    items.Remove(entry);
+            }
+
+            vobContainer.Contents = _vobService.PackItems(items);
+            Logger.Log($"[Chest] {itemName} {(amountChange > 0 ? "+" : "")}{amountChange} -> '{vobContainer.Contents}'",
+                LogCat.VR);
+        }
+
+        private static string GetInstanceName(IItem item)
+        {
+            return !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
         }
 
         private VobContainer SpawnItem(ContentItem contentItem)

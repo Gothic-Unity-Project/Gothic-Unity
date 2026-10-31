@@ -23,6 +23,9 @@ namespace Gothic.Core.Services.Player
         public Quaternion HeroSpawnRotation;
         
         public string LastLevelChangeTriggerVobName;
+
+        // The world the last level change came from - its trigger in the new world is the way back.
+        public string LastLevelChangeFromWorld;
         public NpcContainer HeroContainer { get; private set; }
         
         

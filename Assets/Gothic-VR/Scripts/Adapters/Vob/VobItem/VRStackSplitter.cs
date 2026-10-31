@@ -428,6 +428,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (isTargetGrabbed)
                 _playerService.AddItem(instanceName, amount);
 
+            _saveGameService.UntrackLooseItem(source);
             _vobService.RemoveWorldItem(source);
             StartCoroutine(ShowLabelBriefly(target));
             Logger.Log($"[StackSplit] {instanceName}: {amount} joined, now {targetItem.Amount}", LogCat.VR);
@@ -568,6 +569,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // A loose world item like one taken out of the backpack - culled and saved when dropped.
             _vobMeshCullingService.AddCullingEntry(piece);
             _saveGameService.CurrentWorldData.Vobs.Add(piece.Vob);
+            _saveGameService.TrackLooseItem(piece);
             return piece;
         }
 

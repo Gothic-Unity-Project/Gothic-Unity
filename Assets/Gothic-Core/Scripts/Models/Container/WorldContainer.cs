@@ -25,6 +25,8 @@ namespace Gothic.Core.Models.Container
         // We need to store it as we need the pointer to it for load+save of un-cached vobs.
         public List<IVirtualObject> Vobs;
         public List<NpcProxy> Npcs;
+        // DeveloperConfig.EnableWorldItemSaveState: the world file's items/chests - a save stores what differs.
+        public WorldItemBaseline ItemBaseline;
 
         // Cached objects - For performance reasons we only allow them cached. Otherwise every loop and getter will load them again.
         public CachedWayNet WayNet;

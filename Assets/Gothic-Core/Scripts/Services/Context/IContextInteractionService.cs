@@ -11,6 +11,11 @@ namespace Gothic.Core.Services.Context
         GameObject GetCurrentPlayerController();
         void LockPlayerInPlace(bool allowTurning = false);
         void UnlockPlayer();
+
+        /// <summary>
+        /// What the hands hold goes into the hero's inventory (saving).
+        /// </summary>
+        void StoreHeldItemsInBackpack();
         void SetWalkingControls();
         void SetSwimmingControls();
         void SetDivingControls();

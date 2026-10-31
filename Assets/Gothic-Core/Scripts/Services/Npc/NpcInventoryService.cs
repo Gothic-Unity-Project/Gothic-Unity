@@ -560,6 +560,33 @@ namespace Gothic.Core.Services.Npc
             return 0;
         }
         
+        /// <summary>
+        /// Empties every inventory category - the packed storage used at runtime (a save's inventory is restored into
+        /// it). ExtNpcClearInventory clears only the world file's item list.
+        /// </summary>
+        public void ClearPackedInventory(NpcInstance npc)
+        {
+            var vob = npc?.GetUserData()?.Vob;
+            if (vob == null)
+                return;
+
+            foreach (VmGothicEnums.InvCats cat in System.Enum.GetValues(typeof(VmGothicEnums.InvCats)))
+            {
+                if (cat == VmGothicEnums.InvCats.InvCatMax)
+                    continue;
+                try
+                {
+                    vob.SetPacked((int)cat, string.Empty);
+                }
+                catch (System.Exception e)
+                {
+                    // Slot was never initialized for this NPC - nothing to clear.
+                    Logger.LogEditor($"[Inventory] {npc.GetName(NpcNameSlot.Slot0)}: category {cat} not set ({e.Message})",
+                        LogCat.Npc);
+                }
+            }
+        }
+
         public void ExtNpcClearInventory(NpcInstance npc)
         {
             npc.GetUserData()!.Vob.ClearItems();

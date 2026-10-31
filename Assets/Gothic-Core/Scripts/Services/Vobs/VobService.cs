@@ -587,6 +587,17 @@ namespace Gothic.Core.Services.Vobs
             if (string.IsNullOrEmpty(name))
                 return;
 
+            // See GameStateService.SuppressVobTriggerDispatch: set while RebindNpcAliases() re-runs
+            // INIT_ on save-game load, when VOB GameObjects exist but haven't Awake()/DI-injected yet
+            // (still parented under the disabled vobRoot) - dispatching here would NRE on null
+            // [Inject] fields such as TriggerScriptHandler's VmService.
+            if (_gameStateService.SuppressVobTriggerDispatch)
+            {
+                Logger.Log($"[VobService] DispatchTrigger '{name}' suppressed (NPC alias rebind in progress)",
+                    LogCat.Vob);
+                return;
+            }
+
             // Gothic's engine routes trigger messages through an event manager queue (with optional
             // fireDelay), so a script re-triggering itself is a common timer pattern - it re-fires on
             // a later tick. We dispatch synchronously instead, which turns such a cycle into infinite

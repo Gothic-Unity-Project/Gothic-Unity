@@ -175,10 +175,19 @@ namespace Gothic.Core.Services.Npc
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
             
-            if (_saveGameService.IsNewGame)
-                await _initializerDomain.InitNpcsNewGame(loading);
+            var npcInit = _configService.Dev.EnableSaveLoadSystem ? _saveGameService.PendingNpcInit : null;
+            // A world visited before uses its stored state - also in a new game.
+            if ((_saveGameService.IsNewGame && !_saveGameService.IsRevisitingWorld) || npcInit == null)
+            {
+                if (_saveGameService.IsWorldEnteredFirstTime)
+                    await _initializerDomain.InitNpcsNewGame(loading);
+                else
+                    await _initializerDomain.InitNpcsSaveGame(loading);
+            }
             else
-                await _initializerDomain.InitNpcsSaveGame(loading);
+            {
+                await _initializerDomain.InitNpcsFromMergedSnapshots(loading, npcInit, _saveGameService.PendingNpcRestore);
+            }
         }
 
         /// <summary>
@@ -194,6 +203,12 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // InitNpcsFromMergedSnapshots is the primary NPC path when loading a saved game.
+            // Creating a duplicate container from the WORLD.SAV NPC VOB causes it to run ZS_* routines
+            // and lock FreePoints before the real container starts, so GoToNextFp picks the wrong FP.
+            if (_saveGameService.PendingNpcInit != null)
+                return;
+
             // Initialize NPC and set its data from SaveGame (VOB entry).
             _initializerDomain.InitNpcVobSaveGame(vobNpc);
         }
@@ -207,6 +222,7 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetTalentValue(NpcInstance npc, VmGothicEnums.Talent talent, int level)
         {
             var vob = npc.GetUserData()!.Vob;
+            EnsureTalentSlot(vob, (int)talent);
             var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
@@ -220,6 +236,7 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetTalentSkill(NpcInstance npc, VmGothicEnums.Talent talent, int skillValue)
         {
             var vob = npc.GetUserData()!.Vob;
+            EnsureTalentSlot(vob, (int)talent);
             var existing = vob.GetTalent((int)talent);
             vob.SetTalent((int)talent, new Talent
             {
@@ -227,6 +244,20 @@ namespace Gothic.Core.Services.Npc
                 Skill = skillValue,
                 Value = existing?.Value ?? 0
             });
+        }
+
+        /// <summary>
+        /// A vob with fewer talents than the index (a G2 hero whose talents were cut to G1's 12 by an older save) gets
+        /// the missing ones - setting G2's pickpocketing (12) failed silently.
+        /// </summary>
+        private void EnsureTalentSlot(NpcProxy vob, int index)
+        {
+            if (index < vob.TalentCount)
+                return;
+
+            Logger.Log($"[Talents] {vob.NpcInstance}: {vob.TalentCount} talents, adding up to {index + 1}", LogCat.Npc);
+            while (vob.TalentCount <= index)
+                vob.AddTalent(new Talent { Type = vob.TalentCount });
         }
 
         public void ExtMdlSetVisual(NpcInstance npc, string visual)

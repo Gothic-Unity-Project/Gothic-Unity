@@ -42,6 +42,11 @@ namespace Gothic.Core.Services.Context
             _impl.LockPlayerInPlace(allowTurning);
         }
 
+        public void StoreHeldItemsInBackpack()
+        {
+            _impl.StoreHeldItemsInBackpack();
+        }
+
         public void UnlockPlayer()
         {
             _impl.UnlockPlayer();

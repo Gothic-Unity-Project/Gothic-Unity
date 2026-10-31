@@ -339,6 +339,18 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
+         * Save and Load
+         * ##########
+         */
+
+        [Foldout("Save and Load", true)]
+        [Tooltip("Enable save/load system. OFF = main-branch behavior: no UNITYNPCINIT snapshot, no merged-snapshot NPC " +
+                 "restore, no NpcCulling tracking. Turn OFF to diagnose monster/NPC init regressions.")]
+        public bool EnableSaveLoadSystem;
+
+
+        /**
+         * ##########
          * Backpack and Items
          * ##########
          */

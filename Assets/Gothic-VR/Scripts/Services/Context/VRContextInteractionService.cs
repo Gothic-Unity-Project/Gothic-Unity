@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -22,6 +23,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
@@ -29,6 +31,9 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.World.SaveGameService _saveGameService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
@@ -170,6 +175,10 @@ namespace Gothic.VR.Services.Context
                 var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
                 equipToggle.transform.SetParent(_player.transform, false);
             }
+
+            // The holsters keep their items over saving and loading.
+            var holsterSaveState = new GameObject("_HolsterSaveState").AddComponent<VRHolsterSaveState>();
+            holsterSaveState.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
@@ -317,6 +326,36 @@ namespace Gothic.VR.Services.Context
             _rig.MovementEnabled = false;
             _rig.TurnEnabled = allowTurning;
             _rig.TeleportEnabled = false;
+        }
+
+        /// <summary>
+        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
+        /// the world item.
+        /// </summary>
+        public void StoreHeldItemsInBackpack()
+        {
+            // An item held with both hands is one item - stored once.
+            var stored = new System.Collections.Generic.HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand).ToList())
+            {
+                var interactable = hand.Held;
+                if (interactable == null || !stored.Add(interactable))
+                    continue;
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.VobAs<IItem>();
+                if (item == null)
+                    continue;
+
+                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
+                interactable.ForceRelease();
+
+                var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                _saveGameService.UntrackLooseItem(container);
+                _playerService.AddItem(instanceName, Mathf.Max(1, item.Amount));
+                _vobService.RemoveWorldItem(container);
+                Logger.Log($"[Save] {hand.HandSide}: {instanceName} x{Mathf.Max(1, item.Amount)} put into the backpack",
+                    LogCat.VR);
+            }
         }
 
         public void UnlockPlayer()

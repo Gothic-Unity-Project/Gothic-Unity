@@ -262,6 +262,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var container = go.GetComponent<VobLoader>()?.Container;
             if (container != null)
             {
+                _saveGameService.UntrackLooseItem(container);
                 _vobService.RemoveWorldItem(container);
                 yield break;
             }

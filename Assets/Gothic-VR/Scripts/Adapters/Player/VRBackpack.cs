@@ -650,6 +650,7 @@ namespace Gothic.VR.Adapters.Player
 
             // In a backpack slot, the item isn't part of the world's VOB list (PlayerService.PickUpItem's rule) - the
             // owner may be the hero, an NPC or a chest.
+            _saveGameService.RemoveItemFromWorld(vobContainer);
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _vobService.UntrackVobFromCache(vobContainer);
 
@@ -718,6 +719,7 @@ namespace Gothic.VR.Adapters.Player
             var worldVobs = _saveGameService.CurrentWorldData.Vobs;
             if (!_vrPlayerService.IsHeldInHand(args.Interactable) && !worldVobs.Contains(vobContainer.Vob))
                 worldVobs.Add(vobContainer.Vob);
+            _saveGameService.TrackLooseItem(vobContainer);
 
             // Taking the last one of an equipped item out takes it off (IInventoryOwner.Remove).
             Owner.Remove(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));

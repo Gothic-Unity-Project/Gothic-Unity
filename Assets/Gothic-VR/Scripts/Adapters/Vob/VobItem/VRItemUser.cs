@@ -156,6 +156,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // which takes it out of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
             ReleaseFromHands();
 
+            _saveGameService.UntrackLooseItem(_container);
             _playerService.AddItem(instanceName, Mathf.Max(1, vobItem.Amount));
             _npcInventoryService.EquipItemWithEffects(hero.Instance, _item);
 

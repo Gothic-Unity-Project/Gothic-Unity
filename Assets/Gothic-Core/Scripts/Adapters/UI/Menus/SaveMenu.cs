@@ -148,13 +148,17 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         protected override bool IsMenuItemActive(string menuItemName)
         {
+            if (menuItemName.StartsWith("MENUITEM_SAVE_SLOT") || menuItemName.StartsWith("MENUITEM_LOAD_SLOT"))
+                return true;
             return (MenuItemCache[menuItemName].item.Flags & MenuItemFlag.Disabled) == 0;
         }
 
         private void FillSaveGameEntries()
         {
-            var gothicDir = _contextGameVersionService.RootPath;
-            var saveGameListPath = Path.GetFullPath(Path.Join(gothicDir, "Saves"));
+            var saveGameListPath = _saveGameService.SavesFolderPath;
+
+            if (!Directory.Exists(saveGameListPath))
+                return;
 
             foreach (var fullPath in Directory.EnumerateDirectories(saveGameListPath))
             {
@@ -171,16 +175,24 @@ namespace Gothic.Core.Adapters.UI.Menus
 
                 // Our menu prefab shows 15 slots (G1 layout); G2 installations can hold savegame16-20.
                 // Skip out-of-range folders instead of crashing the whole menu init on the array access.
-                // FIXME - Add proper 20 slots for G2 in GameObjects. (Why are they 16 for G1? Maybe 15 with missing 0 index?)
                 if (folderSaveId < 1 || folderSaveId >= SaveSlots.Length || SaveSlots[folderSaveId] == null)
                 {
-                    Logger.LogWarning($"[SaveMenu] Save folder '{saveGameFolderName}' has no UI slot for G2. Skipping for now.",
-                        LogCat.Ui);
+                    Logger.LogWarning($"[SaveMenu] Save folder '{saveGameFolderName}' has no UI slot (1-15) — skipping.", LogCat.Ui);
                     continue;
                 }
 
-                // Load metadata. A save written by another engine/mod version can fail parsing - skip it instead of
-                // aborting the whole menu.
+                // Saves written by the original engine (or Union mods) lack our UNITYSAVE.json overlay.
+                // They can't be restored by our two-layer system anyway, and letting ZenKit parse them
+                // is actively dangerous: G2 Renovation's Union-format saves drive the native parser
+                // into allocating until OOM (std::bad_alloc → 99% RAM → editor crash), and a C# try/catch
+                // can't stop a native allocation rampage — so don't even open them.
+                if (!File.Exists(Path.Combine(fullPath, "UNITYSAVE.json")))
+                {
+                    Logger.LogWarning($"[SaveMenu] '{saveGameFolderName}' has no UNITYSAVE.json (original-engine save?) — not listed.", LogCat.Ui);
+                    continue;
+                }
+
+                // Load metadata. Kept as a guard for saves that pass the marker check but still fail parsing.
                 SaveGame save;
                 try
                 {
