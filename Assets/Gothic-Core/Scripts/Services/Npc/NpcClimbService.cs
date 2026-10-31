@@ -16,9 +16,10 @@ namespace Gothic.Core.Services.Npc
     /// <summary>
     /// NPCs climb ledges like the engine (OpenGothic MoveAlgo::onMoveFailed and startClimb): a walking NPC that runs
     /// head-on into a wall asks Gothic's jump probe (Npc::tryJump) and climbs a ledge below its guild's JUMPLOW_HEIGHT
-    /// (a big step up) or JUMPMID_HEIGHT (a pull-up) with the T_STAND_2_JUMPUPLOW / T_STAND_2_JUMPUPMID animations.
-    /// It rises to the top during the animation and stands 55 cm behind the lip at its end. Higher walls (jump, hang and
-    /// pull up) aren't climbed. Before, chasing NPCs stood at every crate and rock. Found on BoroBongo's branch.
+    /// (a big step up) or JUMPMID_HEIGHT (a pull-up) with the T_STAND_2_JUMPUPLOW / T_STAND_2_JUMPUPMID animations, and
+    /// up to JUMPUP_HEIGHT + JUMPLOW_HEIGHT it jumps up, hangs at the lip and pulls itself up (T_STAND_2_JUMPUP, S_HANG,
+    /// T_HANG_2_STAND - OpenGothic JumpUp and JumpHang). It rises to the top during the animations and stands 55 cm
+    /// behind the lip at their end. Before, chasing NPCs stood at every crate and rock. Found on BoroBongo's branch.
     /// </summary>
     public class NpcClimbService
     {
@@ -29,12 +30,18 @@ namespace Gothic.Core.Services.Npc
         // Share of the climb animation in which the NPC rises to the top, and from which it moves onto it.
         private const float _riseEnd = 0.6f;
         private const float _moveOnStart = 0.4f;
+        // High ledges: how long the NPC hangs at the lip before pulling itself up.
+        private const float _hangSeconds = 0.3f;
+        private const string _jumpUpAnimation = "T_STAND_2_JUMPUP";
+        private const string _hangAnimation = "S_HANG";
+        private const string _pullUpAnimation = "T_HANG_2_STAND";
 
         [Inject] private readonly LedgeService _ledgeService;
         [Inject] private readonly AnimationService _animationService;
 
-        private readonly Dictionary<NpcContainer, (Vector3 Start, Vector3 Target, float Time, float Duration)> _climbs =
-            new();
+        // RiseEnd / MoveOnStart: in s. PullUpTime: when a high climb's hang goes over into the pull-up (0 otherwise).
+        private readonly Dictionary<NpcContainer, (Vector3 Start, Vector3 Target, float Time, float Duration,
+            float RiseEnd, float MoveOnStart, float HangTime, float PullUpTime, int Step)> _climbs = new();
         private readonly Dictionary<NpcContainer, float> _nextProbeTimes = new();
 
         public bool IsClimbing(NpcContainer npc)
@@ -65,10 +72,30 @@ namespace Gothic.Core.Services.Npc
             {
                 LedgeBand.Low => "T_STAND_2_JUMPUPLOW",
                 LedgeBand.Mid => "T_STAND_2_JUMPUPMID",
+                LedgeBand.High => _jumpUpAnimation,
                 _ => null
             };
 
-            var duration = GetChainDuration(npc, animationName);
+            float duration, riseEnd, moveOnStart, hangTime = 0f, pullUpTime = 0f;
+            if (ledge.Band == LedgeBand.High)
+            {
+                // Jump up, hang, pull up: rising until the hang, moving on during the pull-up.
+                var jumpUp = GetDuration(npc, _jumpUpAnimation);
+                var pullUp = GetDuration(npc, _pullUpAnimation);
+                var hasHang = GetDuration(npc, _hangAnimation) > 0f;
+                hangTime = jumpUp;
+                pullUpTime = jumpUp + _hangSeconds;
+                duration = jumpUp <= 0f || pullUp <= 0f || !hasHang ? 0f : pullUpTime + pullUp;
+                riseEnd = pullUpTime;
+                moveOnStart = pullUpTime;
+            }
+            else
+            {
+                duration = GetChainDuration(npc, animationName);
+                riseEnd = duration * _riseEnd;
+                moveOnStart = duration * _moveOnStart;
+            }
+
             if (duration <= 0f || !npc.PrefabProps.AnimationSystem.PlayAnimation(animationName))
             {
                 _nextProbeTimes[npc] = Time.time + _probeCooldown;
@@ -77,7 +104,7 @@ namespace Gothic.Core.Services.Npc
 
             var start = npc.Go.transform.position;
             var target = ledge.StandPoint + (start - feet);
-            _climbs[npc] = (start, target, 0f, duration);
+            _climbs[npc] = (start, target, 0f, duration, riseEnd, moveOnStart, hangTime, pullUpTime, 0);
             npc.Props.BodyState = VmGothicEnums.BodyState.BsClimb;
             SetKinematic(npc, true);
             Logger.Log($"[NpcClimb] {npc.Instance.GetName(NpcNameSlot.Slot0)} climbs a {ledge.Band} ledge " +
@@ -99,9 +126,13 @@ namespace Gothic.Core.Services.Npc
             }
 
             climb.Time += Time.deltaTime;
+            if (climb.PullUpTime > 0f)
+                PlayHighClimbStep(npc, ref climb);
+
             var progress = Mathf.Clamp01(climb.Time / climb.Duration);
-            var rise = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / _riseEnd));
-            var moveOn = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - _moveOnStart) / (1f - _moveOnStart)));
+            var rise = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(climb.Time / climb.RiseEnd));
+            var moveOn = Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01((climb.Time - climb.MoveOnStart) / (climb.Duration - climb.MoveOnStart)));
             var position = Vector3.Lerp(climb.Start, climb.Target, moveOn);
             position.y = Mathf.Lerp(climb.Start.y, climb.Target.y, rise);
             npc.Go.transform.position = position;
@@ -116,6 +147,35 @@ namespace Gothic.Core.Services.Npc
             npc.Go.transform.position = climb.Target;
             npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             SetKinematic(npc, false);
+        }
+
+        /// <summary>
+        /// High ledges: after the jump up the NPC hangs at the lip, then pulls itself up.
+        /// </summary>
+        private static void PlayHighClimbStep(NpcContainer npc,
+            ref (Vector3 Start, Vector3 Target, float Time, float Duration, float RiseEnd, float MoveOnStart,
+                float HangTime, float PullUpTime, int Step) climb)
+        {
+            var animationSystem = npc.PrefabProps.AnimationSystem;
+            if (climb.Step == 0 && climb.Time >= climb.HangTime)
+            {
+                animationSystem.StopAnimation(_jumpUpAnimation);
+                animationSystem.StopAnimation("S_JUMPUP");
+                animationSystem.PlayAnimation(_hangAnimation);
+                climb.Step = 1;
+            }
+            if (climb.Step == 1 && climb.Time >= climb.PullUpTime)
+            {
+                animationSystem.StopAnimation(_hangAnimation);
+                animationSystem.PlayAnimation(_pullUpAnimation);
+                climb.Step = 2;
+            }
+        }
+
+        private float GetDuration(NpcContainer npc, string animationName)
+        {
+            var track = _animationService.GetTrack(animationName, npc.Props.MdsNameBase, npc.Props.MdsNameOverlay);
+            return track?.Duration ?? 0f;
         }
 
         /// <summary>

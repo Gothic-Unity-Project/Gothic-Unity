@@ -11,12 +11,13 @@ NPCs and monsters walking or chasing stopped at every crate, rock and low wall: 
 ## Decisions
 
 1. **An NPC climbs only when it walks head-on into a wall,** like the engine. Sliding along a wall at an angle stays as it is.
-2. **The same ledge rules as the hero's jump decide,** with the NPC's own guild values: below the low jump height it takes a big step up, below the mid jump height it pulls itself up. Higher walls, which need a jump, a hang and a pull-up, are not climbed by NPCs.
+2. **The same ledge rules as the hero's jump decide,** with the NPC's own guild values: below the low jump height it takes a big step up, below the mid jump height it pulls itself up, and up to the highest jump it jumps up, hangs at the lip and pulls itself up, like the engine.
 3. **The model's own climb animations play,** and the NPC rises to the top while they play and stands on top at their end. Models without them, like most monsters for the pull-up, don't climb.
 4. **A wall that can't be climbed is checked again only after a second,** so an NPC standing at a wall doesn't test it every frame.
 
 ## Consequences
 
-- Chasing NPCs follow the hero over low walls and crates, humans and orcs also over chest-high ones.
+- Chasing NPCs follow the hero over low walls and crates, humans and orcs also over chest-high ones, humans up to about three meters.
 - Climbing runs on top of the hero's ledge rules, so this branch depends on the VR ledge climbing one.
-- Still open: NPCs jumping down after the hero, the jump with hang for high walls, ladders on the way network.
+- NPCs jump down after the hero where the drop is low enough (the edge rule of the falling record).
+- Still open: ladders on the way network.
