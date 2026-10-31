@@ -189,11 +189,18 @@ namespace Gothic.VR.Adapters.Player
         /// Like the engine, a swimming or diving hero has the body state BS_SWIM / BS_DIVE - the scripts read it
         /// (ZS_MM_Master: monsters that don't follow into the water give up). Back on his feet he stands; walking and
         /// running follow from there (HeroPerceptionService). Found on BoroBongo's branch.
+        /// A game saved while swimming and loaded on land brings BS_SWIM along: out of the water it's reset too.
         /// </summary>
         private void UpdateHeroBodyState()
         {
             var props = _playerService.HeroContainer?.Props;
-            if (props == null || _bodyStateMode == _mode)
+            if (props == null)
+                return;
+
+            var isInWater = _mode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive;
+            var isWaterStateLeft = !isInWater &&
+                                   props.BodyState is VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive;
+            if (_bodyStateMode == _mode && !isWaterStateLeft)
                 return;
 
             _bodyStateMode = _mode;

@@ -6,6 +6,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
@@ -42,6 +43,9 @@ namespace Gothic.Core.Services.Npc
         private IVirtualObject _lastUsedMob;
         private float _lastMobUseTime;
         private float _strideDistance;
+        // NPC_TALENT_SNEAK's value, resolved once per VM (a new one per game start or load). -1: the scripts lack it.
+        private DaedalusVm _sneakTalentVm;
+        private int _sneakTalent = -1;
 
         /// <summary>
         /// The mob the hero uses or used last (Npc_GetDetectedMob).
@@ -134,11 +138,21 @@ namespace Gothic.Core.Services.Npc
 
         private bool CanSneak(NpcInstance hero)
         {
-            var talent = _gameStateService.GothicVm.GetSymbolByName(_sneakTalentSymbol);
-            if (talent == null)
+            var vm = _gameStateService.GothicVm;
+            if (!ReferenceEquals(vm, _sneakTalentVm))
+            {
+                _sneakTalentVm = vm;
+                var symbol = vm.GetSymbolByName(_sneakTalentSymbol);
+                _sneakTalent = symbol?.GetInt(0) ?? -1;
+                if (symbol == null)
+                    Logger.LogWarning($"[HeroPerception] The scripts have no {_sneakTalentSymbol} - the hero sneaks " +
+                                      "without the talent.", LogCat.Npc);
+            }
+
+            if (_sneakTalent < 0)
                 return true;
 
-            return hero.GetUserData()?.Vob?.GetTalent(talent.GetInt(0))?.Skill > 0;
+            return hero.GetUserData()?.Vob?.GetTalent(_sneakTalent)?.Skill > 0;
         }
 
         /// <summary>
