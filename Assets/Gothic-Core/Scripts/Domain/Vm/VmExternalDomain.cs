@@ -443,8 +443,14 @@ namespace Gothic.Core.Domain.Vm
         public void AI_UseItemToState(NpcInstance npc, int itemId, int expectedInventoryCount)
         {
             var resolved = ResolveItemId(itemId);
-            if (resolved >= 0)
-                _npcAiService.ExtAiUseItemToState(npc, resolved, expectedInventoryCount);
+            if (resolved < 0 || npc?.GetUserData()?.Props == null)
+            {
+                Logger.LogWarning($"AI_UseItemToState: no NPC or the global item of {npc?.GetName(NpcNameSlot.Slot0)} " +
+                                  "is empty - skipped", LogCat.Ai);
+                return;
+            }
+
+            _npcAiService.ExtAiUseItemToState(npc, resolved, expectedInventoryCount);
         }
 
         /// <summary>
@@ -1148,7 +1154,7 @@ namespace Gothic.Core.Domain.Vm
 
             _gameStateService.GothicVm.GlobalItem = found;
             var count = found != null ? 1 : 0;
-            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), count, npc);
+            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), count, npc, invType, slot);
         }
 
         /// <summary>
