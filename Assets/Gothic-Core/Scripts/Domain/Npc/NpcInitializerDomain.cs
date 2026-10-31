@@ -57,6 +57,9 @@ namespace Gothic.Core.Domain.Npc
         // is true, such calls spawn right away instead of being queued into a list nothing processes again.
         private bool _isInitialNpcLoadComplete;
 
+        // NPC instances whose scripts set an invalid model scale - warned once each.
+        private readonly HashSet<string> _invalidModelScaleLogged = new();
+
         private DaedalusVm Vm => _gameStateService.GothicVm;
 
         public async Task InitNpcsNewGame(LoadingService loading)
@@ -338,9 +341,16 @@ namespace Gothic.Core.Domain.Npc
                 return;
 
             var scale = container.Vob.ModelScale;
-            var unityScale = scale.X > 0f && scale.Y > 0f && scale.Z > 0f
-                ? new Vector3(scale.X, scale.Y, scale.Z)
-                : Vector3.one;
+            var isValidScale = scale.X > 0f && scale.Y > 0f && scale.Z > 0f;
+            // Not set (all 0) is the normal size, any other component <= 0 a script error.
+            if (!isValidScale && scale != System.Numerics.Vector3.Zero &&
+                _invalidModelScaleLogged.Add(container.Vob.Name))
+            {
+                Logger.LogWarning($"Mdl_SetModelScale: {container.Vob.Name} has the invalid scale {scale} - " +
+                                  "shown at normal size.", LogCat.Npc);
+            }
+
+            var unityScale = isValidScale ? new Vector3(scale.X, scale.Y, scale.Z) : Vector3.one;
             if (container.Go.transform.localScale == unityScale)
                 return;
 
