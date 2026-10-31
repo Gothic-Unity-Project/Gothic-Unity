@@ -140,7 +140,17 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public ItemInstance ExtNpcGetInvItem(NpcInstance npc, int itemId)
         {
-            if (npc == null || itemId <= 0 || ExtNpcHasItems(npc, itemId) <= 0)
+            if (npc == null || itemId <= 0)
+                return null;
+
+            // ExtNpcHasItems needs the symbol's name.
+            if (_gameStateService.GothicVm.GetSymbolByIndex(itemId) == null)
+            {
+                Logger.LogWarning($"Npc_GetInvItem: no symbol with index {itemId}.", LogCat.Npc);
+                return null;
+            }
+
+            if (ExtNpcHasItems(npc, itemId) <= 0)
                 return null;
 
             var item = _vmCacheService.TryGetItemData(itemId);

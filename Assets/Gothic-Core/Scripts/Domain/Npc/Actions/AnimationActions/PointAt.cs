@@ -1,6 +1,9 @@
 using System;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using UnityEngine;
+using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -43,7 +46,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var target = _getTarget();
             if (target == null)
+            {
+                Logger.LogWarning($"[PointAt] {NpcInstance.GetName(NpcNameSlot.Slot0)}: the target is gone - " +
+                    "points ahead.", LogCat.Ai);
                 return NpcGo.transform.rotation;
+            }
 
             var direction = target.Value - NpcGo.transform.position;
             direction.y = 0f;

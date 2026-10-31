@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
@@ -21,10 +23,10 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly Gothic.Core.Creator.WayNetService _wayNetService;
+        [Inject] private readonly WayNetService _wayNetService;
 
         // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
-        private readonly System.Collections.Generic.HashSet<int> _npcsKnowingPlayer = new();
+        private readonly HashSet<int> _npcsKnowingPlayer = new();
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -235,10 +237,20 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiPointAt(NpcInstance npc, string pointName)
         {
-            var point = _wayNetService.GetWayNetPoint(pointName);
             var container = npc?.GetUserData();
-            if (point == null || container?.Props == null)
+            if (container?.Props == null)
+            {
+                Logger.LogWarning($"AI_PointAt: NPC without container - '{pointName}' ignored.", LogCat.Ai);
                 return;
+            }
+
+            var point = _wayNetService.GetWayNetPoint(pointName);
+            if (point == null)
+            {
+                Logger.LogWarning($"AI_PointAt: {npc.GetName(NpcNameSlot.Slot0)} - no way point '{pointName}'.",
+                    LogCat.Ai);
+                return;
+            }
 
             container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container, () => point.Position));
         }
@@ -248,7 +260,10 @@ namespace Gothic.Core.Services.Npc
             var container = npc?.GetUserData();
             var target = other?.GetUserData();
             if (target == null || container?.Props == null)
+            {
+                Logger.LogWarning("AI_PointAtNpc: NPC or target without container - ignored.", LogCat.Ai);
                 return;
+            }
 
             container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container,
                 () => target.Go != null ? (Vector3?)target.Go.transform.position : null));
@@ -323,15 +338,10 @@ namespace Gothic.Core.Services.Npc
             return npc != null && _npcsKnowingPlayer.Contains(npc.Index);
         }
 
-        /// <returns>cm to the hero.</returns>
+        /// <returns>cm to the hero, measured like Npc_GetDistToNpc(npc, hero).</returns>
         public int ExtNpcGetDistToPlayer(NpcInstance npc)
         {
-            var npcGo = npc?.GetUserData()?.Go;
-            var heroGo = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
-            if (npcGo == null || heroGo == null)
-                return int.MaxValue;
-
-            return (int)(Vector3.Distance(npcGo.transform.position, heroGo.transform.position) * 100);
+            return ExtNpcGetDistToNpc(npc, _gameStateService.GothicVm.GlobalHero as NpcInstance);
         }
 
         /// <summary>
@@ -343,7 +353,7 @@ namespace Gothic.Core.Services.Npc
             if (npc == null || !dialogs.IsInDialog)
                 return false;
 
-            return npc.Id == 0 || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
+            return ExtNpcIsPlayer(npc) || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
         }
 
         /// <summary>
@@ -485,7 +495,12 @@ namespace Gothic.Core.Services.Npc
                 return int.MaxValue;
             }
 
-            var npc1Pos = npc1.GetUserData().Go.transform.position;
+            // Not spawned yet (Npc_GetDistToPlayer of an NPC out of range).
+            var npc1Go = npc1.GetUserData()?.Go;
+            if (npc1Go == null)
+                return int.MaxValue;
+
+            var npc1Pos = npc1Go.transform.position;
 
             Vector3 npc2Pos;
             // If hero: use camera position (VR head position is most accurate)

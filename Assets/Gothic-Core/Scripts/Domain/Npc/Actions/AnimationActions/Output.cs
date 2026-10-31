@@ -78,8 +78,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
                     _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
                     PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    // Not for an overlay: it finishes at once, before the end of the line would stop the mouth.
+                    PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
                 }
-                PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
 
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
