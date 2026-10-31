@@ -31,6 +31,8 @@ namespace Gothic.Core.Services.World
     /// world down (swampweed). morph.fov, a wobbling field of view, is left out: it makes VR players sick.
     /// A projectile (Wld_PlayEffect's last parameter, the Sleeper's fireball) flies its cast key's particles to the
     /// target at the key's speed and takes the damage off like a spell: per damage type minus the protection.
+    /// NPCs with an effect of their own (C_NPC.effect: the fire shadowbeast's flames, the undead dragon's aura) carry it
+    /// while they are around, like the engine's MdlVisual::setNpcEffect.
     /// </summary>
     public class WorldEffectService
     {
@@ -60,12 +62,14 @@ namespace Gothic.Core.Services.World
         private readonly Dictionary<string, float> _slowTimes = new(StringComparer.OrdinalIgnoreCase);
         // Started and not stopped - an effect created later (emFXTriggerDelay) only comes while its root runs.
         private readonly HashSet<string> _runningRoots = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<NpcContainer, GameObject> _npcEffects = new();
 
         public WorldEffectService()
         {
             // A new world or a loaded game starts without effects.
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(StopAll);
             GlobalEventDispatcher.LoadGameStart.AddListener(StopAll);
+            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(OnNpcCullingChanged);
         }
 
         /// <param name="origin">The NPC or world item the effect starts at.</param>
@@ -132,6 +136,61 @@ namespace Gothic.Core.Services.World
                 ApplySlowTime();
         }
 
+        private void OnNpcCullingChanged(NpcContainer npc, Gothic.Core.Adapters.Npc.NpcLoader loader, bool isInVisibleRange,
+            bool wasOutOfDistance)
+        {
+            if (!isInVisibleRange || string.IsNullOrEmpty(npc?.Instance?.Effect))
+                return;
+
+            _unityMonoService.StartCoroutine(AttachNpcEffect(npc));
+        }
+
+        /// <summary>
+        /// The NPC's own effect, looping on its body as long as the body exists.
+        /// </summary>
+        private IEnumerator AttachNpcEffect(NpcContainer npc)
+        {
+            // The body is built in the same event.
+            yield return null;
+            if (npc.Go == null || _npcEffects.TryGetValue(npc, out var existing) && existing != null)
+                yield break;
+
+            var effect = _effects.GetEffect(npc.Instance.Effect);
+            if (effect == null)
+                yield break;
+
+            var anchor = FindNode(npc.Go.transform, effect.EmTrjOriginNode);
+            if (anchor == npc.Go.transform && npc.PrefabProps?.Bip01 != null)
+                anchor = npc.PrefabProps.Bip01;
+
+            var root = new GameObject($"NpcEffect {npc.Instance.Effect}");
+            root.transform.SetParent(anchor, false);
+            AddLoopingParticles(effect.VisNameS, root.transform);
+            var child = _effects.GetEffect(effect.EmFxCreateS);
+            if (child != null)
+                AddLoopingParticles(child.VisNameS, root.transform);
+
+            _npcEffects[npc] = root;
+            Logger.Log($"[WorldEffect] {npc.Instance.GetName(NpcNameSlot.Slot0)} carries {npc.Instance.Effect}.",
+                LogCat.Vob);
+        }
+
+        private void AddLoopingParticles(string pfxName, Transform parent)
+        {
+            var particles = _effects.CreateParticles(pfxName, parent.position, parent.rotation, 0f);
+            if (particles == null)
+                return;
+
+            particles.transform.SetParent(parent, true);
+            foreach (var system in particles.GetComponentsInChildren<ParticleSystem>())
+            {
+                var main = system.main;
+                main.loop = true;
+                if (!system.isPlaying)
+                    system.Play();
+            }
+        }
+
         private void StopAll()
         {
             foreach (var name in new List<string>(_objects.Keys))
@@ -140,6 +199,7 @@ namespace Gothic.Core.Services.World
                 Stop(name);
             _slowTimes.Clear();
             _runningRoots.Clear();
+            _npcEffects.Clear();
             ApplySlowTime();
         }
 

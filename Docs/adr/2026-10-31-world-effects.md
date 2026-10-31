@@ -15,9 +15,11 @@ The scripts start visual effects of their own: Gothic 2 more than a hundred time
 4. **An earthquake rumbles both controllers** while the hero is within its radius - from an effect or from an earthquake object in the world when it is triggered. Not chosen: shaking the view, which makes VR players sick.
 5. **Slowed time slows the whole world, the player included,** because the VR player moves by the same clock. In Gothic swampweed slows the world and the player alike; the addon's slow motion keeps the player at full speed, which VR can't do.
 6. **The wobbling view is left out** in VR for the same reason as the shake.
+7. **NPCs with an effect of their own carry it on their body** while they are around: the fire shadowbeast burns, the undead dragon has its aura.
 
 ## Consequences
 
 - Dementors darken the view while they talk to the hero, until the scripts end it.
 - The pause menu sets the time scale too; whichever branch merges second keeps a running slow time when the menu closes.
 - The effects' lights are not shown yet.
+- Ghosts (Quarhodron, Rhademes) still look solid: see-through NPCs need a transparent version of the NPC shader.
