@@ -96,9 +96,11 @@ namespace Gothic.Core.Services.Vobs
         {
             ReadBurningLook();
 
+            // On the moving part of the item (its rigidbody), not its loader that stays where it was spawned.
+            var body = GetBody(torch.Go);
             var fire = new GameObject("TorchFire");
-            fire.transform.SetParent(torch.Go.transform, false);
-            fire.transform.localPosition = GetTipLocalPosition(torch.Go);
+            fire.transform.SetParent(body.transform, false);
+            fire.transform.localPosition = GetTipLocalPosition(body);
             _meshService.CreateVobPfx(_firePfx, Vector3.zero, Quaternion.identity, fire);
 
             if (!string.IsNullOrEmpty(_burnSound))
@@ -231,6 +233,12 @@ namespace Gothic.Core.Services.Vobs
         {
             var item = (IItem)torch.Vob;
             return !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+        }
+
+        private static GameObject GetBody(GameObject torch)
+        {
+            var body = torch.GetComponentInChildren<Rigidbody>();
+            return body != null ? body.gameObject : torch;
         }
 
         /// <summary>
