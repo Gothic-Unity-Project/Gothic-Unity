@@ -7,6 +7,7 @@ using Gothic.Core.Models.Proxy;
 using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
