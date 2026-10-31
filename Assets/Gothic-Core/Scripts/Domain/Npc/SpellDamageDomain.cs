@@ -16,7 +16,8 @@ namespace Gothic.Core.Domain.Npc
     /// The engine's rules for a spell hitting an NPC (OpenGothic Npc::takeDamage, DamageCalculator::rangeDamage): whether
     /// it touches the victim - G1 by the spell's target type, G2 as the scripts' C_CanNpcCollideWithSpell says - and what
     /// it takes off: the spell's damage for each of its damage types minus the victim's protection (immune types left
-    /// out), doubled or halved as the scripts say. No armor, strength or critical hits. Owned by MagicService.
+    /// out), doubled or halved as the scripts say. No armor, strength or critical hits. Owned by MagicService
+    /// and WorldEffectService.
     /// </summary>
     public class SpellDamageDomain
     {
@@ -94,11 +95,23 @@ namespace Gothic.Core.Domain.Npc
             if ((collisionMask & CollApplyHalvedDamage) != 0)
                 typeDamage /= 2;
 
+            return CalculateDamage(victim, spell.DamageType, typeDamage);
+        }
+
+        /// <summary>
+        /// The damage for each of the damage types (DAM_* bits) minus the victim's protection, immune types left out -
+        /// also for the damage of a script effect (Wld_PlayEffect).
+        /// </summary>
+        public int CalculateDamage(NpcContainer victim, int damageType, int typeDamage)
+        {
+            if (((int)victim.Instance.Flags & _npcFlagImmortal) != 0)
+                return 0;
+
             var damage = 0;
             var isImmune = true;
             for (var i = 0; i < _damageTypeCount; i++)
             {
-                if ((spell.DamageType & (1 << i)) == 0 || typeDamage == 0)
+                if ((damageType & (1 << i)) == 0 || typeDamage == 0)
                     continue;
 
                 var protection = victim.Vob.GetProtection(i);

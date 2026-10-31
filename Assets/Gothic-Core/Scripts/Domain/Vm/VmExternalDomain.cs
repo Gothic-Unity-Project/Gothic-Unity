@@ -40,6 +40,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly MagicService _magicService;
+        [Inject] private readonly WorldEffectService _worldEffectService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly AudioService _audioService;
@@ -1259,6 +1260,27 @@ namespace Gothic.Core.Domain.Vm
                 vm.RegisterExternal<NpcInstance, int, int, float>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
             if (IsDeclared("AI_SetNpcsToState"))
                 vm.RegisterExternal<NpcInstance, int, int>("AI_SetNpcsToState", AI_SetNpcsToState);
+            // Effects the scripts play: G2's teleports, Dementors, stone guardians, G1's Sleeper fireball.
+            if (IsDeclared("Wld_PlayEffect"))
+                vm.RegisterExternal<string, DaedalusInstance, DaedalusInstance, int, int, int, int>("Wld_PlayEffect",
+                    Wld_PlayEffect);
+            if (IsDeclared("Wld_StopEffect"))
+                vm.RegisterExternal<string>("Wld_StopEffect", Wld_StopEffect);
+        }
+
+        /// <summary>
+        /// Wld_PlayEffect(effect, origin, target, level, damage, damageType, isProjectile). The level picks the
+        /// strength of a spell effect - played effects show their cast at once.
+        /// </summary>
+        public void Wld_PlayEffect(string effect, DaedalusInstance origin, DaedalusInstance target, int level,
+            int damage, int damageType, int isProjectile)
+        {
+            _worldEffectService.Play(effect, origin, target, damage, damageType, isProjectile != 0);
+        }
+
+        public void Wld_StopEffect(string effect)
+        {
+            _worldEffectService.Stop(effect);
         }
 
         public void AI_Teleport(NpcInstance npc, string pointName)

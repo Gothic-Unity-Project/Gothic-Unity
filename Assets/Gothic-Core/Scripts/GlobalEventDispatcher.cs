@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Effects;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
@@ -138,6 +139,23 @@ namespace Gothic.Core
         /// The hero is human again.
         /// </summary>
         public static readonly UnityEvent HeroTransformedBack = new();
+
+        /// <summary>
+        /// A script effect tints the whole view (WorldEffectService, screenblend.scx): DEMENTOR_FX, a spell's flash.
+        /// It ends after ScreenBlend.Seconds, or with ScreenBlendStopped.
+        /// </summary>
+        public static readonly UnityEvent<ScreenBlend> ScreenBlendStarted = new();
+
+        /// <summary>
+        /// The tint fades out over ScreenBlend.FadeSeconds.
+        /// </summary>
+        public static readonly UnityEvent<ScreenBlend> ScreenBlendStopped = new();
+
+        /// <summary>
+        /// The world shakes (WorldEffectService: FX_EarthQuake): position, radius in m, seconds, amplitude in m. VR
+        /// rumbles the controllers within the radius instead of shaking the view.
+        /// </summary>
+        public static readonly UnityEvent<Vector3, float, float, float> EarthquakeStarted = new();
         
 
         // LockPicking events

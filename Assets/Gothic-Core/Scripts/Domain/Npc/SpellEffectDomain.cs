@@ -21,7 +21,7 @@ namespace Gothic.Core.Domain.Npc
     /// spellFX_[name] is the glow at the caster or the flying projectile, its emFXCollDyn_S effect shows where the spell
     /// hits. Only the effects' particles are shown - their meshes, lights, invest keys and sounds aren't yet, and the
     /// particle builder shows few of them - so a flying spell also gets a glowing core in the color of its damage.
-    /// Owned by MagicService.
+    /// Owned by MagicService and WorldEffectService.
     /// </summary>
     public class SpellEffectDomain
     {
