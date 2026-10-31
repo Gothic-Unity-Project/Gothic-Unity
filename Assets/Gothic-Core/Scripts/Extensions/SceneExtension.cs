@@ -1,8 +1,8 @@
-using Gothic.Core.Const;
 ﻿using System.Linq;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Gothic.Core.Const;
 
 namespace Gothic.Core.Extensions
 {
