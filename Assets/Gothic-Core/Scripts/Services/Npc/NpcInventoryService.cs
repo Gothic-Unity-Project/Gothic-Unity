@@ -135,6 +135,20 @@ namespace Gothic.Core.Services.Npc
             return items;
         }
 
+        /// <summary>
+        /// Npc_GetInvItem: the item if the NPC carries it - it also becomes the scripts' 'item' (G2: the Holy Hammer).
+        /// </summary>
+        public ItemInstance ExtNpcGetInvItem(NpcInstance npc, int itemId)
+        {
+            if (npc == null || itemId <= 0 || ExtNpcHasItems(npc, itemId) <= 0)
+                return null;
+
+            var item = _vmCacheService.TryGetItemData(itemId);
+            if (item != null)
+                _gameStateService.GothicVm.GlobalItem = item;
+            return item;
+        }
+
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
             var itemInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(itemId)!.Name;

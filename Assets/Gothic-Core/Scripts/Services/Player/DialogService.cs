@@ -283,6 +283,27 @@ namespace Gothic.Core.Manager
                 npcContainer));
         }
 
+        /// <summary>
+        /// AI_OutputSVM_Overlay: the NPC says it while going on - the hero (his refusals: "I can't pick locks") says it
+        /// at once, his own queue isn't processed.
+        /// </summary>
+        public void ExtAiOutputSvmOverlay(NpcInstance npc, NpcInstance target, string svmName)
+        {
+            var npcContainer = GetNpcContainer(npc);
+            if (npcContainer?.Props == null)
+                return;
+
+            if (npc.Id == 0)
+            {
+                new OutputSvmOverlay(new AnimationAction(int0: 0, string0: svmName), npcContainer).Start();
+                return;
+            }
+
+            npcContainer.Props.AnimationQueue.Enqueue(new OutputSvmOverlay(
+                new AnimationAction(int0: npcContainer.Instance.Id, string0: svmName),
+                npcContainer));
+        }
+
         public bool ExtInfoManagerHasFinished()
         {
             return !_gameStateService.Dialogs.IsInDialog;

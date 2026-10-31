@@ -21,6 +21,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly Gothic.Core.Services.World.WayNetService _wayNetService;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -227,6 +228,112 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.AnimationQueue.Enqueue(new LookAtNpc(
                 new AnimationAction(instance0: other),
                 npc.GetUserData()));
+        }
+
+        public void ExtAiPointAt(NpcInstance npc, string pointName)
+        {
+            var point = _wayNetService.GetWayNetPoint(pointName);
+            var container = npc?.GetUserData();
+            if (point == null || container?.Props == null)
+                return;
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container, () => point.Position));
+        }
+
+        public void ExtAiPointAtNpc(NpcInstance npc, NpcInstance other)
+        {
+            var container = npc?.GetUserData();
+            var target = other?.GetUserData();
+            if (target == null || container?.Props == null)
+                return;
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container,
+                () => target.Go != null ? (Vector3?)target.Go.transform.position : null));
+        }
+
+        public void ExtAiStopPointAt(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            container?.Props?.AnimationQueue.Enqueue(new StopPointAt(new AnimationAction(), container));
+        }
+
+        /// <summary>
+        /// Npc_HasBodyFlag: the body state carries the flag (BS_FLAG_INTERRUPTABLE, BS_FLAG_FREEHANDS).
+        /// </summary>
+        public bool ExtNpcHasBodyFlag(NpcInstance npc, int flag)
+        {
+            var props = npc?.GetUserData()?.Props;
+            return props != null && ((int)props.BodyState & flag) != 0;
+        }
+
+        /// <summary>
+        /// Npc_SendSinglePerc, like the engine: the target perceives it, with the sender as 'other' (G1's charm,
+        /// shrink and berserk spells).
+        /// </summary>
+        public void ExtNpcSendSinglePerc(NpcInstance npc, NpcInstance target, int perception)
+        {
+            var targetProps = target?.GetUserData()?.Props;
+            if (npc == null || targetProps == null)
+                return;
+
+            ExecutePerception((VmGothicEnums.PerceptionType)perception, targetProps, target, null, npc);
+        }
+
+        /// <summary>
+        /// Npc_PlayAni: the animation right away, not queued.
+        /// </summary>
+        public void ExtNpcPlayAni(NpcInstance npc, string animationName)
+        {
+            npc?.GetUserData()?.PrefabProps?.AnimationSystem?.PlayAnimation(animationName);
+        }
+
+        /// <summary>
+        /// Npc_GetLookAtTarget: the NPC (or hero) the scripts made it look at.
+        /// </summary>
+        public NpcInstance ExtNpcGetLookAtTarget(NpcInstance npc)
+        {
+            var target = npc?.GetUserData()?.PrefabProps?.AnimationHeadHandler?.ScriptTarget;
+            if (target == null)
+                return null;
+
+            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
+            var heroHead = hero?.GetUserData()?.PrefabProps?.Head;
+            if (heroHead != null && target == heroHead)
+                return hero;
+
+            return target.GetComponentInParent<Gothic.Core.Adapters.Npc.NpcLoader>()?.Npc;
+        }
+
+        /// <returns>cm to the hero.</returns>
+        public int ExtNpcGetDistToPlayer(NpcInstance npc)
+        {
+            var npcGo = npc?.GetUserData()?.Go;
+            var heroGo = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
+            if (npcGo == null || heroGo == null)
+                return int.MaxValue;
+
+            return (int)(Vector3.Distance(npcGo.transform.position, heroGo.transform.position) * 100);
+        }
+
+        /// <summary>
+        /// Npc_IsInCutscene, like the reference engine: in a dialog (there are no cutscenes) - nobody attacks then.
+        /// </summary>
+        public bool ExtNpcIsInCutscene(NpcInstance npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            if (npc == null || !dialogs.IsInDialog)
+                return false;
+
+            return npc.Id == 0 || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
+        }
+
+        /// <summary>
+        /// Npc_CanSeeSource: the NPC sees who made the noise it perceives ('other').
+        /// </summary>
+        public bool ExtNpcCanSeeSource(NpcInstance npc)
+        {
+            var source = _gameStateService.GothicVm.GlobalOther as NpcInstance;
+            return npc != null && source != null && _npcHelperService.CanSeeNpc(npc, source, false);
         }
 
         public void ExtAiStopLookAt(NpcInstance npc)

@@ -25,6 +25,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected virtual string OutputName => Action.String0;
 
+        /// <summary>
+        /// Said while doing something else (AI_OutputSVM_Overlay): no gesture, the queue goes on at once.
+        /// </summary>
+        protected virtual bool IsOverlay => false;
+
         private bool _isHeroSpeaking => Action.Int0 == 0;
         private float _audioPlaySeconds;
 
@@ -66,17 +71,27 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // NPC
             else
             {
-                var gestureCount = GetDialogGestureCount();
-                var randomId = Random.Range(1, gestureCount + 1);
+                if (!IsOverlay)
+                {
+                    var gestureCount = GetDialogGestureCount();
+                    var randomId = Random.Range(1, gestureCount + 1);
 
-                _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
-                PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
+                    PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                }
                 PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
 
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
 
                 PrintDialog();
+            }
+
+            if (IsOverlay)
+            {
+                var speaker = _isHeroSpeaking ? _npcService.GetHeroContainer().PrefabProps : PrefabProps;
+                speaker.NpcSubtitles?.ScheduleHide(_audioPlaySeconds);
+                IsFinishedFlag = true;
             }
         }
 

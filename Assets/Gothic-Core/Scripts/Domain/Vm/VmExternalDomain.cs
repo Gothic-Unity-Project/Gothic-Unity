@@ -119,6 +119,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
+            RegisterSmallExternals(vm);
 
             // Apply Options
             // Doc
@@ -518,6 +519,56 @@ namespace Gothic.Core.Domain.Vm
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)
         {
             _dialogService.ExtAiOutputSvm(npc, target, svmname);
+        }
+
+        /// <summary>
+        /// The reference engine's externals the scripts call and we lacked: remarks while busy, pointing, body flags,
+        /// single perceptions... Only the ones the game's scripts declare.
+        /// </summary>
+        private void RegisterSmallExternals(DaedalusVm vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("AI_OutputSVM_Overlay"))
+                vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM_Overlay",
+                    (npc, target, svm) => _dialogService.ExtAiOutputSvmOverlay(npc, target, svm));
+            if (IsDeclared("AI_PointAt"))
+                vm.RegisterExternal<NpcInstance, string>("AI_PointAt", _npcAiService.ExtAiPointAt);
+            if (IsDeclared("AI_PointAtNpc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_PointAtNpc", _npcAiService.ExtAiPointAtNpc);
+            if (IsDeclared("AI_StopPointAt"))
+                vm.RegisterExternal<NpcInstance>("AI_StopPointAt", _npcAiService.ExtAiStopPointAt);
+            if (IsDeclared("Npc_HasBodyFlag"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_HasBodyFlag",
+                    (npc, flag) => Convert.ToInt32(_npcAiService.ExtNpcHasBodyFlag(npc, flag)));
+            if (IsDeclared("Npc_SendSinglePerc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance, int>("Npc_SendSinglePerc",
+                    _npcAiService.ExtNpcSendSinglePerc);
+            if (IsDeclared("Npc_PlayAni"))
+                vm.RegisterExternal<NpcInstance, string>("Npc_PlayAni", _npcAiService.ExtNpcPlayAni);
+            if (IsDeclared("Npc_GetLookAtTarget"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_GetLookAtTarget",
+                    _npcAiService.ExtNpcGetLookAtTarget);
+            if (IsDeclared("Npc_HasEquippedWeapon"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedWeapon",
+                    npc => Convert.ToInt32(_npcHelperService.ExtNpcHasEquippedMeleeWeapon(npc) ||
+                                           _npcHelperService.ExtNpcHasEquippedRangedWeapon(npc)));
+            if (IsDeclared("Npc_GetDistToPlayer"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetDistToPlayer", _npcAiService.ExtNpcGetDistToPlayer);
+            if (IsDeclared("Npc_GetInvItem"))
+                vm.RegisterExternal<ItemInstance, NpcInstance, int>("Npc_GetInvItem",
+                    _npcInventoryService.ExtNpcGetInvItem);
+            if (IsDeclared("Npc_IsInCutscene"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsInCutscene",
+                    npc => Convert.ToInt32(_npcAiService.ExtNpcIsInCutscene(npc)));
+            if (IsDeclared("Npc_CanSeeSource"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_CanSeeSource",
+                    npc => Convert.ToInt32(_npcAiService.ExtNpcCanSeeSource(npc)));
+            // G2's language switches - the strings come from the installed game.
+            if (IsDeclared("Game_InitGerman"))
+                vm.RegisterExternal("Game_InitGerman", () => { });
+            if (IsDeclared("Game_InitEnglish"))
+                vm.RegisterExternal("Game_InitEnglish", () => { });
         }
 
         #endregion
