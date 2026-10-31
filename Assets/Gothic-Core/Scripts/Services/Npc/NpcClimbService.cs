@@ -27,8 +27,6 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcClimbService
     {
-        // A wall within this angle of the walk direction is head-on (CLIMB_HEADING_ANGLE of the human guild).
-        private const float _headOnAngle = 45f;
         // After a wall that can't be climbed, the probe waits this long (seconds) before the NPC tries again.
         private const float _probeCooldown = 1f;
         // Share of the climb animation in which the NPC rises to the top, and from which it moves onto it.
@@ -68,12 +66,43 @@ namespace Gothic.Core.Services.Npc
 
         public NpcClimbService()
         {
-            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _ladderPositions = null);
+            // A new world: other ladders, and the climbs of the old one's NPCs are over.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() =>
+            {
+                _ladderPositions = null;
+                _climbs.Clear();
+                _ladders.Clear();
+                _nextProbeTimes.Clear();
+            });
+            // Culled mid-climb: nothing ticks the climb while it's away, and it comes back at its routine.
+            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener((npc, _, isInVisibleRange, _) =>
+            {
+                if (!isInVisibleRange)
+                    StopClimb(npc);
+            });
         }
 
         public bool IsClimbing(NpcContainer npc)
         {
-            return _climbs.ContainsKey(npc) || _ladders.ContainsKey(npc);
+            if (!_climbs.ContainsKey(npc) && !_ladders.ContainsKey(npc))
+                return false;
+
+            // Destroyed or inactive (culled) mid-climb: the climb is over.
+            if (npc.Go == null || !npc.Go.activeInHierarchy)
+            {
+                StopClimb(npc);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Ends the climb where the NPC is, without touching its body state or physics.
+        /// </summary>
+        private void StopClimb(NpcContainer npc)
+        {
+            _climbs.Remove(npc);
+            _ladders.Remove(npc);
         }
 
         /// <summary>
@@ -212,14 +241,16 @@ namespace Gothic.Core.Services.Npc
         {
             if (npc?.Go == null || IsClimbing(npc) || npc.Vob?.AiHuman == null)
                 return false;
-            if (Vector3.Angle(walkDirection, -wallNormal) > _headOnAngle)
-                return false;
             if (npc.Vob.AiHuman.WaterLevel == (int)ZenGineConst.WaterLevel.Chest)
                 return false;
             if (_nextProbeTimes.TryGetValue(npc, out var nextProbeTime) && Time.time < nextProbeTime)
                 return false;
 
             var rules = _ledgeService.GetRules(npc.Instance.GetValuesGuild());
+            // Head-on: the wall within the guild's CLIMB_HEADING_ANGLE of the walk direction (G2 humans: 50 degrees).
+            if (Vector3.Angle(walkDirection, -wallNormal) > rules.ClimbHeadingAngle)
+                return false;
+
             var body = new LedgeBody(bodyRadius, bodyHeight, 1 << Constants.DefaultLayer);
             var ledge = _ledgeService.ProbeAhead(feet, walkDirection, body, rules);
             var animationName = ledge.Band switch
@@ -271,6 +302,14 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void Tick(NpcContainer npc)
         {
+            // Died or knocked out mid-climb: the climb ends where the NPC is. Death and knockout own its body state and
+            // physics now - setting it back to standing at the climb's end would overwrite them.
+            if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+            {
+                StopClimb(npc);
+                return;
+            }
+
             if (_ladders.ContainsKey(npc))
             {
                 TickLadder(npc);

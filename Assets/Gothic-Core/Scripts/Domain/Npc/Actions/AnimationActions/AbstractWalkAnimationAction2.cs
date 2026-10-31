@@ -9,6 +9,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public abstract class AbstractWalkAnimationAction2 : AbstractAnimationAction
     {
+        [Inject] protected readonly NpcClimbService NpcClimbService;
+
         protected Transform NpcTransform => NpcGo.transform;
         protected bool IsDestReached;
 
@@ -16,8 +18,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // recalculating the name would stop the wrong animation when walk/fight mode changed mid-walk
         // (e.g. via an immediately executed AI_SetWalkmode), leaving the walk loop sliding the NPC forever.
         private string _startedWalkAnimationName;
-
-        [Inject] protected readonly NpcClimbService NpcClimbService;
         private bool _isClimbing;
 
         protected AbstractWalkAnimationAction2(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)

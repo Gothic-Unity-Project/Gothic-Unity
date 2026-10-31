@@ -46,11 +46,10 @@ namespace Gothic.Core.Adapters.Animations
 #endif
 
         [Inject] private readonly AnimationService _animationService;
-
-        [Inject] private readonly NpcClimbService _npcClimbService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcClimbService _npcClimbService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
