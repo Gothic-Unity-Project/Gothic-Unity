@@ -34,6 +34,8 @@ namespace Gothic.Core.Services.Meshes
             { Constants.ShaderLitAlphaToCoverageName, new (Constants.ShaderLitAlphaToCoverageDynamic, (int)RenderQueue.AlphaTest) }
         };
 
+        private static readonly int _fatnessShaderId = Shader.PropertyToID("_Fatness");
+
         // Some objects (like NPCs) have multiple meshes. We therefore add all self+children renderers/materials.
         private Dictionary<GameObject, CacheEntry> _cache = new();
 
@@ -108,6 +110,9 @@ namespace Gothic.Core.Services.Meshes
                     mainTexture = mat.mainTexture,
                     renderQueue = shaderMapEntry.shaderType
                 };
+                // A fat NPC stays fat while it is highlighted or see-through.
+                if (mat.HasProperty(_fatnessShaderId) && newMaterial.HasProperty(_fatnessShaderId))
+                    newMaterial.SetFloat(_fatnessShaderId, mat.GetFloat(_fatnessShaderId));
 
                 dynamicMaterials.Add(newMaterial);
             }

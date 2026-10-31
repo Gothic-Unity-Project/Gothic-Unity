@@ -5,6 +5,7 @@ Shader "Lit/SingleMesh-Dynamic"
         _MainTex("Texture", 2D) = "white" {}
         _FocusBrightness("FocusBrightness", Range(1, 100)) = 1
         _Alpha("Alpha", Range(0,1)) = 1
+        [HideInInspector]_Fatness("Fatness", Float) = 0
     }
     SubShader
     {
@@ -57,6 +58,7 @@ Shader "Lit/SingleMesh-Dynamic"
                 float4 _MainTex_ST;
                 float _FocusBrightness;
                 float _Alpha;
+                float _Fatness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
@@ -82,8 +84,10 @@ Shader "Lit/SingleMesh-Dynamic"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-                o.worldPos = TransformObjectToWorld(v.vertex.xyz);
-                o.vertex = TransformObjectToHClip(v.vertex.xyz);
+                // Fatter or thinner NPCs (0 for everything else).
+                float3 position = v.vertex.xyz + v.normal * _Fatness;
+                o.worldPos = TransformObjectToWorld(position);
+                o.vertex = TransformObjectToHClip(position);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
                 return o;

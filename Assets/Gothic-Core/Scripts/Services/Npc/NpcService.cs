@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -413,8 +414,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelFatness = fatness;
+            var container = npc.GetUserData();
+            if (container != null)
+                _npcLookService.SetFatness(container, fatness);
         }
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
