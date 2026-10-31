@@ -232,7 +232,7 @@ namespace Gothic.Core.Services.Npc
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
             // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
+            if (other.PrefabProps.PrefabProps?.IsHero() == true && self.Vob.Attitude != self.Vob.AttitudeTemp)
                 return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
 
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
@@ -317,10 +317,10 @@ namespace Gothic.Core.Services.Npc
             var otherGroundPosition = otherRoot.position;
             // Unity places positions of objects at the bottom. We need to lift them up towards the head
             // The VR hero's head is the camera: in room scale it isn't above the rig's origin.
-            var selfRealHeadPosition = selfContainer.IsHero()
+            var selfRealHeadPosition = selfContainer.PrefabProps?.IsHero() == true
                 ? selfHead.position
                 : new Vector3(selfRoot.position.x, selfHead.position.y, selfRoot.position.z);
-            var otherRealHeadPosition = otherContainer.IsHero()
+            var otherRealHeadPosition = otherContainer.PrefabProps?.IsHero() == true
                 ? otherHead.position
                 : new Vector3(otherRoot.position.x, otherHead.position.y, otherRoot.position.z);
 
