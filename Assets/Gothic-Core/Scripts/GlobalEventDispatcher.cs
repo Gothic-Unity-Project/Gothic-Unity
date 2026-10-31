@@ -99,6 +99,16 @@ namespace Gothic.Core
         /// Vector3      - at which position
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+
+        /// <summary>
+        /// NpcContainer - a script (Npc_ChangeAttribute) took its last hit points. FightService decides how it dies.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
+
+        /// <summary>
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
         
 
         // LockPicking events

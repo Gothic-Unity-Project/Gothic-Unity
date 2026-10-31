@@ -514,6 +514,15 @@ namespace Gothic.Core.Adapters.Npc
                 }
 
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+                // A state change doesn't stand the dead up - it set BS_STAND and stopped S_DEADB.
+                if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+                {
+                    Logger.LogWarning($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: state cleared while " +
+                                      "dead - stays dead", LogCat.Ai);
+                    return;
+                }
+
                 Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
@@ -527,11 +536,32 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
+        /// Lying dead. G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
+        /// </summary>
+        private void PlayDeadPose()
+        {
+            if (!PrefabProps.AnimationSystem.PlayAnimation("S_DEADB"))
+                PrefabProps.AnimationSystem.PlayAnimation("S_DEAD");
+        }
+
+        /// <summary>
         /// Fully reset NPC state.
         /// Called after an NPC is re-enabled in the scene.
         /// </summary>
         public void ReEnableNpc()
         {
+            // A corpse stays where it died and lies again - it was moved to its routine waypoint and started its
+            // routine: Lukis and Ghorri stood in the bind pose, legs in the ground.
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                Properties.AnimationQueue.Clear();
+                Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+                PlayDeadPose();
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: re-enabled dead - lies again",
+                    LogCat.Npc);
+                return;
+            }
+
             // Spawn to initial spawn location
             var currentRoutine = Properties.RoutineCurrent;
             if (currentRoutine != null)

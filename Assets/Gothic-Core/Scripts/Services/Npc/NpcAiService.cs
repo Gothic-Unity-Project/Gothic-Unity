@@ -100,6 +100,28 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        public void CallVmFunctionWithNpcGlobals(string funcName, NpcInstance self, NpcInstance victim, NpcInstance other)
+        {
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(funcName);
+            if (symbol == null) return;
+
+            var oldSelf = _gameStateService.GothicVm.GlobalSelf;
+            var oldVictim = _gameStateService.GothicVm.GlobalVictim;
+            var oldOther = _gameStateService.GothicVm.GlobalOther;
+
+            _gameStateService.GothicVm.GlobalSelf = self;
+            if (other != null) _gameStateService.GothicVm.GlobalOther = other;
+            if (victim != null) _gameStateService.GothicVm.GlobalVictim = victim;
+
+            try { _gameStateService.GothicVm.Call(symbol.Index); }
+            finally
+            {
+                _gameStateService.GothicVm.GlobalSelf = oldSelf;
+                _gameStateService.GothicVm.GlobalVictim = oldVictim;
+                _gameStateService.GothicVm.GlobalOther = oldOther;
+            }
+        }
+
         public void ExtNpcSetPerceptionTime(NpcInstance npc, float time)
         {
             npc.GetUserData().Props.PerceptionTime = time;
@@ -221,7 +243,10 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
-        public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName)
+        /// <param name="isScriptCall">False for state changes of the engine itself (knockout): like the engine, the old
+        /// state's _End isn't called and the queue doesn't wait for dialog lines.</param>
+        public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName,
+            bool isScriptCall = true)
         {
             var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
             var victim = (NpcInstance)_gameStateService.GothicVm.GlobalVictim;
@@ -233,7 +258,7 @@ namespace Gothic.Core.Services.Npc
             // (AI_StartState(self, ZS_Attack, 1, "")) skipped ZS_Talk_End, the hero kept the dialog's AIV_INVINCIBLE and
             // nobody talked to or fought him anymore. StartState calls it when the queue reaches it.
             var endFunction = 0;
-            if (stopCurrentState)
+            if (stopCurrentState && isScriptCall)
             {
                 // Called from the state's own _End (ZS_Attack_End: "$NeverTryThatAgain" + AI_StartState) or after it:
                 // the state already ended - its _End ran a second time and the NPC said everything twice.
@@ -256,6 +281,15 @@ namespace Gothic.Core.Services.Npc
                 {
                     container.PrefabProps?.AiHandler?.ClearState(false);
                 }
+            }
+            else if (stopCurrentState)
+            {
+                container.Props.StateEnd = 0;
+                container.Props.CurrentWayPoint = null;
+                // A StandUp just queued (AI_StandUp in ZS_Unconscious_End) plays first - StartState follows it.
+                if (!container.Props.AnimationQueue.OfType<UndrawWeapon>().Any() &&
+                    !container.Props.AnimationQueue.OfType<StandUp>().Any())
+                    container.PrefabProps?.AiHandler?.ClearState(false);
             }
 
             container.Props.AnimationQueue.Enqueue(new StartState(
@@ -321,9 +355,12 @@ namespace Gothic.Core.Services.Npc
             // FIXME - Implement remaining task from G1 documentation:
             // * Ist der Nsc in einem Animationsstate, wird die passende Rücktransition abgespielt (e.g. item states).
             var container = npc.GetUserData();
+            var wasUnconscious = container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
             // Reset immediately (not via queue) so Daedalus C_BodyStateContains checks in the same ZS_*_Loop tick see BsStand.
             // A seated NPC still sits during the back transition below.
             container.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+            if (wasUnconscious)
+                container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "T_Wounded_2_Stand"), container));
 
             // G1 docs: AI_StandUp plays the back transitions of a mob (S1 -> S0 -> Stand) - unless one is already
             // running or queued (e.g. ZS_SitAround_End: AI_UseMob(BENCH, -1)).
@@ -546,12 +583,50 @@ namespace Gothic.Core.Services.Npc
         {
             // FIXME - BodyState is runtime-only and lost on NPC reload (e.g. world reload respawns the NPC alive).
             // A permanent death flag needs to be persisted in SaveGame state and checked here instead.
-            return npcInstance.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            //
+            // ZenKit's Pop<NpcInstance>() creates a fresh C# wrapper without UserData. We look up the
+            // NpcContainer by NpcInstance.Index (Daedalus symbol index, embedded in the native instance).
+            if (npcInstance == null) return false;
+            // Try direct UserData first (set on original C# wrappers; null on fresh VM-popped ones).
+            var container = npcInstance.GetUserData();
+            if (container != null)
+                return container.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+
+            // Fresh VM wrapper: UserData is null. Typical call site is ZS_Attack_Loop → C_NpcIsDown
+            // which checks the current NPC's TargetNpc. GlobalSelf is set to the executing NPC by
+            // AiHandler before every loop call, so we can resolve via the stored TargetNpc/EnemyNpc
+            // reference (which has UserData). This correctly distinguishes multiple instances that
+            // share the same SymbolIndex (e.g. three wolves: killing wolf #2 must not return isDead=false
+            // because FirstOrDefault would find alive wolf #1).
+            if (_gameStateService.GothicVm.GlobalSelf?.UserData is NpcContainer selfNpc)
+            {
+                var byTarget = selfNpc.Props.TargetNpc?.GetUserData();
+                if (byTarget != null && byTarget.Instance?.Index == npcInstance.Index)
+                    return byTarget.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+                var byEnemy = selfNpc.Props.EnemyNpc?.GetUserData();
+                if (byEnemy != null && byEnemy.Instance?.Index == npcInstance.Index)
+                    return byEnemy.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            }
+
+            // Generic fallback — may be incorrect for multi-instance symbols.
+            container = _multiTypeCacheService.NpcCache.FirstOrDefault(n => n.Instance?.Index == npcInstance.Index);
+            return container?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
         }
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)
         {
-            return npc.GetUserData()?.Vob.CurrentStateIndex == state;
+            var container = npc.GetUserData();
+            if (container == null) return false;
+            if (container.PrefabProps != null && container.PrefabProps.IsHero() &&
+                container.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+            {
+                // Hero doesn't run the Daedalus state machine — map BsUnconscious to ZS_Unconscious/ZS_MagicSleep.
+                var stateName = _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name;
+                var result = stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
+                Logger.Log($"[NpcAiService.IsInState] Hero unconscious — queried state={stateName} → {result}", LogCat.Npc);
+                return result;
+            }
+            return container.Vob.CurrentStateIndex == state;
         }
 
         public bool ExtNpcIsPlayer(NpcInstance npc)
@@ -670,7 +745,7 @@ namespace Gothic.Core.Services.Npc
         /// dead/unconscious or culled NPCs. Range: Perc_SetRange, capped by the receiver's senses_range.
         /// </summary>
         public int BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
-            NpcInstance victim, NpcInstance other)
+            NpcInstance victim, NpcInstance other, NpcContainer exclude = null)
         {
             if (sender?.Go == null)
                 return 0;
@@ -688,7 +763,7 @@ namespace Gothic.Core.Services.Npc
             _passivePerceptionDepth++;
             try
             {
-                return SendPassivePerception(sender, perception, victim, other);
+                return SendPassivePerception(sender, perception, victim, other, exclude);
             }
             finally
             {
@@ -700,7 +775,7 @@ namespace Gothic.Core.Services.Npc
         private int _passivePerceptionDepth;
 
         private int SendPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
-            NpcInstance victim, NpcInstance other)
+            NpcInstance victim, NpcInstance other, NpcContainer exclude)
         {
             var senderPos = sender.Go.transform.position;
             var notified = 0;
@@ -708,7 +783,8 @@ namespace Gothic.Core.Services.Npc
             // Copy: a perception function can insert/remove NPCs (Wld_InsertNpc, AI_Teleport).
             foreach (var candidate in _multiTypeCacheService.NpcCache.ToArray())
             {
-                if (candidate == sender || candidate.Props == null || candidate.Instance == null) continue;
+                if (candidate == sender || candidate == exclude || candidate.Props == null || candidate.Instance == null)
+                    continue;
                 if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
                 if (NpcHelperService.IsDown(candidate)) continue;
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
