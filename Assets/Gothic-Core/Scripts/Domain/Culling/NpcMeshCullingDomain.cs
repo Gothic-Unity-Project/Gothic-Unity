@@ -83,8 +83,9 @@ namespace Gothic.Core.Domain.Culling
 
         /// <summary>
         /// Wld_RemoveNpc: the NPC leaves the culling - its slot is filled with the last entry (no array reallocation).
+        /// Returns the NPC's lazy-load root (null if it had no culling entry).
         /// </summary>
-        public NpcLoader RemoveCullingEntry(NpcInstance npc)
+        public UnityEngine.GameObject RemoveCullingEntry(NpcInstance npc)
         {
             if (npc == null || !_indexByInstance.TryGetValue(npc, out var index))
                 return null;
@@ -111,7 +112,7 @@ namespace Gothic.Core.Domain.Culling
 
             Logger.Log($"[NpcCulling] Removed '{npc.GetName(NpcNameSlot.Slot0)}' (was visible: {wasVisible}).",
                 LogCat.Npc);
-            return loader;
+            return loader != null ? loader.gameObject : null;
         }
 
         /// <summary>

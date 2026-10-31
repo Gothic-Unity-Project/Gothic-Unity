@@ -432,14 +432,6 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// State means the final state where the animation shall go to.
-        /// example:
-        /// * itemId=xyz (ItFoBeer)
-        /// * animationState = 0
-        /// * ItFoBeer is of visual_scheme = Potion
-        /// * expected state is t_Potion_Stand_2_S0 --> s_Potion_S0
-        /// </summary>
-        /// <summary>
         /// AI_UseItem: take the item out, use it up (UseItemEffect: on_state[0], potions heal) and put the hand down.
         /// </summary>
         public void ExtAiUseItem(NpcInstance npc, int itemId)
@@ -456,6 +448,14 @@ namespace Gothic.Core.Services.Npc
             ExtAiUseItemToState(npc, itemId, -1);
         }
 
+        /// <summary>
+        /// State means the final state where the animation shall go to.
+        /// example:
+        /// * itemId=xyz (ItFoBeer)
+        /// * animationState = 0
+        /// * ItFoBeer is of visual_scheme = Potion
+        /// * expected state is t_Potion_Stand_2_S0 --> s_Potion_S0
+        /// </summary>
         public void ExtAiUseItemToState(NpcInstance npc, int itemId, int animationState)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new UseItemToState(

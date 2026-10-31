@@ -270,10 +270,11 @@ namespace Gothic.Core.Services.Npc
             {
                 var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
                 _multiTypeCacheService.NpcCache.Remove(npc);
+                // The NPC's GameObject normally lives under its lazy-load root - destroy it too if it doesn't.
+                if (npc.Go != null && (lazyLoadRoot == null || !npc.Go.transform.IsChildOf(lazyLoadRoot.transform)))
+                    Object.Destroy(npc.Go);
                 if (lazyLoadRoot != null)
                     Object.Destroy(lazyLoadRoot);
-                else if (npc.Go != null)
-                    Object.Destroy(npc.Go);
             }
 
             if (removed.Count == 0)

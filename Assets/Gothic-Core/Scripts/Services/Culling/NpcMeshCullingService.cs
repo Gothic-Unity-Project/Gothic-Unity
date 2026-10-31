@@ -26,8 +26,7 @@ namespace Gothic.Core.Services.Culling
         /// </summary>
         public UnityEngine.GameObject RemoveCullingEntry(ZenKit.Daedalus.NpcInstance npc)
         {
-            var loader = _npcDomain.RemoveCullingEntry(npc);
-            return loader != null ? loader.gameObject : null;
+            return _npcDomain.RemoveCullingEntry(npc);
         }
 
         /// <summary>
