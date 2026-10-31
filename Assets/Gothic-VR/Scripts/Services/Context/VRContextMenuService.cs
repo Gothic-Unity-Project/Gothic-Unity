@@ -61,9 +61,43 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsLabel(gameMenu, menuStartY + menuDY * 1));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsChoice(gameMenu, menuStartY + menuDY * 1));
-            vrImmersionMenu.Items.Add(CreateWindLabel(gameMenu, menuStartY + menuDY * 2));
-            vrImmersionMenu.Items.Add(CreateWindChoice(gameMenu, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+
+            AddWindOption(mainMenu, menuDY);
+        }
+
+        /// <summary>
+        /// Trees and grass swaying (WindService) as the last row of Gothic's graphics menu - G1 has four rows there, G2
+        /// five, both one free. Gothic's own zWindEnabled in [ENGINE]. Off on the Quest by default, for performance.
+        /// </summary>
+        private void AddWindOption(AbstractMenuInstance mainMenu, int menuDY)
+        {
+            var graphicsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            if (graphicsMenu == null)
+                return;
+
+            var skyLabel = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS", out _);
+            var skyChoice = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS_CHOICE", out _);
+            graphicsMenu.FindMenuItem("MENUITEM_GRA_BACK", out var backIndex);
+            if (skyLabel == null || skyChoice == null || backIndex < 0)
+                return;
+
+            var windLabel = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_GRA_WIND", skyLabel);
+            windLabel.PosY = skyLabel.PosY + menuDY;
+            windLabel.SetText(0, _localizationService.GetText("menuitem.wind.label"));
+            windLabel.SetText(1, _localizationService.GetText("menuitem.wind.description"));
+
+            var windChoice = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_GRA_WIND_CHOICE", skyChoice);
+            windChoice.PosY = skyChoice.PosY + menuDY;
+            // Default value if no INI value exists.
+            windChoice.SetUserFloat(3, WindService.DefaultEnabled);
+            // off|on, like the physical hands.
+            windChoice.SetText(0, _localizationService.GetText("menuitem.physicalHands.value"));
+            windChoice.OnChgSetOption = WindService.IniKeyEnabled;
+            windChoice.OnChgSetOptionSection = WindService.IniSection;
+
+            graphicsMenu.Items.Insert(backIndex, windChoice);
+            graphicsMenu.Items.Insert(backIndex, windLabel);
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)
@@ -392,39 +426,6 @@ namespace Gothic.VR.Services.Context
             physicalHandsSetting.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
             return physicalHandsSetting;
-        }
-
-        private AbstractMenuItemInstance CreateWindLabel(AbstractMenuInstance gameMenu, int posY)
-        {
-            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
-            var windLabel = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_WIND", subtitlesLabel);
-
-            windLabel.PosY = posY;
-
-            windLabel.SetText(0, _localizationService.GetText("menuitem.wind.label"));
-            windLabel.SetText(1, _localizationService.GetText("menuitem.wind.description"));
-
-            return windLabel;
-        }
-
-        /// <summary>
-        /// Trees and grass swaying (WindService) - Gothic's own zWindEnabled in [ENGINE]. Off on the Quest by default.
-        /// </summary>
-        private AbstractMenuItemInstance CreateWindChoice(AbstractMenuInstance gameMenu, int posY)
-        {
-            var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
-            var windSetting = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_WIND_CHOICE", subtitlesChoice);
-
-            windSetting.PosY = posY;
-            // Default value if no INI value exists.
-            windSetting.SetUserFloat(3, WindService.DefaultEnabled);
-
-            // off|on, like the physical hands.
-            windSetting.SetText(0, _localizationService.GetText("menuitem.physicalHands.value"));
-            windSetting.OnChgSetOption = WindService.IniKeyEnabled;
-            windSetting.OnChgSetOptionSection = WindService.IniSection;
-
-            return windSetting;
         }
 
         private string GetMicrophoneList()
