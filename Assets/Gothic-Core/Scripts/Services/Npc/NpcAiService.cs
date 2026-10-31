@@ -114,6 +114,11 @@ namespace Gothic.Core.Services.Npc
             if (victim != null) _gameStateService.GothicVm.GlobalVictim = victim;
 
             try { _gameStateService.GothicVm.Call(symbol.Index); }
+            catch (Exception e)
+            {
+                Logger.LogError($"[NpcAiService] {funcName} of {self?.GetName(NpcNameSlot.Slot0)} failed: {e.Message}",
+                    LogCat.Ai);
+            }
             finally
             {
                 _gameStateService.GothicVm.GlobalSelf = oldSelf;
@@ -623,7 +628,7 @@ namespace Gothic.Core.Services.Npc
                 // Hero doesn't run the Daedalus state machine — map BsUnconscious to ZS_Unconscious/ZS_MagicSleep.
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name;
                 var result = stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
-                Logger.Log($"[NpcAiService.IsInState] Hero unconscious — queried state={stateName} → {result}", LogCat.Npc);
+                Logger.LogEditor($"[NpcAiService.IsInState] Hero unconscious — queried state={stateName} → {result}", LogCat.Npc);
                 return result;
             }
             return container.Vob.CurrentStateIndex == state;

@@ -106,7 +106,8 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
 
         /// <summary>
-        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious)
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
+        /// (lying down, camera) listens to it - added with the VR hero body PR.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
         

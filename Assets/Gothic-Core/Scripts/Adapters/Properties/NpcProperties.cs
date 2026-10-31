@@ -94,6 +94,9 @@ namespace Gothic.Core.Adapters.Properties
 
         // The current state's _End function is running (AI_StartState from inside it must not run it again).
         public bool IsInStateEnd;
+
+        // Time.time of the last knockout - the swing that knocked him out doesn't finish him off (FightService).
+        public float KnockedOutTime = float.MinValue;
         
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;
