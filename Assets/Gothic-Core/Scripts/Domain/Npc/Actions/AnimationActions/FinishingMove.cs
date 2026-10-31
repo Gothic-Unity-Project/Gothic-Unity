@@ -29,8 +29,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var enemy = _enemy;
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
-            var isMelee = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
-            if (enemy == null || !enemy.IsKnockedOut() || !isMelee)
+            if (enemy == null || !enemy.IsKnockedOut() || !weaponState.IsMelee())
             {
                 IsFinishedFlag = true;
                 return;

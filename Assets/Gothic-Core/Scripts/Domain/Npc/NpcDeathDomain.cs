@@ -36,14 +36,12 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         // NpcAiService (through NpcHelperService and VobService) leads back to NpcService, which creates this domain -
         // resolved on first use, not while NpcService is built.
         private NpcAiService _npcAiService;
         private NpcAiService NpcAi => _npcAiService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcAiService>();
-        private ContextInteractionService _contextInteractionService;
-        private ContextInteractionService ContextInteraction => _contextInteractionService ??=
-            ReflexProjectInstaller.DIContainer.Resolve<ContextInteractionService>();
 
         private readonly Action _syncHeroInstanceToVob;
 
@@ -106,7 +104,7 @@ namespace Gothic.Core.Domain.Npc
         private void EndGame(NpcContainer hero, NpcContainer killer)
         {
             _gameStateService.InGameAndAlive = false;
-            ContextInteraction.LockPlayerInPlace();
+            _contextInteractionService.LockPlayerInPlace();
             // The VR hero has no body to animate - only his scream comes from where his lines come from.
             if (hero.PrefabProps?.AnimationSystem == null)
                 PlayDeathScream(hero);
