@@ -73,6 +73,19 @@ namespace Gothic.VR.Interaction.Components
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
+        /// <summary>
+        /// The blink coroutine stops with the component. Without this the screen stays black and the reach suspended.
+        /// </summary>
+        private void OnDisable()
+        {
+            if (!IsBlinking)
+                return;
+
+            IsBlinking = false;
+            _reach.IsSuspended = false;
+            _climber.Rig.Fade(0f, _fadeSpeed);
+        }
+
         private void OnDestroy()
         {
             GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadSettings);

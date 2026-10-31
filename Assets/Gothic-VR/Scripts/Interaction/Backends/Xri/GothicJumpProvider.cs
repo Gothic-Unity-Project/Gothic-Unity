@@ -17,10 +17,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
     public class GothicJumpProvider : JumpProvider
     {
         // Constants of JumpProvider.CalculateJumpForceForFrame().
-        private const float StartJumpForce = 7f;
-        private const float EndJumpForce = 5f;
-        private const float JumpHeightClamp = 4f;
-        private const float MaxJumpHeight = 8f;
+        private const float _startJumpForce = 7f;
+        private const float _endJumpForce = 5f;
+        private const float _jumpHeightClamp = 4f;
+        private const float _maxJumpHeight = 8f;
 
         private IVrLedgeHandler _handler;
         private float _gravity = 9.81f;
@@ -97,7 +97,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public static float GetJumpHeightForRise(float rise, float gravity, float holdTime, bool isGravityDisabled)
         {
             var low = 0f;
-            var high = MaxJumpHeight;
+            var high = _maxJumpHeight;
             for (var i = 0; i < 32; i++)
             {
                 var middle = (low + high) * 0.5f;
@@ -115,7 +115,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// </summary>
         public static float GetRise(float jumpHeight, float gravity, float holdTime, bool isGravityDisabled)
         {
-            var factor = Mathf.Lerp(StartJumpForce, EndJumpForce, Mathf.Clamp01(jumpHeight / JumpHeightClamp));
+            var factor = Mathf.Lerp(_startJumpForce, _endJumpForce, Mathf.Clamp01(jumpHeight / _jumpHeightClamp));
             if (isGravityDisabled)
                 factor /= 1.5f;
 

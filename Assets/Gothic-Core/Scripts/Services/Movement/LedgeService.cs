@@ -5,6 +5,7 @@ using Gothic.Core.Models.Movement;
 using Gothic.Core.Models.Vm;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Movement
@@ -19,45 +20,31 @@ namespace Gothic.Core.Services.Movement
 
         private readonly LedgeProbeDomain _probeDomain = new LedgeProbeDomain().Inject();
 
-        private bool _isMissingValuesLogged;
+        private GuildValuesInstance _rulesValues;
+        private LedgeRules _rules;
 
         /// <summary>
         /// Climbing values of the hero. The hero is human, its values are in the GIL_HUMAN slot (see
         /// ZenKitExtension.GetValuesGuild). Without them (scripts not loaded yet), Gothic's values are used.
+        /// Built once per GIL_VALUES: the scripts don't change them, a new VM brings a new instance.
         /// </summary>
         public LedgeRules HeroRules
         {
             get
             {
                 var values = _gameStateService.GuildValues;
-                const int guild = (int)VmGothicEnums.Guild.GIL_HUMAN;
 
                 // Before the scripts are loaded (boot): nothing to warn about yet.
                 if (values == null)
                     return LedgeRules.GothicHumanDefaults;
 
-                if (values.GetJumpUpHeight(guild) <= 0 || values.GetJumpLowHeight(guild) <= 0)
+                if (!ReferenceEquals(values, _rulesValues))
                 {
-                    if (!_isMissingValuesLogged)
-                    {
-                        _isMissingValuesLogged = true;
-                        Logger.LogWarning("[Ledge] No climbing values of GIL_HUMAN in GIL_VALUES. Using Gothic's.",
-                            LogCat.Misc);
-                    }
-
-                    return LedgeRules.GothicHumanDefaults;
+                    _rules = CreateHeroRules(values);
+                    _rulesValues = values;
                 }
 
-                var defaults = LedgeRules.GothicHumanDefaults;
-                return new LedgeRules
-                {
-                    StepHeight = Metres(values.GetStepHeight(guild), defaults.StepHeight),
-                    JumpLowHeight = Metres(values.GetJumpLowHeight(guild), defaults.JumpLowHeight),
-                    JumpMidHeight = Metres(values.GetJumpMidHeight(guild), defaults.JumpMidHeight),
-                    JumpUpHeight = Metres(values.GetJumpUpHeight(guild), defaults.JumpUpHeight),
-                    SlideAngle = Degrees(values.GetSlideAngle(guild), defaults.SlideAngle),
-                    ClimbHeadingAngle = Degrees(values.GetClimbHeadingAngle(guild), defaults.ClimbHeadingAngle)
-                };
+                return _rules;
             }
         }
 
@@ -84,6 +71,28 @@ namespace Gothic.Core.Services.Movement
         public LedgeInfo ProbeTop(Vector3 target, Vector3 from, LedgeBody body)
         {
             return _probeDomain.ProbeTop(target, from, body, HeroRules);
+        }
+
+        private static LedgeRules CreateHeroRules(GuildValuesInstance values)
+        {
+            const int guild = (int)VmGothicEnums.Guild.GIL_HUMAN;
+            if (values.GetJumpUpHeight(guild) <= 0 || values.GetJumpLowHeight(guild) <= 0)
+            {
+                Logger.LogWarning("[Ledge] No climbing values of GIL_HUMAN in GIL_VALUES. Using Gothic's.",
+                    LogCat.Misc);
+                return LedgeRules.GothicHumanDefaults;
+            }
+
+            var defaults = LedgeRules.GothicHumanDefaults;
+            return new LedgeRules
+            {
+                StepHeight = Metres(values.GetStepHeight(guild), defaults.StepHeight),
+                JumpLowHeight = Metres(values.GetJumpLowHeight(guild), defaults.JumpLowHeight),
+                JumpMidHeight = Metres(values.GetJumpMidHeight(guild), defaults.JumpMidHeight),
+                JumpUpHeight = Metres(values.GetJumpUpHeight(guild), defaults.JumpUpHeight),
+                SlideAngle = Degrees(values.GetSlideAngle(guild), defaults.SlideAngle),
+                ClimbHeadingAngle = Degrees(values.GetClimbHeadingAngle(guild), defaults.ClimbHeadingAngle)
+            };
         }
 
         /// <summary>
