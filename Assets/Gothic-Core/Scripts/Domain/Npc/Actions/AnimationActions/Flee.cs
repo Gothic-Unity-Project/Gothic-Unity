@@ -1,9 +1,11 @@
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -21,6 +23,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private static readonly float[] _escapeAngles = { 0f, 45f, -45f, 90f, -90f, 135f, -135f };
         private static readonly int _obstacleLayers = 1 << Constants.DefaultLayer;
 
+        // ZS_Flee repeats AI_Flee every frame - a missing enemy is logged once only.
+        private static bool _isMissingEnemyLogged;
+
         private Vector3 _direction;
 
         public Flee(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
@@ -34,6 +39,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var enemy = (Props.TargetNpc ?? Props.EnemyNpc)?.GetUserData();
             if (enemy?.Go == null || NpcGo == null)
             {
+                if (!_isMissingEnemyLogged)
+                {
+                    _isMissingEnemyLogged = true;
+                    Logger.LogWarning($"[Flee] {NpcInstance.GetName(NpcNameSlot.Slot0)} has no enemy (or no body) " +
+                                      "to flee from - AI_Flee does nothing.", LogCat.Ai);
+                }
                 IsFinishedFlag = true;
                 return;
             }

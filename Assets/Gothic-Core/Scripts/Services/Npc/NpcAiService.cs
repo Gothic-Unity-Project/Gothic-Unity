@@ -274,7 +274,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// G1 docs: like AI_StandUp, but pops out of a mob without its back transitions.
+        /// AI_Flee: one short run step away from the NPC's enemy (ZS_Flee's loop repeats it).
         /// </summary>
         public void ExtAiFlee(NpcInstance npc)
         {
@@ -282,6 +282,9 @@ namespace Gothic.Core.Services.Npc
             container?.Props.AnimationQueue.Enqueue(new Flee(new AnimationAction(), container));
         }
 
+        /// <summary>
+        /// G1 docs: like AI_StandUp, but pops out of a mob without its back transitions.
+        /// </summary>
         public void ExtAiStandUpQuick(NpcInstance npc)
         {
             var container = npc.GetUserData();
