@@ -9,6 +9,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
 namespace Gothic.Core.Services.Player
@@ -33,6 +34,15 @@ namespace Gothic.Core.Services.Player
         [NonSerialized] public float MaxAir;
         [NonSerialized] public bool HasMaxAir; // Faster check for other components. Rather than calculating value on their own each frame.
         [NonSerialized] public float CurrentAir = float.MaxValue;
+
+        // Out of air: like the engine (OpenGothic Npc::tick), 1 hit point per NPC_DAM_DIVE_TIME ms (G1: 100).
+        private const float _defaultDrownSecondsPerHitPoint = 0.1f;
+        private float _drownSecondsPerHitPoint = _defaultDrownSecondsPerHitPoint;
+        private float _drownTime;
+
+        // NpcService leads back here - resolved on first use.
+        private NpcService _npcService;
+        private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
         
         
         public PlayerService()
@@ -47,6 +57,10 @@ namespace Gothic.Core.Services.Player
         {
             MaxAir = _gameStateService.GuildValues.GetDiveTime((int)VmGothicEnums.Guild.GIL_HUMAN);
             CurrentAir = MaxAir; // Isn't stored in SaveGame, therefore setting it to full now.
+            var drownMilliseconds = _gameStateService.GothicVm.GetSymbolByName("NPC_DAM_DIVE_TIME")?.GetInt(0) ?? 0;
+            _drownSecondsPerHitPoint = drownMilliseconds > 0
+                ? drownMilliseconds / 1000f
+                : _defaultDrownSecondsPerHitPoint;
 
             _unityMonoService.StartCoroutine(HandleStatusEffects());
         }
@@ -89,6 +103,25 @@ namespace Gothic.Core.Services.Player
             IsDiving = false;
         }
 
+        /// <summary>
+        /// The hero dove longer than his DIVE_TIME: he loses hit points until he surfaces or dies.
+        /// </summary>
+        private void Drown()
+        {
+            if (HeroContainer?.Vob == null)
+                return;
+
+            var before = (int)(_drownTime / _drownSecondsPerHitPoint);
+            _drownTime += Time.deltaTime;
+            var damage = (int)(_drownTime / _drownSecondsPerHitPoint) - before;
+            if (damage <= 0)
+                return;
+
+            var hitPoints = HeroContainer.Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (hitPoints > 0)
+                NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+        }
+
         private IEnumerator HandleStatusEffects()
         {
             while (true)
@@ -99,9 +132,12 @@ namespace Gothic.Core.Services.Player
                     
                     if (CurrentAir > 0)
                         CurrentAir -= Time.deltaTime;
+                    else
+                        Drown();
                 }
                 else if (!HasMaxAir)
                 {
+                    _drownTime = 0f;
                     if (CurrentAir < MaxAir)
                         CurrentAir += Time.deltaTime;
                     else
