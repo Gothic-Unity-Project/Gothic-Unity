@@ -14,3 +14,4 @@ Gothic lets the player bind its keys, the reference engine too. In VR the button
 3. **Applied as overrides of the input bindings,** so every part reading the menu, jump, crouch, sprint, moving, turning and teleporting follows without knowing about it. Grabbing, using and the hand buttons themselves are not remapped. The keyboard keys of the simulator stay.
 4. **The menu is read through the remappable menu action** instead of the left upper button directly.
 5. Stored in Gothic.ini, its own section for the VR controls.
+6. **The controller's menu button always stays on the left controller,** also for left-handed players. On Quest and Pico the same button on the right controller is the system button, which games never receive: mirrored, the menu could not be opened, and with it the setting that undoes this.

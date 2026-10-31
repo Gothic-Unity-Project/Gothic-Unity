@@ -1,3 +1,4 @@
+using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using UnityEngine.InputSystem;
 
@@ -30,7 +31,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
             {
                 var map = actions.FindActionMap(mapName);
                 if (map == null)
+                {
+                    Logger.LogWarning($"[XRI] Controls: no action map '{mapName}' in {actions.name} - its buttons " +
+                        "keep their default.", LogCat.VR);
                     continue;
+                }
 
                 foreach (var action in map.actions)
                 {
@@ -57,7 +62,14 @@ namespace Gothic.VR.Interaction.Backends.Xri
             else if (mapName == _gothicMapName && actionName == _crouchActionName)
                 path = GetButtonPath(hand, layout.CrouchButton);
             else if (mapName == _gothicMapName && actionName == _menuActionName)
+            {
+                // The right controller's menu button is the system button on Quest and Pico, which apps never get:
+                // mirrored, the menu - and the setting to undo it - couldn't be opened. It stays on the left one.
+                if (layout.MenuButton == VrButton.Menu)
+                    return GetButtonPath(_leftHand, VrButton.Menu);
+
                 path = GetButtonPath(hand, layout.MenuButton);
+            }
 
             return layout.IsLeftHanded ? SwapHands(path) : path;
         }

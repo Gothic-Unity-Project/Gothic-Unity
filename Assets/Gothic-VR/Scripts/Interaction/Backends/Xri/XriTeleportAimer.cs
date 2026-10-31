@@ -126,14 +126,15 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (_leftHand == null || _rightHand == null)
                 return _hand;
 
+            // Not known yet on the first aiming frame: the hand of the last aim.
             var device = _stickAction.activeControl?.device;
-            if (device != null)
+            if (device == null)
+                return _hand;
+
+            foreach (var usage in device.usages)
             {
-                foreach (var usage in device.usages)
-                {
-                    if (usage == CommonUsages.LeftHand)
-                        return _leftHand;
-                }
+                if (usage == CommonUsages.LeftHand)
+                    return _leftHand;
             }
 
             return _rightHand;
