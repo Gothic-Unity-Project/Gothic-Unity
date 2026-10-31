@@ -81,6 +81,15 @@ namespace Gothic.Core.Adapters.Animations
         // Walls: a sphere at hip height (the NPC root) probes the move; steeper than this (normal's up part) is a wall.
         private const float _wallProbeRadius = 0.3f;
         private const float _wallMinNormalY = 0.5f;
+        // Quest 2: only NPCs this close to the player (m) probe - the ones he sees -, each every few frames (spread
+        // over the NPCs), looking as far ahead as it moves until its next probe and keeping the wall found in between.
+        // Farther NPCs walk as before: physics pushes them out of walls.
+        private const float _wallProbeMaxDistance = 25f;
+        private const int _wallProbeFrameInterval = 2;
+        private static int _nextWallProbeFrameOffset;
+        private int _wallProbeFrameOffset;
+        // The wall of the last probe, its normal flat on the ground (zero: none).
+        private Vector3 _wallNormal;
 
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
@@ -114,6 +123,9 @@ namespace Gothic.Core.Adapters.Animations
 
             // Cached object which will be used later.
             NpcData.PrefabProps.AnimationSystem = this;
+
+            _wallProbeFrameOffset = _nextWallProbeFrameOffset;
+            _nextWallProbeFrameOffset = (_nextWallProbeFrameOffset + 1) % _wallProbeFrameInterval;
         }
 
         private void Start()
@@ -663,22 +675,44 @@ namespace Gothic.Core.Adapters.Animations
         /// </summary>
         private Vector3 SlideAlongWalls(Vector3 move)
         {
+            // UseMob sets the mob before the walk to it starts: the mob itself never blocks the way to its slot.
             if (_restRootHeight <= 0f || PrefabProps.CurrentInteractable != null)
+            {
+                _wallNormal = Vector3.zero;
                 return move;
+            }
 
             var horizontal = new Vector3(move.x, 0f, move.z);
             var distance = horizontal.magnitude;
             if (distance < 0.0001f)
                 return move;
 
-            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
-            if (!Physics.SphereCast(Go.transform.position, radius, horizontal / distance, out var hit, distance + 0.05f,
-                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+            if ((Time.frameCount + _wallProbeFrameOffset) % _wallProbeFrameInterval == 0)
+                _wallNormal = ProbeWall(horizontal / distance, distance * _wallProbeFrameInterval);
+
+            // Only a move into the wall is turned along it - the kept wall of a former frame may lie behind already.
+            if (Vector3.Dot(horizontal, _wallNormal) >= 0f)
                 return move;
 
-            var wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
-            var slide = Vector3.ProjectOnPlane(horizontal, wallNormal);
+            var slide = Vector3.ProjectOnPlane(horizontal, _wallNormal);
             return new Vector3(slide.x, move.y, slide.z);
+        }
+
+        /// <returns>The normal (flat on the ground) of a wall in the way, zero if there is none or the NPC is too far
+        /// from the player for it to matter.</returns>
+        private Vector3 ProbeWall(Vector3 direction, float distance)
+        {
+            var player = Camera.main;
+            if (player == null || (player.transform.position - Go.transform.position).sqrMagnitude >
+                _wallProbeMaxDistance * _wallProbeMaxDistance)
+                return Vector3.zero;
+
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (!Physics.SphereCast(Go.transform.position, radius, direction, out var hit, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+                return Vector3.zero;
+
+            return new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
         }
 
         private void ApplyEvents()
