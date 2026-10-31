@@ -58,6 +58,9 @@ namespace Gothic.Core.Services
         // [zCMessageFilter] keyed by VOB Name — converts OnTrigger/OnUntrigger to another action on its Target
         public readonly Dictionary<string, VobContainer> VobsMessageFilter = new();
 
+        // zCEarthquake: the world shakes when it is triggered.
+        public readonly Dictionary<string, VobContainer> VobsEarthquake = new();
+
         public int GuildHumanCount;
         public int GuildCount;
         public int[] GuildAttitudes;
@@ -128,6 +131,9 @@ namespace Gothic.Core.Services
                 case VirtualObjectType.zCMessageFilter:
                     VobsMessageFilter[name.ToUpper()] = container;
                     break;
+                case VirtualObjectType.zCEarthquake:
+                    VobsEarthquake[name.ToUpper()] = container;
+                    break;
                 default:
                     return;
             }
@@ -147,6 +153,7 @@ namespace Gothic.Core.Services
             VobsTrigger.Clear();
             VobsMoverController.Clear();
             VobsMessageFilter.Clear();
+            VobsEarthquake.Clear();
         }
     }
 }

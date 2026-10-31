@@ -571,6 +571,7 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.zCTrigger:
                 case VirtualObjectType.zCMoverController:
                 case VirtualObjectType.zCMessageFilter:
+                case VirtualObjectType.zCEarthquake:
                     _gameStateService.RegisterNamedVob(container);
                     break;
             }
@@ -672,8 +673,27 @@ namespace Gothic.Core.Services.Vobs
                 isDispatched = true;
             }
 
+            if (TryGetTriggerVob(_gameStateService.VobsEarthquake, key, out var earthquake))
+            {
+                StartEarthquake((IEarthquake)earthquake.Vob);
+                isDispatched = true;
+            }
+
             if (!isDispatched)
                 Logger.LogWarning($"[VobService] DispatchTrigger: no mover or trigger VOB named '{name}'", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// A triggered zCEarthquake shakes the world within its radius for its duration (OpenGothic leaves it out):
+        /// like FX_EarthQuake, VR rumbles the controllers.
+        /// </summary>
+        private static void StartEarthquake(IEarthquake earthquake)
+        {
+            Logger.Log($"[VobService] Earthquake '{earthquake.Name}': {earthquake.Radius / 100f:F0} m, " +
+                       $"{earthquake.Duration.TotalSeconds:F1} s", LogCat.Vob);
+            GlobalEventDispatcher.EarthquakeStarted.Invoke(earthquake.Position.ToUnityVector(),
+                earthquake.Radius / 100f, (float)earthquake.Duration.TotalSeconds,
+                earthquake.Amplitude.ToUnityVector().magnitude);
         }
 
         /// <summary>
