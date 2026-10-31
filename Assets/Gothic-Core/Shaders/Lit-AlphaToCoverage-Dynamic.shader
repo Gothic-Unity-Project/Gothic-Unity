@@ -24,6 +24,9 @@ Shader "Lit/AlphaToCoverage-Dynamic"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            // Swapped in at runtime (highlight, see-through): compiled at once in the editor instead of drawing the
+            // cyan placeholder for the first frames. No effect on builds.
+            #pragma editor_sync_compilation
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
