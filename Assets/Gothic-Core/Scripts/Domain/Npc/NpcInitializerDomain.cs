@@ -326,6 +326,27 @@ namespace Gothic.Core.Domain.Npc
             _npcRoutineService.ExchangeRoutine(npc.Instance, npc.Vob.CurrentRoutine);
         }
 
+        /// <summary>
+        /// Mdl_SetModelScale like the engine (OpenGothic Npc::setScale): the NPC is shown and collides at the vob's model
+        /// scale - young and giant monster variants, the Shrink spell (ZS_MagicShrink scales a monster down). Not set (0)
+        /// is the normal size. Found on BoroBongo's branch.
+        /// </summary>
+        public void ApplyModelScale(NpcContainer container)
+        {
+            // The VR hero's object is the player rig - it isn't scaled.
+            if (container?.Go == null || container.IsHero())
+                return;
+
+            var scale = container.Vob.ModelScale;
+            var unityScale = scale.X > 0f && scale.Y > 0f && scale.Z > 0f
+                ? new Vector3(scale.X, scale.Y, scale.Z)
+                : Vector3.one;
+            if (container.Go.transform.localScale == unityScale)
+                return;
+
+            container.Go.transform.localScale = unityScale;
+        }
+
         public void InitNpc(NpcInstance npcInstance, GameObject lazyLoadGo)
         {
             var npcData = npcInstance.GetUserData();
@@ -348,6 +369,9 @@ namespace Gothic.Core.Domain.Npc
 
             // We don't need specific locations of initial LazyLoading GO anymore.
             lazyLoadGo.transform.SetPositionAndRotation(default, default);
+
+            // A scaled NPC (a young or giant monster, a shrunk one after loading) keeps its size.
+            ApplyModelScale(npcData);
 
             foreach (var equippedItem in props.EquippedItems)
             {
