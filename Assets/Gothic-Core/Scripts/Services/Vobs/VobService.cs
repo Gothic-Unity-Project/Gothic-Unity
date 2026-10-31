@@ -404,6 +404,21 @@ namespace Gothic.Core.Services.Vobs
             InitVobNow(container);
         }
 
+        /// <summary>
+        /// A world item is gone (an NPC took it): out of the world, its culling and the save data.
+        /// </summary>
+        public void RemoveWorldItem(VobContainer container)
+        {
+            if (container == null)
+                return;
+
+            _vobMeshCullingService.RemoveCullingEntry(container);
+            _saveGameService.CurrentWorldData?.Vobs.Remove(container.Vob);
+            _multiTypeCacheService.VobCache.Remove(container);
+            if (container.Go != null)
+                Object.Destroy(container.Go);
+        }
+
         public VobContainer CreateItem(IItem item)
         {
             var container = CreateContainerWithLoader(item);

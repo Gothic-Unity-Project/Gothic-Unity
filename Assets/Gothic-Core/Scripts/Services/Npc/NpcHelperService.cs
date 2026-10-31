@@ -16,6 +16,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
@@ -33,6 +34,14 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+
+        // Items closer to the hero than this (m) may be in his hands or holsters - NPCs don't see them.
+        private const float _heroItemDistance = 1f;
+
+        // The world item Wld_DetectItem found, per NPC: the scripts only get its instance ('item') - shared by all
+        // items of that instance.
+        private readonly Dictionary<int, VobContainer> _detectedItems = new();
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -195,6 +204,144 @@ namespace Gothic.Core.Services.Npc
 
             // *100 as Gothic metrics are in cm, not m.
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
+        }
+
+        /// <summary>
+        /// Wld_DetectItem, like the engine (OpenGothic GameScript::wld_detectitem): the nearest world item within the
+        /// NPC's senses range whose main flag matches becomes 'item'.
+        /// </summary>
+        public bool ExtWldDetectItem(NpcInstance npc, int flags)
+        {
+            var npcGo = GetContainer(npc)?.Go;
+            if (npcGo == null)
+                return false;
+
+            var npcPos = npcGo.transform.position;
+            var range = npc.SensesRange / 100f;
+            var heroGo = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
+            VobContainer nearest = null;
+            ItemInstance nearestItem = null;
+            var nearestDistance = range * range;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Go == null || container.Vob is not IItem vobItem)
+                    continue;
+
+                var position = GetItemPosition(container);
+                var distance = (position - npcPos).sqrMagnitude;
+                if (distance > nearestDistance)
+                    continue;
+                if (heroGo != null && IsNearHero(position, heroGo.transform.position))
+                    continue;
+
+                var item = _vmCacheService.TryGetItemData(GetItemInstanceName(vobItem));
+                if (item == null || (item.MainFlag & flags) == 0)
+                    continue;
+
+                nearest = container;
+                nearestItem = item;
+                nearestDistance = distance;
+            }
+
+            if (nearest == null)
+                return false;
+
+            _gameStateService.GothicVm.GlobalItem = nearestItem;
+            _detectedItems[npc.Index] = nearest;
+            return true;
+        }
+
+        /// <summary>
+        /// The world item behind the scripts' 'item' for this NPC: the one it detected last, if it is of that instance
+        /// and still lies in the world.
+        /// </summary>
+        public VobContainer GetDetectedItem(NpcInstance npc, ItemInstance item)
+        {
+            if (npc == null || item == null || !_detectedItems.TryGetValue(npc.Index, out var detected) ||
+                detected?.Go == null || detected.Vob is not IItem vobItem)
+                return null;
+
+            return _vmCacheService.TryGetItemData(GetItemInstanceName(vobItem))?.Index == item.Index ? detected : null;
+        }
+
+        /// <returns>cm, int.MaxValue without the item.</returns>
+        public int ExtNpcGetDistToItem(NpcInstance npc, ItemInstance item)
+        {
+            var npcGo = GetContainer(npc)?.Go;
+            var container = GetDetectedItem(npc, item);
+            if (npcGo == null || container == null)
+                return int.MaxValue;
+
+            return (int)(Vector3.Distance(npcGo.transform.position, GetItemPosition(container)) * 100);
+        }
+
+        /// <returns>cm of height difference, int.MaxValue without the item.</returns>
+        public int ExtNpcGetHeightToItem(NpcInstance npc, ItemInstance item)
+        {
+            var npcGo = GetContainer(npc)?.Go;
+            var container = GetDetectedItem(npc, item);
+            if (npcGo == null || container == null)
+                return int.MaxValue;
+
+            return (int)(Mathf.Abs(GetItemPosition(container).y - npcGo.transform.position.y) * 100);
+        }
+
+        /// <summary>
+        /// Within the senses range and nothing solid between the NPC's eyes and the item.
+        /// </summary>
+        public bool ExtNpcCanSeeItem(NpcInstance npc, ItemInstance item)
+        {
+            var npcGo = GetContainer(npc)?.Go;
+            var container = GetDetectedItem(npc, item);
+            if (npcGo == null || container == null)
+                return false;
+
+            var eyes = npcGo.transform.position + Vector3.up * 1.6f;
+            var target = GetItemPosition(container) + Vector3.up * 0.1f;
+            var toTarget = target - eyes;
+            if (toTarget.magnitude > npc.SensesRange / 100f)
+                return false;
+
+            return !Physics.Raycast(eyes, toTarget.normalized, toTarget.magnitude, 1 << Constants.DefaultLayer,
+                QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>
+        /// Wld_RemoveItem (G1: a monster ate the food it found).
+        /// </summary>
+        public void ExtWldRemoveItem(NpcInstance npc, ItemInstance item)
+        {
+            var container = GetDetectedItem(npc, item);
+            if (container != null)
+                _vobService.RemoveWorldItem(container);
+        }
+
+        /// <summary>
+        /// The item's moving part (its rigidbody), not its loader that stays where it was spawned.
+        /// </summary>
+        public static Vector3 GetItemPosition(VobContainer container)
+        {
+            var body = container.Go.GetComponentInChildren<Rigidbody>();
+            return body != null ? body.position : container.Go.transform.position;
+        }
+
+        public static Transform GetItemTransform(VobContainer container)
+        {
+            var body = container.Go.GetComponentInChildren<Rigidbody>();
+            return body != null ? body.transform : container.Go.transform;
+        }
+
+        private static bool IsNearHero(Vector3 position, Vector3 heroPosition)
+        {
+            position.y = 0f;
+            heroPosition.y = 0f;
+            return (position - heroPosition).sqrMagnitude < _heroItemDistance * _heroItemDistance;
+        }
+
+        private static string GetItemInstanceName(IItem vobItem)
+        {
+            return !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
         }
 
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)

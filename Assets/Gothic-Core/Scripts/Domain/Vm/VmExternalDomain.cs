@@ -231,6 +231,7 @@ namespace Gothic.Core.Domain.Vm
 
             // Sound
             vm.RegisterExternal<string>("Snd_Play", Snd_Play);
+            RegisterItemExternals(vm);
 
             // Video
             RegisterPlayVideo(vm);
@@ -792,6 +793,82 @@ namespace Gothic.Core.Domain.Vm
         public void Print(string message)
         {
             PrintScreen(message, PrintScreenMessage.Centered, PrintScreenMessage.Centered, _printFont, 3);
+        }
+
+        /// <summary>
+        /// NPCs finding and taking world items: a knocked out fighter his weapon (G1), a monster food (G1), the wisp
+        /// what it digs up (G2). Only the ones the game's scripts declare.
+        /// </summary>
+        private void RegisterItemExternals(DaedalusVm vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("Wld_DetectItem"))
+                vm.RegisterExternal<int, NpcInstance, int>("Wld_DetectItem", Wld_DetectItem);
+            if (IsDeclared("AI_TakeItem"))
+                vm.RegisterExternal<NpcInstance, DaedalusInstance>("AI_TakeItem", AI_TakeItem);
+            if (IsDeclared("AI_GotoItem"))
+                vm.RegisterExternal<NpcInstance, DaedalusInstance>("AI_GotoItem", AI_GotoItem);
+            if (IsDeclared("Npc_GetDistToItem"))
+                vm.RegisterExternal<int, NpcInstance, DaedalusInstance>("Npc_GetDistToItem", Npc_GetDistToItem);
+            if (IsDeclared("Npc_GetHeightToItem"))
+                vm.RegisterExternal<int, NpcInstance, DaedalusInstance>("Npc_GetHeightToItem", Npc_GetHeightToItem);
+            if (IsDeclared("Npc_CanSeeItem"))
+                vm.RegisterExternal<int, NpcInstance, DaedalusInstance>("Npc_CanSeeItem", Npc_CanSeeItem);
+            if (IsDeclared("Wld_RemoveItem"))
+                vm.RegisterExternal<int, DaedalusInstance>("Wld_RemoveItem", Wld_RemoveItem);
+        }
+
+        public int Wld_DetectItem(NpcInstance npc, int flags)
+        {
+            var result = _npcHelperService.ExtWldDetectItem(npc, flags);
+            return LogInstantExternal(nameof(Wld_DetectItem), Convert.ToInt32(result), npc, flags);
+        }
+
+        public void AI_TakeItem(NpcInstance npc, DaedalusInstance item)
+        {
+            var container = _npcHelperService.GetDetectedItem(npc, item as ItemInstance);
+            var npcContainer = npc?.GetUserData();
+            if (container == null || npcContainer == null)
+                return;
+
+            npcContainer.Props.AnimationQueue.Enqueue(new TakeItem(new AnimationAction(), npcContainer, container));
+        }
+
+        public void AI_GotoItem(NpcInstance npc, DaedalusInstance item)
+        {
+            var container = _npcHelperService.GetDetectedItem(npc, item as ItemInstance);
+            var npcContainer = npc?.GetUserData();
+            if (container == null || npcContainer == null)
+                return;
+
+            npcContainer.Props.AnimationQueue.Enqueue(new GoToItem(new AnimationAction(), npcContainer,
+                NpcHelperService.GetItemTransform(container)));
+        }
+
+        public int Npc_GetDistToItem(NpcInstance npc, DaedalusInstance item)
+        {
+            return _npcHelperService.ExtNpcGetDistToItem(npc, item as ItemInstance);
+        }
+
+        public int Npc_GetHeightToItem(NpcInstance npc, DaedalusInstance item)
+        {
+            return _npcHelperService.ExtNpcGetHeightToItem(npc, item as ItemInstance);
+        }
+
+        public int Npc_CanSeeItem(NpcInstance npc, DaedalusInstance item)
+        {
+            return Convert.ToInt32(_npcHelperService.ExtNpcCanSeeItem(npc, item as ItemInstance));
+        }
+
+        /// <summary>
+        /// The item 'self' detected leaves the world.
+        /// </summary>
+        public int Wld_RemoveItem(DaedalusInstance item)
+        {
+            _npcHelperService.ExtWldRemoveItem(_gameStateService.GothicVm.GlobalSelf as NpcInstance,
+                item as ItemInstance);
+            return 0;
         }
 
         public void Snd_Play(string soundName)
