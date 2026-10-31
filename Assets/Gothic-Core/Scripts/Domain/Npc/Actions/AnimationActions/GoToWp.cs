@@ -59,12 +59,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override void OnDestinationReached()
         {
-            _route.Pop();
+            var reached = _route.Pop();
 
             if (_route.Count != 0)
             {
                 // We need to reset this flag now. Otherwise, we will skip all movement elements...
                 IsDestReached = false;
+                // A ladder on the way to the next way point: it's climbed, the walk goes on from its other end.
+                NpcClimbService.TryStartLadder(NpcContainer, reached.Position, _route.Peek().Position);
                 return;
             }
 

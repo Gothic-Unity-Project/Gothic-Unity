@@ -5,6 +5,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Movement;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Movement;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,6 +21,9 @@ namespace Gothic.Core.Services.Npc
     /// up to JUMPUP_HEIGHT + JUMPLOW_HEIGHT it jumps up, hangs at the lip and pulls itself up (T_STAND_2_JUMPUP, S_HANG,
     /// T_HANG_2_STAND - OpenGothic JumpUp and JumpHang). It rises to the top during the animations and stands 55 cm
     /// behind the lip at their end. Before, chasing NPCs stood at every crate and rock. Found on BoroBongo's branch.
+    /// Ladders: a route between two way points far above each other with a ladder (oCMobLadder) between them is
+    /// climbed with the ladder animations of the human model (t_Ladder_Stand_2_S0, t_Ladder_S0_2_S1 per step,
+    /// t_Ladder_S1_2_Stand) - NPCs pushed into the ladder's foot before.
     /// </summary>
     public class NpcClimbService
     {
@@ -36,17 +40,167 @@ namespace Gothic.Core.Services.Npc
         private const string _hangAnimation = "S_HANG";
         private const string _pullUpAnimation = "T_HANG_2_STAND";
 
+        // Ladders: way points at least this far above each other, the ladder within this distance of the way (m).
+        private const float _ladderMinHeight = 3f;
+        private const float _ladderMaxDistance = 3f;
+        // The NPC climbs this far in front of the ladder's middle, at this speed (m, m/s).
+        private const float _ladderStandOff = 0.35f;
+        private const float _ladderClimbSpeed = 1f;
+        private const string _ladderMountBottom = "T_LADDER_STAND_2_S0";
+        private const string _ladderMountTop = "T_LADDER_STAND_2_S1";
+        private const string _ladderStep = "T_LADDER_S0_2_S1";
+        private const string _ladderDismountTop = "T_LADDER_S1_2_STAND";
+        private const string _ladderDismountBottom = "T_LADDER_S0_2_STAND";
+
         [Inject] private readonly LedgeService _ledgeService;
         [Inject] private readonly AnimationService _animationService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+
+        // Keyframes (time in s, position) the NPC follows on the ladder, the animations to play at their times.
+        private readonly Dictionary<NpcContainer, (List<(float Time, Vector3 Position)> Keys,
+            List<(float Time, string Animation)> Animations, float Time, int NextAnimation)> _ladders = new();
+        private List<Vector3> _ladderPositions;
 
         // RiseEnd / MoveOnStart: in s. PullUpTime: when a high climb's hang goes over into the pull-up (0 otherwise).
         private readonly Dictionary<NpcContainer, (Vector3 Start, Vector3 Target, float Time, float Duration,
             float RiseEnd, float MoveOnStart, float HangTime, float PullUpTime, int Step)> _climbs = new();
         private readonly Dictionary<NpcContainer, float> _nextProbeTimes = new();
 
+        public NpcClimbService()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _ladderPositions = null);
+        }
+
         public bool IsClimbing(NpcContainer npc)
         {
-            return _climbs.ContainsKey(npc);
+            return _climbs.ContainsKey(npc) || _ladders.ContainsKey(npc);
+        }
+
+        /// <summary>
+        /// The NPC's route goes on from the way point at from to the one at to. If they lie far above each other with a
+        /// ladder between them, the NPC climbs it (up or down) and ends at to.
+        /// </summary>
+        public bool TryStartLadder(NpcContainer npc, Vector3 from, Vector3 to)
+        {
+            if (npc?.Go == null || IsClimbing(npc) || Mathf.Abs(to.y - from.y) < _ladderMinHeight)
+                return false;
+
+            var bottom = from.y < to.y ? from : to;
+            var ladder = FindLadder(from, to);
+            if (ladder == null || GetDuration(npc, _ladderStep) <= 0f)
+                return false;
+
+            // The NPC climbs on the side of the ladder that faces the lower way point.
+            var side = new Vector3(bottom.x - ladder.Value.x, 0f, bottom.z - ladder.Value.z);
+            side = side.sqrMagnitude > 0.0001f ? side.normalized : -npc.Go.transform.forward;
+            var hipOffset = npc.Go.transform.position.y - from.y;
+            var column = new Vector3(ladder.Value.x, 0f, ladder.Value.z) + side * _ladderStandOff;
+            var isUp = to.y > from.y;
+
+            var mount = isUp ? _ladderMountBottom : _ladderMountTop;
+            var dismount = isUp ? _ladderDismountTop : _ladderDismountBottom;
+            var mountSeconds = Mathf.Max(GetDuration(npc, mount), 0.3f);
+            var dismountSeconds = Mathf.Max(GetDuration(npc, dismount), 0.3f);
+            var climbSeconds = Mathf.Abs(to.y - from.y) / _ladderClimbSpeed;
+            var stepSeconds = GetDuration(npc, _ladderStep);
+
+            var keys = new List<(float, Vector3)>
+            {
+                (0f, npc.Go.transform.position),
+                (mountSeconds, new Vector3(column.x, from.y + hipOffset, column.z)),
+                (mountSeconds + climbSeconds, new Vector3(column.x, to.y + hipOffset, column.z)),
+                (mountSeconds + climbSeconds + dismountSeconds, to + Vector3.up * hipOffset)
+            };
+            var animations = new List<(float, string)> { (0f, mount) };
+            for (var time = mountSeconds; time < mountSeconds + climbSeconds; time += stepSeconds)
+                animations.Add((time, _ladderStep));
+            animations.Add((mountSeconds + climbSeconds, dismount));
+
+            npc.Go.transform.rotation = Quaternion.LookRotation(-side);
+            _ladders[npc] = (keys, animations, 0f, 0);
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsClimb;
+            SetKinematic(npc, true);
+            Logger.Log($"[NpcClimb] {npc.Instance.GetName(NpcNameSlot.Slot0)} climbs a ladder " +
+                       $"{(isUp ? "up" : "down")} ({Mathf.Abs(to.y - from.y):F1} m).", LogCat.Ai);
+            return true;
+        }
+
+        /// <summary>
+        /// A ladder (oCMobLadder) within reach of the way between the two points, in the middle of their heights.
+        /// </summary>
+        private Vector3? FindLadder(Vector3 from, Vector3 to)
+        {
+            _ladderPositions ??= CollectLadders();
+            var a = new Vector2(from.x, from.z);
+            var b = new Vector2(to.x, to.z);
+            var low = Mathf.Min(from.y, to.y) - 1f;
+            var high = Mathf.Max(from.y, to.y) + 1f;
+            foreach (var ladder in _ladderPositions)
+            {
+                if (ladder.y < low || ladder.y > high)
+                    continue;
+                if (DistanceToSegment(new Vector2(ladder.x, ladder.z), a, b) <= _ladderMaxDistance)
+                    return ladder;
+            }
+            return null;
+        }
+
+        private List<Vector3> CollectLadders()
+        {
+            var ladders = new List<Vector3>();
+            foreach (var vob in _multiTypeCacheService.VobCache)
+            {
+                if (vob?.Vob is { Type: ZenKit.Vobs.VirtualObjectType.oCMobLadder })
+                    ladders.Add(new Vector3(vob.Vob.Position.X, vob.Vob.Position.Y, vob.Vob.Position.Z) / 100f);
+            }
+            return ladders;
+        }
+
+        private static float DistanceToSegment(Vector2 point, Vector2 a, Vector2 b)
+        {
+            var ab = b - a;
+            var t = ab.sqrMagnitude > 0.0001f ? Mathf.Clamp01(Vector2.Dot(point - a, ab) / ab.sqrMagnitude) : 0f;
+            return Vector2.Distance(point, a + ab * t);
+        }
+
+        private void TickLadder(NpcContainer npc)
+        {
+            var ladder = _ladders[npc];
+            if (npc.Go == null)
+            {
+                _ladders.Remove(npc);
+                return;
+            }
+
+            ladder.Time += Time.deltaTime;
+            while (ladder.NextAnimation < ladder.Animations.Count &&
+                   ladder.Animations[ladder.NextAnimation].Time <= ladder.Time)
+            {
+                npc.PrefabProps.AnimationSystem.PlayAnimation(ladder.Animations[ladder.NextAnimation].Animation);
+                ladder.NextAnimation++;
+            }
+
+            var keys = ladder.Keys;
+            var end = keys[^1];
+            if (ladder.Time >= end.Time)
+            {
+                _ladders.Remove(npc);
+                npc.Go.transform.position = end.Position;
+                npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+                SetKinematic(npc, false);
+                return;
+            }
+
+            for (var i = 1; i < keys.Count; i++)
+            {
+                if (ladder.Time > keys[i].Time)
+                    continue;
+                var span = keys[i].Time - keys[i - 1].Time;
+                var t = span > 0f ? (ladder.Time - keys[i - 1].Time) / span : 1f;
+                npc.Go.transform.position = Vector3.Lerp(keys[i - 1].Position, keys[i].Position, t);
+                break;
+            }
+            _ladders[npc] = ladder;
         }
 
         /// <summary>
@@ -117,6 +271,12 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void Tick(NpcContainer npc)
         {
+            if (_ladders.ContainsKey(npc))
+            {
+                TickLadder(npc);
+                return;
+            }
+
             if (!_climbs.TryGetValue(npc, out var climb))
                 return;
             if (npc.Go == null)
