@@ -45,6 +45,7 @@ namespace Gothic.Core.Services.Npc
         private readonly Dictionary<string, bool> _hasSwimAnimations = new();
         private readonly HashSet<NpcContainer> _loggedBarriers = new();
         private readonly HashSet<NpcContainer> _loggedSwimHeights = new();
+        private bool _isMissingSplashSoundLogged;
 
 
         /// <summary>
@@ -74,7 +75,7 @@ namespace Gothic.Core.Services.Npc
                 (ai.WaterLevel != (int)ZenGineConst.WaterLevel.Chest && feetY > waterY + _bridgeTolerance))
             {
                 if (ai.WaterLevel != (int)ZenGineConst.WaterLevel.Normal)
-                    SetWaterLevel(npc, ZenGineConst.WaterLevel.Normal);
+                    SetWaterLevel(npc, ZenGineConst.WaterLevel.Normal, waterY);
                 return worldMove;
             }
 
@@ -98,7 +99,7 @@ namespace Gothic.Core.Services.Npc
             var level = depth > chest ? ZenGineConst.WaterLevel.Chest
                 : depth > knee ? ZenGineConst.WaterLevel.Knee
                 : ZenGineConst.WaterLevel.Normal;
-            SetWaterLevel(npc, level);
+            SetWaterLevel(npc, level, waterY);
 
             // Swimming: the animated hips (NPC root + root bone offset) just below the surface.
             if (level == ZenGineConst.WaterLevel.Chest)
@@ -153,7 +154,11 @@ namespace Gothic.Core.Services.Npc
                 body.linearVelocity = Vector3.zero;
         }
 
-        private void SetWaterLevel(NpcContainer npc, ZenGineConst.WaterLevel level)
+        /// <summary>
+        /// The NPC's water level. waterY is the surface height at the NPC from the depth probe - where a plunge into
+        /// deep water splashes.
+        /// </summary>
+        private void SetWaterLevel(NpcContainer npc, ZenGineConst.WaterLevel level, float waterY)
         {
             // Gravity would pull a swimmer to the ground - the swim height is set each frame instead.
             // Checked every call: a loaded save or a culling respawn can restore the level without the body flag.
@@ -168,7 +173,10 @@ namespace Gothic.Core.Services.Npc
 
             // Straight into deep water (a fall, a jump): it splashes. Walking in passes knee-deep water first.
             if (previous == ZenGineConst.WaterLevel.Normal && level == ZenGineConst.WaterLevel.Chest)
-                EmitSplash(npc.Go.transform.position);
+            {
+                var pos = npc.Go.transform.position;
+                EmitSplash(new Vector3(pos.x, waterY, pos.z));
+            }
 
             // Daedalus checks C_BodyStateContains(self, BS_SWIM) (no sleep/freeze spells, unconscious in water, ...).
             var bodyState = npc.Props.BodyState;
@@ -191,6 +199,12 @@ namespace Gothic.Core.Services.Npc
             var clip = _audioService.GetRandomSoundClip(_splashSound);
             if (clip != null)
                 AudioSource.PlayClipAtPoint(clip, position);
+            else if (!_isMissingSplashSoundLogged)
+            {
+                _isMissingSplashSoundLogged = true;
+                Logger.LogWarning($"[NpcWater] Splash sound {_splashSound} not found - water splashes stay silent.",
+                    LogCat.Audio);
+            }
         }
 
         /// <summary>
@@ -207,7 +221,7 @@ namespace Gothic.Core.Services.Npc
             if (isFlying || !TryGetWater(pos, pos.y, out var groundY, out var waterY) || waterY - groundY <= chest)
                 return false;
 
-            SetWaterLevel(npc, ZenGineConst.WaterLevel.Chest);
+            SetWaterLevel(npc, ZenGineConst.WaterLevel.Chest, waterY);
             // Standing NPCs keep their idle animation otherwise - the walk actions only switch it while moving.
             npc.PrefabProps?.AnimationSystem?.PlayIdleAnimation();
             return true;
