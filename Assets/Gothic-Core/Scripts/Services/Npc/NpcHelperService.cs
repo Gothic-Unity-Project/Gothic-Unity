@@ -223,9 +223,27 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
-                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            // Like the engine, an NPC has its own attitude to the player only: the temporary one (e.g. because the
+            // hero stole something), else the permanent one of the scripts (Npc_SetAttitude). Unset: the guilds'.
+            if (other.PrefabProps.IsHero())
+            {
+                if (self.Vob.AttitudeTemp != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+                if (self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.Attitude;
+            }
+
+            return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+        }
+
+        /// <summary>
+        /// Npc_GetPermAttitude: like GetPersonAttitude(), but never the temporary attitude. ZS_Attack_End and the
+        /// knockout rule ask it whether the fight was a brawl among friends or meant to kill.
+        /// </summary>
+        public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
+        {
+            if (other.PrefabProps.IsHero() && self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                return (VmGothicEnums.Attitude)self.Vob.Attitude;
 
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }

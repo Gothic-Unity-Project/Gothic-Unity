@@ -36,6 +36,8 @@ namespace Gothic.Core.Adapters.Properties
         // Visual
         public string MdmName;
         public string MdsNameBase;
+        // The overlay played: the newest of the scripts' (Vob.Overlays), or while a weapon is drawn the fight stance of
+        // the NPC's talent (HUMANS_1HST1.MDS).
         public string MdsNameOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
@@ -54,6 +56,13 @@ namespace Gothic.Core.Adapters.Properties
 
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
+
+        // Like the engine, a state keeps the other/victim it was started with (AI_StartState): ZS_Attack_Loop fights
+        // the wolf it was started against, not the hero. Cleared when the NPC goes back to its routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
+        public readonly AttackCombo AttackCombo = new();
 
         public enum LoopState
         {

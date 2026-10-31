@@ -46,7 +46,7 @@ namespace Gothic.VR.Adapters.Marvin
             return;
 
             var attacker = _playerService.HeroContainer;
-            GlobalEventDispatcher.FightHit.Invoke(attacker, _npcData, default);
+            GlobalEventDispatcher.FightHit.Invoke(attacker, _npcData, default, null);
         }
     }
 }

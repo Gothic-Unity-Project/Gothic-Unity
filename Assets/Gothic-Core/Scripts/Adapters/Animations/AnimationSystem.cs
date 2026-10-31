@@ -799,6 +799,49 @@ namespace Gothic.Core.Adapters.Animations
             Logger.LogWarning("Play/StopHeadAnimation not yet implemented (logged once).", LogCat.Animation);
         }
 
+        /// <summary>
+        /// The event frames of the current attack animation (AttackCombo applies them).
+        /// </summary>
+        public AttackFrames AttackFrames => new(AttackOptFrame, AttackHitEnd, AttackWindowFrames);
+
+        /// <summary>
+        /// Time, frame rate and length of the playing track of the attack animation. Not one blending out: the previous
+        /// attack with the same animation may still blend out, its time past the hit frame - it would count as a hit of
+        /// the new attack.
+        /// </summary>
+        public bool TryGetAttackTrackTime(string animationName, out float time, out float fps, out float duration)
+        {
+            var track = GetPlayingAttackTrack(animationName);
+            time = track?.CurrentTime ?? 0f;
+            fps = track?.Track.FpsSource ?? 0f;
+            duration = track?.Track.Duration ?? 0f;
+            return track != null && fps > 0f;
+        }
+
+        /// <summary>
+        /// Moves the playing attack track forward to the time (a combo continues the animation from there).
+        /// </summary>
+        public void SetAttackTrackTime(string animationName, float time)
+        {
+            var track = GetPlayingAttackTrack(animationName);
+            if (track != null && track.CurrentTime < time)
+                track.CurrentTime = time;
+        }
+
+        private AnimationTrackInstance GetPlayingAttackTrack(string animationName)
+        {
+            foreach (var trackInstance in _trackInstances)
+            {
+                if (trackInstance.State is not (AnimationState.Play or AnimationState.BlendIn))
+                    continue;
+                if (trackInstance.Track.MatchesName(animationName) ||
+                    (AttackAnimation != null && trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation)))
+                    return trackInstance;
+            }
+
+            return null;
+        }
+
         public bool IsPlaying(string animationName)
         {
             foreach (var trackInstance in _trackInstances)

@@ -37,6 +37,8 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService
     {
+        private static readonly int _attributeCount = Enum.GetNames(typeof(NpcAttribute)).Length;
+
         public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
 
         [Inject] private readonly GameStateService _gameStateService;
@@ -55,7 +57,8 @@ namespace Gothic.Core.Services.Npc
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
-        private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
+        private NpcDeathDomain _deathDomain;
+        private NpcDeathDomain DeathDomain => _deathDomain ??= new NpcDeathDomain(SyncHeroInstanceToVob).Inject();
 
 
         private Queue<NpcLoader> _objectsToInitQueue = new();
@@ -291,7 +294,16 @@ namespace Gothic.Core.Services.Npc
 
             if (attribute == NpcAttribute.HitPoints && value <= 0 &&
                 npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
-                _deathDomain.Die(npc);
+                DeathDomain.Die(npc);
+        }
+
+        /// <summary>
+        /// The NPC dies now, killed by the killer (a fight). The scripts' part follows (ZS_Dead, NpcDeathDomain).
+        /// </summary>
+        public void Kill(NpcContainer npc, NpcContainer killer)
+        {
+            if (npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                DeathDomain.Die(npc, killer);
         }
 
         public void SetLevel(NpcContainer npc, int level)
@@ -322,12 +334,27 @@ namespace Gothic.Core.Services.Npc
             if (hero == null)
                 return;
 
-            hero.Vob.Level = hero.Instance.Level;
-            hero.Vob.Xp = hero.Instance.Exp;
-            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
-            hero.Vob.Lp = hero.Instance.Lp;
-            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
-                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
+            // It runs after every NPC's state start (a state may pay the hero): mostly nothing changed, and then
+            // nothing is announced. Each field is compared where it's copied, so a new one can't miss the check.
+            var vob = hero.Vob;
+            var instance = hero.Instance;
+            var isChanged = vob.Level != instance.Level;
+            vob.Level = instance.Level;
+            isChanged |= vob.Xp != instance.Exp;
+            vob.Xp = instance.Exp;
+            isChanged |= vob.XpNextLevel != instance.ExpNext;
+            vob.XpNextLevel = instance.ExpNext;
+            isChanged |= vob.Lp != instance.Lp;
+            vob.Lp = instance.Lp;
+            for (var i = 0; i < _attributeCount; i++)
+            {
+                var value = instance.GetAttribute((NpcAttribute)i);
+                isChanged |= vob.GetAttribute(i) != value;
+                vob.SetAttribute(i, value);
+            }
+
+            if (!isChanged)
+                return;
 
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPointsMax);
@@ -417,9 +444,30 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Vob.ModelFatness = fatness;
         }
 
+        /// <summary>
+        /// Like the engine, the NPC keeps the scripts' overlays in a list (saved with it), the newest one plays. A
+        /// drawn weapon keeps its fight stance until it's put away (UndrawWeapon).
+        /// </summary>
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
-            npc.GetUserData().Props.MdsNameOverlay = overlayName;
+            var container = npc.GetUserData();
+            if (container.Vob.Overlays.FindIndex(i => i.EqualsIgnoreCase(overlayName)) < 0)
+                container.Vob.AddOverlay(overlayName);
+
+            if ((VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon)
+                container.Props.MdsNameOverlay = overlayName;
+        }
+
+        public void ExtRemoveOverlayMds(NpcInstance npc, string overlayName)
+        {
+            var container = npc.GetUserData();
+            var index = container.Vob.Overlays.FindIndex(i => i.EqualsIgnoreCase(overlayName));
+            if (index < 0)
+                return;
+
+            container.Vob.RemoveOverlay(index);
+            if ((VmGothicEnums.WeaponState)container.Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon)
+                container.Props.MdsNameOverlay = container.GetScriptOverlay();
         }
 
         public void ExtNpcSetToFistMode(NpcInstance npc)
