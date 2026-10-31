@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
@@ -67,8 +66,7 @@ namespace Gothic.Core.Domain.Npc
             var candidates = new List<NpcContainer>();
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
-                if (npc == shooter || npc?.Go == null || !npc.Go.activeInHierarchy ||
-                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (npc == shooter || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Props?.IsDead == true)
                     continue;
 
                 if ((npc.Go.transform.position - start).sqrMagnitude <= _candidateRange * _candidateRange)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
@@ -11,6 +12,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -45,6 +47,8 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             _rig = GetComponent<IVrRig>();
+            if (_rig == null)
+                Logger.LogWarning($"[VRBowShooter] No IVrRig on {name} - the hero can't shoot bows.", LogCat.VR);
         }
 
         private void Update()

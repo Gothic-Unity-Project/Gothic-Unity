@@ -32,6 +32,8 @@ namespace Gothic.Core.Services.Npc
         private const float _minDrawSpeedFactor = 0.25f;
         // Arrows aim at the VR hero's chest, this far below his head.
         private const float _heroChestBelowHead = 0.4f;
+        private static readonly ItemConditionSlot[] _conditionSlots =
+            { ItemConditionSlot.Slot0, ItemConditionSlot.Slot1, ItemConditionSlot.Slot2 };
 
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly AnimationService _animationService;
@@ -189,7 +191,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private bool MeetsWeaponRequirements(NpcContainer shooter, ItemInstance weapon)
         {
-            foreach (var slot in new[] { ItemConditionSlot.Slot0, ItemConditionSlot.Slot1, ItemConditionSlot.Slot2 })
+            foreach (var slot in _conditionSlots)
             {
                 var value = weapon.GetCondValue(slot);
                 var attribute = weapon.GetCondAtr(slot);
@@ -273,7 +275,7 @@ namespace Gothic.Core.Services.Npc
             return true;
         }
 
-        /// <param name="mayKnockOut">False for spells that kill at 0 hit points.</param>
+        /// <param name="mayKnockOut">False for arrows and bolts: they kill at 0 hit points, like in the engine.</param>
         private void ApplyDamage(NpcContainer attacker, NpcContainer target, int damage, bool mayKnockOut = true)
         {
             var isHero = target.IsHero();
