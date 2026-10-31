@@ -1,5 +1,6 @@
 using System.Collections;
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -38,11 +39,12 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _heartbeatAmplitude = 0.4f;
         [Tooltip("Edge length in m of the veil cube around the head. Both eyes and their near clip plane fit in.")]
         [SerializeField] private float _size = 0.3f;
-        [Tooltip("Layer of the veil cube. Has to be rendered by the camera.")]
-        [SerializeField] private int _layer = 5;
 
         // If the hero's recovery never comes (his state changed by a script), the view gets up on its own.
         private const float _recoveryGraceSeconds = 5f;
+
+        // A rig whose screen fade doesn't work never turns black: the knockout goes on without it.
+        private const float _maxFadeSeconds = 2f;
 
         private IVrRig _rig;
         private IVrHaptics _haptics;
@@ -96,7 +98,8 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Loading ends a knockout without HeroRecovered: back to normal at once, the loading screen covers it.
+        /// Loading ends a knockout without HeroRecovered: back to normal at once, the loading screen covers it. Also
+        /// the fade, which can be stopped halfway to black.
         /// </summary>
         private void OnLoadGameStart()
         {
@@ -107,12 +110,12 @@ namespace Gothic.VR.Adapters.Player
             _knockout = null;
             _rig.SetEyeHeightOverride(null);
             SetVeil(0f);
+            _rig.Fade(0f, float.MaxValue);
         }
 
         private IEnumerator KnockOut(float seconds)
         {
-            _rig.Fade(1f, _fadeSpeed);
-            yield return new WaitUntil(() => _rig.FadeAlpha >= 1f);
+            yield return FadeToBlack();
 
             _rig.SetEyeHeightOverride(_lyingEyeHeight);
             SetVeil(_veilStartAlpha);
@@ -137,14 +140,24 @@ namespace Gothic.VR.Adapters.Player
                 yield return null;
             }
 
-            _rig.Fade(1f, _fadeSpeed);
-            yield return new WaitUntil(() => _rig.FadeAlpha >= 1f);
+            yield return FadeToBlack();
 
             _rig.SetEyeHeightOverride(null);
             SetVeil(0f);
             yield return null;
             _rig.Fade(0f, _fadeSpeed);
             _knockout = null;
+        }
+
+        private IEnumerator FadeToBlack()
+        {
+            _rig.Fade(1f, _fadeSpeed);
+            var timeout = Time.time + _maxFadeSeconds;
+            yield return new WaitUntil(() => _rig.FadeAlpha >= 1f || Time.time > timeout);
+
+            if (_rig.FadeAlpha < 1f)
+                Logger.LogWarning($"[VrKnockoutView] The view didn't turn black within {_maxFadeSeconds} s - " +
+                                  "going on without the fade.", LogCat.VR);
         }
 
         private void SetVeil(float alpha)
@@ -165,7 +178,7 @@ namespace Gothic.VR.Adapters.Player
 
             var cube = new GameObject("KnockoutVeilCube")
             {
-                layer = _layer
+                layer = Constants.UILayer
             };
             cube.transform.SetParent(transform, false);
             cube.transform.localScale = Vector3.one * _size;
