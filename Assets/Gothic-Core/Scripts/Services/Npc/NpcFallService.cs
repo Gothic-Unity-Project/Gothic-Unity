@@ -59,22 +59,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// The NPC landed after falling this far (m).
+        /// The NPC - or the VR hero (VrHeroFall) - landed after falling this far (m).
         /// </summary>
         public void Land(NpcContainer npc, float height)
-        {
-            ApplyFallDamage(npc, height);
-        }
-
-        /// <summary>
-        /// The VR hero landed after falling this far (m) - on land: his swimming handles the water.
-        /// </summary>
-        public void LandHero(NpcContainer hero, float height)
-        {
-            ApplyFallDamage(hero, height);
-        }
-
-        private void ApplyFallDamage(NpcContainer npc, float height)
         {
             var damage = GetFallDamage(npc, height);
             if (damage <= 0)

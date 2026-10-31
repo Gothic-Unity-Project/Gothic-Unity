@@ -1,8 +1,10 @@
 using Gothic.Core;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Ports;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -27,6 +29,8 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             _rig = GetComponent<IVrRig>();
+            if (_rig == null)
+                Logger.LogWarning("[VrHeroFall] No IVrRig on the player - the hero takes no fall damage.", LogCat.VR);
             _npcService = ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
             _npcFallService = ReflexProjectInstaller.DIContainer.Resolve<NpcFallService>();
         }
@@ -60,7 +64,7 @@ namespace Gothic.VR.Adapters.Player
             var height = _highestY.Value - position.y;
             _highestY = null;
             if (height >= _minFallHeight)
-                _npcFallService.LandHero(hero, height);
+                _npcFallService.Land(hero, height);
         }
     }
 }
