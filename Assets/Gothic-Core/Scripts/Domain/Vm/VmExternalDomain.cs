@@ -1203,9 +1203,10 @@ namespace Gothic.Core.Domain.Vm
             }
             catch (Exception e)
             {
-                // A category never filled doesn't exist in the packed inventory.
-                Logger.LogWarning($"Npc_GetInvItemBySlot: {npc.GetName(NpcNameSlot.Slot0)} has no inventory " +
-                                  $"category {category} - no item ({e.Message})", LogCat.Npc);
+                // ZenKit keeps all 9 categories - a never filled one is just empty and returns 0 below without a
+                // warning. Only an unexpected error lands here.
+                Logger.LogWarning($"Npc_GetInvItemBySlot: {npc.GetName(NpcNameSlot.Slot0)}'s inventory " +
+                                  $"category {category} can't be read - no item ({e.Message})", LogCat.Npc);
                 return 0;
             }
 
