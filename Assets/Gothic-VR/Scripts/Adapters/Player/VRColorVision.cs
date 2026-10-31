@@ -18,42 +18,40 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ColorVisionService _colorVisionService;
 
         private IVrRig _rig;
-        private bool _isSettingRead;
 
         private void Start()
         {
             _rig = GetComponent<IVrRig>();
+
+            ApplySetting();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ApplySetting);
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
         private void OnDestroy()
         {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ApplySetting);
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
-        }
-
-        private void Update()
-        {
-            // The rig exists before Gothic.ini is loaded (game version selection).
-            if (!_isSettingRead)
-                _isSettingRead = TryApplySetting();
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
         {
             if (key == VRConstants.IniNames.ColorVision)
-                TryApplySetting();
+                ApplySetting();
         }
 
-        private bool TryApplySetting()
+        /// <summary>
+        /// The rig exists before Gothic.ini is loaded (game version selection): GothicInisInitialized applies it then.
+        /// </summary>
+        private void ApplySetting()
         {
             var gothicIni = _configService?.Gothic;
             if (gothicIni == null || _rig?.Camera == null)
-                return false;
+                return;
 
             var mode = (ColorVisionMode)Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.ColorVision,
                 VRConstants.ColorVisionDefaultValue), 0, (int)ColorVisionMode.Tritanopia);
             _colorVisionService.SetMode(mode, _rig.Camera);
-            return true;
         }
     }
 }

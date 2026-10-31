@@ -42,6 +42,7 @@ namespace Gothic.Core.Services.UI
             0f, 0f, 0f);
 
         private Volume _volume;
+        private VolumeProfile _profile;
         private ChannelMixer _channelMixer;
         private Camera _camera;
         private bool _hadPostProcessing;
@@ -97,13 +98,21 @@ namespace Gothic.Core.Services.UI
             if (_volume != null)
                 Object.Destroy(_volume.gameObject);
 
+            // The profile isn't destroyed with the volume (a new camera each Player scene load).
+            if (_profile != null)
+            {
+                Object.Destroy(_channelMixer);
+                Object.Destroy(_profile);
+            }
+
             var go = new GameObject("ColorVisionVolume");
             go.transform.SetParent(camera.transform, false);
             _volume = go.AddComponent<Volume>();
             _volume.isGlobal = true;
             _volume.priority = _volumePriority;
-            _volume.profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            _channelMixer = _volume.profile.Add<ChannelMixer>(true);
+            _profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            _volume.profile = _profile;
+            _channelMixer = _profile.Add<ChannelMixer>(true);
         }
 
         private void ApplyCorrection(Matrix4x4 correction)
