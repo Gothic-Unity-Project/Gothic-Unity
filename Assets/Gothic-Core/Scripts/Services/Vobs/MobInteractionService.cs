@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -28,6 +29,9 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+
+        // Item names of mobs the scripts don't know - warned once each, as the mob is used again and again.
+        private readonly HashSet<string> _unknownItemsLogged = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Doors use VR hinge physics and chests their lid physics - not the mob/trigger path.
@@ -157,7 +161,18 @@ namespace Gothic.Core.Services.Vobs
 
             var hero = _playerService.HeroContainer;
             var item = _vmCacheService.TryGetItemData(mob.Item);
-            if (hero == null || item == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) > 0)
+            if (item == null)
+            {
+                if (_unknownItemsLogged.Add(mob.Item))
+                {
+                    Logger.LogWarning($"[MobInteractionService] '{mobName}' needs item '{mob.Item}', which the " +
+                                      "scripts don't know - used without it.", LogCat.Vob);
+                }
+
+                return false;
+            }
+
+            if (hero == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) > 0)
                 return false;
 
             Logger.Log($"[MobInteractionService] '{mobName}' needs '{mob.Item}'.", LogCat.Vob);
