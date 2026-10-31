@@ -41,12 +41,18 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// Reflex disposes the service with its scope. Without a domain reload, the static event would otherwise
-        /// keep this play session's service.
+        /// keep this play session's service. A camera that outlives the scope gets the headset back.
         /// </summary>
         public void Dispose()
         {
             RenderPipelineManager.beginContextRendering -= OnBeginContextRendering;
             _isActive = false;
+
+            if (_isRenderingToGameView && _cameraData != null)
+                _cameraData.allowXRRendering = true;
+
+            _isRenderingToGameView = false;
+            _cameraData = null;
         }
 
         /// <summary>
