@@ -553,8 +553,8 @@ namespace Gothic.Core.Domain.Vm
         }
 
         /// <summary>
-        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back too
-        /// (found on BoroBongo's branch).
+        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back
+        /// too, a drawn one the hand (found on BoroBongo's branch).
         /// </summary>
         public void AI_UnequipWeapons(NpcInstance npc)
         {
@@ -564,11 +564,21 @@ namespace Gothic.Core.Domain.Vm
 
             container.Props.EquippedItems.RemoveAll(i =>
                 i.MainFlag is (int)VmGothicEnums.ItemFlags.ItemKatNf or (int)VmGothicEnums.ItemFlags.ItemKatFf);
+
+            // Like after AI_RemoveWeapon, a drawn weapon is gone and follow-up animations are weaponless. Fists stay.
+            var weaponState = (VmGothicEnums.WeaponState)container.Vob.FightMode;
+            var isWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H or
+                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow;
+            if (isWeaponDrawn)
+                container.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
             if (container.Go == null)
                 return;
 
-            foreach (var slotName in new[] { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
-                         Constants.SlotCrossbow })
+            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
+                Constants.SlotCrossbow };
+            if (isWeaponDrawn)
+                slotNames.Add(Npc.Actions.AnimationActions.DrawWeapon.GetHandSlotName(weaponState));
+            foreach (var slotName in slotNames)
             {
                 var slot = container.Go.FindChildRecursively(slotName);
                 if (slot == null)
@@ -1191,9 +1201,11 @@ namespace Gothic.Core.Domain.Vm
             {
                 items = _npcInventoryService.GetInventoryItems(npc, (VmGothicEnums.InvCats)category);
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 // A category never filled doesn't exist in the packed inventory.
+                Logger.LogWarning($"Npc_GetInvItemBySlot: {npc.GetName(NpcNameSlot.Slot0)} has no inventory " +
+                                  $"category {category} - no item ({e.Message})", LogCat.Npc);
                 return 0;
             }
 

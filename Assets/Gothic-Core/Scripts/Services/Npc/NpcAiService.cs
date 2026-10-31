@@ -21,6 +21,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         // Resolved on first use - they lead back here.
         private VmCacheService _vmCacheServiceInstance;
@@ -307,11 +308,20 @@ namespace Gothic.Core.Services.Npc
             if (container == null)
                 return;
 
-            // Like the engine, the item's animation plays (t_Potion_Stand_2_S0: the potion to the mouth) before it works
-            // and the NPC puts it away after. Items without one work at once.
+            // Like the engine, only an item the NPC carries is used.
             var item = _vmCacheService.TryGetItemData(itemId);
-            var hasAnimation = item != null && !string.IsNullOrEmpty(item.SchemeName) && _animationService.GetTrack(
-                $"T_{item.SchemeName}_STAND_2_S0", container.Props.MdsNameBase, container.Props.MdsNameOverlay) != null;
+            if (item == null || _npcInventoryService.ExtNpcHasItems(npc, item.Index) <= 0)
+            {
+                Logger.LogWarning($"AI_UseItem: {npc.GetName(NpcNameSlot.Slot0)} doesn't carry item {itemId}",
+                    LogCat.Ai);
+                return;
+            }
+
+            // The item's animation plays (t_Potion_Stand_2_S0: the potion to the mouth) before it works and the NPC
+            // puts it away after (t_Potion_S0_2_Stand). Items without both work at once: a missing way back would
+            // stall the NPC's queue.
+            var hasAnimation = HasItemTransition(item, "STAND", "S0", container) &&
+                               HasItemTransition(item, "S0", "STAND", container);
             if (hasAnimation)
                 ExtAiUseItemToState(npc, itemId, 0);
             container.Props.AnimationQueue.Enqueue(new UseItem(new AnimationAction(int0: itemId), container));
@@ -319,14 +329,24 @@ namespace Gothic.Core.Services.Npc
                 ExtAiUseItemToState(npc, itemId, -1);
         }
 
+        private bool HasItemTransition(ItemInstance item, string from, string to, NpcContainer container)
+        {
+            return !string.IsNullOrEmpty(item.SchemeName) && _animationService.GetTrack(
+                $"T_{item.SchemeName}_{from}_2_{to}", container.Props.MdsNameBase,
+                container.Props.MdsNameOverlay) != null;
+        }
+
         public void ExtAiWhirlAround(NpcInstance npc, NpcInstance other)
         {
-            if (other == null)
+            var container = npc?.GetUserData();
+            if (other == null || container == null)
+            {
+                Logger.LogWarning($"AI_WhirlAround: {(container == null ? "the NPC" : "the other NPC")} isn't " +
+                                  "spawned - not turning", LogCat.Ai);
                 return;
+            }
 
-            npc.GetUserData().Props.AnimationQueue.Enqueue(new WhirlAround(
-                new AnimationAction(instance0: other),
-                npc.GetUserData()));
+            container.Props.AnimationQueue.Enqueue(new WhirlAround(new AnimationAction(instance0: other), container));
         }
 
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
