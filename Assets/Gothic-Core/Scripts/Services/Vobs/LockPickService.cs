@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -30,6 +31,8 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcService _npcService;
 
+        private readonly HashSet<string> _missingFunctionsReported = new();
+
         public bool CanPickLocks(NpcContainer hero)
         {
             if (_contextGameVersionService.IsGothic1())
@@ -43,6 +46,9 @@ namespace Gothic.Core.Services.Vobs
         /// </summary>
         public bool RollsBreak(NpcContainer hero)
         {
+            if (hero?.Vob == null)
+                return false;
+
             if (_contextGameVersionService.IsGothic2())
                 return hero.Vob.GetAttribute((int)NpcAttribute.Dexterity) <= Random.Range(0, 100);
 
@@ -54,11 +60,12 @@ namespace Gothic.Core.Services.Vobs
 
         /// <summary>
         /// The scripts react to a turn: G_PickLock(success, brokenOpen) - a correct turn (1, 0), the lock open (1, 1),
-        /// a wrong turn (0, 0), a broken lock pick (0, 1).
+        /// a wrong turn (0, 0), a broken lock pick (0, 1). False if the scripts have none (mods) or it failed - the
+        /// caller plays the sounds then.
         /// </summary>
-        public void OnTurn(bool isSuccess, bool isBrokenOpen)
+        public bool OnTurn(bool isSuccess, bool isBrokenOpen)
         {
-            CallAsHero(_pickLockFunction, index =>
+            return CallAsHero(_pickLockFunction, index =>
                 _gameStateService.GothicVm.Call(index, isSuccess ? 1 : 0, isBrokenOpen ? 1 : 0));
         }
 
@@ -70,13 +77,18 @@ namespace Gothic.Core.Services.Vobs
             CallAsHero(_missingLockPickFunction, index => _gameStateService.GothicVm.Call(index));
         }
 
-        private void CallAsHero(string functionName, Action<int> call)
+        private bool CallAsHero(string functionName, Action<int> call)
         {
             var vm = _gameStateService.GothicVm;
             var function = vm?.GetSymbolByName(functionName);
             // Only script functions - calling an external crashes the VM.
             if (function is not { Type: DaedalusDataType.Function, IsExternal: false })
-                return;
+            {
+                if (_missingFunctionsReported.Add(functionName))
+                    Logger.LogWarning($"[LockPick] The scripts have no function {functionName} - not called",
+                        LogCat.Vob);
+                return false;
+            }
 
             var hero = _npcService.GetHeroContainer();
             var oldSelf = vm.GlobalSelf;
@@ -84,10 +96,12 @@ namespace Gothic.Core.Services.Vobs
             try
             {
                 call(function.Index);
+                return true;
             }
             catch (Exception e)
             {
                 Logger.LogError($"[LockPick] {functionName} failed: {e.Message}", LogCat.Vob);
+                return false;
             }
             finally
             {

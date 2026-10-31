@@ -9,9 +9,9 @@ A wrong turn of the lock pick broke it on a coin flip, a placeholder, and the ga
 
 ## Decisions
 
-1. **In Gothic 2 only a hero with the talent picks locks;** without it the game's refusal plays. In Gothic 1 everybody can.
+1. **In Gothic 2 only a hero with the talent picks locks;** without it the game's refusal plays, once per try and not at every touch of the lock. In Gothic 1 everybody can.
 2. **The pick breaks by the engine's chance:** in Gothic 2 the hero's dexterity in a hundred holds, in Gothic 1 the talent's value is the chance to break. That chance starts at a hundred and training lowers it, to 60 and then 20.
-3. **Every turn runs the game's lock picking script,** which plays the sounds, shows the messages and in Gothic 2 may let a breaking pick be heard.
+3. **Every turn runs the game's lock picking script,** which plays the sounds, shows the messages and in Gothic 2 may let a breaking pick be heard. Scripts without it (some mods) still get the sounds.
 4. **Opening with the key stays as it was.**
 
 ## Consequences
