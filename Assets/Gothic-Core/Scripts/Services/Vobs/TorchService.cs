@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -75,8 +74,11 @@ namespace Gothic.Core.Services.Vobs
         /// <returns>False if it isn't a torch or burnt out.</returns>
         public bool Toggle(VobContainer torch)
         {
-            var item = torch?.PropsAs<VobItemProperties2>()?.Instance;
-            if (torch?.Go == null || !IsTorch(item))
+            if (torch?.Go == null || torch.Vob is not IItem)
+                return false;
+
+            var item = _vmCacheService.TryGetItemData(GetInstanceName(torch));
+            if (!IsTorch(item))
                 return false;
 
             if (IsBurning(torch))
