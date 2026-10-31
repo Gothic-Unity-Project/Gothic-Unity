@@ -8,6 +8,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
  
         private bool _firstFrameHandlingStarted = true;
         private float _initialZRotation;
+        private Vector3 _initialForward;
+        private Vector3 _initialUp;
 
         /// <summary>
         /// A hand rotation with lock pick always need to go:
@@ -47,6 +49,22 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void StartTracking()
         {
             _initialZRotation = _properties.HoldingHand.rotation.eulerAngles.z;
+            _initialForward = _properties.HoldingHand.forward;
+            _initialUp = _properties.HoldingHand.up;
+            _handRotationState = RotationState.Normal;
+        }
+
+        /// <summary>
+        /// The hand's roll around the direction it pointed when the pick went in,
+        /// whichever way the lock faces (same sign as the Z angle before).
+        /// </summary>
+        private float GetRotationDiff()
+        {
+            if (!_properties.IsHandRollTracked)
+                return Mathf.DeltaAngle(_initialZRotation, _properties.HoldingHand.rotation.eulerAngles.z);
+
+            var up = Vector3.ProjectOnPlane(_properties.HoldingHand.up, _initialForward);
+            return Vector3.SignedAngle(_initialUp, up, _initialForward);
         }
 
         /// <summary>
@@ -55,8 +73,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         /// </summary>
         private void CalculateRotation()
         {
-            var rotationDiff = Mathf.DeltaAngle(_initialZRotation,
-                _properties.HoldingHand.rotation.eulerAngles.z);
+            var rotationDiff = GetRotationDiff();
 
             // Check for specific rotation thresholds
             switch (_handRotationState)

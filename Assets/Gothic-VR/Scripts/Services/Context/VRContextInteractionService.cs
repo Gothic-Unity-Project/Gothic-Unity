@@ -82,6 +82,8 @@ namespace Gothic.VR.Services.Context
             {
                 if (_configService.Dev.EnableVrHeroBody)
                     new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
+                // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+                new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
                 // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
                 VRHandSkinLight.Apply(_configService);
             });

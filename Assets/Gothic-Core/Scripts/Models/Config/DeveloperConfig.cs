@@ -386,6 +386,33 @@ namespace Gothic.Core.Models.Config
                  "page arrow - it moves everything into the hero's inventory.")]
         public bool EnableLootTakeAll = true;
 
+        [Tooltip("Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
+                 "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]
+        public bool EnableStackSplit = true;
+
+        [Tooltip("Seconds until the second piece while the split trigger is held (EnableStackSplit).")]
+        public float StackSplitRepeatDelay = 0.45f;
+
+        [Tooltip("Each next piece comes this factor faster (0.1-1, 1 = constant pace) (EnableStackSplit).")]
+        public float StackSplitAcceleration = 0.8f;
+
+        [Tooltip("Swampweed joints (scheme JOINT) can be smoked at the VR mouth: smoke sound + LIGHTSMOKE puffs, " +
+                 "on_state[0] like the engine, joint used up.")]
+        public bool EnableSmoking = true;
+
+        [Tooltip("Smoke puffs of one joint (at least 1), spread over the smoking sound.")]
+        [Min(1)]
+        public int SmokePuffs = 4;
+
+        [Tooltip("Seconds from putting the joint to the mouth until the smoking sound and the first puff (taking a drag).")]
+        [Min(0f)]
+        public float SmokeStartDelay = 1.5f;
+
+        [Tooltip("G1 world map (WORLD.ZEN) edges in Gothic cm: x = left, y = top, z = right, w = bottom. G1 maps have no " +
+                 "Doc_SetLevelCoords - fit by two spots in VR (start, Swamp Camp). " +
+                 "All 0 = the world mesh bounds.")]
+        public Vector4 G1WorldMapBounds = new(-84056f, 67222f, 84451f, -61217f);
+
 
         /**
          * ##########

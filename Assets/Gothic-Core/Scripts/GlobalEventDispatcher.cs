@@ -117,6 +117,9 @@ namespace Gothic.Core
         /// NpcContainer - whose inventory changed
         /// </summary>
         public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
+
+        // DocModel - document to show; GameObject - item GO to attach the viewer to (may be null in flat mode).
+        public static readonly UnityEvent<Gothic.Core.Models.Doc.DocModel, GameObject> DocShow = new();
         
 
         // LockPicking events

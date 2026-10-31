@@ -47,6 +47,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly RoomService _roomService;
+        [Inject] private readonly DocService _docService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -139,6 +140,20 @@ namespace Gothic.Core.Domain.Vm
 
             // Apply Options
             // Doc
+            vm.RegisterExternal<int>("Doc_Create", Doc_Create);
+            vm.RegisterExternal<int>("Doc_CreateMap", Doc_CreateMap);
+            vm.RegisterExternal<int, int>("Doc_SetPages", Doc_SetPages);
+            vm.RegisterExternal<int, int, string, int>("Doc_SetPage", Doc_SetPage);
+            vm.RegisterExternal<int, int, int, int, int, int, int>("Doc_SetMargins", Doc_SetMargins);
+            vm.RegisterExternal<int, int, string>("Doc_SetFont", Doc_SetFont);
+            vm.RegisterExternal<int, int, string>("Doc_PrintLine", Doc_PrintLine);
+            vm.RegisterExternal<int, int, string>("Doc_PrintLines", Doc_PrintLines);
+            vm.RegisterExternal<int>("Doc_Show", Doc_Show);
+            // Map position externals: G1 has no Doc_SetLevelCoords (registering a missing symbol throws).
+            if (vm.GetSymbolByName("Doc_SetLevel") != null)
+                vm.RegisterExternal<int, string>("Doc_SetLevel", Doc_SetLevel);
+            if (vm.GetSymbolByName("Doc_SetLevelCoords") != null)
+                vm.RegisterExternal<int, int, int, int, int>("Doc_SetLevelCoords", Doc_SetLevelCoords);
 
             // Helper
             vm.RegisterExternal<int, int>("Hlp_Random", Hlp_Random);
@@ -1775,6 +1790,35 @@ namespace Gothic.Core.Domain.Vm
         {
             _vobService.DispatchUntrigger(vobName);
         }
+
+        #endregion
+
+        #region Doc
+
+        public int Doc_Create() => _docService.CreateDoc();
+
+        public int Doc_CreateMap() => _docService.CreateMap();
+
+        public void Doc_SetPages(int id, int count) => _docService.SetPages(id, count);
+
+        public void Doc_SetPage(int id, int page, string texture, int flags) =>
+            _docService.SetPage(id, page, texture, flags);
+
+        public void Doc_SetMargins(int id, int page, int left, int top, int right, int bottom, int type) =>
+            _docService.SetMargins(id, page, left, top, right, bottom, type);
+
+        public void Doc_SetFont(int id, int page, string font) => _docService.SetFont(id, page, font);
+
+        public void Doc_PrintLine(int id, int page, string text) => _docService.PrintLine(id, page, text);
+
+        public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
+
+        public void Doc_Show(int id) => _docService.ShowDoc(id);
+
+        public void Doc_SetLevel(int id, string level) => _docService.SetLevel(id, level);
+
+        public void Doc_SetLevelCoords(int id, int left, int top, int right, int bottom) =>
+            _docService.SetLevelCoords(id, left, top, right, bottom);
 
         #endregion
 
