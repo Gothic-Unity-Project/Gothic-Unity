@@ -754,6 +754,13 @@ namespace Gothic.Core.Adapters.Animations
             if (PrefabProps.NpcSound == null)
                 return;
 
+            // Only steps the listener can hear (the AudioListener sits on the main camera): a step beyond its own
+            // range is silent anyway but would still cost a ray and an audio voice, for every walking NPC in the world.
+            var range = sfx.Range.ToMeter();
+            var listener = Camera.main;
+            if (listener == null || (listener.transform.position - Go.transform.position).sqrMagnitude > range * range)
+                return;
+
             if (!_groundSoundNames.TryGetValue(sfx.Name, out var names))
             {
                 var soundName = sfx.Name.Substring(AnimationService.GroundSoundPrefix.Length);
@@ -769,7 +776,7 @@ namespace Gothic.Core.Adapters.Animations
                 return;
 
             // The step's own range (10 m unless the MDS says otherwise), not what the NPC's last sound left.
-            PrefabProps.NpcSound.maxDistance = sfx.Range.ToMeter();
+            PrefabProps.NpcSound.maxDistance = range;
             PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
