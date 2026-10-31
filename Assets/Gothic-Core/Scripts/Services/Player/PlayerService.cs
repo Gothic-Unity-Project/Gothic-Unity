@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Player
                 (lockPick, _, _) => RemoveItem(lockPick.VobAs<IItem>().Instance, 1));
             
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(OnZenKitBootstrapped);
+            GlobalEventDispatcher.LoadGameStart.AddListener(ResetDrowning);
         }
 
         private void OnZenKitBootstrapped()
@@ -111,15 +112,27 @@ namespace Gothic.Core.Services.Player
             if (HeroContainer?.Vob == null)
                 return;
 
+            var hitPoints = HeroContainer.Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (hitPoints <= 0)
+            {
+                // Dead (drowned or killed under water): a hero brought back starts the count over.
+                ResetDrowning();
+                return;
+            }
+
             var before = (int)(_drownTime / _drownSecondsPerHitPoint);
             _drownTime += Time.deltaTime;
             var damage = (int)(_drownTime / _drownSecondsPerHitPoint) - before;
-            if (damage <= 0)
-                return;
-
-            var hitPoints = HeroContainer.Vob.GetAttribute((int)NpcAttribute.HitPoints);
-            if (hitPoints > 0)
+            if (damage > 0)
                 NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+        }
+
+        /// <summary>
+        /// A new or loaded game, or a dead hero, starts the drowning count over.
+        /// </summary>
+        private void ResetDrowning()
+        {
+            _drownTime = 0f;
         }
 
         private IEnumerator HandleStatusEffects()
