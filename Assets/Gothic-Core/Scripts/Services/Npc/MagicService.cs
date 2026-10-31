@@ -55,6 +55,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly HeroSpellStateService _heroSpellStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -580,8 +581,13 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void SendAssessMagic(SpellCast cast, NpcContainer victim)
         {
+            // The hero runs no states - sleep and freeze are set on him directly.
             if (victim.IsHero())
+            {
+                _heroSpellStateService.TryApply(victim,
+                    HeroSpellStateService.GetSpellState(_spellData.GetName(cast.SpellId)));
                 return;
+            }
 
             var casterProps = cast.Caster.Props;
             var activeItem = casterProps.ActiveSpellItem;

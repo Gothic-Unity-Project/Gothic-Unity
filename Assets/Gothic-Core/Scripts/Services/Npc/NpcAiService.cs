@@ -20,6 +20,7 @@ namespace Gothic.Core.Services.Npc
     public class NpcAiService
     {
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly HeroSpellStateService _heroSpellStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
@@ -196,6 +197,13 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void ExtAiStartState(NpcInstance npc, int action, bool stopCurrentState, string wayPointName)
         {
+            // G2's Spell_Logic_Sleep puts its victim to sleep itself (AI_StartState(other, ZS_MagicSleep)) - the hero
+            // runs no states, it was queued and never happened.
+            var container = npc.GetUserData();
+            if (container != null && container.IsHero() &&
+                _heroSpellStateService.TryApply(container, _gameStateService.GothicVm.GetSymbolByIndex(action)?.Name))
+                return;
+
             var other = (NpcInstance)_gameStateService.GothicVm.GlobalOther;
             var victim = (NpcInstance)_gameStateService.GothicVm.GlobalVictim;
             StartState(npc, action, stopCurrentState, wayPointName, other, victim, true);
