@@ -240,8 +240,9 @@ namespace Gothic.Core.Services.Npc
             foreach (var container in _multiTypeCacheService.VobCache)
             {
                 if (container.Vob is not IItem vobItem) continue;
-                // Skip items whose GO was destroyed (player already picked them up via loot menu)
-                if (container.Go == null) continue;
+                // Skip items whose GO was destroyed (player already picked them up via loot menu) or that are hidden
+                // (inside a closed VR chest or backpack).
+                if (container.Go == null || !container.Go.activeInHierarchy) continue;
 
                 // Use actual GO position (physics may have moved it)
                 var dist = Vector3.Distance(container.Go.transform.position, npcPos);
@@ -293,28 +294,27 @@ namespace Gothic.Core.Services.Npc
             return npc.Vob.GetTalent(talentIndex).Value;
         }
 
+        /// <summary>
+        /// The temporary attitude (Npc_SetTempAttitude) when set, else the permanent one (GetPermanentAttitude).
+        /// </summary>
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            if (IsHero(self) || IsHero(other))
+            {
+                var npc = IsHero(self) ? other : self;
+                if (npc.Vob.AttitudeTemp != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
+            }
 
-            // Like the engine (OpenGothic personAttitude), an NPC's own attitude (Npc_SetAttitude/Npc_SetTempAttitude)
-            // is its attitude towards the hero - between two NPCs only the guild table counts. Baal Parvez (friendly to
-            // the hero as a guide) was friendly to every lurker and scavenger too and never attacked them.
-            if (!IsHero(self) && !IsHero(other))
-                return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
-
-            var npc = IsHero(self) ? other : self;
-            if (npc.Vob.AttitudeTemp != attNull)
-                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
-            if (npc.Vob.Attitude != attNull)
-                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
-            return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+            return GetPermanentAttitude(self, other);
         }
 
         /// <summary>
-        /// Npc_GetPermAttitude: the permanent attitude only, never the temporary one (ZS_Attack_End's hostile check).
-        /// Like GetPersonAttitude it is the NPC's attitude towards the hero; none set (Null, most G1 NPCs) or between
-        /// two NPCs: the guild table.
+        /// Like the engine (OpenGothic personAttitude), an NPC's own attitude (Npc_SetAttitude/Npc_SetTempAttitude) is
+        /// its attitude towards the hero - between two NPCs only the guild table counts. Baal Parvez (friendly to the
+        /// hero as a guide) was friendly to every lurker and scavenger too and never attacked them.
+        /// Npc_GetPermAttitude: the permanent attitude only, never the temporary one (ZS_Attack_End's hostile check);
+        /// none set (Null, most G1 NPCs): the guild table.
         /// </summary>
         public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
         {

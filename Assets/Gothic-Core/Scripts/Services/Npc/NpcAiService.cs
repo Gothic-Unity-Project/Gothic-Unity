@@ -152,7 +152,16 @@ namespace Gothic.Core.Services.Npc
             // The startled jump survives the queue being cleared, like the engine's whirl that starts right away.
             // G1 ZS_AssessFighter: B_WhirlAround, then B_SelectWeapon -> B_EquipAndDrawBestMeleeWeapon -> B_FullStop
             // clears the queue again - Ghorri drew his sword with his back to the hero and only turned afterwards.
-            if (!queue.Any(action => action is WhirlAround))
+            var hasWhirl = false;
+            foreach (var action in queue)
+            {
+                if (action is not WhirlAround)
+                    continue;
+                hasWhirl = true;
+                break;
+            }
+
+            if (!hasWhirl)
             {
                 queue.Clear();
                 return;
