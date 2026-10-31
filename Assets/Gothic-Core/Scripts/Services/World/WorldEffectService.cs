@@ -69,7 +69,8 @@ namespace Gothic.Core.Services.World
             // A new world or a loaded game starts without effects.
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(StopAll);
             GlobalEventDispatcher.LoadGameStart.AddListener(StopAll);
-            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(OnNpcCullingChanged);
+            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener((npc, _, isInVisibleRange, _) =>
+                OnNpcCullingChanged(npc, isInVisibleRange));
         }
 
         /// <param name="origin">The NPC or world item the effect starts at.</param>
@@ -136,8 +137,7 @@ namespace Gothic.Core.Services.World
                 ApplySlowTime();
         }
 
-        private void OnNpcCullingChanged(NpcContainer npc, Gothic.Core.Adapters.Npc.NpcLoader loader, bool isInVisibleRange,
-            bool wasOutOfDistance)
+        private void OnNpcCullingChanged(NpcContainer npc, bool isInVisibleRange)
         {
             if (!isInVisibleRange || string.IsNullOrEmpty(npc?.Instance?.Effect))
                 return;
