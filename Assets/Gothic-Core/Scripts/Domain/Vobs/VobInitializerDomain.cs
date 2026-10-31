@@ -38,9 +38,6 @@ namespace Gothic.Core.Domain.Vobs
     public class VobInitializerDomain
     {
         [Inject] private readonly ConfigService _configService;
-
-        // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
-        private readonly HashSet<int> _createdEarlyVobIds = new();
         [Inject] private readonly VobSoundCullingService _vobSoundCullingService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AudioService _audioService;
@@ -50,6 +47,9 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
+
+        // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
+        private readonly HashSet<int> _createdEarlyVobIds = new();
 
 
         /// <summary>
@@ -218,29 +218,16 @@ namespace Gothic.Core.Domain.Vobs
                     go.name = $"MessageFilter_{vob.Name}";
                     go.GetComponent<MessageFilterHandler>().Init((IMessageFilter)vob);
                     break;
-                case VirtualObjectType.zCVobScreenFX:
-                case VirtualObjectType.oCCSTrigger:
-                case VirtualObjectType.zCVobLensFlare:
-                case VirtualObjectType.zCZoneZFog:
-                case VirtualObjectType.zCZoneZFogDefault:
-                case VirtualObjectType.zCZoneVobFarPlane:
-                case VirtualObjectType.zCZoneVobFarPlaneDefault:
-                case VirtualObjectType.zCCSCamera:
-                case VirtualObjectType.zCCamTrj_KeyFrame:
-                case VirtualObjectType.oCTouchDamage:
-                case VirtualObjectType.zCEarthquake:
                 case VirtualObjectType.Ignored:
                 case VirtualObjectType.Unknown:
+                case var _ when IsUnbuiltVobType(vob.Type):
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
                     // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
                     // move its pillars and gates. Root ones: VobService made their children roots already.
                     if (!isRootVob)
-                    {
-                        foreach (var childVob in vob.Children)
-                            InitVob(childVob, parent, worldPosition, false, vob);
-                    }
+                        InitChildren(vob, parent, worldPosition);
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -273,6 +260,14 @@ namespace Gothic.Core.Domain.Vobs
                 VirtualObjectType.oCTriggerScript
                 ? parent
                 : go;
+            InitChildren(vob, childParent, worldPosition);
+        }
+
+        /// <summary>
+        /// The VOB's children, except the logic VOBs VobService already created with the world (MarkCreatedEarly).
+        /// </summary>
+        private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition)
+        {
             foreach (var childVob in vob.Children)
             {
                 if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
@@ -308,7 +303,8 @@ namespace Gothic.Core.Domain.Vobs
         }
 
         /// <summary>
-        /// VOB types InitVob only creates an empty placeholder for (cutscene cameras, fog zones, ...).
+        /// VOB types InitVob only creates an empty placeholder for (cutscene cameras, fog zones, ...). VobService asks it
+        /// too, so both build the same ones.
         /// </summary>
         public static bool IsUnbuiltVobType(VirtualObjectType type)
         {
