@@ -18,8 +18,8 @@ namespace Gothic.Core.Services.Npc
     ///   by swimming - ZS_MM_Attack gives up when the hero is BS_SWIM (AIV_MM_FollowInWater).
     /// - Both depths 999999 (Bloodfly, Demon): flying - over water the surface is their ground.
     /// The level is stored in Vob.AiHuman.WaterLevel (the hero uses the same field, see VRSwimDive).
-    /// Taken over from BoroBongo's branch. Two rays per moving NPC and frame, four while one that can't swim pushes
-    /// against deep water.
+    /// Taken over from BoroBongo's branch. Two rays per moving NPC near the player and frame, four while one that
+    /// can't swim pushes against deep water.
     /// </summary>
     public class NpcWaterService
     {
@@ -34,6 +34,9 @@ namespace Gothic.Core.Services.Npc
         private const float _swimRootDepthFactor = 0.25f;
         // Vertical speed (m/s) into the swim/hover height - no jump when the water gets deep.
         private const float _surfaceSpeed = 1.5f;
+        // Quest 2: only NPCs this close to the player (m) check the water - the ones he sees. Farther ones keep their
+        // last level, gravity and height until he comes closer.
+        private const float _maxPlayerDistance = 30f;
 
         private readonly Dictionary<string, bool> _hasSwimAnimations = new();
         private readonly HashSet<NpcContainer> _loggedBarriers = new();
@@ -64,6 +67,9 @@ namespace Gothic.Core.Services.Npc
                 return worldMove;
 
             var pos = npc.Go.transform.position;
+            if (!IsNearPlayer(pos))
+                return worldMove;
+
             var next = pos + worldMove;
 
             GetDepths(npc, out var knee, out var chest, out var isFlying);
@@ -131,6 +137,13 @@ namespace Gothic.Core.Services.Npc
             if (pos.y < hoverY)
                 worldMove.y = MoveToHeight(pos.y, hoverY);
             return worldMove;
+        }
+
+        private static bool IsNearPlayer(Vector3 position)
+        {
+            var player = Camera.main;
+            return player != null &&
+                   (player.transform.position - position).sqrMagnitude <= _maxPlayerDistance * _maxPlayerDistance;
         }
 
         private static float MoveToHeight(float currentY, float targetY)
