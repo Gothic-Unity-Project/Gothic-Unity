@@ -22,6 +22,14 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
+        // Resolved on first use - they lead back here.
+        private VmCacheService _vmCacheServiceInstance;
+        private AnimationService _animationServiceInstance;
+        private VmCacheService _vmCacheService => _vmCacheServiceInstance ??=
+            ReflexProjectInstaller.DIContainer.Resolve<VmCacheService>();
+        private AnimationService _animationService => _animationServiceInstance ??=
+            ReflexProjectInstaller.DIContainer.Resolve<AnimationService>();
+
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
@@ -296,7 +304,19 @@ namespace Gothic.Core.Services.Npc
         public void ExtAiUseItem(NpcInstance npc, int itemId)
         {
             var container = npc.GetUserData();
-            container?.Props.AnimationQueue.Enqueue(new UseItem(new AnimationAction(int0: itemId), container));
+            if (container == null)
+                return;
+
+            // Like the engine, the item's animation plays (t_Potion_Stand_2_S0: the potion to the mouth) before it works
+            // and the NPC puts it away after. Items without one work at once.
+            var item = _vmCacheService.TryGetItemData(itemId);
+            var hasAnimation = item != null && !string.IsNullOrEmpty(item.SchemeName) && _animationService.GetTrack(
+                $"T_{item.SchemeName}_STAND_2_S0", container.Props.MdsNameBase, container.Props.MdsNameOverlay) != null;
+            if (hasAnimation)
+                ExtAiUseItemToState(npc, itemId, 0);
+            container.Props.AnimationQueue.Enqueue(new UseItem(new AnimationAction(int0: itemId), container));
+            if (hasAnimation)
+                ExtAiUseItemToState(npc, itemId, -1);
         }
 
         public void ExtAiWhirlAround(NpcInstance npc, NpcInstance other)
