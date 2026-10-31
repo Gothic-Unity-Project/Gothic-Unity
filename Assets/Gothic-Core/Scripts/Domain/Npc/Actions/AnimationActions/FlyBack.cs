@@ -28,6 +28,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private int _phase;
         private float _getUpSeconds;
         private float _standingHeight;
+        private Vector3 _velocity;
 
         /// <param name="away">Horizontal direction from the attacker to the victim.</param>
         public FlyBack(AnimationAction action, NpcContainer npcContainer, Vector3 away) : base(action, npcContainer)
@@ -50,8 +51,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _standingHeight = GetHeightAboveGround() ?? 1f;
             Props.BodyState = VmGothicEnums.BodyState.BsFall;
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
+            // The NPC's rigidbody only moves up and down (X/Z are frozen, root motion walks): physics does the height,
+            // the flight moves the NPC sideways itself.
+            _velocity = (_away + Vector3.up * 0.5f).normalized * _speed;
             var body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
-            body.linearVelocity = (_away + Vector3.up * 0.5f).normalized * _speed;
+            body.linearVelocity = new Vector3(0f, _velocity.y, 0f);
         }
 
         public override void Tick()
@@ -61,6 +65,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
 
             _phaseTime += Time.deltaTime;
+            if (_phase == 0)
+                MoveSideways();
+
             switch (_phase)
             {
                 case 0 when IsLanded() || _phaseTime >= _maxFlightSeconds:
@@ -89,6 +96,26 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (Props.BodyState is VmGothicEnums.BodyState.BsFall or VmGothicEnums.BodyState.BsLie)
                 Props.BodyState = VmGothicEnums.BodyState.BsStand;
             base.StopImmediately();
+        }
+
+        /// <summary>
+        /// Like the NPC's walk, a wall stops it (a sphere at hip height probes the move).
+        /// </summary>
+        private void MoveSideways()
+        {
+            var move = new Vector3(_velocity.x, 0f, _velocity.z) * Time.deltaTime;
+            var distance = move.magnitude;
+            if (distance < 0.0001f)
+                return;
+
+            if (Physics.SphereCast(NpcGo.transform.position, 0.3f, move / distance, out _, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore))
+            {
+                _velocity = new Vector3(0f, _velocity.y, 0f);
+                return;
+            }
+
+            NpcGo.transform.position += move;
         }
 
         private bool IsLanded()
