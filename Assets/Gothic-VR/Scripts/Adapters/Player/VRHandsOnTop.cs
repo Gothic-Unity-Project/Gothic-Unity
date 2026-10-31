@@ -69,15 +69,19 @@ namespace Gothic.VR.Adapters.Player
         public void SetOnTop(bool onTop)
         {
             for (var i = 0; i < _handRenderers.Length; i++)
+            {
+                // The current material, not the one at Start: VRHandSkinLight tints copies of it per world.
+                if (onTop && _handRenderers[i].sharedMaterial != _onTopMaterialCopy)
+                    _originalMaterials[i] = _handRenderers[i].sharedMaterial;
                 _handRenderers[i].sharedMaterial = onTop ? _onTopMaterialCopy : _originalMaterials[i];
+            }
 
             if (_pointerLines == null)
                 return;
-            var isLineOnTop = onTop;
             for (var i = 0; i < _pointerLines.Length; i++)
             {
                 if (_pointerLines[i] != null && _pointerLineOnTopCopies[i] != null)
-                    _pointerLines[i].sharedMaterial = isLineOnTop ? _pointerLineOnTopCopies[i] : _pointerLineMaterials[i];
+                    _pointerLines[i].sharedMaterial = onTop ? _pointerLineOnTopCopies[i] : _pointerLineMaterials[i];
             }
         }
     }

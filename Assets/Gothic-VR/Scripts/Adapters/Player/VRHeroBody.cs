@@ -73,6 +73,7 @@ namespace Gothic.VR.Adapters.Player
         private Vector3 _bodyForward = Vector3.forward;
         private bool _hasBodyForward;
         private VrInteractable _backpack;
+        private float _nextBackpackSearch;
         private IVrRig _rig;
         private readonly List<Renderer> _renderers = new();
 
@@ -116,6 +117,7 @@ namespace Gothic.VR.Adapters.Player
 
         // Legs/torso animation.
         private VRHeroBodyAnimator _animator;
+        private readonly Dictionary<(string, string, string), string> _reversedAnimations = new();
         private float _lastBodyYaw;
         private float _bodyYawSpeed;
         private float _standingScale;
@@ -190,6 +192,7 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             SetHeroHandsShown(false);
             EndDown();
+            RestoreHeldItemAttachPoints();
             DestroyCreatedMeshes();
             foreach (var copy in _onTopMaterialCopies.Values)
             {
@@ -202,6 +205,23 @@ namespace Gothic.VR.Adapters.Player
         {
             SetHeroHandsShown(false);
             EndDown();
+            RestoreHeldItemAttachPoints();
+        }
+
+        /// <summary>
+        /// The physics hands live in the Player scene and outlive this world's body: their attach points go back to
+        /// their own spots - the next body took the shifted spot as the default and shifted it again (items crept
+        /// forward in the hand with every world load).
+        /// </summary>
+        private void RestoreHeldItemAttachPoints()
+        {
+            foreach (var (attach, defaultPosition) in _attachDefaultPositions)
+            {
+                if (attach != null)
+                    attach.localPosition = defaultPosition;
+            }
+            _attachDefaultPositions.Clear();
+            _attachShiftedPositions.Clear();
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
@@ -532,7 +552,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
             // Crouching (sneaking) lowers the head, not the body size - keep the standing scale then.
             var isCrouching = _rig != null && _rig.IsCrouching;
-            if (!isCrouching || _standingScale <= 0f)
+            if (!isCrouching || _standingScale <= _minScale)
                 _standingScale = Mathf.Clamp((head.position.y - feetY) / _modelHeadHeight, _minScale, _maxScale);
             var scale = _standingScale;
             _body.transform.localScale = Vector3.one * scale;
@@ -720,7 +740,7 @@ namespace Gothic.VR.Adapters.Player
             else if (isBackwards)
                 animation = _animator.HasAnimation(_walkBackAnimation)
                     ? _walkBackAnimation
-                    : _animationService.GetReversedAnimationName(_walkAnimation, _animator.MdsBase, _animator.MdsOverlay);
+                    : GetReversedAnimationName(_walkAnimation);
             else if (Mathf.Abs(local.x) > Mathf.Abs(local.z))
                 animation = speed >= _runSpeed
                     ? (local.x < 0f ? "T_RUNSTRAFEL" : "T_RUNSTRAFER")
@@ -735,7 +755,7 @@ namespace Gothic.VR.Adapters.Player
                     ? animation.Substring(0, animation.Length - 2) + "L"
                     : null;
                 animation = forwardLoop != null && _animator.HasAnimation(forwardLoop)
-                    ? _animationService.GetReversedAnimationName(forwardLoop, _animator.MdsBase, _animator.MdsOverlay)
+                    ? GetReversedAnimationName(forwardLoop)
                     : null;
                 animation ??= speed < _idleSpeed ? _idleAnimation : _walkAnimation;
             }
@@ -755,6 +775,22 @@ namespace Gothic.VR.Adapters.Player
         /// Yaw of the head, but stable: looking (almost) straight down/up, the head's forward has no horizontal part -
         /// its up vector points where the body faces then. The body only follows beyond a deadzone.
         /// </summary>
+        /// <summary>
+        /// AnimationService.GetReversedAnimationName, remembered per animation and model (it's asked every frame while
+        /// walking backwards).
+        /// </summary>
+        private string GetReversedAnimationName(string animation)
+        {
+            var key = (animation, _animator.MdsBase, _animator.MdsOverlay);
+            if (!_reversedAnimations.TryGetValue(key, out var reversed))
+            {
+                reversed = _animationService.GetReversedAnimationName(animation, _animator.MdsBase,
+                    _animator.MdsOverlay);
+                _reversedAnimations[key] = reversed;
+            }
+            return reversed;
+        }
+
         private Vector3 GetBodyForward(Transform head)
         {
             var lookForward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
@@ -783,6 +819,9 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_backpack == null)
             {
+                if (Time.time < _nextBackpackSearch)
+                    return false;
+                _nextBackpackSearch = Time.time + _visualCheckInterval;
                 var backpack = FindFirstObjectByType<VRBackpack>();
                 if (backpack == null)
                     return false;
@@ -912,6 +951,7 @@ namespace Gothic.VR.Adapters.Player
             _bareForearms.Clear();
             _bareForearmMeshes.Clear();
             _areSleevesRolledUp = false;
+            _attachShiftedPositions.Clear();
 
             var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay) ? props.MdhNameBase : props.MdhNameOverlay;
             var root = new GameObject("_VRHeroBody");
@@ -1279,6 +1319,8 @@ namespace Gothic.VR.Adapters.Player
                 List<(SkinnedMeshRenderer renderer, Mesh withHands, Mesh withoutHands)> handMeshes)
             {
                 _hasModelPalm = false;
+                _hasHandAxes = false;
+                _finger = null;
                 var slotName = _side == "L" ? "ZS_LEFTHAND" : "ZS_RIGHTHAND";
                 if (!bones.TryGetValue($"BIP01 {_side} FINGER0", out var finger) ||
                     !bones.TryGetValue(slotName, out var slot))

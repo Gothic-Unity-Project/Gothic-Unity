@@ -173,9 +173,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public bool IsClimbing => _climbProvider != null && _climbProvider.climbAnchorInteractable != null;
 
         /// <summary>
-        /// The crouch button, or the camera this low (head held low in reality, the toggle's _crouchHeight).
-        /// </summary>
-        /// <summary>
         /// Height the origin adds below the HMD (Device mode's CameraYOffset, 0 on the floor) and the tracking space's
         /// scale (Standing) - XriHvrStyleSimulator keeps the simulated eyes at a fixed height with them.
         /// </summary>
@@ -185,6 +182,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public float TrackingScale => CameraOffset.localScale.y;
 
+        /// <summary>
+        /// The crouch button, or the camera this low (head held low in reality, the toggle's _crouchHeight).
+        /// </summary>
         public bool IsCrouching => _isCrouching || CameraHeight <= _crouchHeight + _crouchDetectionMargin;
 
         /// <summary>
@@ -753,9 +753,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
-        /// Grabbing and hovering (direct and distance) of both hands. UI pointing keeps working.
-        /// Disabling drops what the hands hold: XRI ends the selection of an interactor that may not select
-        /// (swimming: as in G1, no items in the hands).
+        /// The shown hand: the block hand's root, or the controller without one.
         /// </summary>
         public Transform GetHandVisual(VrHandSide side)
         {
@@ -785,6 +783,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return result;
         }
 
+        /// <summary>
+        /// Grabbing and hovering (direct and distance) of both hands. UI pointing keeps working.
+        /// Disabling drops what the hands hold: XRI ends the selection of an interactor that may not select
+        /// (swimming: as in G1, no items in the hands).
+        /// </summary>
         public void SetGrabbingEnabled(bool isEnabled)
         {
             SetGrabbingEnabled(VrHandSide.Left, isEnabled);
