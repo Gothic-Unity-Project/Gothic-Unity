@@ -56,7 +56,11 @@ namespace Gothic.Core.Services.Npc
             var item = _vmCacheService.TryGetItemData(instanceName);
             var hero = GetHero();
             if (item == null || hero == null)
+            {
+                Logger.LogWarning($"[HeroPerception] The hero takes {instanceName} - no theft perception: " +
+                    (item == null ? "no item data" : "no hero"), LogCat.Npc);
                 return;
+            }
 
             Logger.Log($"[HeroPerception] The hero takes {item.Name}", LogCat.Npc);
             _npcAiService.SendPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft, null, hero, item);
