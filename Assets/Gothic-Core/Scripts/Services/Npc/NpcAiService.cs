@@ -136,7 +136,12 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcClearAiQueue(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Clear();
+            var props = npc.GetUserData().Props;
+            props.AnimationQueue.Clear();
+
+            // Like the engine (OpenGothic Npc::clearAiQueue), a cleared queue ends a flight: the run stops right away.
+            if (props.CurrentAction is Flee)
+                props.CurrentAction.StopImmediately();
         }
 
         public void ExtAttack(NpcInstance npc)
@@ -274,7 +279,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// AI_Flee: one short run step away from the NPC's enemy (ZS_Flee's loop repeats it).
+        /// AI_Flee: one short run step away from the NPC's enemy along the waynet (ZS_Flee's loop repeats it).
         /// </summary>
         public void ExtAiFlee(NpcInstance npc)
         {
