@@ -202,18 +202,30 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// A pan, forge, anvil, cooling barrel or grindstone: the item it needs is taken from the other hand if it holds
-        /// one (it disappears, the new item goes to the inventory), else from the inventory.
+        /// one (it disappears, the new item goes to the inventory), else from the inventory. A held stack (five raw
+        /// mutton from a chest) gives one item and stays in the hand with the rest.
         /// </summary>
         private void UseMobWithItem(IVirtualObject mob)
         {
             var neededItem = ((IInteractiveObject)mob).Item;
             var heldItem = FindHeldItem(neededItem);
+            var vobLoader = heldItem != null ? heldItem.GetComponentInParent<VobLoader>() : null;
+            var heldStack = vobLoader != null ? vobLoader.Container?.VobAs<IItem>() : null;
+
+            // The grab put the whole stack into the inventory, so the used one is taken from there and the stack
+            // shrinks by it - releasing it later takes only the rest out again (UnsetGrab).
+            if (heldStack != null && heldStack.Amount > 1)
+            {
+                if (_mobInteractionService.TryExchangeMobItem(mob, false) != null)
+                    heldStack.Amount--;
+                return;
+            }
+
             if (_mobInteractionService.TryExchangeMobItem(mob, heldItem != null) == null || heldItem == null)
                 return;
 
             // Releasing it on destroy takes it out of the inventory (UnsetGrab). It doesn't lie in the world anymore.
-            var vobLoader = heldItem.GetComponentInParent<VobLoader>();
-            if (vobLoader?.Container?.Vob != null)
+            if (vobLoader != null && vobLoader.Container?.Vob != null)
                 _saveGameService.CurrentWorldData.Vobs.Remove(vobLoader.Container.Vob);
             Object.Destroy(vobLoader != null ? vobLoader.gameObject : heldItem);
         }
