@@ -68,15 +68,9 @@ namespace Gothic.Core.Manager
         public bool SkipNextOutput;
         
         /// <summary>
-        /// Check if NPC has at least one dialog which isn't told and Hero should know about.
-        /// important
-        ///     - TRUE - check if there's one important dialog untold.
-        ///     - FALSE - check if there's one unimportant dialog untold. (unused in G1)
-        /// </summary>
-        /// <summary>
-        /// Like the engine (OpenGothic npc_checkinfo), an info of the asked kind (important or not) is available: not
-        /// told yet or permanent, and its condition true. G2's undead dragon asks for a non-important one after his
-        /// first talk (found on BoroBongo's branch).
+        /// Whether the NPC has an info of the asked kind (important TRUE: one it starts itself, FALSE: a normal one)
+        /// for the hero. Like the engine (OpenGothic npc_checkinfo): not told yet or permanent, and its condition true.
+        /// G2's undead dragon asks for a non-important one after his first talk (found on BoroBongo's branch).
         /// </summary>
         public bool ExtCheckInfo(NpcInstance npc, bool important)
         {
@@ -703,7 +697,8 @@ namespace Gothic.Core.Manager
             // Like the engine (OpenGothic GameScript::exec), the chosen choice leaves the list before its function
             // runs: a teacher's "+5"/"+1" function clears the choices and adds both again - removing the chosen one
             // afterwards took the new "+5" away (found on BoroBongo's branch).
-            var chosen = _gameStateService.Dialogs.CurrentOptions.FirstOrDefault(option => option.Function == information);
+            var chosen = _gameStateService.Dialogs.CurrentOptions
+                .FirstOrDefault(option => option.Function == information);
             if (chosen != null)
                 _gameStateService.Dialogs.CurrentOptions.Remove(chosen);
 
