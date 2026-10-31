@@ -434,7 +434,7 @@ namespace Gothic.Core.Services.Npc
             if (container?.Props == null || string.IsNullOrEmpty(overlayName) || seconds <= 0f)
                 return;
 
-            if (container.IsHero())
+            if (container.PrefabProps?.IsHero() == true)
             {
                 var walkFactor = GetOverlaySpeedFactor(container, overlayName, "S_WALKL");
                 var runFactor = GetOverlaySpeedFactor(container, overlayName, "S_RUNL");
