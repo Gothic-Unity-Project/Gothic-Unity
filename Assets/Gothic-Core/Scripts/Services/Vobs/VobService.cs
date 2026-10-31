@@ -119,6 +119,7 @@ namespace Gothic.Core.Services.Vobs
         public async Task CreateWorldVobsAsync(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs, GameObject root)
         {
             PreCreateWorldVobs(vobs, root, loading);
+            _initializerDomain.ClearCreatedEarly();
             await CreateWorldVobs(config, loading, vobs);
 
             // Ensure all Vob skeletons are created.
@@ -372,6 +373,10 @@ namespace Gothic.Core.Services.Vobs
                 if (vob.Children.Count > 0 &&
                     (VobInitializerDomain.IsUnbuiltVobType(vob.Type) || _initializerDomain.IsVisualDisabled(vob)))
                     await CreateWorldVobs(config, loading, vob.Children, vob);
+                // Logic VOBs (triggers, trigger lists, scripts, free points, ...) below a lazily loaded VOB only existed
+                // once the player came near it - a trigger sent from far away found nothing. They're created now.
+                else if (vob.Children.Count > 0 && !_vobTypesNonLazyLoading.Contains(vob.Type))
+                    await CreateLogicDescendants(config, loading, vob);
 
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
@@ -386,6 +391,32 @@ namespace Gothic.Core.Services.Vobs
                     AddToMobInteractableList(container);
                 }
             }
+        }
+
+        private async Task CreateLogicDescendants(DeveloperConfig config, LoadingService loading, IVirtualObject parent)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child.Id != 0 && IsEagerLogicType(child.Type))
+                {
+                    // Its lazily loaded parent skips it later.
+                    _initializerDomain.MarkCreatedEarly(child);
+                    await CreateWorldVobs(config, loading, new List<IVirtualObject> { child }, parent);
+                }
+                else if (child.Children.Count > 0)
+                {
+                    await CreateLogicDescendants(config, loading, child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Logic VOBs created at once - movers (with their meshes and children) stay with their parent.
+        /// </summary>
+        private static bool IsEagerLogicType(VirtualObjectType type)
+        {
+            return _vobTypesNonLazyLoading.Contains(type) && type is not (VirtualObjectType.zCMover or
+                VirtualObjectType.zCVobLevelCompo or VirtualObjectType.zCPFXController);
         }
 
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)

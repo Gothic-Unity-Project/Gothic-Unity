@@ -38,6 +38,9 @@ namespace Gothic.Core.Domain.Vobs
     public class VobInitializerDomain
     {
         [Inject] private readonly ConfigService _configService;
+
+        // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
+        private readonly HashSet<int> _createdEarlyVobIds = new();
         [Inject] private readonly VobSoundCullingService _vobSoundCullingService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AudioService _audioService;
@@ -272,8 +275,23 @@ namespace Gothic.Core.Domain.Vobs
                 : go;
             foreach (var childVob in vob.Children)
             {
+                if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
+                    continue;
                 InitVob(childVob, childParent, worldPosition, false, vob);
             }
+        }
+
+        /// <summary>
+        /// A logic VOB below a lazily loaded VOB was created with the world (VobService) - its parent skips it.
+        /// </summary>
+        public void MarkCreatedEarly(IVirtualObject vob)
+        {
+            _createdEarlyVobIds.Add(vob.Id);
+        }
+
+        public void ClearCreatedEarly()
+        {
+            _createdEarlyVobIds.Clear();
         }
 
         /// <summary>
