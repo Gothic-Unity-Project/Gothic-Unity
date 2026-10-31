@@ -84,6 +84,8 @@ namespace Gothic.Core.Services.Vobs
             VirtualObjectType.zCTriggerWorldStart,
             VirtualObjectType.zCMoverController,
             VirtualObjectType.zCMessageFilter,
+            // A damage zone has no visual to be culled by - it hurts NPCs everywhere.
+            VirtualObjectType.oCTouchDamage,
             VirtualObjectType.zCVobLevelCompo
         };
 

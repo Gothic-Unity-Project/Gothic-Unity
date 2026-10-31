@@ -193,6 +193,9 @@ namespace Gothic.Core.Domain.Vobs
                     go = CreateTriggerZone(vob, parent, $"TriggerZone_{vob.Name}");
                     go.GetComponent<TriggerZoneHandler>().Init((ITrigger)vob);
                     break;
+                case VirtualObjectType.oCTouchDamage:
+                    go = CreateTouchDamage((ITouchDamage)vob, parent);
+                    break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = CreateTriggerZone(vob, parent, $"TriggerUntouch_{vob.Name}");
                     go.GetComponent<TriggerUntouchHandler>().Init((ITriggerUntouch)vob);
@@ -221,7 +224,6 @@ namespace Gothic.Core.Domain.Vobs
                 case VirtualObjectType.zCZoneVobFarPlaneDefault:
                 case VirtualObjectType.zCCSCamera:
                 case VirtualObjectType.zCCamTrj_KeyFrame:
-                case VirtualObjectType.oCTouchDamage:
                 case VirtualObjectType.zCEarthquake:
                 case VirtualObjectType.Ignored:
                 case VirtualObjectType.Unknown:
@@ -775,6 +777,21 @@ namespace Gothic.Core.Domain.Vobs
         /// <summary>
         /// Trigger VOBs that react to the player entering/leaving their bounding box (trigger collider of the prefab).
         /// </summary>
+        /// <summary>
+        /// A damage zone: a trigger box over its bounding box, on the layer of the other trigger VOBs.
+        /// </summary>
+        private GameObject CreateTouchDamage(ITouchDamage vob, GameObject parent)
+        {
+            var go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
+            go.layer = LayerMask.NameToLayer("Ignore Raycast");
+            var box = go.GetComponent<BoxCollider>();
+            if (box == null)
+                box = go.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            go.AddComponent<TouchDamageHandler>().Init(vob);
+            return go;
+        }
+
         private GameObject CreateTriggerZone(IVirtualObject vob, GameObject parent, string name)
         {
             var go = GetPrefab(vob, parent);
