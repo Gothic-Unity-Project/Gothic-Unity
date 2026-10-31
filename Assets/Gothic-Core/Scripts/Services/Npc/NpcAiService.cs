@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Reflex.Attributes;
@@ -20,7 +21,10 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
+
+        // Reused by UpdateEnemyNpc() on every perception tick.
+        private readonly List<NpcContainer> _awakeNpcs = new();
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -546,50 +550,53 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = self.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
-            // FIXME - Performance - Can we clean this up to support only spawned and visible NPCs/Monsters?
-            //         A spatial lookup (e.g. the culling system's distance buckets) would avoid the full scan.
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            // Only the hero and the NPCs that are awake: asleep NPCs are far away and frozen. Scanning every NPC of
+            // the world on each perception made crowded places stutter (Old Camp: 52 awake of 992).
+            var hero = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData();
+            if (hero != null && IsCloserEnemy(self, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
+                closestEnemy = hero;
+
+            _npcMeshCullingService.CollectAwakeNpcs(_awakeNpcs);
+            foreach (var candidate in _awakeNpcs)
             {
-                // Fast-fail checks in order of cheapest first
-                if (candidate.Props == null || candidate.Go == null)
-                {
-                    continue;
-                }
-
-                if (candidate.Instance.Index == self.Index)
-                {
-                    continue;
-                }
-
-                // Corpses aren't enemies.
-                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
-                {
-                    continue;
-                }
-
-                // Range and closest-so-far gates before the expensive attitude and senses checks
-                // (senses may include a line-of-sight raycast for see-only monsters).
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
-                {
-                    continue;
-                }
-
-                if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
-                {
-                    continue;
-                }
-
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
-                {
-                    continue;
-                }
-
-                closestSqrDist = sqrDist;
-                closestEnemy = candidate;
+                if (IsCloserEnemy(self, selfPosition, candidate, sensesRangeSqr, ref closestSqrDist))
+                    closestEnemy = candidate;
             }
 
             selfNpc.Props.EnemyNpc = closestEnemy?.Instance;
+        }
+
+        /// <summary>
+        /// The candidate is a hostile NPC self senses, closer than the closest one so far (which it then becomes).
+        /// </summary>
+        private bool IsCloserEnemy(NpcInstance self, Vector3 selfPosition, NpcContainer candidate, float sensesRangeSqr,
+            ref float closestSqrDist)
+        {
+            // Fast-fail checks in order of cheapest first
+            if (candidate.Props == null || candidate.Go == null)
+                return false;
+
+            if (candidate.Instance.Index == self.Index)
+                return false;
+
+            // Corpses aren't enemies.
+            if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                return false;
+
+            // Range and closest-so-far gates before the expensive attitude and senses checks
+            // (senses may include a line-of-sight raycast for see-only monsters).
+            var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
+            if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
+                return false;
+
+            if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
+                return false;
+
+            if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
+                return false;
+
+            closestSqrDist = sqrDist;
+            return true;
         }
 
         public void ExtSetRefuseTalk(NpcInstance self, int refuseSeconds)

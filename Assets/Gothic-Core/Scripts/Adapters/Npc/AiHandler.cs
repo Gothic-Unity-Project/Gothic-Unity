@@ -15,6 +15,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using MyBox;
 using Reflex.Attributes;
+using Unity.Profiling;
 using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
@@ -37,6 +38,13 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly VmService _vmService;
 
 
+        // Profiler markers: where an NPC's frame goes (Unity Profiler, CPU Usage).
+        private static readonly ProfilerMarker _perceptionsMarker = new("AiHandler.Perceptions");
+        private static readonly ProfilerMarker _actionTickMarker = new("AiHandler.ActionTick");
+        private static readonly ProfilerMarker _nextAnimationMarker = new("AiHandler.PlayNextAnimation");
+        private static readonly ProfilerMarker _aiFunctionMarker = new("AiHandler.CallAiFunction");
+        private static readonly ProfilerMarker _nextRoutineMarker = new("AiHandler.StartNextRoutine");
+
         private DaedalusVm Vm => _gameStateService.GothicVm;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
@@ -44,6 +52,10 @@ namespace Gothic.Core.Adapters.Npc
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+            // NPCs that wake up together (a whole camp after loading) would sense in the same frame, forever: a
+            // random point in the interval spreads them. The first perception comes sooner, never later.
+            Properties.CurrentPerceptionTime = UnityEngine.Random.Range(0f, Properties.PerceptionTime);
         }
 
         /// <summary>
@@ -75,7 +87,8 @@ namespace Gothic.Core.Adapters.Npc
             ExecuteActivePerceptions();
             ExecuteStates();
 
-            Properties.CurrentAction.Tick();
+            using (_actionTickMarker.Auto())
+                Properties.CurrentAction.Tick();
 
             // Add new milliseconds when stateTime shall be measured.
             if (Properties.IsStateTimeActive && Properties.CurrentLoopState == NpcProperties.LoopState.Loop)
@@ -157,6 +170,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private int CallAiFunction(int symbolIndex)
         {
+            using var marker = _aiFunctionMarker.Auto();
             var returnContinue = _daedalusLoopContinue;
             
             var loopSymbol = Vm.GetSymbolByIndex(symbolIndex)!;
@@ -194,6 +208,8 @@ namespace Gothic.Core.Adapters.Npc
             {
                 return;
             }
+
+            using var marker = _perceptionsMarker.Auto();
             
             var hero = (NpcInstance)_gameStateService.GothicVm.GlobalHero;
             var assessPlayerRange = _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessPlayer);
@@ -238,6 +254,7 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         public void StartNextRoutine()
         {
+            using var marker = _nextRoutineMarker.Auto();
             Properties.StateTime = 0.0f;
             Properties.ItemAnimationState = -1;
 
@@ -360,8 +377,13 @@ namespace Gothic.Core.Adapters.Npc
 
         private void PlayNextAnimation(AbstractAnimationAction action)
         {
+            using var marker = _nextAnimationMarker.Auto();
             Properties.CurrentAction = action;
+
+            // The action's type as its own sample (development builds only).
+            UnityEngine.Profiling.Profiler.BeginSample(action.GetType().Name);
             action.Start();
+            UnityEngine.Profiling.Profiler.EndSample();
         }
 
         /// <summary>

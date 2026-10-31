@@ -11,6 +11,7 @@ using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using Unity.Collections;
+using Unity.Profiling;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -80,6 +81,11 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Try to load animation based on both MDS values: overlay + base.
         /// </summary>
+        // Profiler markers for the first use of an animation (later uses come from the track cache).
+        private static readonly ProfilerMarker _findAnimationMarker = new("AnimationService.FindAnimation");
+        private static readonly ProfilerMarker _loadAnimationMarker = new("AnimationService.LoadAnimation");
+        private static readonly ProfilerMarker _createTrackMarker = new("AnimationService.CreateTrack");
+
         public AnimationTrack GetTrack(string animName, string mdsBase, string mdsOverlay)
         {
             var track = GetTrack(animName, mdsOverlay);
@@ -111,6 +117,7 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
+            var findAnimationMarker = _findAnimationMarker.Auto();
             var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
             IAnimationAlias animAlias = null;
 
@@ -125,6 +132,8 @@ namespace Gothic.Core.Services.Npc
                 }
             }
 
+            findAnimationMarker.Dispose();
+
             // Nothing found
             if (anim == null)
             {
@@ -133,7 +142,9 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            var modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
+            IModelAnimation modelAnimation;
+            using (_loadAnimationMarker.Auto())
+                modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
             if (modelAnimation == null)
             {
                 // Caching an empty track means, we don't need to try creating this track again.
@@ -153,8 +164,11 @@ namespace Gothic.Core.Services.Npc
             var bakedKey = GetCombinedAnimationKey(mdsName, anim.Name);
             _bakedSourceTracks.TryGetValue(bakedKey, out var bakedSource);
 
-            track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
-            SetClipMovementSpeed(track, modelAnimation, skeleton);
+            using (_createTrackMarker.Auto())
+            {
+                track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
+                SetClipMovementSpeed(track, modelAnimation, skeleton);
+            }
 
             if (bakedSource == null)
             {

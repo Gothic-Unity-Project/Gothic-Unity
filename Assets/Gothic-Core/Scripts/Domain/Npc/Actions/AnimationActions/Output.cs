@@ -92,8 +92,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = cutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+            // Looked up natively: Blocks builds a wrapper for every line of OU.BIN on each call (~20,000 allocations,
+            // 15-30 ms for every spoken line and NPC call-out).
+            var block = cutsceneLibrary.GetBlock(OutputName);
 
             // Mod-only output names can be missing in OU.BIN/OU.CSL. Skip the subtitle instead of throwing an NRE.
             if (block == null)
