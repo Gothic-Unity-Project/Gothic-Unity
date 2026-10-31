@@ -48,7 +48,7 @@ namespace Gothic.Core.Services.Npc
 
         public bool IsEquipped(NpcContainer npc, ItemInstance item)
         {
-            return npc.Props.EquippedItems.Any(i => i.Index == item.Index);
+            return npc?.Props != null && item != null && npc.Props.EquippedItems.Any(i => i.Index == item.Index);
         }
 
         /// <summary>
@@ -150,6 +150,14 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void OnItemGone(NpcContainer npc, ItemInstance item, System.Func<bool> isStillGone)
         {
+            // Called from Npc_RemoveInvItem(s) - nothing may throw into the VM.
+            if (item == null)
+            {
+                Logger.LogWarning("[Equipment] An item without item data left an inventory - not unequipped",
+                    LogCat.Npc);
+                return;
+            }
+
             if (npc?.Props == null || !IsEquipped(npc, item) || !IsWearable(item))
                 return;
 
