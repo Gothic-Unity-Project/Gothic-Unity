@@ -26,9 +26,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private const float _runStepSeconds = 0.5f;
         private const float _runArrivalThreshold = 0.3f;
         // Around an obstacle: a waypoint of the route counts as reached this close (m), and a route is found again
-        // once the enemy moved this far (m) from where it stood.
+        // once the enemy moved this far (m) from where it stood - or, without a route, after this time (s).
         private const float _chaseWayPointReached = 1f;
         private const float _chaseRouteOutdated = 5f;
+        private const float _chaseRouteRetrySeconds = 3f;
         private const float _turnThresholdDegrees = 10f;
         // A swing hits within the weapon's reach (+ the bodies' volume) and this angle to each side, so the target can
         // step back or aside. Gothic checks the weapon's bone (DEF_HIT_LIMB) - this is the same reach without it.
@@ -335,8 +336,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     return null;
                 }
 
-                if (route == null || route.Count == 0 ||
-                    (Props.ChaseRouteTarget - targetPosition).sqrMagnitude > _chaseRouteOutdated * _chaseRouteOutdated)
+                // Each search goes over the whole waynet: without a route (none found, or walked to its end) the next
+                // one waits until the enemy moved away or a few seconds passed.
+                var isOutdated =
+                    (Props.ChaseRouteTarget - targetPosition).sqrMagnitude > _chaseRouteOutdated * _chaseRouteOutdated;
+                var isRetryDue = Time.time - Props.ChaseRouteSearchTime >= _chaseRouteRetrySeconds;
+                if (route == null || isOutdated || (route.Count == 0 && isRetryDue))
                     route = Props.ChaseRoute = FindChaseRoute(myPosition, targetPosition);
             }
 
@@ -353,17 +358,22 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return null;
         }
 
+        /// <summary>
+        /// The waynet route from the waypoint nearest to the NPC to the one nearest to the enemy. Empty if there is
+        /// none: that marks the failed search (with the enemy's position and the time) until it is tried again.
+        /// </summary>
         private Stack<DijkstraWaypoint> FindChaseRoute(Vector3 myPosition, Vector3 targetPosition)
         {
             Props.ChaseRouteTarget = targetPosition;
+            Props.ChaseRouteSearchTime = Time.time;
             var start = WayNetService.FindNearestWayPoint(myPosition);
             var end = WayNetService.FindNearestWayPoint(targetPosition);
             if (start == null || end == null || start == end)
-                return null;
+                return new Stack<DijkstraWaypoint>();
 
             var path = WayNetService.FindFastestPath(start.Name, end.Name);
             if (path == null)
-                return null;
+                return new Stack<DijkstraWaypoint>();
 
             Logger.LogEditor($"[Chase] {NpcInstance.GetName(NpcNameSlot.Slot0)} runs around an obstacle: " +
                              $"{start.Name} -> {end.Name} ({path.Length} waypoints)", LogCat.Fight);

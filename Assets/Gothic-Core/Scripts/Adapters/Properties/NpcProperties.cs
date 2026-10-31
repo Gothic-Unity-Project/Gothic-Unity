@@ -65,10 +65,11 @@ namespace Gothic.Core.Adapters.Properties
 
         public readonly AttackCombo AttackCombo = new();
 
-        // AI_Attack's run around an obstacle: the waynet route to the enemy (next waypoint on top) and where the enemy
-        // stood when it was found.
+        // AI_Attack's run around an obstacle: the waynet route to the enemy (next waypoint on top, empty when none was
+        // found), where the enemy stood when it was searched and when (Time.time).
         public Stack<DijkstraWaypoint> ChaseRoute;
         public UnityEngine.Vector3 ChaseRouteTarget;
+        public float ChaseRouteSearchTime;
 
         public enum LoopState
         {

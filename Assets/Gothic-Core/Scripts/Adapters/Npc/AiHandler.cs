@@ -286,9 +286,10 @@ namespace Gothic.Core.Adapters.Npc
             // If we have nothing prepared, start daily Routine.
             else
             {
-                // Back to the routine: its states get the hero as "other" again.
+                // Back to the routine: its states get the hero as "other" again, a fight's chase route is over.
                 Properties.StateOther = null;
                 Properties.StateVictim = null;
+                Properties.ChaseRoute = null;
 
                 var currentRoutine = Properties.RoutineCurrent;
                 if (currentRoutine != null)
@@ -457,7 +458,7 @@ namespace Gothic.Core.Adapters.Npc
 
 
             // A fight is over after culling: the weapon goes back (it would be destroyed with the hand items below),
-            // a knocked out NPC stands, the state's other and the combo are forgotten.
+            // a knocked out NPC stands, the state's other, the combo and the chase route are forgotten.
             UndrawWeapon.SheathAtOnce(NpcData);
             if (Properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 Properties.BodyState = VmGothicEnums.BodyState.BsStand;
@@ -465,6 +466,7 @@ namespace Gothic.Core.Adapters.Npc
             Properties.StateVictim = null;
             Properties.AttackCombo.Length = 0;
             Properties.AttackCombo.ContinueAnimation = null;
+            Properties.ChaseRoute = null;
 
             // CurrentItem handling
             Properties.ItemAnimationState = -1;
