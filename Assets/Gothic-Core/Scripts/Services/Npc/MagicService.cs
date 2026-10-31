@@ -56,6 +56,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly HeroSpellStateService _heroSpellStateService;
+        [Inject] private readonly LightSpellService _lightSpellService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -396,6 +397,9 @@ namespace Gothic.Core.Services.Npc
             else
             {
                 _spellEffects.CreateParticles(effect, origin, Quaternion.identity, _castEffectSeconds);
+                // The engine's own spell: no script effect, the visual effect is the light.
+                if (_spellData.GetName(cast.SpellId).EqualsIgnoreCase(LightSpellService.SpellName))
+                    _lightSpellService.Cast(cast.Caster);
                 if (cast.Spell.TargetCollectAlgo is _targetCollectAll or _targetCollectAllFallbackNone)
                     HitEverybodyAround(cast, direction, cast.Spell.TargetCollectRange / 100f,
                         cast.Spell.TargetCollectAzi);
