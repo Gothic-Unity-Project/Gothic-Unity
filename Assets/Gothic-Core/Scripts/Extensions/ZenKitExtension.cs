@@ -18,6 +18,14 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// The NPC is the hero (GlobalHero) - never by Id == 0, monsters have it too.
+        /// </summary>
+        public static bool IsHero([CanBeNull] this NpcInstance npc, DaedalusVm vm)
+        {
+            return npc != null && vm?.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        /// <summary>
         /// Beds are oCMobDoors in Gothic's data - recognizable only by their visual (G1 BED_*, G2 also BEDHIGH_*).
         /// </summary>
         public static bool IsBed([CanBeNull] this IVirtualObject vob)

@@ -29,6 +29,7 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
 
@@ -49,6 +50,7 @@ namespace Gothic.VR.Adapters
             _interactable = VrInteractable.Find(this);
             _interactable.HoverEntered += OnHoverEnter;
             _interactable.HoverExited += OnHoverExit;
+            _interactable.Grabbed += OnGrabbed;
 
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
@@ -72,6 +74,20 @@ namespace Gothic.VR.Adapters
 
             _interactable.HoverEntered -= OnHoverEnter;
             _interactable.HoverExited -= OnHoverExit;
+            _interactable.Grabbed -= OnGrabbed;
+        }
+
+        /// <summary>
+        /// Like the engine using a mob: grabbing it (chest lid, door, bed, wheel, ...) tells the NPCs around
+        /// (PERC_ASSESSUSEMOB - owners react). VRFocus sits on every grabbable mob, VRMobInteraction not on chests/doors.
+        /// </summary>
+        private void OnGrabbed(VrGrabArgs args)
+        {
+            if (!args.IsHandOrDistance)
+                return;
+
+            if (GetComponentInParent<VobLoader>()?.Container?.Vob is ZenKit.Vobs.IInteractiveObject mob)
+                _heroPerceptionService.OnHeroUsesMob(mob);
         }
 
         private void OnHoverEnter(VrGrabArgs _)
