@@ -82,6 +82,35 @@ namespace Gothic.Core.Domain.Culling
         }
 
         /// <summary>
+        /// Wld_RemoveNpc: the NPC leaves the culling - its slot is filled with the last entry (no array reallocation).
+        /// </summary>
+        public void RemoveCullingEntry(NpcInstance npc)
+        {
+            if (npc == null || !_indexByInstance.TryGetValue(npc, out var index))
+                return;
+
+            var last = _count - 1;
+            var wasVisible = _visibleNpcs.Remove(index);
+            if (index != last)
+            {
+                _spheres[index] = _spheres[last];
+                _loaders[index] = _loaders[last];
+                _states[index] = _states[last];
+                _indexByInstance[_loaders[index].Npc] = index;
+                if (_visibleNpcs.Remove(last))
+                    _visibleNpcs.Add(index);
+            }
+
+            _loaders[last] = null;
+            _indexByInstance.Remove(npc);
+            _count--;
+            if (CurrentState == State.WorldLoaded)
+                CullingGroup.SetBoundingSphereCount(_count);
+
+            Logger.Log($"[NpcCulling] Removed '{npc.GetName(NpcNameSlot.Slot0)}' (was visible: {wasVisible}).", LogCat.Npc);
+        }
+
+        /// <summary>
         /// Set main camera once world is loaded fully. Doesn't work at loading time as we change scenes etc.
         /// </summary>
         public override void PostWorldCreate()

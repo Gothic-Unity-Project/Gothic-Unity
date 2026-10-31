@@ -54,6 +54,8 @@ namespace Gothic.Core.Adapters.Properties
 
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
+        // AI_LookAtNpc target until AI_StopLookAt (Npc_GetLookAtTarget).
+        public NpcInstance LookAtTarget;
 
         public enum LoopState
         {

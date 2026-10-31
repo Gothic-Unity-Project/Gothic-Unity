@@ -21,6 +21,11 @@ namespace Gothic.Core.Services.Culling
             _npcDomain.AddCullingEntry(go);
         }
 
+        public void RemoveCullingEntry(ZenKit.Daedalus.NpcInstance npc)
+        {
+            _npcDomain.RemoveCullingEntry(npc);
+        }
+
         /// <summary>
         /// The time-based routine of an NPC changed. The culling domain moves spheres of culled NPCs to the new
         /// scheduled waypoint, so that off-screen NPCs progress their daily routine.

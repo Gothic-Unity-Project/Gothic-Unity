@@ -49,6 +49,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly Gothic.Core.Services.Culling.NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
 
@@ -250,6 +251,20 @@ namespace Gothic.Core.Services.Npc
             {
                 props.MdmName = data.Body;
             }
+        }
+
+        public void ExtWldRemoveNpc(int instanceId)
+        {
+            var removed = _multiTypeCacheService.NpcCache.Where(i => i.Instance.Index == instanceId).ToList();
+            foreach (var npc in removed)
+            {
+                _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
+                _multiTypeCacheService.NpcCache.Remove(npc);
+                if (npc.Go != null)
+                    Object.Destroy(npc.Go);
+            }
+
+            Logger.Log($"[Wld_RemoveNpc] instance={instanceId} - removed {removed.Count} NPC(s)", LogCat.Npc);
         }
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
