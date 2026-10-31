@@ -87,7 +87,9 @@ namespace Gothic.Core.Services.Vm
         // Menu
         // 
         
-        public readonly string[] DisabledGothicMenuSettings =
+        // Gothic's menu settings the game doesn't support: hidden in every context. A context hides the ones only it
+        // doesn't use with DisableGothicMenuSettings().
+        private readonly HashSet<string> _disabledGothicMenuSettings = new()
         {
             // Whole submenus
             "MENUITEM_OPT_VIDEO", "MENUITEM_OPT_CONTROLS",
@@ -99,10 +101,6 @@ namespace Gothic.Core.Services.Vm
             "MENUITEM_M", "MENUITEM_M_CHOICE",
             "MENUITEM_MSENSITIVITY", "MENUITEM_MSENSITIVITY_SLIDER",
             "MENUITEM_GAME_BLOOD", "MENUITEM_GAME_BLOOD_CHOICE",
-            // G2: focus box/highlight and Gothic 1 key controls - the game uses neither. Their rows hold our options.
-            "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
-            "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
-            "MENUITEM_GAME_OLDCONTROLS", "MENUITEM_GAME_OLDCONTROLS_CHOICE",
             // Parts of GRAPHICS menu
             "MENUITEM_GRA_TEXQUAL", "MENUITEM_GRA_TEXQUAL_SLIDER",
             "MENUITEM_GRA_MODEL_DETAIL", "MENUITEM_GRA_MODEL_DETAIL_SLIDER",
@@ -114,6 +112,17 @@ namespace Gothic.Core.Services.Vm
             "MENUITEM_AUDIO_REVERB", "MENUITEM_AUDIO_REVERB_CHOICE",
             "MENUITEM_AUDIO_SAMPLERATE", "MENUITEM_AUDIO_SAMPLERATE_CHOICE"
         };
+
+        public IReadOnlyCollection<string> DisabledGothicMenuSettings => _disabledGothicMenuSettings;
+
+        /// <summary>
+        /// Hides Gothic menu settings a context doesn't use, on top of the ones no context supports. Called before the
+        /// menus are built (IContextMenuService.UpdateMainMenu()).
+        /// </summary>
+        public void DisableGothicMenuSettings(params string[] menuItemNames)
+        {
+            _disabledGothicMenuSettings.UnionWith(menuItemNames);
+        }
         
         public int MaxUserStrings => _gameStateService.MenuVm.GetSymbolInt("MAX_USERSTRINGS");
         public int MaxItems => _gameStateService.MenuVm.GetSymbolInt("MAX_ITEMS");

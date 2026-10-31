@@ -15,3 +15,4 @@ Gothic lets the player bind its keys, the reference engine too. In VR the button
 4. **The menu is read through the remappable menu action** instead of the left upper button directly.
 5. Stored in Gothic.ini, its own section for the VR controls.
 6. **The controller's menu button always stays on the left controller,** also for left-handed players. On Quest and Pico the same button on the right controller is the system button, which games never receive: mirrored, the menu could not be opened, and with it the setting that undoes this.
+7. **VR hides Gothic 2's focus and old controls options itself,** whose rows its controller options take. Flat mode still shows them. Only settings the game supports nowhere stay on the shared list every mode hides. Not chosen: adding them to that shared list, which took them from Flat players for a VR layout reason.

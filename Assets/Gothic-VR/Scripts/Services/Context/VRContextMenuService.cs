@@ -27,6 +27,13 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         public void UpdateMainMenu(AbstractMenuInstance mainMenu)
         {
+            // G2's focus box/highlight and Gothic 1 key controls: VR uses neither, their rows hold the controller
+            // options (AddControlOptions). Flat keeps them. The menus are built after this call.
+            _vmService.DisableGothicMenuSettings(
+                "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
+                "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
+                "MENUITEM_GAME_OLDCONTROLS", "MENUITEM_GAME_OLDCONTROLS_CHOICE");
+
             var vrAccessibilityMenu = CreateAccessibilityMenu(mainMenu);
 
             // Will be used to clone render settings from its items.
