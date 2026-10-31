@@ -6,11 +6,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
     /// AI_PointAt / AI_PointAtNpc, like the engine (OpenGothic Npc::implPointAt): the NPC turns to the waypoint or NPC
-    /// and points at it (T_POINT) - a guard showing the hero the way out, Guy his hut. AI_StopPointAt lowers the arm.
+    /// and points at it - a guard showing the hero the way out, Guy his hut. AI_StopPointAt lowers the arm. Gothic's
+    /// T_POINT combines nine poses by the target's height (c_point_1 to 9); the middle one is shown.
     /// </summary>
     public class PointAt : AbstractRotateAnimationAction
     {
-        public const string PointAnimation = "T_POINT";
+        public const string PointAnimation = "c_point_5";
 
         private readonly Func<Vector3?> _getTarget;
         private bool _isPointing;
