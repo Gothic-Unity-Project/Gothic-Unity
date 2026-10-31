@@ -207,6 +207,15 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Wind
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "B\xE4ume und Gras wiegen sich im Wind - kostet Leistung auf der
+      Quest"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

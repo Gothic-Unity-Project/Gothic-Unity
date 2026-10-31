@@ -203,6 +203,14 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188441999989669888
+    m_Key: menuitem.wind.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Key: menuitem.wind.description
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

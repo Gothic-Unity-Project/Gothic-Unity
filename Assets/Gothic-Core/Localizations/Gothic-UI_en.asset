@@ -226,6 +226,14 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Wind
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: Trees and grass sway in the wind - costs performance on the Quest
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

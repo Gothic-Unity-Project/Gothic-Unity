@@ -207,6 +207,15 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Wiatr
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "Drzewa i trawa ko\u0142ysz\u0105 si\u0119 na wietrze - obci\u0105\u017Ca
+      Questa"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
