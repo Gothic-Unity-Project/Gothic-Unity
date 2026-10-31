@@ -103,7 +103,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
             var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
-            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>().SetDimension(bounds);
+            // Visual-only bodies (VR hero body) aren't built from the NPC prefab - no hitbox there.
+            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>()?.SetDimension(bounds);
         }
     }
 }
