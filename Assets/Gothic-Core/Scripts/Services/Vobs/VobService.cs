@@ -428,6 +428,7 @@ namespace Gothic.Core.Services.Vobs
                 .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position))
                 .FirstOrDefault();
         }
+
         /// <summary>
         /// Mob_HasItems: how many of the item the chest of that name holds (OpenGothic WorldObjects::hasItems), 0 if
         /// there is no such chest. Its content string is what the chest holds: filled from the world, written back by
