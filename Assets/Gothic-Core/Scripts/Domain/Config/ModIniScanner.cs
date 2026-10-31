@@ -9,7 +9,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Config
 {
     /// <summary>
-    /// DeveloperConfig.EnableGameProfileIniChoice: the game inis of a mod folder - the ones GothicStarter offers.
+    /// The game inis of a mod folder - the ones GothicStarter offers.
     /// A mod ships one per mode (Mroczne Tajemnice: DM_E/DM_N/DM_T for easy/normal/hard) next to Gothic.ini,
     /// SystemPack.ini and others; a game ini has [INFO] title= and [FILES] game= or vdf=.
     /// </summary>

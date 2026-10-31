@@ -11,7 +11,7 @@ namespace Gothic.Core.Adapters.UI.Menus
     /// <summary>
     /// World-space list of GameSettings.json game profiles shown at start (EnableGameProfiles). Built in code so the
     /// GameVersion scene stays untouched; one button per profile, the VR laser / flat mouse clicks it. Also the second
-    /// list of a mod's game inis (DeveloperConfig.EnableGameProfileIniChoice) with a back button.
+    /// list of a mod's game inis with a back button.
     /// </summary>
     public class GameProfileMenu : MonoBehaviour
     {
@@ -71,9 +71,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             }
 
             PlaceInFrontOfCamera();
-            var config = ReflexProjectInstaller.DIContainer?.Resolve<Services.Config.ConfigService>();
-            if (config != null)
-                _followCameraUntil = Time.unscaledTime + _followCameraSeconds;
+            _followCameraUntil = Time.unscaledTime + _followCameraSeconds;
         }
 
         private void LateUpdate()

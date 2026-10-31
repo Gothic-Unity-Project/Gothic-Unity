@@ -127,7 +127,7 @@ namespace Gothic.Core.Adapters.Scenes
 
         private void OnGameProfileSelected(JsonGameProfile profile)
         {
-            // DeveloperConfig.EnableGameProfileIniChoice: a mod with several game inis (Mroczne Tajemnice's
+            // A mod with several game inis (Mroczne Tajemnice's
             // difficulties) asks which one first.
             var iniChoices = _configService.GetGameProfileIniChoices(profile);
             if (iniChoices.Count > 1)
@@ -140,7 +140,26 @@ namespace Gothic.Core.Adapters.Scenes
                 return;
             }
 
-            StartGameProfile(iniChoices.Count == 1 ? iniChoices[0] : profile);
+            if (iniChoices.Count == 1)
+            {
+                StartGameProfile(iniChoices[0]);
+                return;
+            }
+
+            // "*" or a list with nothing to choose from (no mod folder, no ini found): the game's GothicGame.ini -
+            // the wildcard itself as the ini name stopped the boot (file not found).
+            var modIni = profile.ModIni?.Trim();
+            if (modIni == "*" || modIni?.IndexOfAny(new[] { ';', ',' }) >= 0)
+            {
+                Logger.LogWarning($"Game profile >{profile.Name}<: no game ini found for >{modIni}< - " +
+                                  "using GothicGame.ini.", LogCat.Loading);
+                profile = new JsonGameProfile
+                {
+                    Name = profile.Name, GameVersion = profile.GameVersion, ModPath = profile.ModPath, ModIni = null
+                };
+            }
+
+            StartGameProfile(profile);
         }
 
         private void StartGameProfile(JsonGameProfile profile)

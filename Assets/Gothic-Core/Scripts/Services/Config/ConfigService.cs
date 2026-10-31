@@ -114,7 +114,7 @@ namespace Gothic.Core.Services.Config
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableGameProfileIniChoice: a profile's ModIni "*" lists the mod's game inis found in its System
+        /// A profile's ModIni "*" lists the mod's game inis found in its System
         /// folder (ModIniScanner), "A.INI;B.INI" lists those - one profile per ini to pick from (Mroczne Tajemnice's
         /// easy/normal/hard). Empty when there's nothing to choose (one fixed ini, or none = GothicGame.ini as before).
         /// </summary>
@@ -136,11 +136,19 @@ namespace Gothic.Core.Services.Config
             if (!isScan)
             {
                 // A fixed list keeps its order; its titles come from the inis found.
+                // Inis missing on disk are left out (picking one stopped the boot).
                 inis = modIni.Split(';', ',')
                     .Select(i => i.Trim())
                     .Where(i => i.Length > 0)
-                    .Select(i => found.FirstOrDefault(f => f.FileName.Equals(i, StringComparison.OrdinalIgnoreCase))
-                                 ?? new ModIniScanner.ModIni { FileName = i, Title = i });
+                    .Select(i =>
+                    {
+                        var ini = found.FirstOrDefault(f => f.FileName.Equals(i, StringComparison.OrdinalIgnoreCase));
+                        if (ini == null)
+                            Logger.LogWarning($"Game profile >{profile.Name}<: ini >{i}< not found in the mod - left out.",
+                                LogCat.Loading);
+                        return ini;
+                    })
+                    .Where(i => i != null);
             }
 
             foreach (var ini in inis)
