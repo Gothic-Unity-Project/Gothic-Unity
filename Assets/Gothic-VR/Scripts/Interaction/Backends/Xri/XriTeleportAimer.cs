@@ -127,7 +127,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 return _hand;
 
             var device = _stickAction.activeControl?.device;
-            return device != null && device.usages.Contains(CommonUsages.LeftHand) ? _leftHand : _rightHand;
+            if (device != null)
+            {
+                foreach (var usage in device.usages)
+                {
+                    if (usage == CommonUsages.LeftHand)
+                        return _leftHand;
+                }
+            }
+
+            return _rightHand;
         }
 
         private void Stop()
