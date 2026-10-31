@@ -83,6 +83,7 @@ namespace Gothic.VR.Adapters.Player
 
             AttributeInjector.Inject(gameObject.AddComponent<VRSpellCaster>(), _container);
             AttributeInjector.Inject(gameObject.AddComponent<VRTransformation>(), _container);
+            AttributeInjector.Inject(gameObject.AddComponent<VRTorchLighter>(), _container);
         }
 
         private void OnDestroy()
