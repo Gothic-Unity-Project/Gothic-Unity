@@ -93,6 +93,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(MagicService));
             containerBuilder.AddSingleton(typeof(HeroSpellStateService));
             containerBuilder.AddSingleton(typeof(LightSpellService));
+            containerBuilder.AddSingleton(typeof(NpcBurnService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

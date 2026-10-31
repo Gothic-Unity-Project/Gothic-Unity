@@ -57,6 +57,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly HeroSpellStateService _heroSpellStateService;
         [Inject] private readonly LightSpellService _lightSpellService;
+        [Inject] private readonly NpcBurnService _npcBurnService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -578,6 +579,13 @@ namespace Gothic.Core.Services.Npc
 
             var damage = _spellDamage.CalculateDamage(victim, cast.Spell, level, mask);
             _fightService.OnSpellHit(cast.Caster, victim, damage, (mask & SpellDamageDomain.CollDontKill) == 0);
+
+            // Fire sets the victim on fire.
+            if (damage > 0 && (cast.Spell.DamageType & NpcBurnService.DamageFire) != 0)
+                _npcBurnService.Ignite(victim);
+            // Windfist and Stormfist throw it away.
+            if (damage > 0 && (cast.Spell.DamageType & FightService.DamageFly) != 0)
+                _fightService.ThrowAway(cast.Caster, victim);
         }
 
         /// <summary>

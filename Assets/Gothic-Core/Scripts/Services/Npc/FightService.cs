@@ -27,6 +27,8 @@ namespace Gothic.Core.Services.Npc
     public class FightService
     {
         // Seconds the knocked out hero lies down before he can move again.
+        public const int DamageFly = 1 << 4;
+
         private const float _heroKnockoutSeconds = 10f;
         // In m: casters cast from this far (OpenGothic MaxMagRange).
         private const float _magicRange = 35f;
@@ -86,7 +88,29 @@ namespace Gothic.Core.Services.Npc
             if (!CanBeHit(attacker, target) || TryFinishOff(attacker, target))
                 return;
 
-            ApplyDamage(attacker, target, _meleeDamageDomain.CalculateDamage(attacker, target, weapon));
+            var damage = _meleeDamageDomain.CalculateDamage(attacker, target, weapon);
+            ApplyDamage(attacker, target, damage);
+
+            // A troll's blow throws its victim away.
+            var damageType = weapon?.DamageType ?? attacker.Instance.DamageType;
+            if (damage > 0 && (damageType & DamageFly) != 0)
+                ThrowAway(attacker, target);
+        }
+
+        /// <summary>
+        /// A DAM_FLY hit (Windfist, Stormfist, a troll's blow) throws the victim away from the attacker, like the engine
+        /// (OpenGothic Npc::takeDamage -> MoveAlgo::accessDamFly). Not the VR hero, nor the down.
+        /// </summary>
+        public void ThrowAway(NpcContainer attacker, NpcContainer victim)
+        {
+            if (victim?.Go == null || attacker?.Go == null || victim.IsHero() || victim.IsDown() ||
+                victim.Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0)
+                return;
+
+            var away = victim.Go.transform.position - attacker.Go.transform.position;
+            victim.Props.AnimationQueue.Clear();
+            victim.Props.AnimationQueue.Enqueue(new FlyBack(new AnimationAction("FlyBack"), victim, away));
+            Logger.Log($"[Fight] {victim.Instance.GetName(NpcNameSlot.Slot0)} is thrown away.", LogCat.Fight);
         }
 
         /// <summary>
