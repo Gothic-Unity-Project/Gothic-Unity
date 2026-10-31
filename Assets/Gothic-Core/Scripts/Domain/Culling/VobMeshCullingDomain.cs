@@ -30,6 +30,8 @@ namespace Gothic.Core.Domain.Culling
 
 
         private const int _initialBucketCapacity = 1024;
+        // Edge length (m) of the box a particle effect VOB is culled by - it has no mesh.
+        private const float _particleEffectBoundsSize = 2.8f;
 
         /// <summary>
         /// One CullingGroup per VOB size class. The sphere array is shared by reference with the CullingGroup
@@ -361,8 +363,6 @@ namespace Gothic.Core.Domain.Culling
         /// Child bounds are offset by their position relative to the root VOB. (Their rotation is ignored,
         /// but the resulting sphere uses the full bbox diagonal and therefore stays conservative enough.)
         /// </summary>
-        private const float _particleEffectBoundsSize = 2.8f;
-
         private void AddLocalBounds(IVirtualObject vob, NumericsVector3 rootPosition, ref Bounds? totalBounds)
         {
             Bounds additionalBounds = default;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -30,7 +31,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private const int _maxParticles = 1000;
 
         // One material per texture and blend mode, shared by all emitters (237 torches in G1's world).
-        private static readonly System.Collections.Generic.Dictionary<string, Material> _materials = new();
+        private static readonly Dictionary<string, Material> _materials = new();
+        // Textures already warned about as missing - each is logged once, not per emitter.
+        private static readonly HashSet<string> _missingTextures = new(StringComparer.OrdinalIgnoreCase);
 
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
@@ -231,6 +234,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (material == null)
                 {
                     // Like the engine, an effect without its texture isn't emitted (white squares otherwise).
+                    if (_missingTextures.Add(pfx.VisNameS ?? string.Empty))
+                        Logger.LogWarning($"PFX '{_visualName}': texture '{pfx.VisNameS}' not found - the effect " +
+                                          "isn't shown (logged once per texture).", LogCat.Mesh);
                     UnityEngine.Object.Destroy(RootGo);
                     return null;
                 }
@@ -384,7 +390,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         var dir = (target - origin).normalized;
 
                         // Use average speed
-                        var speed = Mathf.Max(0f, pfx.VelAvg);
+                        var speed = Mathf.Max(0f, pfx.VelAvg * _velocityToMetersPerSecond);
                         velocityModule.enabled = true;
                         velocityModule.space = ParticleSystemSimulationSpace.Local;
                         velocityModule.x = new ParticleSystem.MinMaxCurve(dir.x * speed);
