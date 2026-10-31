@@ -1,6 +1,7 @@
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
@@ -11,6 +12,7 @@ using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -44,6 +46,9 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             _rig = GetComponent<IVrRig>();
+            if (_rig == null)
+                Logger.LogWarning("[VRSpellCaster] No VR rig on the player - runes and scrolls can't be cast.",
+                    LogCat.VR);
         }
 
         private void Update()

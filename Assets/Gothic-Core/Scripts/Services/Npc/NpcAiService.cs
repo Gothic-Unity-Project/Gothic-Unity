@@ -25,6 +25,7 @@ namespace Gothic.Core.Services.Npc
 
         // Reused by SendPerceptionToWitnesses() on every hit.
         private readonly List<NpcContainer> _witnessBuffer = new();
+        private bool _isReadySpellWithoutManaLogged;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -500,8 +501,21 @@ namespace Gothic.Core.Services.Npc
         public void ExtAiReadySpell(NpcInstance npc, int spellId, int investMana)
         {
             var container = npc.GetUserData();
-            if (container == null || investMana <= 0)
+            if (container == null)
                 return;
+
+            if (investMana <= 0)
+            {
+                // Fight loops ask again and again - once is enough to see it.
+                if (!_isReadySpellWithoutManaLogged)
+                {
+                    _isReadySpellWithoutManaLogged = true;
+                    Logger.LogWarning($"[AI] AI_ReadySpell({npc.GetName(NpcNameSlot.Slot0)}, {spellId}, " +
+                                      $"{investMana}) without mana to invest - no spell drawn. Logged once.",
+                        LogCat.Fight);
+                }
+                return;
+            }
 
             container.Props.AnimationQueue.Enqueue(new ReadySpell(new AnimationAction(int0: spellId, int1: investMana),
                 container));

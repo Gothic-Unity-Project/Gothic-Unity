@@ -62,8 +62,9 @@ namespace Gothic.Core.Services.Vobs
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
-        // Trigger zones a projectile crosses in one step (DispatchDamageAlong).
+        // Trigger zones a projectile crosses in one step (DispatchDamageAlong), on the Ignore Raycast layer.
         private readonly RaycastHit[] _zoneHits = new RaycastHit[8];
+        private static readonly int _zoneLayers = 1 << Constants.IgnoreRaycastLayer;
 
         // Important: All of them are not culled!
         private static readonly VirtualObjectType[] _vobTypesNonLazyLoading =
@@ -579,12 +580,6 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
-        /// Fires a named trigger chain: resolves by mover -> code master -> trigger list -> trigger script
-        /// (+ message filter, trigger zone and mover controller of the same name).
-        /// Used by Wld_SendTrigger, trigger VOBs and mob-grab targets.
-        /// senderName: name of the VOB that initiated the trigger (needed by CodeMaster slave matching).
-        /// </summary>
-        /// <summary>
         /// A projectile (arrow, spell) flew from one point to the next: the trigger zones it crossed get the damage, once
         /// per flight. Like the engine (zCTrigger reactToOnDamage), those reacting to it fire - G2 Irdorath's far
         /// switches of the big bridge are shot. Found together with BoroBongo's branch, which does the same.
@@ -597,8 +592,8 @@ namespace Gothic.Core.Services.Vobs
             if (distance < 0.0001f)
                 return;
 
-            var count = Physics.RaycastNonAlloc(from, direction / distance, _zoneHits, distance,
-                LayerMask.GetMask("Ignore Raycast"), QueryTriggerInteraction.Collide);
+            var count = Physics.RaycastNonAlloc(from, direction / distance, _zoneHits, distance, _zoneLayers,
+                QueryTriggerInteraction.Collide);
             for (var i = 0; i < count; i++)
             {
                 var zone = _zoneHits[i].collider;
@@ -619,6 +614,12 @@ namespace Gothic.Core.Services.Vobs
                 solid.GetComponentInParent<MoverAdapter>()?.ReceiveDamage();
         }
 
+        /// <summary>
+        /// Fires a named trigger chain: resolves by mover -> code master -> trigger list -> trigger script
+        /// (+ message filter, trigger zone and mover controller of the same name).
+        /// Used by Wld_SendTrigger, trigger VOBs and mob-grab targets.
+        /// senderName: name of the VOB that initiated the trigger (needed by CodeMaster slave matching).
+        /// </summary>
         public void DispatchTrigger(string name, string senderName = "")
         {
             if (string.IsNullOrEmpty(name))

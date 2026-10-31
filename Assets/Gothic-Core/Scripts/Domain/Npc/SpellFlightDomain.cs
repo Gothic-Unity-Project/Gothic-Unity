@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
@@ -35,12 +36,11 @@ namespace Gothic.Core.Domain.Npc
 
         // MagicService: the cast, the NPC hit (null at a wall or the end of the flight), where.
         private readonly Action<SpellCast, NpcContainer, Vector3> _onHit;
-        private readonly int _blockingLayers;
+        private static readonly int _blockingLayers = 1 << Constants.DefaultLayer;
 
         public SpellFlightDomain(Action<SpellCast, NpcContainer, Vector3> onHit)
         {
             _onHit = onHit;
-            _blockingLayers = LayerMask.GetMask("Default");
         }
 
         /// <param name="visual">The flying particles, destroyed when the flight ends. Null to fly unseen.</param>
