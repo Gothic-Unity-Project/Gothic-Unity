@@ -33,13 +33,23 @@ namespace Gothic.Core.Services.Npc
 
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly AnimationService _animationService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
 
         private readonly SpellEffectDomain _spellEffects = new SpellEffectDomain().Inject();
         private readonly Dictionary<NpcContainer, float> _burnEndTimes = new();
 
+        public NpcBurnService()
+        {
+            // A new world drops the burning NPCs with their flames: running burns end on their next frame.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _burnEndTimes.Clear());
+        }
+
+        /// <summary>
+        /// An NPC without its GameObject (unloaded meanwhile) isn't burning any more: its flames went with it.
+        /// </summary>
         public bool IsBurning(NpcContainer npc)
         {
-            return _burnEndTimes.ContainsKey(npc);
+            return npc?.Go != null && npc.PrefabProps != null && _burnEndTimes.ContainsKey(npc);
         }
 
         /// <summary>
@@ -60,13 +70,15 @@ namespace Gothic.Core.Services.Npc
             var objects = new List<GameObject>();
             SpawnBodyFlames(npc, effect?.VisNameS, objects);
             objects.Add(CreateLightAndSound(npc, effect?.SfxId));
-            npc.PrefabProps.StartCoroutine(Burn(npc, objects));
+            // Not on the NPC: culling deactivates it, which would stop the burn and leave it burning forever.
+            _unityMonoService.StartCoroutine(Burn(npc, objects));
             Logger.Log($"[NpcBurn] {npc.Instance.GetName(NpcNameSlot.Slot0)} burns.", LogCat.Fight);
         }
 
         private IEnumerator Burn(NpcContainer npc, List<GameObject> objects)
         {
-            while (_burnEndTimes.TryGetValue(npc, out var endTime) && Time.time < endTime && npc.Go != null)
+            while (_burnEndTimes.TryGetValue(npc, out var endTime) && Time.time < endTime && npc.Go != null &&
+                   npc.PrefabProps != null)
                 yield return null;
 
             _burnEndTimes.Remove(npc);
@@ -148,7 +160,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void PlayVictimAnimation(NpcContainer npc)
         {
-            if (npc.IsHero() || npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0 ||
+            if (npc.IsHero() || npc.Props.IsDead ||
                 _animationService.GetTrack(_victimAnimation, npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) == null)
                 return;
 
