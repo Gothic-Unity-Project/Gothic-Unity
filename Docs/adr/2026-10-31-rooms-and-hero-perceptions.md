@@ -10,7 +10,7 @@ Huts and houses in Gothic belong to someone: the scripts give rooms to guilds an
 
 ## Decisions
 
-1. **A room is the floor under the hero's feet.** The world's rooms are its portal sectors; their floors are marked when the world is built, like OpenGothic looks at the polygon under the feet. Walls, roofs and platforms overhead don't count, a step out of the door already does. Not chosen: anything near the room's walls and roof - standing next to a hut counted as being inside.
+1. **A room is the floor under the hero's feet.** The world's rooms are its portal sectors; their floors are marked when the world is built, like OpenGothic looks at the polygon under the feet. Walls, roofs and platforms overhead don't count, a step out of the door already does. A new room counts after half a second, so standing on a doorstep doesn't flip in and out. Not chosen: anything near the room's walls and roof - standing next to a hut counted as being inside.
 2. **Walking into another room and using an object tell the NPCs around.** Grabbing a chest lid, a door, a bed or a wheel, or putting a lock pick into a lock, counts as using it; the same object again within 2 seconds counts once. The scripts decide who cares (the owner, the guild of the room).
 3. **Outdoors an NPC is in no room at all.** The scripts compare an NPC's room guild with "no guild": outdoors counting as "no guild" made a guard outside look like one in another room, and nobody came when the hero entered a house.
 4. **No new settings** (wave 2 flag policy).
@@ -19,4 +19,5 @@ Huts and houses in Gothic belong to someone: the scripts give rooms to guilds an
 
 - Owners and guards react to the hero in their huts and at their chests and doors.
 - Only the hero's used object is known; NPCs using objects don't tell anyone.
+- A loaded save doesn't know whose rooms are whose yet: the scripts assign them only when a new game starts. The save/load PR runs that part again on load.
 - Still open: footsteps as quiet noise and "who made the noise" (VR hero body PR, it needs the hero's walking state), taking items as theft (VR inventory PR).

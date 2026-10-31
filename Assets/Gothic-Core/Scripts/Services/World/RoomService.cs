@@ -9,7 +9,8 @@ namespace Gothic.Core.Services.World
 {
     /// <summary>
     /// Gothic's portal rooms (huts, houses): the world's BSP sectors. Scripts give a room to a guild with
-    /// Wld_AssignRoomToGuild (G1 INIT_SUB_* - runs on every world load, nothing to save), PERC_ASSESSENTERROOM and
+    /// Wld_AssignRoomToGuild (G1 INIT_SUB_*, from the world's INIT_ on a new game - a loaded save doesn't run it yet,
+    /// see the save/load follow-up), PERC_ASSESSENTERROOM and
     /// Wld_GetPlayerPortalGuild tell NPCs whose room the hero walked into. Like OpenGothic (MoveAlgo: the sector of the
     /// polygon the ground ray hits), a position's room is the room floor right under the feet.
     /// </summary>
@@ -22,10 +23,18 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public const float FloorCellSize = 0.5f;
 
+        // A room floor polygon: its normal at most ~45 degrees from up/down.
+        private const float _floorMinNormalY = 0.7f;
+        // Huge floor polygons are marked up to 20 m per axis.
+        private const int _maxFloorCellsPerAxis = 40;
+
         private const int _guildNone = 0;
         // Npc_GetPortalGuild outdoors: below GIL_NONE - G2's B_AssessEnterRoom took a guard outside (0) for one in
         // another room, nobody came when the hero walked into a house that isn't his.
         private const int _outdoorPortalGuild = -1;
+
+        // Heights around the feet the room floor is looked for.
+        private static readonly float[] _floorProbeHeights = { 0.1f, -0.2f, -0.45f };
 
         private Dictionary<long, int> _floorCells = new();
         private readonly Dictionary<string, int> _roomGuilds = new(StringComparer.OrdinalIgnoreCase);
@@ -40,6 +49,43 @@ namespace Gothic.Core.Services.World
             var y = (long)Mathf.FloorToInt(position.y / FloorCellSize) & 0x1FFFFF;
             var z = (long)Mathf.FloorToInt(position.z / FloorCellSize) & 0x1FFFFF;
             return (x << 42) | (y << 21) | z;
+        }
+
+        /// <summary>
+        /// World load (background thread, only touches floorCells): marks the floor cells a room polygon covers with its
+        /// sector if it is level - floors (and ceilings, never at the feet). Bounding box of the polygon.
+        /// </summary>
+        public static void MarkRoomFloor(ZenKit.IMesh mesh, int sector, IList<int> positionIndices,
+            Dictionary<long, int> floorCells)
+        {
+            if (positionIndices.Count < 3)
+                return;
+
+            var a = mesh.GetPosition(positionIndices[0]);
+            var b = mesh.GetPosition(positionIndices[1]);
+            var c = mesh.GetPosition(positionIndices[2]);
+            var normal = Vector3.Cross(new Vector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z),
+                new Vector3(c.X - a.X, c.Y - a.Y, c.Z - a.Z));
+            if (normal.sqrMagnitude <= 0f || Mathf.Abs(normal.normalized.y) <= _floorMinNormalY)
+                return;
+
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            foreach (var index in positionIndices)
+            {
+                var p = mesh.GetPosition(index);
+                var position = new Vector3(p.X, p.Y, p.Z) / 100f;
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / FloorCellSize),
+                Vector3Int.one * _maxFloorCellsPerAxis);
+            for (var x = 0; x <= steps.x; x++)
+                for (var y = 0; y <= steps.y; y++)
+                    for (var z = 0; z <= steps.z; z++)
+                        floorCells[ToFloorCell(min + Vector3.Min(new Vector3(x, y, z) * FloorCellSize, max - min))] =
+                            sector;
         }
 
         /// <summary>
@@ -75,13 +121,22 @@ namespace Gothic.Core.Services.World
                 if (colon < 0)
                     continue;
 
+                // The longest sector name the material name starts with: "S:OC_KITCHEN_WOOD" -> OC_KITCHEN.
                 var afterColon = name.Substring(colon + 1);
-                var underscore = afterColon.IndexOf('_');
-                if (sectorByName.TryGetValue(afterColon, out var sector) ||
-                    (underscore > 0 && sectorByName.TryGetValue(afterColon.Substring(0, underscore), out sector)))
+                var prefix = afterColon;
+                while (true)
                 {
-                    result[i] = sector;
-                    matched++;
+                    if (sectorByName.TryGetValue(prefix, out var sector))
+                    {
+                        result[i] = sector;
+                        matched++;
+                        break;
+                    }
+
+                    var underscore = prefix.LastIndexOf('_');
+                    if (underscore <= 0)
+                        break;
+                    prefix = prefix.Substring(0, underscore);
                 }
             }
 
@@ -102,7 +157,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public string GetRoomAt(Vector3 feetPosition)
         {
-            foreach (var height in new[] { 0.1f, -0.2f, -0.45f })
+            foreach (var height in _floorProbeHeights)
             {
                 if (_floorCells.TryGetValue(ToFloorCell(feetPosition + Vector3.up * height), out var floorSector))
                     return GetSectorName(floorSector);
@@ -132,18 +187,13 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// True when the hero walked into another room (or out of one).
+        /// The hero walked into another room (or out of one) - HeroPerceptionService decides when it counts.
         /// </summary>
-        public bool UpdateHeroRoom(Vector3 feetPosition)
+        public void SetHeroRoom(string room)
         {
-            var room = GetRoomAt(feetPosition);
-            if (room.Equals(HeroRoom, StringComparison.OrdinalIgnoreCase))
-                return false;
-
             HeroFormerRoom = HeroRoom;
             HeroRoom = room;
             Logger.Log($"[Rooms] Hero: '{HeroFormerRoom}' -> '{HeroRoom}' (guild {GuildOfRoom(HeroRoom)})", LogCat.Vob);
-            return true;
         }
 
         private string GetSectorName(int sector)

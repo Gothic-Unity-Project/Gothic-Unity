@@ -24,9 +24,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly RoomService _roomService;
 
         private const float _roomCheckInterval = 0.25f;
+        // A new room counts after this many checks in a row - standing on a doorstep flipped in and out.
+        private const int _roomStableChecks = 2;
         private const float _sameMobRepeatSeconds = 2f;
 
         private float _nextRoomCheckTime;
+        private string _pendingRoom;
+        private int _pendingRoomChecks;
         private float _lastUseMobTime;
         private IInteractiveObject _lastUseMob;
 
@@ -47,13 +51,39 @@ namespace Gothic.Core.Services.Npc
             if (hero?.Go == null || hero.Props == null)
                 return;
 
-            if (!_roomService.UpdateHeroRoom(hero.Go.transform.position))
+            var room = _roomService.GetRoomAt(GetFeetPosition(hero.Go));
+            if (room.Equals(_roomService.HeroRoom, StringComparison.OrdinalIgnoreCase))
+            {
+                _pendingRoom = null;
                 return;
+            }
+
+            if (!room.Equals(_pendingRoom, StringComparison.OrdinalIgnoreCase))
+            {
+                _pendingRoom = room;
+                _pendingRoomChecks = 0;
+            }
+            if (++_pendingRoomChecks < _roomStableChecks)
+                return;
+
+            _pendingRoom = null;
+            _roomService.SetHeroRoom(room);
 
             var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessEnterRoom,
                 hero.Instance, hero.Instance);
             Logger.Log($"[HeroPerc] AssessEnterRoom ('{_roomService.HeroFormerRoom}' -> '{_roomService.HeroRoom}') " +
                        $"sent to {notified} NPC(s)", LogCat.Ai);
+        }
+
+        /// <summary>
+        /// VR: the rig's origin is on the floor. Flat: the player controller's centre is ~1 m above it.
+        /// </summary>
+        private static Vector3 GetFeetPosition(GameObject heroGo)
+        {
+            if (!heroGo.TryGetComponent<CharacterController>(out var controller))
+                return heroGo.transform.position;
+
+            return heroGo.transform.TransformPoint(controller.center + Vector3.down * (controller.height / 2f));
         }
 
         /// <summary>
@@ -81,18 +111,12 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Npc_GetDetectedMob: the scheme name of the mob the hero uses, like the engine's: "CHESTBIG_OCCHESTLARGE.MDS"
-        /// -> "CHESTBIG". Empty for nothing (only the hero's mob is known).
+        /// Npc_GetDetectedMob: the scheme name of the mob the hero uses, e.g. "CHESTBIG". Empty for nothing (only the
+        /// hero's mob is known).
         /// </summary>
         public string GetHeroDetectedMobScheme()
         {
-            var visual = _heroDetectedMob?.Visual?.Name;
-            if (string.IsNullOrEmpty(visual))
-                return string.Empty;
-
-            var scheme = System.IO.Path.GetFileNameWithoutExtension(visual);
-            var underscore = scheme.IndexOf('_');
-            return (underscore > 0 ? scheme.Substring(0, underscore) : scheme).ToUpperInvariant();
+            return _heroDetectedMob.GetVisualScheme();
         }
 
         /// <summary>
@@ -115,9 +139,18 @@ namespace Gothic.Core.Services.Npc
             var ownerGuild = (_heroDetectedMob as IMovableObject)?.OwnerGuild;
             if (string.IsNullOrEmpty(ownerGuild))
                 return false;
-            var symbol = _gameStateService.GothicVm.GetSymbolByName(ownerGuild);
-            var ownerGuildId = symbol != null ? symbol.GetInt(0) : int.TryParse(ownerGuild, out var id) ? id : -1;
-            return ownerGuildId == guild;
+            try
+            {
+                var symbol = _gameStateService.GothicVm.GetSymbolByName(ownerGuild);
+                var ownerGuildId = symbol != null ? symbol.GetInt(0) : int.TryParse(ownerGuild, out var id) ? id : -1;
+                return ownerGuildId == guild;
+            }
+            catch (Exception e)
+            {
+                // A mod's owner guild that names no int constant.
+                Logger.LogWarning($"[HeroPerc] Owner guild '{ownerGuild}' isn't a guild: {e.Message}", LogCat.Ai);
+                return false;
+            }
         }
     }
 }
