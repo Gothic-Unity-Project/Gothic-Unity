@@ -692,9 +692,12 @@ namespace Gothic.Core.Domain.Vm
         /// </summary>
         public void Mdl_StartFaceAni(NpcInstance npc, string name, float intensity, float holdTime)
         {
-            var headMorph = npc.GetUserData()?.PrefabProps?.HeadMorph;
-            if (headMorph != null)
-                headMorph.StartFaceAnimation(name, intensity, holdTime);
+            // Not built yet (out of range) or without a head (monsters).
+            var prefabProps = npc.GetUserData()?.PrefabProps;
+            if (prefabProps == null || prefabProps.HeadMorph == null)
+                return;
+
+            prefabProps.HeadMorph.StartFaceAnimation(name, intensity, holdTime);
         }
 
         /// <summary>
@@ -703,9 +706,11 @@ namespace Gothic.Core.Domain.Vm
         public void Mdl_ApplyRandomFaceAni(NpcInstance npc, string name, float timeMin, float timeMinVar, float timeMax,
             float timeMaxVar, float probMin)
         {
-            var headMorph = npc.GetUserData()?.PrefabProps?.HeadMorph;
-            if (headMorph != null)
-                headMorph.ApplyRandomFaceAnimation(name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
+            var prefabProps = npc.GetUserData()?.PrefabProps;
+            if (prefabProps == null || prefabProps.HeadMorph == null)
+                return;
+
+            prefabProps.HeadMorph.ApplyRandomFaceAnimation(name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
         }
 
         #endregion

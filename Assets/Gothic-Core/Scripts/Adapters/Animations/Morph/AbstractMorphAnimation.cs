@@ -65,6 +65,7 @@ namespace Gothic.Core.Adapters.Animations.Morph
         private bool _isMeshMorphed;
         private bool _isBlendDirty;
         private bool _isBlendMismatchLogged;
+        private static Camera _mainCamera;
 
         protected virtual void Start()
         {
@@ -340,8 +341,11 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
         private bool IsNearCamera()
         {
-            var camera = Camera.main;
-            return camera == null || (camera.transform.position - transform.position).sqrMagnitude <=
+            // Shared by all heads, looked up again when the scene's camera is gone (loading -> world).
+            if (_mainCamera == null || !_mainCamera.isActiveAndEnabled)
+                _mainCamera = Camera.main;
+
+            return _mainCamera == null || (_mainCamera.transform.position - transform.position).sqrMagnitude <=
                 MaxBlendDistance * MaxBlendDistance;
         }
 
