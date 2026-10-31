@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.Properties.Vobs;
-using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -359,8 +358,7 @@ namespace Gothic.Core.Services.Npc
             // Not looked up yet, or its rigidbody's object is gone (reloaded): the entry is dropped and looked up
             // again.
             _itemBodies.Remove(container);
-            var loader = container.Go.GetComponent<VobLoader>();
-            if (loader != null && !loader.IsLoaded)
+            if (!_vobService.IsLoaded(container))
                 return false;
 
             body = GetItemTransform(container);

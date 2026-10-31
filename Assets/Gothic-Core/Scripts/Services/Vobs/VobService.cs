@@ -170,6 +170,14 @@ namespace Gothic.Core.Services.Vobs
             _objectsToInitQueue.Enqueue(loaderComp);
         }
 
+        /// <summary>
+        /// False while a lazy VOB waits for its first creation (not visible yet).
+        /// </summary>
+        public bool IsLoaded(VobContainer container)
+        {
+            return !container.Go.TryGetComponent(out VobLoader loader) || loader.IsLoaded;
+        }
+
         // DEBUG - Check how many frames it took to initialize all the objects
         // private int firstFrameQueueFilledUp;
 
