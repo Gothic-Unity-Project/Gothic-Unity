@@ -35,8 +35,14 @@ namespace Gothic.Core.Services.Npc
         public void ExtAiEquipArmor(NpcInstance npc, int itemId)
         {
             var item = itemId > 0 ? _vmCacheService.TryGetItemData(itemId) : null;
-            if (item == null || !((ItemFlags)item.MainFlag).HasFlag(ItemFlags.ItemKatArmor) ||
-                ExtNpcHasItems(npc, itemId) <= 0)
+            if (item == null || !((ItemFlags)item.MainFlag).HasFlag(ItemFlags.ItemKatArmor))
+            {
+                Logger.LogWarning($"[Equipment] AI_EquipArmor: {npc.GetName(NpcNameSlot.Slot0)} - item {itemId} is " +
+                    (item == null ? "no item" : $"{item.Name}, no armor"), LogCat.Npc);
+                return;
+            }
+
+            if (ExtNpcHasItems(npc, itemId) <= 0)
                 return;
 
             WearArmor(npc, item);
@@ -83,6 +89,14 @@ namespace Gothic.Core.Services.Npc
                     Equipment.Unequip(container, worn);
             }
 
+            // Set by Mdl_SetVisualBody - an NPC without it has no armor look to change.
+            if (container.Props.BodyData == null)
+            {
+                Logger.LogWarning($"[Equipment] AI_UnequipArmor: {npc.GetName(NpcNameSlot.Slot0)} has no visual " +
+                    "body - look not changed", LogCat.Npc);
+                return;
+            }
+
             container.Props.BodyData.Armor = -1;
             container.Props.MdmName = container.Props.BodyData.Body;
         }
@@ -94,6 +108,13 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             Equipment.EquipByScript(container, item);
+            if (container.Props.BodyData == null)
+            {
+                Logger.LogWarning($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} wears {item.Name} without a " +
+                    "visual body - look not changed", LogCat.Npc);
+                return;
+            }
+
             container.Props.BodyData.Armor = item.Index;
             container.Props.MdmName = item.VisualChange;
             Logger.Log($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} puts on {item.Name}.", LogCat.Npc);
