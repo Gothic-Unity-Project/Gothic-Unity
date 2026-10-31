@@ -1,4 +1,5 @@
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
@@ -25,8 +26,6 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _distance = 1.5f;
         [Tooltip("Degrees from the view's center the disc covers. Beyond the widest headset's field of view.")]
         [SerializeField] private float _coverAngle = 75f;
-        [Tooltip("Layer of the disc. Has to be rendered by the camera.")]
-        [SerializeField] private int _layer = 5;
         [Tooltip("Body speed in m/s at which the vignette is closed completely.")]
         [SerializeField] private float _fullMoveSpeed = 3f;
         [Tooltip("Turn speed in degrees per second at which the vignette is closed completely.")]
@@ -48,9 +47,9 @@ namespace Gothic.VR.Adapters.Player
         private ConfigService _configService;
         private IVrRig _rig;
         private Material _materialInstance;
+        private Mesh _discMesh;
         private MeshRenderer _renderer;
         private int _setting;
-        private bool _isSettingRead;
         private float _strength;
         private Vector3 _lastRootPosition;
         private float _lastRootYaw;
@@ -68,42 +67,51 @@ namespace Gothic.VR.Adapters.Player
             if (_rig == null)
                 Logger.LogWarning($"[VrMoveVignette] No IVrRig above {name} - no vignette.", LogCat.VR);
 
+            ReadSetting();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ReadSetting);
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
         private void OnDestroy()
         {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadSetting);
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             if (_materialInstance != null)
                 Destroy(_materialInstance);
+            if (_discMesh != null)
+                Destroy(_discMesh);
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
         {
             if (key == VRConstants.IniNames.MoveVignette)
-                TryReadSetting();
+                ReadSetting();
         }
 
         /// <summary>
-        /// The rig exists before Gothic.ini is loaded (game version selection): no vignette until then.
+        /// The rig exists before Gothic.ini is loaded (game version selection): no vignette until then. Switched off
+        /// (0, the default), the component doesn't run at all.
         /// </summary>
-        private bool TryReadSetting()
+        private void ReadSetting()
         {
             var gothicIni = _configService?.Gothic;
-            if (gothicIni == null)
-                return false;
+            _setting = gothicIni == null
+                ? 0
+                : Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.MoveVignette,
+                    VRConstants.MoveVignetteDefaultValue), 0, _closedClearAngles.Length);
 
-            _setting = Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.MoveVignette,
-                VRConstants.MoveVignetteDefaultValue), 0, _closedClearAngles.Length);
-            _isSettingRead = true;
-            return true;
+            _hasLastRoot = false;
+            enabled = _setting > 0 && _renderer != null && _rig != null;
+            if (enabled)
+                return;
+
+            _strength = 0f;
+            if (_renderer != null)
+                _renderer.enabled = false;
         }
 
         private void LateUpdate()
         {
-            if (_renderer == null || _rig == null || (!_isSettingRead && !TryReadSetting()))
-                return;
-
             var root = _rig.Root;
             var position = root.position;
             var yaw = root.eulerAngles.y;
@@ -126,15 +134,12 @@ namespace Gothic.VR.Adapters.Player
             _lastRootYaw = yaw;
             _hasLastRoot = true;
 
-            if (_setting == 0)
-                target = 0f;
-
             _strength = Mathf.MoveTowards(_strength, target, _fadeSpeed * Time.deltaTime);
             _renderer.enabled = _strength > 0.01f;
             if (!_renderer.enabled)
                 return;
 
-            var closedAperture = _closedClearAngles[Mathf.Max(_setting, 1) - 1] / _coverAngle;
+            var closedAperture = _closedClearAngles[_setting - 1] / _coverAngle;
             _materialInstance.SetFloat(_apertureId, Mathf.Lerp(1f, closedAperture, _strength));
         }
 
@@ -148,12 +153,13 @@ namespace Gothic.VR.Adapters.Player
 
             var disc = new GameObject("MoveVignetteDisc")
             {
-                layer = _layer
+                layer = Constants.UILayer
             };
             disc.transform.SetParent(transform, false);
             disc.transform.localPosition = new Vector3(0f, 0f, _distance);
 
-            disc.AddComponent<MeshFilter>().sharedMesh = CreateDiscMesh();
+            _discMesh = CreateDiscMesh();
+            disc.AddComponent<MeshFilter>().sharedMesh = _discMesh;
 
             _materialInstance = new Material(_material);
             _materialInstance.SetFloat(_featherId, _featherAngle / _coverAngle);
