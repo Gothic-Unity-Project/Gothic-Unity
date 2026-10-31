@@ -244,6 +244,44 @@ MonoBehaviour:
     m_Localized: "normal|Rotschw\xE4che|Gr\xFCnschw\xE4che|Blauschw\xE4che"
     m_Metadata:
       m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: "H\xE4ndigkeit"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Linksh\xE4nder: Laufen und Men\xFC am rechten Controller, Drehen,
+      Teleport und Springen am linken"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: "Rechtsh\xE4nder|Linksh\xE4nder"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Sprungtaste
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: Die Taste zum Springen - Ducken liegt auf der anderen der beiden
+      Tasten
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: "untere Taste|obere Taste|Stick dr\xFCcken"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: "Men\xFCtaste"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "Die Taste, die das Men\xFC \xF6ffnet, an der Hand zum Laufen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: "obere Taste|untere Taste|Men\xFCtaste"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

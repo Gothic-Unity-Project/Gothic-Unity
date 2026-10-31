@@ -239,6 +239,42 @@ MonoBehaviour:
     m_Key: menuitem.colorVision.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188454143623823360
+    m_Key: menuitem.controllerHand.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Key: menuitem.controllerHand.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Key: menuitem.controllerHand.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Key: menuitem.jumpButton.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Key: menuitem.jumpButton.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Key: menuitem.jumpButton.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Key: menuitem.menuButton.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Key: menuitem.menuButton.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Key: menuitem.menuButton.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -243,6 +243,43 @@ MonoBehaviour:
     m_Localized: "normalne|s\u0142abe czerwone|s\u0142abe zielone|s\u0142abe niebieskie"
     m_Metadata:
       m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: "R\u0119czno\u015B\u0107"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Lewor\u0119czni: ruch i menu na prawym kontrolerze, obr\xF3t, teleport
+      i skok na lewym"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: "prawor\u0119czni|lewor\u0119czni"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Przycisk skoku
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: "Przycisk skoku - kucanie na drugim z dw\xF3ch przycisk\xF3w"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: "dolny przycisk|g\xF3rny przycisk|wci\u015Bni\u0119cie ga\u0142ki"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Przycisk menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "Przycisk otwieraj\u0105cy menu, na r\u0119ce do ruchu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: "g\xF3rny przycisk|dolny przycisk|przycisk menu"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

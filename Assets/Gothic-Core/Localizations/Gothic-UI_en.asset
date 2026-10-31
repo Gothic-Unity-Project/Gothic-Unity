@@ -262,6 +262,43 @@ MonoBehaviour:
     m_Localized: normal|red-weak|green-weak|blue-weak
     m_Metadata:
       m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: Handedness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: 'Left-handed: move and menu on the right controller, turn, teleport
+      and jump on the left'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: right-handed|left-handed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Jump button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: The button that jumps - crouching takes the other of the two buttons
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: lower button|upper button|stick click
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Menu button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: The button that opens the menu, on the hand that moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: upper button|lower button|menu button
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
