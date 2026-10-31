@@ -30,16 +30,20 @@ namespace Gothic.Core.Services.Npc
         public void Tick(NpcContainer npc)
         {
             var props = npc.Props;
-            var body = npc.PrefabProps?.ColliderRootMotion;
-            if (body == null || !body.TryGetComponent<Rigidbody>(out var rigidbody) || rigidbody.isKinematic)
+            var rigidbody = npc.PrefabProps?.RootMotionRigidbody;
+            if (rigidbody == null || rigidbody.isKinematic)
             {
                 // Standing, sitting, playing an animation: no physics, no fall.
                 props.FallStartY = null;
+                props.LastGroundY = null;
                 return;
             }
 
             var y = rigidbody.position.y;
             var verticalSpeed = rigidbody.linearVelocity.y;
+            // Tracking starts at the current height: an NPC already falling then (spawned or put in the air) falls from
+            // here, not from y 0.
+            props.LastGroundY ??= y;
             if (props.FallStartY == null)
             {
                 if (verticalSpeed < _fallingSpeed)

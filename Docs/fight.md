@@ -42,6 +42,19 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
 Each hit, knockout and death asks all NPCs of the world once whether they saw it
 (`NpcAiService.SendPerceptionToWitnesses`).
 
+## Falling
+
+`AiHandler` calls `NpcFallService.Tick` every frame for each awake NPC that isn't dead:
+- Only a body with physics (walking, running) falls. Its rigidbody's vertical speed below -3 m/s means in the air,
+  above -0.5 m/s landed again. The height counts from the last ground it stood on - or from where it was when its
+  body got physics again.
+- Landing costs the engine's fall damage (OpenGothic `damageFall`): the guild's `FALLDOWN_DAMAGE` per meter beyond
+  its `FALLDOWN_HEIGHT`, less the fall protection; a negative protection makes it immune. The hit points go down
+  through `NpcService.SetAttribute`, so a deadly fall is a death like above.
+- Edge stop (`AnimationSystem.IsDeepDropAhead`, like OpenGothic `MoveAlgo::tryMove`): a moving NPC casts one ray down
+  0.5 m ahead (Default layer). A drop of 3/4 of its guild's `FALLDOWN_HEIGHT` or more zeroes the horizontal move, so
+  chasing NPCs don't run off cliffs; lower steps down are fine.
+
 ## Differences from the original
 
 - A swing hits by reach and angle, not by the weapon's bone touching the target (`DEF_HIT_LIMB`).

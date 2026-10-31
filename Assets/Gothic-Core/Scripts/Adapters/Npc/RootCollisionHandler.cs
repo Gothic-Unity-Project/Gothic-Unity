@@ -17,8 +17,9 @@ namespace Gothic.Core.Adapters.Npc
         {
             base.Awake();
 
-            // Cached object which will be used later.
+            // Cached objects which will be used later.
             NpcData.PrefabProps.ColliderRootMotion = gameObject.transform;
+            NpcData.PrefabProps.RootMotionRigidbody = GetComponent<Rigidbody>();
         }
 
         /// <summary>
