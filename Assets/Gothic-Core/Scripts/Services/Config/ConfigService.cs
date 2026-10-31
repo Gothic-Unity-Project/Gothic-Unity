@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using Gothic.Core.Domain.Config;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Config;
 using MyBox;
 using ZenKit;
@@ -122,7 +123,8 @@ namespace Gothic.Core.Services.Config
         public bool CheckIfGothicInstallationExists(GameVersion version)
         {
             var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-            return Directory.Exists($"{rootPath}/_work") && Directory.Exists($"{rootPath}/Data");
+            return PathExtension.FindIgnoringCase(rootPath, "_work") != null &&
+                   PathExtension.FindIgnoringCase(rootPath, "Data") != null;
         }
     }
 }

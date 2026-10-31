@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -193,10 +194,11 @@ namespace Gothic.Core.Domain
 
             // VDFS/ is checked first — it holds the mod's OU.BIN extracted from DM_Speech.mod.
             // ZenKit's CutsceneLibrary has no VFS support, so this is the only way to load mod subtitles.
+            // Any case: G2's file is _work/Data/Scripts/CONTENT/CUTSCENE/ou.bin (Linux didn't find it).
             var cutscenePath = new[] { "VDFS/_WORK", "_work" }
                 .SelectMany(folder => suffixes.Select(suffix =>
-                    Path.Combine(rootPath, folder, "DATA", "scripts", "content", "CUTSCENE", $"OU.{suffix}")))
-                .FirstOrDefault(File.Exists);
+                    PathExtension.FindIgnoringCase(rootPath, folder, "DATA/scripts/content/CUTSCENE", $"OU.{suffix}")))
+                .FirstOrDefault(path => path != null && File.Exists(path));
 
             if (cutscenePath == null)
             {

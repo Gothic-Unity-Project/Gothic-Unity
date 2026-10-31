@@ -20,11 +20,13 @@ namespace Gothic.Core.Services.Player
 
         public void InitVideos()
         {
-            var videoFileFolder = $"{_contextGameVersionService.RootPath}/_work/DATA/video/";
+            // Any case: G2's folder is _work/Data/Video (Linux didn't find it).
+            var videoFileFolder = PathExtension.FindIgnoringCase(_contextGameVersionService.RootPath, "_work/DATA/video");
 
-            if (!Directory.Exists(videoFileFolder))
+            if (videoFileFolder == null || !Directory.Exists(videoFileFolder))
             {
-                Logger.LogError($"Video folder >{videoFileFolder}< not found!", LogCat.Loading);
+                Logger.LogError($"Video folder >{_contextGameVersionService.RootPath}/_work/DATA/video/< not found!",
+                    LogCat.Loading);
                 return;
             }
 
