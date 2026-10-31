@@ -20,13 +20,13 @@ namespace Gothic.Core.Services.World
     /// <summary>
     /// Gothic's rooms (huts, houses, castle halls) are the world's BSP sectors. Like the engine (OpenGothic MoveAlgo:
     /// the sector of the ground polygon under the feet), the room of a position is the sector of the floor below it -
-    /// outdoors there is none. A room's polygons have materials named "S:ROOM_TEXTURE". The scripts give rooms to guilds (Wld_AssignRoomToGuild, run by every world's startup,
-    /// so nothing is saved). When the hero walks into another room or out of one, the NPCs around perceive
-    /// PERC_ASSESSENTERROOM, which makes owners chase intruders out.
+    /// outdoors there is none. A room's polygons have materials named "S:ROOM_TEXTURE". The scripts give rooms to
+    /// guilds (Wld_AssignRoomToGuild, run by every world's startup, so nothing is saved). When the hero walks into
+    /// another room or out of one, the NPCs around perceive PERC_ASSESSENTERROOM, which makes owners chase intruders
+    /// out.
     /// </summary>
     public class RoomService
     {
-
         // Grid cells pointing to the floor polygons over them. Coarse: each polygon is checked by its own bounds.
         private const float _cellSize = 4f;
         private const float _heroCheckSeconds = 0.25f;
@@ -40,15 +40,15 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly UnityMonoService _unityMonoService;
-
-        // NpcAiService leads back to this service through its own dependencies - resolved on first use.
-        private NpcAiService _npcAiService;
-        private NpcAiService NpcAi => _npcAiService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcAiService>();
+        [Inject] private readonly NpcAiService _npcAiService;
 
         private readonly Dictionary<string, int> _roomGuilds = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<Floor> _floors = new();
         private Dictionary<long, List<int>> _floorCells;
         private List<string> _sectorNames;
+        // The world the floors above belong to: another world builds them anew.
+        private string _floorsWorldName;
+        private bool _isMissingWorldReported;
         private Coroutine _heroTracking;
 
         /// <summary>
@@ -100,7 +100,7 @@ namespace Gothic.Core.Services.World
         public string GetRoomAt(Vector3 feet)
         {
             BuildFloorCells();
-            if (!_floorCells.TryGetValue(ToCell(feet.x, feet.z), out var floorIndices))
+            if (_floorCells == null || !_floorCells.TryGetValue(ToCell(feet.x, feet.z), out var floorIndices))
                 return string.Empty;
 
             var bestSector = -1;
@@ -130,12 +130,12 @@ namespace Gothic.Core.Services.World
 
         private void OnWorldLoaded()
         {
-            _floorCells = null;
-            _floors.Clear();
-            _sectorNames = null;
             HeroRoom = string.Empty;
             HeroFormerRoom = string.Empty;
             _heroTracking ??= _unityMonoService.StartCoroutine(TrackHero());
+
+            // While the loading screen is still up, not on the first hero check in play.
+            BuildFloorCells();
         }
 
         private IEnumerator TrackHero()
@@ -160,25 +160,38 @@ namespace Gothic.Core.Services.World
 
                 // Like the engine, a sneaking hero isn't noticed.
                 if (hero.Props.BodyState != VmGothicEnums.BodyState.BsSneak)
-                    NpcAi.Npc_SendPassivePerc(hero.Instance, VmGothicEnums.PerceptionType.AssessEnterRoom,
+                    _npcAiService.Npc_SendPassivePerc(hero.Instance, VmGothicEnums.PerceptionType.AssessEnterRoom,
                         hero.Instance, hero.Instance);
             }
         }
 
         /// <summary>
-        /// Every floor polygon of a room with its bounds, found through a coarse grid. Built once per world, on first
-        /// use (the world mesh is already loaded then).
+        /// Every floor polygon of a room with its bounds, found through a coarse grid. Built once per world while it
+        /// loads, or earlier if the scripts ask for a room before (the world mesh is already loaded then).
         /// </summary>
         private void BuildFloorCells()
         {
-            if (_floorCells != null)
+            var worldName = _saveGameService.CurrentWorldName;
+            if (_floorCells != null && worldName == _floorsWorldName)
                 return;
 
+            _floorCells = null;
+            _floors.Clear();
+            var world = worldName != null ? _saveGameService.CurrentWorldData : null;
+            if (world?.Mesh == null || world.BspTree == null)
+            {
+                // Not built: the next call tries again.
+                if (!_isMissingWorldReported)
+                    Logger.LogWarning("[Rooms] A room was asked for before the world mesh was loaded - outdoors " +
+                                      "until it is", LogCat.Npc);
+                _isMissingWorldReported = true;
+                return;
+            }
+
+            _isMissingWorldReported = false;
+            _floorsWorldName = worldName;
             _floorCells = new Dictionary<long, List<int>>();
             _sectorNames = new List<string>();
-            var world = _saveGameService.CurrentWorldName != null ? _saveGameService.CurrentWorldData : null;
-            if (world?.Mesh == null || world.BspTree == null)
-                return;
 
             var stopwatch = Stopwatch.StartNew();
             var sectorByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -207,8 +220,8 @@ namespace Gothic.Core.Services.World
                 floorCount++;
             }
 
-            Logger.Log($"[Rooms] {_sectorNames.Count} rooms, {floorCount} floor polygons over {_floorCells.Count} cells " +
-                       $"({stopwatch.ElapsedMilliseconds} ms)", LogCat.Npc);
+            Logger.Log($"[Rooms] {worldName}: {_sectorNames.Count} rooms, {floorCount} floor polygons over " +
+                       $"{_floorCells.Count} cells ({stopwatch.ElapsedMilliseconds} ms)", LogCat.Npc);
         }
 
         /// <summary>
