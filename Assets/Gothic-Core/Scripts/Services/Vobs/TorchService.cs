@@ -123,6 +123,7 @@ namespace Gothic.Core.Services.Vobs
             fire.transform.SetParent(body.transform, false);
             fire.transform.localPosition = GetTipLocalPosition(body);
             _meshService.CreateVobPfx(_firePfx, Vector3.zero, Quaternion.identity, fire);
+            RiseInWorld(fire);
 
             if (!string.IsNullOrEmpty(_burnSound))
             {
@@ -275,6 +276,24 @@ namespace Gothic.Core.Services.Vobs
         {
             var item = (IItem)torch.Vob;
             return !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+        }
+
+        /// <summary>
+        /// The flame rises to the sky however the torch is held: its particles fly in world space and are only emitted
+        /// at the tip. TORCH names no frame for its up direction, so it was the torch's own - a tilted VR torch blew
+        /// its flame sideways.
+        /// </summary>
+        private static void RiseInWorld(GameObject fire)
+        {
+            foreach (var particles in fire.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = particles.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                var velocity = particles.velocityOverLifetime;
+                velocity.space = ParticleSystemSimulationSpace.World;
+                var force = particles.forceOverLifetime;
+                force.space = ParticleSystemSimulationSpace.World;
+            }
         }
 
         private static GameObject GetBody(GameObject torch)
