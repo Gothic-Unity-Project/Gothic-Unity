@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -53,6 +55,8 @@ namespace Gothic.Core.Services.Npc
         private readonly MeleeDamageDomain _meleeDamageDomain = new MeleeDamageDomain().Inject();
         private readonly RangedDamageDomain _rangedDamageDomain = new RangedDamageDomain().Inject();
         private ArrowFlightDomain _arrowFlightDomain;
+        // Munition visuals without a mesh, warned about once each.
+        private readonly HashSet<string> _missingArrowVisuals = new();
 
         // Counts the hero's knockouts and loaded games: a recovery from an older one doesn't unlock the player.
         private int _heroKnockoutId;
@@ -152,9 +156,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Like the engine, the shooter's chance at the distance decides whether the shot hits - rolled at the shot, so a
-        /// miss flies visibly past the target, 0.7 to 1.6 m beside it (found on BoroBongo's branch: misses vanished in
-        /// the player's chest).
+        /// Like the engine, the shooter's chance at the distance decides whether the shot hits - rolled at the shot, so
+        /// a miss flies visibly past the target, 0.7 to 1.6 m beside it (found on BoroBongo's branch: misses vanished
+        /// in the player's chest).
         /// </summary>
         private Vector3 GetShotAimPoint(NpcContainer shooter, NpcContainer target, ItemInstance weapon, Vector3 start)
         {
@@ -172,8 +176,8 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// OpenGothic GameScript::isFriendlyFire: the hero's arrows hurt everybody, NPCs' don't hurt whom they're friendly
-        /// with, a party member's don't hurt the hero.
+        /// OpenGothic GameScript::isFriendlyFire: the hero's arrows hurt everybody, NPCs' don't hurt whom they're
+        /// friendly with, a party member's don't hurt the hero.
         /// </summary>
         private bool IsFriendlyFire(NpcContainer shooter, NpcContainer target)
         {
@@ -201,7 +205,7 @@ namespace Gothic.Core.Services.Npc
 
         private static Vector3 GetShotStart(NpcContainer shooter)
         {
-            var hand = shooter.Go.FindChildRecursively("ZS_RIGHTHAND");
+            var hand = shooter.Go.FindChildRecursively(Constants.SlotRightHand);
             var forward = shooter.Go.transform.forward;
             return (hand != null ? hand.transform.position : shooter.Go.transform.position + Vector3.up * 1.4f) +
                    forward * 0.3f;
@@ -213,7 +217,14 @@ namespace Gothic.Core.Services.Npc
             var arrow = mrm != null
                 ? _meshService.CreateVob(munition.Visual, mrm, position, Quaternion.identity, false)
                 : null;
-            return arrow != null ? arrow : new GameObject(munition.Visual);
+            if (arrow != null)
+                return arrow;
+
+            // The arrow still flies and hits, just unseen.
+            if (_missingArrowVisuals.Add(munition.Visual))
+                Logger.LogWarning($"[Fight] No mesh for the munition {munition.Visual} - its arrows fly invisible.",
+                    LogCat.Fight);
+            return new GameObject(munition.Visual);
         }
 
         private bool CanBeHit(NpcContainer attacker, NpcContainer target)

@@ -199,7 +199,8 @@ namespace Gothic.Core.Services.Npc
                     ? VmGothicEnums.WeaponState.CBow
                     : VmGothicEnums.WeaponState.Bow;
 
-            return flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) || flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd)
+            return flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
+                   flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd)
                 ? VmGothicEnums.WeaponState.W2H
                 : VmGothicEnums.WeaponState.W1H;
         }

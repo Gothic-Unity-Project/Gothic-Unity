@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -15,8 +16,8 @@ namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
     /// Arrows and bolts in flight, like the engine's bullets (OpenGothic World::shootBullet): 30 m/s across, on a
-    /// ballistic arc aimed at the target. An arrow hits whoever it was shot at if it passes close to him - the VR player
-    /// can step out of its way - and stops at the first wall or ground. A missed arrow stays a while, then vanishes.
+    /// ballistic arc aimed at the target. An arrow hits whoever it passes close to first - the VR player can step out
+    /// of its way - and stops at the first wall or ground. A missed arrow stays a while, then vanishes.
     /// Owned by FightService.
     /// </summary>
     public class ArrowFlightDomain
@@ -30,18 +31,17 @@ namespace Gothic.Core.Domain.Npc
         private const float _missedArrowSeconds = 15f;
         // Only NPCs this close to the shooter can be hit (the longest flight with some margin).
         private const float _candidateRange = _speed * _maxFlightSeconds + 5f;
+        private static readonly int _blockingLayers = 1 << Constants.DefaultLayer;
 
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
         // FightService.OnRangedHit(shooter, target, weapon, flight distance).
         private readonly Action<NpcContainer, NpcContainer, ItemInstance, float> _onHit;
-        private readonly int _blockingLayers;
 
         public ArrowFlightDomain(Action<NpcContainer, NpcContainer, ItemInstance, float> onHit)
         {
             _onHit = onHit;
-            _blockingLayers = LayerMask.GetMask("Default");
         }
 
         /// <summary>

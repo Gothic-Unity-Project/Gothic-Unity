@@ -12,10 +12,10 @@ using ZenKit.Daedalus;
 namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
-    /// The engine's rules for arrows and bolts (OpenGothic DamageCalculator::rangeDamage, Npc::shootBow): whether a shot
-    /// hits - certain up close, the shooter's chance at the reference range, none beyond 45 m - and what it takes off.
-    /// G1 aims with dexterity and may hit critically by its bow/crossbow talent, G2 aims with its hit chance and adds
-    /// dexterity to the damage. Owned by FightService.
+    /// The engine's rules for arrows and bolts (OpenGothic DamageCalculator::rangeDamage, Npc::shootBow): whether a
+    /// shot hits - certain up close, the shooter's chance at the reference range, none beyond 45 m - and what it takes
+    /// off. G1 aims with dexterity and may hit critically by its bow/crossbow talent, G2 aims with its hit chance and
+    /// adds dexterity to the damage. Owned by FightService.
     /// </summary>
     public class RangedDamageDomain
     {
