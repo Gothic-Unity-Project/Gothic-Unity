@@ -144,6 +144,9 @@ namespace Gothic.Core.Domain.Vm
             // Model
             vm.RegisterExternal<NpcInstance, string>("Mdl_SetVisual", Mdl_SetVisual);
             vm.RegisterExternal<NpcInstance, string>("Mdl_ApplyOverlayMds", Mdl_ApplyOverlayMds);
+            // Declared with a float time, but the scripts pass int constants (Time_Haste1) - popping a float fails.
+            if (vm.GetSymbolByName("Mdl_ApplyOverlayMDSTimed") != null)
+                vm.RegisterExternal<NpcInstance, string, int>("Mdl_ApplyOverlayMDSTimed", Mdl_ApplyOverlayMdsTimed);
             vm.RegisterExternal<NpcInstance, string, int, int, string, int, int, int>("Mdl_SetVisualBody", Mdl_SetVisualBody);
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
@@ -642,6 +645,12 @@ namespace Gothic.Core.Domain.Vm
         public void Mdl_ApplyOverlayMds(NpcInstance npc, string overlayName)
         {
             _npcService.ExtApplyOverlayMds(npc, overlayName);
+        }
+
+        /// <param name="milliseconds">How long the overlay stays.</param>
+        public void Mdl_ApplyOverlayMdsTimed(NpcInstance npc, string overlayName, int milliseconds)
+        {
+            _npcService.ExtApplyOverlayMdsTimed(npc, overlayName, milliseconds);
         }
 
         public void Mdl_SetVisualBody(NpcInstance npc, string body, int bodyTexNr, int bodyTexColor, string head,

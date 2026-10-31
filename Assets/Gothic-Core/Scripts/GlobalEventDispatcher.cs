@@ -126,6 +126,12 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        /// <summary>
+        /// A timed overlay on the hero (Mdl_ApplyOverlayMDSTimed: G1's haste potions, G2's speed potion): the VR player
+        /// walks and runs that much faster for the seconds. Walk factor, run factor, seconds.
+        /// </summary>
+        public static readonly UnityEvent<float, float, float> HeroSpeedChanged = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 

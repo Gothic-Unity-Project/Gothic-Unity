@@ -68,6 +68,7 @@ namespace Gothic.VR.Adapters.Player
         {
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
+            gameObject.AddComponent<VRHeroSpeed>();
         }
 
         private void Update()

@@ -422,6 +422,56 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.MdsNameOverlay = overlayName;
         }
 
+        /// <summary>
+        /// Mdl_ApplyOverlayMDSTimed, like the engine (OpenGothic Npc::addOverlay with a time): the overlay for that long,
+        /// then the one before is back. Used by G1's haste potions and G2's speed potion (HUMANS_SPRINT.MDS). The VR hero
+        /// has no animations: he walks and runs as much faster as the overlay's walk and run (HeroSpeedChanged).
+        /// </summary>
+        public void ExtApplyOverlayMdsTimed(NpcInstance npc, string overlayName, int milliseconds)
+        {
+            var container = npc?.GetUserData();
+            var seconds = milliseconds / 1000f;
+            if (container?.Props == null || string.IsNullOrEmpty(overlayName) || seconds <= 0f)
+                return;
+
+            if (container.IsHero())
+            {
+                var walkFactor = GetOverlaySpeedFactor(container, overlayName, "S_WALKL");
+                var runFactor = GetOverlaySpeedFactor(container, overlayName, "S_RUNL");
+                Logger.Log($"[NpcService] Hero: {overlayName} for {seconds:F0} s - walk x{walkFactor:F2}, " +
+                           $"run x{runFactor:F2}", LogCat.Npc);
+                GlobalEventDispatcher.HeroSpeedChanged.Invoke(walkFactor, runFactor, seconds);
+                return;
+            }
+
+            var previous = container.Props.MdsNameOverlay;
+            container.Props.MdsNameOverlay = overlayName;
+            _unityMonoService.StartCoroutine(RemoveOverlayLater(container, overlayName, previous, seconds));
+        }
+
+        private static IEnumerator RemoveOverlayLater(NpcContainer npc, string overlayName, string previous,
+            float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            // Another overlay came meanwhile (drawn weapon, routine): it stays.
+            if (npc.Props != null && npc.Props.MdsNameOverlay == overlayName)
+                npc.Props.MdsNameOverlay = previous;
+        }
+
+        /// <summary>
+        /// How much faster the animation's root motion is with the overlay than without.
+        /// </summary>
+        private float GetOverlaySpeedFactor(NpcContainer npc, string overlayName, string animationName)
+        {
+            var animationService = ReflexProjectInstaller.DIContainer.Resolve<AnimationService>();
+            var normal = animationService.GetTrack(animationName, npc.Props.MdsNameBase, null);
+            var overlay = animationService.GetTrack(animationName, npc.Props.MdsNameBase, overlayName);
+            if (normal == null || overlay == null || normal.MovementSpeed.z <= 0f || overlay.MovementSpeed.z <= 0f)
+                return 1f;
+
+            return overlay.MovementSpeed.z / normal.MovementSpeed.z;
+        }
+
         public void ExtNpcSetToFistMode(NpcInstance npc)
         {
             var npcProperties = npc.GetUserData().Props;
