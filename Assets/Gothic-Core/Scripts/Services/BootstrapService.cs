@@ -53,6 +53,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
+        [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly ParticleService _particleService;
         
@@ -103,6 +104,7 @@ namespace Gothic.Core.Services
             _vobSoundCullingService.Init();
             _gameTimeService.Init();
             _npcRoutineService.Init();
+            _npcAiService.Init();
             _fightService.Init();
             _particleService.Init();
         }

@@ -31,6 +31,18 @@ namespace Gothic.Core.Services.Npc
         private int _deliveryFrame = -1;
 
 
+        public void Init()
+        {
+            // Perceptions not delivered yet belong to the NPCs of the world they were sent in.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearPassivePerceptions);
+        }
+
+        private void ClearPassivePerceptions()
+        {
+            _sentPassivePerceptions.Clear();
+            _deliveredPassivePerceptions.Clear();
+        }
+
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
             npc.GetUserData().Props.Perceptions[perception] = function;
@@ -527,8 +539,16 @@ namespace Gothic.Core.Services.Npc
         public void Npc_SendPassivePerc(NpcInstance npc,VmGothicEnums.PerceptionType perc, NpcInstance victim, NpcInstance other)
         {
             var sender = npc.GetUserData();
-            if (sender?.Go == null || other == null)
+            if (sender?.Go == null)
                 return;
+
+            // Dropped without other: the perception scripts (B_AssessWarn, ...) read it and would access null.
+            if (other == null)
+            {
+                Logger.LogWarning($"Npc_SendPassivePerc: {perc} of {npc.GetName(NpcNameSlot.Slot0)} has no other - " +
+                    "not sent.", LogCat.Ai);
+                return;
+            }
 
             _sentPassivePerceptions.Add((perc, sender.Go.transform.position, npc, victim, other));
         }
