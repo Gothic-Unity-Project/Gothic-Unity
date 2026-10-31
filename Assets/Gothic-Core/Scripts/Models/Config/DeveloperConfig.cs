@@ -1653,6 +1653,9 @@ namespace Gothic.Core.Models.Config
                  "out again - the door's or chest's body stopped it before the lock.")]
         public bool EnableLockToolThroughLockables = true;
 
+        [Tooltip("V1 (VR): Turning the lock pick is the hand's roll around the direction it pointed into the lock - the " +
+                 "world's Z angle of the pick only changed for locks facing along Z: turning at a sideways chest did nothing.")]
+        public bool EnableLockPickHandRoll = true;
 
         [Tooltip("V1 (XRI): Holding the grip on a corpse for a second takes everything it has (like the loot's green X); " +
                  "a short grip opens/closes its loot.")]

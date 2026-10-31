@@ -218,6 +218,20 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
+            // DeveloperConfig.EnableLockPickHandRoll: the hand turns, not the pick's world angle.
+            var isHandRollTracked = false;
+            if (_configService.Dev.EnableLockPickHandRoll)
+            {
+                var handVisual = _vrPlayerService.VRContextInteractionService?.Rig?.GetHandVisual(_handSide);
+                if (handVisual != null)
+                {
+                    holdingHand = handVisual;
+                    isHandRollTracked = true;
+                }
+            }
+
+            Logger.Log($"[Lock] Lock pick in the lock of '{_lockable.Vob.Name}' ({_handSide} hand, combination " +
+                       $"{_combination?.Length ?? 0} steps)", LogCat.VR);
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
             // Like OpenGothic: trying a locked chest/door is using it - its owner may see it.
@@ -231,6 +245,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             lockPickProperties.IsInsideLock = true;
             lockPickProperties.ActiveContainerDoorPicking = this;
             lockPickProperties.HoldingHand = holdingHand;
+            lockPickProperties.IsHandRollTracked = isHandRollTracked;
         }
 
         private static bool IsHeldItem(GameObject heldItem, GameObject lockInteraction)
@@ -249,6 +264,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             }
 
             var lockPickProperties = other.gameObject.GetComponentInParent<VRLockPickProperties>();
+            if (lockPickProperties.IsInsideLock)
+                Logger.Log($"[Lock] Lock pick out of the lock of '{_lockable.Vob.Name}'", LogCat.VR);
             lockPickProperties.IsInsideLock = false;
             lockPickProperties.ActiveContainerDoorPicking = null;
             lockPickProperties.HoldingHand = null;

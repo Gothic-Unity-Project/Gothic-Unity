@@ -30,10 +30,17 @@ namespace Gothic.Core.Services.Vm
 
         // Lock picking
         public string DoorLockSoundName => "DOOR_LOCK.WAV";
-        public string PickLockFailureSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_FAILURE")?.GetString(0);
-        public string PickLockBrokenSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_BROKEN")?.GetString(0);
-        public string PickLockSuccessSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_SUCCESS")?.GetString(0);
-        public string PickLockUnlockSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_UNLOCK")?.GetString(0);
+        // G2 has no _STR_SOUND_PICKLOCK_* strings - its SFX instances have these names.
+        public string PickLockFailureSoundName => GetSoundName("_STR_SOUND_PICKLOCK_FAILURE", "PICKLOCK_FAILURE");
+        public string PickLockBrokenSoundName => GetSoundName("_STR_SOUND_PICKLOCK_BROKEN", "PICKLOCK_BROKEN");
+        public string PickLockSuccessSoundName => GetSoundName("_STR_SOUND_PICKLOCK_SUCCESS", "PICKLOCK_SUCCESS");
+        public string PickLockUnlockSoundName => GetSoundName("_STR_SOUND_PICKLOCK_UNLOCK", "PICKLOCK_UNLOCK");
+
+        private string GetSoundName(string symbolName, string fallback)
+        {
+            var name = _gameStateService.GothicVm.GetSymbolByName(symbolName)?.GetString(0);
+            return string.IsNullOrEmpty(name) ? fallback : name;
+        }
         // public string DoorUnlockSoundName => "DOOR_UNLOCK.WAV"; // _STR_*_UNLOCK value above couldn't be found/isn't used in G1, therefore we use this as fallback.
 
         public string[] MobSit => _gameStateService.GothicVm.GetSymbolByName("MOB_SIT").GetString(0).Split(',');

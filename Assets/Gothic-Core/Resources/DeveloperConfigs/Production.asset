@@ -413,6 +413,7 @@ MonoBehaviour:
   EnableItemPopupOnRayHover: 1
   EnableKeyInInventoryUnlocks: 1
   EnableLockToolThroughLockables: 1
+  EnableLockPickHandRoll: 1
   EnableCorpseHoldTakesAll: 1
   EnableHeldLootBackpackDespawn: 1
   EnableEmptyCorpseInert: 1
