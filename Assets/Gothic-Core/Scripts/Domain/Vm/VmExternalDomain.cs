@@ -832,7 +832,10 @@ namespace Gothic.Core.Domain.Vm
             var container = _npcHelperService.GetDetectedItem(npc, item as ItemInstance);
             var npcContainer = npc?.GetUserData();
             if (container == null || npcContainer == null)
+            {
+                LogItemActionSkipped(nameof(AI_TakeItem), npc, item, npcContainer);
                 return;
+            }
 
             npcContainer.Props.AnimationQueue.Enqueue(new TakeItem(new AnimationAction(), npcContainer, container));
         }
@@ -842,10 +845,21 @@ namespace Gothic.Core.Domain.Vm
             var container = _npcHelperService.GetDetectedItem(npc, item as ItemInstance);
             var npcContainer = npc?.GetUserData();
             if (container == null || npcContainer == null)
+            {
+                LogItemActionSkipped(nameof(AI_GotoItem), npc, item, npcContainer);
                 return;
+            }
 
             npcContainer.Props.AnimationQueue.Enqueue(new GoToItem(new AnimationAction(), npcContainer,
                 NpcHelperService.GetItemTransform(container)));
+        }
+
+        private static void LogItemActionSkipped(string external, NpcInstance npc, DaedalusInstance item,
+            NpcContainer npcContainer)
+        {
+            var reason = npcContainer == null ? "NPC not spawned" : "item not detected or gone (Wld_DetectItem)";
+            Logger.LogWarning($"{external}: {npc?.GetName(NpcNameSlot.Slot0)} skipped for " +
+                $"{(item as ItemInstance)?.Name} - {reason}", LogCat.Npc);
         }
 
         public int Npc_GetDistToItem(NpcInstance npc, DaedalusInstance item)

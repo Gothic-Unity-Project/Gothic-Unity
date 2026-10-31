@@ -72,13 +72,24 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void PickUp()
         {
-            if (_item?.Go == null || _item.Vob is not IItem vobItem)
+            // Gone meanwhile: the hero took it.
+            if (_item?.Go == null)
                 return;
+            if (_item.Vob is not IItem vobItem)
+            {
+                Logger.LogWarning($"[TakeItem] {NpcInstance.GetName(NpcNameSlot.Slot0)}: {_item.Go.name} is no item " +
+                    "- not taken", LogCat.Npc);
+                return;
+            }
 
             var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
             var item = VmCacheService.TryGetItemData(instanceName);
             if (item == null)
+            {
+                Logger.LogWarning($"[TakeItem] {NpcInstance.GetName(NpcNameSlot.Slot0)}: no item data for " +
+                    $"{instanceName} - not taken", LogCat.Npc);
                 return;
+            }
 
             Logger.Log($"[TakeItem] {NpcInstance.GetName(NpcNameSlot.Slot0)} takes {instanceName}.", LogCat.Npc);
             VobService.RemoveWorldItem(_item);

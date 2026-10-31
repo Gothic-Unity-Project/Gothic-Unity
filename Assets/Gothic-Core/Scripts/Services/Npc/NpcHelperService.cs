@@ -39,9 +39,13 @@ namespace Gothic.Core.Services.Npc
         // Items closer to the hero than this (m) may be in his hands or holsters - NPCs don't see them.
         private const float _heroItemDistance = 1f;
 
-        // The world item Wld_DetectItem found, per NPC: the scripts only get its instance ('item') - shared by all
-        // items of that instance.
-        private readonly Dictionary<int, VobContainer> _detectedItems = new();
+        // An item's rigidbody may roll or be carried this far (m) from its loader, which stays where it was spawned.
+        // Wld_DetectItem checks the loader against the range plus this, so only candidates look up their rigidbody.
+        private const float _itemMoveMargin = 5f;
+
+        // The world item Wld_DetectItem found, per spawned NPC (not by the instance's index, which all wolves share):
+        // the scripts only get its instance ('item') - shared by all items of that instance.
+        private readonly Dictionary<NpcContainer, VobContainer> _detectedItems = new();
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -212,12 +216,15 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool ExtWldDetectItem(NpcInstance npc, int flags)
         {
-            var npcGo = GetContainer(npc)?.Go;
+            var npcContainer = GetContainer(npc);
+            var npcGo = npcContainer?.Go;
             if (npcGo == null)
                 return false;
 
             var npcPos = npcGo.transform.position;
             var range = npc.SensesRange / 100f;
+            var prefilterRange = range + _itemMoveMargin;
+            var prefilterDistance = prefilterRange * prefilterRange;
             var heroGo = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
             VobContainer nearest = null;
             ItemInstance nearestItem = null;
@@ -226,6 +233,8 @@ namespace Gothic.Core.Services.Npc
             foreach (var container in _multiTypeCacheService.VobCache)
             {
                 if (container.Go == null || container.Vob is not IItem vobItem)
+                    continue;
+                if ((container.Go.transform.position - npcPos).sqrMagnitude > prefilterDistance)
                     continue;
 
                 var position = GetItemPosition(container);
@@ -248,7 +257,7 @@ namespace Gothic.Core.Services.Npc
                 return false;
 
             _gameStateService.GothicVm.GlobalItem = nearestItem;
-            _detectedItems[npc.Index] = nearest;
+            _detectedItems[npcContainer] = nearest;
             return true;
         }
 
@@ -258,7 +267,8 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public VobContainer GetDetectedItem(NpcInstance npc, ItemInstance item)
         {
-            if (npc == null || item == null || !_detectedItems.TryGetValue(npc.Index, out var detected) ||
+            var npcContainer = npc?.GetUserData();
+            if (npcContainer == null || item == null || !_detectedItems.TryGetValue(npcContainer, out var detected) ||
                 detected?.Go == null || detected.Vob is not IItem vobItem)
                 return null;
 
