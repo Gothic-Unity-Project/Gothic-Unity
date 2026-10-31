@@ -219,19 +219,22 @@ namespace Gothic.Core.Adapters.Npc
 
 
             // FIXME - We need to add other active perceptions here:
-            //         PERC_ASSESSBODY, PERC_ASSESSITEM, PERC_ASSESSFIGHTER
+            //         PERC_ASSESSBODY, PERC_ASSESSITEM
             //         But at best when we test it immediately
 
             // The hero with a drawn weapon in sight, like the original engine's PERC_ASSESSFIGHTER - B_AssessFighter
             // checks distance and attitude itself (found on BoroBongo's branch).
-            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessFighter, out var fighterPerception) &&
-                fighterPerception >= 0 && hero?.GetUserData()?.Vob != null &&
-                HeroPerceptionService.IsArmed((VmGothicEnums.WeaponState)hero.GetUserData().Vob.FightMode) &&
-                _npcHelperService.CanSenseNpc(NpcInstance, hero, false,
-                    _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessFighter)))
+            if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessFighter,
+                    out var fighterPerception) && fighterPerception >= 0)
             {
-                _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties, NpcInstance,
-                    null, hero);
+                var heroVob = hero?.GetUserData()?.Vob;
+                if (heroVob != null && HeroPerceptionService.IsArmed((VmGothicEnums.WeaponState)heroVob.FightMode) &&
+                    _npcHelperService.CanSenseNpc(NpcInstance, hero, false,
+                        _npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.AssessFighter)))
+                {
+                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessFighter, Properties,
+                        NpcInstance, null, hero);
+                }
             }
 
             // Reset timer if we executed Perceptions.

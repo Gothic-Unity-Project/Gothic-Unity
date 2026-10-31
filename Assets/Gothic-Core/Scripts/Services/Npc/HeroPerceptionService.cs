@@ -128,10 +128,10 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// The hero readied or put away a melee weapon (found on BoroBongo's branch). Like the engine (oCNpc::
-        /// SetWeaponMode, OpenGothic closeWeapon) the fight mode is stored - Npc_IsInFightMode reads it - and the NPCs
-        /// around get PERC_DRAWWEAPON or PERC_ASSESSREMOVEWEAPON. Putting the melee weapon away leaves a readied rune
-        /// or bow alone. While he's armed, NPCs that see him get PERC_ASSESSFIGHTER (AiHandler).
+        /// The hero readied or put away a melee weapon. Like the engine (oCNpc::SetWeaponMode, OpenGothic
+        /// closeWeapon) the fight mode is stored - Npc_IsInFightMode reads it - and the NPCs around get PERC_DRAWWEAPON
+        /// or PERC_ASSESSREMOVEWEAPON. Putting the melee weapon away leaves a readied rune or bow alone. While he's
+        /// armed, NPCs that see him get PERC_ASSESSFIGHTER (AiHandler).
         /// </summary>
         private void SetHeroMeleeWeaponState(VmGothicEnums.WeaponState meleeState)
         {
