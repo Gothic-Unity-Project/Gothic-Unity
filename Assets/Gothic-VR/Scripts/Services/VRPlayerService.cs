@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
@@ -19,6 +20,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.VR.Services
 {
@@ -222,7 +224,7 @@ namespace Gothic.VR.Services
             {
                 var item = held != null ? held.GetComponentInParent<VobLoader>()?.Container?.VobAs<IItem>() : null;
                 var name = item == null ? null : !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
-                if (name != null && name.Equals(instanceName, System.StringComparison.OrdinalIgnoreCase))
+                if (name != null && name.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
                     return held;
             }
 

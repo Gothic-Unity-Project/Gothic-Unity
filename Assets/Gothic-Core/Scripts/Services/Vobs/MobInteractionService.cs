@@ -35,6 +35,7 @@ namespace Gothic.Core.Services.Vobs
         // use destroys the used item.
         private readonly Dictionary<string, string> _exchangeItems = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, bool> _destroyingSchemes = new(StringComparer.OrdinalIgnoreCase);
+        private bool _isMissingHumansLogged;
 
         /// <summary>
         /// A mob used with an item and without a script of its own (pan, forge, anvil, cooling barrel, grindstone):
@@ -104,25 +105,32 @@ namespace Gothic.Core.Services.Vobs
             if (_exchangeItems.TryGetValue(scheme, out var cached))
                 return cached;
 
+            var humans = _resourceCacheService.TryGetModelScript("Humans");
+            if (humans == null)
+            {
+                // Not loaded yet (or a mod without it): not cached, so the next use asks again.
+                if (!_isMissingHumansLogged)
+                    Logger.LogWarning("[MobInteractionService] Humans.mds not loaded - no mob item exchange yet",
+                        LogCat.Vob);
+                _isMissingHumansLogged = true;
+                return null;
+            }
+
             string result = null;
             var isDestroying = false;
-            var humans = _resourceCacheService.TryGetModelScript("Humans");
-            if (humans != null)
+            var useStart = $"t_{scheme}_S0_2_S1";
+            var useEnd = $"t_{scheme}_S1_2_S0";
+            foreach (var animation in humans.Animations)
             {
-                var useStart = $"t_{scheme}_S0_2_S1";
-                var useEnd = $"t_{scheme}_S1_2_S0";
-                foreach (var animation in humans.Animations)
-                {
-                    if (!animation.Name.EqualsIgnoreCase(useStart) && !animation.Name.EqualsIgnoreCase(useEnd))
-                        continue;
+                if (!animation.Name.EqualsIgnoreCase(useStart) && !animation.Name.EqualsIgnoreCase(useEnd))
+                    continue;
 
-                    foreach (var tag in animation.EventTags)
-                    {
-                        if (tag.Type == ZenKit.EventType.ItemExchange && !string.IsNullOrEmpty(tag.Item))
-                            result ??= tag.Item;
-                        else if (tag.Type == ZenKit.EventType.ItemDestroy)
-                            isDestroying = true;
-                    }
+                foreach (var tag in animation.EventTags)
+                {
+                    if (tag.Type == ZenKit.EventType.ItemExchange && !string.IsNullOrEmpty(tag.Item))
+                        result ??= tag.Item;
+                    else if (tag.Type == ZenKit.EventType.ItemDestroy)
+                        isDestroying = true;
                 }
             }
 
