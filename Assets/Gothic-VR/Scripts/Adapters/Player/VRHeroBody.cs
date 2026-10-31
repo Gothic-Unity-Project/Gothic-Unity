@@ -772,10 +772,6 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Yaw of the head, but stable: looking (almost) straight down/up, the head's forward has no horizontal part -
-        /// its up vector points where the body faces then. The body only follows beyond a deadzone.
-        /// </summary>
-        /// <summary>
         /// AnimationService.GetReversedAnimationName, remembered per animation and model (it's asked every frame while
         /// walking backwards).
         /// </summary>
@@ -791,6 +787,10 @@ namespace Gothic.VR.Adapters.Player
             return reversed;
         }
 
+        /// <summary>
+        /// Yaw of the head, but stable: looking (almost) straight down/up, the head's forward has no horizontal part -
+        /// its up vector points where the body faces then. The body only follows beyond a deadzone.
+        /// </summary>
         private Vector3 GetBodyForward(Transform head)
         {
             var lookForward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
