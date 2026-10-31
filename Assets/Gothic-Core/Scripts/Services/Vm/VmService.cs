@@ -99,6 +99,10 @@ namespace Gothic.Core.Services.Vm
             "MENUITEM_M", "MENUITEM_M_CHOICE",
             "MENUITEM_MSENSITIVITY", "MENUITEM_MSENSITIVITY_SLIDER",
             "MENUITEM_GAME_BLOOD", "MENUITEM_GAME_BLOOD_CHOICE",
+            // G2: focus box/highlight and Gothic 1 key controls - the game uses neither. Their rows hold our options.
+            "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
+            "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
+            "MENUITEM_GAME_OLDCONTROLS", "MENUITEM_GAME_OLDCONTROLS_CHOICE",
             // Parts of GRAPHICS menu
             "MENUITEM_GRA_TEXQUAL", "MENUITEM_GRA_TEXQUAL_SLIDER",
             "MENUITEM_GRA_MODEL_DETAIL", "MENUITEM_GRA_MODEL_DETAIL_SLIDER",
