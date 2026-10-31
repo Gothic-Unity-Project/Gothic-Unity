@@ -332,6 +332,23 @@ namespace Gothic.Core.Services.Npc
         /// * ItFoBeer is of visual_scheme = Potion
         /// * expected state is t_Potion_Stand_2_S0 --> s_Potion_S0
         /// </summary>
+        /// <summary>
+        /// AI_UseItem: take the item out, use it up (UseItemEffect: on_state[0], potions heal) and put the hand down.
+        /// </summary>
+        public void ExtAiUseItem(NpcInstance npc, int itemId)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+            {
+                Logger.LogWarning($"AI_UseItem: no NPC for item {itemId} - skipped", LogCat.Ai);
+                return;
+            }
+
+            ExtAiUseItemToState(npc, itemId, 0);
+            container.Props.AnimationQueue.Enqueue(new UseItemEffect(new AnimationAction(int0: itemId), container));
+            ExtAiUseItemToState(npc, itemId, -1);
+        }
+
         public void ExtAiUseItemToState(NpcInstance npc, int itemId, int animationState)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new UseItemToState(

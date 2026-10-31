@@ -84,10 +84,12 @@ namespace Gothic.Core.Domain.Culling
         /// <summary>
         /// Wld_RemoveNpc: the NPC leaves the culling - its slot is filled with the last entry (no array reallocation).
         /// </summary>
-        public void RemoveCullingEntry(NpcInstance npc)
+        public NpcLoader RemoveCullingEntry(NpcInstance npc)
         {
             if (npc == null || !_indexByInstance.TryGetValue(npc, out var index))
-                return;
+                return null;
+
+            var loader = _loaders[index];
 
             var last = _count - 1;
             var wasVisible = _visibleNpcs.Remove(index);
@@ -107,7 +109,9 @@ namespace Gothic.Core.Domain.Culling
             if (CurrentState == State.WorldLoaded)
                 CullingGroup.SetBoundingSphereCount(_count);
 
-            Logger.Log($"[NpcCulling] Removed '{npc.GetName(NpcNameSlot.Slot0)}' (was visible: {wasVisible}).", LogCat.Npc);
+            Logger.Log($"[NpcCulling] Removed '{npc.GetName(NpcNameSlot.Slot0)}' (was visible: {wasVisible}).",
+                LogCat.Npc);
+            return loader;
         }
 
         /// <summary>

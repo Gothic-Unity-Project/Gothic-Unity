@@ -16,6 +16,7 @@ using Gothic.Core.Models.Proxy;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
@@ -49,7 +50,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
-        [Inject] private readonly Gothic.Core.Services.Culling.NpcMeshCullingService _npcMeshCullingService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
 
@@ -253,18 +254,32 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// Wld_RemoveNpc: the NPC leaves the world (cache, culling, scene). Other NPCs' targets aren't cleared yet.
+        /// </summary>
         public void ExtWldRemoveNpc(int instanceId)
         {
+            if (_gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == instanceId)
+            {
+                Logger.LogWarning("[Wld_RemoveNpc] The hero can't be removed - skipped", LogCat.Npc);
+                return;
+            }
+
             var removed = _multiTypeCacheService.NpcCache.Where(i => i.Instance.Index == instanceId).ToList();
             foreach (var npc in removed)
             {
-                _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
+                var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
                 _multiTypeCacheService.NpcCache.Remove(npc);
-                if (npc.Go != null)
+                if (lazyLoadRoot != null)
+                    Object.Destroy(lazyLoadRoot);
+                else if (npc.Go != null)
                     Object.Destroy(npc.Go);
             }
 
-            Logger.Log($"[Wld_RemoveNpc] instance={instanceId} - removed {removed.Count} NPC(s)", LogCat.Npc);
+            if (removed.Count == 0)
+                Logger.LogWarning($"[Wld_RemoveNpc] instance={instanceId} isn't in the world", LogCat.Npc);
+            else
+                Logger.Log($"[Wld_RemoveNpc] instance={instanceId} - removed {removed.Count} NPC(s)", LogCat.Npc);
         }
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
