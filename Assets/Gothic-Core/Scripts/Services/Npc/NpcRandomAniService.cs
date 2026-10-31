@@ -24,8 +24,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly UnityMonoService _unityMonoService;
 
         private readonly HashSet<NpcContainer> _npcs = new();
-        private readonly List<NpcContainer> _gone = new();
         private Coroutine _ticking;
+
+        public NpcRandomAniService()
+        {
+            // A new world or a loaded save brings new NPC containers - their scripts add them again.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _npcs.Clear());
+        }
 
         public void AddRandomAni(NpcInstance npc, string stateAnimation, string randomAnimation)
         {
@@ -61,15 +66,9 @@ namespace Gothic.Core.Services.Npc
 
                 foreach (var npc in _npcs)
                 {
-                    if (npc.Props == null)
-                        _gone.Add(npc);
-                    else if (npc.Go != null && npc.Go.activeInHierarchy)
+                    if (npc.Go != null && npc.Go.activeInHierarchy)
                         Update(npc);
                 }
-
-                foreach (var npc in _gone)
-                    _npcs.Remove(npc);
-                _gone.Clear();
             }
         }
 
@@ -107,6 +106,9 @@ namespace Gothic.Core.Services.Npc
                 npc.Props.NextRandomAniTime = Time.time + frequency * Random.Range(0.5f, 1.5f);
                 return;
             }
+
+            // No state animation with random animations plays: the next one starts with a fresh wait.
+            npc.Props.NextRandomAniTime = 0f;
         }
     }
 }
