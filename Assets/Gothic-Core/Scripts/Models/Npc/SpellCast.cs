@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Gothic.Core.Models.Container;
 using ZenKit.Daedalus;
 
@@ -23,5 +24,7 @@ namespace Gothic.Core.Models.Npc
         // NPCs cast as soon as this much mana went in (AI_ReadySpell). 0 for the hero, who lets go to cast.
         public int ExpectedInvest;
         public SpellCastPhase Phase;
+        // G1's chain lightning: the NPCs it zaps while invested, released (PERC_ASSESSSTOPMAGIC) when it ends.
+        public readonly List<NpcContainer> ZappedVictims = new();
     }
 }

@@ -41,6 +41,7 @@ namespace Gothic.Core.Services.Npc
         private const int _targetCollectAllFallbackNone = 6;
         // In m: how far the colliding wave of a spell without target reaches (G1 fear: 1000 cm in its comment).
         private const float _waveRange = 10f;
+        private const string _chainLightningName = "Chainlightning";
         // Wld_SpawnNpcRange puts summons this far from the caster (OpenGothic fixNpcPosition: 100 cm).
         private const float _summonDistance = 1f;
         // Spell scripts write these on the instance (G2 Spell_Cast_*: self.attribute[ATR_MANA] = ...).
@@ -334,6 +335,7 @@ namespace Gothic.Core.Services.Npc
                         cast.Level++;
                     cast.NextInvestTime += Mathf.Max(cast.Spell.TimePerMana, 1f) / 1000f;
                     cast.ManaInvested++;
+                    ZapWhileInvested(cast);
                     break;
                 case SpellCode.DontInvest when isHero:
                     cast.NextInvestTime += Mathf.Max(cast.Spell.TimePerMana, 1f) / 1000f;
@@ -401,7 +403,9 @@ namespace Gothic.Core.Services.Npc
                 // The engine's own spell: no script effect, the visual effect is the light.
                 if (_spellData.GetName(cast.SpellId).EqualsIgnoreCase(LightSpellService.SpellName))
                     _lightSpellService.Cast(cast.Caster);
-                if (cast.Spell.TargetCollectAlgo is _targetCollectAll or _targetCollectAllFallbackNone)
+                if (IsZapping(cast))
+                    ReleaseZapped(cast);
+                else if (cast.Spell.TargetCollectAlgo is _targetCollectAll or _targetCollectAllFallbackNone)
                     HitEverybodyAround(cast, direction, cast.Spell.TargetCollectRange / 100f,
                         cast.Spell.TargetCollectAzi);
                 else if (cast.Target != null)
@@ -425,6 +429,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void Stop(SpellCast cast)
         {
+            ReleaseZapped(cast);
             cast.Phase = SpellCastPhase.Stopped;
             if (cast.Caster.Props.SpellCast == cast)
                 cast.Caster.Props.SpellCast = null;
@@ -586,6 +591,41 @@ namespace Gothic.Core.Services.Npc
             // Windfist and Stormfist throw it away.
             if (damage > 0 && (cast.Spell.DamageType & FightService.DamageFly) != 0)
                 _fightService.ThrowAway(cast.Caster, victim);
+        }
+
+        /// <summary>
+        /// G1's chain lightning works while it's held, like the engine: its target is zapped (PERC_ASSESSMAGIC: the
+        /// scripts' ZS_Zapped hurts it every second) and stays zapped until the spell ends.
+        /// </summary>
+        private void ZapWhileInvested(SpellCast cast)
+        {
+            var victim = cast.Target;
+            if (!IsZapping(cast) || victim == null || victim.IsHero() || cast.ZappedVictims.Contains(victim))
+                return;
+
+            cast.ZappedVictims.Add(victim);
+            HitWithSpell(cast, victim, cast.Level + 1);
+        }
+
+        /// <summary>
+        /// The chain lightning ends: its victims are freed (PERC_ASSESSSTOPMAGIC, B_StopZapped). Before, they stayed
+        /// zapped until they died.
+        /// </summary>
+        private void ReleaseZapped(SpellCast cast)
+        {
+            foreach (var victim in cast.ZappedVictims)
+            {
+                if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                    continue;
+                _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssesssTopMagic, victim.Props,
+                    victim.Instance, null, cast.Caster.Instance);
+            }
+            cast.ZappedVictims.Clear();
+        }
+
+        private bool IsZapping(SpellCast cast)
+        {
+            return _spellData.GetName(cast.SpellId).EqualsIgnoreCase(_chainLightningName);
         }
 
         /// <summary>
