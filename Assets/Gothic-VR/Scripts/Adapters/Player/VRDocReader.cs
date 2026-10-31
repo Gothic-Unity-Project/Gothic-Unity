@@ -40,7 +40,9 @@ namespace Gothic.VR.Adapters.Player
         // The held document that is shown, to close the viewer once it's let go.
         private GameObject _shownDocItem;
         private bool _isShownDocUsedUp;
-        private bool _isReadingHeldDoc;
+        // The held document whose use function runs right now - its Doc_Show belongs to it.
+        private GameObject _readingDocItem;
+        private ItemInstance _readingDoc;
         // Where the player stood when a mob's page opened, null while none is shown.
         private Vector3? _mobDocPlayerPosition;
 
@@ -83,22 +85,24 @@ namespace Gothic.VR.Adapters.Player
             if (_shownDocItem != null)
                 Close();
 
-            _shownDocItem = heldItem;
-            _isShownDocUsedUp = _npcInventoryService.IsUsedUpOnUse(item);
-            _isReadingHeldDoc = true;
+            // It counts as shown once its use function shows it (OnDocShown): a script that shows nothing doesn't use
+            // up a sealed letter unread.
+            _readingDocItem = heldItem;
+            _readingDoc = item;
             try
             {
                 _npcInventoryService.UseItem(_npcService.GetHeroContainer(), item);
             }
             finally
             {
-                _isReadingHeldDoc = false;
+                _readingDocItem = null;
+                _readingDoc = null;
             }
         }
 
         private void OnDocShown(DocModel doc)
         {
-            if (!_isReadingHeldDoc)
+            if (_readingDocItem == null)
             {
                 // A mob's page: touching the mob again runs its script again - that closes the page instead.
                 if (_mobDocPlayerPosition != null)
@@ -114,6 +118,8 @@ namespace Gothic.VR.Adapters.Player
             else
             {
                 CloseMobDoc();
+                _shownDocItem = _readingDocItem;
+                _isShownDocUsedUp = _npcInventoryService.IsUsedUpOnUse(_readingDoc);
             }
 
             VRDocViewer.Show(doc, _docService, _textureCacheService, _fontService,

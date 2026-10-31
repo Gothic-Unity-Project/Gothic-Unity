@@ -1,4 +1,5 @@
 using Gothic.Core.Adapters.UI;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Doc;
 using Gothic.Core.Services.Caches;
@@ -39,7 +40,7 @@ namespace Gothic.VR.Adapters.UI
 
             var go = new GameObject("VR Doc Viewer", typeof(RectTransform))
             {
-                layer = LayerMask.NameToLayer("UI")
+                layer = Constants.UILayer
             };
             _current = go.AddComponent<VRDocViewer>();
             _current.Build(doc, docService, textureCacheService, fontService, hero);

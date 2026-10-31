@@ -33,7 +33,11 @@ namespace Gothic.Core.Services.Npc
         {
             var function = item.GetOnState(ItemStateSlot.Slot0);
             if (function <= 0 || npc?.Instance == null)
+            {
+                Logger.LogWarning($"[NpcInventory] {item.Name} not used: " +
+                    (npc?.Instance == null ? "no NPC" : "it has no use function"), LogCat.Npc);
                 return;
+            }
 
             var vm = _gameStateService.GothicVm;
             var oldItem = vm.GlobalItem;

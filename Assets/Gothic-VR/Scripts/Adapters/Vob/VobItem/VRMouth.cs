@@ -73,7 +73,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (vobLoaderComp != null && vobLoaderComp.Container.Vob.Type == VirtualObjectType.oCItem)
                 rootGo = vobLoaderComp.gameObject;
 
-            StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));
+            StartCoroutine(ConsumeObject(go, rootGo, clip, destroyTime));
         }
 
         private bool TryGetItemToEat(GameObject go, out ItemInstance item)
@@ -143,7 +143,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// <summary>
         /// One bite uses one item (VRPlayerService.UseUpItem): a stack stays in the hand.
         /// </summary>
-        private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay)
+        /// <param name="go">The collider's object that went into the grace period - it leaves it again, so the next
+        /// bite of a stack counts.</param>
+        /// <param name="rootGo">The item's root that is used up.</param>
+        private IEnumerator ConsumeObject(GameObject go, GameObject rootGo, [CanBeNull] AudioClip clip,
+            float destroyDelay)
         {
             if (clip != null)
             {
@@ -153,13 +157,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             yield return new WaitForSeconds(destroyDelay);
 
             _objectsInDestroyGracePeriod.Remove(go);
-            if (go == null)
+            if (rootGo == null)
                 yield break;
 
-            if (go.GetComponent<VobLoader>() != null)
-                _vrPlayerService.UseUpItem(go);
+            if (rootGo.GetComponent<VobLoader>() != null)
+                _vrPlayerService.UseUpItem(rootGo);
             else
-                Destroy(go);
+                Destroy(rootGo);
         }
     }
 }
