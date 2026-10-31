@@ -63,6 +63,8 @@ namespace Gothic.Core.Services.World
         // Started and not stopped - an effect created later (emFXTriggerDelay) only comes while its root runs.
         private readonly HashSet<string> _runningRoots = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<NpcContainer, GameObject> _npcEffects = new();
+        private readonly List<NpcContainer> _destroyedNpcEffects = new();
+        private bool _isCasterlessDamageWarningLogged;
 
         public WorldEffectService()
         {
@@ -95,10 +97,7 @@ namespace Gothic.Core.Services.World
             }
 
             var targetNpc = (target as NpcInstance)?.GetUserData();
-            // Without the node (a monster without jaws) an NPC's effect starts at its body like the engine's vob center.
-            var anchor = FindNode(originGo.transform, effect.EmTrjOriginNode);
-            if (anchor == originGo.transform && originNpc?.PrefabProps?.Bip01 != null)
-                anchor = originNpc.PrefabProps.Bip01;
+            var anchor = GetEffectAnchor(originGo.transform, originNpc, effect.EmTrjOriginNode);
             Logger.Log($"[WorldEffect] {effectName} at {GetName(origin, originGo)}" +
                        (isProjectile ? $", flying to {GetName(target, targetNpc?.Go)}" : "") +
                        (damage > 0 ? $", {damage} damage" : ""), LogCat.Vob);
@@ -159,10 +158,7 @@ namespace Gothic.Core.Services.World
             if (effect == null)
                 yield break;
 
-            var anchor = FindNode(npc.Go.transform, effect.EmTrjOriginNode);
-            if (anchor == npc.Go.transform && npc.PrefabProps?.Bip01 != null)
-                anchor = npc.PrefabProps.Bip01;
-
+            var anchor = GetEffectAnchor(npc.Go.transform, npc, effect.EmTrjOriginNode);
             var root = new GameObject($"NpcEffect {npc.Instance.Effect}");
             root.transform.SetParent(anchor, false);
             AddLoopingParticles(effect.VisNameS, root.transform);
@@ -170,9 +166,26 @@ namespace Gothic.Core.Services.World
             if (child != null)
                 AddLoopingParticles(child.VisNameS, root.transform);
 
+            DropDestroyedNpcEffects();
             _npcEffects[npc] = root;
             Logger.Log($"[WorldEffect] {npc.Instance.GetName(NpcNameSlot.Slot0)} carries {npc.Instance.Effect}.",
                 LogCat.Vob);
+        }
+
+        /// <summary>
+        /// An NPC that was unloaded or rebuilt took its effect with it - its entry goes too.
+        /// </summary>
+        private void DropDestroyedNpcEffects()
+        {
+            _destroyedNpcEffects.Clear();
+            foreach (var pair in _npcEffects)
+            {
+                if (pair.Value == null)
+                    _destroyedNpcEffects.Add(pair.Key);
+            }
+            foreach (var npc in _destroyedNpcEffects)
+                _npcEffects.Remove(npc);
+            _destroyedNpcEffects.Clear();
         }
 
         private void AddLoopingParticles(string pfxName, Transform parent)
@@ -197,10 +210,14 @@ namespace Gothic.Core.Services.World
                 Stop(name);
             foreach (var name in new List<string>(_screenBlends.Keys))
                 Stop(name);
-            _slowTimes.Clear();
             _runningRoots.Clear();
             _npcEffects.Clear();
-            ApplySlowTime();
+            // The clock is only reset when an effect slowed it - else a load would undo the menu's pause.
+            if (_slowTimes.Count > 0)
+            {
+                _slowTimes.Clear();
+                ApplySlowTime();
+            }
         }
 
         private void Start(string rootName, string name, EffectBaseInstance effect, Transform anchor, int depth)
@@ -416,9 +433,21 @@ namespace Gothic.Core.Services.World
 
         private void Hit(NpcContainer caster, NpcContainer target, int damage, int damageType)
         {
-            // Without an NPC behind the effect nobody would be to blame.
-            if (caster == null || target.Instance == null)
+            if (target.Instance == null)
                 return;
+
+            // Without an NPC behind the effect nobody would be to blame (an item's effect with damage).
+            if (caster == null)
+            {
+                if (damage > 0 && !_isCasterlessDamageWarningLogged)
+                {
+                    _isCasterlessDamageWarningLogged = true;
+                    Logger.LogWarning("[WorldEffect] An effect without an NPC behind it would hit " +
+                                      $"{target.Instance.GetName(NpcNameSlot.Slot0)} - its {damage} damage is left " +
+                                      "out. Logged once.", LogCat.Fight);
+                }
+                return;
+            }
 
             var dealt = _damage.CalculateDamage(target, damageType, damage);
             Logger.Log($"[WorldEffect] {target.Instance.GetName(NpcNameSlot.Slot0)} takes {dealt} of {damage} damage.",
@@ -474,6 +503,17 @@ namespace Gothic.Core.Services.World
         private static string GetName(DaedalusInstance instance, GameObject go)
         {
             return instance is NpcInstance npc ? npc.GetName(NpcNameSlot.Slot0) : go != null ? go.name : "-";
+        }
+
+        /// <summary>
+        /// Without the node (a monster without jaws) an NPC's effect starts at its body like the engine's vob center.
+        /// </summary>
+        private static Transform GetEffectAnchor(Transform root, NpcContainer npc, string nodeName)
+        {
+            var anchor = FindNode(root, nodeName);
+            if (anchor == root && npc != null && npc.PrefabProps != null && npc.PrefabProps.Bip01 != null)
+                anchor = npc.PrefabProps.Bip01;
+            return anchor;
         }
 
         /// <summary>

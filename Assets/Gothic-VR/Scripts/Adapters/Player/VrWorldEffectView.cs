@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Effects;
 using Gothic.Core.Services.Caches;
@@ -25,7 +26,6 @@ namespace Gothic.VR.Adapters.Player
         private static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
         // Edge length of the cube around the head (m) - both eyes and their near clip plane fit in.
         private const float _cubeSize = 0.3f;
-        private const int _uiLayer = 5;
         // Render queue: below the screen fade (3897 + 1), so its fades to black cover the tint.
         private const int _renderQueue = 3896;
         private const float _rumbleInterval = 0.15f;
@@ -194,11 +194,11 @@ namespace Gothic.VR.Adapters.Player
             var wait = new WaitForSeconds(_rumbleInterval);
             while (Time.time < _rumbleEnd)
             {
-                var head = _rig?.Head != null ? _rig.Head.position : transform.position;
-                if (Vector3.Distance(head, _rumblePosition) <= _rumbleRadius)
+                var head = _rig != null && _rig.Head != null ? _rig.Head.position : transform.position;
+                if (_haptics != null && Vector3.Distance(head, _rumblePosition) <= _rumbleRadius)
                 {
-                    _haptics?.Vibrate(VrHandSide.Left, VrHapticPreset.Contact, _rumbleStrength);
-                    _haptics?.Vibrate(VrHandSide.Right, VrHapticPreset.Contact, _rumbleStrength);
+                    _haptics.Vibrate(VrHandSide.Left, VrHapticPreset.Contact, _rumbleStrength);
+                    _haptics.Vibrate(VrHandSide.Right, VrHapticPreset.Contact, _rumbleStrength);
                 }
                 yield return wait;
             }
@@ -210,7 +210,8 @@ namespace Gothic.VR.Adapters.Player
         private void CreateCube()
         {
             var baseMaterial = Resources.Load<Material>(_materialPath);
-            var head = _rig?.Camera != null ? _rig.Camera.transform : Camera.main?.transform;
+            var headCamera = _rig != null && _rig.Camera != null ? _rig.Camera : Camera.main;
+            var head = headCamera != null ? headCamera.transform : null;
             if (baseMaterial == null || head == null)
             {
                 Logger.LogError($"[VrWorldEffectView] Material {_materialPath} or camera missing - screen blends " +
@@ -220,7 +221,7 @@ namespace Gothic.VR.Adapters.Player
 
             var cube = new GameObject("ScreenBlendCube")
             {
-                layer = _uiLayer
+                layer = Constants.UILayer
             };
             cube.transform.SetParent(head, false);
             cube.transform.localScale = Vector3.one * _cubeSize;
