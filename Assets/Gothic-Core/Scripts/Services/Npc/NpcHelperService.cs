@@ -41,9 +41,22 @@ namespace Gothic.Core.Services.Npc
         private const int _maxSeeThroughSteps = 8;
         private const float _seeThroughStep = 0.01f;
 
-        // Sight lines (CanSeeNpc): their hits, and per material whether sight passes it.
+        // Sight lines (CanSeeNpc): their hits, per collider the materials drawn on its mesh (null: none to look
+        // through) and per material whether sight passes it. Both caches hold one world's objects.
         private readonly RaycastHit[] _sightHits = new RaycastHit[16];
+        private readonly Dictionary<Collider, Material[]> _sightMaterials = new();
         private readonly Dictionary<Material, bool> _seeThroughMaterials = new();
+
+        public NpcHelperService()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
+        }
+
+        private void OnLoadingSceneLoaded()
+        {
+            _sightMaterials.Clear();
+            _seeThroughMaterials.Clear();
+        }
 
         public void Init()
         {
@@ -362,6 +375,11 @@ namespace Gothic.Core.Services.Npc
             direction /= distance;
             var count = Physics.RaycastNonAlloc(from, direction, _sightHits, distance, _raycastLayersToUse,
                 QueryTriggerInteraction.Ignore);
+
+            // The hits come in no order: with a full buffer, a wall may be among the ones left out.
+            if (count == _sightHits.Length)
+                return true;
+
             for (var i = 0; i < count; i++)
             {
                 var hit = _sightHits[i];
@@ -408,13 +426,11 @@ namespace Gothic.Core.Services.Npc
             if (triangleIndex < 0 || collider is not MeshCollider { sharedMesh: { } mesh })
                 return false;
 
-            var meshFilter = collider.GetComponent<MeshFilter>();
-            var meshRenderer = collider.GetComponent<MeshRenderer>();
-            if (meshFilter == null || meshRenderer == null || meshFilter.sharedMesh != mesh)
+            var materials = GetSightMaterials(collider, mesh);
+            if (materials == null)
                 return false;
 
             var index = triangleIndex * 3;
-            var materials = meshRenderer.sharedMaterials;
             for (var subMesh = 0; subMesh < mesh.subMeshCount && subMesh < materials.Length; subMesh++)
             {
                 var descriptor = mesh.GetSubMesh(subMesh);
@@ -423,6 +439,24 @@ namespace Gothic.Core.Services.Npc
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// The materials the collider's renderer draws on its mesh, null if it draws another one. Cached: looking them
+        /// up allocates, and sight lines run for many NPCs.
+        /// </summary>
+        private Material[] GetSightMaterials(Collider collider, Mesh mesh)
+        {
+            if (_sightMaterials.TryGetValue(collider, out var materials))
+                return materials;
+
+            var meshFilter = collider.GetComponent<MeshFilter>();
+            var meshRenderer = collider.GetComponent<MeshRenderer>();
+            materials = meshFilter != null && meshRenderer != null && meshFilter.sharedMesh == mesh
+                ? meshRenderer.sharedMaterials
+                : null;
+            _sightMaterials[collider] = materials;
+            return materials;
         }
 
         private bool IsSeeThrough(Material material)
