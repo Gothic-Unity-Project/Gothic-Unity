@@ -23,6 +23,9 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly Gothic.Core.Creator.WayNetService _wayNetService;
 
+        // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
+        private readonly System.Collections.Generic.HashSet<int> _npcsKnowingPlayer = new();
+
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
@@ -302,6 +305,17 @@ namespace Gothic.Core.Services.Npc
                 return hero;
 
             return target.GetComponentInParent<Gothic.Core.Adapters.Npc.NpcLoader>()?.Npc;
+        }
+
+        public void ExtNpcSetKnowsPlayer(NpcInstance npc)
+        {
+            if (npc != null)
+                _npcsKnowingPlayer.Add(npc.Index);
+        }
+
+        public bool ExtNpcKnowsPlayer(NpcInstance npc)
+        {
+            return npc != null && _npcsKnowingPlayer.Contains(npc.Index);
         }
 
         /// <returns>cm to the hero.</returns>

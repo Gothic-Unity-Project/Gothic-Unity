@@ -564,6 +564,12 @@ namespace Gothic.Core.Domain.Vm
             if (IsDeclared("Npc_CanSeeSource"))
                 vm.RegisterExternal<int, NpcInstance>("Npc_CanSeeSource",
                     npc => Convert.ToInt32(_npcAiService.ExtNpcCanSeeSource(npc)));
+            if (IsDeclared("Npc_SetKnowsPlayer"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetKnowsPlayer",
+                    (npc, player) => _npcAiService.ExtNpcSetKnowsPlayer(npc));
+            if (IsDeclared("Npc_KnowsPlayer"))
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_KnowsPlayer",
+                    (npc, player) => Convert.ToInt32(_npcAiService.ExtNpcKnowsPlayer(npc)));
             // G2's language switches - the strings come from the installed game.
             if (IsDeclared("Game_InitGerman"))
                 vm.RegisterExternal("Game_InitGerman", () => { });
