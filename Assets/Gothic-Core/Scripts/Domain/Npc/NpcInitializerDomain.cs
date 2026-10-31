@@ -334,7 +334,7 @@ namespace Gothic.Core.Domain.Npc
         public void ApplyModelScale(NpcContainer container)
         {
             // The VR hero's object is the player rig - it isn't scaled.
-            if (container?.Go == null || container.IsHero())
+            if (container?.Go == null || container.PrefabProps?.IsHero() == true)
                 return;
 
             var scale = container.Vob.ModelScale;
