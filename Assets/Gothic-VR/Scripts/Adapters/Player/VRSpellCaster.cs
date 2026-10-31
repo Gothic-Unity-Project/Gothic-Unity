@@ -37,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly MagicService _magicService;
+        [Inject] private readonly TransformationService _transformationService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly PlayerService _playerService;
 
@@ -53,7 +54,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void Update()
         {
-            if (_rig == null)
+            // Transformed, the trigger turns the hero back (VRTransformation) - no spells.
+            if (_rig == null || _transformationService.IsTransformed)
                 return;
 
             UpdateDrawnSpell();

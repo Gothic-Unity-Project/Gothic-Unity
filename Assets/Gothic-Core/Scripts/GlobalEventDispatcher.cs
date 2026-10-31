@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -126,6 +127,17 @@ namespace Gothic.Core
         /// NpcContainer - who killed him (null if nobody, e.g. a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// A transformation spell turned the hero into a monster (TransformationService) - the player moves and looks
+        /// around like it.
+        /// </summary>
+        public static readonly UnityEvent<HeroTransformation> HeroTransformed = new();
+
+        /// <summary>
+        /// The hero is human again.
+        /// </summary>
+        public static readonly UnityEvent HeroTransformedBack = new();
         
 
         // LockPicking events

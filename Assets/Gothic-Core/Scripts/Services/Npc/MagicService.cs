@@ -59,6 +59,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly HeroSpellStateService _heroSpellStateService;
         [Inject] private readonly LightSpellService _lightSpellService;
         [Inject] private readonly NpcBurnService _npcBurnService;
+        [Inject] private readonly TransformationService _transformationService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -389,6 +390,13 @@ namespace Gothic.Core.Services.Npc
 
             var effect = GetSpellEffect(cast.SpellId);
             PlayCastSound(cast, origin);
+
+            // Transformation spells: Spell_Logic_Trf_X named the monster (Npc_SetActiveSpellInfo).
+            if (cast.Caster.IsHero() && cast.Caster.Props.SpellInfo > 0)
+            {
+                _transformationService.Transform(cast.Caster, cast.Caster.Props.SpellInfo);
+                cast.Caster.Props.SpellInfo = 0;
+            }
             if (_spellData.IsProjectile(cast.SpellId))
             {
                 var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;

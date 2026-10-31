@@ -82,6 +82,7 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
 
             AttributeInjector.Inject(gameObject.AddComponent<VRSpellCaster>(), _container);
+            AttributeInjector.Inject(gameObject.AddComponent<VRTransformation>(), _container);
         }
 
         private void OnDestroy()
