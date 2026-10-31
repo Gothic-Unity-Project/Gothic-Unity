@@ -1595,19 +1595,17 @@ namespace Gothic.Core.Domain.Vm
         }
 
         /// <summary>
-        /// Like OpenGothic: no item (e.g. a footstep's noise) is infinitely far away. An item we can't place yet keeps
-        /// the old answer (0) - it was an unregistered external before.
+        /// Like OpenGothic: no item (e.g. a footstep's noise) - or one we can't place - is infinitely far away.
         /// </summary>
         public int Npc_GetDistToItem(NpcInstance npc, ItemInstance item)
         {
-            if (item == null)
-                return int.MaxValue;
             var npcGo = npc?.GetUserData()?.Go;
             // After Wld_DetectItem 'item' is only the instance data - the detected world item gives the position.
-            var itemGo = _npcHelperService.GetWorldItemContainer(npc, item)?.Go;
-            if (npcGo == null || itemGo == null)
-                return 0;
-            return (int)(UnityEngine.Vector3.Distance(npcGo.transform.position, itemGo.transform.position) * 100f);
+            var itemGo = item == null ? null : _npcHelperService.GetWorldItemContainer(npc, item)?.Go;
+            var dist = npcGo == null || itemGo == null
+                ? int.MaxValue
+                : (int)(UnityEngine.Vector3.Distance(npcGo.transform.position, itemGo.transform.position) * 100f);
+            return LogInstantExternal(nameof(Npc_GetDistToItem), dist, npc, item);
         }
 
         /// <summary>

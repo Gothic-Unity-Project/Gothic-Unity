@@ -136,6 +136,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool ExtNpcCanSeeNpc(NpcInstance self, NpcInstance other, bool freeLOS, float fov = 50f)
         {
+            // A knocked out NPC lies on the ground: nobody notices him by sight (no enemy, no fighter).
             var otherContainer = other?.GetUserData();
             if (otherContainer != null && NpcHelperService.IsKnockedOut(otherContainer))
                 return false;
@@ -151,6 +152,12 @@ namespace Gothic.Core.Services.Npc
             // The startled jump survives the queue being cleared, like the engine's whirl that starts right away.
             // G1 ZS_AssessFighter: B_WhirlAround, then B_SelectWeapon -> B_EquipAndDrawBestMeleeWeapon -> B_FullStop
             // clears the queue again - Ghorri drew his sword with his back to the hero and only turned afterwards.
+            if (!queue.Any(action => action is WhirlAround))
+            {
+                queue.Clear();
+                return;
+            }
+
             var whirls = queue.Where(action => action is WhirlAround).ToList();
             queue.Clear();
             foreach (var whirl in whirls)
@@ -221,8 +228,9 @@ namespace Gothic.Core.Services.Npc
             {
                 // Called from the state's own _End (ZS_Attack_End: "$NeverTryThatAgain" + AI_StartState) or after it:
                 // the state already ended - its _End ran a second time and the NPC said everything twice.
-                var hasStateEnded = container.Props.CurrentLoopState is NpcProperties.LoopState.End or
-                    NpcProperties.LoopState.AfterEnd;
+                // LoopState.End alone means the _End is still to come.
+                var hasStateEnded = container.Props.IsInStateEnd ||
+                                    container.Props.CurrentLoopState == NpcProperties.LoopState.AfterEnd;
                 endFunction = hasStateEnded ? 0 : container.Props.StateEnd;
                 container.Props.StateEnd = 0;
                 container.Props.CurrentWayPoint = null;
@@ -585,8 +593,6 @@ namespace Gothic.Core.Services.Npc
             return _npcHelperService.GetPersonAttitude(npc1, npc2);
         }
 
-        // Npc_GetPermAttitude must return only the permanent attitude, never the temp override.
-        // GetPersonAttitude returns temp when it differs, which breaks ZS_Attack_End's hostile check.
         public VmGothicEnums.Attitude ExtGetPermAttitude(NpcInstance self, NpcInstance other)
         {
             var npc1 = self.GetUserData();
@@ -594,10 +600,7 @@ namespace Gothic.Core.Services.Npc
             if (npc1 == null || npc2 == null)
                 return VmGothicEnums.Attitude.Neutral;
 
-            if (npc2.PrefabProps?.IsHero() == true)
-                return (VmGothicEnums.Attitude)npc1.Vob.Attitude;
-
-            return _npcHelperService.GetPersonAttitude(npc1, npc2);
+            return _npcHelperService.GetPermanentAttitude(npc1, npc2);
         }
 
         /// <summary>
@@ -658,18 +661,45 @@ namespace Gothic.Core.Services.Npc
         /// dead/unconscious or culled NPCs. Range: Perc_SetRange, capped by the receiver's senses_range.
         /// </summary>
         public int BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
-            NpcInstance victim, NpcInstance other, NpcContainer exclude = null)
+            NpcInstance victim, NpcInstance other)
         {
             if (sender?.Go == null)
                 return 0;
 
+            // The receivers' functions run inside the sender's external: one that sends again (a mod's B_CallComrades)
+            // could bounce between two NPCs until the VM stack overflows. OpenGothic queues them for the next tick.
+            if (_passivePerceptionDepth >= _maxPassivePerceptionDepth)
+            {
+                Logger.LogWarning($"[PassivePerc] {perception} from {sender.Instance?.GetName(NpcNameSlot.Slot0)} " +
+                                  $"dropped - sent from inside {_passivePerceptionDepth} other passive perceptions",
+                    LogCat.Ai);
+                return 0;
+            }
+
+            _passivePerceptionDepth++;
+            try
+            {
+                return SendPassivePerception(sender, perception, victim, other);
+            }
+            finally
+            {
+                _passivePerceptionDepth--;
+            }
+        }
+
+        private const int _maxPassivePerceptionDepth = 2;
+        private int _passivePerceptionDepth;
+
+        private int SendPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
+            NpcInstance victim, NpcInstance other)
+        {
             var senderPos = sender.Go.transform.position;
             var notified = 0;
 
             // Copy: a perception function can insert/remove NPCs (Wld_InsertNpc, AI_Teleport).
             foreach (var candidate in _multiTypeCacheService.NpcCache.ToArray())
             {
-                if (candidate == sender || candidate == exclude || candidate.Props == null || candidate.Instance == null) continue;
+                if (candidate == sender || candidate.Props == null || candidate.Instance == null) continue;
                 if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
                 if (NpcHelperService.IsDown(candidate)) continue;
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;

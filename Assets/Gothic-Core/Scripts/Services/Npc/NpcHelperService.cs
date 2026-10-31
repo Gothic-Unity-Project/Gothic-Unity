@@ -31,7 +31,6 @@ namespace Gothic.Core.Services.Npc
         
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
@@ -207,9 +206,6 @@ namespace Gothic.Core.Services.Npc
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
         }
 
-        // Wld_DetectItem's world item per NPC (instance index) - 'item' is only the instance data.
-        private readonly Dictionary<int, VobContainer> _detectedItems = new();
-
         /// <summary>
         /// The world item behind 'item' (e.g. for AI_GotoItem/Npc_GetDistToItem after Wld_DetectItem): its own container,
         /// or the one this NPC detected last if it is that item.
@@ -220,12 +216,11 @@ namespace Gothic.Core.Services.Npc
                 return null;
             if (item.UserData is VobContainer own && own.Go != null)
                 return own;
-            if (npc == null || !_detectedItems.TryGetValue(npc.Index, out var detected) || detected?.Go == null ||
-                detected.Vob is not IItem detectedItem)
+            var detected = npc?.GetUserData()?.Props?.DetectedItem;
+            if (detected?.Go == null)
                 return null;
 
-            var detectedName = !string.IsNullOrEmpty(detectedItem.Instance) ? detectedItem.Instance : detectedItem.Name;
-            return _vmCacheService.TryGetItemData(detectedName)?.Index == item.Index ? detected : null;
+            return detected.GetItemInstance()?.Index == item.Index ? detected : null;
         }
 
         public bool ExtWldDetectItem(NpcInstance npc, int flags)
@@ -240,27 +235,22 @@ namespace Gothic.Core.Services.Npc
             VobContainer nearestContainer = null;
             var nearestDist = float.MaxValue;
 
+            // Items in the hero's hands are left out with the VR inventory PR (held items are marked there). Not by a
+            // kinematic rigidbody: in VR every item lying still is kinematic.
             foreach (var container in _multiTypeCacheService.VobCache)
             {
                 if (container.Vob is not IItem vobItem) continue;
-
-                var itemSymName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-                if (string.IsNullOrEmpty(itemSymName)) continue;
-
-                var itemData = _vmCacheService.TryGetItemData(itemSymName);
-                if (itemData == null) continue;
-
-                if (flags != 0 && (itemData.MainFlag & flags) == 0) continue;
-
                 // Skip items whose GO was destroyed (player already picked them up via loot menu)
                 if (container.Go == null) continue;
-
-                var rb = container.Go.GetComponent<Rigidbody>();
-                if (rb != null && rb.isKinematic) continue;
 
                 // Use actual GO position (physics may have moved it)
                 var dist = Vector3.Distance(container.Go.transform.position, npcPos);
                 if (dist > searchRadius || dist >= nearestDist) continue;
+
+                if (string.IsNullOrEmpty(vobItem.Instance) && string.IsNullOrEmpty(vobItem.Name)) continue;
+                var itemData = container.GetItemInstance();
+                if (itemData == null) continue;
+                if (flags != 0 && (itemData.MainFlag & flags) == 0) continue;
 
                 nearestDist = dist;
                 nearestData = itemData;
@@ -274,7 +264,7 @@ namespace Gothic.Core.Services.Npc
             }
 
             _gameStateService.GothicVm.GlobalItem = nearestData;
-            _detectedItems[npc.Index] = nearestContainer;
+            npc.GetUserData().Props.DetectedItem = nearestContainer;
             Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
             return true;
         }
@@ -319,6 +309,22 @@ namespace Gothic.Core.Services.Npc
             if (npc.Vob.Attitude != attNull)
                 return (VmGothicEnums.Attitude)npc.Vob.Attitude;
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+        }
+
+        /// <summary>
+        /// Npc_GetPermAttitude: the permanent attitude only, never the temporary one (ZS_Attack_End's hostile check).
+        /// Like GetPersonAttitude it is the NPC's attitude towards the hero; none set (Null, most G1 NPCs) or between
+        /// two NPCs: the guild table.
+        /// </summary>
+        public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
+        {
+            if (!IsHero(self) && !IsHero(other))
+                return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+
+            var npc = IsHero(self) ? other : self;
+            return npc.Vob.Attitude != (int)VmGothicEnums.Attitude.Null
+                ? (VmGothicEnums.Attitude)npc.Vob.Attitude
+                : GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
 
         private VmGothicEnums.Attitude GetGuildAttitude(int selfGuild, int otherGuild)

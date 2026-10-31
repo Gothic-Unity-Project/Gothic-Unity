@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
@@ -87,6 +88,12 @@ namespace Gothic.Core.Adapters.Properties
         // not the hero default. Cleared when returning to daily routine.
         public NpcInstance StateOther;
         public NpcInstance StateVictim;
+
+        // Wld_DetectItem's world item - the script's 'item' is only the instance data (AI_GotoItem, Npc_GetDistToItem).
+        public VobContainer DetectedItem;
+
+        // The current state's _End function is running (AI_StartState from inside it must not run it again).
+        public bool IsInStateEnd;
         
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;

@@ -146,7 +146,17 @@ namespace Gothic.Core.Adapters.Npc
                         break;
                     case NpcProperties.LoopState.End:
                         if (Properties.StateEnd != 0)
-                            CallAiFunction(Properties.StateEnd);
+                        {
+                            Properties.IsInStateEnd = true;
+                            try
+                            {
+                                CallAiFunction(Properties.StateEnd);
+                            }
+                            finally
+                            {
+                                Properties.IsInStateEnd = false;
+                            }
+                        }
 
                         // We filled the AnimationQueue with the ZS_*_End() animations once. END isn't looping.
                         Properties.CurrentLoopState = NpcProperties.LoopState.AfterEnd;
@@ -197,8 +207,8 @@ namespace Gothic.Core.Adapters.Npc
             var oldOther = Vm.GlobalOther;
             var oldVictim = Vm.GlobalVictim;
             Vm.GlobalSelf = NpcInstance;
-            if (other != null)
-                Vm.GlobalOther = other;
+            // The daily routine's other is the hero (as in Update) - not whatever the last NPC left.
+            Vm.GlobalOther = other ?? Vm.GlobalHero;
             if (victim != null)
                 Vm.GlobalVictim = victim;
 
@@ -417,7 +427,13 @@ namespace Gothic.Core.Adapters.Npc
 
         private bool IsInLookingAwayState()
         {
-            return System.Array.IndexOf(_lookingAwayStates, Vob.CurrentStateName?.ToUpperInvariant()) >= 0;
+            var state = Vob.CurrentStateName;
+            foreach (var lookingAwayState in _lookingAwayStates)
+            {
+                if (string.Equals(state, lookingAwayState, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         // States in which the NPC looks away from the hero on purpose.
