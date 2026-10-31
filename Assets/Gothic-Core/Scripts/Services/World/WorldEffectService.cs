@@ -12,7 +12,9 @@ using Gothic.Core.Models.Effects;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit;
 using ZenKit.Daedalus;
+using Color = UnityEngine.Color;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
@@ -88,9 +90,12 @@ namespace Gothic.Core.Services.World
             }
 
             var targetNpc = (target as NpcInstance)?.GetUserData();
+            // Without the node (a monster without jaws) an NPC's effect starts at its body like the engine's vob center.
             var anchor = FindNode(originGo.transform, effect.EmTrjOriginNode);
-            Logger.Log($"[WorldEffect] {effectName} at {originGo.name}" +
-                       (isProjectile ? $", flying to {targetNpc?.Go?.name}" : "") +
+            if (anchor == originGo.transform && originNpc?.PrefabProps?.Bip01 != null)
+                anchor = originNpc.PrefabProps.Bip01;
+            Logger.Log($"[WorldEffect] {effectName} at {GetName(origin, originGo)}" +
+                       (isProjectile ? $", flying to {GetName(target, targetNpc?.Go)}" : "") +
                        (damage > 0 ? $", {damage} damage" : ""), LogCat.Vob);
 
             if (isProjectile && targetNpc?.Go != null)
@@ -404,6 +409,11 @@ namespace Gothic.Core.Services.World
                 seconds = Mathf.Max(seconds, main.duration + main.startLifetime.constantMax);
             }
             return Mathf.Clamp(seconds, 0.5f, _maxOneShotSeconds);
+        }
+
+        private static string GetName(DaedalusInstance instance, GameObject go)
+        {
+            return instance is NpcInstance npc ? npc.GetName(NpcNameSlot.Slot0) : go != null ? go.name : "-";
         }
 
         /// <summary>
