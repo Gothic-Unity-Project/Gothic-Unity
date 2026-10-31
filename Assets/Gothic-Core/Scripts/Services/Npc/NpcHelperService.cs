@@ -232,7 +232,7 @@ namespace Gothic.Core.Services.Npc
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
             // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.PrefabProps?.IsHero() == true && self.Vob.Attitude != self.Vob.AttitudeTemp)
+            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
                 return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
 
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
