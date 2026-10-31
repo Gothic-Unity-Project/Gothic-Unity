@@ -42,9 +42,9 @@ namespace Gothic.VR.Adapters.Player
         // private string _diveBubbleParticleName;
         
         private float _initialGravity;
-        private float _initialMoveSpeed;
-        private float _initialRunSpeed;
         private float _initialFallSpeed;
+        // Owns the walk and run speed (with a speed potion's): we only say whether we are in the water.
+        private VRHeroSpeed _heroSpeed;
 
         private VmGothicEnums.WalkMode _mode = VmGothicEnums.WalkMode.Walk;
 
@@ -166,8 +166,6 @@ namespace Gothic.VR.Adapters.Player
             });
             
             _initialGravity = _rig.Gravity;
-            _initialMoveSpeed = _rig.MoveSpeed;
-            _initialRunSpeed = _rig.RunSpeed;
             _initialFallSpeed = _rig.MaxFallSpeed;
         }
 
@@ -270,12 +268,12 @@ namespace Gothic.VR.Adapters.Player
                 _waterBobbingCoroutine = null;
             }
 
+            SetInWater(_playerAi.WaterLevel != (int)ZenGineConst.WaterLevel.Normal);
+
             switch ((ZenGineConst.WaterLevel)_playerAi.WaterLevel)
             {
                 case ZenGineConst.WaterLevel.Normal:
                     _rig.Gravity = _initialGravity;
-                    _rig.MoveSpeed = _initialMoveSpeed;
-                    _rig.RunSpeed = _initialRunSpeed;
                     _rig.CanSprint = true;
                     _rig.MaxFallSpeed = _initialFallSpeed;
                     
@@ -300,8 +298,6 @@ namespace Gothic.VR.Adapters.Player
                     Shader.SetGlobalInt(Constants.ShaderPropertyWaterEffectToggle, 0);
 
                     _rig.Gravity = _initialGravity;
-                    _rig.MoveSpeed = _initialMoveSpeed / 2;
-                    _rig.RunSpeed = _initialMoveSpeed / 2; // No running, but it might be, that we run into deep water, then we need to slow it down like walking.
                     _rig.CanSprint = false;
                     _rig.MaxFallSpeed = _initialFallSpeed;
                     
@@ -334,6 +330,21 @@ namespace Gothic.VR.Adapters.Player
                 default:
                     throw new Exception($"Unknown value {_playerAi.WaterLevel} for water.");
             }
+        }
+
+        /// <summary>
+        /// Knee deep or deeper: VRHeroSpeed slows the player to wading speed, without a speed potion's boost.
+        /// </summary>
+        private void SetInWater(bool isInWater)
+        {
+            if (_heroSpeed == null)
+                _heroSpeed = GetComponent<VRHeroSpeed>();
+
+            if (_heroSpeed != null)
+                _heroSpeed.SetInWater(isInWater);
+            else
+                Logger.LogWarning("[VRSwimDive] No VRHeroSpeed on the player - the speed in water stays as it is.",
+                    LogCat.VR);
         }
 
         private IEnumerator WaterBobbing()
