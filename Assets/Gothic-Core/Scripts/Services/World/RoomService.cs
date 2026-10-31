@@ -101,7 +101,7 @@ namespace Gothic.Core.Services.World
 
         /// <summary>
         /// Per world material: the BSP sector its polygons belong to, -1 for none. Like OpenGothic, a room's materials
-        /// are named "X:ROOM_..." - the part after ':' (up to '_', or all of it) is the sector's name.
+        /// are named "X:ROOM_..." - the longest part after ':' (all of it or up to a '_') that names a sector.
         /// </summary>
         public int[] GetMaterialSectors(ZenKit.IMesh mesh)
         {
@@ -187,7 +187,8 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// The hero walked into another room (or out of one) - HeroPerceptionService decides when it counts.
+        /// The hero walked into another room (or out of one). Only HeroPerceptionService calls it - it decides when a
+        /// change counts (doorstep delay); NPC lookups (GetRoomAt) answer right away.
         /// </summary>
         public void SetHeroRoom(string room)
         {

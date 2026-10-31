@@ -76,14 +76,16 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// VR: the rig's origin is on the floor. Flat: the player controller's centre is ~1 m above it.
+        /// The bottom of the hero's body collider: VR the rig's CharacterController (under the HMD, also roomscale),
+        /// Flat the player's capsule (its centre is ~1 m above the floor). No collider: the object's origin.
         /// </summary>
         private static Vector3 GetFeetPosition(GameObject heroGo)
         {
-            if (!heroGo.TryGetComponent<CharacterController>(out var controller))
+            if (!heroGo.TryGetComponent<Collider>(out var body))
                 return heroGo.transform.position;
 
-            return heroGo.transform.TransformPoint(controller.center + Vector3.down * (controller.height / 2f));
+            var bounds = body.bounds;
+            return new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
         }
 
         /// <summary>
