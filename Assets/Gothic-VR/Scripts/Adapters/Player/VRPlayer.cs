@@ -48,7 +48,7 @@ namespace Gothic.VR.Adapters.Player
                 if (_vrInput.IsSimulator)
                     return Keyboard.current[Key.Escape].wasPressedThisFrame;
 
-                return _vrInput.GetButton(VrHandSide.Left, VrButton.Secondary).IsJustActivated;
+                return _vrInput.GetMenuButton().IsJustActivated;
             }
         }
 

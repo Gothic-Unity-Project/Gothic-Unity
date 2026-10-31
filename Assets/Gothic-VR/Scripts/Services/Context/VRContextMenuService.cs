@@ -57,6 +57,7 @@ namespace Gothic.VR.Services.Context
             gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
             if (gameBackIndex < 0)
                 gameBackIndex = gameMenu.Items.Count;
+            AddControlOptions(gameMenu, gameBackIndex, menuStartY, menuDY);
             gameMenu.Items.Insert(gameBackIndex, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION",
                 "colorVision", VRConstants.IniNames.ColorVision, VRConstants.IniSectionImmersion,
                 VRConstants.ColorVisionDefaultValue, menuStartY + menuDY * 2));
@@ -82,6 +83,30 @@ namespace Gothic.VR.Services.Context
                 "moveVignette", VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
                 VRConstants.MoveVignetteDefaultValue, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+        }
+
+        /// <summary>
+        /// The controller layout (VrControlLayout) in rows 3 to 5 of the game menu, where Gothic has its mouse
+        /// settings - the VR counterpart of its key bindings. Inserted before the rows above, which go to the same
+        /// index.
+        /// </summary>
+        private void AddControlOptions(AbstractMenuInstance gameMenu, int index, int menuStartY, int menuDY)
+        {
+            gameMenu.Items.Insert(index, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton", VRConstants.IniNames.MenuButton, VRConstants.IniSectionControls,
+                VRConstants.MenuButtonDefaultValue, menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton", menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton", VRConstants.IniNames.JumpButton, VRConstants.IniSectionControls,
+                VRConstants.JumpButtonDefaultValue, menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton", menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand", VRConstants.IniNames.ControllerHand, VRConstants.IniSectionControls,
+                VRConstants.ControllerHandDefaultValue, menuStartY + menuDY * 3));
+            gameMenu.Items.Insert(index, CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand", menuStartY + menuDY * 3));
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)

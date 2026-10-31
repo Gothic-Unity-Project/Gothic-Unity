@@ -26,11 +26,23 @@ namespace Gothic.VR
 
             // ColorVisionMode: 0 = normal, 1 = red-weak, 2 = green-weak, 3 = blue-weak.
             public const string ColorVision = "colorVision";
+
+            // Controls (VrControlLayout)
+            // 0 = right-handed, 1 = left-handed (the controllers' tasks swapped).
+            public const string ControllerHand = "controllerHand";
+
+            // 0 = lower button, 1 = upper button, 2 = stick click. Crouching takes the other button.
+            public const string JumpButton = "jumpButton";
+
+            // 0 = upper button, 1 = lower button, 2 = menu button.
+            public const string MenuButton = "menuButton";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
 
         public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
+
+        public const string IniSectionControls = "GOTHIC_VR_CONTROLS";
 
         // 0...10 Ini values
         public const int SmoothRotationSettingAmount = 10;
@@ -50,6 +62,10 @@ namespace Gothic.VR
         public const int TextSizeDefaultValue = 0;
 
         public const int ColorVisionDefaultValue = 0;
+
+        public const int ControllerHandDefaultValue = 0;
+        public const int JumpButtonDefaultValue = 0;
+        public const int MenuButtonDefaultValue = 0;
 
         // Scale of subtitles and dialog choices per textSize value.
         private static readonly float[] _textSizeScales = { 1f, 1.25f, 1.5f };
