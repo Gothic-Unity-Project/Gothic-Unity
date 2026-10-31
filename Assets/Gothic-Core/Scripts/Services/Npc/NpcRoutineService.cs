@@ -76,6 +76,15 @@ namespace Gothic.Core.Services.Npc
         {
             var routine = _gameStateService.GothicVm.GetSymbolByName(routineName);
 
+            // An unknown name keeps the NPC's schedule: index 0 means "no routine" and would wipe it. NPCs without
+            // a schedule (monsters) go on as "no routine".
+            if (routine == null && npc.GetUserData()?.Props.Routines.Count > 0)
+            {
+                Logger.LogWarning($"Routine {routineName} couldn't be found - NPC {npc.Id} keeps its routine.",
+                    LogCat.Npc);
+                return;
+            }
+
             ExchangeRoutine(npc, routine == null ? 0: routine.Index);
         }
 
