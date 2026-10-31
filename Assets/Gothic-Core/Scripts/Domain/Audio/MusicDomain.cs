@@ -109,30 +109,38 @@ namespace Gothic.Core.Domain.Audio
         /// </summary>
         public void UpdateZone()
         {
+            if (PickZone())
+                Play();
+        }
+
+        /// <returns>True if another zone plays now.</returns>
+        private bool PickZone()
+        {
             if (_player == null)
-                return;
+                return false;
 
             var zone = FindZone(_player.position);
             if (zone == _currentZone)
-                return;
+                return false;
 
             Logger.Log($"[Music] Zone '{_currentZone?.Name ?? "-"}' -> '{zone?.Name ?? _defaultZone?.Name ?? "-"}'",
                 LogCat.Audio);
             _currentZone = zone;
-            Play();
+            return true;
         }
         
         /// <summary>
-        /// The time of day and the danger the hero is in changed (AudioService checks them). Plays the matching theme.
+        /// The time of day and the danger the hero is in (AudioService checks them), and the zone he is in. Plays the
+        /// matching theme - once, also when the zone and the situation change together.
         /// </summary>
         public void SetSituation(MusicTagsTime time, MusicTagsMode mode)
         {
-            if (TimeTag == time && ModeTag == mode)
-                return;
-
+            var isSituationChanged = TimeTag != time || ModeTag != mode;
             TimeTag = time;
             ModeTag = mode;
-            Play();
+
+            if (PickZone() || isSituationChanged)
+                Play();
         }
 
         /// <summary>
@@ -386,11 +394,13 @@ namespace Gothic.Core.Domain.Audio
             }
         }
 
-        public void OnWorldLoaded()
+        /// <param name="time">The time of day now - the world's first theme matches it, not the last world's.</param>
+        public void OnWorldLoaded(MusicTagsTime time)
         {
             ClearZones();
             ResetPerformance();
-            // A fight of the world before is over. The time follows with AudioService's next check.
+            TimeTag = time;
+            // A fight of the world before is over.
             ModeTag = MusicTagsMode.Standard;
 
             foreach (var container in _multiTypeCacheService.VobCache)

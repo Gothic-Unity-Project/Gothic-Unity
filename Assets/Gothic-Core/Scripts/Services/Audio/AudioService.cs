@@ -62,7 +62,7 @@ namespace Gothic.Core.Manager
 
             GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(OnMainMenuLoaded);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
-            GlobalEventDispatcher.WorldSceneLoaded.AddListener(_musicDomain.OnWorldLoaded);
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldLoaded);
 
             GlobalEventDispatcher.MusicZoneEntered.AddListener(_musicDomain.MusicZoneEntered);
             GlobalEventDispatcher.MusicZoneExited.AddListener(_musicDomain.MusicZoneExited);
@@ -87,19 +87,28 @@ namespace Gothic.Core.Manager
             if (hero?.Vob == null || hero.Props == null)
                 return;
 
-            var time = GameTime.GetCurrentTime();
-            var timeTag = time >= _musicDayStart && time <= _musicDayEnd
-                ? MusicDomain.MusicTagsTime.Day
-                : MusicDomain.MusicTagsTime.Night;
-
+            var timeTag = GetMusicTime();
             var modeTag = MusicDomain.MusicTagsMode.Standard;
             if (hero.Props.IsDead || IsHeroAttacked(hero))
                 modeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon
                     ? MusicDomain.MusicTagsMode.Thrill
                     : MusicDomain.MusicTagsMode.Fight;
 
-            _musicDomain.UpdateZone();
+            // Picks the zone too: a new zone and a new situation switch the theme once.
             _musicDomain.SetSituation(timeTag, modeTag);
+        }
+
+        private void OnWorldLoaded()
+        {
+            _musicDomain.OnWorldLoaded(GetMusicTime());
+        }
+
+        private MusicDomain.MusicTagsTime GetMusicTime()
+        {
+            var time = GameTime.GetCurrentTime();
+            return time >= _musicDayStart && time <= _musicDayEnd
+                ? MusicDomain.MusicTagsTime.Day
+                : MusicDomain.MusicTagsTime.Night;
         }
 
         /// <summary>
