@@ -300,11 +300,6 @@ namespace Gothic.Core.Services.Npc
             npc.GetUserData().Props.AnimationQueue.Enqueue(new PlayAniBs(new AnimationAction(name, bodyState), npc.GetUserData()));
         }
 
-        public void ExtAiUnequipArmor(NpcInstance npc)
-        {
-            npc.GetUserData().Props.BodyData.Armor = 0;
-        }
-
         /// <summary>
         /// Daedalus needs an int value.
         /// </summary>

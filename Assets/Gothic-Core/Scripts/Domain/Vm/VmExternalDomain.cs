@@ -118,6 +118,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
+            if (vm.GetSymbolByName("AI_EquipArmor") != null)
+                vm.RegisterExternal<NpcInstance, int>("AI_EquipArmor", AI_EquipArmor);
+            if (vm.GetSymbolByName("AI_EquipBestArmor") != null)
+                vm.RegisterExternal<NpcInstance>("AI_EquipBestArmor", AI_EquipBestArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
 
             // Apply Options
@@ -512,7 +516,17 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_UnequipArmor(NpcInstance npc)
         {
-            _npcAiService.ExtAiUnequipArmor(npc);
+            _npcInventoryService.ExtAiUnequipArmor(npc);
+        }
+
+        public void AI_EquipArmor(NpcInstance npc, int itemId)
+        {
+            _npcInventoryService.ExtAiEquipArmor(npc, itemId);
+        }
+
+        public void AI_EquipBestArmor(NpcInstance npc)
+        {
+            _npcInventoryService.ExtAiEquipBestArmor(npc);
         }
 
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)

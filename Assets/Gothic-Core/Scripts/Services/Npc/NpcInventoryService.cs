@@ -27,6 +27,77 @@ namespace Gothic.Core.Services.Npc
         {
             Equipment.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
         }
+
+        /// <summary>
+        /// AI_EquipArmor like the engine (OpenGothic Inventory::equipArmor): an armor the NPC carries is put on. Its
+        /// look shows the next time the NPC is built - the body mesh isn't rebuilt while the NPC stands in the world.
+        /// </summary>
+        public void ExtAiEquipArmor(NpcInstance npc, int itemId)
+        {
+            var item = itemId > 0 ? _vmCacheService.TryGetItemData(itemId) : null;
+            if (item == null || !((ItemFlags)item.MainFlag).HasFlag(ItemFlags.ItemKatArmor) ||
+                ExtNpcHasItems(npc, itemId) <= 0)
+                return;
+
+            WearArmor(npc, item);
+        }
+
+        /// <summary>
+        /// AI_EquipBestArmor like the engine (OpenGothic Inventory::bestItem): the carried armor the NPC may wear with
+        /// the most damage, then the highest value.
+        /// </summary>
+        public void ExtAiEquipBestArmor(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            ItemInstance best = null;
+            foreach (var content in GetAllInventoryItems(npc))
+            {
+                var item = _vmCacheService.TryGetItemData(content.Name);
+                if (item == null || !((ItemFlags)item.MainFlag).HasFlag(ItemFlags.ItemKatArmor) ||
+                    !Equipment.MeetsConditions(container, item))
+                    continue;
+                if (best == null || (item.DamageTotal, item.Value).CompareTo((best.DamageTotal, best.Value)) > 0)
+                    best = item;
+            }
+
+            if (best != null)
+                WearArmor(npc, best);
+        }
+
+        /// <summary>
+        /// AI_UnequipArmor: the worn armor comes off - its protection too, and the NPC is built with its plain body
+        /// the next time.
+        /// </summary>
+        public void ExtAiUnequipArmor(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            foreach (var worn in container.Props.EquippedItems.ToArray())
+            {
+                if (worn != null && ((ItemFlags)worn.MainFlag).HasFlag(ItemFlags.ItemKatArmor))
+                    Equipment.Unequip(container, worn);
+            }
+
+            container.Props.BodyData.Armor = -1;
+            container.Props.MdmName = container.Props.BodyData.Body;
+        }
+
+        private void WearArmor(NpcInstance npc, ItemInstance item)
+        {
+            var container = npc.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            Equipment.EquipByScript(container, item);
+            container.Props.BodyData.Armor = item.Index;
+            container.Props.MdmName = item.VisualChange;
+            Logger.Log($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} puts on {item.Name}.", LogCat.Npc);
+        }
         
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)
         {
