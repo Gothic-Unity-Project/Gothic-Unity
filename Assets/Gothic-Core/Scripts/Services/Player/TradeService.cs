@@ -88,6 +88,13 @@ namespace Gothic.Core.Services.Player
         /// </summary>
         public List<ContentItem> GetGoods(NpcContainer npc)
         {
+            if (npc.Props == null)
+            {
+                Logger.LogWarning($"[Trade] {npc.Instance.GetName(NpcNameSlot.Slot0)} has no props - no goods",
+                    LogCat.Dialog);
+                return new List<ContentItem>();
+            }
+
             var currency = CurrencyName;
             var equipped = npc.Props.EquippedItems.Select(i => i.Index).ToHashSet();
             return _npcInventoryService.GetAllInventoryItems(npc.Instance)
@@ -136,12 +143,14 @@ namespace Gothic.Core.Services.Player
             var item = _vmCacheService.TryGetItemData(itemName);
             if (item == null || !CanBuy(itemName, amount) || !HasGoods(Trader, itemName, amount))
                 return false;
+            if (!TryGetCurrencyIndex(out var currencyIndex))
+                return false;
 
             var price = GetBuyPrice(itemName) * amount;
             _npcInventoryService.ExtRemoveInvItems(Trader.Instance, item.Index, amount);
             _npcInventoryService.ExtCreateInvItems(hero.Instance, item.Index, amount);
             if (price > 0)
-                _npcInventoryService.ExtRemoveInvItems(hero.Instance, GetCurrencyIndex(), price);
+                _npcInventoryService.ExtRemoveInvItems(hero.Instance, currencyIndex, price);
 
             Logger.Log($"[Trade] Bought {amount}x {itemName} for {price}", LogCat.Dialog);
             return true;
@@ -157,12 +166,14 @@ namespace Gothic.Core.Services.Player
             if (!IsTrading || hero == null || item == null || itemName.EqualsIgnoreCase(CurrencyName) ||
                 !HasGoods(hero, itemName, amount))
                 return false;
+            if (!TryGetCurrencyIndex(out var currencyIndex))
+                return false;
 
             var price = GetSellPrice(itemName) * amount;
             _npcInventoryService.ExtRemoveInvItems(hero.Instance, item.Index, amount);
             _npcInventoryService.ExtCreateInvItems(Trader.Instance, item.Index, amount);
             if (price > 0)
-                _npcInventoryService.ExtCreateInvItems(hero.Instance, GetCurrencyIndex(), price);
+                _npcInventoryService.ExtCreateInvItems(hero.Instance, currencyIndex, price);
 
             Logger.Log($"[Trade] Sold {amount}x {itemName} for {price}", LogCat.Dialog);
             return true;
@@ -178,9 +189,17 @@ namespace Gothic.Core.Services.Player
             return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
         }
 
-        private int GetCurrencyIndex()
+        /// <summary>
+        /// Resolved before any item changes hands, so a missing currency item (a mod, a wrong TRADE_CURRENCY_INSTANCE)
+        /// stops the trade instead of leaving it half done.
+        /// </summary>
+        private bool TryGetCurrencyIndex(out int index)
         {
-            return _vmCacheService.TryGetItemData(CurrencyName).Index;
+            var currency = _vmCacheService.TryGetItemData(CurrencyName);
+            index = currency?.Index ?? -1;
+            if (currency == null)
+                Logger.LogWarning($"[Trade] Currency item {CurrencyName} doesn't exist - no trade", LogCat.Dialog);
+            return currency != null;
         }
 
         /// <summary>

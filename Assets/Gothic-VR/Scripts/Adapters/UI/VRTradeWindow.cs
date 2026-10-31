@@ -3,6 +3,7 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -71,7 +72,7 @@ namespace Gothic.VR.Adapters.UI
 
             var go = new GameObject("VR Trade Window", typeof(RectTransform))
             {
-                layer = LayerMask.NameToLayer("UI")
+                layer = Constants.UILayer
             };
             _current = go.AddComponent<VRTradeWindow>();
             _current.Init(trader, hero, tradeService, vmCacheService, vrPlayerService);

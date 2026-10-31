@@ -2,6 +2,7 @@ using Gothic.Core;
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -14,6 +15,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -89,7 +91,15 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnTradeStarted(NpcContainer trader)
         {
-            var hero = (_gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance).GetUserData();
+            var hero = (_gameStateService.GothicVm?.GlobalHero as ZenKit.Daedalus.NpcInstance)?.GetUserData();
+            if (hero == null)
+            {
+                // Without a window the trade couldn't be closed - end it so the dialog's choices come back.
+                Logger.LogWarning("[VRPlayer] No hero to trade with - trade ended", LogCat.Dialog);
+                _tradeService.End();
+                return;
+            }
+
             VRTradeWindow.Show(trader, hero, _tradeService, _vmCacheService, _vrPlayerService);
         }
 
