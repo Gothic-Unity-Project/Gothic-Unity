@@ -65,6 +65,12 @@ namespace Gothic.Core.Adapters.Properties
         }
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
 
+        // Mdl_ApplyRandomAni: a state animation -> the animations played now and then while it runs
+        // (S_EAT -> R_ROAM1, R_ROAM2). Mdl_ApplyRandomAniFreq: the average seconds between them.
+        public readonly Dictionary<string, List<string>> RandomAnis = new(System.StringComparer.OrdinalIgnoreCase);
+        public readonly Dictionary<string, float> RandomAniFrequencies = new(System.StringComparer.OrdinalIgnoreCase);
+        public float NextRandomAniTime;
+
         // HINT: This information isn't set within Daedalus. We need to define it manually.
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
         public VmGothicEnums.BodyState BodyState;

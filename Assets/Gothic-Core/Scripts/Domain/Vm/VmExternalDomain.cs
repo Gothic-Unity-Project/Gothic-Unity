@@ -36,6 +36,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly NpcRandomAniService _npcRandomAniService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly GameTimeService _gameTimeService;
@@ -144,6 +145,10 @@ namespace Gothic.Core.Domain.Vm
             // Model
             vm.RegisterExternal<NpcInstance, string>("Mdl_SetVisual", Mdl_SetVisual);
             vm.RegisterExternal<NpcInstance, string>("Mdl_ApplyOverlayMds", Mdl_ApplyOverlayMds);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomAni") != null)
+                vm.RegisterExternal<NpcInstance, string, string>("Mdl_ApplyRandomAni", Mdl_ApplyRandomAni);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomAniFreq") != null)
+                vm.RegisterExternal<NpcInstance, string, float>("Mdl_ApplyRandomAniFreq", Mdl_ApplyRandomAniFreq);
             vm.RegisterExternal<NpcInstance, string, int, int, string, int, int, int>("Mdl_SetVisualBody", Mdl_SetVisualBody);
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
@@ -638,6 +643,20 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtMdlSetVisual(npc, visual);
         }
 
+
+        /// <summary>
+        /// While the state animation loops, the random animation plays now and then (NpcRandomAniService).
+        /// </summary>
+        public void Mdl_ApplyRandomAni(NpcInstance npc, string stateAnimation, string randomAnimation)
+        {
+            _npcRandomAniService.AddRandomAni(npc, stateAnimation, randomAnimation);
+        }
+
+        /// <param name="seconds">Average time between the random animations.</param>
+        public void Mdl_ApplyRandomAniFreq(NpcInstance npc, string stateAnimation, float seconds)
+        {
+            _npcRandomAniService.SetRandomAniFrequency(npc, stateAnimation, seconds);
+        }
 
         public void Mdl_ApplyOverlayMds(NpcInstance npc, string overlayName)
         {
