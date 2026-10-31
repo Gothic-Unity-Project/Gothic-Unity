@@ -54,7 +54,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void OnScriptHitPointsDepleted(NpcContainer victim)
         {
-            if (victim?.Props == null || NpcHelperService.IsDown(victim) ||
+            if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead ||
                 victim.Instance.IsHero(_gameStateService.GothicVm))
                 return;
 
@@ -273,6 +273,7 @@ namespace Gothic.Core.Services.Npc
             if (zsUnconscious == null)
             {
                 Logger.LogWarning("[FightService] ZS_UNCONSCIOUS symbol not found — falling back to S_Wounded anim", LogCat.Fight);
+                npc.Props.KnockedOutTime = Time.time;
                 npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
                 npc.Props.AnimationQueue.Clear();
                 npc.PrefabProps.AnimationSystem.StopAllAnimations();
@@ -293,7 +294,12 @@ namespace Gothic.Core.Services.Npc
                 // AIV_WASDEFEATEDBYSC. StartState is queued, so both happen here at once - a perception before the next
                 // frame would see AIV=0 and take the wrong branch.
                 var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? -1;
-                if (aivWasDefeated >= 0 && (attacker.PrefabProps.IsHero() || IsPartyMember(attacker)))
+                var isHeroVictory = attacker.PrefabProps.IsHero() || IsPartyMember(attacker);
+                // The temporary attitude goes back to the permanent one, so PERC_ASSESSENEMY doesn't restart the fight
+                // with a stale HOSTILE after he wakes up.
+                if (isHeroVictory)
+                    npc.Vob.AttitudeTemp = npc.Vob.Attitude;
+                if (aivWasDefeated >= 0 && isHeroVictory)
                 {
                     var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
                     if (bUnconciousXp != null)
@@ -303,22 +309,24 @@ namespace Gothic.Core.Services.Npc
                         Logger.Log($"[FightService] Unconscious XP for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                     }
                     npc.Instance.SetAiVar(aivWasDefeated, 1);
-                    // The temporary attitude goes back to the permanent one, so PERC_ASSESSENEMY doesn't restart the fight
-                    // with a stale HOSTILE after he wakes up.
-                    npc.Vob.AttitudeTemp = npc.Vob.Attitude;
                 }
 
                 // ClearState(false) inside ExtAiStartState resets BodyState=BsStand — set BsUnconscious after.
                 // Not a script call: the old state's _End (e.g. ZS_ProclaimAndPunish_End) ran on the downed NPC and
                 // queued weapon draws and new states - ZS_Unconscious never started and he reacted to everything.
                 _npcAiService.ExtAiStartState(npc.Instance, zsUnconscious.Index, true, "", false);
-                npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"[FightService] Knockout scripts of {npc.Instance.GetName(NpcNameSlot.Slot0)} failed: {e}",
+                    LogCat.Fight);
             }
             finally
             {
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
 
             // The engine drops the NPC itself - ZS_Unconscious only calls Mdl_ApplyRandomAni for a third of the tough
             // guys, everybody else stood or T-posed while unconscious (Buster) and still stood up normally afterwards.
