@@ -17,5 +17,5 @@ NPCs and monsters walked straight over cliff edges, landed unhurt, and walked al
 ## Consequences
 
 - Escaping by swimming works against non-swimmers; most Gothic 1 monsters (scavengers, wolves, lurkers, snappers, shadowbeasts) do swim, as in the original.
-- Moving NPCs cast up to two short rays per frame for water and one for edges; standing NPCs on land none.
+- Moving NPCs cast two short rays per frame for water (four while one that can't swim pushes against deep water) and one for edges; standing NPCs on land none.
 - Still open: diving NPCs, drowning, NPCs climbing ledges, and the splash effect when something falls into water.

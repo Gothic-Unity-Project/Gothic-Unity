@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -17,7 +18,8 @@ namespace Gothic.Core.Services.Npc
     ///   by swimming - ZS_MM_Attack gives up when the hero is BS_SWIM (AIV_MM_FollowInWater).
     /// - Both depths 999999 (Bloodfly, Demon): flying - over water the surface is their ground.
     /// The level is stored in Vob.AiHuman.WaterLevel (the hero uses the same field, see VRSwimDive).
-    /// Taken over from BoroBongo's branch. Up to two rays per moving NPC and frame.
+    /// Taken over from BoroBongo's branch. Two rays per moving NPC and frame, four while one that can't swim pushes
+    /// against deep water.
     /// </summary>
     public class NpcWaterService
     {
@@ -33,12 +35,19 @@ namespace Gothic.Core.Services.Npc
         // Vertical speed (m/s) into the swim/hover height - no jump when the water gets deep.
         private const float _surfaceSpeed = 1.5f;
 
-        private readonly HashSet<NpcContainer> _hoveringOverWater = new();
-
         private readonly Dictionary<string, bool> _hasSwimAnimations = new();
         private readonly HashSet<NpcContainer> _loggedBarriers = new();
         private readonly HashSet<NpcContainer> _loggedSwimHeights = new();
 
+        public NpcWaterService()
+        {
+            // The logged-once NPCs belong to the world that is left - don't keep them alive.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() =>
+            {
+                _loggedBarriers.Clear();
+                _loggedSwimHeights.Clear();
+            });
+        }
 
         /// <summary>
         /// Called by AnimationSystem with this frame's root motion. Returns the corrected movement: no horizontal
@@ -113,15 +122,10 @@ namespace Gothic.Core.Services.Npc
             float restRootHeight)
         {
             var isOverWater = TryGetWater(next, pos.y, out var groundY, out var waterY) && waterY > groundY;
+            // Set every call, like SetWaterLevel: a loaded save or a culling respawn brings a body with gravity.
+            SetGravity(npc, !isOverWater);
             if (!isOverWater)
-            {
-                if (_hoveringOverWater.Remove(npc))
-                    SetGravity(npc, true);
                 return worldMove;
-            }
-
-            if (_hoveringOverWater.Add(npc))
-                SetGravity(npc, false);
 
             var hoverY = waterY + restRootHeight;
             if (pos.y < hoverY)
@@ -167,7 +171,8 @@ namespace Gothic.Core.Services.Npc
             else if (level != ZenGineConst.WaterLevel.Chest && bodyState == VmGothicEnums.BodyState.BsSwim)
                 npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
-            Logger.Log($"[NpcWater] {npc.Go.name}: water level {previous} -> {level}.", LogCat.Ai);
+            // Editor only: at a depth threshold the level can flip every frame.
+            Logger.LogEditor($"[NpcWater] {npc.Go.name}: water level {previous} -> {level}.", LogCat.Ai);
         }
 
         /// <summary>
@@ -220,16 +225,9 @@ namespace Gothic.Core.Services.Npc
         private void GetDepths(NpcContainer npc, out float knee, out float chest, out bool isFlying)
         {
             var guildValues = _gameStateService.GuildValues;
-            var guild = npc.Instance.Guild;
+            var guild = npc.Instance.GetValuesGuild();
             var kneeCm = guildValues.GetWaterDepthKnee(guild);
             var chestCm = guildValues.GetWaterDepthChest(guild);
-
-            // Only GIL_HUMAN is filled for humans ("Set Constants for all Human Guilds").
-            if (kneeCm <= 0 && chestCm <= 0)
-            {
-                kneeCm = guildValues.GetWaterDepthKnee((int)VmGothicEnums.Guild.GIL_HUMAN);
-                chestCm = guildValues.GetWaterDepthChest((int)VmGothicEnums.Guild.GIL_HUMAN);
-            }
 
             isFlying = kneeCm == _flyOverWaterHint && chestCm == _flyOverWaterHint;
             knee = kneeCm / 100f;
