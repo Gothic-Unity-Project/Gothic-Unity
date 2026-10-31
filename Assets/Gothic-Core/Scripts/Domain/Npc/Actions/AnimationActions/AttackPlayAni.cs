@@ -50,6 +50,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string _activeTurnAnimName;
 
         /// <summary>
+        /// The fight AI's parry (FightAiMove.Parry) is playing - a melee hit from the front does nothing meanwhile.
+        /// </summary>
+        public bool IsParrying => !IsFinishedFlag && _move == FightAiMove.Parry;
+
+        /// <summary>
+        /// The fight AI's jump back (FightAiMove.JumpBack) is playing - it dodges a hit from the front.
+        /// </summary>
+        public bool IsJumpingBack => !IsFinishedFlag && _move == FightAiMove.JumpBack;
+
+        /// <summary>
         /// The swing hit and its combo window is open: an attack queued now continues the combo. Nothing queued yet -
         /// AiHandler asks the state's loop for the next move once (the engine's fight AI runs on all the time).
         /// </summary>

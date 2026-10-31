@@ -27,6 +27,10 @@ namespace Gothic.Core.Services.Npc
     {
         // Seconds the knocked out hero lies down before he can move again.
         private const float _heroKnockoutSeconds = 10f;
+        // A parry holds against hits within this angle of the defender's front (OpenGothic FightAlgo::isInFocusAngle).
+        private const float _blockAngle = 45f;
+        // Metal on metal, like the engine's block effect.
+        private const string _blockSound = "CS_IAI_ME_ME";
 
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly AnimationService _animationService;
@@ -69,6 +73,60 @@ namespace Gothic.Core.Services.Npc
             return _meleeDamageDomain.GetFightDistance(attacker, target);
         }
 
+        /// <summary>
+        /// Set by the VR player each frame: both hands on a melee weapon and both triggers held - Gothic's parry.
+        /// </summary>
+        public bool IsHeroBlocking { get; set; }
+
+        /// <summary>
+        /// Like the engine (OpenGothic Npc::takeDamage): a parry stops a melee hit from the front - of humans, and of
+        /// monsters only with a drawn weapon (orcs, skeletons); animals bite through. A jump back dodges any hit from the
+        /// front. The weapons clash.
+        /// </summary>
+        private bool TryBlock(NpcContainer attacker, NpcContainer target)
+        {
+            var action = target.IsHero() ? null : target.Props.CurrentAction as AttackPlayAni;
+            var isParrying = target.IsHero() ? IsHeroBlocking : action?.IsParrying ?? false;
+            var isJumpingBack = action?.IsJumpingBack ?? false;
+            if (!isParrying && !isJumpingBack)
+                return false;
+
+            var attackerWeapon = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
+            var hasWeapon = attackerWeapon is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
+            if (!isJumpingBack && !attacker.IsHuman() && !hasWeapon)
+                return false;
+            if (!IsInFront(target, attacker))
+                return false;
+
+            if (isParrying)
+            {
+                var clip = _audioService.GetRandomSoundClip(_blockSound);
+                if (clip != null)
+                    AudioSource.PlayClipAtPoint(clip, target.Go.transform.position + Vector3.up);
+            }
+            Logger.Log($"[Fight] {target.Instance.GetName(NpcNameSlot.Slot0)} " +
+                       $"{(isParrying ? "parries" : "dodges")} {attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit",
+                LogCat.Fight);
+            return true;
+        }
+
+        /// <summary>
+        /// OpenGothic FightAlgo::isInFocusAngle: the attacker stands within the defender's front (the hero's: where he
+        /// looks).
+        /// </summary>
+        private static bool IsInFront(NpcContainer defender, NpcContainer attacker)
+        {
+            if (defender.Go == null || attacker.Go == null)
+                return false;
+
+            var camera = Camera.main;
+            var forward = defender.IsHero() && camera != null ? camera.transform.forward : defender.Go.transform.forward;
+            var toAttacker = attacker.Go.transform.position - defender.Go.transform.position;
+            forward.y = 0f;
+            toAttacker.y = 0f;
+            return Vector3.Angle(forward, toAttacker) <= _blockAngle;
+        }
+
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, ItemInstance weapon)
         {
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
@@ -80,6 +138,9 @@ namespace Gothic.Core.Services.Npc
 
             var isHero = target.IsHero();
             if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
+
+            if (TryBlock(attacker, target))
                 return;
 
             // A hit on a knocked out NPC finishes it off.
