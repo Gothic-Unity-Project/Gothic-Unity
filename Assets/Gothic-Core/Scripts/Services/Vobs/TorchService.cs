@@ -155,13 +155,14 @@ namespace Gothic.Core.Services.Vobs
         private IEnumerator Burn(VobContainer torch, GameObject fire, GameObject light)
         {
             var wait = new WaitForSeconds(_followSeconds);
+            var isInWater = false;
             while (fire != null && torch.Go != null)
             {
                 var position = fire.transform.position;
                 if (Physics.Raycast(position, Vector3.up, _waterCheckHeight, 1 << Constants.WaterLayer,
                         QueryTriggerInteraction.Collide))
                 {
-                    PutOut(torch, true);
+                    isInWater = true;
                     break;
                 }
 
@@ -170,8 +171,11 @@ namespace Gothic.Core.Services.Vobs
                 yield return wait;
             }
 
+            // The light goes first, so it can't stay behind if turning the torch into a burnt one fails.
             if (light != null)
                 Object.Destroy(light);
+            if (isInWater)
+                PutOut(torch, true);
             CleanUp();
         }
 
@@ -199,12 +203,20 @@ namespace Gothic.Core.Services.Vobs
 
             var visual = _vmCacheService.TryGetItemData(_burningInstance)?.Visual;
             if (string.IsNullOrEmpty(visual) || !visual.EndsWithIgnoreCase(".zen"))
+            {
+                Logger.LogWarning($"[Torch] {_burningInstance} has no .zen visual ({visual}) - torches burn with " +
+                                  $"the default flame {_defaultFire}.", LogCat.Vob);
                 return;
+            }
 
             var world = _resourceCacheService.TryGetWorld(Path.GetFileNameWithoutExtension(visual),
                 _contextGameVersionService.Version);
             if (world == null)
+            {
+                Logger.LogWarning($"[Torch] {visual} of {_burningInstance} not found - torches burn with the " +
+                                  $"default flame {_defaultFire}.", LogCat.Vob);
                 return;
+            }
 
             foreach (var root in world.RootObjects)
                 ReadChildren(root.Children);
