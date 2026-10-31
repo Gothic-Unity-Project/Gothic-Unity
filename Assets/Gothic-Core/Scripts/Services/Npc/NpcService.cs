@@ -115,12 +115,24 @@ namespace Gothic.Core.Services.Npc
         {
             while (true)
             {
-                var camera = Camera.main;
-                if (_objectsToInitQueue.Count > 0 && camera != null)
-                    _objectsToInitQueue.UpdateOrder(camera.transform.position);
+                if (_objectsToInitQueue.IsFocused)
+                {
+                    // The black wait after loading: sorted around the focus center, the camera may not be there yet.
+                    _objectsToInitQueue.UpdateOrder(_objectsToInitQueue.FocusCenter);
+                }
+                else if (_objectsToInitQueue.Count > 0)
+                {
+                    var camera = Camera.main;
+                    if (camera != null)
+                        _objectsToInitQueue.UpdateOrder(camera.transform.position);
+                }
 
                 while (_objectsToInitQueue.TryDequeue(out var npcElement))
                 {
+                    // Destroyed in the meantime (e.g. world change).
+                    if (npcElement == null)
+                        continue;
+
                     var npcId = npcElement.Npc.Id;
                     var monsterId = npcElement.Npc.GetAiVar(_vmService.AIVMMRealId);
 
@@ -139,7 +151,14 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init NPC {npcElement.name}: {e}", LogCat.Npc);
+                    }
 
                     if (_frameSkipperService.IsFrameBudgetUsed)
                         break;

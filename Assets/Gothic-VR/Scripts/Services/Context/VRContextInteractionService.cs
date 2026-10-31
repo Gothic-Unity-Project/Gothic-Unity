@@ -331,7 +331,14 @@ namespace Gothic.VR.Services.Context
 
         public void SetViewHidden(bool isHidden)
         {
-            _rig?.Fade(isHidden ? 1f : 0f, isHidden ? float.MaxValue : _viewFadeInSpeed);
+            if (_rig == null)
+            {
+                var action = isHidden ? "hide" : "show";
+                Logger.LogWarning($"[VRContextInteractionService] No VR rig to {action} the view.", LogCat.Loading);
+                return;
+            }
+
+            _rig.Fade(isHidden ? 1f : 0f, isHidden ? float.MaxValue : _viewFadeInSpeed);
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)

@@ -203,9 +203,17 @@ namespace Gothic.Core.Services.Vobs
         {
             while (true)
             {
-                var camera = Camera.main;
-                if (_objectsToInitQueue.Count > 0 && camera != null)
-                    _objectsToInitQueue.UpdateOrder(camera.transform.position);
+                if (_objectsToInitQueue.IsFocused)
+                {
+                    // The black wait after loading: sorted around the focus center, the camera may not be there yet.
+                    _objectsToInitQueue.UpdateOrder(_objectsToInitQueue.FocusCenter);
+                }
+                else if (_objectsToInitQueue.Count > 0)
+                {
+                    var camera = Camera.main;
+                    if (camera != null)
+                        _objectsToInitQueue.UpdateOrder(camera.transform.position);
+                }
 
                 var initCount = 0;
                 while (_objectsToInitQueue.TryDequeue(out var item))

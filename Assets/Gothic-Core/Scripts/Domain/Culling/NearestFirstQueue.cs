@@ -29,6 +29,7 @@ namespace Gothic.Core.Domain.Culling
 
         public int Count => _entries.Count;
         public bool IsFocused => !float.IsPositiveInfinity(_focusRadius);
+        public Vector3 FocusCenter => _focusCenter;
 
         public void Enqueue(T item, Vector3 position)
         {
