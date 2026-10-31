@@ -16,6 +16,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
@@ -30,6 +31,7 @@ namespace Gothic.Core.Services.Npc
         
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
@@ -158,6 +160,8 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => i.Props != null) // ignore empty (safe check)
                 .Where(i => i.Go != null) // ignore empty (safe check)
                 .Where(i => i.Instance.Index != npcInstance.Index) // ignore self
+                // Engine (OpenGothic wld_detectnpcex): never the dead - a berzerk guard picked a corpse every frame.
+                .Where(i => i.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 .Where(i => detectPlayer ||
                             globalHeroIndex == null ||
                             i.Instance.Index != globalHeroIndex) // if we don't detect player, then skip it
@@ -168,6 +172,12 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => (i.Go.transform.position - npcPos).sqrMagnitude <= sensesRangeSqr) // detect only within senses range
                 .OrderBy(i => (i.Go.transform.position - npcPos).sqrMagnitude) // get nearest
                 .FirstOrDefault();
+
+            // Diagnostics (berzerk picks a victim without the player): rare call, logged.
+            if (!detectPlayer)
+                Logger.Log($"[Wld_DetectNpcEx] {npcInstance.GetName(NpcNameSlot.Slot0)} (no player, state {aiState}, " +
+                           $"guild {guild}, range {sensesRangeMeters:F0} m): " +
+                           $"{foundNpc?.Instance.GetName(NpcNameSlot.Slot0) ?? "nobody"}", LogCat.Ai);
 
             // without this Dialog box stops and breaks the entire NPC logic
             if (foundNpc == null)
@@ -197,6 +207,78 @@ namespace Gothic.Core.Services.Npc
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
         }
 
+        // Wld_DetectItem's world item per NPC (instance index) - 'item' is only the instance data.
+        private readonly Dictionary<int, VobContainer> _detectedItems = new();
+
+        /// <summary>
+        /// The world item behind 'item' (e.g. for AI_GotoItem/Npc_GetDistToItem after Wld_DetectItem): its own container,
+        /// or the one this NPC detected last if it is that item.
+        /// </summary>
+        public VobContainer GetWorldItemContainer(NpcInstance npc, ItemInstance item)
+        {
+            if (item == null)
+                return null;
+            if (item.UserData is VobContainer own && own.Go != null)
+                return own;
+            if (npc == null || !_detectedItems.TryGetValue(npc.Index, out var detected) || detected?.Go == null ||
+                detected.Vob is not IItem detectedItem)
+                return null;
+
+            var detectedName = !string.IsNullOrEmpty(detectedItem.Instance) ? detectedItem.Instance : detectedItem.Name;
+            return _vmCacheService.TryGetItemData(detectedName)?.Index == item.Index ? detected : null;
+        }
+
+        public bool ExtWldDetectItem(NpcInstance npc, int flags)
+        {
+            var npcGo = npc.GetUserData()?.Go;
+            if (npcGo == null) return false;
+
+            var npcPos = npcGo.transform.position;
+            const float searchRadius = 20f;
+
+            ItemInstance nearestData = null;
+            VobContainer nearestContainer = null;
+            var nearestDist = float.MaxValue;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+
+                var itemSymName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (string.IsNullOrEmpty(itemSymName)) continue;
+
+                var itemData = _vmCacheService.TryGetItemData(itemSymName);
+                if (itemData == null) continue;
+
+                if (flags != 0 && (itemData.MainFlag & flags) == 0) continue;
+
+                // Skip items whose GO was destroyed (player already picked them up via loot menu)
+                if (container.Go == null) continue;
+
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                // Use actual GO position (physics may have moved it)
+                var dist = Vector3.Distance(container.Go.transform.position, npcPos);
+                if (dist > searchRadius || dist >= nearestDist) continue;
+
+                nearestDist = dist;
+                nearestData = itemData;
+                nearestContainer = container;
+            }
+
+            if (nearestData == null)
+            {
+                Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)}: no item with flags={flags} nearby", LogCat.Npc);
+                return false;
+            }
+
+            _gameStateService.GothicVm.GlobalItem = nearestData;
+            _detectedItems[npc.Index] = nearestContainer;
+            Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
+            return true;
+        }
+
         public int ExtNpcGetTalentSkill(NpcInstance npc, int skillId)
         {
             // Same storage as Npc_SetTalentSkill.
@@ -223,16 +305,30 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
-                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
 
+            // Like the engine (OpenGothic personAttitude), an NPC's own attitude (Npc_SetAttitude/Npc_SetTempAttitude)
+            // is its attitude towards the hero - between two NPCs only the guild table counts. Baal Parvez (friendly to
+            // the hero as a guide) was friendly to every lurker and scavenger too and never attacked them.
+            if (!IsHero(self) && !IsHero(other))
+                return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+
+            var npc = IsHero(self) ? other : self;
+            if (npc.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
+            if (npc.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }
 
         private VmGothicEnums.Attitude GetGuildAttitude(int selfGuild, int otherGuild)
         {
             return (VmGothicEnums.Attitude)_gameStateService.GuildAttitudes[selfGuild * _gameStateService.GuildCount + otherGuild];
+        }
+
+        private static bool IsHero(NpcContainer npc)
+        {
+            return npc.PrefabProps != null && npc.PrefabProps.IsHero();
         }
 
         [CanBeNull]
@@ -275,13 +371,72 @@ namespace Gothic.Core.Services.Npc
                 return true;
             }
 
+            // Like the engine: sight in the full senses range (in front, or freeLOS), hearing only noise (walking,
+            // running) within half the range, smell only close by. Hearing/smell sensed the hero all around in the full
+            // range before (orcs: 20 m), also standing still behind them.
+            // Guides/followers keep smelling all around the senses range - ZS_GuidePC sets SENSE_SMELL with
+            // HAI_DIST_ASSESS_MONSTER so B_AssessEnemy spots monsters on the way ("another one of these beasts"); with the
+            // quiet senses Baal Parvez only reacted once bitten.
+            if (!IsInEscortState(self))
+                return CanSenseNpcQuietly(self, other, senses, freeLOS, range, senseRangeMeters);
+
             if ((senses & (VmGothicEnums.NpcSenses.Hear | VmGothicEnums.NpcSenses.Smell)) != 0)
             {
-                return true;
+                // Hearing/smell don't require facing the source (ignore FOV), but sound and scent
+                // still don't travel through solid geometry — reuse the sight raycast for that.
+                return CanSeeNpc(self, other, true);
             }
 
             return CanSeeNpc(self, other, freeLOS);
         }
+
+        /// <summary>
+        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
+        /// </summary>
+        public static bool IsKnockedOut(NpcContainer npc)
+        {
+            return npc?.Props != null && npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
+        }
+
+        /// <summary>
+        /// Dead or knocked out.
+        /// </summary>
+        public static bool IsDown(NpcContainer npc)
+        {
+            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
+        }
+
+        /// <summary>
+        /// Guide/follow states (G1 ZS_GuidePC/ZS_FollowPC, G2 ZS_Guide_Player/ZS_Follow_Player).
+        /// </summary>
+        public static bool IsInEscortState(NpcInstance npc)
+        {
+            var state = npc?.GetUserData()?.Vob?.CurrentStateName;
+            return state != null && (state.StartsWith("ZS_GUIDE", StringComparison.OrdinalIgnoreCase) ||
+                                     state.StartsWith("ZS_FOLLOW", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private bool CanSenseNpcQuietly(NpcInstance self, NpcInstance other, VmGothicEnums.NpcSenses senses,
+            bool freeLOS, float range, float senseRangeMeters)
+        {
+            if ((senses & VmGothicEnums.NpcSenses.See) != 0 && CanSeeNpc(self, other, freeLOS))
+                return true;
+
+            var isAround = (senses & VmGothicEnums.NpcSenses.Smell) != 0 && range <= _smellRangeMeters;
+            if (!isAround && (senses & VmGothicEnums.NpcSenses.Hear) != 0 &&
+                range <= senseRangeMeters * _hearRangeFactor)
+            {
+                var bodyState = other.GetUserData()?.Props.BodyState;
+                isAround = bodyState is VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun
+                    or VmGothicEnums.BodyState.BsJump;
+            }
+
+            // Sound and scent don't go through walls either - the sight raycast without FOV.
+            return isAround && CanSeeNpc(self, other, true);
+        }
+
+        private const float _hearRangeFactor = 0.5f;
+        private const float _smellRangeMeters = 3f;
 
         /// <summary>
         /// freeLOS - Free Line Of Sight == ignoreFOV

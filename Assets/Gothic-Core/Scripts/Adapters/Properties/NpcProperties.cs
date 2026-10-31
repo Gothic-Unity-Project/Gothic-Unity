@@ -81,6 +81,12 @@ namespace Gothic.Core.Adapters.Properties
         public float StateTime;
         public LoopState CurrentLoopState = LoopState.None;
         public AbstractAnimationAction CurrentAction;
+
+        // "other" and "victim" saved when a state is started via AI_StartState with a specific enemy.
+        // Used by AiHandler.Update() so state functions (ZS_*_Start/Loop) receive the correct NPC,
+        // not the hero default. Cleared when returning to daily routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
         
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;
