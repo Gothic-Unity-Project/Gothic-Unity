@@ -28,6 +28,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
 
+        private NpcContainer _hero;
         private Coroutine _running;
         private string _stateName;
         private float _endTime;
@@ -38,15 +39,10 @@ namespace Gothic.Core.Services.Npc
 
         public HeroSpellStateService()
         {
-            // A new world drops the hero (and the coroutine with him): he must not stay locked.
-            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() =>
-            {
-                if (!IsActive)
-                    return;
-                _contextInteractionService.UnlockPlayer();
-                _stateName = null;
-                _running = null;
-            });
+            // A new world or a loaded game ends the spell: the hero must not stay locked, nor asleep or frozen for
+            // the scripts.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(EndOnLoad);
+            GlobalEventDispatcher.LoadGameStart.AddListener(EndOnLoad);
         }
 
         /// <summary>
@@ -94,6 +90,7 @@ namespace Gothic.Core.Services.Npc
             _endTime = Time.time + seconds;
             hero.Vob.CurrentStateIndex = stateSymbol.Index;
             hero.Vob.CurrentStateName = stateName;
+            _hero = hero;
             if (_running == null)
                 _running = hero.PrefabProps.StartCoroutine(RunState(hero));
             Logger.Log($"[HeroSpellState] Hero in {stateName} for {seconds} s.", LogCat.Fight);
@@ -118,6 +115,17 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        private void EndOnLoad()
+        {
+            if (!IsActive)
+                return;
+
+            // The world change may have dropped the hero's GameObject (and the coroutine with it) already.
+            if (_running != null && _hero.PrefabProps != null)
+                _hero.PrefabProps.StopCoroutine(_running);
+            End(_hero, "world changed or game loaded");
+        }
+
         private void End(NpcContainer hero, string reason)
         {
             // Only if nothing else (a dialog, a cutscene) set another state meanwhile.
@@ -127,10 +135,13 @@ namespace Gothic.Core.Services.Npc
                 hero.Vob.CurrentStateName = _previousStateName;
             }
 
-            _contextInteractionService.UnlockPlayer();
+            // Death and a knockout (damage wakes him up) lock the hero themselves: he stays locked.
+            if (!hero.IsDown())
+                _contextInteractionService.UnlockPlayer();
             Logger.Log($"[HeroSpellState] Hero out of {_stateName} ({reason}).", LogCat.Fight);
             _stateName = null;
             _running = null;
+            _hero = null;
         }
     }
 }
