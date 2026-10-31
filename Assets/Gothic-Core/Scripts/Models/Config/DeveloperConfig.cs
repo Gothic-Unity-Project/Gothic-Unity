@@ -339,6 +339,56 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
+         * Backpack and Items
+         * ##########
+         */
+
+        [Foldout("Backpack and Items", true)]
+        [Tooltip("Grab armor/amulet/ring/belt with both hands + trigger (R) -> it's stored in the backpack and equipped " +
+                 "(protection + on_equip). Equipped items are listed first in the backpack with an [E] badge; " +
+                 "taking the last one out of the backpack unequips it.")]
+        public bool EnableEquipItems = true;
+
+        [Tooltip("An empty hand at an armor, amulet, ring or belt in the hero's backpack and a trigger click (quick, " +
+                 "without moving) puts it on or takes it off.")]
+        public bool EnableBackpackEquipToggle = true;
+
+        [Tooltip("Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
+                 "with the item's name, amount and Gothic inventory description (C_Item text[]/count[]).")]
+        public bool EnableItemDetailsPopup = true;
+
+        [Tooltip("While the backpack is held in a hand, its bottom opening gently pulls nearby world items. " +
+                 "An item staying inside the opening for BackpackVacuumStoreSeconds gets stored.")]
+        public bool EnableBackpackVacuum = true;
+
+        [Tooltip("Pull radius around the backpack opening in meters.")]
+        [Range(0.2f, 3f)]
+        public float BackpackVacuumRadius = 1.2f;
+
+        [Tooltip("Seconds an item has to stay inside the backpack opening before it's stored.")]
+        [Range(0.5f, 10f)]
+        public float BackpackVacuumStoreSeconds = 3f;
+
+        [Tooltip("While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
+                 "had to be grabbed very precisely. 1 = off.")]
+        public float BackpackShoulderGrabScale = 4f;
+
+        [Tooltip("How an NPC's loot is shown: Sockets - the row of loot sockets at the NPC, Backpack - the NPC's backpack " +
+                 "lying next to it (a tinted copy of the hero's, categories and pages), Both - in sync. Gone when the " +
+                 "loot closes.")]
+        public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Both;
+
+        [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking the " +
+                 "body again).")]
+        public float NpcLootBackpackTimeout = 20f;
+
+        [Tooltip("Loot backpacks of dead NPCs and of containers without a lid (mummies) get a green X above the right " +
+                 "page arrow - it moves everything into the hero's inventory.")]
+        public bool EnableLootTakeAll = true;
+
+
+        /**
+         * ##########
          * Misc
          * ##########
          */

@@ -162,6 +162,13 @@ namespace Gothic.VR.Services.Context
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
+            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
+            if (developerConfig.EnableBackpackEquipToggle)
+            {
+                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+                equipToggle.transform.SetParent(_player.transform, false);
+            }
+
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;

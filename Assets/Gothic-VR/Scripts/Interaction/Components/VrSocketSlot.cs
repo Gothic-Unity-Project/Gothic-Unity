@@ -34,7 +34,7 @@ namespace Gothic.VR.Interaction.Components
     public class VrSocketSlot : MonoBehaviour, IVrSocket
     {
         private const int MaxFitFrames = 5;
-        private const float MinExtent = 0.0001f;
+        private const float MinSide = 0.0002f;
 
         private static readonly ConditionalWeakTable<Transform, StrongBox<Bounds>> _boundsCache = new();
         private static readonly List<Renderer> _rendererBuffer = new();
@@ -42,11 +42,11 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Where the item is put. Empty: this transform.")]
         [SerializeField] private Transform _attachPoint;
 
-        [Tooltip("Scales the item while it's inside, so that half of its largest side is Size (like HVR's socket " +
-                 "Size: backpack slot 0.05, chest slot 0.18). Measured in the attach point's space.")]
+        [Tooltip("Scales the item while it's inside, so that its largest side is Size (like HVR's socket Size: " +
+                 "backpack slot 0.05, chest slot 0.18, holster 0.3). Measured in the attach point's space.")]
         [SerializeField] private bool _shouldScaleToFit = true;
 
-        [Tooltip("Half of the largest side of an item inside the slot (see Should Scale To Fit).")]
+        [Tooltip("Largest side of an item inside the slot (see Should Scale To Fit).")]
         [SerializeField] private float _size = 0.05f;
 
         [Tooltip("Rotates the item by its Gothic category (weapons diagonal, documents flat, ...).")]
@@ -69,6 +69,14 @@ namespace Gothic.VR.Interaction.Components
         [SerializeField] private AudioClip _removedSoundFallback;
 
         [Inject] private readonly IVrSfxPlayer _sfxPlayer;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+
+        // The linked interactable counts as lost this far away (m) or this far below the slot.
+        private const float _lostLinkedDistance = 30f;
+        private const float _lostLinkedDrop = 10f;
+        private const float _lostLinkedDelay = 1f;
+        private float _linkedLostSince = -1f;
+        private bool _hasHeldLinked;
 
         public event Action<VrGrabArgs> BeforeGrabbed;
         public event Action<VrGrabArgs> Grabbed;
@@ -213,6 +221,62 @@ namespace Gothic.VR.Interaction.Components
         {
             // Hover exits of a disabled backend may not arrive anymore.
             _hovered.Clear();
+        }
+
+        /// <summary>
+        /// The backpack fell through the world (or got deactivated) and no hand
+        /// holds it - it comes back to its shoulder instead of being gone for good.
+        /// </summary>
+        private void Update()
+        {
+            if (_linkedInteractable == null)
+                return;
+
+            // Only once it was on the shoulder (not in the menu scenes before the game put it there).
+            if (IsOccupied)
+            {
+                _hasHeldLinked |= _held == _linkedInteractable;
+                return;
+            }
+            if (!_hasHeldLinked)
+                return;
+
+            if (!IsLinkedLost())
+            {
+                _linkedLostSince = -1f;
+                return;
+            }
+
+            if (_linkedLostSince < 0f)
+                _linkedLostSince = Time.time;
+            if (Time.time - _linkedLostSince < _lostLinkedDelay)
+                return;
+
+            _linkedLostSince = -1f;
+            var linkedGo = _linkedInteractable.gameObject;
+            Logger.Log($"[Socket] {linkedGo.name} lost (active={linkedGo.activeSelf}, " +
+                       $"pos={linkedGo.transform.position}) - back to {name}.", LogCat.VR);
+            linkedGo.SetActive(true);
+            if (linkedGo.TryGetComponent<Rigidbody>(out var body) && !body.isKinematic)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+
+            TryPlace(_linkedInteractable, false);
+        }
+
+        private bool IsLinkedLost()
+        {
+            var linked = _linkedInteractable.transform;
+            if (!linked.gameObject.activeSelf)
+                return true;
+            if (_linkedInteractable.IsHeld)
+                return false;
+
+            var attach = AttachPoint.position;
+            return Vector3.Distance(linked.position, attach) > _lostLinkedDistance ||
+                   linked.position.y < attach.y - _lostLinkedDrop;
         }
 
         /// <summary>
@@ -507,10 +571,12 @@ namespace Gothic.VR.Interaction.Components
             if (!TryGetLocalBounds(root, out var bounds))
                 return false;
 
-            var extents = bounds.extents;
-            var maxExtent = Mathf.Max(extents.x, Mathf.Max(extents.y, extents.z));
-            if (_shouldScaleToFit && maxExtent > MinExtent)
-                root.localScale = Vector3.one * (_size / maxExtent);
+            // Like HVR: the largest side (not half of it) becomes Size. Twice as large, a coin in a hip holster
+            // reached across the body axis, where the head-down ground check found it and the player flew.
+            var boundsSize = bounds.size;
+            var maxSide = Mathf.Max(boundsSize.x, Mathf.Max(boundsSize.y, boundsSize.z));
+            if (_shouldScaleToFit && maxSide > MinSide)
+                root.localScale = Vector3.one * (_size / maxSide);
 
             if (_shouldCenterItem)
             {

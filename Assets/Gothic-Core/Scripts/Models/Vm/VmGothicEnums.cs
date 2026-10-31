@@ -241,7 +241,8 @@ namespace Gothic.Core.Models.Vm
             ItemBow = 1 << 19, // use like bow
             ItemCrossbow = 1 << 20, // use like crossbow
             ItemAmulet = 1 << 22, // use like amulet
-            ItemRing = 1 << 11 // use like ring
+            ItemRing = 1 << 11, // use like ring
+            ItemBelt = 1 << 24 // use like belt (G2 only)
         }
 
         public enum InvCats

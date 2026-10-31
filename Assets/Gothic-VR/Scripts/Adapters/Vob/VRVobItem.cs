@@ -110,6 +110,10 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
+
+            // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
+            if (_vrPlayerService.IsDualGrabbed)
+                TryPrepareItemUse();
         }
 
         /// <summary>
@@ -135,6 +139,24 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
+
+            if (!_vrPlayerService.IsDualGrabbed && TryGetComponent<VobItem.VRItemUser>(out var itemUser))
+                Destroy(itemUser);
+        }
+
+        /// <summary>
+        /// Items with a "use" function (on_state[0]) like pouches, potions and food, and wearables (armor, amulets,
+        /// rings, belts). VRItemUser waits for the trigger while dual-grabbed.
+        /// </summary>
+        private void TryPrepareItemUse()
+        {
+            var item = GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container
+                .PropsAs<Gothic.Core.Adapters.Properties.Vobs.VobItemProperties2>()?.Instance;
+            if (!VobItem.VRItemUser.IsUsable(item, _configService.Dev.EnableEquipItems))
+                return;
+
+            if (GetComponent<VobItem.VRItemUser>() == null)
+                gameObject.AddComponent<VobItem.VRItemUser>();
         }
 
         /// <summary>

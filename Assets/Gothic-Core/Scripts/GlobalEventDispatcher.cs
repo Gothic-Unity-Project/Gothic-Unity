@@ -110,6 +110,13 @@ namespace Gothic.Core
         /// (lying down, camera) listens to it - added with the VR hero body PR.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// An inventory view (NPC loot sockets, NPC backpack) changed an NPC's items - the other views showing the same
+        /// NPC refresh.
+        /// NpcContainer - whose inventory changed
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
         
 
         // LockPicking events
