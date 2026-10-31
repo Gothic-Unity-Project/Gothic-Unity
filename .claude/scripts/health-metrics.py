@@ -89,7 +89,7 @@ def percentile(values, p):
 
 
 def scan_files():
-    files = [f for f in git('ls-files', 'Assets/Gothic-*').splitlines()
+    files = [f for f in git('ls-files', 'Assets/Gothic*').splitlines()
              if f.endswith('.cs') and not f.startswith(EXCLUDE)]
     result = {}
     for path in files:
@@ -173,14 +173,14 @@ def events(files):
 def history(files, days):
     churn = Counter()
     for path in git('log', f'--since={days}.days', '--no-merges', '--name-only', '--format=',
-                    '--', 'Assets/Gothic-*').splitlines():
+                    '--', 'Assets/Gothic*').splitlines():
         if path in files:
             churn[path] += 1
     hotspots = sorted(((churn[p] * files[p]['code_lines'], churn[p], files[p]['code_lines'], p) for p in churn),
                       reverse=True)[:15]
 
     # Token cost of a change: how much code the touched files hold (what one reads to make that change).
-    log = git('log', '--no-merges', '-300', '--format=@%s', '--name-only', '--', 'Assets/Gothic-*')
+    log = git('log', '--no-merges', '-300', '--format=@%s', '--name-only', '--', 'Assets/Gothic*')
     commits, current = [], None
     for line in log.splitlines():
         if line.startswith('@'):
