@@ -284,7 +284,8 @@ namespace Gothic.VR.Services.Context
 
         private void ApplyBlockedControls()
         {
-            if (_rig == null)
+            // The player can be gone already, e.g. a video's cinema unlocks while the player is destroyed.
+            if (_rig == null || _player == null)
                 return;
 
             _rig.MovementEnabled = (_blockedControls & PlayerControls.Move) == 0;

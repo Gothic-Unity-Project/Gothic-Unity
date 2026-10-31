@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Context;
@@ -15,7 +14,7 @@ namespace Gothic.Core.Services.Context
         // The controls each owner blocks right now.
         private readonly Dictionary<PlayerLocks, PlayerControls> _playerLocks = new();
 
-        public PlayerLocks ActivePlayerLocks { get; private set; }
+        private PlayerLocks _activePlayerLocks;
 
         public void SetImpl(IContextInteractionService proxy)
         {
@@ -68,8 +67,12 @@ namespace Gothic.Core.Services.Context
         /// </summary>
         public void UnlockPlayer(PlayerLocks owners)
         {
-            foreach (var owner in _playerLocks.Keys.Where(owner => (owners & owner) != 0).ToList())
-                _playerLocks.Remove(owner);
+            // One bit per owner.
+            for (var bit = 1; bit > 0 && bit <= (int)owners; bit <<= 1)
+            {
+                if (((int)owners & bit) != 0)
+                    _playerLocks.Remove((PlayerLocks)bit);
+            }
 
             ApplyPlayerLocks();
         }
@@ -84,10 +87,10 @@ namespace Gothic.Core.Services.Context
                 blockedControls |= playerLock.Value;
             }
 
-            if (activeLocks != ActivePlayerLocks)
+            if (activeLocks != _activePlayerLocks)
                 Logger.Log($"Player locks: {activeLocks} (blocked: {blockedControls})", LogCat.Misc);
 
-            ActivePlayerLocks = activeLocks;
+            _activePlayerLocks = activeLocks;
             _impl.SetBlockedControls(blockedControls);
         }
 

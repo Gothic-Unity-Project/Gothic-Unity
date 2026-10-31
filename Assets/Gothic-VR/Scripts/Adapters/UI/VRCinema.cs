@@ -265,10 +265,11 @@ namespace Gothic.VR.Adapters.UI
         /// </summary>
         private void UnlockPlayer()
         {
+            // Also when the player is gone (destroyed first on quit): the lock lives in the service.
+            _contextInteractionService?.UnlockPlayer(PlayerLocks.Cinema);
+
             if (_player == null || _rig == null)
                 return;
-
-            _contextInteractionService?.UnlockPlayer(PlayerLocks.Cinema);
 
             _rig.CanCrouch |= _savedCanCrouch;
             _rig.CanJump |= _savedCanJump;
