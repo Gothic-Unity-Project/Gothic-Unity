@@ -47,6 +47,18 @@ namespace Gothic.VR.Services
 
         public bool IsDualGrabbed => GrabbedItemLeft != null && GrabbedItemLeft == GrabbedItemRight;
 
+        public bool IsHeldInHand(VrInteractable grabbable)
+        {
+            return grabbable != null && (GrabbedItemLeft == grabbable.gameObject
+                                         || GrabbedItemRight == grabbable.gameObject);
+        }
+
+        private bool IsSocketed(VrInteractable grabbable)
+        {
+            return _grabbers.TryGetValue(grabbable, out var grabbers)
+                   && grabbers.Contains((VrGrabberKind.Socket, VrHandSide.Left));
+        }
+
         /// <summary>
         /// An item was grabbed by a hand (directly or by distance). Sockets and other grabbers are ignored.
         /// </summary>
@@ -80,9 +92,7 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.AddItem(instanceName, vobItem.Amount);
+            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
         }
 
         /// <summary>
@@ -119,9 +129,9 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.RemoveItem(instanceName, vobItem.Amount);
+            // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
+            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
+                keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>
