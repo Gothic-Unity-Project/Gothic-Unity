@@ -4,7 +4,8 @@ description: Audits the whole Gothic-Unity codebase on the integration branch (e
     classes, rules in several places, scattered version checks, per-frame cost - points out smells and bugs, and
     scores Performance, Code quality, Extendability and Token efficiency from 1 to 10 against a fixed rubric, with
     the trend since its last run. Read-only on code; writes its report to .claude/health/. Not for a single diff -
-    that's architecture-reviewer and gothic-reviewer.
+    that's architecture-reviewer and gothic-reviewer. Costly (a large model reading ~30 files): never start it on
+    your own - at most suggest it, and run it only when the user explicitly asks for it.
 tools: Read, Grep, Glob, Bash
 model: fable
 ---

@@ -23,7 +23,7 @@ architecture; these files cover workflow and hard-won gotchas.
 | `gothic-reviewer` | reviews your diff against project-specific pitfalls before commit/PR |
 | `architecture-reviewer` | structural review against `Docs/architecture.md` of a branch, `--wip` changes, a plan or a folder: layers, boundaries, extension points, token-cheap code |
 | `playtest-planner` | turns branch changes into an in-game test checklist for G1/G2 |
-| `codebase-health` | audits the whole merged codebase for slow decay, scores performance, code quality, extendability and token efficiency (1-10) with the trend since the last run; reports in `health/` |
+| `codebase-health` | audits the whole merged codebase for slow decay, scores performance, code quality, extendability and token efficiency (1-10) with the trend since the last run; reports in `health/`. Costly: only on explicit request, Claude may only suggest it |
 
 ## Scripts (`scripts/`)
 

@@ -15,6 +15,7 @@ Many branches are built, reviewed and fixed in parallel, a lot of it with AI hel
 3. **Numbers come from a script, not from the model.** The script counts file sizes, duplicated code, scattered game-version checks, per-frame work, how often files change and how much code a typical change touches. It costs nothing and gives the same result every time, and the model only reads the places the numbers point to. Not chosen: letting the model read everything, which is expensive and not repeatable.
 4. **Each run keeps its numbers, and the next run reports the trend.** A number that gets worse is the real warning sign. A score may only jump by more than one step if the numbers moved too.
 5. **It runs on a different, independent model and doesn't read the earlier review reports before scoring.** So it isn't just repeating the opinion of the reviewers that shaped the code.
+6. **It never runs on its own.** A run uses a large model and costs the user's tokens, so Claude may only suggest it, and it starts only when the user asks for it. Not chosen: running it automatically after merges or before PRs.
 
 ## Consequences
 
