@@ -3,6 +3,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Npc;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Gothic.Core.Services.Meshes
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly FightService _fightService;
 
         public void Init()
         {
@@ -58,11 +60,13 @@ namespace Gothic.Core.Services.Meshes
             if (position == default)
                 position = target.Go.transform.position + Vector3.up;
 
+            // FightHit carries only the VR hero's held weapon - NPCs hit with their equipped one.
+            var hitWeapon = attacker != null ? _fightService.GetHitWeapon(attacker, weapon) : weapon;
             string scheme, source;
-            if (weapon != null)
+            if (hitWeapon != null)
             {
                 scheme = "IAM";
-                source = GetMaterialTag(weapon.Material);
+                source = GetMaterialTag(hitWeapon.Material);
             }
             else
             {
@@ -90,7 +94,6 @@ namespace Gothic.Core.Services.Meshes
             {
                 "ME" => $"CPFX_{scheme}_METAL",
                 "WO" => $"CPFX_{scheme}_WOOD",
-                "ST" => $"CPFX_{scheme}_STONE",
                 _ => null
             };
             return name != null && IsParticleEffect(name) ? name : null;

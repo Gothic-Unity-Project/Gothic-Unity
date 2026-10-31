@@ -70,12 +70,7 @@ namespace Gothic.Core.Domain.Npc
         /// <param name="heroWeapon">The weapon in the VR hero's hand: it isn't equipped in VR.</param>
         public int CalculateDamage(NpcContainer attacker, NpcContainer target, ItemInstance heroWeapon)
         {
-            var weapon = attacker.IsHero() && heroWeapon != null
-                ? heroWeapon
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            // Fighting with fists, the sword in the belt doesn't count.
-            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
-                weapon = null;
+            var weapon = GetHitWeapon(attacker, heroWeapon);
 
             var mask = weapon?.DamageType ?? attacker.Instance.DamageType;
             if (mask == 0)
@@ -110,6 +105,21 @@ namespace Gothic.Core.Domain.Npc
                 damage = 0;
 
             return damage;
+        }
+
+        /// <summary>
+        /// The weapon a melee hit is made with: the VR hero's held one, else the equipped melee weapon. None when
+        /// fighting with fists - the sword in the belt doesn't count.
+        /// </summary>
+        /// <param name="heroWeapon">The weapon in the VR hero's hand: it isn't equipped in VR.</param>
+        public ItemInstance GetHitWeapon(NpcContainer attacker, ItemInstance heroWeapon)
+        {
+            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
+                return null;
+
+            return attacker.IsHero() && heroWeapon != null
+                ? heroWeapon
+                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
         }
 
         private int GetMinimalDamage()

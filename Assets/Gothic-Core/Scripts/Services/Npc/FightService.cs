@@ -69,6 +69,14 @@ namespace Gothic.Core.Services.Npc
             return _meleeDamageDomain.GetFightDistance(attacker, target);
         }
 
+        /// <summary>
+        /// The weapon a melee hit is made with - FightHit carries only the VR hero's held one.
+        /// </summary>
+        public ItemInstance GetHitWeapon(NpcContainer attacker, ItemInstance heroWeapon)
+        {
+            return _meleeDamageDomain.GetHitWeapon(attacker, heroWeapon);
+        }
+
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, ItemInstance weapon)
         {
             if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
@@ -250,8 +258,7 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Like the engine (OpenGothic Npc::takeDamage), a hit that doesn't take him down makes every second time a
-        /// pain sound in the victim's voice - the hero's too (found on BoroBongo's branch), at his head as he has no
-        /// NPC voice source.
+        /// pain sound in the victim's voice - the hero's too, at his head as he has no NPC voice source.
         /// </summary>
         private void PlayHurtSound(NpcContainer target)
         {
@@ -265,7 +272,9 @@ namespace Gothic.Core.Services.Npc
 
             if (target.IsHero())
             {
-                var head = Camera.main != null ? Camera.main.transform.position : target.Go.transform.position;
+                var head = target.PrefabProps?.Head != null
+                    ? target.PrefabProps.Head.position
+                    : target.Go.transform.position;
                 AudioSource.PlayClipAtPoint(clip, head);
                 return;
             }
