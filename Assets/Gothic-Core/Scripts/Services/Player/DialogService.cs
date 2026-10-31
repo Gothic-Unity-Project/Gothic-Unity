@@ -47,8 +47,9 @@ namespace Gothic.Core.Manager
         // Vanilla G1/G2 END entries: nr = 999, description = DIALOG_ENDE.
         private const int _exitInfoNr = 999;
         private const string _exitDescriptionSymbol = "DIALOG_ENDE";
-        // Like the engine (OpenGothic AI_ProcessInfos): an NPC farther away doesn't open its dialog.
-        private const float _startMaxDistance = 20f;
+        // An NPC farther away doesn't open its dialog. The engine allows 20 m (OpenGothic AI_ProcessInfos) - in VR that
+        // was far too wide, Bloodwyn talked to the hero from across the yard.
+        private const float _startMaxDistance = 8f;
         // Pinned: room-scale steps around the spot where the hero stood when the dialog opened - free up to the soft
         // radius, slowed down to a stop at the radius.
         private const float _pinSoftRadius = 0.3f;
@@ -92,7 +93,7 @@ namespace Gothic.Core.Manager
             if (!initialDialogStarting && !_gameStateService.Dialogs.IsInDialog)
                 return;
 
-            // ...and it doesn't start at all when the hero is too far away. Pinned (default) like the engine: 20 m.
+            // ...and it doesn't start at all when the hero is too far away. Pinned (default): 8 m.
             // Free movement: the hero has to be inside the bubble to read the dialog box - come closer.
             var maxStartDistance = isFreeMovement ? Constants.DialogFreeMovementRadius : _startMaxDistance;
             if (initialDialogStarting && !IsHeroCloseEnoughToStart(npcContainer, isFreeMovement))
@@ -532,13 +533,14 @@ namespace Gothic.Core.Manager
                 MobDialogAnchor = null;
             }
 
-            // Hide subtitles from both dialog partners.
+            // Hide subtitles from both dialog partners. A destroyed NPC took its subtitles with it.
             _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.HideSubtitles();
-            npc.PrefabProps.NpcSubtitles.HideSubtitles();
+            if (npc.Go != null)
+                npc.PrefabProps.NpcSubtitles.HideSubtitles();
         }
 
         /// <summary>
-        /// Pinned (default) like the engine (OpenGothic AI_ProcessInfos): within 20 m. Free movement: inside the
+        /// Pinned (default): within 8 m (the engine: 20 m, OpenGothic AI_ProcessInfos). Free movement: inside the
         /// bubble.
         /// </summary>
         private bool IsHeroCloseEnoughToStart(NpcContainer npcContainer, bool isFreeMovement)
@@ -614,6 +616,15 @@ namespace Gothic.Core.Manager
             var outsideSeconds = 0f;
             while (dialogs.IsInDialog && dialogs.CurrentDialogNpc == npcContainer)
             {
+                // The bubble follows the NPC: if it's gone (world change, removed), there's nobody to talk to.
+                if (isFreeMovement && npcContainer.Go == null)
+                {
+                    Logger.LogWarning($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: NPC is gone - " +
+                                      "closing the dialog", LogCat.Dialog);
+                    StopDialog(npcContainer);
+                    yield break;
+                }
+
                 var center = isFreeMovement ? npcContainer.Go.transform.position : pinPoint;
                 var canWalkAway = isFreeMovement && dialogs.IsChoosing && dialogs.ExitInfo != null;
                 if (IsHeroWithin(center, radius, out var horizontalDistance))

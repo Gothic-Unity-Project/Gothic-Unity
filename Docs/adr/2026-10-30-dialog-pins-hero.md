@@ -13,7 +13,7 @@ In VR the hero could walk freely during dialogs: inside a five meter bubble arou
 
 1. **A dialog pins the hero to the spot where he stood when it opened, until it ends.** Walking and teleporting are off; a physical step in the room is pushed back. The player has to finish the dialog, as in the original. Not chosen: opening the dialog farther away but keeping free movement, because walking off a dialog broke too much.
 2. **Turning stays on.** An NPC behind the player can still be faced, and turning doesn't take the hero away. Not chosen: locking turning too, as the old lock did.
-3. **An NPC can open a dialog up to 20 meters away, like the original.** Farther away it doesn't open and the NPC goes back to what it did. The choices then appear a few meters in front of the player, on the way to the NPC, so they stay readable. Not chosen: no limit, because a script quirk could pull the player into a dialog with somebody out of sight.
+3. **An NPC can open a dialog up to 8 meters away.** The original allows 20 meters, but in VR that was far too wide: Bloodwyn talked to the player from across the yard. Farther away it doesn't open and the NPC goes back to what it did. The choices then appear a few meters in front of the player, on the way to the NPC, so they stay readable. Not chosen: no limit, because a script quirk could pull the player into a dialog with somebody out of sight.
 4. **Free movement in dialogs stays as an option, off by default.** Whoever wants to improve it can switch it back on. In that mode NPCs still can't reach a hero who walks on.
 
 ## Consequences

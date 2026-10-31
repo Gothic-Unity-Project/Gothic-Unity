@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Extensions;
@@ -16,6 +17,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.UI
 {
@@ -71,10 +73,18 @@ namespace Gothic.VR.Adapters.UI
 
             // An NPC can open a dialog up to 20 m away (DialogService): the box comes towards the player then, so it
             // stays readable. Placed when shown - the player is pinned during the dialog.
-            var cameraPosition = Camera.main!.transform.position;
-            var toBox = _dialogRoot.transform.position - cameraPosition;
-            if (toBox.magnitude > _maxDistanceToPlayer)
-                _dialogRoot.transform.position = cameraPosition + toBox.normalized * _maxDistanceToPlayer;
+            var playerCamera = Camera.main;
+            if (playerCamera == null)
+            {
+                Logger.LogWarning("[VRDialog] No main camera - the dialog box stays at the NPC.", LogCat.Dialog);
+            }
+            else
+            {
+                var cameraPosition = playerCamera.transform.position;
+                var toBox = _dialogRoot.transform.position - cameraPosition;
+                if (toBox.magnitude > _maxDistanceToPlayer)
+                    _dialogRoot.transform.position = cameraPosition + toBox.normalized * _maxDistanceToPlayer;
+            }
 
             var rootRectHeight = _dialogItemHeight * _dialogItemsInUse;
             _dialogRoot.GetComponent<RectTransform>().SetHeight(rootRectHeight);
