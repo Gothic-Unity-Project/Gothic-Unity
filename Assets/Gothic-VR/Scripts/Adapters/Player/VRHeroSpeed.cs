@@ -1,7 +1,9 @@
 using System.Collections;
 using Gothic.Core;
+using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Ports;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -25,12 +27,20 @@ namespace Gothic.VR.Adapters.Player
         private void OnDestroy()
         {
             GlobalEventDispatcher.HeroSpeedChanged.RemoveListener(OnHeroSpeedChanged);
+
+            // The coroutine ends with the component: a rig that outlives it gets its speeds back.
+            if (_running != null)
+                RestoreSpeeds();
         }
 
         private void OnHeroSpeedChanged(float walkFactor, float runFactor, float seconds)
         {
             if (_rig == null)
+            {
+                Logger.LogWarning($"[VRHeroSpeed] No IVrRig on {name} - the VR player's speed stays as it is.",
+                    LogCat.VR);
                 return;
+            }
 
             if (_running != null)
                 StopCoroutine(_running);
@@ -49,6 +59,11 @@ namespace Gothic.VR.Adapters.Player
         {
             yield return new WaitForSeconds(seconds);
 
+            RestoreSpeeds();
+        }
+
+        private void RestoreSpeeds()
+        {
             _rig.MoveSpeed = _normalMoveSpeed;
             _rig.RunSpeed = _normalRunSpeed;
             _running = null;

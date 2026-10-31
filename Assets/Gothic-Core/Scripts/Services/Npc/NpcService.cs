@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly AnimationService _animationService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -459,15 +460,19 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// How much faster the animation's root motion is with the overlay than without.
+        /// How much faster the animation's root motion is with the overlay than without. 1 if it can't be told.
         /// </summary>
         private float GetOverlaySpeedFactor(NpcContainer npc, string overlayName, string animationName)
         {
-            var animationService = ReflexProjectInstaller.DIContainer.Resolve<AnimationService>();
-            var normal = animationService.GetTrack(animationName, npc.Props.MdsNameBase, null);
-            var overlay = animationService.GetTrack(animationName, npc.Props.MdsNameBase, overlayName);
+            var normal = _animationService.GetTrack(animationName, npc.Props.MdsNameBase, null);
+            var overlay = _animationService.GetTrack(animationName, npc.Props.MdsNameBase, overlayName);
             if (normal == null || overlay == null || normal.MovementSpeed.z <= 0f || overlay.MovementSpeed.z <= 0f)
+            {
+                Logger.LogWarning($"[NpcService] No forward root motion of {animationName} in " +
+                                  $"{npc.Props.MdsNameBase} with and without {overlayName} - speed unchanged.",
+                    LogCat.Npc);
                 return 1f;
+            }
 
             return overlay.MovementSpeed.z / normal.MovementSpeed.z;
         }
