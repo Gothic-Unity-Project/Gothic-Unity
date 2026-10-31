@@ -32,7 +32,7 @@ namespace Gothic.Core.Domain.Audio
 
         /// <param name="soundFolder">Folder below _WORK/DATA/SOUND looked in first (SFX for sound effects), null to find
         /// the file by its name only.</param>
-        public AudioClip CreateAudioClip(string fileName, string soundFolder = null)
+        public AudioClip CreateAudioClip(string fileName, string soundFolder)
         {
             fileName = Path.GetFileNameWithoutExtension(fileName);
             var cacheKey = GetCacheKey(fileName, soundFolder);
@@ -73,7 +73,7 @@ namespace Gothic.Core.Domain.Audio
         /// ~400 ms (CS_Inextremo), reading it and creating the clip only a few ms. Must be called on the main thread,
         /// the clip is created there after the decoding.
         /// </summary>
-        public Task<AudioClip> CreateAudioClipAsync(string fileName, string soundFolder = null)
+        public Task<AudioClip> CreateAudioClipAsync(string fileName, string soundFolder)
         {
             fileName = Path.GetFileNameWithoutExtension(fileName);
             var cacheKey = GetCacheKey(fileName, soundFolder);

@@ -102,40 +102,20 @@ namespace Gothic.Core.Manager
                 _scriptSoundSource.PlayOneShot(clip);
         }
 
-        // Sound effects are files of _WORK/DATA/SOUND/SFX, speech of _WORK/DATA/SOUND/SPEECH.
-        private const string _sfxFolder = "SFX";
-
         [CanBeNull]
         public AudioClip CreateAudioClip(SoundEffectInstance soundEffectInstance)
         {
-            return CreateSfxAudioClip(soundEffectInstance.File);
+            return CreateAudioClip(soundEffectInstance.File);
         }
 
         /// <summary>
-        /// A sound effect's file (C_SFX, world sounds): from _WORK/DATA/SOUND/SFX first, like the engine.
-        /// </summary>
-        [CanBeNull]
-        public AudioClip CreateSfxAudioClip(string fileName)
-        {
-            return _soundDomain.CreateAudioClip(fileName, _sfxFolder);
-        }
-
-        /// <summary>
-        /// Like CreateSfxAudioClip(), but decodes on a worker thread.
-        /// </summary>
-        public Task<AudioClip> CreateSfxAudioClipAsync(string fileName)
-        {
-            return _soundDomain.CreateAudioClipAsync(fileName, _sfxFolder);
-        }
-
-        /// <summary>
-        /// Create AudioClip from a file inside .vdf containers.
-        /// Usage: ToAudioClip("fileName"):
+        /// A sound effect's file (C_SFX, world and UI sounds): from _WORK/DATA/SOUND/SFX first like the engine, else
+        /// found by its name. Dialog lines and SVMs use CreateSpeechAudioClip().
         /// </summary>
         [CanBeNull]
         public AudioClip CreateAudioClip(string fileName)
         {
-            return _soundDomain.CreateAudioClip(fileName);
+            return _soundDomain.CreateAudioClip(fileName, ResourceCacheService.SfxFolder);
         }
 
         /// <summary>
@@ -144,9 +124,19 @@ namespace Gothic.Core.Manager
         /// </summary>
         public Task<AudioClip> CreateAudioClipAsync(string fileName)
         {
-            return _soundDomain.CreateAudioClipAsync(fileName);
+            return _soundDomain.CreateAudioClipAsync(fileName, ResourceCacheService.SfxFolder);
         }
-        
+
+        /// <summary>
+        /// A dialog line or SVM, found by its file name only: the SFX folder isn't looked in, G1 has sound effects
+        /// of the same name there (svm_2_dead.wav).
+        /// </summary>
+        [CanBeNull]
+        public AudioClip CreateSpeechAudioClip(string fileName)
+        {
+            return _soundDomain.CreateAudioClip(fileName, null);
+        }
+
         /// <summary>
         /// Hint: If you want to fetch sounds randomly, do not cache them on e.g., MonoBehavior, but fetch them each time you want to run it.
         ///       This method caches the AudioClips itself automatically. No performance penalty when re-running this method.
@@ -164,7 +154,7 @@ namespace Gothic.Core.Manager
             // Bugfix - Normally the data is to get C_SFX_DEF entries from VM. But sometimes there might be the real .wav file stored.
             if (soundName.EndsWithIgnoreCase(".wav"))
             {
-                clip = CreateSfxAudioClip(soundName);
+                clip = CreateAudioClip(soundName);
             }
             else
             {

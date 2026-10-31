@@ -215,6 +215,11 @@ namespace Gothic.Core.Services.Caches
         }
 
         /// <summary>
+        /// Folder below _WORK/DATA/SOUND of the sound effects, see TryGetSoundBytes(key, soundFolder).
+        /// </summary>
+        public const string SfxFolder = "SFX";
+
+        /// <summary>
         /// Like the engine, a sound effect is a file of _WORK/DATA/SOUND/SFX: found by its name only, a newer archive's
         /// speech file of the same name won - G1's hero death scream and pain sounds (svm_2_dead.wav, ...) came from
         /// Speech.vdf instead of sound.VDF (found on BoroBongo's branch). Falls back to the name.

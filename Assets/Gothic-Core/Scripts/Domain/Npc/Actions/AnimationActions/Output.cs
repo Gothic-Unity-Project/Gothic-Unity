@@ -50,7 +50,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 }
             }
             
-            var audioClip = _audioService.CreateAudioClip(OutputName);
+            var audioClip = _audioService.CreateSpeechAudioClip(OutputName);
             if (audioClip == null)
                 Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
             _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
