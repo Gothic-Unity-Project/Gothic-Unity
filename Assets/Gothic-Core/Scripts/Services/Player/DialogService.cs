@@ -510,9 +510,10 @@ namespace Gothic.Core.Manager
                 MobDialogAnchor = null;
             }
 
-            // Hide subtitles from both dialog partners.
+            // Hide subtitles from both dialog partners. A destroyed NPC took its subtitles with it.
             _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.HideSubtitles();
-            npc.PrefabProps.NpcSubtitles.HideSubtitles();
+            if (npc.Go != null)
+                npc.PrefabProps.NpcSubtitles.HideSubtitles();
         }
 
         /// <summary>
@@ -592,6 +593,15 @@ namespace Gothic.Core.Manager
             var outsideSeconds = 0f;
             while (dialogs.IsInDialog && dialogs.CurrentDialogNpc == npcContainer)
             {
+                // The bubble follows the NPC: if it's gone (world change, removed), there's nobody to talk to.
+                if (isFreeMovement && npcContainer.Go == null)
+                {
+                    Logger.LogWarning($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: NPC is gone - " +
+                                      "closing the dialog", LogCat.Dialog);
+                    StopDialog(npcContainer);
+                    yield break;
+                }
+
                 var center = isFreeMovement ? npcContainer.Go.transform.position : pinPoint;
                 var canWalkAway = isFreeMovement && dialogs.IsChoosing && dialogs.ExitInfo != null;
                 if (IsHeroWithin(center, radius, out var horizontalDistance))
