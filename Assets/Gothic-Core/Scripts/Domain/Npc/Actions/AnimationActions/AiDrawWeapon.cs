@@ -125,9 +125,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public static string GetHandSlotName(VmGothicEnums.WeaponState weaponState)
         {
-            // Bows and crossbows are held in the left hand (the right hand draws the arrow/bolt), the rest in the
-            // right.
-            return weaponState.IsRanged() ? Constants.SlotLeftHand : Constants.SlotRightHand;
+            // Like the engine (OpenGothic MdlVisual::updateWeaponSkeleton): a bow is held in the left hand (the right
+            // one draws the arrow), a crossbow like every other weapon in the right hand - its animations hold the
+            // stock there.
+            return weaponState == VmGothicEnums.WeaponState.Bow ? Constants.SlotLeftHand : Constants.SlotRightHand;
         }
 
         private void PlayDrawSound(VmGothicEnums.WeaponState weaponState)
