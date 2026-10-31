@@ -69,7 +69,6 @@ namespace Gothic.VR.Interaction.Components
         [SerializeField] private AudioClip _removedSoundFallback;
 
         [Inject] private readonly IVrSfxPlayer _sfxPlayer;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         // The linked interactable counts as lost this far away (m) or this far below the slot.
         private const float _lostLinkedDistance = 30f;

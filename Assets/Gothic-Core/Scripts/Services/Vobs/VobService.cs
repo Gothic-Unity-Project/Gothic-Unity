@@ -778,10 +778,11 @@ namespace Gothic.Core.Services.Vobs
         /// </summary>
         public void UntrackVobFromCache(VobContainer container)
         {
-            if (!_multiTypeCacheService.VobCache.Remove(container))
-                return;
+            // Out of the world's VOB list in any case: an item taken out of the backpack isn't in the cache any more,
+            // put back in it stayed in the save's world list too (saved twice).
             _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
-            Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
+            if (_multiTypeCacheService.VobCache.Remove(container))
+                Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
         }
 
         /// <summary>

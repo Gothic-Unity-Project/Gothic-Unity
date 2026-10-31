@@ -11,7 +11,6 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
@@ -139,14 +138,6 @@ namespace Gothic.VR.Adapters.Player
         public void SetNpcOwner(NpcContainer npc)
         {
             SetOwner(new NpcInventoryOwner(npc));
-        }
-
-        /// <summary>
-        /// Turns this backpack into the loot of a container without a lid (e.g. a mummy - VRStaticContainerLoot).
-        /// </summary>
-        public void SetContainerOwner(IInventoryOwner containerItems)
-        {
-            SetOwner(containerItems);
         }
 
         private void SetOwner(IInventoryOwner owner)
@@ -439,9 +430,18 @@ namespace Gothic.VR.Adapters.Player
             if (GetComponent<VRItemDetailsPopup>() == null)
                 gameObject.AddComponent<VRItemDetailsPopup>();
 
-            // V1, toggled at runtime via.
+            // Items held near the backpack pass through it.
             if (GetComponent<VRBackpackItemPassThrough>() == null)
                 gameObject.AddComponent<VRBackpackItemPassThrough>();
+        }
+
+        /// <summary>
+        /// The item's instance symbol - the vob name isn't always the symbol (PlayerService.TryGetItemSymbol).
+        /// </summary>
+        private static string GetInstanceName(VobContainer vobContainer)
+        {
+            var item = vobContainer.VobAs<IItem>();
+            return !string.IsNullOrEmpty(item?.Instance) ? item.Instance : vobContainer.Vob.Name;
         }
 
         private void OnDestroy()
@@ -653,7 +653,7 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _vobService.UntrackVobFromCache(vobContainer);
 
-            Owner.Add(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            Owner.Add(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
             // An NPC owner fires NpcInventoryChanged, which refreshes us.
             if (!IsRefreshedByNpcEvent)
@@ -720,7 +720,7 @@ namespace Gothic.VR.Adapters.Player
                 worldVobs.Add(vobContainer.Vob);
 
             // Taking the last one of an equipped item out takes it off (IInventoryOwner.Remove).
-            Owner.Remove(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            Owner.Remove(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
 
             if (!IsRefreshedByNpcEvent)
                 UpdateInventoryView();

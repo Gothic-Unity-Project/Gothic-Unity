@@ -52,14 +52,12 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Where the face points, flat: the forward flattened, plus the head's up flattened - looking down the up points
-        /// ahead (looking up, behind), so the direction stays right where the forward alone gets unreliable.
+        /// Where the face points, flat: perpendicular to the head's right axis, which stays level when looking up or
+        /// down (the forward is unreliable there). Flipping the head's up at the horizon made a tilted head jitter.
         /// </summary>
         private Vector3 GetHeadYawDirection()
         {
-            var flatForward = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
-            var flatUp = Vector3.ProjectOnPlane(_head.up, Vector3.up) * (_head.forward.y < 0f ? 1f : -1f);
-            var direction = flatForward + flatUp;
+            var direction = Vector3.Cross(_head.right, Vector3.up);
             return direction.sqrMagnitude < 0.0001f ? Vector3.zero : direction.normalized;
         }
     }

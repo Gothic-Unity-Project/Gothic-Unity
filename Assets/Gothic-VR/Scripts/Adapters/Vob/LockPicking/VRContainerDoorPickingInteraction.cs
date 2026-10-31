@@ -38,6 +38,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private const float _lockedCommentCooldown = 8f;
         private readonly Collider[] _touchHits = new Collider[16];
         private readonly bool[] _isHandTouching = new bool[2];
+        // A door or chest farther than this from the head can't be touched (its pivot may be at one edge).
+        private const float _touchCheckDistance = 4f;
         private float _nextLockedCommentTime;
 
         private bool _isLocked;
@@ -109,8 +111,17 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private void Update()
         {
             var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (rig == null)
+            if (rig == null || _lockable.Go == null)
                 return;
+
+            // Far away (most locked doors/chests of a world): no physics query, nothing touched.
+            var head = Camera.main;
+            if (head == null || (head.transform.position - _lockable.Go.transform.position).sqrMagnitude >
+                _touchCheckDistance * _touchCheckDistance)
+            {
+                _isHandTouching[0] = _isHandTouching[1] = false;
+                return;
+            }
 
             foreach (var hand in rig.HandGrabbers)
             {
