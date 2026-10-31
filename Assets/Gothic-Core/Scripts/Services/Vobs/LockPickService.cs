@@ -17,10 +17,10 @@ namespace Gothic.Core.Services.Vobs
     /// The engine's rules for picking a lock (OpenGothic PlayerControl::processPickLock, Interactive::checkUseConditions):
     /// in G1 everybody can pick locks, in G2 only with the lock picking talent - else the scripts refuse
     /// (PLAYER_MOB_MISSING_LOCKPICK). A wrong turn breaks the lock pick by chance: in G2 by the hero's dexterity
-    /// (dexterity in 100 holds), in G1 by the talent's value, the chance to break. The engine starts that chance at 100
-    /// and the scripts only lower it (B_GiveSkill: 40 per level, so 60 trained and 20 as a master). Every turn calls the
-    /// scripts' G_PickLock(success, brokenOpen): it plays the sound, prints the message and in G2 a broken pick may be
-    /// heard.
+    /// (dexterity in 100 holds), in G1 by the talent's value, the chance to break. G1's scripts set it when a person is
+    /// created (Npc_Default: 90) and lower it by 40 per level (B_GiveSkill: 50 trained, 10 as a master) - the status
+    /// menu and Npc_GetTalentValue read the same value. Every turn calls the scripts' G_PickLock(success,
+    /// brokenOpen): it plays the sound, prints the message and in G2 a broken pick may be heard.
     /// </summary>
     public class LockPickService
     {
@@ -52,9 +52,8 @@ namespace Gothic.Core.Services.Vobs
             if (_contextGameVersionService.IsGothic2())
                 return hero.Vob.GetAttribute((int)NpcAttribute.Dexterity) <= Random.Range(0, 100);
 
-            // Our talent values start at 0, the engine's chance to break at 100.
-            var value = hero.Vob.GetTalent((int)VmGothicEnums.Talent.Picklock)?.Value ?? 0;
-            var breakChance = value <= 0 ? value + 100 : value;
+            // The engine's roll (OpenGothic PlayerControl::processPickLock): 100 - value <= rand(100).
+            var breakChance = hero.Vob.GetTalent((int)VmGothicEnums.Talent.Picklock)?.Value ?? 0;
             return Random.Range(0, 100) < breakChance;
         }
 
