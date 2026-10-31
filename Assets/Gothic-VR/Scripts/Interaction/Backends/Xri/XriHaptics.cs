@@ -31,7 +31,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
             (0.6f, 0.5f, 80f),
 
             // Contact (amplitude scaled by impact speed; frequency 0 = device default)
-            (0.8f, 0.04f, 0f)
+            (0.8f, 0.04f, 0f),
+
+            // Touch
+            (0.25f, 0.04f, 0f)
         };
 
         private readonly XriInput _input;

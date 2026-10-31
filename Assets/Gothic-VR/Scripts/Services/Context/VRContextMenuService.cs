@@ -41,16 +41,16 @@ namespace Gothic.VR.Services.Context
 
             vrAccessibilityMenu.Items.Add(CreateSitStandLabel(gameMenu, menuStartY + menuDY * 0));
             vrAccessibilityMenu.Items.Add(CreateSitStandChoicebox(gameMenu, menuStartY + menuDY * 0));
-            vrAccessibilityMenu.Items.Add(CreateMoveDirectionLabel(gameMenu, menuStartY + menuDY * 1));
-            vrAccessibilityMenu.Items.Add(CreateMoveDirectionChoicebox(gameMenu, menuStartY + menuDY * 1));
-            vrAccessibilityMenu.Items.Add(CreateRotationTypeLabel(gameMenu, menuStartY + menuDY * 2));
-            vrAccessibilityMenu.Items.Add(CreateRotationTypeChoicebox(gameMenu, menuStartY + menuDY * 2));
-            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedLabel(gameMenu, menuStartY + menuDY * 3));
-            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedSlider(gameMenu, menuStartY + menuDY * 3));
-            vrAccessibilityMenu.Items.Add(CreateSnapRotationLabel(gameMenu, menuStartY + menuDY * 4));
-            vrAccessibilityMenu.Items.Add(CreateSnapRotationChoicebox(gameMenu, menuStartY + menuDY * 4));
-            vrAccessibilityMenu.Items.Add(CreateSmoothSpectatorLabel(gameMenu, menuStartY + menuDY * 5));
-            vrAccessibilityMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 5));
+            vrAccessibilityMenu.Items.Add(CreateHeightOffsetLabel(gameMenu, menuStartY + menuDY * 1));
+            vrAccessibilityMenu.Items.Add(CreateHeightOffsetSlider(gameMenu, menuStartY + menuDY * 1));
+            vrAccessibilityMenu.Items.Add(CreateMoveDirectionLabel(gameMenu, menuStartY + menuDY * 2));
+            vrAccessibilityMenu.Items.Add(CreateMoveDirectionChoicebox(gameMenu, menuStartY + menuDY * 2));
+            vrAccessibilityMenu.Items.Add(CreateRotationTypeLabel(gameMenu, menuStartY + menuDY * 3));
+            vrAccessibilityMenu.Items.Add(CreateRotationTypeChoicebox(gameMenu, menuStartY + menuDY * 3));
+            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedLabel(gameMenu, menuStartY + menuDY * 4));
+            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedSlider(gameMenu, menuStartY + menuDY * 4));
+            vrAccessibilityMenu.Items.Add(CreateSnapRotationLabel(gameMenu, menuStartY + menuDY * 5));
+            vrAccessibilityMenu.Items.Add(CreateSnapRotationChoicebox(gameMenu, menuStartY + menuDY * 5));
 
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
             
@@ -62,33 +62,37 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsLabel(gameMenu, menuStartY + menuDY * 1));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsChoice(gameMenu, menuStartY + menuDY * 1));
+            // Gothic's menus fit 6 rows, the accessibility menu is full. Its ini value stays in the accessibility
+            // section, so existing settings keep working.
+            vrImmersionMenu.Items.Add(CreateSmoothSpectatorLabel(gameMenu, menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers",
-                "-X HP / +X MANA over NPC heads", menuStartY + menuDY * 2));
+                "-X HP / +X MANA over NPC heads", menuStartY + menuDY * 3));
             vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers,
-                menuStartY + menuDY * 2));
+                menuStartY + menuDY * 3));
             vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
-                "Size of the -X HP / +X MANA numbers", menuStartY + menuDY * 3));
-            vrImmersionMenu.Items.Add(CreateHitNumbersSizeSlider(gameMenu, menuStartY + menuDY * 3));
+                "Size of the -X HP / +X MANA numbers", menuStartY + menuDY * 4));
+            vrImmersionMenu.Items.Add(CreateHitNumbersSizeSlider(gameMenu, menuStartY + menuDY * 4));
             vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers",
-                "HP/MAX on health bars", menuStartY + menuDY * 4));
+                "HP/MAX on health bars", menuStartY + menuDY * 5));
             vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers,
-                menuStartY + menuDY * 4));
+                menuStartY + menuDY * 5));
             vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "MARVIN", "Marvin",
-                "Show the Marvin panel (needs Marvin mode)", menuStartY + menuDY * 5));
+                "Show the Marvin panel (needs Marvin mode)", menuStartY + menuDY * 6));
             vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel,
-                menuStartY + menuDY * 5, 1));
+                menuStartY + menuDY * 6, 1));
             vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
-                "How smoothly a torch's light follows your hand", menuStartY + menuDY * 6));
-            vrImmersionMenu.Items.Add(CreateLightRefreshChoice(gameMenu, menuStartY + menuDY * 6));
+                "How smoothly a torch's light follows your hand", menuStartY + menuDY * 7));
+            vrImmersionMenu.Items.Add(CreateLightRefreshChoice(gameMenu, menuStartY + menuDY * 7));
             // DeveloperConfig.EnableHeroDeath: off = an NPC finishing you off only keeps you knocked out.
             if (_configService.Dev.EnableHeroDeath)
             {
                 vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HERO_DEATH", "Death",
-                    "NPCs can finish you off (off: only knocked out)", menuStartY + menuDY * 7));
+                    "NPCs can finish you off (off: only knocked out)", menuStartY + menuDY * 8));
                 vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HERO_DEATH", Constants.IniNames.HeroDeath,
-                    menuStartY + menuDY * 7, 1));
+                    menuStartY + menuDY * 8, 1));
             }
-            var nextRow = _configService.Dev.EnableHeroDeath ? 8 : 7;
+            var nextRow = _configService.Dev.EnableHeroDeath ? 9 : 8;
             // DeveloperConfig.EnableVrStabFinish: off = any hit finishes an unconscious NPC off.
             if (_configService.Dev.EnableVrStabFinish)
             {
@@ -339,7 +343,40 @@ namespace Gothic.VR.Services.Context
             
             return sitStandSetting;
         }
-        
+
+        private AbstractMenuItemInstance CreateHeightOffsetLabel(AbstractMenuInstance gameMenu, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var heightOffsetLabel =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HEIGHT_OFFSET", subtitlesLabel);
+
+            heightOffsetLabel.PosY = posY;
+
+            heightOffsetLabel.SetText(0, _localizationService.GetText("menuitem.heightOffset.label"));
+            heightOffsetLabel.SetText(1, _localizationService.GetText("menuitem.heightOffset.description"));
+
+            return heightOffsetLabel;
+        }
+
+        private AbstractMenuItemInstance CreateHeightOffsetSlider(AbstractMenuInstance gameMenu, int posY)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var heightOffsetSetting =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HEIGHT_OFFSET_SLIDER", mouseSlider);
+
+            heightOffsetSetting.PosY = posY;
+            // Default value if no INI value exists. Middle == no offset.
+            heightOffsetSetting.SetUserFloat(3, VRConstants.HeightOffsetDefaultValue);
+
+            heightOffsetSetting.SetUserFloat(0, VRConstants.HeightOffsetSettingAmount);
+            heightOffsetSetting.OnChgSetOption = VRConstants.IniNames.HeightOffset;
+            heightOffsetSetting.OnChgSetOptionSection = VRConstants.IniSectionAccessibility;
+            // Moving the view on every step moved the player away from the slider they were holding.
+            heightOffsetSetting.IsAppliedOnRelease = true;
+
+            return heightOffsetSetting;
+        }
+
         private AbstractMenuItemInstance CreateMoveDirectionLabel(AbstractMenuInstance gameMenu, int posY)
         {
             var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);

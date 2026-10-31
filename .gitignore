@@ -122,6 +122,7 @@ Assets/Gothic-Core/Resources/DeveloperConfigs/Local/*
 # Local references / symlinks
 Gothic-Unity.wiki
 ZenKit
+ZenKitCAPI
 ZenKitCS
 Daedalus
 OpenGothic
@@ -141,6 +142,3 @@ OpenGothic
 # Package Manager. What we need is copied into Gothic-VR/, so nothing may reference Assets/Samples/.
 /[Aa]ssets/[Ss]amples/
 /[Aa]ssets/[Ss]amples.meta
-
-
-ultimatexr-unity/

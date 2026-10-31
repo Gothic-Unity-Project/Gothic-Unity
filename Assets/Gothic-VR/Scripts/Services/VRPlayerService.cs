@@ -73,6 +73,18 @@ namespace Gothic.VR.Services
 
         public bool IsDualGrabbed => GrabbedItemLeft != null && GrabbedItemLeft == GrabbedItemRight;
 
+        public bool IsHeldInHand(VrInteractable grabbable)
+        {
+            return grabbable != null && (GrabbedItemLeft == grabbable.gameObject
+                                         || GrabbedItemRight == grabbable.gameObject);
+        }
+
+        private bool IsSocketed(VrInteractable grabbable)
+        {
+            return _grabbers.TryGetValue(grabbable, out var grabbers)
+                   && grabbers.Contains((VrGrabberKind.Socket, VrHandSide.Left));
+        }
+
         /// <summary>
         /// An item was grabbed by a hand (directly or by distance). Sockets and other grabbers are ignored.
         /// </summary>
@@ -107,10 +119,9 @@ namespace Gothic.VR.Services
 
             // Otherwise alter inventory count
             var container = grabbable.GetComponentInParent<VobLoader>()?.Container;
-            var vobItem = container?.VobAs<IItem>();
-            if (vobItem == null) return;
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.AddItem(instanceName, vobItem.Amount);
+            if (container?.Vob is not IItem)
+                return;
+            _playerService.PickUpItem(container);
 
             // DeveloperConfig.EnableItemTheftPerception: NPCs who see it may call it theft.
             _heroPerceptionService.OnHeroTakesItem(container);
@@ -150,14 +161,9 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>()?.Container.VobAs<IItem>();
-            if (vobItem == null) return;
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.RemoveItem(instanceName, vobItem.Amount);
-
-            // DeveloperConfig.EnableShoulderStash: let go of at the backpack on the shoulder - into the backpack.
-            if (_configService.Dev.EnableShoulderStash)
-                Gothic.VR.Adapters.Player.VRBackpack.ShoulderBackpack?.TryStashAtShoulder(grabbable);
+            // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
+            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
+                keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>

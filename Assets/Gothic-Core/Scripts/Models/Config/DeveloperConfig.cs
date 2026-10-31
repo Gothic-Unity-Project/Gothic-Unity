@@ -1628,10 +1628,6 @@ namespace Gothic.Core.Models.Config
                  "scaled, the fist keeps its size) - only the wrist stretched, like Mr. Elastic.")]
         public bool EnableWholeArmStretch = true;
 
-        [Tooltip("V1: An item let go of right at the backpack on the shoulder (30 cm) goes into the backpack - pick up and " +
-                 "stash without taking the backpack down.")]
-        public bool EnableShoulderStash = true;
-
         [Tooltip("V1: Holsters and shoulder slots (VrBodyAnchor) turn with the head's direction at once, also looking down " +
                  "at them - they lagged behind (slow catch-up) and had to be turned into place with the head.")]
         public bool EnableBodyAnchorLockedToHead = true;

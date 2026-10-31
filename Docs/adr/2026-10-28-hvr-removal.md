@@ -1,6 +1,6 @@
 # ADR: HurricaneVR is removed, XR Interaction Toolkit is the only VR backend
 
-- Status: proposed
+- Status: accepted (PR #459)
 - Date: 2026-10-28
 
 ## Context
