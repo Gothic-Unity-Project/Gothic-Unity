@@ -304,7 +304,12 @@ namespace Gothic.Core.Services.Npc
             if (heroHead != null && target == heroHead)
                 return hero;
 
-            return target.GetComponentInParent<Gothic.Core.Adapters.Npc.NpcLoader>()?.Npc;
+            foreach (var other in _multiTypeCacheService.NpcCache)
+            {
+                if (other.PrefabProps != null && other.PrefabProps.Head == target)
+                    return other.Instance;
+            }
+            return null;
         }
 
         public void ExtNpcSetKnowsPlayer(NpcInstance npc)
