@@ -414,11 +414,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>The absolute path to the <c>_work</c> folder of the Gothic installation</returns>
         private string FindWorkPath(string root)
         {
-            var path = Directory.GetDirectories(root, "_work", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "_work") ??
+                       throw new DirectoryNotFoundException($"No _work folder in the Gothic installation {root}");
 
             return Path.GetFullPath(path, root);
         }
@@ -431,11 +428,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>A list of absolute paths to all <c>.vdf</c> files the <c>data</c> folder of the Gothic installation</returns>
         private List<string> FindDiskPaths(string root)
         {
-            var path = Directory.GetDirectories(root, "data", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "data") ??
+                       throw new DirectoryNotFoundException($"No Data folder in the Gothic installation {root}");
 
             var data = Path.GetFullPath(path, root);
             var vdfs = Directory.GetFiles(data, "*.vdf", new EnumerationOptions
