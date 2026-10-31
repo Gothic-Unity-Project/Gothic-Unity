@@ -40,25 +40,27 @@ namespace Gothic.Core.Adapters.Vob
 
         /// <summary>
         /// The progress lives with the code master's container, so a save game keeps it (CodeMastersSaveSection) - also
-        /// one restored after this handler was created.
+        /// one restored after this handler was created. Read once per press.
         /// </summary>
-        private CodeMasterState State
+        private CodeMasterState GetState()
         {
-            get
+            _gameStateService.VobsCodeMaster.TryGetValue(_codeMaster.Name.ToUpper(), out var container);
+            var state = container != null ? container.CodeMasterState : _ownState;
+            if (state == null || state.PressedSlots.Length != _slaves.Count)
             {
-                _gameStateService.VobsCodeMaster.TryGetValue(_codeMaster.Name.ToUpper(), out var container);
-                var state = container != null ? container.CodeMasterState : _ownState;
-                if (state == null || state.PressedSlots.Length != _slaves.Count)
-                {
-                    state = new CodeMasterState(_slaves.Count);
-                    if (container != null)
-                        container.CodeMasterState = state;
-                    else
-                        _ownState = state;
-                }
+                if (state != null)
+                    Logger.LogWarning($"[CodeMaster] '{_codeMaster.Name}': saved progress has " +
+                                      $"{state.PressedSlots.Length} slots, the code master {_slaves.Count} - " +
+                                      "starting over (world changed since the save?)", LogCat.Vob);
 
-                return state;
+                state = new CodeMasterState(_slaves.Count);
+                if (container != null)
+                    container.CodeMasterState = state;
+                else
+                    _ownState = state;
             }
+
+            return state;
         }
 
         public void ReceiveTrigger(string senderName)
@@ -70,35 +72,36 @@ namespace Gothic.Core.Adapters.Vob
                 return;
             }
 
-            var slot = FindSlot(senderName);
+            var state = GetState();
+            var slot = FindSlot(senderName, state);
             if (slot >= 0)
             {
-                State.PressedSlots[slot] = true;
+                state.PressedSlots[slot] = true;
             }
             else if (_codeMaster.FirstFalseIsFailure)
             {
-                Logger.Log($"[CodeMaster] '{_codeMaster.Name}': wrong press '{senderName}' at {State.PressCount}",
+                Logger.Log($"[CodeMaster] '{_codeMaster.Name}': wrong press '{senderName}' at {state.PressCount}",
                     LogCat.Vob);
-                Fail();
+                Fail(state);
                 return;
             }
 
-            State.PressCount++;
+            state.PressCount++;
             Logger.Log($"[CodeMaster] '{_codeMaster.Name}': '{senderName}' pressed " +
-                       $"({State.PressCount}/{_slaves.Count}, " +
+                       $"({state.PressCount}/{_slaves.Count}, " +
                        $"{(slot >= 0 ? "right" : "wrong")})", LogCat.Vob);
-            if (State.PressCount < _slaves.Count)
+            if (state.PressCount < _slaves.Count)
                 return;
 
-            if (Array.TrueForAll(State.PressedSlots, isPressed => isPressed))
+            if (Array.TrueForAll(state.PressedSlots, isPressed => isPressed))
             {
                 Logger.Log($"[CodeMaster] '{_codeMaster.Name}': solved -> '{_codeMaster.Target}'", LogCat.Vob);
-                Reset();
+                Reset(state);
                 _vobService.DispatchTrigger(_codeMaster.Target, _codeMaster.Name);
             }
             else if (_codeMaster.Ordered)
             {
-                Fail();
+                Fail(state);
             }
         }
 
@@ -109,7 +112,7 @@ namespace Gothic.Core.Adapters.Vob
 
             Logger.Log($"[CodeMaster] '{_codeMaster.Name}': untrigger from '{senderName}' - resetting sequence",
                 LogCat.Vob);
-            Reset();
+            Reset(GetState());
         }
 
         /// <summary>
@@ -117,13 +120,13 @@ namespace Gothic.Core.Adapters.Vob
         /// sequence); unordered, the first one of that slave not pressed yet, else one already pressed - it still counts
         /// as a press. -1 for a press out of order.
         /// </summary>
-        private int FindSlot(string senderName)
+        private int FindSlot(string senderName, CodeMasterState state)
         {
             if (_codeMaster.Ordered)
             {
-                return State.PressCount < _slaves.Count &&
-                       string.Equals(_slaves[State.PressCount], senderName, StringComparison.OrdinalIgnoreCase)
-                    ? State.PressCount
+                return state.PressCount < _slaves.Count &&
+                       string.Equals(_slaves[state.PressCount], senderName, StringComparison.OrdinalIgnoreCase)
+                    ? state.PressCount
                     : -1;
             }
 
@@ -132,7 +135,7 @@ namespace Gothic.Core.Adapters.Vob
             {
                 if (!string.Equals(_slaves[i], senderName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (!State.PressedSlots[i])
+                if (!state.PressedSlots[i])
                     return i;
                 pressedSlot = i;
             }
@@ -143,9 +146,9 @@ namespace Gothic.Core.Adapters.Vob
         /// <summary>
         /// Like the engine, a failure starts the code over and fires FailureTarget.
         /// </summary>
-        private void Fail()
+        private void Fail(CodeMasterState state)
         {
-            Reset();
+            Reset(state);
             var failureTarget = _codeMaster.FailureTarget;
             if (string.IsNullOrEmpty(failureTarget))
                 return;
@@ -154,10 +157,10 @@ namespace Gothic.Core.Adapters.Vob
             _vobService.DispatchTrigger(failureTarget, _codeMaster.Name);
         }
 
-        private void Reset()
+        private static void Reset(CodeMasterState state)
         {
-            Array.Clear(State.PressedSlots, 0, State.PressedSlots.Length);
-            State.PressCount = 0;
+            Array.Clear(state.PressedSlots, 0, state.PressedSlots.Length);
+            state.PressCount = 0;
         }
     }
 }
