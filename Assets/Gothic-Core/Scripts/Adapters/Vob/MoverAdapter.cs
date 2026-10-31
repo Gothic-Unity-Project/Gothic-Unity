@@ -53,6 +53,10 @@ namespace Gothic.Core.Adapters.Vob
         private int _moveStep;
         private int _moveDestination;
 
+        // The nearest mover above this one (SetPose()), looked up once - "none" is a valid answer, hence the flag.
+        private MoverAdapter _parentMover;
+        private bool _isParentMoverResolved;
+
         /// <summary>
         /// The VOB keeps the current key for save games (zCMover actKeyframe).
         /// </summary>
@@ -76,6 +80,9 @@ namespace Gothic.Core.Adapters.Vob
         {
             GlobalEventDispatcher.StoreWorldStateStart.RemoveListener(StoreMoveState);
         }
+
+        // Moved to another parent: the parent mover is looked up again.
+        private void OnTransformParentChanged() => _isParentMoverResolved = false;
 
         private void Start()
         {
@@ -193,9 +200,14 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         private void SetPose(Vector3 position, Quaternion rotation)
         {
-            var parentMover = transform.parent != null ? transform.parent.GetComponentInParent<MoverAdapter>() : null;
-            if (parentMover != null)
-                parentMover.MapFromStartPose(ref position, ref rotation);
+            if (!_isParentMoverResolved)
+            {
+                _parentMover = transform.parent != null ? transform.parent.GetComponentInParent<MoverAdapter>() : null;
+                _isParentMoverResolved = true;
+            }
+
+            if (_parentMover != null)
+                _parentMover.MapFromStartPose(ref position, ref rotation);
             transform.SetPositionAndRotation(position, rotation);
         }
 
