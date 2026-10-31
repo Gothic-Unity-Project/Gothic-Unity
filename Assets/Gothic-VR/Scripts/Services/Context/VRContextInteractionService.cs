@@ -77,6 +77,14 @@ namespace Gothic.VR.Services.Context
             _vrWeaponService.Init();
             _vrCinemaService.Init();
 
+            // DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head (one per world scene).
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
+            {
+                if (_configService.Dev.EnableVrHeroBody)
+                    new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
+                // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
+                VRHandSkinLight.Apply(_configService);
+            });
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -292,13 +300,13 @@ namespace Gothic.VR.Services.Context
         /// <summary>
         /// Disable certain actions to keep player stuck in current position.
         /// </summary>
-        public void LockPlayerInPlace()
+        public void LockPlayerInPlace(bool allowTurning = false)
         {
             // HINT: Disable physics
             // We can't disable physics as it would prevent the teleport from finishing (HVR checks for IsGrounded
             // every frame). Therefore, we need to ground the player always on a plane and disable movement only.
             _rig.MovementEnabled = false;
-            _rig.TurnEnabled = false;
+            _rig.TurnEnabled = allowTurning;
             _rig.TeleportEnabled = false;
         }
 

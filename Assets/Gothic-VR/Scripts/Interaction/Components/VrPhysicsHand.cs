@@ -227,6 +227,11 @@ namespace Gothic.VR.Interaction.Components
         public VrHandSide Side => _side;
 
         /// <summary>
+        /// What held items follow (CreateAttachPoint), null before the first one. VRHeroBody moves it into the fist.
+        /// </summary>
+        public Transform AttachPoint => _attachPoint;
+
+        /// <summary>
         /// Distance in m between the physical hand and the controller after the last physics step.
         /// 0 while the hand isn't physical.
         /// </summary>
@@ -428,6 +433,15 @@ namespace Gothic.VR.Interaction.Components
         /// </summary>
         internal void OnContact(Collision collision, bool isHeldItem, bool isEnter)
         {
+            // A held lock pick or key passes through the door/chest into
+            // its lock until it's out again - the body of the door or chest stopped it before the lock.
+            if (isHeldItem && IsLockTool(_heldBody) && IsLockable(collision.collider))
+            {
+                foreach (var heldCollider in _heldColliders)
+                    _heldPassThrough.Add(heldCollider, collision.collider);
+                return;
+            }
+
             var time = Time.fixedTime;
             var lastContactTime = isHeldItem ? _lastHeldContactTime : _lastBodyContactTime;
             if (isHeldItem)
@@ -451,6 +465,26 @@ namespace Gothic.VR.Interaction.Components
 
             _lastContactHapticTime = time;
             GlobalEventDispatcher.PhysicalHandContact.Invoke((int)_side, speed);
+        }
+
+        private static bool IsLockable(Collider other)
+        {
+            var vob = other != null
+                ? other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob
+                : null;
+            return vob is ZenKit.Vobs.IContainer or ZenKit.Vobs.IDoor;
+        }
+
+        /// <summary>
+        /// Lock picks and keys - G1 and G2 name them all ITKE_* (ItKe_Lockpick, ItKe_Orlan_HotelZimmer, ...).
+        /// </summary>
+        private static bool IsLockTool(Rigidbody body)
+        {
+            var vob = body != null
+                ? body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as ZenKit.Vobs.IItem
+                : null;
+            var instance = vob == null ? null : !string.IsNullOrEmpty(vob.Instance) ? vob.Instance : vob.Name;
+            return instance != null && instance.StartsWith("ITKE_", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsBlocking(Rigidbody other)
@@ -493,7 +527,11 @@ namespace Gothic.VR.Interaction.Components
                 return;
             }
 
-            if (_separation > _maxDistance)
+            // With two hands on an item, the item holds the hands at
+            // their grips - the controllers are away from them (turning the item, a swing). That isn't stuck: the second
+            // hand let go of the sword mid-swing.
+            var isTwoHandHold = _heldVisual != null && _heldVisual.HolderCount > 1;
+            if (_separation > _maxDistance && !isTwoHandHold)
             {
                 _stuckTime += deltaTime;
                 if (_stuckTime > _maxDistanceTime)
@@ -574,6 +612,34 @@ namespace Gothic.VR.Interaction.Components
 
             GetTargetPose(out var targetPosition, out _);
             _gripGhostDistance = Vector3.Distance(position, targetPosition);
+        }
+
+        /// <summary>
+        /// Two hands hold the item and this one isn't its owner: the hand's pose on its grip, where ShowOnGrip() shows
+        /// it before rendering. For bodies posed in LateUpdate (VRHeroBody's fists), which showed the controller.
+        /// </summary>
+        public bool TryGetSecondHandGripPose(out Vector3 position, out Quaternion rotation)
+        {
+            position = default;
+            rotation = default;
+            if (_heldVisual == null || _heldBody == null || _attachPoint == null || _heldVisual.HolderCount < 2 ||
+                _heldVisual.IsOwner(this))
+                return false;
+
+            UpdateHeldGrip();
+
+            // On the grip of the item as it's shown, not of its physics
+            // body (the fist hung between the controller and the grip), and turned like the controller (the knuckles
+            // follow the hand, the grip stays).
+            if (_heldVisual.TryGetShownPose(out var itemPosition, out var itemRotation))
+            {
+                GetHandPoseOnGrip(itemPosition, itemRotation, out position, out _);
+                GetTargetPose(out _, out rotation);
+                return true;
+            }
+
+            GetHandPoseOnGrip(_heldBody.position, _heldBody.rotation, out position, out rotation);
+            return true;
         }
 
         internal void RestoreFromGrip()

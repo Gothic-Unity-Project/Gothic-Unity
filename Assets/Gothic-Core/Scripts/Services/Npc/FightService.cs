@@ -345,7 +345,7 @@ namespace Gothic.Core.Services.Npc
             hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             SetHasDefeatedHero(attacker);
             _npcService.SetAttribute(hero, NpcAttribute.HitPoints, 1);
-            _contextInteractionService.LockPlayerInPlace();
+            _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
             // this very knockout before its SVM warning/ZS_Attack ever ran) gets its tempAttitude reset

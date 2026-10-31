@@ -18,6 +18,9 @@ namespace Gothic.VR
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
+
+            // 1 = the hero's own fists are the VR hands (with the VR hero body), 0 = the VR hand models (default).
+            public const string HeroHands = "heroHands";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";

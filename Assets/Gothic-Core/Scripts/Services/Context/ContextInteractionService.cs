@@ -37,9 +37,9 @@ namespace Gothic.Core.Services.Context
             return _impl.GetCurrentPlayerController();
         }
 
-        public void LockPlayerInPlace()
+        public void LockPlayerInPlace(bool allowTurning = false)
         {
-            _impl.LockPlayerInPlace();
+            _impl.LockPlayerInPlace(allowTurning);
         }
 
         public void UnlockPlayer()

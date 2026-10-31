@@ -33,6 +33,15 @@ namespace Gothic.VR.Services
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
 
+        /// <summary>
+        /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
+        /// </summary>
+        public GameObject GetHandModelGo(VrHandSide side)
+        {
+            var hand = VRContextInteractionService?.Rig?.GetHandVisual(side);
+            return hand != null ? hand.gameObject : null;
+        }
+
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
 

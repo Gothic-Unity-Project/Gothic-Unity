@@ -9,7 +9,7 @@ namespace Gothic.Core.Services.Context
         float GetFrameRate();
         void SetupPlayerController(DeveloperConfig developerConfig);
         GameObject GetCurrentPlayerController();
-        void LockPlayerInPlace();
+        void LockPlayerInPlace(bool allowTurning = false);
         void UnlockPlayer();
         void SetWalkingControls();
         void SetSwimmingControls();

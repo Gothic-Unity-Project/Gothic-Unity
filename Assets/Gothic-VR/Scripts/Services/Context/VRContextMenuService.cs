@@ -18,6 +18,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextMenuService : IContextMenuService
     {
         [Inject] private readonly LocalizationService _localizationService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly VmService _vmService;
         
         
@@ -64,7 +65,45 @@ namespace Gothic.VR.Services.Context
             // section, so existing settings keep working.
             vrImmersionMenu.Items.Add(CreateSmoothSpectatorLabel(gameMenu, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 2));
+            // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
+            if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands",
+                    "Your hands are the hero's fists", menuStartY + menuDY * 3));
+                vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
+                    menuStartY + menuDY * 3));
+            }
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+        }
+
+        // Our own options have no localization entries yet - plain English labels.
+        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id, string label,
+            string description, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}", subtitlesLabel);
+
+            item.PosY = posY;
+            item.SetText(0, label);
+            item.SetText(1, description);
+
+            return item;
+        }
+
+        private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
+            int posY, int defaultValue = 0)
+        {
+            // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
+            var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
+            var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}_CHOICE", subtitlesChoice);
+
+            item.PosY = posY;
+            item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
+            item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
+            item.OnChgSetOption = iniName;
+            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return item;
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)
