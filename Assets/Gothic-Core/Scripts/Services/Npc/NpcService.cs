@@ -415,8 +415,14 @@ namespace Gothic.Core.Services.Npc
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
         {
             var container = npc.GetUserData();
-            if (container != null)
-                _npcLookService.SetFatness(container, fatness);
+            if (container == null)
+            {
+                Logger.LogWarning($"[NpcService] Mdl_SetModelFatness: NPC {npc.Index} has no container - " +
+                    $"fatness {fatness} ignored.", LogCat.Npc);
+                return;
+            }
+
+            _npcLookService.SetFatness(container, fatness);
         }
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
@@ -672,6 +678,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     ReEnableNpc(npcContainer);
                 }
+
+                // An NPC built before keeps its body while culled, but loses a ghost's see-through look.
+                if (!initializedNow)
+                    _npcLookService.Apply(npcContainer);
             }
         }
         

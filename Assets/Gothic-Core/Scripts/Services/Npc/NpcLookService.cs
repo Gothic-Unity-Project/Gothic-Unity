@@ -1,7 +1,5 @@
-using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
@@ -16,27 +14,40 @@ namespace Gothic.Core.Services.Npc
     /// - Fatness (Mdl_SetModelFatness, -1...2 in the scripts): body, head and armor are pushed out along their normals,
     ///   0.5 cm per unit - a fat merchant, a thin miner.
     /// - Ghosts (C_NPC.flags NPC_FLAG_GHOST: Quarhodron, Rhademes, the fire shadowbeast) are see-through.
-    /// Applied when the NPC's body is built and when a script changes the fatness.
+    /// Applied when the NPC's body is built, when it comes back into range and when a script changes the fatness.
     /// </summary>
     public class NpcLookService
     {
         // OpenGothic: fatness * 0.5 cm.
         private const float _fatnessMeters = 0.005f;
+        // C_NPC.flags bit NPC_FLAG_GHOST (1 << 2 in the G1 and G2 scripts' Constants.d).
         private const int _npcFlagGhost = 4;
         private const float _ghostAlpha = 0.45f;
         private static readonly int _fatnessId = Shader.PropertyToID("_Fatness");
         private static readonly int _alphaId = Shader.PropertyToID("_Alpha");
 
-        [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
 
-        public NpcLookService()
+        /// <summary>
+        /// Called once the NPC's body and weapons are built, and when an already built NPC comes back into range:
+        /// culling it out drops the see-through materials of a ghost.
+        /// </summary>
+        public void Apply(NpcContainer npc)
         {
-            GlobalEventDispatcher.NpcMeshCullingChanged.AddListener((npc, _, isInVisibleRange, _) =>
+            if (npc?.Go == null || npc.Instance == null)
+                return;
+
+            var isGhost = (npc.Instance.Flags & _npcFlagGhost) != 0;
+            if (npc.Vob.ModelFatness == 0 && !isGhost)
+                return;
+
+            // Fatness first: the see-through materials copy it when they are created.
+            ApplyFatness(npc);
+            if (isGhost)
             {
-                if (isInVisibleRange)
-                    _unityMonoService.StartCoroutine(ApplyLater(npc));
-            });
+                _dynamicMaterialService.SetDynamicValue(npc.Go, _alphaId, _ghostAlpha);
+                Logger.Log($"[NpcLook] {npc.Instance.GetName(NpcNameSlot.Slot0)} is a ghost.", LogCat.Npc);
+            }
         }
 
         /// <summary>
@@ -47,21 +58,6 @@ namespace Gothic.Core.Services.Npc
             npc.Vob.ModelFatness = fatness;
             if (npc.Go != null)
                 ApplyFatness(npc);
-        }
-
-        private IEnumerator ApplyLater(NpcContainer npc)
-        {
-            // The body is built in the same event.
-            yield return null;
-            if (npc?.Go == null || npc.Instance == null)
-                yield break;
-
-            ApplyFatness(npc);
-            if ((npc.Instance.Flags & _npcFlagGhost) != 0)
-            {
-                _dynamicMaterialService.SetDynamicValue(npc.Go, _alphaId, _ghostAlpha);
-                Logger.Log($"[NpcLook] {npc.Instance.GetName(NpcNameSlot.Slot0)} is a ghost.", LogCat.Npc);
-            }
         }
 
         /// <summary>
