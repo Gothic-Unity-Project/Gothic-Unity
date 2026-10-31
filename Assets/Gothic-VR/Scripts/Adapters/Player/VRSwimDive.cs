@@ -14,6 +14,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.VR.Interaction.Models;
@@ -92,6 +93,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
         private void Awake()
         {
@@ -212,7 +214,13 @@ namespace Gothic.VR.Adapters.Player
                     _playerAi.WaterLevel = (int)ZenGineConst.WaterLevel.Chest;
 
                 if (previousWaterLevel != _playerAi.WaterLevel)
+                {
+                    // Straight into deep water (a jump, a fall): it splashes at the surface.
+                    if (previousWaterLevel == (int)ZenGineConst.WaterLevel.Normal &&
+                        _playerAi.WaterLevel == (int)ZenGineConst.WaterLevel.Chest)
+                        _npcWaterService.EmitSplash(hit.point);
                     ChangeWaterBehavior();
+                }
             }
             // No water above us, but still swimming/diving: teleported out of the water (Marvin goto, savegame load,
             // world change) or fell through a waterfall. Walking out of the water passes knee depth instead. Diving

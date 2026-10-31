@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -23,6 +25,11 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AnimationService _animationService;
+        [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly AudioService _audioService;
+
+        private const string _splashParticles = "PFX_WATERSPLASH";
+        private const string _splashSound = "CS_INTRO_WATERSPLASH.WAV";
 
         private const int _flyOverWaterHint = 999999;
         private const float _rayHeight = 50f;
@@ -159,6 +166,10 @@ namespace Gothic.Core.Services.Npc
             var previous = (ZenGineConst.WaterLevel)ai.WaterLevel;
             ai.WaterLevel = (int)level;
 
+            // Straight into deep water (a fall, a jump): it splashes. Walking in passes knee-deep water first.
+            if (previous == ZenGineConst.WaterLevel.Normal && level == ZenGineConst.WaterLevel.Chest)
+                EmitSplash(npc.Go.transform.position);
+
             // Daedalus checks C_BodyStateContains(self, BS_SWIM) (no sleep/freeze spells, unconscious in water, ...).
             var bodyState = npc.Props.BodyState;
             if (level == ZenGineConst.WaterLevel.Chest && bodyState is VmGothicEnums.BodyState.BsStand
@@ -168,6 +179,18 @@ namespace Gothic.Core.Services.Npc
                 npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
             Logger.Log($"[NpcWater] {npc.Go.name}: water level {previous} -> {level}.", LogCat.Ai);
+        }
+
+        /// <summary>
+        /// Something falls into water, like the engine (OpenGothic MoveAlgo::emitWaterSplash): the splash particles and
+        /// sound where it hits the surface.
+        /// </summary>
+        public void EmitSplash(Vector3 position)
+        {
+            _meshService.CreateVobPfx(_splashParticles, position, Quaternion.identity, destroyAfterPlay: true);
+            var clip = _audioService.GetRandomSoundClip(_splashSound);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, position);
         }
 
         /// <summary>
