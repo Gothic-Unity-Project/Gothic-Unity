@@ -29,8 +29,11 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcAiService _npcAiService;
 
         // The items lying in the world since it was loaded. Taking one of them is what NPCs can see as theft - items
-        // the hero carried before (e.g. taken out of his backpack) are his.
-        private readonly HashSet<IVirtualObject> _worldItems = new();
+        // the hero carried before (e.g. taken out of his backpack) are his. ZenKit hands out a new object for the same
+        // VOB each time a parent's children are read, so the loaded items are known by their index in the world file
+        // (Id) and only the ones created since (Wld_InsertItem, Id 0) by their object.
+        private readonly HashSet<int> _worldItemIds = new();
+        private readonly HashSet<IVirtualObject> _insertedWorldItems = new();
         private IVirtualObject _lastUsedMob;
         private float _lastMobUseTime;
 
@@ -49,7 +52,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void OnHeroTookItem(IVirtualObject itemVob)
         {
-            if (itemVob is not IItem itemVobData || !_worldItems.Remove(itemVob))
+            if (itemVob is not IItem itemVobData || !RemoveWorldItem(itemVob))
                 return;
 
             var instanceName = !string.IsNullOrEmpty(itemVobData.Instance) ? itemVobData.Instance : itemVob.Name;
@@ -138,14 +141,21 @@ namespace Gothic.Core.Services.Npc
 
         private void OnWorldLoaded()
         {
-            _worldItems.Clear();
+            _worldItemIds.Clear();
+            _insertedWorldItems.Clear();
             HeroDetectedMob = null;
             _lastUsedMob = null;
             if (_saveGameService.CurrentWorldName == null)
                 return;
 
             AddItems(_saveGameService.CurrentWorldData.Vobs);
-            Logger.Log($"[HeroPerception] {_worldItems.Count} items lie in the world", LogCat.Npc);
+            Logger.Log($"[HeroPerception] {_worldItemIds.Count + _insertedWorldItems.Count} items lie in the world",
+                LogCat.Npc);
+        }
+
+        private bool RemoveWorldItem(IVirtualObject itemVob)
+        {
+            return itemVob.Id != 0 ? _worldItemIds.Remove(itemVob.Id) : _insertedWorldItems.Remove(itemVob);
         }
 
         private void AddItems(IEnumerable<IVirtualObject> vobs)
@@ -155,8 +165,10 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var vob in vobs)
             {
-                if (vob is IItem)
-                    _worldItems.Add(vob);
+                if (vob is IItem && vob.Id != 0)
+                    _worldItemIds.Add(vob.Id);
+                else if (vob is IItem)
+                    _insertedWorldItems.Add(vob);
                 AddItems(vob.Children);
             }
         }
