@@ -7,6 +7,7 @@ Shader "Lit/AlphaToCoverage"
         _MipScale ("Mip scale", Range(0,1)) = 0.25
         _DistanceFade("Distance to wide coverage", Float) = 10
         [HideInInspector]_StationaryLightCount("Stationary light count", Int) = 0
+        [HideInInspector]_WindStrength("Wind strength", Float) = 0
     }
     SubShader
     {

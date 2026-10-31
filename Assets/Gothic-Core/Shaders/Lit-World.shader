@@ -5,6 +5,7 @@ Shader "Lit/World"
         _MainTex("Texture", 2DArray) = "" {}
         [HideInInspector]_StationaryLightCount("Stationary light count", Int) = 0
         _FocusBrightness("FocusBrightness", float) = 1
+        [HideInInspector]_WindStrength("Wind strength", Float) = 0
     }
     SubShader
     {
