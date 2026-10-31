@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -24,10 +26,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             // Like the engine (OpenGothic World::wayTo), the route starts at the waypoint the NPC stands on, else at the
             // nearest one. The stored one alone made an NPC interrupted on its way walk back to it first.
+            var position = NpcGo.transform.position;
             var currentWaypoint = Props.CurrentWayPoint;
-            if (currentWaypoint == null || (currentWaypoint.Position - NpcGo.transform.position).sqrMagnitude >
-                _onWayPointDistance * _onWayPointDistance)
-                currentWaypoint = WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
+            if (currentWaypoint == null ||
+                (currentWaypoint.Position - position).sqrMagnitude > _onWayPointDistance * _onWayPointDistance)
+                currentWaypoint = WayNetService.FindNearestWayPoint(position);
+            if (currentWaypoint == null)
+            {
+                Logger.LogWarning($"[GoToWp] No waypoint in the world - {NpcGo.name} can't walk to {Destination}.",
+                    LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
+
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
             
             /*
