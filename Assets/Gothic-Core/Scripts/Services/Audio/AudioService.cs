@@ -102,6 +102,16 @@ namespace Gothic.Core.Manager
                 _scriptSoundSource.PlayOneShot(clip);
         }
 
+        /// <summary>
+        /// A sound at a place in the world, e.g. Daedalus Snd_Play3d(npc, "PICKLOCK_SUCCESS").
+        /// </summary>
+        public void PlaySound3D(string soundName, Vector3 position)
+        {
+            var clip = GetRandomSoundClip(soundName);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, position);
+        }
+
         [CanBeNull]
         public AudioClip CreateAudioClip(SoundEffectInstance soundEffectInstance)
         {

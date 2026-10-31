@@ -231,6 +231,8 @@ namespace Gothic.Core.Domain.Vm
 
             // Sound
             vm.RegisterExternal<string>("Snd_Play", Snd_Play);
+            if (vm.GetSymbolByName("Snd_Play3d") != null)
+                vm.RegisterExternal<NpcInstance, string>("Snd_Play3d", Snd_Play3d);
 
             // Video
             RegisterPlayVideo(vm);
@@ -797,6 +799,16 @@ namespace Gothic.Core.Domain.Vm
         public void Snd_Play(string soundName)
         {
             _audioService.PlaySound2D(soundName);
+        }
+
+        /// <summary>
+        /// A sound at the NPC (G_PickLock's sounds at the hero).
+        /// </summary>
+        public void Snd_Play3d(NpcInstance npc, string soundName)
+        {
+            var go = npc?.GetUserData()?.Go;
+            if (go != null)
+                _audioService.PlaySound3D(soundName, go.transform.position);
         }
 
         public void PrintDebug(string message)
