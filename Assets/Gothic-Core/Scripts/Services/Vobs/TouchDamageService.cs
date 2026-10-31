@@ -19,16 +19,6 @@ namespace Gothic.Core.Services.Vobs
     /// </summary>
     public class TouchDamageService
     {
-        // DAM_INDEX_* order of the zone's damage types.
-        private const int _indexBarrier = 0;
-        private const int _indexBlunt = 1;
-        private const int _indexEdge = 2;
-        private const int _indexFire = 3;
-        private const int _indexFly = 4;
-        private const int _indexMagic = 5;
-        private const int _indexPoint = 6;
-        private const int _indexFall = 7;
-
         [Inject] private readonly NpcService _npcService;
 
         public void Damage(NpcContainer victim, ITouchDamage zone)
@@ -37,14 +27,15 @@ namespace Gothic.Core.Services.Vobs
                 return;
 
             var damage = 0;
-            AddDamage(ref damage, victim, zone.IsBarrier, _indexBarrier, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsBlunt, _indexBlunt, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsEdge, _indexEdge, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFire, _indexFire, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFly, _indexFly, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsMagic, _indexMagic, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsPoint, _indexPoint, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFall, _indexFall, zone.Damage);
+            // The protection index of each damage type (DAM_INDEX_*).
+            AddDamage(ref damage, victim, zone.IsBarrier, (int)DamageType.Barrier, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsBlunt, (int)DamageType.Blunt, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsEdge, (int)DamageType.Edge, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsFire, (int)DamageType.Fire, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsFly, (int)DamageType.Fly, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsMagic, (int)DamageType.Magic, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsPoint, (int)DamageType.Point, zone.Damage);
+            AddDamage(ref damage, victim, zone.IsFall, (int)DamageType.Fall, zone.Damage);
             if (damage <= 0)
                 return;
 

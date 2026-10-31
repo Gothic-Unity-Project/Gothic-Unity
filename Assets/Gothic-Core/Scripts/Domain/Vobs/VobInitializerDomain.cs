@@ -775,15 +775,12 @@ namespace Gothic.Core.Domain.Vobs
         }
 
         /// <summary>
-        /// Trigger VOBs that react to the player entering/leaving their bounding box (trigger collider of the prefab).
-        /// </summary>
-        /// <summary>
         /// A damage zone: a trigger box over its bounding box, on the layer of the other trigger VOBs.
         /// </summary>
         private GameObject CreateTouchDamage(ITouchDamage vob, GameObject parent)
         {
             var go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
-            go.layer = LayerMask.NameToLayer("Ignore Raycast");
+            go.layer = Constants.IgnoreRaycastLayer;
             var box = go.GetComponent<BoxCollider>();
             if (box == null)
                 box = go.AddComponent<BoxCollider>();
@@ -792,6 +789,9 @@ namespace Gothic.Core.Domain.Vobs
             return go;
         }
 
+        /// <summary>
+        /// Trigger VOBs that react to the player entering/leaving their bounding box (trigger collider of the prefab).
+        /// </summary>
         private GameObject CreateTriggerZone(IVirtualObject vob, GameObject parent, string name)
         {
             var go = GetPrefab(vob, parent);
