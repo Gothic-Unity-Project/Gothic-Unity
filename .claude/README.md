@@ -23,11 +23,14 @@ architecture; these files cover workflow and hard-won gotchas.
 | `gothic-reviewer` | reviews your diff against project-specific pitfalls before commit/PR |
 | `architecture-reviewer` | structural review against `Docs/architecture.md` of a branch, `--wip` changes, a plan or a folder: layers, boundaries, extension points, token-cheap code |
 | `playtest-planner` | turns branch changes into an in-game test checklist for G1/G2 |
+| `codebase-health` | audits the whole merged codebase for slow decay, scores performance, code quality, extendability and token efficiency (1-10) with the trend since the last run; reports in `health/` |
 
 ## Scripts (`scripts/`)
 
 - `architecture-facts.sh [<range> | --wip]` - structural facts of a change (layers, usings, DI, events, public API).
   Used by `architecture-reviewer`, readable on its own as a review starting point.
+- `health-metrics.py [--json <file>] [--days N]` - whole-codebase numbers (sizes, duplication, version checks,
+  per-frame work, churn hotspots, change cost). Used by `codebase-health`, readable on its own.
 
 ## Settings
 
