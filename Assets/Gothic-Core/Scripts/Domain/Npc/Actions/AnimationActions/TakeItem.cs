@@ -11,18 +11,21 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
-    /// AI_TakeItem, like the engine (OpenGothic Npc::takeItem): the NPC bends down (S_IGET) and the world item goes into
-    /// its inventory. It doesn't walk there - the scripts call AI_GotoItem first when needed. Gone meanwhile (the hero
-    /// took it), nothing happens.
+    /// AI_TakeItem, like the engine (OpenGothic Npc::takeItem): the NPC bends down and the world item goes into its
+    /// inventory. It doesn't walk there - the scripts call AI_GotoItem first when needed. Gone meanwhile (the hero took
+    /// it), nothing happens. Gothic's t_Stand_2_IGet combines three poses by the item's height (c_Stand_2_IGet_1 to 3,
+    /// low to high): an item on the ground takes the low one, else the middle one.
     /// </summary>
     public class TakeItem : AbstractAnimationAction
     {
-        private static readonly string[] _pickUpAnimations = { "T_STAND_2_IGET", "S_IGET" };
+        // The item lies this far (m) below the NPC's hips or more: it bends down to the ground.
+        private const float _lowItemDepth = 0.5f;
 
         [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         private readonly VobContainer _item;
         private string _animation;
+        private int _level;
 
         public TakeItem(AnimationAction action, NpcContainer npcContainer, VobContainer item)
             : base(action, npcContainer)
@@ -41,11 +44,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             Props.BodyState = VmGothicEnums.BodyState.BsTakeitem;
-            foreach (var animation in _pickUpAnimations)
+            _level = GetLevel();
+            var animation = $"c_Stand_2_IGet_{_level}";
+            if (PrefabProps.AnimationSystem.PlayAnimation(animation))
             {
-                if (!PrefabProps.AnimationSystem.PlayAnimation(animation))
-                    continue;
-
                 _animation = animation;
                 ActionEndEventTime = PrefabProps.AnimationSystem.GetAnimationDuration(animation);
                 return;
@@ -86,10 +88,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private void Finish()
         {
             if (_animation != null)
+            {
                 PrefabProps.AnimationSystem.StopAnimation(_animation);
+                // Back up - the idle follows by itself.
+                if (!PrefabProps.AnimationSystem.PlayAnimation($"c_IGet_2_Stand_{_level}"))
+                    PrefabProps.AnimationSystem.PlayIdleAnimation();
+            }
             Props.BodyState = VmGothicEnums.BodyState.BsStand;
-            PrefabProps.AnimationSystem.PlayIdleAnimation();
             IsFinishedFlag = true;
+        }
+
+        private int GetLevel()
+        {
+            var hips = PrefabProps.Bip01 != null ? PrefabProps.Bip01.position.y : NpcGo.transform.position.y + 1f;
+            var itemY = Services.Npc.NpcHelperService.GetItemPosition(_item).y;
+            return hips - itemY >= _lowItemDepth ? 1 : 2;
         }
     }
 }
