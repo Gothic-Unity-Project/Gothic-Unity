@@ -243,9 +243,8 @@ namespace Gothic.Core.Domain.Vobs
             if (!go)
                 return;
 
-            // Trees and grass with Gothic's wind mode sway.
-            if (vob.AnimationType != ZenKit.Vobs.AnimationType.None || vob.AnimationStrength > 0f)
-                _windService.Register(vob, go);
+            // Trees and grass with Gothic's wind mode sway - WindService decides which.
+            _windService.Register(vob, go);
 
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go);

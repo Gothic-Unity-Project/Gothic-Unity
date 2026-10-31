@@ -22,9 +22,9 @@ namespace Gothic.Core.Services.World
         public const string IniKeyEnabled = "zWindEnabled";
         private const string _iniKeyCycleTime = "zWindCycleTime";
         private const string _iniKeyCycleTimeVar = "zWindCycleTimeVar";
-        // OpenGothic's defaults (G2's Gothic.ini: 4 + 2).
+        // G2's Gothic.ini defaults (4 + 2). OpenGothic's own default variation is 6.
         private const float _defaultCycleTime = 4f;
-        private const float _defaultCycleTimeVar = 6f;
+        private const float _defaultCycleTimeVar = 2f;
 
         private const string _keyword = "_WIND";
         private static readonly int _strengthId = Shader.PropertyToID("_WindStrength");
@@ -44,7 +44,8 @@ namespace Gothic.Core.Services.World
 
         [Inject] private readonly ConfigService _configService;
 
-        private readonly List<Material> _materials = new();
+        // A child VOB's materials are also its parent's - each material once.
+        private readonly HashSet<Material> _materials = new();
         private bool _isEnabled;
         private bool _isApplied;
 
@@ -125,7 +126,7 @@ namespace Gothic.Core.Services.World
             Shader.SetGlobalFloat(_periodId, Mathf.Max(period, 0.5f));
             Shader.SetGlobalVector(_directionId, _direction);
 
-            _materials.RemoveAll(material => material == null);
+            _materials.RemoveWhere(material => material == null);
             foreach (var material in _materials)
                 SetKeyword(material, _isEnabled);
 

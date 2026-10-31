@@ -9,10 +9,12 @@ using Gothic.Services.UI;
 using Gothic.Core;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
 {
@@ -74,13 +76,20 @@ namespace Gothic.VR.Services.Context
         {
             var graphicsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
             if (graphicsMenu == null)
+            {
+                Logger.LogWarning("[Menu] No MENU_OPT_GRAPHICS - the wind option is left out.", LogCat.Ui);
                 return;
+            }
 
             var skyLabel = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS", out _);
             var skyChoice = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS_CHOICE", out _);
             graphicsMenu.FindMenuItem("MENUITEM_GRA_BACK", out var backIndex);
             if (skyLabel == null || skyChoice == null || backIndex < 0)
+            {
+                Logger.LogWarning("[Menu] MENU_OPT_GRAPHICS lacks the sky effects or back row - the wind option is " +
+                    "left out.", LogCat.Ui);
                 return;
+            }
 
             var windLabel = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_GRA_WIND", skyLabel);
             windLabel.PosY = skyLabel.PosY + menuDY;
