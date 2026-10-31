@@ -459,8 +459,7 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var npc in _multiTypeCacheService.NpcCache.ToArray())
             {
-                if (npc == cast.Caster || npc?.Go == null || !npc.Go.activeInHierarchy ||
-                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (npc == cast.Caster || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Props?.IsDead == true)
                     continue;
 
                 var toNpc = npc.Go.transform.position - center;
@@ -482,23 +481,31 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void Teleport(NpcInstance npc, string pointName)
         {
-            var container = npc?.GetUserData();
-            var point = _wayNetService.GetWayNetPoint(pointName);
-            if (container == null || point == null)
+            // An external: no exception may reach the VM.
+            try
             {
-                Logger.LogWarning($"[Magic] AI_Teleport: point '{pointName}' not found", LogCat.Npc);
-                return;
+                var container = npc?.GetUserData();
+                var point = _wayNetService.GetWayNetPoint(pointName);
+                if (container == null || point == null)
+                {
+                    Logger.LogWarning($"[Magic] AI_Teleport: point '{pointName}' not found", LogCat.Npc);
+                    return;
+                }
+
+                var rotation = point.Direction.sqrMagnitude > 0.0001f
+                    ? Quaternion.LookRotation(new Vector3(point.Direction.x, 0f, point.Direction.z))
+                    : Quaternion.identity;
+                if (container.IsHero())
+                    _contextInteractionService.TeleportPlayerTo(point.Position, rotation);
+                else if (container.Go != null)
+                    container.Go.transform.SetPositionAndRotation(point.Position, rotation);
+
+                Logger.Log($"[Magic] {npc.GetName(NpcNameSlot.Slot0)} teleports to {pointName}", LogCat.Npc);
             }
-
-            var rotation = point.Direction.sqrMagnitude > 0.0001f
-                ? Quaternion.LookRotation(new Vector3(point.Direction.x, 0f, point.Direction.z))
-                : Quaternion.identity;
-            if (container.IsHero())
-                _contextInteractionService.TeleportPlayerTo(point.Position, rotation);
-            else if (container.Go != null)
-                container.Go.transform.SetPositionAndRotation(point.Position, rotation);
-
-            Logger.Log($"[Magic] {npc.GetName(NpcNameSlot.Slot0)} teleports to {pointName}", LogCat.Npc);
+            catch (Exception e)
+            {
+                Logger.LogError($"[Magic] AI_Teleport to '{pointName}' failed: {e.Message}", LogCat.Npc);
+            }
         }
 
         /// <summary>
@@ -507,20 +514,30 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void SpawnAround(NpcInstance caster, int npcInstance, int count, float lifeTime)
         {
-            var container = caster?.GetUserData();
-            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(npcInstance);
-            if (container?.Go == null || symbol == null || count <= 0)
-                return;
-
-            var origin = container.Go.transform;
-            for (var i = 0; i < count; i++)
+            // An external: no exception may reach the VM.
+            try
             {
-                var direction = Quaternion.Euler(0f, 360f * i / count, 0f) * origin.forward;
-                _npcService.SpawnNpcByName(symbol.Name, origin.position + direction * _summonDistance,
-                    origin.rotation);
-            }
+                var container = caster?.GetUserData();
+                var symbol = _gameStateService.GothicVm.GetSymbolByIndex(npcInstance);
+                if (container?.Go == null || symbol == null || count <= 0)
+                    return;
 
-            Logger.Log($"[Magic] {caster.GetName(NpcNameSlot.Slot0)} summons {count}x {symbol.Name}", LogCat.Npc);
+                var origin = container.Go.transform;
+                for (var i = 0; i < count; i++)
+                {
+                    var direction = Quaternion.Euler(0f, 360f * i / count, 0f) * origin.forward;
+                    _npcService.SpawnNpcByName(symbol.Name, origin.position + direction * _summonDistance,
+                        origin.rotation);
+                }
+
+                Logger.Log($"[Magic] {caster.GetName(NpcNameSlot.Slot0)} summons {count}x {symbol.Name}",
+                    LogCat.Npc);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Magic] Wld_SpawnNpcRange of instance {npcInstance} failed: {e.Message}",
+                    LogCat.Npc);
+            }
         }
 
         /// <summary>
@@ -529,19 +546,27 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void SetNpcsToState(NpcInstance npc, int state, int radius)
         {
-            var caller = npc?.GetUserData();
-            if (caller?.Go == null)
-                return;
-
-            var range = radius / 100f;
-            foreach (var other in _multiTypeCacheService.NpcCache.ToArray())
+            // An external: no exception may reach the VM.
+            try
             {
-                if (other?.Go == null || other == caller || other.IsHero() || !other.Go.activeInHierarchy ||
-                    other.Props?.BodyState == VmGothicEnums.BodyState.BsDead ||
-                    (other.Go.transform.position - caller.Go.transform.position).sqrMagnitude > range * range)
-                    continue;
+                var caller = npc?.GetUserData();
+                if (caller?.Go == null)
+                    return;
 
-                _npcAiService.StartState(other.Instance, state, true, string.Empty, caller.Instance, null, true);
+                var range = radius / 100f;
+                foreach (var other in _multiTypeCacheService.NpcCache.ToArray())
+                {
+                    if (other?.Go == null || other == caller || other.IsHero() || !other.Go.activeInHierarchy ||
+                        other.Props?.IsDead == true ||
+                        (other.Go.transform.position - caller.Go.transform.position).sqrMagnitude > range * range)
+                        continue;
+
+                    _npcAiService.StartState(other.Instance, state, true, string.Empty, caller.Instance, null, true);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Magic] AI_SetNpcsToState with state {state} failed: {e.Message}", LogCat.Npc);
             }
         }
 
@@ -577,7 +602,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void HitWithSpell(SpellCast cast, NpcContainer victim, int level)
         {
-            if (victim.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (victim.Props == null || victim.Props.IsDead)
                 return;
 
             var mask = _spellDamage.GetCollisionMask(cast.Caster, victim, cast.SpellId, cast.Spell);
@@ -623,7 +648,7 @@ namespace Gothic.Core.Services.Npc
         {
             foreach (var victim in cast.ZappedVictims)
             {
-                if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (victim?.Props == null || victim.Props.IsDead)
                     continue;
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssesssTopMagic, victim.Props,
                     victim.Instance, null, cast.Caster.Instance);

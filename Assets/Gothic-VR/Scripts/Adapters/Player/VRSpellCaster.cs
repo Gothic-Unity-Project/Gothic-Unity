@@ -46,6 +46,9 @@ namespace Gothic.VR.Adapters.Player
         private VrHandSide _castSide;
         private GameObject _castItem;
         private int _lastManaInvested;
+        // What the hands held when the drawn spell was last set.
+        private GameObject _seenItemRight;
+        private GameObject _seenItemLeft;
 
         private void Start()
         {
@@ -72,17 +75,26 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// The scripts ask for the hero's active spell and fight mode (Npc_GetActiveSpell, Npc_IsInFightMode(FMODE_MAGIC)):
-        /// a rune or scroll in a hand is drawn, letting go of it puts it away.
+        /// a rune or scroll in a hand is drawn, letting go of it puts it away. Only a grab or a release is looked at,
+        /// not the hero and the held item every frame.
         /// </summary>
         private void UpdateDrawnSpell()
         {
-            var hero = _npcService.GetHeroContainer();
-            // A cast going on keeps its spell active until it's over.
-            if (hero?.Props == null || hero.Vob == null || hero.Props.SpellCast != null)
+            var right = _vrPlayerService.GrabbedItemRight;
+            var left = _vrPlayerService.GrabbedItemLeft;
+            // By reference: a used-up scroll's destroyed GameObject equals an empty hand for Unity's ==.
+            if (ReferenceEquals(right, _seenItemRight) && ReferenceEquals(left, _seenItemLeft))
                 return;
 
-            var held = GetSpellItem(_vrPlayerService.GrabbedItemRight) ?? GetSpellItem(_vrPlayerService.GrabbedItemLeft);
-            if (held == hero.Props.ActiveSpellItem || _cast != null)
+            var hero = _npcService.GetHeroContainer();
+            // A cast going on keeps its spell active until it's over: the change is taken after it.
+            if (hero?.Props == null || hero.Vob == null || hero.Props.SpellCast != null || _cast != null)
+                return;
+
+            _seenItemRight = right;
+            _seenItemLeft = left;
+            var held = GetSpellItem(right) ?? GetSpellItem(left);
+            if (held == hero.Props.ActiveSpellItem)
                 return;
 
             var weaponState = (VmGothicEnums.WeaponState)hero.Vob.FightMode;
@@ -95,7 +107,10 @@ namespace Gothic.VR.Adapters.Player
 
         private static ItemInstance GetSpellItem(GameObject heldItem)
         {
-            var item = heldItem?.GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (heldItem == null)
+                return null;
+
+            var item = heldItem.GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
             return MagicService.IsSpellItem(item) ? item : null;
         }
 

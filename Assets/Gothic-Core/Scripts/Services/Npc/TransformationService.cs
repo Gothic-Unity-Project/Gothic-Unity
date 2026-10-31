@@ -104,7 +104,10 @@ namespace Gothic.Core.Services.Npc
             var instance = vm.AllocInstance<NpcInstance>(symbol);
             var scratch = new NpcContainer { Instance = instance, Vob = new NpcProxy(monsterIndex), Props = new() };
             instance.UserData = scratch;
-            // The scripts' externals look NPCs up there while the constructor runs.
+            // The scripts' externals look NPCs up there while the constructor runs. Initializing makes the scratch
+            // NPC self (and the constructor may change other): the casting script around must get its own back.
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
             _multiTypeCacheService.NpcCache.Add(scratch);
             try
             {
@@ -113,6 +116,8 @@ namespace Gothic.Core.Services.Npc
             finally
             {
                 _multiTypeCacheService.NpcCache.Remove(scratch);
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
             }
 
             var mds = scratch.Props.MdsNameBase;

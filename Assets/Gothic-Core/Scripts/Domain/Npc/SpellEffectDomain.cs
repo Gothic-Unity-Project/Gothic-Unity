@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
@@ -192,7 +193,9 @@ namespace Gothic.Core.Domain.Npc
             core.name = "Core";
             core.transform.SetParent(projectile.transform, false);
             core.transform.localScale = Vector3.one * _coreDiameter;
-            core.GetComponent<MeshRenderer>().sharedMaterial = GetCoreMaterial(GetCoreColor(spell));
+            var coreMaterial = GetCoreMaterial(GetCoreColor(spell));
+            if (coreMaterial != null)
+                core.GetComponent<MeshRenderer>().sharedMaterial = coreMaterial;
             return projectile;
         }
 
@@ -211,7 +214,15 @@ namespace Gothic.Core.Domain.Npc
             if (_coreMaterials.TryGetValue(color, out var material) && material != null)
                 return material;
 
-            material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            // A build without the shader (stripped) keeps the sphere's default material.
+            if (Constants.ShaderUnlit == null)
+            {
+                Logger.LogWarning("[Magic] Unlit shader not found - spell projectiles have no glowing core.",
+                    LogCat.Fight);
+                return null;
+            }
+
+            material = new Material(Constants.ShaderUnlit);
             material.SetColor("_BaseColor", color);
             _coreMaterials[color] = material;
             return material;

@@ -103,8 +103,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void ThrowAway(NpcContainer attacker, NpcContainer victim)
         {
-            if (victim?.Go == null || attacker?.Go == null || victim.IsHero() || victim.IsDown() ||
-                victim.Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0)
+            if (victim?.Go == null || attacker?.Go == null || victim.IsHero() || victim.IsDown())
                 return;
 
             var away = victim.Go.transform.position - attacker.Go.transform.position;

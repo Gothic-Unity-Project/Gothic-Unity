@@ -29,6 +29,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private float _getUpSeconds;
         private float _standingHeight;
         private Vector3 _velocity;
+        private Rigidbody _body;
 
         /// <param name="away">Horizontal direction from the attacker to the victim.</param>
         public FlyBack(AnimationAction action, NpcContainer npcContainer, Vector3 away) : base(action, npcContainer)
@@ -54,8 +55,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // The NPC's rigidbody only moves up and down (X/Z are frozen, root motion walks): physics does the height,
             // the flight moves the NPC sideways itself.
             _velocity = (_away + Vector3.up * 0.5f).normalized * _speed;
-            var body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
-            body.linearVelocity = new Vector3(0f, _velocity.y, 0f);
+            _body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
+            _body.linearVelocity = new Vector3(0f, _velocity.y, 0f);
         }
 
         public override void Tick()
@@ -123,12 +124,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_phaseTime < _minFlightSeconds)
                 return false;
 
-            var body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
-            if (body.isKinematic)
+            if (_body.isKinematic)
                 return true;
 
             var height = GetHeightAboveGround();
-            return body.linearVelocity.y <= 0.1f && height != null &&
+            return _body.linearVelocity.y <= 0.1f && height != null &&
                    height.Value <= _standingHeight + _landedHeightTolerance;
         }
 
