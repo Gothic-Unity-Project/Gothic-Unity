@@ -21,6 +21,10 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly FightService _fightService;
 
+        // The last grabbed item looked at: it's only looked up again when the hands take another one.
+        private GameObject _checkedItem;
+        private bool _isCheckedItemMelee;
+
         private void Update()
         {
             _fightService.IsHeroBlocking = _vrPlayerService.IsDualGrabbed &&
@@ -34,10 +38,20 @@ namespace Gothic.VR.Adapters.Player
             _fightService.IsHeroBlocking = false;
         }
 
-        private static bool IsMeleeWeapon(GameObject heldItem)
+        private bool IsMeleeWeapon(GameObject heldItem)
         {
-            var item = heldItem?.GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
-            return item != null && ((VmGothicEnums.ItemFlags)item.MainFlag).HasFlag(VmGothicEnums.ItemFlags.ItemKatNf);
+            if (heldItem == null)
+                return false;
+
+            if (heldItem != _checkedItem)
+            {
+                _checkedItem = heldItem;
+                var loader = heldItem.GetComponentInParent<VobLoader>();
+                var item = loader == null ? null : loader.Container?.PropsAs<VobItemProperties2>()?.Instance;
+                var mainFlag = (VmGothicEnums.ItemFlags)(item?.MainFlag ?? 0);
+                _isCheckedItemMelee = mainFlag.HasFlag(VmGothicEnums.ItemFlags.ItemKatNf);
+            }
+            return _isCheckedItemMelee;
         }
     }
 }

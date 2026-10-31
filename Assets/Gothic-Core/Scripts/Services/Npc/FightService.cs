@@ -80,22 +80,34 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Like the engine (OpenGothic Npc::takeDamage): a parry stops a melee hit from the front - of humans, and of
-        /// monsters only with a drawn weapon (orcs, skeletons); animals bite through. A jump back dodges any hit from the
-        /// front. The weapons clash.
+        /// monsters only with a drawn weapon (orcs, skeletons); animals bite through. A jump back dodges any hit from
+        /// the front. Other hit reactions (blood) ask it too, as the hit then doesn't land.
         /// </summary>
-        private bool TryBlock(NpcContainer attacker, NpcContainer target)
+        public bool IsBlocked(NpcContainer attacker, NpcContainer target)
+        {
+            return IsBlocked(attacker, target, out _);
+        }
+
+        private bool IsBlocked(NpcContainer attacker, NpcContainer target, out bool isParrying)
         {
             var action = target.IsHero() ? null : target.Props.CurrentAction as AttackPlayAni;
-            var isParrying = target.IsHero() ? IsHeroBlocking : action?.IsParrying ?? false;
+            isParrying = target.IsHero() ? IsHeroBlocking : action?.IsParrying ?? false;
             var isJumpingBack = action?.IsJumpingBack ?? false;
             if (!isParrying && !isJumpingBack)
                 return false;
 
-            var attackerWeapon = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            var hasWeapon = attackerWeapon is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
+            var hasWeapon = ((VmGothicEnums.WeaponState)attacker.Vob.FightMode).IsMelee();
             if (!isJumpingBack && !attacker.IsHuman() && !hasWeapon)
                 return false;
-            if (!IsInFront(target, attacker))
+            return IsInFront(target, attacker);
+        }
+
+        /// <summary>
+        /// A blocked hit (IsBlocked) does nothing, a parry's weapons clash.
+        /// </summary>
+        private bool TryBlock(NpcContainer attacker, NpcContainer target)
+        {
+            if (!IsBlocked(attacker, target, out var isParrying))
                 return false;
 
             if (isParrying)
@@ -119,8 +131,8 @@ namespace Gothic.Core.Services.Npc
             if (defender.Go == null || attacker.Go == null)
                 return false;
 
-            var camera = Camera.main;
-            var forward = defender.IsHero() && camera != null ? camera.transform.forward : defender.Go.transform.forward;
+            var head = defender.IsHero() ? defender.PrefabProps?.Head : null;
+            var forward = head != null ? head.forward : defender.Go.transform.forward;
             var toAttacker = attacker.Go.transform.position - defender.Go.transform.position;
             forward.y = 0f;
             toAttacker.y = 0f;

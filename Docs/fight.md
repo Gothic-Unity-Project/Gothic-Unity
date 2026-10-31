@@ -18,7 +18,13 @@ How one melee swing becomes a hit, a knockout or a death. The decisions behind i
 ## The hit
 
 `FightService.OnHit`:
-- Nobody hurts the hero or the NPC in a running dialog. A hit on a knocked out NPC kills it.
+- Nobody hurts the hero or the NPC in a running dialog.
+- A block from the front, within 45 degrees, stops the hit (`FightService.IsBlocked`, decisions in
+  `Docs/adr/2026-10-31-parry.md`). An NPC blocks by its fight AI move: a parry (`AttackPlayAni.IsParrying`) holds
+  against humans and monsters with a drawn weapon, animals bite through; a jump back (`IsJumpingBack`) dodges any hit.
+  The VR hero parries with both hands on one melee weapon and both triggers held (`VRHeroBlock`). A parry clashes
+  (`CS_IAI_ME_ME`); a blocked hit does nothing else, no damage and no blood.
+- A hit on a knocked out NPC kills it.
 - The damage is the engine's formula (`MeleeDamageDomain.CalculateDamage`), the part that differs between the games
   through `IContextMeleeDamageService` (G1 critical hits, G2 hit chance). `NPC_FLAG_IMMORTAL` takes nothing.
 - Above 0 hit points: a stumble and a hurt sound. The victim perceives `PERC_ASSESSDAMAGE`, the NPCs around
@@ -47,4 +53,4 @@ Each hit, knockout and death asks all NPCs of the world once whether they saw it
 - A swing hits by reach and angle, not by the weapon's bone touching the target (`DEF_HIT_LIMB`).
 - A knocked out or killed NPC puts the weapon away at once; the original drops it to the ground and the NPC picks it
   up again when it wakes up. Our NPCs can't pick items up yet.
-- Not there yet: hits of archers and mages, parrying, finishing moves, the hero's death, fleeing. See the ADR.
+- Not there yet: hits of archers and mages, finishing moves, the hero's death, fleeing. See the ADR.

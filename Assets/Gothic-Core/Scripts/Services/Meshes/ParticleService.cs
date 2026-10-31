@@ -1,4 +1,5 @@
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Npc;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -10,15 +11,20 @@ namespace Gothic.Core.Services.Meshes
     {
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly FightService _fightService;
 
         public void Init()
         {
             GlobalEventDispatcher.FightHit.AddListener(EmitBlood);
         }
 
-        private void EmitBlood(NpcContainer _, NpcContainer target, Vector3 position, ItemInstance __)
+        private void EmitBlood(NpcContainer attacker, NpcContainer target, Vector3 position, ItemInstance _)
         {
             if (target == null || target.Instance == null)
+                return;
+
+            // A parried or dodged hit doesn't land.
+            if (attacker != null && _fightService.IsBlocked(attacker, target))
                 return;
 
             // Resolve guild-specific blood data
