@@ -18,7 +18,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // The NPC is in the air at least this long, at most this long before it counts as landed.
         private const float _minFlightSeconds = 0.25f;
         private const float _maxFlightSeconds = 4f;
-        private const float _landedSpeed = 0.5f;
+        // Landed: back at the standing height above the ground (m) and no longer rising.
+        private const float _landedHeightTolerance = 0.2f;
         private const float _lieSeconds = 1f;
 
         private readonly Vector3 _away;
@@ -26,6 +27,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private float _phaseTime;
         private int _phase;
         private float _getUpSeconds;
+        private float _standingHeight;
 
         /// <param name="away">Horizontal direction from the attacker to the victim.</param>
         public FlyBack(AnimationAction action, NpcContainer npcContainer, Vector3 away) : base(action, npcContainer)
@@ -45,6 +47,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            _standingHeight = GetHeightAboveGround() ?? 1f;
             Props.BodyState = VmGothicEnums.BodyState.BsFall;
             PhysicsService.EnablePhysicsForNpc(PrefabProps);
             var body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
@@ -94,8 +97,20 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return false;
 
             var body = PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>();
-            return body.isKinematic || Mathf.Abs(body.linearVelocity.y) < _landedSpeed &&
-                Physics.Raycast(NpcGo.transform.position, Vector3.down, 2f, 1 << Constants.DefaultLayer);
+            if (body.isKinematic)
+                return true;
+
+            var height = GetHeightAboveGround();
+            return body.linearVelocity.y <= 0.1f && height != null &&
+                   height.Value <= _standingHeight + _landedHeightTolerance;
+        }
+
+        private float? GetHeightAboveGround()
+        {
+            return Physics.Raycast(NpcGo.transform.position + Vector3.up * 0.1f, Vector3.down, out var hit, 50f,
+                1 << Constants.DefaultLayer)
+                ? hit.distance - 0.1f
+                : null;
         }
 
         private void NextPhase()
