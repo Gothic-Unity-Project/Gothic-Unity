@@ -23,6 +23,7 @@ Shader "Lit/AlphaToCoverage"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -58,10 +59,12 @@ Shader "Lit/AlphaToCoverage"
                 float _DistanceFade;
                 int _StationaryLightCount;
                 float4x4 _StationaryLightIndices;
+                float _WindStrength;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
+            #include "GothicWind.hlsl"
 
             half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
             {
@@ -89,11 +92,16 @@ Shader "Lit/AlphaToCoverage"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-                float3 toCamera = TransformObjectToWorld(v.vertex.xyz) - _WorldSpaceCameraPos;
-                o.distance = length(toCamera);
-                o.vertex = TransformObjectToHClip(v.vertex.xyz);
-                o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
+#if defined(_WIND)
+                o.worldPos = ApplyWind(o.worldPos);
+                o.vertex = TransformWorldToHClip(o.worldPos);
+#else
+                o.vertex = TransformObjectToHClip(v.vertex.xyz);
+#endif
+                float3 toCamera = o.worldPos - _WorldSpaceCameraPos;
+                o.distance = length(toCamera);
+                o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
 
                 return o;

@@ -105,6 +105,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(SaveGameService));
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
+            containerBuilder.AddSingleton(typeof(WindService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
 
             // Misc

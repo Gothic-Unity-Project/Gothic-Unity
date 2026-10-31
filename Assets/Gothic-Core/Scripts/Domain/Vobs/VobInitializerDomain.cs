@@ -46,6 +46,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly WindService _windService;
 
 
         /// <summary>
@@ -241,6 +242,10 @@ namespace Gothic.Core.Domain.Vobs
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
+
+            // Trees and grass with Gothic's wind mode sway.
+            if (vob.AnimationType != ZenKit.Vobs.AnimationType.None || vob.AnimationStrength > 0f)
+                _windService.Register(vob, go);
 
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go);

@@ -22,6 +22,7 @@ Shader "Lit/World"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -56,10 +57,12 @@ Shader "Lit/World"
                 int _StationaryLightCount;
                 float4x4 _StationaryLightIndices;
                 float4x4 _StationaryLightIndices2;
+                float _WindStrength;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
+            #include "GothicWind.hlsl"
 
             half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color, half outdoor)
             {
@@ -97,7 +100,12 @@ Shader "Lit/World"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
+#if defined(_WIND)
+                o.worldPos = ApplyWind(o.worldPos);
+                o.vertex = TransformWorldToHClip(o.worldPos);
+#else
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
+#endif
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
                 o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal.xyz), o.worldPos, v.color,
                     v.normal.w);
