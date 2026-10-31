@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -39,9 +40,9 @@ namespace Gothic.Core.Services.Npc
         // Items closer to the hero than this (m) may be in his hands or holsters - NPCs don't see them.
         private const float _heroItemDistance = 1f;
 
-        // An item's rigidbody may roll or be carried this far (m) from its loader, which stays where it was spawned.
-        // Wld_DetectItem checks the loader against the range plus this, so only candidates look up their rigidbody.
-        private const float _itemMoveMargin = 5f;
+        // Each world item's moving part (its rigidbody's transform - the loader stays where it was spawned while the
+        // hero carries the item away), looked up once: Wld_DetectItem walks all world items on every call.
+        private readonly Dictionary<VobContainer, Transform> _itemBodies = new();
 
         // The world item Wld_DetectItem found, per spawned NPC (not by the instance's index, which all wolves share):
         // the scripts only get its instance ('item') - shared by all items of that instance.
@@ -49,6 +50,11 @@ namespace Gothic.Core.Services.Npc
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
+
+        public NpcHelperService()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _itemBodies.Clear());
+        }
 
         public void Init()
         {
@@ -223,8 +229,6 @@ namespace Gothic.Core.Services.Npc
 
             var npcPos = npcGo.transform.position;
             var range = npc.SensesRange / 100f;
-            var prefilterRange = range + _itemMoveMargin;
-            var prefilterDistance = prefilterRange * prefilterRange;
             var heroGo = (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
             VobContainer nearest = null;
             ItemInstance nearestItem = null;
@@ -232,12 +236,11 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var container in _multiTypeCacheService.VobCache)
             {
-                if (container.Go == null || container.Vob is not IItem vobItem)
-                    continue;
-                if ((container.Go.transform.position - npcPos).sqrMagnitude > prefilterDistance)
+                if (container.Go == null || container.Vob is not IItem vobItem ||
+                    !TryGetItemBody(container, out var body))
                     continue;
 
-                var position = GetItemPosition(container);
+                var position = body.position;
                 var distance = (position - npcPos).sqrMagnitude;
                 if (distance > nearestDistance)
                     continue;
@@ -340,6 +343,29 @@ namespace Gothic.Core.Services.Npc
         {
             var body = container.Go.GetComponentInChildren<Rigidbody>();
             return body != null ? body.transform : container.Go.transform;
+        }
+
+        /// <summary>
+        /// GetItemTransform, cached. False while the item's object is inactive or not loaded yet.
+        /// </summary>
+        private bool TryGetItemBody(VobContainer container, out Transform body)
+        {
+            body = null;
+            if (!container.Go.activeInHierarchy)
+                return false;
+            if (_itemBodies.TryGetValue(container, out body) && body != null)
+                return true;
+
+            // Not looked up yet, or its rigidbody's object is gone (reloaded): the entry is dropped and looked up
+            // again.
+            _itemBodies.Remove(container);
+            var loader = container.Go.GetComponent<VobLoader>();
+            if (loader != null && !loader.IsLoaded)
+                return false;
+
+            body = GetItemTransform(container);
+            _itemBodies[container] = body;
+            return true;
         }
 
         private static bool IsNearHero(Vector3 position, Vector3 heroPosition)
