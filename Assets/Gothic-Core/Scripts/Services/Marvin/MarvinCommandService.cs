@@ -107,6 +107,11 @@ namespace Gothic.Core.Services.Marvin
 
         public bool Execute(string line)
         {
+            return Execute(line, true);
+        }
+
+        private bool Execute(string line, bool isRecent)
+        {
             if (!GetParser().TryResolve(line, out var result))
             {
                 Logger.LogWarning($"[MarvinCommandService] '{line}' isn't a runnable command.", LogCat.Ui);
@@ -128,8 +133,42 @@ namespace Gothic.Core.Services.Marvin
             if (!success)
                 return false;
 
-            AddRecentCommand(normalized);
+            if (isRecent)
+                AddRecentCommand(normalized);
             return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.MarvinBinds: "name = command; command" per line, names in upper case (like parsed values).
+        /// </summary>
+        private Dictionary<string, string> ParseBinds()
+        {
+            var binds = new Dictionary<string, string>();
+            foreach (var line in _configService.Dev.MarvinBinds.Split('\n'))
+            {
+                var separator = line.IndexOf('=');
+                if (separator <= 0)
+                    continue;
+                var name = line[..separator].Trim().ToUpperInvariant();
+                if (name.Length > 0)
+                    binds[name] = line[(separator + 1)..].Trim();
+            }
+            return binds;
+        }
+
+        private bool RunBind(string name)
+        {
+            if (!ParseBinds().TryGetValue(name, out var commands))
+                return false;
+
+            var ran = 0;
+            foreach (var command in commands.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (Execute(command.Trim(), false))
+                    ran++;
+            }
+            Logger.Log($"[MarvinCommandService] Bind {name}: {ran} command(s) run", LogCat.Ui);
+            return ran > 0;
         }
 
         /// <summary>
@@ -223,6 +262,11 @@ namespace Gothic.Core.Services.Marvin
                 root.Add("team").Add("helpers").Describe("The scripts' test helpers (SH/CH) in front of the hero")
                     .Runs(_ => _cheatDomain.SpawnGroup("Test helpers",
                         _configService.Dev.MarvinCheatFriendsNpcSymbols));
+
+            if (!string.IsNullOrWhiteSpace(_configService.Dev.MarvinBinds))
+                root.Add("bind").Describe("Runs a command list of the DeveloperConfig (MarvinBinds)")
+                    .Add(new MarvinClosedSetValue("<BIND>", () => new MarvinPrefixIndex(ParseBinds().Keys)))
+                    .Runs(values => RunBind(values[0]));
 
             root.Add("set").Add("time").Describe("Set the game time")
                 .Add(new MarvinNumberValue("<HOUR>", 0, 23))

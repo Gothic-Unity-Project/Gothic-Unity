@@ -485,6 +485,11 @@ namespace Gothic.Core.Models.Config
         [TextArea(2, 6)]
         public string MarvinGiveItems = string.Empty;
 
+        [Tooltip("Marvin command 'bind <NAME>': named command lists, one per line, commands separated by ';': " +
+                 "'test_1 = goto waypoint OCR_ARENABATTLE_TRAIN; insert ITMW_1H_SWORD_01'. Leave empty to hide it.")]
+        [TextArea(3, 12)]
+        public string MarvinBinds = string.Empty;
+
         [Header("NPC Combat (WIP)")]
         [Tooltip("Fire ZS_Attack_Loop early when combo window opens so the next attack chains before the animation ends.")]
         public bool EnableNpcCombatCombos = true;
