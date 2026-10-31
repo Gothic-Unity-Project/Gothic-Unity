@@ -283,7 +283,7 @@ namespace Gothic.VR.Interaction.Components
         }
 
         /// <summary>
-        /// IContainer.Contents is what a save stores for this chest (DeveloperConfig.EnableWorldItemSaveState): items
+        /// IContainer.Contents is what a save stores for this chest (DeveloperConfig.EnableSaveLoadSystem): items
         /// put into the slots join it, items taken out leave it. Two beers taken out were in the backpack and still in
         /// the chest after loading. Starts after the content is spawned (spawning doesn't count).
         /// </summary>

@@ -102,11 +102,8 @@ namespace Gothic.Core.Services.World
         // has them - applied when a world is built, carried forward for worlds not visited this session.
         private readonly Dictionary<string, WorldItemsSaveEntry> _worldItemStates = new();
 
-        private bool IsWorldItemSaveState =>
-            _configService.Dev.EnableSaveLoadSystem;
-
-        private bool IsNpcInventorySaveState =>
-            _configService.Dev.EnableSaveLoadSystem;
+        // Items/chests of every world and NPC inventories are part of the save/load system.
+        private bool IsSaveLoadSystem => _configService.Dev.EnableSaveLoadSystem;
 
         /// <summary>
         /// The world being entered was visited before in this game (session or loaded save) - its NPCs are rebuilt from
@@ -344,7 +341,7 @@ namespace Gothic.Core.Services.World
 
             // The world file's items/chests as baseline, then the saved state.
             WorldItemBaseline itemBaseline = null;
-            if (IsWorldItemSaveState)
+            if (IsSaveLoadSystem)
             {
                 itemBaseline = WorldItemSaveDomain.CreateBaseline(worldVobs);
                 if (_worldItemStates.TryGetValue(CurrentWorldName.ToUpperInvariant(), out var itemState))
@@ -526,7 +523,7 @@ namespace Gothic.Core.Services.World
                 if (looseItem.Go == null) continue;
                 // The item's body, not its loader - a world item moved by
                 // hand is tracked here too (every hand grab), and the loader's spot put it back where it was.
-                var itemTransform = IsWorldItemSaveState ? GetItemTransform(looseItem) : looseItem.Go.transform;
+                var itemTransform = IsSaveLoadSystem ? GetItemTransform(looseItem) : looseItem.Go.transform;
                 vob.Position = itemTransform.position.ToZkVector();
                 vob.Rotation = itemTransform.rotation.ToZkMatrix();
             }
@@ -665,7 +662,7 @@ namespace Gothic.Core.Services.World
                 data.NpcsByWorld = _worldNpcStates.ToDictionary(w => w.Key, w => w.Value.Values.ToList());
             }
             data.SpawnedNpcsByWorld = _spawnedNpcsByWorld.ToDictionary(w => w.Key, w => w.Value);
-            data.ItemsByWorld = IsWorldItemSaveState ? CaptureWorldItemStates() : null;
+            data.ItemsByWorld = IsSaveLoadSystem ? CaptureWorldItemStates() : null;
 
             var json = JsonConvert.SerializeObject(data, Formatting.Indented);
             var savePath = GetUnityCustomSavePath(saveGameId);
@@ -681,7 +678,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public void SyncWorldItemPositions()
         {
-            if (!IsWorldItemSaveState || string.IsNullOrEmpty(CurrentWorldName))
+            if (!IsSaveLoadSystem || string.IsNullOrEmpty(CurrentWorldName))
                 return;
 
             var synced = 0;
@@ -849,7 +846,7 @@ namespace Gothic.Core.Services.World
                     _spawnedNpcsByWorld[world.ToUpperInvariant()] = entries;
 
             // Items/chests of every world, applied when a world is built.
-            if (IsWorldItemSaveState && unitySave?.ItemsByWorld != null)
+            if (IsSaveLoadSystem && unitySave?.ItemsByWorld != null)
                 foreach (var (world, entry) in unitySave.ItemsByWorld)
                     _worldItemStates[world.ToUpperInvariant()] = entry;
 
@@ -992,7 +989,7 @@ namespace Gothic.Core.Services.World
             {
                 // ExtNpcClearInventory clears only the world file's item
                 // list, not the inventory used at runtime - INIT's items were doubled.
-                if (IsNpcInventorySaveState)
+                if (IsSaveLoadSystem)
                     _npcInventorySvc.ClearPackedInventory(hero);
                 else
                     _npcInventorySvc.ExtNpcClearInventory(hero);
@@ -1137,7 +1134,7 @@ namespace Gothic.Core.Services.World
                 IsDead = isDead,
                 Protection = Enumerable.Range(0, ProtectionCount).Select(i => vob.GetProtection(i)).ToArray(),
                 EquippedItems = GetEquippedSymbolNames(npc),
-                Inventory = IsNpcInventorySaveState ? GetInventoryEntries(npc.Instance) : null
+                Inventory = IsSaveLoadSystem ? GetInventoryEntries(npc.Instance) : null
             };
         }
 
@@ -1187,7 +1184,7 @@ namespace Gothic.Core.Services.World
                 for (var i = 0; i < entry.Attributes.Length && i < 8; i++)
                     vob.SetAttribute(i, entry.Attributes[i]);
 
-            if (IsNpcInventorySaveState && entry.Inventory != null)
+            if (IsSaveLoadSystem && entry.Inventory != null)
                 RestoreInventory(npc.Instance, entry.Inventory);
 
             RestoreEquipment(npc, entry.Protection, entry.EquippedItems);

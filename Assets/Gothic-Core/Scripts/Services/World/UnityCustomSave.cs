@@ -35,13 +35,13 @@ namespace Gothic.Core.Services.World
         // Daedalus symbol names. On load the NPC's INIT re-equips its default gear (EquipItem/Mdl_SetVisualBody),
         // this list replaces it - e.g. a looted sword stays gone. Null in older saves.
         public List<string> EquippedItems;
-        // DeveloperConfig.EnableNpcInventorySaveState: the whole inventory (Daedalus symbol names) - a looted NPC stays
+        // DeveloperConfig.EnableSaveLoadSystem: the whole inventory (Daedalus symbol names) - a looted NPC stays
         // looted, INIT gave it everything back on load. Null in older saves.
         public List<HeroInventoryEntry> Inventory;
     }
 
     /// <summary>
-    /// DeveloperConfig.EnableWorldItemSaveState: what a world's items and chests differ from its world file (.zen) - the
+    /// DeveloperConfig.EnableSaveLoadSystem: what a world's items and chests differ from its world file (.zen) - the
     /// world is built from the .zen on load and this is applied on top.
     /// </summary>
     public class WorldItemsSaveEntry
@@ -102,15 +102,15 @@ namespace Gothic.Core.Services.World
         // Restored without re-applying effects, as HeroProtection/HeroAttributes already contain them. Null in older saves.
         public List<string> HeroEquippedItems;
 
-        // DeveloperConfig.EnableRingItemSlots: Daedalus symbol names of the hero's favorite items (VR favorites ring).
+        // Daedalus symbol names of the hero's favorite items (VR favorites ring).
         // Null in older saves.
         public List<string> HeroFavoriteItems;
 
-        // DeveloperConfig.EnableHolsterSaveState: the hero's VR holster contents ("slot|instance|amount"). Null in older
+        // The hero's VR holster contents ("slot|instance|amount"). Null in older
         // saves.
         public List<string> HeroHolsterItems;
 
-        // DeveloperConfig.EnableHeroTalentSaveState: the hero's talents as skill/value pairs per talent index - the
+        // The hero's talents as skill/value pairs per talent index - the
         // loaded hero is created fresh, his learned talents (pickpocketing, ...) were gone. Null in older saves.
         public int[] HeroTalents;
 

@@ -478,18 +478,28 @@ namespace Gothic.Core.Services.Npc
         private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcContainer killer)
         {
             yield return null;
+            RunZsDead(dead, killer);
+        }
 
+        /// <summary>
+        /// ZS_Dead (and ZS_Dead_Loop) of a dead NPC with the killer as 'other', the state bookkeeping like the engine.
+        /// Also for a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh VM.
+        /// </summary>
+        public void RunZsDead(NpcInstance dead, NpcContainer killer)
+        {
             var vm = _gameStateService.GothicVm;
             var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
             if (zsDeadSym == null)
             {
                 Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
-                yield break;
+                return;
             }
 
             // Like the engine's state change: the state he died in is the last one - G1's B_DeathXP pays nothing for
             // finishing off an unconscious human (Npc_WasInState(self, ZS_Unconscious)).
             var deadContainer = dead.GetUserData();
+            if (deadContainer != null)
+                deadContainer.IsZsDeadCalled = true;
             if (deadContainer?.Vob != null)
             {
                 deadContainer.Vob.LastAiState = deadContainer.Vob.CurrentStateIndex;

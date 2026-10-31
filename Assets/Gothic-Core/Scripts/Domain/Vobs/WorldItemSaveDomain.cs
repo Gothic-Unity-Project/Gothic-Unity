@@ -11,10 +11,10 @@ using Vector3 = System.Numerics.Vector3;
 namespace Gothic.Core.Domain.Vobs
 {
     /// <summary>
-    /// DeveloperConfig.EnableWorldItemSaveState: a world is built from its world file (.zen) on load - the items lying
+    /// DeveloperConfig.EnableSaveLoadSystem: a world is built from its world file (.zen) on load - the items lying
     /// in it and the chests' contents are stored as the difference to it. A beer taken before saving was in the
     /// backpack and in the world again after loading.
-    /// World file objects are keyed by name and position (like LogicVobSaveState), stable across sessions and mod
+    /// World file objects are keyed by name and position, stable across sessions and mod
     /// updates that don't move them.
     /// </summary>
     public static class WorldItemSaveDomain

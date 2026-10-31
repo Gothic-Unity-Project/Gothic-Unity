@@ -156,10 +156,6 @@ namespace Gothic.Core.Models.Container
         // ZenKit data
         public NpcInstance Instance;
         public NpcProxy Vob;
-        // True after Vm.InitInstance() was called for this container (prevents double-init in InitZkInstance).
-        public bool IsZkInstanceInitialized;
-        // True after ZS_Dead was called for this NPC (prevents double-call between OnNpcDied and dead-on-spawn).
-        public bool IsZsDeadCalled;
 
         // Unity Data
         public GameObject Go;
@@ -171,41 +167,20 @@ namespace Gothic.Core.Models.Container
         // Cache objects from Prefab
         public NpcPrefabProperties PrefabProps;
 
-        // Save/load identity — assigned in AllocZkInstance, stable within a play session
+        // Vm.InitInstance already ran (Wld_InsertNpc before the startup scripts, save-game restore) - not again.
+        public bool IsZkInstanceInitialized;
+        // ZS_Dead ran for this corpse (kill or dead on spawn after a load) - not twice.
+        public bool IsZsDeadCalled;
+
+        // Save-game identity: a stable id from the new-game NPC init, the Daedalus symbol, the spawn waypoint and the
+        // GameObject's name (e.g. "Diego (1)", the key of the NPC's saved state).
         public int InstanceId;
         public int SymbolIndex;
         public string SpawnWaypoint;
-        public string GoName; // Unity parent GO name e.g. "Diego (1)" — set in InitLazyLoadNpc
-        // Spawned after the world's initial NPC load (Marvin, a mid-game Wld_InsertNpc) - not in the world's NPC init
-        // snapshot, so the save keeps it separately (DeveloperConfig.EnableSpawnedNpcSaves). Summons aren't.
+        public string GoName;
+        // Spawned mid-game (Wld_InsertNpc after the world load, Marvin) - saved per world and spawned again on load.
         public bool IsRuntimeSpawned;
-
-        // Spell casting state — set by VRRuneCaster while a rune is held
-        public int ActiveSpell;
-        // Npc_GetActiveSpellIsScroll (DeveloperConfig.EnableActiveSpellIsScroll): the held spell is a scroll.
-        public bool IsActiveSpellScroll;
-        // Npc_SetActiveSpellInfo: for transformation spells the monster instance the caster becomes.
-        public int ActiveSpellInfo;
-        public int ActiveSpellLevel = 1;
-        // DeveloperConfig.EnableSpellMonsterMelee: a spell casting monster (Mroczne Tajemnice's web crawler) fights in
-        // melee right now - its target is frozen or right in front of it (Attack sets it, AttackPlayAni bites).
-        public bool IsSpellMonsterInMelee;
-        public GameObject ActiveSpellVfxGo;
-
-        // Light spell toggle — persists across rune grab/ungrab (unlike ActiveSpellVfxGo, which
-        // only lives while the rune is held), since casting Light again is what turns it back off.
-        public GameObject ActiveLightGo;
-
-        // Set by Wld_SpawnNpcRange (summon spells) — the caster that created this NPC at runtime.
-        // Daedalus has no native "who summoned me" concept (ZS_MM_Summoned just sets Attitude=Hostile
-        // and scans for the closest hostile NPC), so without this, a summon whose guild differs from
-        // its summoner's (e.g. SkeletonMage=GIL_DEMON vs its GIL_SKELETON summons) can end up targeting
-        // its own creator. Checked as a C# safety net alongside the existing same-guild/party exclusions.
+        // The caster of a summoned NPC (Wld_SpawnNpcRange) - summons aren't saved as spawned NPCs.
         public NpcInstance SummonedBy;
-
-        // Tracks where the drawn weapon came from so UndrawWeapon can return it even if
-        // FightMode was already reset or the weapon ended up in an unexpected slot.
-        public GameObject WeaponHandSlotGo;  // slot the weapon was moved INTO on draw
-        public GameObject WeaponStowSlotGo;  // slot the weapon was taken FROM on draw
     }
 }

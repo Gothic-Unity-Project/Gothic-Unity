@@ -33,6 +33,7 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VmService _vmService;
 
@@ -60,21 +61,7 @@ namespace Gothic.Core.Adapters.Npc
                 // variables (e.g. CAVALORN_BRAGO_KILLED) are set in the fresh VM — dialog conditions depend on them.
                 // Only for HP=0 deaths (not HP=1 knockout-restores). Guard against double-call if OnNpcDied already ran.
                 if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
-                {
-                    var zsDeadSym = Vm.GetSymbolByName("ZS_Dead");
-                    if (zsDeadSym != null)
-                    {
-                        var oldSelf = Vm.GlobalSelf;
-                        var oldOther = Vm.GlobalOther;
-                        Vm.GlobalSelf = NpcInstance;
-                        Vm.GlobalOther = _npcService.GetHeroContainer().Instance;
-                        Vm.Call(zsDeadSym.Index);
-                        NpcData.IsZsDeadCalled = true;
-                        _npcService.SyncHeroInstanceToVob();
-                        Vm.GlobalSelf = oldSelf;
-                        Vm.GlobalOther = oldOther;
-                    }
-                }
+                    _fightService.RunZsDead(NpcInstance, _npcService.GetHeroContainer());
             }
         }
 
