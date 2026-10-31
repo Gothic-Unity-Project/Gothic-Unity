@@ -48,6 +48,9 @@ namespace Gothic.VR.Adapters.Player
         private float _initialFallSpeed;
 
         private VmGothicEnums.WalkMode _mode = VmGothicEnums.WalkMode.Walk;
+        // At the last check no water was above the feet: going below the surface then is an entry and can splash.
+        // False after a load or teleport - whoever appears in water doesn't splash.
+        private bool _wasOutOfWater;
 
         // Swim + Dive properties
         private Vector3 _currentVelocity;
@@ -165,12 +168,25 @@ namespace Gothic.VR.Adapters.Player
             {
                 _playerVob = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData()!.Vob;
                 _playerAi = (IAiHuman)_playerVob.Ai;
+                _wasOutOfWater = false;
             });
+            _rig.Teleported += OnTeleported;
             
             _initialGravity = _rig.Gravity;
             _initialMoveSpeed = _rig.MoveSpeed;
             _initialRunSpeed = _rig.RunSpeed;
             _initialFallSpeed = _rig.MaxFallSpeed;
+        }
+
+        private void OnDestroy()
+        {
+            if (_rig != null)
+                _rig.Teleported -= OnTeleported;
+        }
+
+        private void OnTeleported(Vector3 position)
+        {
+            _wasOutOfWater = false;
         }
 
         private void Update()
@@ -205,6 +221,10 @@ namespace Gothic.VR.Adapters.Player
             // Water between our feet and our head found!
             if (Physics.Raycast(transform.position, Vector3.up, out hit, chestDeepHeightWithBuffer, 1 << Constants.WaterLayer))
             {
+                // From dry ground below the surface (a fall, a jump, a step off an edge): it splashes where it's deep.
+                if (_wasOutOfWater)
+                    _npcWaterService.SplashIfDeep(hit.point, chestDeepHeight);
+
                 var previousWaterLevel = _playerAi.WaterLevel;
                 if (hit.distance < kneeDeepHeight)
                     _playerAi.WaterLevel = (int)ZenGineConst.WaterLevel.Normal;
@@ -214,13 +234,8 @@ namespace Gothic.VR.Adapters.Player
                     _playerAi.WaterLevel = (int)ZenGineConst.WaterLevel.Chest;
 
                 if (previousWaterLevel != _playerAi.WaterLevel)
-                {
-                    // Straight into deep water (a jump, a fall): it splashes at the surface.
-                    if (previousWaterLevel == (int)ZenGineConst.WaterLevel.Normal &&
-                        _playerAi.WaterLevel == (int)ZenGineConst.WaterLevel.Chest)
-                        _npcWaterService.EmitSplash(hit.point);
                     ChangeWaterBehavior();
-                }
+                _wasOutOfWater = false;
             }
             // No water above us, but still swimming/diving: teleported out of the water (Marvin goto, savegame load,
             // world change) or fell through a waterfall. Walking out of the water passes knee depth instead. Diving
@@ -230,6 +245,9 @@ namespace Gothic.VR.Adapters.Player
             {
                 LeaveWater();
             }
+            // Out of the water, unless diving deeper than the ray above.
+            else
+                _wasOutOfWater = _playerAi.WaterLevel == (int)ZenGineConst.WaterLevel.Normal;
         }
 
         /// <summary>
