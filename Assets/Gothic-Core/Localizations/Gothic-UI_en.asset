@@ -226,6 +226,14 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: Height Offset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: Camera height in 5 cm steps. Middle = no offset
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

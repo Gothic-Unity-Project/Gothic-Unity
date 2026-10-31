@@ -69,6 +69,12 @@ namespace Gothic.VR.Interaction.Ports
         void ApplyComfortSettings(VrSitStand sitStand, VrMoveDirection direction, VrTurnType turn, float snapDegrees,
             float smoothSpeed);
 
+        /// <summary>
+        /// Moves the camera up (positive) or down (negative) in m on top of the sit/stand setting. Fine-tuning for
+        /// the player, e.g. when the seated height doesn't match.
+        /// </summary>
+        void SetHeightOffset(float meters);
+
         void Teleport(Vector3 position, Quaternion rotation);
 
         /// <summary>

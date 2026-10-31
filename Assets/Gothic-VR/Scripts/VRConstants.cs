@@ -6,6 +6,7 @@ namespace Gothic.VR
         {
             // Accessibility
             public const string SitStand = "sitStand";
+            public const string HeightOffset = "heightOffset";
             public const string MoveDirection = "moveDirection";
             public const string RotationType = "rotationType";
             public const string SnapRotationAmount = "snapRotationAmount";
@@ -33,6 +34,11 @@ namespace Gothic.VR
 
         public const int SnapRotationDefaultValue = 2; // Element index==3
         public const int SnapRotationAmountSettingTickAmount = 5;
+
+        // Height offset slider: 0...1 Ini value, 0.5 == no offset. 40 steps from -1m to +1m, i.e. 5cm each.
+        public const int HeightOffsetSettingAmount = 40;
+        public const float HeightOffsetMaxMeters = 1f;
+        public const float HeightOffsetDefaultValue = 0.5f;
 
         public const int PhysicalHandsDefaultValue = 1;
 

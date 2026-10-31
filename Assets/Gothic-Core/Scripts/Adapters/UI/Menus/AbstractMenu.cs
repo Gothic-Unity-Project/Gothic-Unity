@@ -40,6 +40,9 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         protected Dictionary<string, (AbstractMenuItemInstance item, GameObject go)> MenuItemCache = new();
 
+        // Ini value of each slider the player is dragging that applies on release (IsAppliedOnRelease).
+        private readonly Dictionary<AbstractMenuItemInstance, float> _pendingSliderValues = new();
+
         // Pixel ratio of whole menu (Canvas) is based on background picture pixel and virtual pixels named inside Daedalus.
         protected float PixelRatioX;
         protected float PixelRatioY;
@@ -376,7 +379,10 @@ namespace Gothic.Core.Adapters.UI.Menus
             slider.value = sliderValue;
             
             // Handle changes
-            slider.onValueChanged.AddListener(value => HandleSliderValueChange(item, stepAmount, value));
+            if (item.IsAppliedOnRelease)
+                SetApplyOnRelease(slider, item, stepAmount);
+            else
+                slider.onValueChanged.AddListener(value => HandleSliderValueChange(item, stepAmount, value));
             
             // Set image for handle bar.
             var handlebarImage = go.GetComponentInChildren<Image>();
@@ -446,10 +452,49 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         private void HandleSliderValueChange(AbstractMenuItemInstance item, float stepAmount, float value)
         {
+            ConfigService.Gothic.SetFloat(item.OnChgSetOptionSection, item.OnChgSetOption,
+                GetSliderIniValue(stepAmount, value));
+        }
+
+        private static float GetSliderIniValue(float stepAmount, float value)
+        {
             var iniValue = stepAmount * (value - 1); // -1 as we need to normalize back to 0...1
-            iniValue = (float)Math.Round(iniValue, 9);
-            
+            return (float)Math.Round(iniValue, 9);
+        }
+
+        /// <summary>
+        /// The slider moves while dragging, its value is saved on release (pointer up). The EventTrigger sits on the
+        /// Slider itself: it handles the pointer, a trigger on a parent wouldn't get the release.
+        /// </summary>
+        private void SetApplyOnRelease(Slider slider, AbstractMenuItemInstance item, float stepAmount)
+        {
+            slider.onValueChanged.AddListener(value =>
+                _pendingSliderValues[item] = GetSliderIniValue(stepAmount, value));
+
+            var eventTrigger = slider.GetComponent<EventTrigger>();
+            if (eventTrigger == null)
+                eventTrigger = slider.gameObject.AddComponent<EventTrigger>();
+
+            var pointerUp = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            pointerUp.callback.AddListener(_ => ApplyPendingSliderValue(item));
+            eventTrigger.triggers.Add(pointerUp);
+        }
+
+        private void ApplyPendingSliderValue(AbstractMenuItemInstance item)
+        {
+            if (!_pendingSliderValues.Remove(item, out var iniValue))
+                return;
+
             ConfigService.Gothic.SetFloat(item.OnChgSetOptionSection, item.OnChgSetOption, iniValue);
+        }
+
+        /// <summary>
+        /// A menu closed while a slider is still held: keep what the player set.
+        /// </summary>
+        private void OnDisable()
+        {
+            foreach (var item in _pendingSliderValues.Keys.ToList())
+                ApplyPendingSliderValue(item);
         }
         
         private void OnMenuItemClicked(MenuItemSelectAction action, string itemName, string commandName)
