@@ -7,11 +7,12 @@ using Gothic.Tests.Behaviour.Session;
 using NUnit.Framework;
 using Reflex.Attributes;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Gothic.Tests.Behaviour.Steps.World
 {
     /// <summary>
-    /// The world the scenario plays in: which one, where the hero stands, the time of day. Set by a feature's
+    /// The world the scenario plays in: which one, where the hero stands, the time of day, the dice. Set by a feature's
     /// Background, so they need no undo.
     /// </summary>
     public class WorldSteps
@@ -67,6 +68,16 @@ namespace Gothic.Tests.Behaviour.Steps.World
         /// <summary>
         /// Sets the clock where its next minute tick is still within the minute set, and waits for that tick.
         /// </summary>
+        /// <summary>
+        /// UnityEngine.Random is the game's only random source (Hlp_Random included). Each scenario starts seeded by
+        /// its name already; this makes a scenario's dependence on the dice visible.
+        /// </summary>
+        [Step("the dice are seeded with (\\d+)")]
+        public void TheDiceAreSeededWith(int seed)
+        {
+            Random.InitState(seed);
+        }
+
         private IEnumerator SetTime(int hour, int minute)
         {
             yield return Wait.AwayFromGameMinute();
