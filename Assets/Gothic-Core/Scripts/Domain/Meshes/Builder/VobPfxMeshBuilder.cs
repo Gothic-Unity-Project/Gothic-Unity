@@ -172,6 +172,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (gravity.Length == 3)
                 {
                     forceModule.enabled = true;
+                    // Gravity is the world's (OpenGothic adds flyGravity to the world direction): a fire on a turned
+                    // stand still rises.
+                    forceModule.space = ParticleSystemSimulationSpace.World;
                     forceModule.x = gravityX;
                     forceModule.y = gravityY;
                     forceModule.z = gravityZ;
