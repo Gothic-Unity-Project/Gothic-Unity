@@ -31,9 +31,12 @@ namespace Gothic.VR.Adapters.UI
         private const float _maxVisibleSeconds = 10f;
         private const float _maxVisibleSecondsPerChar = 0.1f;
 
+        private Vector3 _baseScale;
+
         protected override void Awake()
         {
             gameObject.SetActive(false); // The whole subtitle topic will be enabled later during gameplay.
+            _baseScale = transform.localScale;
             _dialogNpcNameText.spriteAsset = _fontService.HighlightSpriteAsset;
 
             if (_isHero)
@@ -57,6 +60,8 @@ namespace Gothic.VR.Adapters.UI
 
             CancelInvoke(nameof(HideSubtitles));
             gameObject.SetActive(true);
+            transform.localScale = _baseScale * VRConstants.GetTextScale(
+                _configService.Gothic.GetInt(VRConstants.IniNames.TextSize, VRConstants.TextSizeDefaultValue));
             _dialogText.text = text;
             Invoke(nameof(HideSubtitles), Mathf.Max(_maxVisibleSeconds, text.Length * _maxVisibleSecondsPerChar));
 

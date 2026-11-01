@@ -207,6 +207,31 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignette
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: "Dunkelt den Rand der Sicht ab, w\xE4hrend der Stick dich bewegt
+      oder dreht"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: aus|leicht|stark
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: "Textgr\xF6\xDFe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: "Gr\xF6\xDFe der Untertitel und der Dialogauswahl"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "normal|gro\xDF|gr\xF6\xDFer"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

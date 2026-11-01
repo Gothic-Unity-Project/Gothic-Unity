@@ -207,6 +207,30 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Winieta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: "Przyciemnia kraw\u0119dzie obrazu podczas ruchu lub obrotu dr\u0105\u017Ckiem"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: "wy\u0142\u0105czona|s\u0142aba|mocna"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Rozmiar tekstu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: "Rozmiar napis\xF3w i opcji dialogowych"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "normalny|du\u017Cy|wi\u0119kszy"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

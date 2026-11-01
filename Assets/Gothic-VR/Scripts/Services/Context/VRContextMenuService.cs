@@ -51,6 +51,16 @@ namespace Gothic.VR.Services.Context
             vrAccessibilityMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 5));
 
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
+
+            // VR hides all of the game menu but its subtitles option: the subtitles' text size goes below it.
+            gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
+            if (gameBackIndex < 0)
+                gameBackIndex = gameMenu.Items.Count;
+            gameMenu.Items.Insert(gameBackIndex, CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE",
+                "textSize", VRConstants.IniNames.TextSize, VRConstants.IniSectionImmersion,
+                VRConstants.TextSizeDefaultValue, menuStartY + menuDY * 1));
+            gameMenu.Items.Insert(gameBackIndex, CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE",
+                "textSize", menuStartY + menuDY * 1));
             
 
             // FIXME - Add - Setting: ItemCollisionWhileDragged
@@ -60,6 +70,11 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsLabel(gameMenu, menuStartY + menuDY * 1));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsChoice(gameMenu, menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE",
+                "moveVignette", menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE",
+                "moveVignette", VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
+                VRConstants.MoveVignetteDefaultValue, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }
 
@@ -389,6 +404,44 @@ namespace Gothic.VR.Services.Context
             physicalHandsSetting.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
             return physicalHandsSetting;
+        }
+
+        /// <summary>
+        /// Label of an option, styled like the game menu's subtitles option. Texts: menuitem.{textKey}.label and
+        /// .description.
+        /// </summary>
+        private MutableMenuItemInstance CreateOptionLabel(AbstractMenuInstance gameMenu, string itemName,
+            string textKey, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var label = new MutableMenuItemInstance(itemName, subtitlesLabel);
+
+            label.PosY = posY;
+
+            label.SetText(0, _localizationService.GetText($"menuitem.{textKey}.label"));
+            label.SetText(1, _localizationService.GetText($"menuitem.{textKey}.description"));
+
+            return label;
+        }
+
+        /// <summary>
+        /// Choicebox of an option (itemName + "_CHOICE"), styled like the game menu's subtitles choice, stored in
+        /// Gothic.ini [iniSection] iniKey. Choices: menuitem.{textKey}.value ("a|b|c").
+        /// </summary>
+        private MutableMenuItemInstance CreateOptionChoice(AbstractMenuInstance gameMenu, string itemName,
+            string textKey, string iniKey, string iniSection, float defaultValue, int posY)
+        {
+            var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
+            var choice = new MutableMenuItemInstance($"{itemName}_CHOICE", subtitlesChoice);
+
+            choice.PosY = posY;
+            choice.SetUserFloat(3, defaultValue); // Default value if no INI value exists.
+
+            choice.SetText(0, _localizationService.GetText($"menuitem.{textKey}.value"));
+            choice.OnChgSetOption = iniKey;
+            choice.OnChgSetOptionSection = iniSection;
+
+            return choice;
         }
 
         private string GetMicrophoneList()

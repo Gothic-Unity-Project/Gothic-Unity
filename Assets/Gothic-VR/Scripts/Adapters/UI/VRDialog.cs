@@ -21,6 +21,7 @@ namespace Gothic.VR.Adapters.UI
 {
     public class VRDialog : MonoBehaviour
     {
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
 
@@ -34,6 +35,7 @@ namespace Gothic.VR.Adapters.UI
         
         private float _dialogItemHeight;
         private int _dialogItemsInUse;
+        private Vector3 _baseWorldScale;
 
         private void Awake()
         {
@@ -44,6 +46,8 @@ namespace Gothic.VR.Adapters.UI
                 var rectTransform = _dialogItems.First().GetComponent<RectTransform>();
                 _dialogItemHeight = rectTransform.rect.height;
             }
+
+            _baseWorldScale = _dialogRoot.transform.lossyScale;
 
             // The whole dialog topic will be enabled later during gameplay.
             gameObject.SetActive(false);
@@ -65,6 +69,7 @@ namespace Gothic.VR.Adapters.UI
         {
             var npcDialog = npcGo.FindChildRecursively("DialogMenuRootPos");
             _dialogRoot.SetParent(npcDialog, true, true, true);
+            ApplyTextSize();
 
             var rootRectHeight = _dialogItemHeight * _dialogItemsInUse;
             _dialogRoot.GetComponent<RectTransform>().SetHeight(rootRectHeight);
@@ -80,6 +85,20 @@ namespace Gothic.VR.Adapters.UI
             _uiOnTopService.SetHandsOnTop(this, true);
 
             StartCoroutine(ShowDialogWithDelay());
+        }
+
+        /// <summary>
+        /// The box keeps its size in the world when it moves to another NPC (worldPositionStays): the text size option
+        /// scales it from the size it had at start.
+        /// </summary>
+        private void ApplyTextSize()
+        {
+            var scale = VRConstants.GetTextScale(
+                _configService.Gothic.GetInt(VRConstants.IniNames.TextSize, VRConstants.TextSizeDefaultValue));
+            var rootTransform = _dialogRoot.transform;
+            var parentScale = rootTransform.parent == null ? Vector3.one : rootTransform.parent.lossyScale;
+            rootTransform.localScale = new Vector3(_baseWorldScale.x / parentScale.x, _baseWorldScale.y / parentScale.y,
+                _baseWorldScale.z / parentScale.z) * scale;
         }
 
         private IEnumerator ShowDialogWithDelay()
