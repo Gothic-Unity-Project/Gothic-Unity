@@ -126,6 +126,11 @@ namespace Gothic.Core.Services.World
             return _time.TimeOfDay;
         }
 
+        /// <summary>
+        /// The next game second raises the minute event for the minute set (and the hour event on a full hour), like
+        /// the engine's routines and timers see the new time at once. The counters kept from the old time made the
+        /// first event come up to a minute late - often only in the minute after the one set.
+        /// </summary>
         public void SetTime(int hour, int minute)
         {
             // From G2: Setzt die Uhrzeit auf hour:min. hour kann größer als 23 sein, um zum nächsten Tag zu springen.
@@ -133,9 +138,12 @@ namespace Gothic.Core.Services.World
             var normalizedHour = hour % 24;
 
             _time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0);
-            
+
             if (daysToAdd > 0)
                 _time = _time.AddDays(daysToAdd);
+
+            _secondsInMinute = 59;
+            _minutesInHour = (minute + 59) % 60;
         }
 
         public float GetSkyTime()
