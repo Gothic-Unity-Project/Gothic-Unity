@@ -35,7 +35,11 @@ namespace Gothic.VR.Adapters.Player
             if (heldItem == null || !_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated)
                 return;
 
-            var item = heldItem.GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            var vobLoader = heldItem.GetComponentInParent<VobLoader>();
+            if (vobLoader == null)
+                return;
+
+            var item = vobLoader.Container?.PropsAs<VobItemProperties2>()?.Instance;
             if (item == null || item.Type != DaedalusInstanceType.Item || !EquipmentService.IsWearable(item))
                 return;
 
