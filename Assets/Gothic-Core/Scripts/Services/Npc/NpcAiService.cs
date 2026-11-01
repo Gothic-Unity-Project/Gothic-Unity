@@ -23,13 +23,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
 
-        // Resolved on first use - they lead back here.
-        private VmCacheService _vmCacheServiceInstance;
-        private AnimationService _animationServiceInstance;
-        private VmCacheService _vmCacheService => _vmCacheServiceInstance ??=
-            ReflexProjectInstaller.DIContainer.Resolve<VmCacheService>();
-        private AnimationService _animationService => _animationServiceInstance ??=
-            ReflexProjectInstaller.DIContainer.Resolve<AnimationService>();
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly AnimationService _animationService;
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
