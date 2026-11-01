@@ -399,7 +399,7 @@ namespace Gothic.Core.Adapters.Npc
 
                 ReplaceCurrentAction();
                 // A state change doesn't stand the dead up (found on BoroBongo's branch).
-                if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (Properties.IsDead)
                     return;
 
                 Properties.BodyState = VmGothicEnums.BodyState.BsStand;
@@ -422,7 +422,7 @@ namespace Gothic.Core.Adapters.Npc
         {
             // The dead stay where they died and lie: a corpse culled in again went to its routine waypoint and stood in
             // the bind pose (found on BoroBongo's branch).
-            if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (Properties.IsDead)
             {
                 Properties.AnimationQueue.Clear();
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
