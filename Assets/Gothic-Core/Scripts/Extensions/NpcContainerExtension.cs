@@ -43,7 +43,7 @@ namespace Gothic.Core.Extensions
         /// </summary>
         public static bool IsDown(this NpcContainer npc)
         {
-            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || npc.IsKnockedOut());
+            return npc?.Props != null && (npc.Props.IsDead || npc.IsKnockedOut());
         }
 
         public static bool IsMagicFrozen(this NpcContainer npc)
