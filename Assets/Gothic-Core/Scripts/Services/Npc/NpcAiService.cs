@@ -363,7 +363,7 @@ namespace Gothic.Core.Services.Npc
 
             Vector3 npc2Pos;
             // If hero: use camera position (VR head position is most accurate)
-            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+            if (npc2.IsHero())
             {
                 npc2Pos = Camera.main!.transform.position;
             }
@@ -394,7 +394,7 @@ namespace Gothic.Core.Services.Npc
 
             Vector3 npc2Pos;
             // If hero
-            if (npc2.Id == 0)
+            if (npc2.IsHero())
                 npc2Pos = Camera.main!.transform.position;
             else
                 npc2Pos = npc2.GetUserData().Go.transform.position;
