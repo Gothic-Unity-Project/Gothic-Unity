@@ -1,10 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vobs;
 using Gothic.Tests.Behaviour.Driver;
+using Gothic.Tests.Behaviour.Report;
 using Gothic.Tests.Behaviour.Runner;
 using Gothic.Tests.Behaviour.Session;
 using Gothic.VR.Interaction.Models;
@@ -122,20 +121,15 @@ namespace Gothic.Tests.Behaviour.Steps.Lighting
             yield return MeasureGround(meters, name + " after", value => now = value);
             Assert.That(now, Is.GreaterThanOrEqualTo(before * (1f + percent / 100f)),
                 $"The ground {meters} m in front of the hero: {now:0.000} now, {before:0.000} as \"{name}\" " +
-                $"(images in {ProbeFolder})");
+                "(both images are in the report)");
         }
 
         private static bool IsHeroLightOn => Shader.IsKeywordEnabled(_heroLightKeyword);
 
-        private static string ProbeFolder => Path.Combine(Path.GetDirectoryName(Application.dataPath)!, "Logs",
-            "BehaviourTests", "probes");
-
         private IEnumerator MeasureGround(float meters, string name, System.Action<float> result)
         {
             var point = _scope.Driver<PlaceDriver>().GroundInFrontOfHero(meters);
-            var file = string.Concat($"{_scope.ScenarioName} - {name}".Select(c =>
-                Path.GetInvalidFileNameChars().Contains(c) || c == '/' ? '_' : c));
-            yield return Probe.Brightness(point, result, Path.Combine(ProbeFolder, file + ".png"));
+            yield return Probe.Brightness(point, result, RunReport.AddImage(_scope.ScenarioName, name, true));
         }
 
         private VobContainer GetHeldTorch(VrHandSide side)

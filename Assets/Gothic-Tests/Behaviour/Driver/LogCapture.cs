@@ -54,6 +54,14 @@ namespace Gothic.Tests.Behaviour.Driver
         }
 
         /// <summary>
+        /// Kept lines of these types.
+        /// </summary>
+        public int CountOf(params LogType[] types)
+        {
+            return _lines.Count(line => types.Contains(line.Type));
+        }
+
+        /// <summary>
         /// The last lines of a type, e.g. the warnings and errors for a failure message.
         /// </summary>
         public List<string> Last(int count, params LogType[] types)

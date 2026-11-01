@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.IO;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 
 namespace Gothic.Tests.Behaviour.Driver
@@ -73,6 +75,32 @@ namespace Gothic.Tests.Behaviour.Driver
                 target.Release();
                 Object.Destroy(target);
                 Object.Destroy(pixels);
+            }
+        }
+
+        /// <summary>
+        /// What the game view shows at the end of this frame, saved as PNG. A capture that fails is logged, not
+        /// thrown - it is taken while a failure is reported.
+        /// </summary>
+        public static IEnumerator Screenshot(string path)
+        {
+            yield return new WaitForEndOfFrame();
+
+            Texture2D shot = null;
+            try
+            {
+                shot = ScreenCapture.CaptureScreenshotAsTexture();
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, shot.EncodeToPNG());
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"[BehaviourTests] No screenshot {path}: {e.Message}", LogCat.Debug);
+            }
+            finally
+            {
+                if (shot != null)
+                    Object.Destroy(shot);
             }
         }
 
