@@ -17,15 +17,12 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
 
-        // EquipmentService resolved on first use, like the other services that lead back here.
-        private EquipmentService _equipmentService;
-        private EquipmentService Equipment => _equipmentService ??=
-            ReflexProjectInstaller.DIContainer.Resolve<EquipmentService>();
+        [Inject] private readonly EquipmentService _equipmentService;
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {
-            Equipment.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
+            _equipmentService.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
         }
 
         /// <summary>
@@ -63,7 +60,7 @@ namespace Gothic.Core.Services.Npc
             {
                 var item = _vmCacheService.TryGetItemData(content.Name);
                 if (item == null || !((ItemFlags)item.MainFlag).HasFlag(ItemFlags.ItemKatArmor) ||
-                    !Equipment.MeetsConditions(container, item))
+                    !_equipmentService.MeetsConditions(container, item))
                     continue;
                 if (best == null || (item.DamageTotal, item.Value).CompareTo((best.DamageTotal, best.Value)) > 0)
                     best = item;
@@ -86,7 +83,7 @@ namespace Gothic.Core.Services.Npc
             foreach (var worn in container.Props.EquippedItems.ToArray())
             {
                 if (worn != null && ((ItemFlags)worn.MainFlag).HasFlag(ItemFlags.ItemKatArmor))
-                    Equipment.Unequip(container, worn);
+                    _equipmentService.Unequip(container, worn);
             }
 
             container.Props.BodyData.Armor = -1;
@@ -99,7 +96,7 @@ namespace Gothic.Core.Services.Npc
             if (container?.Props == null)
                 return;
 
-            Equipment.EquipByScript(container, item);
+            _equipmentService.EquipByScript(container, item);
             container.Props.BodyData.Armor = item.Index;
             container.Props.MdmName = item.VisualChange;
             Logger.Log($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} puts on {item.Name}.", LogCat.Npc);
@@ -172,7 +169,7 @@ namespace Gothic.Core.Services.Npc
                     {
                         items.RemoveAt(i);
                         var container = npc.GetUserData();
-                        Equipment.OnItemGone(container, _vmCacheService.TryGetItemData(itemIndex),
+                        _equipmentService.OnItemGone(container, _vmCacheService.TryGetItemData(itemIndex),
                             () => ExtNpcHasItems(npc, itemIndex) <= 0);
                     }
                     else
