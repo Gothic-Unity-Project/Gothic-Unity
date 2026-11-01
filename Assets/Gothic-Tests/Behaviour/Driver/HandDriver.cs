@@ -63,6 +63,9 @@ namespace Gothic.Tests.Behaviour.Driver
                 throw new AssertionException($"{item.Go?.name ?? item.Vob.Name} can't be grabbed (no VrInteractable, " +
                     "not built yet?)");
 
+            if (!interactable.gameObject.activeInHierarchy)
+                throw new AssertionException($"{item.Go.name} can't be grabbed - it isn't active (hidden by the game)");
+
             var hand = GetHand(side);
             if (interactable.TryGetComponent<Rigidbody>(out var body))
                 body.isKinematic = true;
