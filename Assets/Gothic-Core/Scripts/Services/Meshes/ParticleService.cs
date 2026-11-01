@@ -2,6 +2,7 @@ using Gothic.Core.Models.Container;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 
 namespace Gothic.Core.Services.Meshes
 {
@@ -15,7 +16,7 @@ namespace Gothic.Core.Services.Meshes
             GlobalEventDispatcher.FightHit.AddListener(EmitBlood);
         }
 
-        private void EmitBlood(NpcContainer _, NpcContainer target, Vector3 position)
+        private void EmitBlood(NpcContainer _, NpcContainer target, Vector3 position, ItemInstance __)
         {
             if (target == null || target.Instance == null)
                 return;

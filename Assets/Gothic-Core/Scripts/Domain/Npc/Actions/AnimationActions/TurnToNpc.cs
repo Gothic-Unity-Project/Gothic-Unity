@@ -9,6 +9,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private int OtherId => Action.Int0;
         private int OtherIndex => Action.Int1;
 
+        // A fight turn (Float0 = tolerance, NpcAiService.ExtAiTurnToNpcInFight) is done once the target is in focus,
+        // and never takes longer than this - a scavenger circling an NPC kept it turning forever, it never hit.
+        private const float _fightTurnMaxSeconds = 2f;
+
+        protected override float FinishAngle => Action.Float0 > 0f ? Action.Float0 : base.FinishAngle;
+
+        protected override float MaxSeconds => Action.Float0 > 0f ? _fightTurnMaxSeconds : base.MaxSeconds;
+
         public TurnToNpc(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
             PlayAnimation = true;

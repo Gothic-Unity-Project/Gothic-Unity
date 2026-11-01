@@ -195,6 +195,29 @@ namespace Gothic.Core.Adapters.Vob
             Index = -1;
         }
 
+        /// <summary>
+        /// A light that moves (the Light spell above the hero): it lights the renderers around its new position.
+        /// </summary>
+        public void Relocate(Vector3 position)
+        {
+            if (Index >= 0)
+            {
+                foreach (var rend in _affectedRenderers)
+                    _stationaryLightsService.RemoveLightOnRenderer(this, rend);
+            }
+
+            _affectedRenderers.Clear();
+            transform.position = position;
+            CachedPosition = position;
+            GatherRenderers();
+
+            if (Index >= 0)
+            {
+                foreach (var rend in _affectedRenderers)
+                    _stationaryLightsService.AddLightOnRenderer(this, rend);
+            }
+        }
+
         private void OnEnable()
         {
             // Init() calls this on a light that may still be inactive (lazy loading) - Unity calls it again later.

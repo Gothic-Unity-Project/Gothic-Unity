@@ -38,6 +38,10 @@ namespace Gothic.Core.Const
             // 2. NPC/Monster is in ranged attack mode (bow etc.)
             public static string MyFkFocusFar = "FA_MY_FK_FOCUS_FAR_{0}"; // I have opponent in focus
             public static string MyFkNoFocusFar = "FA_MY_FK_NOFOCUS_FAR_{0}"; // I have opponent NOT in focus
+
+            // FK Mag - a spell is drawn: the opponent is within the magic range (35m) or not.
+            public static string MyFkFocusMag = "FA_MY_FK_FOCUS_MAG_{0}";
+            public static string MyFkNoFocusMag = "FA_MY_FK_NOFOCUS_MAG_{0}";
         }
     }
 }

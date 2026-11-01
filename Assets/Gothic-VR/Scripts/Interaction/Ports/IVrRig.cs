@@ -89,5 +89,14 @@ namespace Gothic.VR.Interaction.Ports
         /// Fades the screen towards alpha (0 = clear, 1 = black) with speed alpha per second.
         /// </summary>
         void Fade(float alpha, float speed);
+
+        /// <summary>
+        /// Holds the camera at this height in m above the floor (the hero lying on the ground), null ends it. The
+        /// camera jumps there in the next frame, so it's set behind a fade. Head tracking keeps working on top.
+        /// Default: not supported, the camera stays.
+        /// </summary>
+        void SetEyeHeightOverride(float? meters)
+        {
+        }
     }
 }

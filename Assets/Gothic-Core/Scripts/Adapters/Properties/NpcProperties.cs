@@ -36,6 +36,8 @@ namespace Gothic.Core.Adapters.Properties
         // Visual
         public string MdmName;
         public string MdsNameBase;
+        // The overlay played: the newest of the scripts' (Vob.Overlays), or while a weapon is drawn the fight stance of
+        // the NPC's talent (HUMANS_1HST1.MDS).
         public string MdsNameOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
@@ -55,6 +57,21 @@ namespace Gothic.Core.Adapters.Properties
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
 
+        // Like the engine, a state keeps the other/victim it was started with (AI_StartState): ZS_Attack_Loop fights
+        // the wolf it was started against, not the hero. Cleared when the NPC goes back to its routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
+        public readonly AttackCombo AttackCombo = new();
+
+        // Magic: the rune or scroll drawn (AI_ReadySpell, the VR hero's cast) with the mana an NPC invests before it
+        // casts, the cast going on, and the last spell that hit the NPC (Npc_GetLastHitSpellID).
+        public ItemInstance ActiveSpellItem;
+        public int ExpectedSpellInvest;
+        public SpellCast SpellCast;
+        public int LastHitSpell = -1;
+        public int SpellInfo;
+
         public enum LoopState
         {
             None,
@@ -68,6 +85,12 @@ namespace Gothic.Core.Adapters.Properties
         // HINT: This information isn't set within Daedalus. We need to define it manually.
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
         public VmGothicEnums.BodyState BodyState;
+
+        /// <summary>
+        /// Npc_IsDead(). Like Gothic, it's the death transition (FightService, loading a dead NPC), not HP <= 0:
+        /// scripts set HP directly and prepare NPCs with HP 0.
+        /// </summary>
+        public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;

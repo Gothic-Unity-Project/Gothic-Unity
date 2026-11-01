@@ -46,6 +46,7 @@ namespace Gothic.Core.Extensions
                 PrefabType.VobSoundDaytime => "Prefabs/Vobs/zCVobSoundDaytime",
                 PrefabType.VobLadder => "Prefabs/Vobs/oCMobLadder",
                 PrefabType.VobLight => "Prefabs/Vobs/zCVobLight",
+                PrefabType.VobLensFlare => "Prefabs/Vobs/zCVobLensFlare",
                 PrefabType.VobMover => "Prefabs/Vobs/zCMover",
                 PrefabType.VobTriggerChangeLevel => "Prefabs/Vobs/oCTriggerChangeLevel",
                 PrefabType.VobTriggerScript => "Prefabs/Vobs/oCTriggerScript",

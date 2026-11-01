@@ -542,33 +542,55 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateItemMesh(ItemInstance item, GameObject go, GameObject parent)
         {
-            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(item.Visual);
+            var visual = GetItemMeshName(item);
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visual);
 
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true,
+                return _meshService.CreateVob(visual, mrm, parent: parent, rootGo: go, useColliderCache: true,
                     useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
-            var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
+            var mmb = _resourceCacheService.TryGetMorphMesh(visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, parent: parent, rootGo: go, useColliderCache: true);
+            return _meshService.CreateVob(visual, mmb, parent: parent, rootGo: go, useColliderCache: true);
         }
 
         public GameObject CreateItemMesh(ItemInstance item, GameObject parentGo, Vector3 position)
         {
-            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(item.Visual);
+            var visual = GetItemMeshName(item);
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visual);
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, position, default, false, parentGo,
+                return _meshService.CreateVob(visual, mrm, position, default, false, parentGo,
                     useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
-            var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
+            var mmb = _resourceCacheService.TryGetMorphMesh(visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, position, default, parentGo, useColliderCache: true);
+            return _meshService.CreateVob(visual, mmb, position, default, parentGo, useColliderCache: true);
+        }
+
+        /// <summary>
+        /// The burning torch's visual is a VOB tree (ITLSTORCHBURNING.ZEN): its root carries the mesh, its children
+        /// the flame, light and sound (TorchService lights it). Like the bounds pre-caching, take the root's mesh.
+        /// </summary>
+        private string GetItemMeshName(ItemInstance item)
+        {
+            if (item.Visual == null || !item.Visual.EndsWithIgnoreCase(".zen"))
+                return item.Visual;
+
+            var world = _resourceCacheService.TryGetWorld(item.Visual, _contextGameVersionService.Version, true);
+            var meshName = world?.RootObjects.Count > 0 ? world.RootObjects[0].Visual?.Name : null;
+            if (string.IsNullOrEmpty(meshName))
+            {
+                Logger.LogWarning($"{item.Visual} has no mesh at its root - the item stays invisible.", LogCat.Vob);
+                return item.Visual;
+            }
+
+            return meshName;
         }
 
 

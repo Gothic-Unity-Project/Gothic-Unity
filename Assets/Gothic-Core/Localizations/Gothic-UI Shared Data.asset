@@ -203,6 +203,50 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Key: menuitem.moveVignette.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Key: menuitem.moveVignette.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Key: menuitem.moveVignette.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Key: menuitem.textSize.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Key: menuitem.textSize.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Key: menuitem.textSize.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961672855552
+    m_Key: menuitem.vr_immersion_more
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187200
+    m_Key: menuitem.vr_immersion_more.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187201
+    m_Key: menuitem.torchLight.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187202
+    m_Key: menuitem.torchLight.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187203
+    m_Key: menuitem.torchLight.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

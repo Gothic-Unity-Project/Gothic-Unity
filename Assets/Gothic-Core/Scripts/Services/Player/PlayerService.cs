@@ -7,6 +7,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -26,6 +27,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly TorchService _torchService;
 
 
         // Air in lungs isn't stored in G1 savegame, therefore setting it here temporarily at runtime.
@@ -67,15 +69,18 @@ namespace Gothic.Core.Services.Player
             return _npcInventoryService.GetInventoryItems(HeroContainer.Instance, category);
         }
 
+        /// <summary>
+        /// A burning torch goes in as a torch - the inventory has no burning ones.
+        /// </summary>
         public void AddItem(string itemInstanceName, int amount = 1)
         {
-            var item = _vmCacheService.TryGetItemData(itemInstanceName)!;
+            var item = _vmCacheService.TryGetItemData(_torchService.GetInventoryInstance(itemInstanceName))!;
             _npcInventoryService.ExtCreateInvItems(HeroContainer.Instance, item.Index, amount);
         }
 
         public void RemoveItem(string itemInstanceName, int amount = 1)
         {
-            var item = _vmCacheService.TryGetItemData(itemInstanceName)!;
+            var item = _vmCacheService.TryGetItemData(_torchService.GetInventoryInstance(itemInstanceName))!;
             _npcInventoryService.ExtRemoveInvItems(HeroContainer.Instance, item.Index, amount);
         }
 

@@ -15,6 +15,7 @@ namespace Gothic.G2.Adapters.Context
     public class G2ContextBootstrap : AbstractContextBootstrap
     {
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextMeleeDamageService _contextMeleeDamageService;
 
 
         protected override void RegisterControlModule(Controls controls)
@@ -28,6 +29,7 @@ namespace Gothic.G2.Adapters.Context
                 return;
 
             _contextGameVersionService.SetImpl(new G2ContextService().Inject());
+            _contextMeleeDamageService.SetImpl(new G2MeleeDamageService().Inject());
         }
     }
 }

@@ -24,8 +24,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
+        // Full-rate effects emit at most this many particles per second.
+        private const float _maxFullEmissionRate = 500f;
+
         private string _visualName;
         private bool _destroyAfterPlay;
+        private bool _isFullRate;
 
 
         public void SetPfxData(string visualName)
@@ -36,6 +40,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public void SetDestroyAfterPlay(bool destroyAfterPlay)
         {
             _destroyAfterPlay = destroyAfterPlay;
+        }
+
+        /// <summary>
+        /// Emit at Gothic's own rate (capped) instead of a hundredth. Spell effects (MFX_*) need it: a hundredth of a
+        /// firebolt's rate emitted nothing (found on BoroBongo's branch).
+        /// </summary>
+        public void SetFullRate(bool isFullRate)
+        {
+            _isFullRate = isFullRate;
         }
         
         public override GameObject Build()
@@ -113,7 +126,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 
                 // Gothic's ppsValue is particles/second, but we need to scale it down significantly.
                 // dividing by 100 gives the right amount of blood emitter for zombies. Keeping it for now.
-                var scaledEmissionRate = pfx.PpsValue / 100f;
+                var scaledEmissionRate = _isFullRate ? Mathf.Min(pfx.PpsValue, _maxFullEmissionRate) : pfx.PpsValue / 100f;
                 
                 // Use ppsScaleKeys to modulate emission over normalized time [0..1]
                 if (pfx.PpsScaleKeysS.NotNullOrEmpty() && pfx.PpsScaleKeysS != "=")

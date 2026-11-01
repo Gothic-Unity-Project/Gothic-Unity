@@ -64,6 +64,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextDialogService));
             containerBuilder.AddSingleton(typeof(ContextTextInputService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
+            containerBuilder.AddSingleton(typeof(ContextMeleeDamageService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
@@ -91,6 +92,12 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
             containerBuilder.AddSingleton(typeof(HeroPerceptionService));
             containerBuilder.AddSingleton(typeof(FightService));
+            containerBuilder.AddSingleton(typeof(MagicService));
+            containerBuilder.AddSingleton(typeof(HeroSpellStateService));
+            containerBuilder.AddSingleton(typeof(LightSpellService));
+            containerBuilder.AddSingleton(typeof(NpcBurnService));
+            containerBuilder.AddSingleton(typeof(TransformationService));
+            containerBuilder.AddSingleton(typeof(TorchService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));
@@ -107,6 +114,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(SaveGameService));
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
+            containerBuilder.AddSingleton(typeof(HeroLightService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
 
             // Misc

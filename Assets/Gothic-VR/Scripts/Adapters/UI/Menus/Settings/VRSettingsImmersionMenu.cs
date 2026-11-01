@@ -10,9 +10,12 @@ namespace Gothic.VR.Adapters.UI.Menus.Settings
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// A further page of options (VRContextMenuService.CreateSubMenu).
+        /// </summary>
         protected override void StartMenu(string itemName, string commandName)
         {
-            throw new NotImplementedException();
+            MenuHandler.OpenMenu(commandName);
         }
 
         protected override void StartItem(string itemName, string commandName)

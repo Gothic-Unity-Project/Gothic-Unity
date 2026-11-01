@@ -362,9 +362,13 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public GameObject TryGetPrefabObject(PrefabType key, string name = null, GameObject parent = null)
         {
-            // worldPositionStays=false - initialize the object at 0,0,0. If needed, we will later set positions.
+            // A missing prefab returns null instead of failing in Instantiate - the caller decides how bad it is.
+            var prefab = TryGetPrefab(key);
+            if (prefab == null)
+                return null;
 
-            var go = Object.Instantiate(TryGetPrefab(key), parent?.transform, worldPositionStays: false);
+            // worldPositionStays=false - initialize the object at 0,0,0. If needed, we will later set positions.
+            var go = Object.Instantiate(prefab, parent?.transform, worldPositionStays: false);
                 
             if (name != null)
                 go.name = name;

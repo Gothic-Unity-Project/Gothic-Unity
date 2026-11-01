@@ -6,6 +6,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Reflex.Attributes;
 using ZenKit;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Vm
@@ -187,6 +188,53 @@ namespace Gothic.Core.Services.Vm
             }
 
             return true;
+        }
+
+        //
+        // NPC calls
+        //
+
+        /// <summary>
+        /// Calls a Daedalus function (a state function, ZS_Dead, ...) with the globals the engine sets for an NPC:
+        /// self, and other/victim if given. Restores them afterwards. Returns the int result (0 without one or on a
+        /// script error, which is logged - an exception mustn't escape into the VM's own call).
+        /// </summary>
+        public int CallAsNpc(int symbolIndex, NpcInstance self, NpcInstance other, NpcInstance victim, LogCat cat)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbol = vm.GetSymbolByIndex(symbolIndex);
+            if (symbol == null)
+                return 0;
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            var oldVictim = vm.GlobalVictim;
+            vm.GlobalSelf = self;
+            if (other != null)
+                vm.GlobalOther = other;
+            if (victim != null)
+                vm.GlobalVictim = victim;
+
+            try
+            {
+                if (symbol.ReturnType == DaedalusDataType.Int)
+                    return vm.Call<int>(symbolIndex);
+
+                vm.Call(symbolIndex);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[VmService] {symbol.Name} of {self.GetName(NpcNameSlot.Slot0)} failed: {e.Message}",
+                    cat);
+                return 0;
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+                vm.GlobalVictim = oldVictim;
+            }
         }
     }
 }

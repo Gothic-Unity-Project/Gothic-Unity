@@ -20,6 +20,8 @@ Shader "Lit/SingleMesh"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            // The torch in the player's hand (GothicHeroLight.hlsl): a switch, not a variant.
+            #pragma dynamic_branch _HERO_LIGHT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -39,6 +41,7 @@ Shader "Lit/SingleMesh"
                 float4 vertex : SV_POSITION;
                 half2 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
+                half3 normal : TEXCOORD2;
                 half3 diffuse : COLOR;
 
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -54,6 +57,7 @@ Shader "Lit/SingleMesh"
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
+            #include "GothicHeroLight.hlsl"
 
             half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
             {
@@ -79,14 +83,20 @@ Shader "Lit/SingleMesh"
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
+                o.normal = TransformObjectToWorldNormal(v.normal);
+                o.diffuse = DiffuseLighting(o.normal, o.worldPos, v.color);
                 return o;
             }
 
             half4 frag(v2f i) : SV_Target
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
-                half3 diffuse = albedo.rgb * i.diffuse;
+                half3 light = i.diffuse;
+                if (_HERO_LIGHT)
+                {
+                    light += HeroLightDiffuse(i.worldPos, normalize(i.normal));
+                }
+                half3 diffuse = albedo.rgb * light;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
 

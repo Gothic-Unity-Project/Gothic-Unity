@@ -42,6 +42,7 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly TorchService _torchService;
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly VobInitializerDomain _initializerDomain = new VobInitializerDomain().Inject();
@@ -151,6 +152,7 @@ namespace Gothic.Core.Services.Vobs
         public void InitVobNow(VobContainer container)
         {
             _initializerDomain.InitVob(container.Vob, container.Go, default, true);
+            _torchService.LightIfBurning(container);
         }
         
         /// <summary>
@@ -210,6 +212,7 @@ namespace Gothic.Core.Services.Vobs
                         try
                         {
                             _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                            _torchService.LightIfBurning(item.Container);
                         }
                         catch (Exception e)
                         {

@@ -226,6 +226,63 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: Saving isn't possible during a dialog.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignette
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Darkens the edges of the view while the stick moves or turns you
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: off|light|strong
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Text size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Size of subtitles and dialog choices
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: normal|large|larger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Saving failed. The previous save game is kept.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: Trees and grass sway in the wind - costs performance on the Quest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961672855552
+    m_Localized: More...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187200
+    m_Localized: MORE IMMERSION SETTINGS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187201
+    m_Localized: Torch light
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187202
+    m_Localized: The torch in your hand lights the world sharply and flickers like
+      a flame (costs performance)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187203
+    m_Localized: off|on
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

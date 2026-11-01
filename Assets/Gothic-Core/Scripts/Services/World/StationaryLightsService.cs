@@ -251,6 +251,45 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
+        /// A point light that moves (the Light spell): it lights the world like the other lights, and NPCs and items
+        /// through its Unity light. Move it with MoveLight, destroy its object to remove it.
+        /// </summary>
+        public GameObject CreateMovingLight(string name, Vector3 position, float range, Color color)
+        {
+            var go = new GameObject(name);
+            go.transform.position = position;
+            var light = go.AddComponent<StationaryLight>();
+            light.Inject();
+            light.Type = LightType.Point;
+            light.Color = color;
+            light.Range = range;
+            light.Intensity = 1f;
+            light.RuntimeLinearColor = color.linear;
+            light.Init();
+            return go;
+        }
+
+        /// <summary>
+        /// A moving light keeps its slot, its position in the shader arrays follows and it lights the renderers around
+        /// its new position.
+        /// </summary>
+        public void MoveLight(GameObject lightGo, Vector3 position)
+        {
+            if (lightGo == null || !lightGo.TryGetComponent<StationaryLight>(out var light))
+                return;
+
+            light.Relocate(position);
+            _isPoolDirty = true;
+            var slot = light.Index;
+            if (slot < 0 || _lightPositionsAndAttenuation == null || slot >= _lightPositionsAndAttenuation.Length)
+                return;
+
+            _lightPositionsAndAttenuation[slot] = new Vector4(position.x, position.y, position.z,
+                1f / (light.CachedRange * light.CachedRange));
+            _isUploadDirty = true;
+        }
+
+        /// <summary>
         /// A pooled light was loaded (StationaryLight.OnEnable). It gets a slot with the next rebalance.
         /// </summary>
         public void RegisterPooledLight(StationaryLight light)

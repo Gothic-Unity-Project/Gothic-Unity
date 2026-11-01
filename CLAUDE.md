@@ -119,10 +119,12 @@ ZenKit executes Gothic's Daedalus scripts. External functions called by scripts 
 
 ### Combat
 
-Physical hit detection requires three conditions simultaneously:
-1. Animation frame is within the `DEF_OPT_FRAME` window
-2. The attack has not previously connected
-3. `DEF_HIT_LIMB` bone triggers `OnTriggerEnter`/`OnTriggerStay`
+- NPC swings hit at the animation's `DEF_OPT_FRAME` when the target is within the weapon's reach and in front
+  (`FightService.GetFightDistance` vs. `GetMeleeReach`) - no bone collision.
+- The VR hero hits physically: his weapon's trigger touches the target while the swing is fast enough
+  (`VRWeaponAttackAdapter`).
+- Damage, knockout and death follow the engine's rules. Hit path, witnesses, combos and the differences from the
+  original: `Docs/fight.md`.
 
 Box colliders on combatants are deactivated outside combat for performance.
 

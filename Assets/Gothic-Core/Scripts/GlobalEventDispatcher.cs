@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -102,9 +103,47 @@ namespace Gothic.Core
         /// <summary>
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
-        /// Vector3      - at which position
+        /// Vector3      - where the hit landed (on the target)
+        /// ItemInstance - the weapon it was made with: the VR hero's held weapon isn't equipped. Null for NPCs (their
+        ///                equipped weapon counts) and fists.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, ItemInstance> FightHit = new();
+
+        /// <summary>
+        /// An NPC died (NpcDeathDomain), by a hit or a script. Its ZS_Dead follows one frame later.
+        /// NpcContainer - who died
+        /// NpcContainer - who killed (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> NpcDied = new();
+
+        /// <summary>
+        /// The hero was knocked out (FightService) and lies on the ground.
+        /// float - seconds until he gets up again
+        /// </summary>
+        public static readonly UnityEvent<float> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
+
+        /// <summary>
+        /// The hero died (NpcDeathDomain), right after NpcDied. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// A transformation spell turned the hero into a monster (TransformationService) - the player moves and looks
+        /// around like it.
+        /// </summary>
+        public static readonly UnityEvent<HeroTransformation> HeroTransformed = new();
+
+        /// <summary>
+        /// The hero is human again.
+        /// </summary>
+        public static readonly UnityEvent HeroTransformedBack = new();
         
 
         // LockPicking events

@@ -40,6 +40,11 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         protected Dictionary<string, (AbstractMenuItemInstance item, GameObject go)> MenuItemCache = new();
 
+        // Items this menu disabled, with their text color to give back when they get enabled again. Without text,
+        // they are hidden instead (others may be hidden by their menu for other reasons).
+        private readonly Dictionary<GameObject, Color> _disabledItemColors = new();
+        private readonly HashSet<GameObject> _hiddenItems = new();
+
         // Pixel ratio of whole menu (Canvas) is based on background picture pixel and virtual pixels named inside Daedalus.
         protected float PixelRatioX;
         protected float PixelRatioY;
@@ -78,6 +83,16 @@ namespace Gothic.Core.Adapters.UI.Menus
                 return true;
         }
         
+        /// <summary>
+        /// Whether an item can be used depends on the game (e.g. saving only while the hero is alive in a world), so it
+        /// is checked each time the menu shows, not only when it is built.
+        /// </summary>
+        private void OnEnable()
+        {
+            foreach (var (item, go) in MenuItemCache.Values)
+                ApplyItemState(go, item);
+        }
+
         public void ToggleVisibility()
         {
             if (gameObject.activeSelf)
@@ -135,7 +150,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             AddBackPicIfAny(itemGo, item, itemWidth, itemHeight);
             SetupTextIfAny(itemGo, item, itemWidth, itemHeight);
             SetupCommentIfAny(itemGo, item);
-            ApplyDisabledStateIfNeeded(itemGo, item);
+            ApplyItemState(itemGo, item);
         }
 
         private void SetupBackground(Material backPic)
@@ -276,30 +291,40 @@ namespace Gothic.Core.Adapters.UI.Menus
         /// <summary>
         /// Item is disabled == grayed out and not interactable
         /// </summary>
-        private void ApplyDisabledStateIfNeeded(GameObject itemGo, AbstractMenuItemInstance item)
+        private void ApplyItemState(GameObject itemGo, AbstractMenuItemInstance item)
         {
-            if (IsMenuItemActive(item.Name))
-                return;
-
+            var isActive = IsMenuItemActive(item.Name);
             var textComp = itemGo.GetComponentInChildren<TMP_Text>();
-            var eventTrigger = itemGo.GetComponent<EventTrigger>();
-            if (textComp != null)
+            if (textComp == null)
             {
+                if (!isActive && _hiddenItems.Add(itemGo))
+                    itemGo.SetActive(false);
+                else if (isActive && _hiddenItems.Remove(itemGo))
+                    itemGo.SetActive(true);
+                return;
+            }
+
+            if (!isActive && !_disabledItemColors.ContainsKey(itemGo))
+            {
+                _disabledItemColors[itemGo] = textComp.color;
                 textComp.color = Constants.TextDisabledColor;
-                var button = itemGo.GetComponent<Button>();
-                if (button != null)
-                {
-                    button.enabled = false;
-                }
-                if (eventTrigger != null)
-                {
-                    eventTrigger.enabled = false;
-                }
+            }
+            else if (isActive && _disabledItemColors.Remove(itemGo, out var enabledColor))
+            {
+                textComp.color = enabledColor;
             }
             else
             {
-                itemGo.SetActive(false);
+                return;
             }
+
+            var button = itemGo.GetComponent<Button>();
+            if (button != null)
+                button.enabled = isActive;
+
+            var eventTrigger = itemGo.GetComponent<EventTrigger>();
+            if (eventTrigger != null)
+                eventTrigger.enabled = isActive;
         }
 
         private void SetTextDimensions(TMP_Text textComp, AbstractMenuItemInstance item,

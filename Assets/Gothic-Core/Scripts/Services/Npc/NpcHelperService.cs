@@ -33,6 +33,12 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+
+        // NpcInventoryService leads back to this service through its own dependencies - resolved on first use.
+        private NpcInventoryService _npcInventory;
+        private NpcInventoryService _npcInventoryService => _npcInventory ??=
+            ReflexProjectInstaller.DIContainer.Resolve<NpcInventoryService>();
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -122,6 +128,65 @@ namespace Gothic.Core.Services.Npc
         public bool ExtNpcHasEquippedRangedWeapon(NpcInstance npc)
         {
             return ExtNpcGetEquippedRangedWeapon(npc) != null;
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic Inventory::hasRangedWeaponWithAmmo): a bow or crossbow, carried or equipped,
+        /// and its munition in the inventory. Archers' scripts choose the ranged weapon by it (B_SelectWeapon).
+        /// </summary>
+        public bool ExtNpcHasRangedWeaponWithAmmo(NpcInstance npc)
+        {
+            return GetWeapons(npc, VmGothicEnums.ItemFlags.ItemKatFf).Any(i => HasMunition(npc, i));
+        }
+
+        /// <summary>
+        /// AI_EquipBestMeleeWeapon / AI_EquipBestRangedWeapon: like the engine (OpenGothic Inventory::bestItem), the
+        /// carried weapon of that kind with the most damage (then value) whose attribute conditions are met and whose
+        /// munition is there, replacing the equipped one of that kind.
+        /// </summary>
+        public void ExtAiEquipBestWeapon(NpcInstance npc, VmGothicEnums.ItemFlags kind)
+        {
+            var container = GetContainer(npc);
+            if (container?.Props == null)
+                return;
+
+            var best = GetWeapons(npc, kind)
+                .Where(i => HasMunition(npc, i) && MeetsConditions(container, i))
+                .OrderByDescending(i => i.DamageTotal)
+                .ThenByDescending(i => i.Value)
+                .FirstOrDefault();
+            if (best == null || container.Props.EquippedItems.Any(i => i.Index == best.Index))
+                return;
+
+            container.Props.EquippedItems.RemoveAll(i => i.MainFlag == (int)kind);
+            container.Props.EquippedItems.Add(best);
+        }
+
+        private IEnumerable<ItemInstance> GetWeapons(NpcInstance npc, VmGothicEnums.ItemFlags kind)
+        {
+            var props = GetProperties(npc);
+            var carried = _npcInventoryService.GetAllInventoryItems(npc)
+                .Select(i => _vmCacheService.TryGetItemData(i.Name))
+                .Where(i => i != null);
+            return carried.Concat(props?.EquippedItems ?? Enumerable.Empty<ItemInstance>())
+                .Where(i => i.MainFlag == (int)kind);
+        }
+
+        private bool HasMunition(NpcInstance npc, ItemInstance weapon)
+        {
+            return weapon.Munition <= 0 || _npcInventoryService.ExtNpcHasItems(npc, weapon.Munition) > 0;
+        }
+
+        private static bool MeetsConditions(NpcContainer npc, ItemInstance item)
+        {
+            foreach (var slot in new[] { ItemConditionSlot.Slot0, ItemConditionSlot.Slot1, ItemConditionSlot.Slot2 })
+            {
+                var value = item.GetCondValue(slot);
+                if (value != 0 && npc.Vob.GetAttribute(item.GetCondAtr(slot)) < value)
+                    return false;
+            }
+
+            return true;
         }
 
         public bool ExtIsNpcOnFp(NpcInstance npc, string vobNamePart)
@@ -223,9 +288,32 @@ namespace Gothic.Core.Services.Npc
 
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            // If an NCP is checked against the player, use the temp attitude (e.g., because Hero stole something)
-            if (other.PrefabProps.IsHero() && self.Vob.Attitude != self.Vob.AttitudeTemp)
-                return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+            // Like the engine, an NPC has its own attitude to the player only: the temporary one (e.g. because the
+            // hero stole something), else the permanent one of the scripts (Npc_SetAttitude). Unset: the guilds'.
+            if (other.PrefabProps.IsHero())
+            {
+                if (self.Vob.AttitudeTemp != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.AttitudeTemp;
+                if (self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                    return (VmGothicEnums.Attitude)self.Vob.Attitude;
+            }
+
+            return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+        }
+
+        /// <summary>
+        /// Npc_GetPermAttitude: like GetPersonAttitude(), but never the temporary attitude. ZS_Attack_End and the
+        /// knockout rule ask it whether the fight was a brawl among friends or meant to kill.
+        /// </summary>
+        public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
+        {
+            if (other.PrefabProps.IsHero() && self.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                return (VmGothicEnums.Attitude)self.Vob.Attitude;
+
+            // Like the engine (OpenGothic personAttitude), the attitude between the hero and an NPC is the NPC's, both
+            // ways: whether the hero dies or is knocked out depends on the attacker's attitude to him.
+            if (self.IsHero() && other.Vob.Attitude != (int)VmGothicEnums.Attitude.Null)
+                return (VmGothicEnums.Attitude)other.Vob.Attitude;
 
             return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
         }

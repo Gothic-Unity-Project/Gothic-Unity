@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -38,6 +39,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly MagicService _magicService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly AudioService _audioService;
@@ -99,6 +101,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_GotoFP", AI_GotoFP);
             vm.RegisterExternal<NpcInstance, string>("AI_GotoWP", AI_GotoWP);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_GotoNpc", AI_GotoNpc);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_FinishingMove", AI_FinishingMove);
             vm.RegisterExternal<NpcInstance, string>("AI_PlayAni", AI_PlayAni);
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
@@ -189,6 +192,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedMeleeWeapon", Npc_HasEquippedMeleeWeapon);
             vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetEquippedRangedWeapon", Npc_GetEquippedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedRangedWeapon", Npc_HasEquippedRangedWeapon);
+            vm.RegisterExternal<int, NpcInstance>("Npc_HasRangedWeaponWithAmmo", Npc_HasRangedWeaponWithAmmo);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestRangedWeapon", AI_EquipBestRangedWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_EquipBestMeleeWeapon", AI_EquipBestMeleeWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_StopAim", AI_StopAim);
             vm.RegisterExternal<int, NpcInstance, string>("Npc_GetDistToWP", Npc_GetDistToWP);
             vm.RegisterExternal<NpcInstance, int>("Npc_PercDisable", Npc_PercDisable);
             vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpc", Npc_CanSeeNpc);
@@ -217,6 +224,8 @@ namespace Gothic.Core.Domain.Vm
                     Npc_IsDetectedMobOwnedByGuild);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
+            RegisterFightExternals(vm);
+            RegisterMagicExternals(vm);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_SetTrueGuild", Npc_SetTrueGuild);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
@@ -405,6 +414,11 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiGoToNpc(self, other);
         }
 
+        public void AI_FinishingMove(NpcInstance self, NpcInstance other)
+        {
+            _npcAiService.ExtAiFinishingMove(self, other);
+        }
+
         public void AI_PlayAni(NpcInstance npc, string name)
         {
             _npcAiService.ExtAiPlayAni(npc, name);
@@ -457,6 +471,28 @@ namespace Gothic.Core.Domain.Vm
         public void AI_ReadyRangedWeapon(NpcInstance npc)
         {
             _npcAiService.ExtAiReadyRangedWeapon(npc);
+        }
+
+        public int Npc_HasRangedWeaponWithAmmo(NpcInstance npc)
+        {
+            return _npcHelperService.ExtNpcHasRangedWeaponWithAmmo(npc) ? 1 : 0;
+        }
+
+        public void AI_EquipBestRangedWeapon(NpcInstance npc)
+        {
+            _npcHelperService.ExtAiEquipBestWeapon(npc, VmGothicEnums.ItemFlags.ItemKatFf);
+        }
+
+        public void AI_EquipBestMeleeWeapon(NpcInstance npc)
+        {
+            _npcHelperService.ExtAiEquipBestWeapon(npc, VmGothicEnums.ItemFlags.ItemKatNf);
+        }
+
+        /// <summary>
+        /// Aiming is part of each shot (ShootRanged) - there is nothing to stop between shots.
+        /// </summary>
+        public void AI_StopAim(NpcInstance npc)
+        {
         }
 
         public void AI_RemoveWeapon(NpcInstance npc)
@@ -683,12 +719,9 @@ namespace Gothic.Core.Domain.Vm
             _npcService.ExtSetModelFatness(npc, fatness);
         }
 
-        private bool _isLoggedOnceRemoveOverlayMds;
         public void Mdl_RemoveOverlayMDS(NpcInstance npc, string overlayName)
         {
-            if (!_isLoggedOnceRemoveOverlayMds)
-                Logger.LogWarning("Method >Mdl_RemoveOverlayMDS< not yet implemented in DaedalusVM. Logging once only!", LogCat.ZenKit);
-            _isLoggedOnceRemoveOverlayMds = true;
+            _npcService.ExtRemoveOverlayMds(npc, overlayName);
         }
 
         #endregion
@@ -924,7 +957,7 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_GetPermAttitude(NpcInstance self, NpcInstance other)
         {
-            var ret = (int)_npcAiService.ExtGetAttitude(self, other);
+            var ret = (int)_npcAiService.ExtGetPermAttitude(self, other);
             return LogInstantExternal(nameof(Npc_GetPermAttitude), ret, self, other);
         }
 
@@ -1191,6 +1224,212 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcOwnedByNpc(item, npc));
             return LogInstantExternal(nameof(Npc_OwnedByNpc), ret, item, npc);
+        }
+
+        /// <summary>
+        /// The fight scripts check these before and during a fight (B_DrawWeapon, ZS_Attack, orc AI). Unregistered,
+        /// they returned 0: nobody had a weapon drawn or a next target. Only registered if the game declares them.
+        /// </summary>
+        private void RegisterFightExternals(DaedalusVm vm)
+        {
+            if (vm.GetSymbolByName("Npc_HasReadiedWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedWeapon", Npc_HasReadiedWeapon);
+            if (vm.GetSymbolByName("Npc_HasReadiedMeleeWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedMeleeWeapon", Npc_HasReadiedMeleeWeapon);
+            if (vm.GetSymbolByName("Npc_HasReadiedRangedWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasReadiedRangedWeapon", Npc_HasReadiedRangedWeapon);
+            if (vm.GetSymbolByName("Npc_IsDrawingWeapon") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingWeapon", Npc_IsDrawingWeapon);
+            if (vm.GetSymbolByName("Npc_GetReadiedWeapon") != null)
+                vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetReadiedWeapon", Npc_GetReadiedWeapon);
+            if (vm.GetSymbolByName("Npc_GetNextTarget") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetNextTarget", Npc_GetNextTarget);
+            if (vm.GetSymbolByName("Npc_GetGuildAttitude") != null)
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetGuildAttitude", Npc_GetGuildAttitude);
+        }
+
+        /// <summary>
+        /// Spells (MagicService). Only the ones the game's scripts declare: the scroll and last-hit externals are G2's.
+        /// </summary>
+        private void RegisterMagicExternals(DaedalusVm vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("AI_ReadySpell"))
+                vm.RegisterExternal<NpcInstance, int, int>("AI_ReadySpell", AI_ReadySpell);
+            if (IsDeclared("AI_UnreadySpell"))
+                vm.RegisterExternal<NpcInstance>("AI_UnreadySpell", AI_UnreadySpell);
+            if (IsDeclared("Npc_GetActiveSpell"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpell", Npc_GetActiveSpell);
+            if (IsDeclared("Npc_GetActiveSpellCat"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellCat", Npc_GetActiveSpellCat);
+            if (IsDeclared("Npc_GetActiveSpellLevel"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellLevel", Npc_GetActiveSpellLevel);
+            if (IsDeclared("Npc_GetActiveSpellIsScroll"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetActiveSpellIsScroll", Npc_GetActiveSpellIsScroll);
+            if (IsDeclared("Npc_SetActiveSpellInfo"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
+            if (IsDeclared("Npc_HasSpell"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_HasSpell", Npc_HasSpell);
+            if (IsDeclared("Npc_IsDrawingSpell"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsDrawingSpell", Npc_IsDrawingSpell);
+            if (IsDeclared("Npc_GetLastHitSpellID"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellID", Npc_GetLastHitSpellID);
+            if (IsDeclared("Npc_GetLastHitSpellCat"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetLastHitSpellCat", Npc_GetLastHitSpellCat);
+            // What spells do through the scripts: teleport runes, summons, fear.
+            if (IsDeclared("AI_Teleport"))
+                vm.RegisterExternal<NpcInstance, string>("AI_Teleport", AI_Teleport);
+            if (IsDeclared("Wld_SpawnNpcRange"))
+                vm.RegisterExternal<NpcInstance, int, int, float>("Wld_SpawnNpcRange", Wld_SpawnNpcRange);
+            if (IsDeclared("AI_SetNpcsToState"))
+                vm.RegisterExternal<NpcInstance, int, int>("AI_SetNpcsToState", AI_SetNpcsToState);
+        }
+
+        public void AI_Teleport(NpcInstance npc, string pointName)
+        {
+            _magicService.Teleport(npc, pointName);
+        }
+
+        /// <summary>
+        /// The last parameter is a float in the scripts' declaration (the summons' lifetime).
+        /// </summary>
+        public void Wld_SpawnNpcRange(NpcInstance npc, int npcInstance, int count, float lifeTime)
+        {
+            _magicService.SpawnAround(npc, npcInstance, count, lifeTime);
+        }
+
+        public void AI_SetNpcsToState(NpcInstance npc, int state, int radius)
+        {
+            _magicService.SetNpcsToState(npc, state, radius);
+        }
+
+        public void AI_ReadySpell(NpcInstance npc, int spellId, int investMana)
+        {
+            _npcAiService.ExtAiReadySpell(npc, spellId, investMana);
+        }
+
+        /// <summary>
+        /// Like the engine, putting the spell away is putting the weapon away.
+        /// </summary>
+        public void AI_UnreadySpell(NpcInstance npc)
+        {
+            _npcAiService.ExtAiUndrawWeapon(npc);
+        }
+
+        public int Npc_GetActiveSpell(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpell(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpell), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellCat(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpellCategory(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpellCat), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellLevel(NpcInstance npc)
+        {
+            var ret = _magicService.GetActiveSpellLevel(npc);
+            return LogInstantExternal(nameof(Npc_GetActiveSpellLevel), ret, npc);
+        }
+
+        public int Npc_GetActiveSpellIsScroll(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(_magicService.IsActiveSpellScroll(npc));
+            return LogInstantExternal(nameof(Npc_GetActiveSpellIsScroll), ret, npc);
+        }
+
+        public int Npc_SetActiveSpellInfo(NpcInstance npc, int info)
+        {
+            _magicService.SetActiveSpellInfo(npc, info);
+            return 0;
+        }
+
+        public int Npc_HasSpell(NpcInstance npc, int spellId)
+        {
+            var ret = Convert.ToInt32(_magicService.HasSpell(npc, spellId));
+            return LogInstantExternal(nameof(Npc_HasSpell), ret, npc, spellId);
+        }
+
+        public int Npc_IsDrawingSpell(NpcInstance npc)
+        {
+            var ret = _magicService.GetDrawnScroll(npc);
+            return LogInstantExternal(nameof(Npc_IsDrawingSpell), ret, npc);
+        }
+
+        public int Npc_GetLastHitSpellID(NpcInstance npc)
+        {
+            var ret = _magicService.GetLastHitSpell(npc);
+            return LogInstantExternal(nameof(Npc_GetLastHitSpellID), ret, npc);
+        }
+
+        public int Npc_GetLastHitSpellCat(NpcInstance npc)
+        {
+            var ret = _magicService.GetLastHitSpellCategory(npc);
+            return LogInstantExternal(nameof(Npc_GetLastHitSpellCat), ret, npc);
+        }
+
+        /// <summary>
+        /// Engine: any weapon in the hands - melee, ranged or magic (not fists).
+        /// </summary>
+        public int Npc_HasReadiedWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(GetFightMode(npc).IsWeaponReadied());
+            return LogInstantExternal(nameof(Npc_HasReadiedWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedMeleeWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(GetFightMode(npc).IsMelee());
+            return LogInstantExternal(nameof(Npc_HasReadiedMeleeWeapon), ret, npc);
+        }
+
+        public int Npc_HasReadiedRangedWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(GetFightMode(npc).IsRanged());
+            return LogInstantExternal(nameof(Npc_HasReadiedRangedWeapon), ret, npc);
+        }
+
+        /// <summary>
+        /// G2: the NPC is drawing its weapon right now (AI_DrawWeapon running).
+        /// </summary>
+        public int Npc_IsDrawingWeapon(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(npc?.GetUserData()?.Props.CurrentAction is DrawWeapon);
+            return LogInstantExternal(nameof(Npc_IsDrawingWeapon), ret, npc);
+        }
+
+        public ItemInstance Npc_GetReadiedWeapon(NpcInstance npc)
+        {
+            var fightMode = GetFightMode(npc);
+            var item = fightMode.IsMelee() ? _npcHelperService.ExtNpcGetEquippedMeleeWeapon(npc)
+                : fightMode.IsRanged() ? _npcHelperService.ExtNpcGetEquippedRangedWeapon(npc)
+                : null;
+            return LogInstantExternal(nameof(Npc_GetReadiedWeapon), item, npc);
+        }
+
+        public int Npc_GetNextTarget(NpcInstance npc)
+        {
+            var ret = Convert.ToInt32(_npcAiService.ExtGetNextTarget(npc));
+            return LogInstantExternal(nameof(Npc_GetNextTarget), ret, npc);
+        }
+
+        /// <summary>
+        /// The attitude between the guilds of both NPCs (= Wld_GetGuildAttitude(self.guild, other.guild)).
+        /// </summary>
+        public int Npc_GetGuildAttitude(NpcInstance self, NpcInstance other)
+        {
+            var ret = self == null || other == null
+                ? (int)VmGothicEnums.Attitude.Neutral
+                : Wld_GetGuildAttitude(self.Guild, other.Guild);
+            return LogInstantExternal(nameof(Npc_GetGuildAttitude), ret, self, other);
+        }
+
+        private static VmGothicEnums.WeaponState GetFightMode(NpcInstance npc)
+        {
+            return (VmGothicEnums.WeaponState)(npc?.GetUserData()?.Vob.FightMode ?? 0);
         }
 
         public int Npc_GetTarget(NpcInstance npc)
