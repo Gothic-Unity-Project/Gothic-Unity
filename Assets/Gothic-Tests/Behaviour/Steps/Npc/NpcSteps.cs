@@ -46,7 +46,8 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 Assert.Inconclusive($"No free spot {meters} m from the hero for {instance} - pick another way point " +
                     "for the feature");
 
-            var toHero = place.HeroPosition - position;
+            var heroAtSpawn = place.HeroPosition;
+            var toHero = heroAtSpawn - position;
             toHero.y = 0;
             var rotation = Quaternion.LookRotation(toHero, Vector3.up);
 
@@ -57,10 +58,12 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 _scope.Undo($"remove {instance}", () => Npcs.Remove(npc));
             });
 
-            var distance = Vector3.Distance(spawned.Go.transform.position, place.HeroPosition);
+            var npcPosition = spawned.Go.transform.position;
+            var distance = Vector3.Distance(npcPosition, place.HeroPosition);
             if (Mathf.Abs(distance - meters) > _maxPlacementError)
-                Assert.Inconclusive($"{instance} stands {distance:0.0} m from the hero, not {meters} m - the game " +
-                    "moved it; pick another way point for the feature");
+                Assert.Inconclusive($"{instance} stands {distance:0.0} m from the hero, not {meters} m: spawned at " +
+                    $"{position}, stands at {npcPosition} ({Vector3.Distance(position, npcPosition):0.0} m off), the " +
+                    $"hero moved {Vector3.Distance(heroAtSpawn, place.HeroPosition):0.0} m meanwhile");
         }
 
         [Step("\"(.*)\" guards the items around him")]
