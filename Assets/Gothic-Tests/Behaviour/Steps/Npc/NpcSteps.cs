@@ -67,6 +67,10 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 LogCat.Debug);
         }
 
+        /// <summary>
+        /// Measured on the ground: an NPC put on the ground rises onto his feet in his first frames (his body's
+        /// middle ends up about 1 m above the spot), so the height says nothing about where he was built.
+        /// </summary>
         [Step("\"(.*)\" is built where he was put, give or take (\\d+) cm")]
         public void IsBuiltWhereHeWasPut(string instance, int centimeters)
         {
@@ -74,8 +78,10 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 throw new AssertionException($"The scenario didn't put {instance} anywhere");
 
             var standsAt = GetNpc(instance).Go.transform.position;
-            Assert.That(Vector3.Distance(spot, standsAt) * 100f, Is.LessThanOrEqualTo(centimeters),
-                $"{instance} was put at {spot} and stands at {standsAt} - cm apart");
+            var offset = standsAt - spot;
+            offset.y = 0;
+            Assert.That(offset.magnitude * 100f, Is.LessThanOrEqualTo(centimeters),
+                $"{instance} was put at {spot} and stands at {standsAt} - cm apart on the ground");
         }
 
         /// <summary>
