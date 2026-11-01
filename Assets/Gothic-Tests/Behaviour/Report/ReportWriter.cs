@@ -109,7 +109,9 @@ namespace Gothic.Tests.Behaviour.Report
             text.AppendLine();
             foreach (var result in list)
             {
-                var message = result.FailingStep != null ? $"{result.FailingStep}: {result.Message}" : result.Message;
+                var message = !string.IsNullOrEmpty(result.FailingStep)
+                    ? $"{result.FailingStep}: {result.Message}"
+                    : result.Message;
                 var why = withMessage && !string.IsNullOrEmpty(result.Message)
                     ? $" - {OneLine(message)}"
                     : string.Empty;
@@ -151,7 +153,7 @@ namespace Gothic.Tests.Behaviour.Report
             text.AppendLine($"Line {result.Line}, started {result.StartedAt}, tags " +
                 $"{string.Join(" ", result.Tags.Select(tag => "@" + tag))}.");
             text.AppendLine();
-            if (result.FailingStep != null)
+            if (!string.IsNullOrEmpty(result.FailingStep))
             {
                 text.AppendLine($"Step: `{result.FailingStep}`");
                 text.AppendLine();

@@ -36,7 +36,8 @@ namespace Gothic.Tests.Behaviour.Report
             var text = new StringBuilder();
             text.AppendLine($"# Headset checklist, {title}");
             text.AppendLine();
-            text.AppendLine($"What the automated scenarios don't check in a {version} run" +
+            var versionName = version == GameVersion.Gothic1 ? "Gothic 1" : "Gothic 2";
+            text.AppendLine($"What the automated scenarios don't check in a {versionName} run" +
                 $"{(hasInputSession ? " with its input session" : string.Empty)}: every @manual scenario and the " +
                 "scenarios skipped for their tag. Play each one and tick it off. Marvin's console gets you there: " +
                 "`goto waypoint <name>`, `set time <hour> <minute>`, `insert <instance>`; developer switches are " +
