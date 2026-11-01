@@ -70,7 +70,8 @@ Feature: A torch in the hand lights the world like a flame
   @input
   Scenario: The simulator's hand grips a torch and its trigger lights it
     Given a "ITLSTORCH" lies 0.5 m in front of the hero
-    When the hero grips the "ITLSTORCH" lying in front of him with his right hand
+    When the hero crouches
+    And the hero grips the "ITLSTORCH" lying in front of him with his right hand
     And the hero pulls the trigger of his right hand
     Then the torch in his right hand is burning
 

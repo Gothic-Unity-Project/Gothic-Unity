@@ -134,15 +134,20 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
         }
 
         /// <summary>
-        /// The middle of what can be touched of the item (its active colliders), else of what is drawn.
+        /// The middle of what can be touched of the item (its active colliders), else of what is drawn. Parts without
+        /// a size (an empty renderer's bounds sit at the world's origin) don't count.
         /// </summary>
         private static Vector3 GetMiddle(VobContainer item)
         {
-            var bounds = item.Go.GetComponentsInChildren<Collider>()
+            var touched = item.Go.GetComponentsInChildren<Collider>()
                 .Where(collider => collider.enabled && !collider.isTrigger)
-                .Select(collider => collider.bounds)
-                .Concat(item.Go.GetComponentsInChildren<Renderer>().Select(renderer => renderer.bounds))
-                .ToList();
+                .Select(collider => collider.bounds);
+            var drawn = item.Go.GetComponentsInChildren<Renderer>()
+                .Where(renderer => renderer.enabled)
+                .Select(renderer => renderer.bounds);
+            var bounds = touched.Where(HasSize).ToList();
+            if (bounds.Count == 0)
+                bounds = drawn.Where(HasSize).ToList();
             if (bounds.Count == 0)
                 return item.Go.transform.position;
 
@@ -150,6 +155,11 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
             foreach (var part in bounds)
                 all.Encapsulate(part);
             return all.center;
+        }
+
+        private static bool HasSize(Bounds bounds)
+        {
+            return bounds.size.sqrMagnitude > 0.000001f;
         }
 
         private static bool IsBuilt(VobContainer item)

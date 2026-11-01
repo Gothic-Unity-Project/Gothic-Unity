@@ -70,6 +70,19 @@ namespace Gothic.Tests.Behaviour.Driver
         }
 
         /// <summary>
+        /// His eyes - the hero's head is the camera.
+        /// </summary>
+        public Vector3 HeadPosition
+        {
+            get
+            {
+                var hero = _npcService.GetHeroContainer();
+                var head = hero.PrefabProps != null ? hero.PrefabProps.Head : null;
+                return head != null ? head.position : hero.Go.transform.position;
+            }
+        }
+
+        /// <summary>
         /// Where he looks, level with the ground.
         /// </summary>
         public Vector3 HeroForward

@@ -26,6 +26,9 @@ namespace Gothic.Tests.Behaviour.Driver
         private const float _maxHandStepMeters = 0.04f;
         private const float _handReachSeconds = 5f;
         private const float _grabSeconds = 2f;
+        // Crouching moves the camera down to 0.7 m above the floor (XriRig), the hands reach the ground from there.
+        private const float _crouchedHeadMeters = 0.9f;
+        private const float _crouchSeconds = 3f;
         // A press needs a frame to arrive and one to be read; the simulator skips the mouse movement of the frame the
         // cursor gets locked.
         private const int _settleFrames = 3;
@@ -33,6 +36,7 @@ namespace Gothic.Tests.Behaviour.Driver
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private readonly HashSet<ButtonControl> _pressed = new();
+        private float _standingHeadMeters;
 
 
         private InputSession Session => GameSession.Input ??
@@ -54,6 +58,37 @@ namespace Gothic.Tests.Behaviour.Driver
         }
 
         public ButtonControl WalkForwardKey => Session.Keyboard.wKey;
+
+        public bool IsCrouching { get; private set; }
+
+        /// <summary>
+        /// X - crouching is a switch. Waits until the head is down.
+        /// </summary>
+        public IEnumerator Crouch(System.Func<float> headAboveFeet)
+        {
+            if (IsCrouching)
+                yield break;
+
+            _standingHeadMeters = headAboveFeet();
+            yield return Click(Session.Keyboard.xKey);
+            IsCrouching = true;
+            yield return Wait.Until(() => headAboveFeet() < _crouchedHeadMeters, _crouchSeconds,
+                $"the head lower than {_crouchedHeadMeters} m", () => $"it is {headAboveFeet():0.00} m above the feet");
+        }
+
+        /// <summary>
+        /// X again, until the head is up where it was.
+        /// </summary>
+        public IEnumerator StandUp(System.Func<float> headAboveFeet)
+        {
+            if (!IsCrouching)
+                yield break;
+
+            yield return Click(Session.Keyboard.xKey);
+            IsCrouching = false;
+            yield return Wait.Until(() => headAboveFeet() > _standingHeadMeters - 0.1f, _crouchSeconds,
+                $"the head back up at {_standingHeadMeters:0.00} m", () => $"it is {headAboveFeet():0.00} m");
+        }
 
         /// <summary>
         /// Holds the hand (Q/E) and moves it with the mouse until its controller is within the tolerance of the point.

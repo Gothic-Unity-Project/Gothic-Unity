@@ -81,12 +81,28 @@ namespace Gothic.Tests.Behaviour.Steps.Player
         }
 
         /// <summary>
+        /// The crouch key: the head goes down so the hands reach the ground. He stands up again when the scenario ends.
+        /// </summary>
+        [Step("the hero crouches")]
+        public IEnumerator TheHeroCrouches()
+        {
+            var input = Input;
+            _scope.UndoOverFrames("stand up", () => input.StandUp(GetHeadAboveFeet));
+            yield return input.Crouch(GetHeadAboveFeet);
+        }
+
+        /// <summary>
         /// What the hand holds reacts to its trigger (a torch is lit or put out).
         /// </summary>
         [Step("the hero pulls the trigger of his (left|right) hand")]
         public IEnumerator TheHeroPullsTheTrigger(VrHandSide side)
         {
             yield return Input.PullTrigger(side);
+        }
+
+        private float GetHeadAboveFeet()
+        {
+            return Place.HeadPosition.y - Place.HeroPosition.y;
         }
     }
 }
