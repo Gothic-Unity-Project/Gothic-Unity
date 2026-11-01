@@ -231,7 +231,7 @@ namespace Gothic.Core.Services.Npc
         {
             // Nobody down hits anybody: the knocked out or dead VR hero's weapon kept swinging (found on BoroBongo's
             // branch).
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead || attacker.IsDown())
+            if (target.Props.IsDead || attacker.IsDown())
                 return false;
 
             // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.
