@@ -50,6 +50,7 @@ namespace Gothic.Core.Domain.Npc
         
         public GameObject RootGo;
         private readonly List<(NpcContainer npc, string spawnPoint)> _tmpWldInsertNpcData = new();
+        private readonly Collider[] _spawnCheckHits = new Collider[16];
 
         // Wld_InsertNpc queues into _tmpWldInsertNpcData, which is drained only once: during the world's initial NPC
         // spawn. Vanilla STARTUP scripts only call Wld_InsertNpc in that window, but some mod quest/dialog scripts
@@ -338,7 +339,8 @@ namespace Gothic.Core.Domain.Npc
 
             lazyLoadGo.transform.GetPositionAndRotation(out var lazyPos, out var lazyRot);
 
-            var finalSpawnPos = GetFreeAreaAtSpawnPoint(lazyPos);
+            // The NPC's new body stands at the spot already - the check must not move the NPC away from itself.
+            var finalSpawnPos = GetFreeAreaAtSpawnPoint(lazyPos, newNpc);
 
             var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay)
                 ? props.MdhNameBase
@@ -390,7 +392,9 @@ namespace Gothic.Core.Domain.Npc
         /// <summary>
         /// Check if NPC/Monster will spawn inside another and do a circulated free V3 check around the area.
         /// </summary>
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        /// <param name="ownNpc">The NPC's own body if it exists already - its colliders don't count as an obstacle.
+        /// </param>
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
             var isPositionFound = false;
             var testRadius = 1f; // ~2x size of normal bounding box of an NPC.
@@ -399,7 +403,7 @@ namespace Gothic.Core.Domain.Npc
             var initialSpawnPointGroundControl = positionToScan + groundControlDifference;
 
             // Check if the spawn point is free.
-            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2))
+            if (IsAreaFree(initialSpawnPointGroundControl, testRadius / 2, ownNpc))
             {
                 return positionToScan;
             }
@@ -417,7 +421,7 @@ namespace Gothic.Core.Domain.Npc
                     var checkPointGroundControl = initialSpawnPointGroundControl + offsetPoint;
 
                     // Check if the point is clear (no obstacles)
-                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2))
+                    if (IsAreaFree(checkPointGroundControl, testRadius / 2, ownNpc))
                     {
                         return positionToScan + offsetPoint;
                     }
@@ -427,6 +431,21 @@ namespace Gothic.Core.Domain.Npc
             Logger.LogError(
                 $"No suitable spawn point found for NPC at >{positionToScan}<. Circle search didn't find anything!", LogCat.Npc);
             return default;
+        }
+
+        /// <summary>
+        /// Like Physics.CheckSphere, but the colliders of ownNpc don't count.
+        /// </summary>
+        private bool IsAreaFree(Vector3 position, float radius, GameObject ownNpc)
+        {
+            var count = Physics.OverlapSphereNonAlloc(position, radius, _spawnCheckHits, Physics.DefaultRaycastLayers);
+            for (var i = 0; i < count; i++)
+            {
+                if (ownNpc == null || !_spawnCheckHits[i].transform.IsChildOf(ownNpc.transform))
+                    return false;
+            }
+
+            return true;
         }
     }
 }
