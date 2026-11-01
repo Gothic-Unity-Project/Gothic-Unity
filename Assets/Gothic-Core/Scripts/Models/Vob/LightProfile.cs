@@ -7,7 +7,7 @@ namespace Gothic.Core.Models.Vob
     /// the colors play in a loop at their fps, blended between the keys when smooth, else stepping. A light without
     /// any animation gets a gentle default flicker of its range, so a flame never looks frozen.
     /// </summary>
-    public readonly struct LightPreset
+    public readonly struct LightProfile
     {
         // Default flicker: +-8 % of the range, smooth, 8 new values per second.
         private const float _defaultFlickerAmount = 0.08f;
@@ -26,7 +26,7 @@ namespace Gothic.Core.Models.Vob
         /// </summary>
         public readonly string LensFlareName;
 
-        public LightPreset(float range, Color color, float[] rangeAnimationScales = null, float rangeAnimationFps = 0f,
+        public LightProfile(float range, Color color, float[] rangeAnimationScales = null, float rangeAnimationFps = 0f,
             bool isRangeAnimationSmooth = false, Color[] colorAnimation = null, float colorAnimationFps = 0f,
             bool isColorAnimationSmooth = false, string lensFlareName = null)
         {

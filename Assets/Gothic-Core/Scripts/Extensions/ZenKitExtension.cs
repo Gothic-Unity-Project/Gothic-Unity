@@ -139,7 +139,7 @@ namespace Gothic.Core.Extensions
         /// A Gothic light in Unity units: range cm to m, byte colors to colors, its range and color animation and its
         /// lens flare effect.
         /// </summary>
-        public static LightPreset ToLightPreset(this ZenKit.Vobs.Light light)
+        public static LightProfile ToLightProfile(this ZenKit.Vobs.Light light)
         {
             var rangeKeys = light.RangeAnimationScale;
             var rangeScales = new float[rangeKeys?.Count ?? 0];
@@ -155,7 +155,7 @@ namespace Gothic.Core.Extensions
             }
 
             var color = light.Color;
-            return new LightPreset(light.Range * .01f, new UnityEngine.Color(color.R / 255f, color.G / 255f,
+            return new LightProfile(light.Range * .01f, new UnityEngine.Color(color.R / 255f, color.G / 255f,
                     color.B / 255f), rangeScales, light.RangeAnimationFps, light.RangeAnimationSmooth, colors,
                 light.ColorAnimationFps, light.ColorAnimationSmooth, light.LensflareFx);
         }

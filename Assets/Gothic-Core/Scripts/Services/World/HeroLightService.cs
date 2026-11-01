@@ -9,9 +9,9 @@ namespace Gothic.Core.Services.World
     /// <summary>
     /// One sharp light that the lit shaders compute for every pixel and by the angle of each surface
     /// (GothicHeroLight.hlsl) - the burning torch in the player's hand. All other lights stay as they are (per vertex,
-    /// see Docs/lighting.md). It follows its anchor every frame and flickers with its preset's animation. One owner at a
-    /// time: Show takes it over, only that owner's Hide fades it out. It goes out at once when the anchor is gone or the
-    /// world unloads. This service only owns the shader state (two globals and the keyword _HERO_LIGHT).
+    /// see Docs/lighting.md). It follows its anchor every frame and flickers with its profile's animation. One owner at
+    /// a time: Show takes it over, only that owner's Hide fades it out. It goes out at once when the anchor is gone or
+    /// the world unloads. This service only owns the shader state (two globals and the keyword _HERO_LIGHT).
     /// </summary>
     public class HeroLightService
     {
@@ -24,7 +24,7 @@ namespace Gothic.Core.Services.World
 
         private object _owner;
         private Transform _anchor;
-        private LightPreset _preset;
+        private LightProfile _profile;
         private bool _isOn;
         private bool _isFading;
         private float _fadeEndTime;
@@ -37,24 +37,24 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// The light shines from the anchor with the preset's range, color and flicker. Takes the light over from any
+        /// The light shines from the anchor with the profile's range, color and flicker. Takes the light over from any
         /// other owner and stops a fade-out.
         /// </summary>
-        public void Show(object owner, Transform anchor, LightPreset preset)
+        public void Show(object owner, Transform anchor, LightProfile profile)
         {
             if (owner == null || anchor == null)
                 return;
 
             _owner = owner;
             _anchor = anchor;
-            _preset = preset;
+            _profile = profile;
             _isFading = false;
             if (_isOn)
                 return;
 
             _isOn = true;
             Shader.SetKeyword(_keyword, true);
-            Logger.Log($"[HeroLight] on at {anchor.name}, range {preset.Range:F1} m.", LogCat.Vob);
+            Logger.Log($"[HeroLight] on at {anchor.name}, range {profile.Range:F1} m.", LogCat.Vob);
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace Gothic.Core.Services.World
                 }
             }
 
-            var (range, color) = _preset.Evaluate(Time.time);
+            var (range, color) = _profile.Evaluate(Time.time);
             var position = _anchor.position;
             Shader.SetGlobalVector(_positionRangeId,
                 new Vector4(position.x, position.y, position.z, 1f / Mathf.Max(range * range, 0.01f)));
