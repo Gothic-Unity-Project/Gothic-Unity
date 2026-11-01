@@ -21,8 +21,8 @@ namespace Gothic.Core.Services.World
         // the base level up to the light's range. Gothic's scenes at night are lit brightly already (fires): the torch
         // only stands out well above them.
         private const float _nearRadius = 1.5f;
-        private const float _nearStrength = 2.2f;
-        private const float _baseLevel = 0.35f;
+        private const float _nearStrength = 4f;
+        private const float _baseLevel = 0.5f;
 
         private static readonly int _positionRangeId = Shader.PropertyToID("_HeroLightPositionRange");
         private static readonly int _colorId = Shader.PropertyToID("_HeroLightColor");
