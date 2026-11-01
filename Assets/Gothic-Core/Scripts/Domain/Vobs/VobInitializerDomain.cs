@@ -49,6 +49,9 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly MobRoutineService _mobRoutineService;
 
+        // While a fire tree is built: its VOBs sit relative to the fire, all other VOBs of a world absolutely.
+        private bool _isCreatingFireTree;
+
 
         /// <summary>
         /// Generic root method to create a VOB of any type.
@@ -452,10 +455,18 @@ namespace Gothic.Core.Domain.Vobs
         private void CreateFireVobs(List<IVirtualObject> vobs, GameObject parent, Vector3 worldPosition)
         {
             // The tree's positions are relative to the fire already (ResourceCacheService moves them when loading).
-            foreach (var vob in vobs)
+            _isCreatingFireTree = true;
+            try
             {
-                // Call normal mesh and Prefab loading logic
-                InitVob(vob, parent, worldPosition, false);
+                foreach (var vob in vobs)
+                {
+                    // Call normal mesh and Prefab loading logic
+                    InitVob(vob, parent, worldPosition, false);
+                }
+            }
+            finally
+            {
+                _isCreatingFireTree = false;
             }
         }
 
@@ -971,10 +982,19 @@ namespace Gothic.Core.Domain.Vobs
                 vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(), parent);
         }
 
+        /// <summary>
+        /// A fire tree's effects are placed relative to the fire. Every other VOB of a world carries its absolute
+        /// position, a child too: the flame of a wall fire bowl is a child VOB 60 cm above the bowl. Taken as relative,
+        /// it doubled the position and flew 20-40 m away.
+        /// </summary>
         private GameObject CreatePfx(IVirtualObject vob, GameObject parent)
         {
-            return _meshService.CreateVobPfx(vob, vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(),
+            var go = _meshService.CreateVobPfx(vob, vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(),
                 parent);
+            if (go != null && !_isCreatingFireTree)
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+
+            return go;
         }
 
         /// <summary>
