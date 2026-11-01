@@ -277,6 +277,12 @@ namespace Gothic.VR.Services.Context
             _rig.TeleportEnabled = false;
         }
 
+        public void LockPlayerWalking()
+        {
+            _rig.MovementEnabled = false;
+            _rig.TeleportEnabled = false;
+        }
+
         public void UnlockPlayer()
         {
             _rig.MovementEnabled = true;
@@ -334,7 +340,9 @@ namespace Gothic.VR.Services.Context
 
             // The frame's movement is read from the position of the previous call. After a gap (new dialog, a frame
             // without a call) there is nothing to compare against.
-            var position = _rig.Root.position;
+            // Measured at the head: a physical step moves it, but not the root. Turning rotates the root around the
+            // head, so the root moves and the head doesn't.
+            var position = _rig.Head.position;
             var frameMovement = _keepWithinLastFrame == Time.frameCount - 1
                 ? position - _keepWithinLastPosition
                 : Vector3.zero;
@@ -376,7 +384,7 @@ namespace Gothic.VR.Services.Context
                 return;
 
             controller.Move(correction);
-            _keepWithinLastPosition = _rig.Root.position;
+            _keepWithinLastPosition = _rig.Head.position;
         }
 
         public void InitUIInteraction()

@@ -42,6 +42,11 @@ namespace Gothic.Core.Services.Context
             _impl.LockPlayerInPlace();
         }
 
+        public void LockPlayerWalking()
+        {
+            _impl.LockPlayerWalking();
+        }
+
         public void UnlockPlayer()
         {
             _impl.UnlockPlayer();

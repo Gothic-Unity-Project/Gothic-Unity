@@ -35,7 +35,7 @@ namespace Gothic.Core.Domain
         
         public BootstrapDomain()
         {
-            GlobalEventDispatcher.LoadGameStart.AddListener(LoadGothicVm);
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
         
         public void Boot()
@@ -175,7 +175,21 @@ namespace Gothic.Core.Domain
         }
 
         /// <summary>
-        /// We load all dialogs once and assign them to the appropriate NPCs once spawned.
+        /// Every game start gets a fresh Gothic VM, and its own dialogs (C_Info): initialized once on the boot VM, what
+        /// the scripts write into them during the game went to the new VM's unbound symbols - G1's Cord kept offering
+        /// his training (SLD_709_Cord_TRAIN.permanent = 0), G2's anvil choices stayed empty. Found on BoroBongo's
+        /// branch.
+        /// </summary>
+        private void OnLoadGameStart()
+        {
+            LoadGothicVm();
+
+            _gameStateService.Dialogs.Instances.Clear();
+            LoadDialogs();
+        }
+
+        /// <summary>
+        /// We load all dialogs once per VM and assign them to the appropriate NPCs once spawned.
         /// </summary>
         private void LoadDialogs()
         {

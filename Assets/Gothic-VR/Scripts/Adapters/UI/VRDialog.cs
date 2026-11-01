@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Extensions;
@@ -16,6 +17,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.UI
 {
@@ -33,6 +35,9 @@ namespace Gothic.VR.Adapters.UI
         [NonSerialized]
         public List<string> CurrentDialogOptionTexts;
         
+        // Meters from the player's head; a box at a farther NPC is shown on the way to it.
+        private const float _maxDistanceToPlayer = 4f;
+
         private float _dialogItemHeight;
         private int _dialogItemsInUse;
         private Vector3 _baseWorldScale;
@@ -70,6 +75,21 @@ namespace Gothic.VR.Adapters.UI
             var npcDialog = npcGo.FindChildRecursively("DialogMenuRootPos");
             _dialogRoot.SetParent(npcDialog, true, true, true);
             ApplyTextSize();
+
+            // An NPC can open a dialog up to 20 m away (DialogService): the box comes towards the player then, so it
+            // stays readable. Placed when shown - the player is pinned during the dialog.
+            var playerCamera = Camera.main;
+            if (playerCamera == null)
+            {
+                Logger.LogWarning("[VRDialog] No main camera - the dialog box stays at the NPC.", LogCat.Dialog);
+            }
+            else
+            {
+                var cameraPosition = playerCamera.transform.position;
+                var toBox = _dialogRoot.transform.position - cameraPosition;
+                if (toBox.magnitude > _maxDistanceToPlayer)
+                    _dialogRoot.transform.position = cameraPosition + toBox.normalized * _maxDistanceToPlayer;
+            }
 
             var rootRectHeight = _dialogItemHeight * _dialogItemsInUse;
             _dialogRoot.GetComponent<RectTransform>().SetHeight(rootRectHeight);
