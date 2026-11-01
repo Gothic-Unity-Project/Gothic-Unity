@@ -67,7 +67,11 @@ Feature: A torch in the hand lights the world like a flame
     Then the hero light is off within 1 s
     And the torch's own light is on
 
-  @input
+  # Known bug: the simulator's grip never reaches the hand's grab. XriHvrStyleSimulator queues the grip for the hand's
+  # interactor every frame before the interaction manager reads it, so the queued press stays one frame ahead and is
+  # never applied (the hand hovers the torch, nothing is grabbed). Pressed once by hand in a debug session, the rest -
+  # grab, trigger, torch - passed.
+  @input @known-bug
   Scenario: The simulator's hand grips a torch and its trigger lights it
     Given a "ITLSTORCH" lies 0.5 m in front of the hero
     When the hero crouches
