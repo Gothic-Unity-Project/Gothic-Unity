@@ -571,13 +571,13 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             // The hero doesn't react to perceptions.
-            if (self.Index == (_gameStateService.GothicVm.GlobalHero as NpcInstance)?.Index)
+            if (self.IsHero())
                 return;
 
             // Like the engine (OpenGothic passivePerceptionProcess): the dead and the unconscious don't notice.
             var selfContainer = self.GetUserData();
-            if (selfContainer?.Go == null || properties.BodyState is VmGothicEnums.BodyState.BsDead
-                    or VmGothicEnums.BodyState.BsUnconscious)
+            if (selfContainer?.Go == null || properties.IsDead ||
+                properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
             var position = selfContainer.Go.transform.position;
