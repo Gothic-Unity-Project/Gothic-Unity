@@ -27,6 +27,14 @@ namespace Gothic.Tests.Behaviour.Editor
         private static readonly string[] _fastCategories = { "!^input$", "!^visual$", "!^slow$", "!^manual$" };
         private static readonly string[] _inputCategories = { "^input$" };
 
+        // After a run, the test framework still cleans up in edit mode (scene setup, its temporary InitTestScene
+        // asset): the reload for the next run waits these editor ticks and seconds, or the cleanup is cut off.
+        private const int _settleTicks = 30;
+        private const double _settleSeconds = 2;
+
+        private static int _editModeTicks;
+        private static double _editModeSince;
+
 
         static BehaviourTestRunQueue()
         {
@@ -86,15 +94,25 @@ namespace Gothic.Tests.Behaviour.Editor
             if (SessionState.GetString(_queueKey, string.Empty).Length == 0)
                 return;
 
-            EditorApplication.update += ReloadWhenInEditMode;
+            _editModeTicks = 0;
+            EditorApplication.update -= ReloadWhenSettled;
+            EditorApplication.update += ReloadWhenSettled;
         }
 
-        private static void ReloadWhenInEditMode()
+        private static void ReloadWhenSettled()
         {
-            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
+            {
+                _editModeTicks = 0;
+                return;
+            }
+
+            if (_editModeTicks++ == 0)
+                _editModeSince = EditorApplication.timeSinceStartup;
+            if (_editModeTicks < _settleTicks || EditorApplication.timeSinceStartup - _editModeSince < _settleSeconds)
                 return;
 
-            EditorApplication.update -= ReloadWhenInEditMode;
+            EditorApplication.update -= ReloadWhenSettled;
             ReloadAndStartNext();
         }
     }
