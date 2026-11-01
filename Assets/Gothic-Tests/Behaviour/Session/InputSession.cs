@@ -1,6 +1,8 @@
 using Gothic.Core.Logging;
 using Unity.Collections;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Layouts;
+using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Tests.Behaviour.Session
@@ -10,7 +12,8 @@ namespace Gothic.Tests.Behaviour.Session
     /// test keyboard and mouse, which the desktop VR simulator (XriHvrStyleSimulator) reads like real ones. The fixture
     /// removes every device, including the simulated headset and controllers the simulator found when it was enabled -
     /// so it is set up before the game boots, and a session that booted without it can't get it later.
-    /// Physical keys and mouse don't reach the game meanwhile.
+    /// Physical keys and mouse don't reach the game meanwhile. The only use of XR Interaction Toolkit types in the
+    /// scenarios: the fresh input system needs the layouts of its simulated devices again.
     /// </summary>
     public class InputSession
     {
@@ -37,6 +40,13 @@ namespace Gothic.Tests.Behaviour.Session
             var fixture = new InputTestFixture();
             fixture.Setup();
             NativeLeakDetection.Mode = leakDetection;
+
+            // Registered once at start-up by XR Interaction Toolkit (SimulatedInputLayoutLoader) - in the input system
+            // the fixture replaced. The simulator adds its headset and controllers by these product names.
+            InputSystem.RegisterLayout<XRSimulatedHMD>(
+                matches: new InputDeviceMatcher().WithProduct(nameof(XRSimulatedHMD)));
+            InputSystem.RegisterLayout<XRSimulatedController>(
+                matches: new InputDeviceMatcher().WithProduct(nameof(XRSimulatedController)));
 
             var session = new InputSession(fixture, InputSystem.AddDevice<Keyboard>(), InputSystem.AddDevice<Mouse>());
             Logger.Log("[BehaviourTests] Input session: the test keyboard and mouse drive the game", LogCat.Debug);

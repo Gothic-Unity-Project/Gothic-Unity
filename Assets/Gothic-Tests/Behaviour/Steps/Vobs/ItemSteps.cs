@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
@@ -126,16 +127,23 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
             yield return Wait.Frames(_settleFrames);
         }
 
+        /// <summary>
+        /// The middle of what can be touched of the item (its active colliders), else of what is drawn.
+        /// </summary>
         private static Vector3 GetMiddle(VobContainer item)
         {
-            var colliders = item.Go.GetComponentsInChildren<Collider>();
-            if (colliders.Length == 0)
+            var bounds = item.Go.GetComponentsInChildren<Collider>()
+                .Where(collider => collider.enabled && !collider.isTrigger)
+                .Select(collider => collider.bounds)
+                .Concat(item.Go.GetComponentsInChildren<Renderer>().Select(renderer => renderer.bounds))
+                .ToList();
+            if (bounds.Count == 0)
                 return item.Go.transform.position;
 
-            var bounds = colliders[0].bounds;
-            foreach (var collider in colliders)
-                bounds.Encapsulate(collider.bounds);
-            return bounds.center;
+            var all = bounds[0];
+            foreach (var part in bounds)
+                all.Encapsulate(part);
+            return all.center;
         }
 
         private static bool IsBuilt(VobContainer item)
