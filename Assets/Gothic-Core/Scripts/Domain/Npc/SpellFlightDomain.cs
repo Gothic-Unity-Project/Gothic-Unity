@@ -55,8 +55,7 @@ namespace Gothic.Core.Domain.Npc
             var candidates = new List<NpcContainer>();
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
-                if (npc == caster || npc?.Go == null || !npc.Go.activeInHierarchy ||
-                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (npc == caster || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Props?.IsDead == true)
                     continue;
 
                 if ((npc.Go.transform.position - start).sqrMagnitude <= _candidateRange * _candidateRange)
@@ -105,7 +104,7 @@ namespace Gothic.Core.Domain.Npc
         {
             foreach (var npc in candidates)
             {
-                if (npc.Go == null || npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (npc.Go == null || npc.Props?.IsDead == true)
                     continue;
 
                 if (DistanceToSegment(FightService.GetAimPoint(npc), from, to) < _hitRadius)

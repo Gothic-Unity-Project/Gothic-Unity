@@ -77,8 +77,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var hero = _npcService.GetHeroContainer();
-            if (hero == null || hero.Props.BodyState is VmGothicEnums.BodyState.BsDead
-                    or VmGothicEnums.BodyState.BsUnconscious)
+            if (hero == null || hero.Props.IsDead || hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
             var cast = _magicService.CanCast(hero, item)
@@ -165,8 +164,7 @@ namespace Gothic.VR.Adapters.Player
             var bestAngle = _aimAngleDegrees;
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
-                if (npc?.Go == null || !npc.Go.activeInHierarchy || npc.IsHero() ||
-                    npc.Props?.BodyState == VmGothicEnums.BodyState.BsDead)
+                if (npc?.Go == null || !npc.Go.activeInHierarchy || npc.IsHero() || npc.Props?.IsDead == true)
                     continue;
 
                 var toNpc = FightService.GetAimPoint(npc) - hand.position;
