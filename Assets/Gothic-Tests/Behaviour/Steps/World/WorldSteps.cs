@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using Gothic.Core.Const;
 using Gothic.Core.Services.World;
@@ -17,9 +16,6 @@ namespace Gothic.Tests.Behaviour.Steps.World
     /// </summary>
     public class WorldSteps
     {
-        // Setting the clock and waiting for its next minute may cross into the minute after the one set.
-        private const int _setTimeAttempts = 3;
-
         [Inject] private readonly GameTimeService _gameTimeService;
 
         private readonly ScenarioScope _scope;
@@ -68,23 +64,18 @@ namespace Gothic.Tests.Behaviour.Steps.World
             yield return SetTime(then.Hour + days * 24, then.Minute);
         }
 
+        /// <summary>
+        /// Sets the clock where its next minute tick is still within the minute set, and waits for that tick.
+        /// </summary>
         private IEnumerator SetTime(int hour, int minute)
         {
-            var expected = new TimeSpan(hour % 24, minute, 0);
-            for (var attempt = 0; attempt < _setTimeAttempts; attempt++)
-            {
-                _gameTimeService.SetTime(hour, minute);
-                yield return Wait.GameMinute();
+            yield return Wait.AwayFromGameMinute();
+            _gameTimeService.SetTime(hour, minute);
+            yield return Wait.GameMinute();
 
-                var now = _gameTimeService.GetCurrentTime();
-                if (now.Hours == expected.Hours && now.Minutes == expected.Minutes)
-                    yield break;
-
-                // The minute ticked over right at the set time (or the day changed already): once more, same day.
-                hour %= 24;
-            }
-
-            Assert.Fail($"The game clock doesn't stay at {expected:hh\\:mm}, it is {_gameTimeService.GetCurrentTime()}");
+            var now = _gameTimeService.GetCurrentTime();
+            Assert.That(now.Hours == hour % 24 && now.Minutes == minute,
+                $"The game clock was set to {hour % 24:00}:{minute:00} but is {now} at its next minute");
         }
     }
 }

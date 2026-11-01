@@ -72,6 +72,32 @@ namespace Gothic.Tests.Behaviour.Driver
         }
 
         /// <summary>
+        /// Until a game second ticked that wasn't a minute's last: the clock set now reaches its next minute within the
+        /// same minute. Set right after a minute tick, the next tick of the minute counter (GameTimeService) is 60
+        /// seconds away and lands on the minute after the one set.
+        /// </summary>
+        public static IEnumerator AwayFromGameMinute()
+        {
+            var ticks = 0;
+            var minuteTick = -1;
+            void OnSecond(DateTime _) => ticks++;
+            void OnMinute(DateTime _) => minuteTick = ticks;
+
+            GlobalEventDispatcher.GameTimeSecondChangeCallback.AddListener(OnSecond);
+            GlobalEventDispatcher.GameTimeMinuteChangeCallback.AddListener(OnMinute);
+            try
+            {
+                yield return Until(() => ticks > 0 && minuteTick != ticks, _gameMinuteMaxSeconds, "a game second",
+                    () => "the game clock didn't tick (paused?)");
+            }
+            finally
+            {
+                GlobalEventDispatcher.GameTimeSecondChangeCallback.RemoveListener(OnSecond);
+                GlobalEventDispatcher.GameTimeMinuteChangeCallback.RemoveListener(OnMinute);
+            }
+        }
+
+        /// <summary>
         /// Until the task is done; its exception fails the step.
         /// </summary>
         public static IEnumerator For(Task task)
