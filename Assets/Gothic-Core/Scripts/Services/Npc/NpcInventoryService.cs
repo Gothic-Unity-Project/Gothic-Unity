@@ -16,16 +16,12 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
-
-        // EquipmentService resolved on first use, like the other services that lead back here.
-        private EquipmentService _equipmentService;
-        private EquipmentService Equipment => _equipmentService ??=
-            ReflexProjectInstaller.DIContainer.Resolve<EquipmentService>();
+        [Inject] private readonly EquipmentService _equipmentService;
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {
-            Equipment.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
+            _equipmentService.EquipByScript(npc.GetUserData(), _vmCacheService.TryGetItemData(itemId));
         }
         
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)
@@ -95,7 +91,7 @@ namespace Gothic.Core.Services.Npc
                     {
                         items.RemoveAt(i);
                         var container = npc.GetUserData();
-                        Equipment.OnItemGone(container, _vmCacheService.TryGetItemData(itemIndex),
+                        _equipmentService.OnItemGone(container, _vmCacheService.TryGetItemData(itemIndex),
                             () => ExtNpcHasItems(npc, itemIndex) <= 0);
                     }
                     else

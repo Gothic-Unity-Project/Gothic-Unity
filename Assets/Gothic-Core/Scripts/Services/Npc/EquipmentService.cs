@@ -32,10 +32,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly UnityMonoService _unityMonoService;
-
-        // VmService leads back to this service through its own dependencies - resolved on first use.
-        private VmService _vmService;
-        private VmService VmService => _vmService ??= ReflexProjectInstaller.DIContainer.Resolve<VmService>();
+        [Inject] private readonly VmService _vmService;
 
         public static bool IsWearable(ItemInstance item)
         {
@@ -270,7 +267,7 @@ namespace Gothic.Core.Services.Npc
             vm.GlobalItem = item;
             try
             {
-                VmService.CallAsNpc(function, npc.Instance, null, null, LogCat.Npc);
+                _vmService.CallAsNpc(function, npc.Instance, null, null, LogCat.Npc);
             }
             finally
             {
