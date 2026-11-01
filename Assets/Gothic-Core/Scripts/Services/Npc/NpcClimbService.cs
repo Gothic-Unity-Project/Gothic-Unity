@@ -304,7 +304,7 @@ namespace Gothic.Core.Services.Npc
         {
             // Died or knocked out mid-climb: the climb ends where the NPC is. Death and knockout own its body state and
             // physics now - setting it back to standing at the climb's end would overwrite them.
-            if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+            if (npc.Props.IsDead || npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
             {
                 StopClimb(npc);
                 return;
