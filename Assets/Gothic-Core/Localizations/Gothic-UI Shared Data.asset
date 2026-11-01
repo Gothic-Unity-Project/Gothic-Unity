@@ -227,6 +227,26 @@ MonoBehaviour:
     m_Key: menuitem.textSize.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188908961672855552
+    m_Key: menuitem.vr_immersion_more
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187200
+    m_Key: menuitem.vr_immersion_more.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187201
+    m_Key: menuitem.torchLight.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187202
+    m_Key: menuitem.torchLight.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187203
+    m_Key: menuitem.torchLight.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

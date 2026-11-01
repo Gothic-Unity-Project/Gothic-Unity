@@ -207,6 +207,10 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Zapis niemo\u017Cliwy podczas rozmowy."
+    m_Metadata:
+      m_Items: []
   - m_Id: 188130682066042880
     m_Localized: Winieta
     m_Metadata:
@@ -229,6 +233,37 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 188130682107985924
     m_Localized: "normalny|du\u017Cy|wi\u0119kszy"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Zapis nie powi\xF3d\u0142 si\u0119. Poprzedni zapis zosta\u0142
+      zachowany."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "Drzewa i trawa ko\u0142ysz\u0105 si\u0119 na wietrze - obci\u0105\u017Ca
+      Questa"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961672855552
+    m_Localized: "Wi\u0119cej..."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187200
+    m_Localized: "Wi\u0119cej ustawie\u0144 imersji"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187201
+    m_Localized: "\u015Awiat\u0142o pochodni"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187202
+    m_Localized: "Pochodnia w d\u0142oni wyra\u017Anie o\u015Bwietla \u015Bwiat i
+      migocze jak p\u0142omie\u0144 (kosztuje wydajno\u015B\u0107)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187203
+    m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
   references:

@@ -207,6 +207,10 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Speichern ist w\xE4hrend eines Dialogs nicht m\xF6glich."
+    m_Metadata:
+      m_Items: []
   - m_Id: 188130682066042880
     m_Localized: Vignette
     m_Metadata:
@@ -230,6 +234,36 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 188130682107985924
     m_Localized: "normal|gro\xDF|gr\xF6\xDFer"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Speichern fehlgeschlagen. Der vorherige Spielstand bleibt erhalten.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "B\xE4ume und Gras wiegen sich im Wind - kostet Leistung auf der
+      Quest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961672855552
+    m_Localized: Mehr...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187200
+    m_Localized: WEITERE IMMERSIONS-EINSTELLUNGEN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187201
+    m_Localized: Fackellicht
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187202
+    m_Localized: Die Fackel in deiner Hand beleuchtet die Welt scharf und flackert
+      wie eine Flamme (kostet Leistung)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188908961723187203
+    m_Localized: aus|an
     m_Metadata:
       m_Items: []
   references:
