@@ -1,7 +1,6 @@
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
@@ -23,7 +22,7 @@ namespace Gothic.Core.Services.Vobs
 
         public void Damage(NpcContainer victim, ITouchDamage zone)
         {
-            if (victim?.Instance == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (victim?.Instance == null || victim.Props.IsDead)
                 return;
 
             var damage = 0;
