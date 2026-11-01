@@ -29,7 +29,8 @@ namespace Gothic.Tests.Behaviour.Driver
 
 
         /// <summary>
-        /// Spawns the NPC instance (Daedalus name) at the position, facing the direction, and waits until it is built.
+        /// Spawns the NPC instance (Daedalus name) at the position, facing the direction, and waits until it is built and
+        /// its AI runs.
         /// </summary>
         /// <param name="spawned">Gets the NPC as soon as it exists, before it is built (to register its removal).
         /// </param>
@@ -50,9 +51,13 @@ namespace Gothic.Tests.Behaviour.Driver
             var npc = Find(instance) ?? throw new AssertionException($"{instance} was spawned but isn't in the cache");
             spawned(npc);
 
-            // Lazy loaded like every NPC: built once the culling finds it near the camera.
+            // Lazy loaded like every NPC: built once the culling finds it near the camera. Its AI is up once its first
+            // state ran: that state's start sets the perceptions - before, the NPC notices nothing.
             yield return Wait.Until(() => npc.Go != null && npc.PrefabProps != null, Wait.DefaultSeconds,
                 $"{instance} built", () => "it is still waiting to be built");
+            yield return Wait.Until(() => npc.Props.Perceptions.Count > 0, Wait.DefaultSeconds,
+                $"{instance}'s AI running (perceptions set by its first state)",
+                () => $"it has no perceptions in {npc.Vob.CurrentStateName}");
         }
 
         public void Remove(NpcContainer npc)
