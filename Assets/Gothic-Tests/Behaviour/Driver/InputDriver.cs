@@ -71,7 +71,7 @@ namespace Gothic.Tests.Behaviour.Driver
                 if (Time.realtimeSinceStartup - started > _handReachSeconds)
                     throw new AssertionException($"The {side} hand didn't reach {target} within " +
                         $"{_handReachSeconds} s, it is at {hand.position} " +
-                        $"({(target - hand.position).magnitude:0.00} m away) - too far from the head?");
+                        $"({(target - hand.position).magnitude:0.00} m away), the head at {Rig.Head.position}");
 
                 // Mouse moves the hand in the head's level frame (sideways, up), the scroll wheel forward.
                 var head = Rig.Head;

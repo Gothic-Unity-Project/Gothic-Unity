@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Player;
@@ -14,6 +15,7 @@ using Gothic.VR.Interaction.Models;
 using NUnit.Framework;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Tests.Behaviour.Steps.Vobs
 {
@@ -107,7 +109,11 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
             _scope.Undo("let go of every key", input.ReleaseAll);
             _scope.UndoOverFrames($"let go of the {instance}", () => input.LetGo(side));
 
-            yield return input.MoveHandTo(side, GetMiddle(item) + Vector3.up * _gripAboveMeters, _gripToleranceMeters);
+            var middle = GetMiddle(item);
+            Logger.Log($"[BehaviourTests] The {side} hand reaches for the {instance} at {middle} (placed at " +
+                $"{item.Go.transform.position}), the hero stands at {_scope.Driver<PlaceDriver>().HeroPosition}",
+                LogCat.Debug);
+            yield return input.MoveHandTo(side, middle + Vector3.up * _gripAboveMeters, _gripToleranceMeters);
             yield return input.Grip(side);
         }
 
