@@ -45,6 +45,19 @@ namespace Gothic.Tests.Behaviour.Steps.Dialog
                 $"A dialog is {actual}{(dialogs.IsInDialog ? $" with {dialogs.CurrentDialogNpc?.Go?.name}" : "")}");
         }
 
+        /// <summary>
+        /// The dialog ends as if the player chose its end (DialogService.StopDialog).
+        /// </summary>
+        [Step("the hero ends the dialog")]
+        public void TheHeroEndsTheDialog()
+        {
+            var dialogs = _gameStateService.Dialogs;
+            if (!dialogs.IsInDialog)
+                throw new AssertionException("No dialog is open");
+
+            _dialogService.StopDialog(dialogs.CurrentDialogNpc);
+        }
+
         private void EndDialogWith(NpcContainer npc)
         {
             var dialogs = _gameStateService.Dialogs;

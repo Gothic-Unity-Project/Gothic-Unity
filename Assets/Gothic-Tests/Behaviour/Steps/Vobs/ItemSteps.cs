@@ -23,6 +23,9 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
     public class ItemSteps
     {
         private const int _settleFrames = 2;
+        // The simulator's hand is steered this close to the item's middle, a little above it.
+        private const float _gripToleranceMeters = 0.03f;
+        private const float _gripAboveMeters = 0.03f;
 
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -90,6 +93,24 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
         }
 
         /// <summary>
+        /// The real grab (@input): the simulator's hand reaches for the item the scenario put in front of the hero and
+        /// grips it; XR Interaction Toolkit and the VR layer do the rest.
+        /// </summary>
+        [Step("the hero grips the \"(.*)\" lying in front of him with his (left|right) hand")]
+        public IEnumerator TheHeroGripsTheItemLyingInFrontOfHim(string instance, VrHandSide side)
+        {
+            if (!_lying.TryGetValue(instance, out var item))
+                throw new AssertionException($"The scenario put no {instance} in front of the hero");
+
+            var input = _scope.Driver<InputDriver>();
+            _scope.Undo("let go of every key", input.ReleaseAll);
+            _scope.UndoOverFrames($"let go of the {instance}", () => input.LetGo(side));
+
+            yield return input.MoveHandTo(side, GetMiddle(item) + Vector3.up * _gripAboveMeters, _gripToleranceMeters);
+            yield return input.Grip(side);
+        }
+
+        /// <summary>
         /// Like taking it out of the backpack: in the inventory first, then a new item (no world item) in the hand.
         /// </summary>
         [Step("the hero takes (?:a|an) \"(.*)\" out of his backpack")]
@@ -103,6 +124,18 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
             Hands.Grab(VrHandSide.Right, item);
             _scope.Undo("release the right hand", () => Hands.Release(VrHandSide.Right));
             yield return Wait.Frames(_settleFrames);
+        }
+
+        private static Vector3 GetMiddle(VobContainer item)
+        {
+            var colliders = item.Go.GetComponentsInChildren<Collider>();
+            if (colliders.Length == 0)
+                return item.Go.transform.position;
+
+            var bounds = colliders[0].bounds;
+            foreach (var collider in colliders)
+                bounds.Encapsulate(collider.bounds);
+            return bounds.center;
         }
 
         private static bool IsBuilt(VobContainer item)

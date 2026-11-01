@@ -33,6 +33,15 @@ Feature: An NPC can open a dialog up to 8 m away
     When "GRD_283_Gardist" starts a dialog with the hero
     Then a dialog is not open
 
+  @input
+  Scenario: The hero is pinned while the dialog is open and free after it
+    Given "GRD_283_Gardist" stands 3 m in front of the hero
+    When "GRD_283_Gardist" starts a dialog with the hero
+    Then a dialog is open
+    And the hero is not able to walk
+    When the hero ends the dialog
+    Then the hero is able to walk
+
   @manual
   Scenario: Turning stays possible during a dialog
     Given a dialog is open with an NPC behind the hero

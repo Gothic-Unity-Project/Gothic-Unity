@@ -94,6 +94,7 @@ namespace Gothic.Tests.Behaviour.Runner
                 if (status is ScenarioResult.Failed or ScenarioResult.KnownBug)
                     yield return Probe.Screenshot(RunReport.AddImage(scenario.TestName, "failure", false));
 
+                yield return scope.EndOverFrames();
                 scope.End();
                 var message = GetMessage(failure);
                 RunReport.Finish(result, status, message, failure != null ? _currentStep?.ToString() : null,

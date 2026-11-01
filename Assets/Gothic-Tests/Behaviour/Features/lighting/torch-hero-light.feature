@@ -67,6 +67,13 @@ Feature: A torch in the hand lights the world like a flame
     Then the hero light is off within 1 s
     And the torch's own light is on
 
+  @input
+  Scenario: The simulator's hand grips a torch and its trigger lights it
+    Given a "ITLSTORCH" lies 0.5 m in front of the hero
+    When the hero grips the "ITLSTORCH" lying in front of him with his right hand
+    And the hero pulls the trigger of his right hand
+    Then the torch in his right hand is burning
+
   @manual
   Scenario: The light flickers and the flame glows in the headset
     Given the Gothic.ini option "torchHeroLight" is on
