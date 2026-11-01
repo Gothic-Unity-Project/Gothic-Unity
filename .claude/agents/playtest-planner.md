@@ -12,6 +12,7 @@ Read-only: never edit files.
 
 ## Inputs
 
+0. The branch's behaviour scenarios (`Assets/Gothic-Tests/Behaviour/Features/**/*.feature`): read them first and don't repeat what they cover - plan only what they can't check (their `@manual` ones included).
 1. `git log --oneline main..HEAD` and `git diff --stat main...HEAD` (or the range you're given).
 2. The DeveloperConfig section `TODO TEST ME V1s and MVPs` in
    `Assets/Gothic-Core/Scripts/Models/Config/DeveloperConfig.cs` - every flag there is an untested feature.
