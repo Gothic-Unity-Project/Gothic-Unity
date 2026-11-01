@@ -37,12 +37,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly VmCacheService _vmCacheService;
 
-        // NpcInventoryService leads back to this service through its own dependencies - resolved on first use.
-        private NpcInventoryService _npcInventory;
-        private NpcInventoryService _npcInventoryService => _npcInventory ??=
-            ReflexProjectInstaller.DIContainer.Resolve<NpcInventoryService>();
-        private MeshService _meshService;
-        private MeshService MeshService => _meshService ??= ReflexProjectInstaller.DIContainer.Resolve<MeshService>();
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly MeshService _meshService;
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
@@ -187,7 +183,7 @@ namespace Gothic.Core.Services.Npc
                     UnityEngine.Object.Destroy(slot.transform.GetChild(i).gameObject);
             }
 
-            MeshService.CreateNpcWeapon(npc.Go, weapon, (VmGothicEnums.ItemFlags)weapon.MainFlag,
+            _meshService.CreateNpcWeapon(npc.Go, weapon, (VmGothicEnums.ItemFlags)weapon.MainFlag,
                 (VmGothicEnums.ItemFlags)weapon.Flags);
         }
 
