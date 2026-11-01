@@ -22,6 +22,10 @@ namespace Gothic.Tests.Behaviour.Driver
         [Inject] private readonly SurroundingsService _surroundingsService;
         [Inject] private readonly NpcService _npcService;
 
+        // Free spots for NPCs are looked for in these steps around the hero, up to 90 degrees to either side.
+        private const float _freeSpotStepDegrees = 10f;
+        private const int _freeSpotSteps = 9;
+
 
         /// <summary>
         /// A way point or free point of the loaded world.
@@ -94,6 +98,28 @@ namespace Gothic.Tests.Behaviour.Driver
         public Vector3 GroundInFrontOfHero(float meters)
         {
             return Probe.GroundBelow(InFrontOfHero(meters));
+        }
+
+        /// <summary>
+        /// A spot on the ground this far from the hero, as near to straight ahead as possible, where the game would
+        /// spawn an NPC without moving it (NpcService.GetFreeAreaAtSpawnPoint).
+        /// </summary>
+        /// <returns>False if there's none within a quarter circle to either side.</returns>
+        public bool TryFindFreeSpotInFrontOfHero(float meters, out Vector3 spot)
+        {
+            for (var step = 0; step <= _freeSpotSteps; step++)
+            {
+                foreach (var side in step == 0 ? new[] { 1 } : new[] { 1, -1 })
+                {
+                    var direction = Quaternion.AngleAxis(side * step * _freeSpotStepDegrees, Vector3.up) * HeroForward;
+                    spot = Probe.GroundBelow(HeroPosition + direction * meters);
+                    if ((_npcService.GetFreeAreaAtSpawnPoint(spot) - spot).sqrMagnitude < 0.0001f)
+                        return true;
+                }
+            }
+
+            spot = default;
+            return false;
         }
     }
 }

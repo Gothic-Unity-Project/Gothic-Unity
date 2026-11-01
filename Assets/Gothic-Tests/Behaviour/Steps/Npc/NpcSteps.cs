@@ -35,15 +35,20 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
         private NpcDriver Npcs => _scope.Driver<NpcDriver>();
 
         /// <summary>
-        /// Spawned facing the hero, at a free spot near the point (the game moves it off obstacles), built before the
-        /// step ends.
+        /// Spawned facing the hero at this distance - straight ahead, or turned to the side as little as needed for a
+        /// spot the game doesn't move it off (an obstacle there) - and built before the step ends.
         /// </summary>
         [Step("\"(.*)\" stands (\\d+(?:\\.\\d+)?) m in front of the hero")]
         public IEnumerator StandsInFrontOfTheHero(string instance, float meters)
         {
             var place = _scope.Driver<PlaceDriver>();
-            var position = place.GroundInFrontOfHero(meters);
-            var rotation = Quaternion.LookRotation(-place.HeroForward, Vector3.up);
+            if (!place.TryFindFreeSpotInFrontOfHero(meters, out var position))
+                Assert.Inconclusive($"No free spot {meters} m from the hero for {instance} - pick another way point " +
+                    "for the feature");
+
+            var toHero = place.HeroPosition - position;
+            toHero.y = 0;
+            var rotation = Quaternion.LookRotation(toHero, Vector3.up);
 
             NpcContainer spawned = null;
             yield return Npcs.Spawn(instance, position, rotation, npc =>
@@ -54,8 +59,8 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
 
             var distance = Vector3.Distance(spawned.Go.transform.position, place.HeroPosition);
             if (Mathf.Abs(distance - meters) > _maxPlacementError)
-                Assert.Inconclusive($"{instance} stands {distance:0.0} m from the hero, not {meters} m - no free " +
-                    "spot there (the game moved it); pick another way point for the feature");
+                Assert.Inconclusive($"{instance} stands {distance:0.0} m from the hero, not {meters} m - the game " +
+                    "moved it; pick another way point for the feature");
         }
 
         [Step("\"(.*)\" guards the items around him")]
