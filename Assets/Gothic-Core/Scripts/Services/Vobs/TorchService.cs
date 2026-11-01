@@ -103,6 +103,25 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
+        /// What a burning torch shows right now - its own light, whether it is the hero light, its glow - for displays
+        /// and checks. Changes nothing.
+        /// </summary>
+        /// <returns>False if the torch doesn't burn.</returns>
+        public bool TryGetBurning(VobContainer torch, out BurningTorchState state)
+        {
+            var burning = GetBurning(torch);
+            if (burning == null)
+            {
+                state = default;
+                return false;
+            }
+
+            state = new BurningTorchState(burning.Light != null && burning.Light.activeSelf, burning == _heroTorch,
+                burning.Glow != null && burning.Glow.activeSelf);
+            return true;
+        }
+
+        /// <summary>
         /// The inventory holds no burning torches: a burning torch goes in as a torch (OpenGothic Npc::takeItem).
         /// </summary>
         public string GetInventoryInstance(string instanceName)
