@@ -2,6 +2,7 @@ using System.Collections;
 using Gothic.Tests.Behaviour.Driver;
 using Gothic.Tests.Behaviour.Runner;
 using Gothic.Tests.Behaviour.Session;
+using NUnit.Framework;
 
 namespace Gothic.Tests.Behaviour.Steps.Common
 {
@@ -24,6 +25,16 @@ namespace Gothic.Tests.Behaviour.Steps.Common
         {
             yield return Wait.Until(() => _scope.Log.Count(text) > 0, seconds, $"a log line with \"{text}\"",
                 () => $"there's none in the scenario's {_scope.Log.Received} lines");
+        }
+
+        /// <summary>
+        /// Waits the whole time - something that shows up late (a second perception) still counts.
+        /// </summary>
+        [Step("the log contains \"(.*)\" exactly (\\d+) times? within (\\d+) s")]
+        public IEnumerator TheLogContainsExactlyWithin(string text, int count, int seconds)
+        {
+            yield return Wait.Seconds(seconds);
+            Assert.That(_scope.Log.Count(text), Is.EqualTo(count), $"Log lines with \"{text}\"");
         }
     }
 }
