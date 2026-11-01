@@ -19,10 +19,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-
-        // VmService leads back to this service through its own dependencies - resolved on first use.
-        private VmService _vmService;
-        private VmService VmService => _vmService ??= ReflexProjectInstaller.DIContainer.Resolve<VmService>();
+        [Inject] private readonly VmService _vmService;
 
         /// <summary>
         /// Like the engine (OpenGothic Inventory::use): the item's use function (on_state[0]) runs with the NPC as self
@@ -45,7 +42,7 @@ namespace Gothic.Core.Services.Npc
             try
             {
                 Logger.Log($"[NpcInventory] {npc.Instance.GetName(NpcNameSlot.Slot0)} uses {item.Name}", LogCat.Npc);
-                VmService.CallAsNpc(function, npc.Instance, null, null, LogCat.Npc);
+                _vmService.CallAsNpc(function, npc.Instance, null, null, LogCat.Npc);
             }
             finally
             {
