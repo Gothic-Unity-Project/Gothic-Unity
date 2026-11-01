@@ -524,7 +524,7 @@ namespace Gothic.Core.Services.Npc
             {
                 if (npc?.Props == null || npc.Instance == null || npc.Instance.Index == heroIndex)
                     continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                if (npc.Props.IsDead || npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                     continue;
                 if (!_routineResets.Add(npc))
                     continue;
