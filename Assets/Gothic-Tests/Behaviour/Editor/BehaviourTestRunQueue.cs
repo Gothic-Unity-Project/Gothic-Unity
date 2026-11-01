@@ -31,8 +31,10 @@ namespace Gothic.Tests.Behaviour.Editor
         static BehaviourTestRunQueue()
         {
             TestRunnerApi.RegisterTestCallback(new BehaviourTestRunCallbacks());
+            // EditorApplication.update, not delayCall: an editor in the background pumped no delay calls after the
+            // reload (seen with the run started through Unity MCP), it still ticks its update.
             if (SessionState.GetBool(_isStartPendingKey, false))
-                EditorApplication.delayCall += StartNextWhenInEditMode;
+                EditorApplication.update += StartNextWhenInEditMode;
         }
 
         /// <summary>
@@ -53,11 +55,9 @@ namespace Gothic.Tests.Behaviour.Editor
         private static void StartNextWhenInEditMode()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
-            {
-                EditorApplication.delayCall += StartNextWhenInEditMode;
                 return;
-            }
 
+            EditorApplication.update -= StartNextWhenInEditMode;
             SessionState.SetBool(_isStartPendingKey, false);
             var queue = SessionState.GetString(_queueKey, string.Empty).Split(';').Where(run => run.Length > 0)
                 .ToList();
@@ -86,17 +86,15 @@ namespace Gothic.Tests.Behaviour.Editor
             if (SessionState.GetString(_queueKey, string.Empty).Length == 0)
                 return;
 
-            EditorApplication.delayCall += ReloadWhenInEditMode;
+            EditorApplication.update += ReloadWhenInEditMode;
         }
 
         private static void ReloadWhenInEditMode()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                EditorApplication.delayCall += ReloadWhenInEditMode;
                 return;
-            }
 
+            EditorApplication.update -= ReloadWhenInEditMode;
             ReloadAndStartNext();
         }
     }
