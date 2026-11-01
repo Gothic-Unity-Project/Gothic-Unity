@@ -134,6 +134,29 @@ namespace Gothic.Tests.Behaviour.Session
             yield return WaitUntilLoaded(world);
         }
 
+        /// <summary>
+        /// Saves the running game into the slot (one of the backed up test slots) and loads it again, like the save
+        /// menu does.
+        /// </summary>
+        public static IEnumerator SaveAndLoad(SaveGameService.SlotId slot)
+        {
+            if (!SessionBackup.TestSaveSlots.Contains((int)slot))
+                throw new ArgumentException($"Slot {(int)slot} isn't a test slot " +
+                    $"({string.Join(", ", SessionBackup.TestSaveSlots)}) - it would overwrite a player's save");
+
+            // The save's thumbnail is a screenshot: taken at the end of a frame (SaveGameService.SaveCurrentGame).
+            yield return new WaitForEndOfFrame();
+
+            var world = World;
+            var watch = Stopwatch.StartNew();
+            Resolve<SaveGameService>().SaveCurrentGame(slot, "Behaviour test");
+            Logger.Log($"[BehaviourTests] Saved {world} to slot {(int)slot} in {watch.Elapsed.TotalSeconds:0.0} s, " +
+                "loading it", LogCat.Debug);
+
+            Resolve<BootstrapService>().LoadWorld(world, slot, SceneManager.GetActiveScene().name);
+            yield return WaitUntilLoaded(world);
+        }
+
         private static IEnumerator WaitUntilLoaded(string world)
         {
             IsReady = false;

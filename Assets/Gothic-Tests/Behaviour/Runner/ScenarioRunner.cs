@@ -6,6 +6,7 @@ using Gothic.Tests.Behaviour.Session;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 using ZenKit;
+using Random = UnityEngine.Random;
 
 namespace Gothic.Tests.Behaviour.Runner
 {
@@ -37,18 +38,28 @@ namespace Gothic.Tests.Behaviour.Runner
 
             // All bindings first: a scenario with a missing step fails before it boots the game.
             var bindings = scenario.Steps.Select(step => (Step: step, Binding: StepRegistry.Find(step))).ToList();
-            var instances = new StepInstances();
             var timeoutSeconds = GetTimeoutSeconds(scenario);
             var watch = Stopwatch.StartNew();
 
-            foreach (var (step, binding) in bindings)
+            // The game's only random source: the same rolls each run of the scenario.
+            Random.InitState(GetStableHash(scenario.TestName));
+            var scope = new ScenarioScope(scenario.TestName);
+            var instances = new StepInstances(scope);
+            try
             {
-                // Iterated here, not handed to Unity as a nested coroutine: its exceptions must fail this test.
-                var routine = StepRoutine.Run(step,
-                    () => binding.Invoke(instances.Get(binding.Method.DeclaringType), step.Text), watch,
-                    timeoutSeconds, () => GameSession.IsLoading);
-                while (routine.MoveNext())
-                    yield return routine.Current;
+                foreach (var (step, binding) in bindings)
+                {
+                    // Iterated here, not handed to Unity as a nested coroutine: its exceptions must fail this test.
+                    var routine = StepRoutine.Run(step,
+                        () => binding.Invoke(instances.Get(binding.Method.DeclaringType), step.Text), watch,
+                        timeoutSeconds, () => GameSession.IsLoading);
+                    while (routine.MoveNext())
+                        yield return routine.Current;
+                }
+            }
+            finally
+            {
+                scope.End();
             }
         }
 
@@ -63,6 +74,20 @@ namespace Gothic.Tests.Behaviour.Runner
 
             if (isG1 != (GameSession.Version == GameVersion.Gothic1))
                 Assert.Ignore($"@{(isG1 ? "g1" : "g2")} - this run is {GameSession.Version}");
+        }
+
+        /// <summary>
+        /// string.GetHashCode may differ between runtimes; this one doesn't (FNV-1a).
+        /// </summary>
+        private static int GetStableHash(string text)
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                foreach (var c in text)
+                    hash = (hash ^ c) * 16777619;
+                return hash;
+            }
         }
 
         private static float GetTimeoutSeconds(ScenarioCase scenario)

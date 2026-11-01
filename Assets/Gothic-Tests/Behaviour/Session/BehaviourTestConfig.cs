@@ -17,6 +17,8 @@ namespace Gothic.Tests.Behaviour.Session
     /// </summary>
     public static class BehaviourTestConfig
     {
+        public const string Name = "BehaviourTest (copy of Production)";
+
         private const string _productionPath = "DeveloperConfigs/Production";
 
         public static GameVersion GameVersion => LoadProduction().GameVersion;
@@ -24,7 +26,7 @@ namespace Gothic.Tests.Behaviour.Session
         public static DeveloperConfig Create(string world)
         {
             var config = Object.Instantiate(LoadProduction());
-            config.name = "BehaviourTest (copy of Production)";
+            config.name = Name;
             config.hideFlags = HideFlags.DontSave;
 
             config.PreselectGameVersion = true;
