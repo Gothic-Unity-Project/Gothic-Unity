@@ -42,7 +42,7 @@ namespace Gothic.Tests.Behaviour.Editor
         {
             var text = new StringBuilder();
             text.Append("Placeholders: `<text>` any text (in quotes in the step), `<n>` a whole number, `<number>` a " +
-                "number like 1.5, `(a|b)` one of the words. Keywords (Given, When, Then, And, But) don't matter.\n");
+                "number like 1.5,\n`(a|b)` one of the words. Keywords (Given, When, Then, And, But) don't matter.\n");
 
             var areas = StepRegistry.Bindings
                 .GroupBy(binding => binding.Method.DeclaringType!.Namespace!.Split('.').Last())

@@ -10,7 +10,7 @@ namespace Gothic.Tests.Behaviour.Editor
     /// <summary>
     /// Keeps the feature files and the step bindings in step without starting the game: every file parses, every step
     /// of an automated scenario binds to exactly one [Step], every [Step] is used, every feature names its area, every
-    /// @adr exists.
+    /// @adr exists, the doc's step catalog is current.
     /// </summary>
     public class FeatureCatalogTest
     {
@@ -86,6 +86,18 @@ namespace Gothic.Tests.Behaviour.Editor
                 .Distinct()
                 .Where(adr => !File.Exists(Path.Combine(_adrFolder, adr + ".md")));
             Assert.That(missing, Is.Empty, $"@adr(...) tags without a record in {_adrFolder}");
+        }
+
+        /// <summary>
+        /// Docs/behaviour-tests.md lists the sentences generated from the [Step] attributes.
+        /// </summary>
+        [Test]
+        public void TheDocsStepCatalogIsCurrent()
+        {
+            var inDoc = StepCatalogWriter.ReadFromDoc();
+            Assert.That(inDoc, Is.Not.Null, $"{StepCatalogWriter.DocPath} has no step catalog between its markers");
+            Assert.That(inDoc, Is.EqualTo(StepCatalogWriter.Build()),
+                "The step catalog in the doc is out of date: Gothic > Tests > Write step catalog");
         }
 
         [Test]
