@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Gothic.Tests.Behaviour"
+        "Gothic.Tests.Behaviour",
+        "Gothic.Core"
     ],
     "includePlatforms": [
         "Editor"
@@ -14,6 +15,7 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll",
+        "ZenKit.dll",
         "Gherkin.dll",
         "Cucumber.Messages.dll"
     ],
