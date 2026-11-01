@@ -111,8 +111,8 @@ namespace Gothic.Tests.Behaviour.Steps.Vobs
 
             var middle = GetMiddle(item);
             Logger.Log($"[BehaviourTests] The {side} hand reaches for the {instance} at {middle} (placed at " +
-                $"{item.Go.transform.position}), the hero stands at {_scope.Driver<PlaceDriver>().HeroPosition}",
-                LogCat.Debug);
+                $"{item.Go.transform.position}, layer {LayerMask.LayerToName(item.Go.layer)}), the hero stands at " +
+                $"{_scope.Driver<PlaceDriver>().HeroPosition}", LogCat.Debug);
             yield return input.MoveHandTo(side, middle + Vector3.up * _gripAboveMeters, _gripToleranceMeters);
             yield return input.Grip(side);
         }

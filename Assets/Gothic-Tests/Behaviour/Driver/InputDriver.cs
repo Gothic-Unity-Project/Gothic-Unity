@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Tests.Behaviour.Session;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -98,8 +99,11 @@ namespace Gothic.Tests.Behaviour.Driver
         {
             Press(GetHandKey(side));
             yield return Wait.Frames(_settleFrames);
+            // R puts the hands back to their start, pointing ahead: the right hand otherwise points at the mouse
+            // cursor, and its ray could grab what the cursor is on instead of what the hand touches.
+            yield return Click(Session.Keyboard.rKey);
 
-            var hand = side == VrHandSide.Left ? Rig.LeftHand : Rig.RightHand;
+            var hand = GetHand(side);
             var started = Time.realtimeSinceStartup;
             while ((target - hand.position).magnitude > tolerance)
             {
@@ -131,8 +135,8 @@ namespace Gothic.Tests.Behaviour.Driver
             yield return Wait.Frames(_settleFrames);
             yield return Click(Session.Keyboard.gKey);
 
-            yield return Wait.Until(() => GetHeld(side) != null, _grabSeconds, $"something in the {side} hand",
-                () => "the grip grabbed nothing");
+            yield return Wait.Until(() => GetHeld(side) != null, _grabSeconds, $"an item in the {side} hand",
+                () => $"the grip grabbed no item (hand at {GetHand(side).position}; {DescribeGrabbers(side)})");
             Release(GetHandKey(side));
             yield return Wait.Frames(_settleFrames);
         }
@@ -201,6 +205,18 @@ namespace Gothic.Tests.Behaviour.Driver
         private ButtonControl GetHandKey(VrHandSide side)
         {
             return side == VrHandSide.Left ? Session.Keyboard.qKey : Session.Keyboard.eKey;
+        }
+
+        private Transform GetHand(VrHandSide side)
+        {
+            return side == VrHandSide.Left ? Rig.LeftHand : Rig.RightHand;
+        }
+
+        private string DescribeGrabbers(VrHandSide side)
+        {
+            return string.Join(", ", Rig.HandGrabbers.Where(grabber => grabber.HandSide == side)
+                .Select(grabber => $"{grabber.Kind} grabber holds " +
+                                   (grabber.Held != null ? grabber.Held.name : "nothing")));
         }
 
         private GameObject GetHeld(VrHandSide side)
