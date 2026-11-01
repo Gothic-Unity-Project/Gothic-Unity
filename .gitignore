@@ -95,6 +95,9 @@ ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json
 *.dll.meta
 *.so
 *.so.meta
+# Except the Gherkin parser of the behaviour tests: two small MIT DLLs, Editor only.
+!Assets/Gothic-Tests/Behaviour/Plugins/*.dll
+!Assets/Gothic-Tests/Behaviour/Plugins/*.dll.meta
 
 *CullingData.asset
 *CullingData.asset.meta
