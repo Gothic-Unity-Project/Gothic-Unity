@@ -145,9 +145,9 @@ by themselves.
 
   The open question is whether the XR plug-ins start cleanly in batch mode without a headset.
 
-Times (G1, `world.zen` pre-cached, this machine): boot 6 s, most scenarios 2-5 s, an NPC reaction 9 s (the 8 s
-wait), the save and load scenario 15-30 s. The fast run of the first features takes about 2.5 minutes, the input
-session half a minute. Gothic 2 is a second run with a Gothic 2 Production config.
+Times (G1, `world.zen` pre-cached, this machine): boot 6-7 s, most scenarios 2-5 s, an NPC reaction 9 s (the 8 s
+wait), the save and load scenario 15-30 s. The fast run of the first features (29 scenarios) takes 2 minutes 10, the
+input session (3) 22 s. Gothic 2 is a second run with a Gothic 2 Production config.
 
 The daily path: a feature's or an area's category while working on it (under 2 minutes), the fast run before a PR,
 the full run including `input`, `visual` and `slow` when something big changed.

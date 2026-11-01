@@ -41,8 +41,8 @@ namespace Gothic.Tests.Behaviour.Report
             }
 
             var versions = string.Join(", ", results.Select(result => result.GameVersion).Distinct());
-            var worlds = string.Join(", ", results.Select(result => result.World).Where(world => world != null)
-                .Distinct());
+            var worlds = string.Join(", ", results.Where(result => result.Status != ScenarioResult.Skipped)
+                .Select(result => result.World).Where(world => !string.IsNullOrEmpty(world)).Distinct());
             text.AppendLine($"{versions}, {worlds}. {results.Count} scenarios in " +
                 $"{Seconds(results.Sum(result => result.Seconds))}, of it {Seconds(results.Sum(r => r.LoadSeconds))} " +
                 $"loading the game. Started {results[0].StartedAt}.");
