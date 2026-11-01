@@ -50,6 +50,12 @@ namespace Gothic.Core
         public static readonly UnityEvent<INpc> CreateNpc = new();
 
         /// <summary>
+        /// An item was put into the loaded world (Wld_InsertItem) - it lies there like the world's own items.
+        /// Raised by VobService.InsertItemAt.
+        /// </summary>
+        public static readonly UnityEvent<IVirtualObject> WorldItemInserted = new();
+
+        /// <summary>
         /// Plays a Bink video in the platform's cinema (VR: VRCinema). Several calls in a row are queued.
         /// Sources: PlayVideo/PlayVideoEx from Daedalus (chapter videos, G1 ending "Extro.bik") and the logo videos.
         /// string = video file name or path.

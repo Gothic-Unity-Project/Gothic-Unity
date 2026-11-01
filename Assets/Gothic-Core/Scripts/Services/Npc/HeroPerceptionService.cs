@@ -45,6 +45,7 @@ namespace Gothic.Core.Services.Npc
         public HeroPerceptionService()
         {
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldLoaded);
+            GlobalEventDispatcher.WorldItemInserted.AddListener(AddItem);
         }
 
         /// <summary>
@@ -159,12 +160,17 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var vob in vobs)
             {
-                if (vob is IItem && vob.Id != 0)
-                    _worldItemIds.Add(vob.Id);
-                else if (vob is IItem)
-                    _insertedWorldItems.Add(vob);
+                AddItem(vob);
                 AddItems(vob.Children);
             }
+        }
+
+        private void AddItem(IVirtualObject vob)
+        {
+            if (vob is IItem && vob.Id != 0)
+                _worldItemIds.Add(vob.Id);
+            else if (vob is IItem)
+                _insertedWorldItems.Add(vob);
         }
     }
 }

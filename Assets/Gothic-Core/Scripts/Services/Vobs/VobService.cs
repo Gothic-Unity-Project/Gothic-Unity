@@ -437,11 +437,20 @@ namespace Gothic.Core.Services.Vobs
             var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
             var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
 
+            InsertItemAt(instanceName, wp.Position, wp.Rotation);
+        }
+
+        /// <summary>
+        /// Puts an item into the world, lying where it is placed (Wld_InsertItem at a waypoint). It is part of the
+        /// world from now on: saved with it, and NPCs see it as a thing lying around (WorldItemInserted).
+        /// </summary>
+        public VobContainer InsertItemAt(string instanceName, Vector3 position, Quaternion rotation)
+        {
             var vob = new Item
             {
                 Name = instanceName,
-                Position = wp.Position.ToZkVector(),
-                Rotation = wp.Rotation.ToZkMatrix(),
+                Position = position.ToZkVector(),
+                Rotation = rotation.ToZkMatrix(),
                 Visual = new VisualMesh(),
                 Instance = instanceName
             };
@@ -449,6 +458,8 @@ namespace Gothic.Core.Services.Vobs
             var container = CreateContainerWithLoader(vob);
             _vobMeshCullingService.AddCullingEntry(container);
             _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+            GlobalEventDispatcher.WorldItemInserted.Invoke(container.Vob);
+            return container;
         }
 
         [CanBeNull]
