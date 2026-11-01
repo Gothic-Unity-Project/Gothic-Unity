@@ -9,7 +9,8 @@ namespace Gothic.Tests.Behaviour.Editor
 {
     /// <summary>
     /// Keeps the feature files and the step bindings in step without starting the game: every file parses, every step
-    /// binds to exactly one [Step], every [Step] is used, every feature names its area, every @adr exists.
+    /// of an automated scenario binds to exactly one [Step], every [Step] is used, every feature names its area, every
+    /// @adr exists.
     /// </summary>
     public class FeatureCatalogTest
     {
@@ -24,6 +25,11 @@ namespace Gothic.Tests.Behaviour.Editor
         {
             _scenarios = FeatureCatalog.LoadAll();
         }
+
+        /// <summary>
+        /// @manual scenarios are instructions for the headset checklist, written freely - they never run.
+        /// </summary>
+        private IEnumerable<ScenarioCase> Automated => _scenarios.Where(scenario => !scenario.HasTag("manual"));
 
         [Test]
         public void ThereAreScenarios()
@@ -42,7 +48,7 @@ namespace Gothic.Tests.Behaviour.Editor
         [Test]
         public void EveryStepBindsToExactlyOneStepMethod()
         {
-            var problems = _scenarios.SelectMany(scenario => scenario.Steps.Select(step => (scenario, step)))
+            var problems = Automated.SelectMany(scenario => scenario.Steps.Select(step => (scenario, step)))
                 .Select(entry => (entry.scenario, entry.step, Matches: StepRegistry.FindMatches(entry.step.Text)))
                 .Where(entry => entry.Matches.Count != 1)
                 .Select(entry => $"{entry.scenario.FeatureFile}:{entry.step.Line} \"{entry.step.Text}\" - " +
@@ -56,7 +62,7 @@ namespace Gothic.Tests.Behaviour.Editor
         [Test]
         public void EveryStepMethodIsUsed()
         {
-            var texts = _scenarios.SelectMany(scenario => scenario.Steps).Select(step => step.Text).Distinct()
+            var texts = Automated.SelectMany(scenario => scenario.Steps).Select(step => step.Text).Distinct()
                 .ToList();
             var unused = StepRegistry.Bindings
                 .Where(binding => !binding.IsReserved && !texts.Any(binding.Matches))
