@@ -43,21 +43,7 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly FrameSkipperService _frameSkipperService;
-
-        // VOBs and NPCs this close to the spawn point are built before the view is shown (m). Lights reach the ground
-        // up to StationaryLightsService's 80 m, but the near ones matter most and keep the black short.
-        private const float _surroundingsRadius = 50f;
-
-        // Longest wait for them (s). Whatever is still missing then appears while the player looks around.
-        private const float _surroundingsMaxWait = 5f;
-
-        // The camera counts as arrived at the spawn point this close (m, horizontal; VR play area offset included).
-        private const float _cameraArrivalDistance = 5f;
-        private const float _cameraArrivalMaxWait = 1f; // s
-
-        // Frames culling needs after the camera arrived to queue the objects around it.
-        private const int _cullingUpdateFrames = 2;
+        [Inject] private readonly SurroundingsService _surroundingsService;
 
         private Vector3? _spawnPosition;
 
@@ -205,62 +191,12 @@ namespace Gothic.Core.Adapters.Scenes
         }
 
         /// <summary>
-        /// Waits until the queued VOBs and NPCs around the spawn point are built. The screen is black meanwhile, so
-        /// the queues may use long frames (FrameSkipperService.IsViewHidden). With half a frame per frame (the
-        /// default), a crowded place like the Old Camp popped in over several seconds.
+        /// Waits until the queued VOBs and NPCs around the spawn point are built (SurroundingsService).
         /// </summary>
         private async Task BuildSurroundingsAsync()
         {
-            if (_spawnPosition == null)
-                return;
-
-            var center = _spawnPosition.Value;
-            var watch = Stopwatch.StartNew();
-            _frameSkipperService.IsViewHidden = true;
-            _vobService.SetInitFocus(center, _surroundingsRadius);
-            _npcService.SetInitFocus(center, _surroundingsRadius);
-            try
-            {
-                // The VR rig applies a teleport in its next update, so the camera is still at the loading screen
-                // here. Culling queues the VOBs and NPCs around the spawn point once the camera is there.
-                while (!IsCameraNear(center) && watch.Elapsed.TotalSeconds < _cameraArrivalMaxWait)
-                    await Task.Yield();
-                for (var i = 0; i < _cullingUpdateFrames; i++)
-                    await Task.Yield();
-
-                while (_vobService.HasQueuedVobWithin(center, _surroundingsRadius) ||
-                       _npcService.HasQueuedNpcWithin(center, _surroundingsRadius))
-                {
-                    if (watch.Elapsed.TotalSeconds >= _surroundingsMaxWait)
-                    {
-                        Logger.LogWarning($"Surroundings not built after {_surroundingsMaxWait} s. " +
-                                          "The rest appears in the background.", LogCat.Loading);
-                        break;
-                    }
-
-                    await Task.Yield();
-                }
-            }
-            finally
-            {
-                _frameSkipperService.IsViewHidden = false;
-                _vobService.ClearInitFocus();
-                _npcService.ClearInitFocus();
-            }
-
-            Logger.Log($"Surroundings within {_surroundingsRadius} m built after {watch.Elapsed.TotalSeconds:0.00} s.",
-                LogCat.Loading);
-        }
-
-        private static bool IsCameraNear(Vector3 position)
-        {
-            var camera = Camera.main;
-            if (camera == null)
-                return false;
-
-            var offset = camera.transform.position - position;
-            offset.y = 0;
-            return offset.sqrMagnitude < _cameraArrivalDistance * _cameraArrivalDistance;
+            if (_spawnPosition != null)
+                await _surroundingsService.BuildAroundAsync(_spawnPosition.Value);
         }
 
         /// <summary>
