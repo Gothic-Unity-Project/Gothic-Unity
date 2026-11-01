@@ -157,7 +157,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private bool IsNpcDown()
         {
-            return Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious;
+            return Props.IsDead || Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
         }
 
         /// <summary>
