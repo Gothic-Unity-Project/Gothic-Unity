@@ -9,6 +9,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.World;
+using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using ZenKit;
@@ -21,6 +22,8 @@ namespace Gothic.Tests.Behaviour.Session
     /// config (BootstrapAdapter.ConfigOverride) - once per play session, and is ready when the world is loaded and its
     /// loading screen gone (the surroundings of the spawn are built). Another world is loaded as a new game.
     /// The only place that knows when the game's services can be used.
+    /// Two kinds of play session: a plain one and an input session (InputSession), chosen by the scenario that boots
+    /// the game - @input scenarios need one, the others run in either.
     /// </summary>
     public static class GameSession
     {
@@ -47,7 +50,18 @@ namespace Gothic.Tests.Behaviour.Session
         /// </summary>
         public static float LastLoadSeconds { get; private set; }
 
+        /// <summary>
+        /// Seconds all boots and world loads of the play session took so far.
+        /// </summary>
+        public static float TotalLoadSeconds { get; private set; }
+
+        /// <summary>
+        /// The test keyboard and mouse of an input session, null in a plain session.
+        /// </summary>
+        public static InputSession Input { get; private set; }
+
         private static bool _isBooted;
+        private static bool _isInputRequested;
         private static bool _isWorldSceneLoaded;
 
 
@@ -61,7 +75,11 @@ namespace Gothic.Tests.Behaviour.Session
             IsLoading = false;
             World = null;
             LastLoadSeconds = 0;
+            TotalLoadSeconds = 0;
+            // An input session of an earlier play session tore itself down when play mode ended (InputTestFixture).
+            Input = null;
             _isBooted = false;
+            _isInputRequested = false;
             _isWorldSceneLoaded = false;
         }
 
@@ -70,6 +88,24 @@ namespace Gothic.Tests.Behaviour.Session
         /// mounts it once.
         /// </summary>
         public static GameVersion Version => BehaviourTestConfig.GameVersion;
+
+        /// <summary>
+        /// A scenario is about to run. Before the boot, the scenario says which kind of session it boots (@input: an
+        /// input session); after it, an @input scenario in a plain session is skipped - the input fixture can't be
+        /// set up under a running game.
+        /// </summary>
+        public static void Prepare(bool needsInput)
+        {
+            if (!_isBooted)
+            {
+                _isInputRequested = needsInput;
+                return;
+            }
+
+            if (needsInput && Input == null)
+                Assert.Ignore("@input runs in an input session of its own - this play session started without one. " +
+                    "Run the category input on its own (Gothic > Tests > Run behaviour scenarios (input)).");
+        }
 
         /// <summary>
         /// Boots the game into the world, or loads the world as a new game if another one is loaded.
@@ -91,8 +127,16 @@ namespace Gothic.Tests.Behaviour.Session
         public static void End()
         {
             GlobalEventDispatcher.WorldSceneLoaded.RemoveListener(OnWorldSceneLoaded);
-            if (_isBooted)
-                SessionBackup.Restore();
+            try
+            {
+                if (_isBooted)
+                    SessionBackup.Restore();
+            }
+            finally
+            {
+                Input?.End();
+                Input = null;
+            }
         }
 
         public static T Resolve<T>()
@@ -110,8 +154,11 @@ namespace Gothic.Tests.Behaviour.Session
             // A backup left by a run that crashed belongs to the developer - it goes back before the game reads it.
             SessionBackup.Restore();
             _isBooted = true;
+            if (_isInputRequested)
+                Input = InputSession.Start();
 
-            Logger.Log($"[BehaviourTests] Booting {Version} into {world}", LogCat.Debug);
+            Logger.Log($"[BehaviourTests] Booting {Version} into {world}{(Input != null ? " (input session)" : "")}",
+                LogCat.Debug);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             BootstrapAdapter.ConfigOverride = config;
             SceneManager.LoadScene(_bootstrapScenePath);
@@ -187,6 +234,7 @@ namespace Gothic.Tests.Behaviour.Session
 
             World = loadedWorld;
             LastLoadSeconds = (float)watch.Elapsed.TotalSeconds;
+            TotalLoadSeconds += LastLoadSeconds;
             Logger.Log($"[BehaviourTests] {world} is ready after {LastLoadSeconds:0.0} s", LogCat.Debug);
         }
 
