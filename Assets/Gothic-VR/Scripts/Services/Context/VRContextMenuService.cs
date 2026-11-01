@@ -3,6 +3,7 @@ using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.Vm;
 using Gothic.Services.UI;
 using Gothic.Core;
@@ -70,11 +71,21 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsLabel(gameMenu, menuStartY + menuDY * 1));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsChoice(gameMenu, menuStartY + menuDY * 1));
-            vrImmersionMenu.Items.Add(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE",
-                "moveVignette", menuStartY + menuDY * 2));
-            vrImmersionMenu.Items.Add(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE",
-                "moveVignette", VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
-                VRConstants.MoveVignetteDefaultValue, menuStartY + menuDY * 2));
+            // Gothic's menus fit 6 rows: the last one opens a second page.
+            var vrImmersionMoreMenu = CreateSubMenu(vrImmersionMenu, mainMenu, gameMenu,
+                "MENU_GOTHIC_OPT_VR_IMMERSION_MORE", "menuitem.vr_immersion_more.headline",
+                CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
+                    menuStartY + menuDY * 0),
+                CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
+                    VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
+                    VRConstants.MoveVignetteDefaultValue, menuStartY + menuDY * 0),
+                CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_TORCH_LIGHT", "torchLight",
+                    menuStartY + menuDY * 1),
+                CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_TORCH_LIGHT", "torchLight",
+                    TorchService.IniKeyHeroLight, TorchService.IniSection, TorchService.HeroLightDefaultValue,
+                    menuStartY + menuDY * 1));
+            vrImmersionMenu.Items.Add(CreateSubMenuButton(mainMenu, vrImmersionMoreMenu,
+                "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MORE", "menuitem.vr_immersion_more", menuStartY + menuDY * 5));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }
 
@@ -456,14 +467,63 @@ namespace Gothic.VR.Services.Context
         
         private MutableMenuItemInstance CreateImmersionBackButton(AbstractMenuInstance mainMenu)
         {
+            return CreateBackButton(mainMenu, "MENU_GOTHIC_OPT_VR_IMMERSION_BACK");
+        }
+
+        /// <summary>
+        /// Back button of a menu, styled like the graphics menu's.
+        /// </summary>
+        private MutableMenuItemInstance CreateBackButton(AbstractMenuInstance mainMenu, string itemName)
+        {
             var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
             var backButtonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
-            var backButton = new MutableMenuItemInstance("MENU_GOTHIC_OPT_VR_IMMERSION_BACK", backButtonReference);
+            var backButton = new MutableMenuItemInstance(itemName, backButtonReference);
 
             backButton.SetText(0, backButtonReference?.GetText(0) ?? "BACK");
             backButton.SetOnSelAction(0, MenuItemSelectAction.Back);
 
             return backButton;
+        }
+
+        /// <summary>
+        /// A further page of options below parentMenu: a headline, the rows and a back button, like the immersion
+        /// menu. Open it with CreateSubMenuButton. Like every menu it needs a prefab of its name
+        /// (VR/Prefabs/UI/Menus/{menuName}).
+        /// </summary>
+        private MutableMenuInstance CreateSubMenu(AbstractMenuInstance parentMenu, AbstractMenuInstance mainMenu,
+            AbstractMenuInstance gameMenu, string menuName, string headlineTextKey,
+            params AbstractMenuItemInstance[] rows)
+        {
+            var subMenu = new MutableMenuInstance(menuName, parentMenu);
+
+            var gameHeadline = gameMenu.FindMenuItem("MENUITEM_GAME_HEADLINE", out _);
+            var headline = new MutableMenuItemInstance($"{menuName}_HEADLINE", gameHeadline);
+            headline.SetText(0, _localizationService.GetText(headlineTextKey));
+
+            subMenu.Items.Add(headline);
+            subMenu.Items.AddRange(rows);
+            subMenu.Items.Add(CreateBackButton(mainMenu, $"{menuName}_BACK"));
+
+            return subMenu;
+        }
+
+        /// <summary>
+        /// A button in a menu row that opens the sub menu, styled like the back button.
+        /// </summary>
+        private MutableMenuItemInstance CreateSubMenuButton(AbstractMenuInstance mainMenu, MutableMenuInstance subMenu,
+            string itemName, string textKey, int posY)
+        {
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
+            var button = new MutableMenuItemInstance(itemName, buttonReference);
+
+            button.PosY = posY;
+            button.SetText(0, _localizationService.GetText(textKey));
+            button.SetOnSelAction(0, MenuItemSelectAction.StartMenu);
+            button.SetOnSelActionS(0, subMenu.Name);
+            button.MenuInstance = subMenu;
+
+            return button;
         }
     }
 }
