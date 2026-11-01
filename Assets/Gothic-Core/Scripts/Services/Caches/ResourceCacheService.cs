@@ -91,8 +91,14 @@ namespace Gothic.Core.Services.Caches
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
                     var fireWorld = new ZenKit.World(Vfs, s, version);
 
-                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
-                    fireWorld.RootObjects.ForEach(i => i.Position = default);
+                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
+                    // positioning. Their children (the flames and smoke below a fire's light) carry the tree's absolute
+                    // positions too - relative to their root now, or a wall fire's flames hung 20 m above it.
+                    foreach (var root in fireWorld.RootObjects)
+                    {
+                        ShiftFireTreeChildren(root.Children, root.Position);
+                        root.Position = default;
+                    }
 
                     return fireWorld;
                 }
@@ -320,6 +326,16 @@ namespace Gothic.Core.Services.Caches
         public ZenKit.World TryGetWorld([NotNull] string key)
         {
             return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen");
+        }
+
+        private static void ShiftFireTreeChildren(List<ZenKit.Vobs.IVirtualObject> children,
+            System.Numerics.Vector3 offset)
+        {
+            foreach (var child in children)
+            {
+                child.Position -= offset;
+                ShiftFireTreeChildren(child.Children, offset);
+            }
         }
 
         /// <summary>
