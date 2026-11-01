@@ -289,7 +289,8 @@ namespace Gothic.Core.Services.Npc
             npc.Instance.SetAttribute(attribute, value);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, attribute);
 
-            if (attribute == NpcAttribute.HitPoints && value <= 0 && !npc.Props.IsDead)
+            if (attribute == NpcAttribute.HitPoints && value <= 0 &&
+                npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 _deathDomain.Die(npc);
         }
 
