@@ -78,6 +78,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
         // The hands' interactors read grip (select) and trigger (activate) from here directly (ManualValue): through
         // the simulated devices' input actions the grip didn't reach XRI's Select (talking, grabbing did nothing).
         private readonly NearFarInteractor[] _interactors = new NearFarInteractor[2];
+        // What each hand's interactor was last given (null: nothing yet). XRI applies a queued state from the next
+        // frame on, and this runs before XRI reads it - queued again every frame, a press was always a frame ahead
+        // and a grab never started. So a state is queued once, when it changes.
+        private readonly bool?[] _queuedGrips = new bool?[2];
+        private readonly bool?[] _queuedTriggers = new bool?[2];
         private readonly List<(XRInputButtonReader Reader, XRInputButtonReader.InputSourceMode Mode)> _savedReaders =
             new();
         private readonly List<RaycastResult> _uiRaycastResults = new();
@@ -239,6 +244,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 reader.inputSourceMode = mode;
             _savedReaders.Clear();
             _interactors[_left] = _interactors[_right] = null;
+            _queuedGrips[_left] = _queuedGrips[_right] = null;
+            _queuedTriggers[_left] = _queuedTriggers[_right] = null;
         }
 
         private void QueueInteractorInput(int side, bool isGripping, bool isTrigger)
@@ -247,8 +254,17 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (interactor == null)
                 return;
 
-            interactor.selectInput.QueueManualState(isGripping, isGripping ? 1f : 0f);
-            interactor.activateInput.QueueManualState(isTrigger, isTrigger ? 1f : 0f);
+            if (_queuedGrips[side] != isGripping)
+            {
+                interactor.selectInput.QueueManualState(isGripping, isGripping ? 1f : 0f);
+                _queuedGrips[side] = isGripping;
+            }
+
+            if (_queuedTriggers[side] != isTrigger)
+            {
+                interactor.activateInput.QueueManualState(isTrigger, isTrigger ? 1f : 0f);
+                _queuedTriggers[side] = isTrigger;
+            }
         }
 
         private void Look(Vector2 mouseDelta)
