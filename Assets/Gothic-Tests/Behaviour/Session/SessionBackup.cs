@@ -1,18 +1,16 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Gothic.Core.Domain.Config;
 using Gothic.Core.Logging;
 using UnityEngine;
-using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Tests.Behaviour.Session
 {
     /// <summary>
-    /// What a run changes on disk - the developer's Gothic.ini (the Gothic.ini steps write it) and the test save slots
-    /// 14 and 15 - is copied away before the game starts and put back when the run ends. A backup left by a run that
-    /// didn't end (editor crash, play mode stopped) is put back first thing at the next start.
+    /// What a run may change on disk - the developer's Gothic.ini (the Gothic.ini steps write it) and the test save
+    /// slots 14 and 15 - is copied away before the first step and put back when the run ends. A backup left by a run
+    /// that didn't end (editor crash, play mode stopped) is put back first thing at the next start.
     /// </summary>
     public static class SessionBackup
     {
@@ -27,27 +25,21 @@ namespace Gothic.Tests.Behaviour.Session
         private static string ManifestPath => Path.Combine(Folder, _manifestName);
 
         /// <summary>
-        /// The paths as the game builds them (ConfigService.LoadGothicInis, SaveGameService) - before the game runs,
-        /// so they come from GameSettings.json directly. No mod: the test config never selects one.
+        /// The paths are the game's own (ConfigService.Gothic.IniFilePath, SaveGameService.SavesFolderPath), so the
+        /// backup holds exactly what the game reads and writes.
         /// </summary>
-        public static string GetGothicIniPath(GameVersion version)
-        {
-            return Path.Combine(GetGothicRoot(version), "system/Gothic.ini");
-        }
-
-        public static void Create(GameVersion version)
+        public static void Create(string gothicIniPath, string savesFolderPath)
         {
             if (Directory.Exists(Folder))
                 Directory.Delete(Folder, true);
             Directory.CreateDirectory(Folder);
 
-            var root = GetGothicRoot(version);
-            var entries = new List<string> { Copy(GetGothicIniPath(version), "Gothic.ini") };
+            var entries = new List<string> { Copy(gothicIniPath, "Gothic.ini") };
             entries.AddRange(TestSaveSlots.Select(slot =>
-                Copy(Path.GetFullPath(Path.Join(root, $"Saves/savegame{slot}")), $"savegame{slot}")));
+                Copy(Path.Combine(savesFolderPath, $"savegame{slot}"), $"savegame{slot}")));
             File.WriteAllLines(ManifestPath, entries);
-            Logger.Log($"[BehaviourTests] Backed up Gothic.ini and save slots {string.Join(", ", TestSaveSlots)} " +
-                $"to {Folder}", LogCat.Debug);
+            Logger.Log($"[BehaviourTests] Backed up {gothicIniPath} and save slots " +
+                $"{string.Join(", ", TestSaveSlots)} of {savesFolderPath} to {Folder}", LogCat.Debug);
         }
 
         /// <summary>
@@ -107,12 +99,6 @@ namespace Gothic.Tests.Behaviour.Session
                 File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
             foreach (var directory in Directory.GetDirectories(source))
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
-        }
-
-        private static string GetGothicRoot(GameVersion version)
-        {
-            var root = JsonRootLoader.Load();
-            return version == GameVersion.Gothic1 ? root.Gothic1Path : root.Gothic2Path;
         }
     }
 }

@@ -383,10 +383,14 @@ namespace Gothic.Core.Services.World
             return unwrappedVobs;
         }
 
+        /// <summary>
+        /// The folder of the save slots (savegame1 ... savegame15).
+        /// </summary>
+        public string SavesFolderPath => Path.GetFullPath(Path.Join(_contextGameVersionService.RootPath, "Saves"));
+
         private string GetSaveGamePath(SlotId folderSaveId)
         {
-            var gothicDir = _contextGameVersionService.RootPath;
-            return Path.GetFullPath(Path.Join(gothicDir, $"Saves/savegame{(int)folderSaveId}"));
+            return Path.GetFullPath(Path.Join(SavesFolderPath, $"savegame{(int)folderSaveId}"));
         }
     }
 }

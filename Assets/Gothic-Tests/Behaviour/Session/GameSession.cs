@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters;
@@ -100,21 +99,23 @@ namespace Gothic.Tests.Behaviour.Session
 
         private static IEnumerator Boot(string world)
         {
-            var version = Version;
             var config = BehaviourTestConfig.Create(world);
 
-            // A backup left by a run that crashed belongs to the developer - it goes back before a new one is made.
+            // A backup left by a run that crashed belongs to the developer - it goes back before the game reads it.
             SessionBackup.Restore();
-            SessionBackup.Create(version);
             _isBooted = true;
 
-            Logger.Log($"[BehaviourTests] Booting {version} into {world}", LogCat.Debug);
+            Logger.Log($"[BehaviourTests] Booting {Version} into {world}", LogCat.Debug);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             BootstrapAdapter.ConfigOverride = config;
             SceneManager.LoadScene(_bootstrapScenePath);
 
             yield return WaitUntilLoaded(world);
-            AssertGameUsesBackedUpIni(version);
+
+            // Booting writes neither, so the backup is made with the game's own paths before the first step changes
+            // anything.
+            SessionBackup.Create(Resolve<ConfigService>().Gothic.IniFilePath,
+                Resolve<SaveGameService>().SavesFolderPath);
         }
 
         private static IEnumerator LoadWorld(string world)
@@ -153,17 +154,6 @@ namespace Gothic.Tests.Behaviour.Session
             World = loadedWorld;
             LastLoadSeconds = (float)watch.Elapsed.TotalSeconds;
             Logger.Log($"[BehaviourTests] {world} is ready after {LastLoadSeconds:0.0} s", LogCat.Debug);
-        }
-
-        /// <summary>
-        /// The backup copied the Gothic.ini GameSettings.json points to - it must be the one the game reads and writes.
-        /// </summary>
-        private static void AssertGameUsesBackedUpIni(GameVersion version)
-        {
-            var gameIni = Resolve<ConfigService>().Gothic.IniFilePath;
-            var backedUp = SessionBackup.GetGothicIniPath(version);
-            if (Path.GetFullPath(gameIni) != Path.GetFullPath(backedUp))
-                throw new InvalidOperationException($"The game uses {gameIni}, the backup is of {backedUp}");
         }
 
         private static string GetLoadedSceneNames()
