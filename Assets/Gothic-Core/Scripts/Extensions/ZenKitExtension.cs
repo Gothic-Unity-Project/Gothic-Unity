@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
 using JetBrains.Annotations;
 using MyBox;
 using UnityEngine;
@@ -132,6 +133,31 @@ namespace Gothic.Core.Extensions
                 m32 = matrix.M43,
                 m33 = matrix.M44
             };
+        }
+
+        /// <summary>
+        /// A Gothic light in Unity units: range cm to m, byte colors to colors, its range and color animation and its
+        /// lens flare effect.
+        /// </summary>
+        public static LightPreset ToLightPreset(this ZenKit.Vobs.Light light)
+        {
+            var rangeKeys = light.RangeAnimationScale;
+            var rangeScales = new float[rangeKeys?.Count ?? 0];
+            for (var i = 0; i < rangeScales.Length; i++)
+                rangeScales[i] = rangeKeys[i];
+
+            var colorKeys = light.ColorAnimationList;
+            var colors = new UnityEngine.Color[colorKeys?.Count ?? 0];
+            for (var i = 0; i < colors.Length; i++)
+            {
+                var key = colorKeys[i];
+                colors[i] = new UnityEngine.Color(key.R / 255f, key.G / 255f, key.B / 255f);
+            }
+
+            var color = light.Color;
+            return new LightPreset(light.Range * .01f, new UnityEngine.Color(color.R / 255f, color.G / 255f,
+                    color.B / 255f), rangeScales, light.RangeAnimationFps, light.RangeAnimationSmooth, colors,
+                light.ColorAnimationFps, light.ColorAnimationSmooth, light.LensflareFx);
         }
 
         public static BoneWeight ToBoneWeight(this List<SoftSkinWeightEntry> weights, List<int> nodeMapping)

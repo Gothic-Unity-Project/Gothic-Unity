@@ -24,6 +24,8 @@ Shader "Lit/AlphaToCoverage-Dynamic"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            // The torch in the player's hand (GothicHeroLight.hlsl): a switch, not a variant.
+            #pragma dynamic_branch _HERO_LIGHT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -44,6 +46,7 @@ Shader "Lit/AlphaToCoverage-Dynamic"
                 float4 uv : TEXCOORD0;
                 float distance : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
+                half3 normal : TEXCOORD3;
                 half3 diffuse : COLOR;
 
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -64,6 +67,7 @@ Shader "Lit/AlphaToCoverage-Dynamic"
 
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
+            #include "GothicHeroLight.hlsl"
 
             half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
             {
@@ -96,7 +100,8 @@ Shader "Lit/AlphaToCoverage-Dynamic"
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
-                o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
+                o.normal = TransformObjectToWorldNormal(v.normal);
+                o.diffuse = DiffuseLighting(o.normal, o.worldPos, v.color);
 
                 return o;
             }
@@ -113,7 +118,12 @@ Shader "Lit/AlphaToCoverage-Dynamic"
                 albedo.a = lerp((albedo.a - _Cutoff) / max(fwidth(albedo.a), 0.0001) + 0.5, albedo.a,
                                                       saturate(max(i.distance, 0.0001) / _DistanceFade));
 
-                half3 diffuse = albedo.rgb * i.diffuse * _FocusBrightness;
+                half3 light = i.diffuse;
+                if (_HERO_LIGHT)
+                {
+                    light += HeroLightDiffuse(i.worldPos, normalize(i.normal));
+                }
+                half3 diffuse = albedo.rgb * light * _FocusBrightness;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
                 

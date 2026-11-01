@@ -33,6 +33,7 @@ namespace Gothic.VR
 
         // Misc
         [Inject] private readonly StationaryLightsService _lightsService;
+        [Inject] private readonly HeroLightService _heroLightService;
         [Inject] private readonly SkyService _skyService;
         [Inject] private readonly BarrierService _barrierService;
         [Inject] private readonly SpeechToTextService _speechToTextService;
@@ -48,6 +49,7 @@ namespace Gothic.VR
         private void LateUpdate()
         {
             _lightsService.LateUpdate();
+            _heroLightService.LateUpdate();
         }
 
         private void FixedUpdate()
