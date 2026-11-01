@@ -1,12 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using NUnit.Framework;
+using Reflex.Core;
+using Reflex.Injectors;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -197,11 +198,13 @@ namespace Gothic.Tests.PlayMode
             return new TestItem(loader, grabbableGo, interactable, body, cube.GetComponent<Renderer>(), grab);
         }
 
+        /// <summary>
+        /// The bridges get their backend by [Inject], like in the game - from a container that only knows it.
+        /// </summary>
         private static void InjectXriBackend(Component component)
         {
-            var field = component.GetType().GetField("_vrBackend", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.IsNotNull(field, $"{component.GetType().Name} has no _vrBackend field.");
-            field.SetValue(component, new XriBackend());
+            var container = new ContainerBuilder().AddSingleton(new XriBackend(), typeof(IVrBackend)).Build();
+            AttributeInjector.Inject(component, container);
         }
 
         private GameObject Create(string goName)

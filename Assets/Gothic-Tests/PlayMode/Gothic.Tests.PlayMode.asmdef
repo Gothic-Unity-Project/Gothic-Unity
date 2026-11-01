@@ -6,6 +6,7 @@
         "UnityEditor.TestRunner",
         "Gothic.Core",
         "Gothic.VR",
+        "Reflex",
         "Unity.XR.Interaction.Toolkit",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework"
