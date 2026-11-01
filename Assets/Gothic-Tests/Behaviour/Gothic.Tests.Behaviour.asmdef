@@ -7,6 +7,7 @@
         "Gothic.Core",
         "Gothic.VR",
         "Reflex",
+        "MyBox",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework"
     ],

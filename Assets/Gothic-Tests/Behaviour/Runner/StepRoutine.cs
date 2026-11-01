@@ -8,12 +8,13 @@ namespace Gothic.Tests.Behaviour.Runner
 {
     /// <summary>
     /// Runs one step as part of the scenario's coroutine: nested IEnumerators are run here instead of by Unity, so a
-    /// failure anywhere inside names the step, and the scenario's time limit is checked every frame.
+    /// failure anywhere inside names the step, and the scenario's time limit is checked every frame. The clock stops
+    /// while isClockPaused says so (the game loading a world has a limit of its own).
     /// </summary>
     public static class StepRoutine
     {
         public static IEnumerator Run(ScenarioStep step, Func<IEnumerator> invoke, Stopwatch watch,
-            float timeoutSeconds)
+            float timeoutSeconds, Func<bool> isClockPaused)
         {
             var routines = new Stack<IEnumerator>();
             Wrap(step, () =>
@@ -25,6 +26,11 @@ namespace Gothic.Tests.Behaviour.Runner
 
             while (routines.Count > 0)
             {
+                if (isClockPaused())
+                    watch.Stop();
+                else
+                    watch.Start();
+
                 if (watch.Elapsed.TotalSeconds > timeoutSeconds)
                     throw new AssertionException($"{step}: the scenario took longer than {timeoutSeconds} s");
 

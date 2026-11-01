@@ -38,6 +38,11 @@ namespace Gothic.Tests.Behaviour.Session
         public static string World { get; private set; }
 
         /// <summary>
+        /// The game boots or loads a world - this time doesn't count against a scenario's time limit.
+        /// </summary>
+        public static bool IsLoading { get; private set; }
+
+        /// <summary>
         /// Seconds the last boot or world load took.
         /// </summary>
         public static float LastLoadSeconds { get; private set; }
@@ -53,6 +58,7 @@ namespace Gothic.Tests.Behaviour.Session
         private static void ResetStatics()
         {
             IsReady = false;
+            IsLoading = false;
             World = null;
             LastLoadSeconds = 0;
             _isBooted = false;
@@ -131,18 +137,23 @@ namespace Gothic.Tests.Behaviour.Session
         private static IEnumerator WaitUntilLoaded(string world)
         {
             IsReady = false;
+            IsLoading = true;
             World = null;
             _isWorldSceneLoaded = false;
             var watch = Stopwatch.StartNew();
             while (!_isWorldSceneLoaded || SceneManager.GetSceneByName(Constants.SceneLoading).isLoaded)
             {
                 if (watch.Elapsed.TotalSeconds > _loadTimeoutSeconds)
-                    throw new TimeoutException($"{world} wasn't loaded after {_loadTimeoutSeconds} s. Loaded " +
-                        $"scenes: {GetLoadedSceneNames()}");
+                {
+                    IsLoading = false;
+                    throw new TimeoutException($"{world} wasn't loaded after {_loadTimeoutSeconds} s (see the log " +
+                        $"for the world scene's errors). Loaded scenes: {GetLoadedSceneNames()}");
+                }
 
                 yield return null;
             }
 
+            IsLoading = false;
             IsReady = true;
             var loadedWorld = Resolve<SaveGameService>().CurrentWorldName;
             if (!world.Equals(loadedWorld, StringComparison.OrdinalIgnoreCase))

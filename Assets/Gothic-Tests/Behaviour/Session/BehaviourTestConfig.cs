@@ -5,6 +5,7 @@ using Gothic.Core.Models.Context;
 using Gothic.Core.Services.World;
 using UnityEngine;
 using ZenKit;
+using ZenKit.Vobs;
 using Object = UnityEngine.Object;
 
 namespace Gothic.Tests.Behaviour.Session
@@ -39,11 +40,12 @@ namespace Gothic.Tests.Behaviour.Session
             config.SpeedUpLoading = true;
             config.SkipVideos = true;
 
+            // Everything spawns: empty filters.
             config.EnableVOBs = true;
-            config.SpawnVOBTypes = new DeveloperConfig.VOBTypesCollection();
+            config.SpawnVOBTypes.Value = Array.Empty<VirtualObjectType>();
             config.EnableNpcs = true;
-            config.SpawnNpcInstances = new DeveloperConfig.IntCollection();
-            config.SpawnMonsterInstances = new DeveloperConfig.MonsterTypesCollection();
+            config.SpawnNpcInstances.Value = Array.Empty<int>();
+            config.SpawnMonsterInstances.Value = Array.Empty<DeveloperConfigEnums.MonsterId>();
             config.EnableParticleEffects = true;
             config.SunUpdateInterval = GameTimeService.GameTimeInterval.EveryGameMinute;
             return config;

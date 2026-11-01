@@ -46,7 +46,7 @@ namespace Gothic.Tests.Behaviour.Runner
                 // Iterated here, not handed to Unity as a nested coroutine: its exceptions must fail this test.
                 var routine = StepRoutine.Run(step,
                     () => binding.Invoke(instances.Get(binding.Method.DeclaringType), step.Text), watch,
-                    timeoutSeconds);
+                    timeoutSeconds, () => GameSession.IsLoading);
                 while (routine.MoveNext())
                     yield return routine.Current;
             }
