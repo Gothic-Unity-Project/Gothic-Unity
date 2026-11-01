@@ -1,7 +1,7 @@
 @g1 @vr @area(world) @adr(2026-10-31-fires-by-routine)
 Feature: Fires burn when the scripts say so
-  Gothic 1 lights its fireplaces from 22:00 to 05:00; by day they are out. Fires without a schedule keep burning.
-  A fire's parts sit on the fire's slot.
+  Gothic 1 lights its fireplaces from 22:00 to 05:00; by day they are out. Fires without a schedule keep burning -
+  in Gothic 1 the crystal lights of the swamp camp's temple (scheme PC). A fire's parts sit on the fire's slot.
 
   Background:
     Given the world "world.zen" is loaded
@@ -22,8 +22,9 @@ Feature: Fires burn when the scripts say so
     Then every "FIREPLACE" fire within 30 m is burning
 
   Scenario: Fires the scripts don't schedule keep burning by day
-    Given it is 12:00
-    Then every "FIRE" fire within 30 m is burning
+    Given the hero stands at waypoint "PSI_GUARD_TEMPLE_5_1"
+    And it is 12:00
+    Then every "PC" fire within 30 m is burning
 
   Scenario: Every flame sits on its bowl
     Given it is 23:00
