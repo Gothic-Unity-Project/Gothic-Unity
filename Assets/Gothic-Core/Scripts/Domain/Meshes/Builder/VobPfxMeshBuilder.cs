@@ -117,12 +117,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // Always disable Unity's built-in gravity - use Force over Lifetime instead
                 mainModule.gravityModifier = 0f;
 
-                // Simulation space from FOR switches (prefer dir FOR if present)
-                var simFor = (pfx.DirForS ?? pfx.ShpForS)?.ToUpperInvariant();
-                if (simFor == "WORLD")
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.World;
-                else
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.Local;
+                // Like the engine (OpenGothic PfxBucket): useEmittersFOR keeps the particles with their emitter, else
+                // they stay where they were emitted.
+                mainModule.simulationSpace = pfx.UseEmittersFor != 0
+                    ? ParticleSystemSimulationSpace.Local
+                    : ParticleSystemSimulationSpace.World;
 
                 // Start size from visSizeStart (cm->m). Allow end scale via Size over Lifetime below.
                 if (!string.IsNullOrEmpty(pfx.VisSizeStartS) && pfx.VisSizeStartS != "=")
@@ -186,6 +185,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (gravity.Length == 3)
                 {
                     forceModule.enabled = true;
+                    // Gravity is the world's (OpenGothic adds flyGravity to the world direction): a fire on a turned
+                    // stand still rises.
+                    forceModule.space = ParticleSystemSimulationSpace.World;
                     forceModule.x = gravityX;
                     forceModule.y = gravityY;
                     forceModule.z = gravityZ;
@@ -471,7 +473,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// <summary>
         /// DIR: like the engine (OpenGothic PfxBucket), every particle flies in the direction of head (around the up
         /// axis, + 90 degrees) and elev (up from the horizon), each +- its variance, at velAvg +- velVar. Unity can't vary
-        /// the start direction by angles, so the flight is a velocity picked per particle between the extremes.
+        /// the start direction by angles, so the flight is a velocity picked per particle between the extremes. The angles
+        /// are the world's unless dirFOR names the object: a flame rises however its fire stand or torch is turned.
         /// </summary>
         private static void ApplyDirection(ParticleSystem particleSystem, ZenKit.Daedalus.ParticleEffectInstance pfx)
         {
@@ -504,10 +507,21 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             var velocity = particleSystem.velocityOverLifetime;
             velocity.enabled = true;
-            velocity.space = ParticleSystemSimulationSpace.Local;
+            velocity.space = IsObjectFrame(pfx.DirForS)
+                ? ParticleSystemSimulationSpace.Local
+                : ParticleSystemSimulationSpace.World;
             velocity.x = new ParticleSystem.MinMaxCurve(min.x, max.x);
             velocity.y = new ParticleSystem.MinMaxCurve(min.y, max.y);
             velocity.z = new ParticleSystem.MinMaxCurve(min.z, max.z);
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic ParticleFx::loadFrameType): OBJECT (and lowercase object, a node) is the effect's
+        /// own frame; WORLD, any other value and no value at all are the world's.
+        /// </summary>
+        private static bool IsObjectFrame(string frame)
+        {
+            return frame != null && frame.Trim().Equals("OBJECT", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
