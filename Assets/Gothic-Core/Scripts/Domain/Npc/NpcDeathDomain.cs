@@ -34,10 +34,8 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly UnityMonoService _unityMonoService;
 
-        // NpcAiService (through NpcHelperService and VobService) leads back to NpcService, which creates this domain -
-        // resolved on first use, not while NpcService is built.
-        private NpcAiService _npcAiService;
-        private NpcAiService NpcAi => _npcAiService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcAiService>();
+        // NpcService creates this domain on first use, once it is built - services needing NpcService can be injected.
+        [Inject] private readonly NpcAiService _npcAiService;
 
         private readonly Action _syncHeroInstanceToVob;
 
@@ -120,7 +118,7 @@ namespace Gothic.Core.Domain.Npc
             _syncHeroInstanceToVob();
 
             if (killer != null && killer != dead)
-                NpcAi.SendPerceptionToWitnesses(dead, killer, VmGothicEnums.PerceptionType.AssessMurder);
+                _npcAiService.SendPerceptionToWitnesses(dead, killer, VmGothicEnums.PerceptionType.AssessMurder);
         }
 
         /// <summary>
