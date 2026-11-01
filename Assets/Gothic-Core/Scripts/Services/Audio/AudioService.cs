@@ -3,9 +3,9 @@ using System.Threading.Tasks;
 using Gothic.Core.Domain.Audio;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -19,6 +19,9 @@ namespace Gothic.Core.Manager
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly GameTimeService _gameTimeService;
 
         public const string NoSoundName = "nosound.wav";
 
@@ -28,15 +31,6 @@ namespace Gothic.Core.Manager
         private static readonly TimeSpan _musicDayStart = TimeSpan.FromHours(4);
         private static readonly TimeSpan _musicDayEnd = TimeSpan.FromHours(21);
 
-        // Services that lead back to this one through their own dependencies - resolved on first use.
-        private NpcService _npcService;
-        private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
-        private MultiTypeCacheService _multiTypeCacheService;
-        private MultiTypeCacheService MultiTypeCache => _multiTypeCacheService ??=
-            ReflexProjectInstaller.DIContainer.Resolve<MultiTypeCacheService>();
-        private GameTimeService _gameTimeService;
-        private GameTimeService GameTime => _gameTimeService ??=
-            ReflexProjectInstaller.DIContainer.Resolve<GameTimeService>();
         private readonly SoundDomain _soundDomain = new SoundDomain().Inject();
 
         private AudioSource _scriptSoundSource;
@@ -83,7 +77,9 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void UpdateMusicSituation()
         {
-            var hero = NpcService.GetHeroContainer();
+            // Found like NpcService.GetHeroContainer() - this service can't use NpcService: NpcService needs
+            // VobService, which needs this one.
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
             if (hero?.Vob == null || hero.Props == null)
                 return;
 
@@ -105,7 +101,7 @@ namespace Gothic.Core.Manager
 
         private MusicDomain.MusicTagsTime GetMusicTime()
         {
-            var time = GameTime.GetCurrentTime();
+            var time = _gameTimeService.GetCurrentTime();
             return time >= _musicDayStart && time <= _musicDayEnd
                 ? MusicDomain.MusicTagsTime.Day
                 : MusicDomain.MusicTagsTime.Night;
@@ -117,7 +113,7 @@ namespace Gothic.Core.Manager
         /// </summary>
         private bool IsHeroAttacked(NpcContainer hero)
         {
-            foreach (var npc in MultiTypeCache.NpcCache)
+            foreach (var npc in _multiTypeCacheService.NpcCache)
             {
                 if (npc == hero || npc.Vob == null || npc.Props?.TargetNpc == null || npc.Props.IsDead ||
                     npc.Props.TargetNpc.Index != hero.Instance.Index ||
