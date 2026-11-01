@@ -120,13 +120,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public string GetDetectedMobScheme(NpcInstance user)
         {
-            var mob = GetDetectedMob(user);
-            if (mob == null)
-                return string.Empty;
-
-            var visual = mob.Visual?.Name ?? string.Empty;
-            var schemeEnd = visual.IndexOf('_');
-            return (schemeEnd > 0 ? visual.Substring(0, schemeEnd) : visual).ToUpperInvariant();
+            return GetDetectedMob(user)?.GetMobScheme() ?? string.Empty;
         }
 
         private IInteractiveObject GetDetectedMob(NpcInstance user)

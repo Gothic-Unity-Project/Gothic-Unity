@@ -28,6 +28,20 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// The mob scheme scripts name mobs by (Wld_IsMobAvailable, Npc_GetDetectedMob, Wld_SetMobRoutine): the visual's
+        /// name up to the first '_', or up to its extension if it has none, in capitals (BED_1_OC.ASC: BED,
+        /// FIREPLACE_HIGH2.ASC: FIREPLACE).
+        /// </summary>
+        public static string GetMobScheme([CanBeNull] this IVirtualObject vob)
+        {
+            var visual = vob?.Visual?.Name ?? string.Empty;
+            var end = visual.IndexOf('_');
+            if (end < 0)
+                end = visual.IndexOf('.');
+            return (end > 0 ? visual.Substring(0, end) : visual).ToUpperInvariant();
+        }
+
+        /// <summary>
         /// A visual name is either extracted from Visual.Name or Name of VOB itself.
         /// </summary>
         public static string GetVisualName([CanBeNull] this IVirtualObject vob)

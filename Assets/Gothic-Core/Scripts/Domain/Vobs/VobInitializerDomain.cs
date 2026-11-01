@@ -441,7 +441,7 @@ namespace Gothic.Core.Domain.Vobs
             var fireTree = new GameObject("FireTree");
             fireTree.SetParent(go.FindChildRecursively(vob.Slot) ?? go, true, true);
             CreateFireVobs(fireWorld.RootObjects, fireTree, worldPosition);
-            _mobRoutineService.RegisterFire(GetScheme(vob), fireTree);
+            _mobRoutineService.RegisterFire(vob.GetMobScheme(), fireTree);
 
             return go;
         }
@@ -457,16 +457,6 @@ namespace Gothic.Core.Domain.Vobs
                 // Call normal mesh and Prefab loading logic
                 InitVob(vob, parent, worldPosition, false);
             }
-        }
-
-        /// <summary>
-        /// The mob scheme of a fire, its visual's name up to the first '_' (FIREPLACE_HIGH2.ASC: FIREPLACE).
-        /// </summary>
-        private static string GetScheme(IVirtualObject vob)
-        {
-            var visual = vob.Visual?.Name ?? string.Empty;
-            var end = visual.IndexOf('_');
-            return end > 0 ? visual.Substring(0, end) : visual;
         }
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)

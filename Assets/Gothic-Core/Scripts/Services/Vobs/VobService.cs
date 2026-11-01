@@ -555,7 +555,7 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
-                    var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
+                    var visualScheme = container.Vob.GetMobScheme();
                     
                     if (visualScheme.IsNullOrEmpty())
                         return;

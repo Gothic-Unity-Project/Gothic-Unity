@@ -1,4 +1,3 @@
-using System.Linq;
 using Gothic.Core.Extensions;
 using ZenKit.Vobs;
 
@@ -20,12 +19,11 @@ namespace Gothic.Core.Adapters.Properties.Vobs
         }
 
         /// <summary>
-        /// It's some hidden magic. Created based on IVirtualObject.Visual by extracting the first part.
-        /// Because within Daedalus there are functions requesting it. e.g. Wld_IsMobAvailable (self,"BED")
+        /// The mob scheme Daedalus asks for, e.g. Wld_IsMobAvailable (self,"BED"). See ZenKitExtension.GetMobScheme.
         /// </summary>
         public string GetVisualScheme()
         {
-            return Vob.Visual?.Name.Split('_').First(); // e.g. BED_1_OC.ASC => BED
+            return Vob.GetMobScheme();
         }
         
         public virtual string GetFocusName()
