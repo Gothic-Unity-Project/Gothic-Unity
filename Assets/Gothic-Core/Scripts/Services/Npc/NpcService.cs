@@ -17,6 +17,7 @@ using Gothic.Core.Models.Proxy;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
@@ -50,6 +51,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly MobRoutineService _mobRoutineService;
@@ -218,6 +220,32 @@ namespace Gothic.Core.Services.Npc
 
             _initializerDomain.SpawnNpcRuntime(symbol.Index, position, rotation);
             return true;
+        }
+
+        /// <summary>
+        /// The NPC leaves the world: its culling entry, the NPC cache, its objects. For Wld_RemoveNpc and for NPCs
+        /// spawned for a while (a test, a summon that ends). Other NPCs' targets aren't cleared.
+        /// </summary>
+        public void RemoveNpc(NpcContainer npc)
+        {
+            if (npc == null || npc == GetHeroContainer())
+            {
+                Logger.LogWarning("[NpcService] RemoveNpc: no NPC or the hero - nothing removed", LogCat.Npc);
+                return;
+            }
+
+            var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
+            _multiTypeCacheService.NpcCache.Remove(npc);
+            if (_objectToReEnableQueue.Contains(npc))
+                _objectToReEnableQueue = new Queue<NpcContainer>(_objectToReEnableQueue.Where(queued => queued != npc));
+
+            // The NPC's GameObject normally lives under its lazy-load root - destroy it too if it doesn't.
+            if (npc.Go != null && (lazyLoadRoot == null || !npc.Go.transform.IsChildOf(lazyLoadRoot.transform)))
+                Object.Destroy(npc.Go);
+            if (lazyLoadRoot != null)
+                Object.Destroy(lazyLoadRoot);
+
+            Logger.Log($"[NpcService] {npc.Instance.GetName(NpcNameSlot.Slot0)} removed from the world", LogCat.Npc);
         }
 
         public async Task CreateWorldNpcs(LoadingService loading)
