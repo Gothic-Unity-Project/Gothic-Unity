@@ -17,9 +17,16 @@ namespace Gothic.Core.Services.World
     {
         // As long as the light pool needs to give a returning normal light its slot again - so there's no dark moment.
         private const float _fadeSeconds = 0.5f;
+        // The pool of light around the flame (GothicHeroLight.hlsl): radius (m) of its bright part, that part's strength,
+        // the base level up to the light's range. Gothic's scenes at night are lit brightly already (fires): the torch
+        // only stands out well above them.
+        private const float _nearRadius = 1.5f;
+        private const float _nearStrength = 2.2f;
+        private const float _baseLevel = 0.35f;
 
         private static readonly int _positionRangeId = Shader.PropertyToID("_HeroLightPositionRange");
         private static readonly int _colorId = Shader.PropertyToID("_HeroLightColor");
+        private static readonly int _shapeId = Shader.PropertyToID("_HeroLightShape");
         private static readonly GlobalKeyword _keyword = GlobalKeyword.Create("_HERO_LIGHT");
 
         private object _owner;
@@ -53,6 +60,7 @@ namespace Gothic.Core.Services.World
                 return;
 
             _isOn = true;
+            Shader.SetGlobalVector(_shapeId, new Vector4(_nearRadius, _nearStrength, _baseLevel, 0f));
             Shader.SetKeyword(_keyword, true);
             Logger.Log($"[HeroLight] on at {anchor.name}, range {profile.Range:F1} m.", LogCat.Vob);
         }

@@ -10,14 +10,13 @@
 float4 _HeroLightPositionRange;
 // Linear color with the flicker and the fade-out already in it.
 real3 _HeroLightColor;
+// x = radius (m) of the bright part around the flame, y = its strength, z = the base level up to the range.
+float4 _HeroLightShape;
 
 // Bright close to the flame and fading with the square of the distance, like a real flame, on top of a small base
-// level; cut off smoothly at Gothic's range (15 m for the torch - alone that range kept the light nearly flat in the
-// first meters, so no pool of light followed the torch). Surfaces facing the light get more of it, with a little wrap
-// so the light reaches a bit around edges.
-#define HERO_LIGHT_NEAR_RADIUS 1.5
-#define HERO_LIGHT_NEAR_BOOST 2.2
-#define HERO_LIGHT_BASE 0.35
+// level (_HeroLightShape); cut off smoothly at Gothic's range (15 m for the torch - alone that range kept the light
+// nearly flat in the first meters, so no pool of light followed the torch). Surfaces facing the light get more of it,
+// with a little wrap so the light reaches a bit around edges.
 
 half3 HeroLightDiffuse(float3 worldPos, half3 normal)
 {
@@ -25,9 +24,8 @@ half3 HeroLightDiffuse(float3 worldPos, half3 normal)
     float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
     half window = saturate(1.0 - distanceSqr * _HeroLightPositionRange.w);
     window *= window;
-    half nearFalloff = HERO_LIGHT_NEAR_BOOST /
-        (1.0 + distanceSqr / (HERO_LIGHT_NEAR_RADIUS * HERO_LIGHT_NEAR_RADIUS));
-    half falloff = window * (HERO_LIGHT_BASE + nearFalloff);
+    half nearFalloff = _HeroLightShape.y / (1.0 + distanceSqr / (_HeroLightShape.x * _HeroLightShape.x));
+    half falloff = window * (_HeroLightShape.z + nearFalloff);
 
     half3 lightDirection = half3(lightVector * rsqrt(distanceSqr));
     half wrappedDot = saturate((dot(normal, lightDirection) + 0.3) / 1.3);
