@@ -31,7 +31,8 @@ namespace Gothic.Tests.Behaviour.Driver
         /// <summary>
         /// Spawns the NPC instance (Daedalus name) at the position, facing the direction, and waits until it is built.
         /// </summary>
-        /// <param name="spawned">Gets the NPC as soon as it exists, before it is built - to register its removal.</param>
+        /// <param name="spawned">Gets the NPC as soon as it exists, before it is built (to register its removal).
+        /// </param>
         public IEnumerator Spawn(string instance, Vector3 position, Quaternion rotation, Action<NpcContainer> spawned)
         {
             var symbol = _gameStateService.GothicVm.GetSymbolByName(instance);

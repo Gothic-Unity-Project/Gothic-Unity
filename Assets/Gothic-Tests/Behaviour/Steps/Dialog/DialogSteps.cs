@@ -10,8 +10,8 @@ using Reflex.Attributes;
 namespace Gothic.Tests.Behaviour.Steps.Dialog
 {
     /// <summary>
-    /// Dialogs between an NPC and the hero, started the way the scripts' AI_ProcessInfos ends (DialogService.StartDialog)
-    /// and checked by the dialog state (GameStateService.Dialogs).
+    /// Dialogs between an NPC and the hero, started the way the scripts' AI_ProcessInfos ends
+    /// (DialogService.StartDialog) and checked by the dialog state (GameStateService.Dialogs).
     /// </summary>
     public class DialogSteps
     {

@@ -16,9 +16,9 @@ namespace Gothic.Tests.Behaviour.Driver
 {
     /// <summary>
     /// The player's hands without a VR backend: a grab puts the item's body into the hand (kinematic, at the tracked
-    /// controller pose of IVrRig) and raises VrInteractable's own grab events, like the backend does for a hand grabber.
-    /// From there the game's chain runs as in play: VRVobItem, VRPlayerService.SetGrab (inventory, theft perception),
-    /// VRTorchLighter (TorchService.SetHeldTorches). The item doesn't follow a moving hand.
+    /// controller pose of IVrRig) and raises VrInteractable's own grab events, like the backend does for a hand
+    /// grabber. From there the game's chain runs as in play: VRVobItem, VRPlayerService.SetGrab (inventory, theft
+    /// perception), VRTorchLighter (TorchService.SetHeldTorches). The item doesn't follow a moving hand.
     /// </summary>
     public class HandDriver
     {

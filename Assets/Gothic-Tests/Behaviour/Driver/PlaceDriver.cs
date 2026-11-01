@@ -45,9 +45,25 @@ namespace Gothic.Tests.Behaviour.Driver
         }
 
         /// <summary>
-        /// Where the hero stands (his feet).
+        /// Where the hero stands: the ground point under his head, as the game measures distances to him
+        /// (DialogService) - a physical step in the play area moves it, turning doesn't.
         /// </summary>
-        public Vector3 HeroPosition => _npcService.GetHeroGameObject().transform.position;
+        public Vector3 HeroPosition
+        {
+            get
+            {
+                var hero = _npcService.GetHeroContainer();
+                var position = hero.Go.transform.position;
+                var head = hero.PrefabProps != null ? hero.PrefabProps.Head : null;
+                if (head != null)
+                {
+                    position.x = head.position.x;
+                    position.z = head.position.z;
+                }
+
+                return position;
+            }
+        }
 
         /// <summary>
         /// Where he looks, level with the ground.
@@ -70,6 +86,14 @@ namespace Gothic.Tests.Behaviour.Driver
         public Vector3 InFrontOfHero(float meters)
         {
             return HeroPosition + HeroForward * meters;
+        }
+
+        /// <summary>
+        /// The ground this far in front of the hero (the first surface below the point).
+        /// </summary>
+        public Vector3 GroundInFrontOfHero(float meters)
+        {
+            return Probe.GroundBelow(InFrontOfHero(meters));
         }
     }
 }

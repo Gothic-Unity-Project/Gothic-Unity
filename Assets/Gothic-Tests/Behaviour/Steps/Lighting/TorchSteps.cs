@@ -132,7 +132,7 @@ namespace Gothic.Tests.Behaviour.Steps.Lighting
 
         private IEnumerator MeasureGround(float meters, string name, System.Action<float> result)
         {
-            var point = Probe.GroundBelow(_scope.Driver<PlaceDriver>().InFrontOfHero(meters));
+            var point = _scope.Driver<PlaceDriver>().GroundInFrontOfHero(meters);
             var file = string.Concat($"{_scope.ScenarioName} - {name}".Select(c =>
                 Path.GetInvalidFileNameChars().Contains(c) || c == '/' ? '_' : c));
             yield return Probe.Brightness(point, result, Path.Combine(ProbeFolder, file + ".png"));
