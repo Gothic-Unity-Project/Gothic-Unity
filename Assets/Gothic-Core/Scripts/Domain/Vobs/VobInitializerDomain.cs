@@ -451,29 +451,11 @@ namespace Gothic.Core.Domain.Vobs
         /// </summary>
         private void CreateFireVobs(List<IVirtualObject> vobs, GameObject parent, Vector3 worldPosition)
         {
+            // The tree's positions are relative to the fire already (ResourceCacheService moves them when loading).
             foreach (var vob in vobs)
             {
-                // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
-                // positioning. Their children (the smoke below a fire's light) carry the tree's absolute positions
-                // too - relative to their root now, or every FIRETREE_MEDIUM smoke stood at the same spot of the world
-                // (found on BoroBongo's branch). The tree is cached, so a root is only moved once.
-                if (vob.Position != System.Numerics.Vector3.Zero)
-                {
-                    ShiftFireTreeChildren(vob.Children, vob.Position);
-                    vob.Position = default;
-                }
-
                 // Call normal mesh and Prefab loading logic
                 InitVob(vob, parent, worldPosition, false);
-            }
-        }
-
-        private static void ShiftFireTreeChildren(List<IVirtualObject> children, System.Numerics.Vector3 offset)
-        {
-            foreach (var child in children)
-            {
-                child.Position -= offset;
-                ShiftFireTreeChildren(child.Children, offset);
             }
         }
 
