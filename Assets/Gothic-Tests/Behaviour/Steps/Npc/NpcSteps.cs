@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.Tests.Behaviour.Driver;
@@ -8,6 +10,7 @@ using Gothic.Tests.Behaviour.Session;
 using NUnit.Framework;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Tests.Behaviour.Steps.Npc
 {
@@ -16,15 +19,14 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
     /// </summary>
     public class NpcSteps
     {
-        // The game moves a spawned NPC to a free spot (NpcService.GetFreeAreaAtSpawnPoint); farther than this (m) and
-        // the scenario's distance doesn't hold.
-        private const float _maxPlacementError = 0.3f;
         // The scripts' AI variable of an item guard (G1's B_GuardItemsAssessTheft: any item taken is theft).
         private const string _itemGuardAiVar = "AIV_ITEMSCHWEIN";
 
         [Inject] private readonly GameStateService _gameStateService;
 
         private readonly ScenarioScope _scope;
+        // Where each NPC was put, by instance.
+        private readonly Dictionary<string, Vector3> _spawnSpots = new();
 
 
         public NpcSteps(ScenarioScope scope)
@@ -36,7 +38,8 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
 
         /// <summary>
         /// Spawned facing the hero at this distance - straight ahead, or turned to the side as little as needed for a
-        /// spot the game doesn't move it off (an obstacle there) - and built before the step ends.
+        /// spot the game wouldn't move it off - and built before the step ends. Where it ends up is the game's: check it
+        /// with "... is N m from the hero" where the distance matters.
         /// </summary>
         [Step("\"(.*)\" stands (\\d+(?:\\.\\d+)?) m in front of the hero")]
         public IEnumerator StandsInFrontOfTheHero(string instance, float meters)
@@ -46,11 +49,11 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 Assert.Inconclusive($"No free spot {meters} m from the hero for {instance} - pick another way point " +
                     "for the feature");
 
-            var heroAtSpawn = place.HeroPosition;
-            var toHero = heroAtSpawn - position;
+            var toHero = place.HeroPosition - position;
             toHero.y = 0;
             var rotation = Quaternion.LookRotation(toHero, Vector3.up);
 
+            _spawnSpots[instance] = position;
             NpcContainer spawned = null;
             yield return Npcs.Spawn(instance, position, rotation, npc =>
             {
@@ -58,12 +61,31 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
                 _scope.Undo($"remove {instance}", () => Npcs.Remove(npc));
             });
 
-            var npcPosition = spawned.Go.transform.position;
-            var distance = Vector3.Distance(npcPosition, place.HeroPosition);
-            if (Mathf.Abs(distance - meters) > _maxPlacementError)
-                Assert.Inconclusive($"{instance} stands {distance:0.0} m from the hero, not {meters} m: spawned at " +
-                    $"{position}, stands at {npcPosition} ({Vector3.Distance(position, npcPosition):0.0} m off), the " +
-                    $"hero moved {Vector3.Distance(heroAtSpawn, place.HeroPosition):0.0} m meanwhile");
+            var standsAt = spawned.Go.transform.position;
+            Logger.Log($"[BehaviourTests] {instance} spawned at {position}, built at {standsAt} " +
+                $"({Vector3.Distance(position, standsAt):0.00} m off), {GetDistanceToHero(spawned):0.00} m from the hero",
+                LogCat.Debug);
+        }
+
+        [Step("\"(.*)\" is built where he was put, give or take (\\d+) cm")]
+        public void IsBuiltWhereHeWasPut(string instance, int centimeters)
+        {
+            if (!_spawnSpots.TryGetValue(instance, out var spot))
+                throw new AssertionException($"The scenario didn't put {instance} anywhere");
+
+            var standsAt = GetNpc(instance).Go.transform.position;
+            Assert.That(Vector3.Distance(spot, standsAt) * 100f, Is.LessThanOrEqualTo(centimeters),
+                $"{instance} was put at {spot} and stands at {standsAt} - cm apart");
+        }
+
+        /// <summary>
+        /// Measured like the game's dialog range: from the NPC to the ground point under the hero's head.
+        /// </summary>
+        [Step("\"(.*)\" is (\\d+(?:\\.\\d+)?) m from the hero, give or take (\\d+(?:\\.\\d+)?) m")]
+        public void IsMetersFromTheHero(string instance, float meters, float tolerance)
+        {
+            Assert.That(GetDistanceToHero(GetNpc(instance)), Is.EqualTo(meters).Within(tolerance),
+                $"{instance}'s distance to the hero (m)");
         }
 
         [Step("\"(.*)\" guards the items around him")]
@@ -105,6 +127,11 @@ namespace Gothic.Tests.Behaviour.Steps.Npc
 
                 yield return null;
             }
+        }
+
+        private float GetDistanceToHero(NpcContainer npc)
+        {
+            return Vector3.Distance(npc.Go.transform.position, _scope.Driver<PlaceDriver>().HeroPosition);
         }
 
         private NpcContainer GetNpc(string instance)

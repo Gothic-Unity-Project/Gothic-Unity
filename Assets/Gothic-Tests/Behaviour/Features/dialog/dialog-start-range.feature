@@ -8,8 +8,11 @@ Feature: An NPC can open a dialog up to 8 m away
     And the hero stands at waypoint "OC_ROUND_13"
     And it is 12:00
 
+  # Known bug: an NPC is built 1 m beside the spot it was put at (npc-spawn.feature), so the distance can be off.
+  @known-bug
   Scenario Outline: The start distance decides
     Given "GRD_283_Gardist" stands <distance> m in front of the hero
+    And "GRD_283_Gardist" is <distance> m from the hero, give or take 0.3 m
     When "GRD_283_Gardist" starts a dialog with the hero
     Then a dialog is <result>
 
