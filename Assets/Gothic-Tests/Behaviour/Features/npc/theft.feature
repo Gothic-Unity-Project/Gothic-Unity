@@ -12,8 +12,8 @@ Feature: NPCs notice theft
     And it is 12:00
     And "GRD_283_Gardist" stands 3 m in front of the hero
 
-  # Known bug: AI_Quicklook isn't an external of the game yet (BoroBongo's perception branches add it). G1's
-  # B_AssessTheft calls it first and makes no further call after it, so no NPC reacts to a theft.
+  # Known bug: the owner is built 1 m beside the spot he was put at (npc-spawn.feature) and doesn't react to the
+  # theft. Passes with fix/npc-spawn-own-body.
   @known-bug
   Scenario: The owner catches the thief
     Given a "ITKELOCKPICK" lies 1 m in front of the hero
@@ -21,7 +21,7 @@ Feature: NPCs notice theft
     When the hero takes the "ITKELOCKPICK" lying in front of him
     Then "GRD_283_Gardist" is in state "ZS_CATCHTHIEF" within 8 s
 
-  # Known bug: as above - the guard runs B_AssessTheft up to AI_Quicklook and no further.
+  # Known bug: as above - the guard is built 1 m aside and doesn't react. Passes with fix/npc-spawn-own-body.
   @known-bug
   Scenario: A guard of items comes for anyone taking an item
     Given "GRD_283_Gardist" guards the items around him
