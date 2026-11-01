@@ -42,6 +42,7 @@ namespace Gothic.Core.Models.Caches
         VobSoundDaytime,
         VobLadder,
         VobLight,
+        VobLensFlare,
         VobMover,
         VobTriggerChangeLevel,
         VobTriggerScript,
