@@ -22,6 +22,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
+        private const float _quickLookSeconds = 2f;
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
@@ -226,6 +227,23 @@ namespace Gothic.Core.Services.Npc
 
             npc.GetUserData().Props.AnimationQueue.Enqueue(new LookAtNpc(
                 new AnimationAction(instance0: other),
+                npc.GetUserData()));
+        }
+
+        /// <summary>
+        /// G1's Externals.d: the NPC looks at the other one briefly (2 s), only the head moves. The queue goes on at
+        /// once - B_AssessTheft checks right after it whether the thief is seen.
+        /// </summary>
+        public void ExtAiQuicklook(NpcInstance npc, NpcInstance other)
+        {
+            if (other == null)
+            {
+                Logger.LogWarning("[AI_Quicklook] called without an NPC to look at - ignored.", LogCat.Ai);
+                return;
+            }
+
+            npc.GetUserData().Props.AnimationQueue.Enqueue(new LookAtNpc(
+                new AnimationAction(instance0: other, float0: _quickLookSeconds),
                 npc.GetUserData()));
         }
 

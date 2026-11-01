@@ -114,6 +114,9 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_LookAt", AI_LookAt);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_LookAtNPC", AI_LookAtNPC);
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
+            // G1 declares it; registering an external the scripts don't declare would throw.
+            if (vm.GetSymbolByName("AI_Quicklook") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_Quicklook", AI_Quicklook);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
@@ -488,6 +491,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_LookAtNPC(NpcInstance npc, NpcInstance target)
         {
             _npcAiService.ExtAiLookAtNpc(npc, target);
+        }
+
+        public void AI_Quicklook(NpcInstance npc, NpcInstance target)
+        {
+            _npcAiService.ExtAiQuicklook(npc, target);
         }
 
         public void AI_StopLookAt(NpcInstance npc)
