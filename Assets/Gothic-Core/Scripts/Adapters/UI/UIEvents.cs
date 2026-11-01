@@ -33,6 +33,13 @@ namespace Gothic.Core.Adapters.UI
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(InitializeAudio);
         }
         
+        private void Awake()
+        {
+            // Menu clicks play while the world's sounds are paused (PauseService).
+            if (_audioSource != null)
+                _audioSource.ignoreListenerPause = true;
+        }
+
         private static void InitializeAudio()
         {
             // Hack: We need to initialize AudioService only once and in static context. Therefore doing it now.

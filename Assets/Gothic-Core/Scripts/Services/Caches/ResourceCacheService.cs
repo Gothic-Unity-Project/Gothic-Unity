@@ -31,6 +31,9 @@ namespace Gothic.Core.Services.Caches
         private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default);
 
         private readonly HashSet<string> _brokenSegments = new();
+        // Segments loaded and downloaded once - music zones switch themes back and forth, no need to parse and download
+        // a theme again on the main thread while the audio thread renders (found on BoroBongo's branch).
+        private readonly Dictionary<string, Segment> _downloadedSegments = new(StringComparer.OrdinalIgnoreCase);
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -91,8 +94,14 @@ namespace Gothic.Core.Services.Caches
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
                     var fireWorld = new ZenKit.World(Vfs, s, version);
 
-                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
-                    fireWorld.RootObjects.ForEach(i => i.Position = default);
+                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
+                    // positioning. Their children (the flames and smoke below a fire's light) carry the tree's absolute
+                    // positions too - relative to their root now, or a wall fire's flames hung 20 m above it.
+                    foreach (var root in fireWorld.RootObjects)
+                    {
+                        ShiftFireTreeChildren(root.Children, root.Position);
+                        root.Position = default;
+                    }
 
                     return fireWorld;
                 }
@@ -214,11 +223,36 @@ namespace Gothic.Core.Services.Caches
             return node == null ? null : node.Buffer.Bytes;
         }
 
+        /// <summary>
+        /// Folder below _WORK/DATA/SOUND of the sound effects, see TryGetSoundBytes(key, soundFolder).
+        /// </summary>
+        public const string SfxFolder = "SFX";
+
+        /// <summary>
+        /// Like the engine, a sound effect is a file of _WORK/DATA/SOUND/SFX: found by its name only, a newer archive's
+        /// speech file of the same name won - G1's hero death scream and pain sounds (svm_2_dead.wav, ...) came from
+        /// Speech.vdf instead of sound.VDF (found on BoroBongo's branch). Falls back to the name.
+        /// </summary>
+        [CanBeNull]
+        public byte[] TryGetSoundBytes([NotNull] string key, [CanBeNull] string soundFolder)
+        {
+            if (soundFolder != null)
+            {
+                var node = Vfs.Resolve($"/_WORK/DATA/SOUND/{soundFolder}/{GetPreparedKey(key)}.wav");
+                if (node != null)
+                    return node.Buffer.Bytes;
+            }
+
+            return TryGetSoundBytes(key);
+        }
+
         [CanBeNull]
         public Segment TryGetSegment([NotNull] string key)
         {
             if (_brokenSegments.Contains(key))
                 return null;
+            if (_downloadedSegments.TryGetValue(key, out var downloaded))
+                return downloaded;
 
             Segment segment = null;
 
@@ -227,9 +261,10 @@ namespace Gothic.Core.Services.Caches
                 segment = _dmLoader.GetSegment(key);
 
                 // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
-                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
-                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                // whose instrument data dmusic can't download.
                 segment?.Download(_dmLoader);
+                if (segment != null)
+                    _downloadedSegments[key] = segment;
                 return segment;
             }
             catch (Exception e)
@@ -320,6 +355,16 @@ namespace Gothic.Core.Services.Caches
         public ZenKit.World TryGetWorld([NotNull] string key)
         {
             return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen");
+        }
+
+        private static void ShiftFireTreeChildren(List<ZenKit.Vobs.IVirtualObject> children,
+            System.Numerics.Vector3 offset)
+        {
+            foreach (var child in children)
+            {
+                child.Position -= offset;
+                ShiftFireTreeChildren(child.Children, offset);
+            }
         }
 
         /// <summary>
@@ -414,11 +459,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>The absolute path to the <c>_work</c> folder of the Gothic installation</returns>
         private string FindWorkPath(string root)
         {
-            var path = Directory.GetDirectories(root, "_work", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "_work") ??
+                       throw new DirectoryNotFoundException($"No _work folder in the Gothic installation {root}");
 
             return Path.GetFullPath(path, root);
         }
@@ -431,11 +473,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>A list of absolute paths to all <c>.vdf</c> files the <c>data</c> folder of the Gothic installation</returns>
         private List<string> FindDiskPaths(string root)
         {
-            var path = Directory.GetDirectories(root, "data", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "data") ??
+                       throw new DirectoryNotFoundException($"No Data folder in the Gothic installation {root}");
 
             var data = Path.GetFullPath(path, root);
             var vdfs = Directory.GetFiles(data, "*.vdf", new EnumerationOptions

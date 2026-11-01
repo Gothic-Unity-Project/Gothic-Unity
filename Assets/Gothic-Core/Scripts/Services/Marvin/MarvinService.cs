@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.UI;
 using Gothic.Core.Services.Config;
@@ -70,9 +71,7 @@ namespace Gothic.Core.Manager
         {
             _typedText.Clear();
             _logoPokes = 0;
-            _isMenuOpenedInGame = SceneManager.GetActiveScene().name is not (Constants.SceneBootstrap
-                or Constants.ScenePlayer or Constants.SceneGameVersion or Constants.ScenePreCaching
-                or Constants.SceneLogo or Constants.SceneMainMenu or Constants.SceneLoading);
+            _isMenuOpenedInGame = SceneManager.GetActiveScene().IsWorldScene();
         }
 
         /// <summary>

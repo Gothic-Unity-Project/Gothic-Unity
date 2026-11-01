@@ -8,6 +8,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Movement;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.StaticCache;
@@ -63,32 +64,54 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextMenuService));
             containerBuilder.AddSingleton(typeof(ContextDialogService));
             containerBuilder.AddSingleton(typeof(ContextTextInputService));
+            containerBuilder.AddSingleton(typeof(ContextScreenshotService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
+            containerBuilder.AddSingleton(typeof(ContextMeleeDamageService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobSoundCullingService));
             containerBuilder.AddSingleton(typeof(SpeechToTextService));
             containerBuilder.AddSingleton(typeof(GameTimeService));
+            containerBuilder.AddSingleton(typeof(PauseService));
             containerBuilder.AddSingleton(typeof(MeshService));
             containerBuilder.AddSingleton(typeof(AnimationService));
 
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));
+            containerBuilder.AddSingleton(typeof(TouchDamageService));
+            containerBuilder.AddSingleton(typeof(LockPickService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
+            containerBuilder.AddSingleton(typeof(MobRoutineService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
             containerBuilder.AddSingleton(typeof(DialogService));
             containerBuilder.AddSingleton(typeof(PlayerService));
+            containerBuilder.AddSingleton(typeof(TradeService));
+            containerBuilder.AddSingleton(typeof(DocService));
             
             // NPC
             containerBuilder.AddSingleton(typeof(NpcService));
+            containerBuilder.AddSingleton(typeof(NpcFallService));
+            containerBuilder.AddSingleton(typeof(NpcWaterService));
+            containerBuilder.AddSingleton(typeof(NpcLookService));
+            containerBuilder.AddSingleton(typeof(NpcRandomAniService));
             containerBuilder.AddSingleton(typeof(NpcAiService));
             containerBuilder.AddSingleton(typeof(NpcHelperService));
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
+            containerBuilder.AddSingleton(typeof(EquipmentService));
+            containerBuilder.AddSingleton(typeof(HeroPerceptionService));
+            containerBuilder.AddSingleton(typeof(NpcClimbService));
             containerBuilder.AddSingleton(typeof(FightService));
+            containerBuilder.AddSingleton(typeof(MagicService));
+            containerBuilder.AddSingleton(typeof(HeroSpellStateService));
+            containerBuilder.AddSingleton(typeof(LightSpellService));
+            containerBuilder.AddSingleton(typeof(NpcBurnService));
+            containerBuilder.AddSingleton(typeof(TransformationService));
+            containerBuilder.AddSingleton(typeof(WorldEffectService));
+            containerBuilder.AddSingleton(typeof(TorchService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));
@@ -103,9 +126,12 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(LoadingService));
             containerBuilder.AddSingleton(typeof(WayNetService));
             containerBuilder.AddSingleton(typeof(SaveGameService));
+            containerBuilder.AddSingleton(typeof(RoomService));
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
+            containerBuilder.AddSingleton(typeof(WindService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
+            containerBuilder.AddSingleton(typeof(LedgeService));
 
             // Misc
             containerBuilder.AddSingleton(typeof(AudioService));
@@ -119,6 +145,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(FontService));
             containerBuilder.AddSingleton(typeof(UIEventsService));
             containerBuilder.AddSingleton(typeof(LocalizationService));
+            containerBuilder.AddSingleton(typeof(ColorVisionService));
 
             // Marvin
             containerBuilder.AddSingleton(typeof(MarvinService));

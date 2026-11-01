@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Animations.Morph;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using MyBox;
@@ -48,6 +50,9 @@ namespace Gothic.Core.Adapters.Animations
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
+        [Inject] private readonly NpcClimbService _npcClimbService;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -77,11 +82,29 @@ namespace Gothic.Core.Adapters.Animations
         private float _appliedRootHeightOffset;
         // Re-size only on real pose changes (kneeling, flying, jumps) - not for the few-cm bob of walk cycles.
         private const float _rootColliderUpdateThreshold = 0.05f;
+        // Walls: a sphere at hip height (the NPC root) probes the move; steeper than this (normal's up part) is a wall.
+        private const float _wallProbeRadius = 0.3f;
+        private const float _wallMinNormalY = 0.5f;
+        // How far ahead (m) a moving NPC looks for an edge it mustn't walk over.
+        private const float _ledgeProbeDistance = 0.5f;
+        // Quest 2: only NPCs this close to the player (m) probe - the ones he sees -, each every few frames (spread
+        // over the NPCs), looking as far ahead as it moves until its next probe and keeping the wall found in between.
+        // Farther NPCs walk as before: physics pushes them out of walls.
+        private const float _wallProbeMaxDistance = 25f;
+        private const int _wallProbeFrameInterval = 2;
+        private static int _nextWallProbeFrameOffset;
+        private int _wallProbeFrameOffset;
+        // The wall of the last probe, its normal flat on the ground (zero: none).
+        private Vector3 _wallNormal;
 
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
         private static readonly HashSet<string> _missingAnimationsLogged = new();
-        private static bool _isHeadAnimationWarningLogged;
+        private const string _headNodeName = "BIP01 HEAD";
+
+        // Step sound names per ground event ("GROUND:RUN" -> RUN_WATER, RUN_UNDEF), built once for all NPCs: a step
+        // mustn't build strings.
+        private static readonly Dictionary<string, (string Water, string Undef)> _groundSoundNames = new();
 
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
@@ -110,6 +133,9 @@ namespace Gothic.Core.Adapters.Animations
 
             // Cached object which will be used later.
             NpcData.PrefabProps.AnimationSystem = this;
+
+            _wallProbeFrameOffset = _nextWallProbeFrameOffset;
+            _nextWallProbeFrameOffset = (_nextWallProbeFrameOffset + 1) % _wallProbeFrameInterval;
         }
 
         private void Start()
@@ -634,6 +660,13 @@ namespace Gothic.Core.Adapters.Animations
 
         private void ApplyFinalMovement()
         {
+            // Climbing a ledge: the climb places the NPC, not the root motion.
+            if (_npcClimbService.IsClimbing(NpcData))
+            {
+                _npcClimbService.Tick(NpcData);
+                return;
+            }
+
             var finalMovement = Vector3.zero;
             foreach (var instance in _trackInstances)
             {
@@ -648,7 +681,90 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             // Pos change is applied with rotated value.
-            Go.transform.localPosition += Go.transform.rotation * finalMovement;
+            var move = Go.transform.rotation * finalMovement;
+            // Deep water stops non-swimmers, swimmers float at the surface.
+            move = _npcWaterService.ApplyWater(NpcData, move, _restRootHeight,
+                _rootBone != null ? _rootBone.localPosition.y : 0f);
+            if (IsDeepDropAhead(move))
+                move = new Vector3(0f, move.y, 0f);
+            Go.transform.localPosition += SlideAlongWalls(move);
+        }
+
+        /// <summary>
+        /// Root motion moves the NPC directly, physics only pushes it out afterwards: runners stuck in walls and fast
+        /// ones went through rocks. Against a wall only the part of the move along it stays, like the engine slides
+        /// along (OpenGothic MoveAlgo). Floors and slopes don't block, nor do mobs the NPC walks into on purpose (benches,
+        /// beds). Found on BoroBongo's branch.
+        /// </summary>
+        private Vector3 SlideAlongWalls(Vector3 move)
+        {
+            // UseMob sets the mob before the walk to it starts: the mob itself never blocks the way to its slot.
+            if (_restRootHeight <= 0f || PrefabProps.CurrentInteractable != null)
+            {
+                _wallNormal = Vector3.zero;
+                return move;
+            }
+
+            var horizontal = new Vector3(move.x, 0f, move.z);
+            var distance = horizontal.magnitude;
+            if (distance < 0.0001f)
+                return move;
+
+            if ((Time.frameCount + _wallProbeFrameOffset) % _wallProbeFrameInterval == 0)
+                _wallNormal = ProbeWall(horizontal / distance, distance * _wallProbeFrameInterval);
+
+            // Only a move into the wall is turned along it - the kept wall of a former frame may lie behind already.
+            if (Vector3.Dot(horizontal, _wallNormal) >= 0f)
+                return move;
+
+            // Head-on against a ledge Gothic climbs: the NPC climbs it instead (OpenGothic MoveAlgo::onMoveFailed).
+            var feet = Go.transform.position - Vector3.up * _restRootHeight;
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (_npcClimbService.TryStartClimb(NpcData, feet, horizontal / distance, _wallNormal, radius,
+                    _restRootHeight * 2f))
+            {
+                _wallNormal = Vector3.zero;
+                return Vector3.zero;
+            }
+
+            var slide = Vector3.ProjectOnPlane(horizontal, _wallNormal);
+            return new Vector3(slide.x, move.y, slide.z);
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic MoveAlgo::tryMove), an NPC doesn't walk over an edge whose drop is 3/4 of its
+        /// guild's FALLDOWN_HEIGHT or more - lower steps down are fine. Chasing NPCs ran off cliffs and fell to their
+        /// death. One ray down half a meter ahead while it moves.
+        /// </summary>
+        private bool IsDeepDropAhead(Vector3 move)
+        {
+            var horizontal = new Vector3(move.x, 0f, move.z);
+            if (horizontal.sqrMagnitude < 0.000001f || _restRootHeight <= 0f || PrefabProps.CurrentInteractable != null ||
+                _gameStateService.GuildValues == null)
+                return false;
+
+            var maxDrop = _gameStateService.GuildValues.GetFallDownHeight(NpcData.Instance.GetValuesGuild()) * 0.0075f;
+            var probe = Go.transform.position + horizontal.normalized * _ledgeProbeDistance;
+            // Water counts as ground: swimmers go on, non-swimmers are stopped by NpcWaterService.
+            return !Physics.Raycast(probe, Vector3.down, _restRootHeight + maxDrop,
+                (1 << Constants.DefaultLayer) | (1 << Constants.WaterLayer), QueryTriggerInteraction.Collide);
+        }
+
+        /// <returns>The normal (flat on the ground) of a wall in the way, zero if there is none or the NPC is too far
+        /// from the player for it to matter.</returns>
+        private Vector3 ProbeWall(Vector3 direction, float distance)
+        {
+            var player = Camera.main;
+            if (player == null || (player.transform.position - Go.transform.position).sqrMagnitude >
+                _wallProbeMaxDistance * _wallProbeMaxDistance)
+                return Vector3.zero;
+
+            var radius = Mathf.Min(_wallProbeRadius, _restRootHeight * 0.5f);
+            if (!Physics.SphereCast(Go.transform.position, radius, direction, out var hit, distance + 0.05f,
+                    1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore) || hit.normal.y >= _wallMinNormalY)
+                return Vector3.zero;
+
+            return new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
         }
 
         private void ApplyEvents()
@@ -726,11 +842,53 @@ namespace Gothic.Core.Adapters.Animations
 
             foreach (var sfx in sfxEvents)
             {
+                if (sfx.Name.StartsWith(AnimationService.GroundSoundPrefix, StringComparison.Ordinal))
+                {
+                    PlayGroundSound(sfx);
+                    continue;
+                }
+
                 var clip = _audioService.GetRandomSoundClip(sfx.Name);
                 PrefabProps.NpcSound.clip = clip;
                 PrefabProps.NpcSound.maxDistance = sfx.Range.ToMeter();
                 PrefabProps.NpcSound.Play();
             }
+        }
+
+        /// <summary>
+        /// A step, like the engine (OpenGothic Npc::emitSoundGround): the sound with the ground's group, RUN_WATER while
+        /// the feet are in water, else RUN_UNDEF (G1's world has almost only UNDEF grounds - stone steps). On top of the
+        /// NPC's other sounds, a step mustn't cut a swing or a scream.
+        /// </summary>
+        private void PlayGroundSound(IEventSoundEffect sfx)
+        {
+            if (PrefabProps.NpcSound == null)
+                return;
+
+            // Only steps the listener can hear (the AudioListener sits on the main camera): a step beyond its own
+            // range is silent anyway but would still cost a ray and an audio voice, for every walking NPC in the world.
+            var range = sfx.Range.ToMeter();
+            var listener = Camera.main;
+            if (listener == null || (listener.transform.position - Go.transform.position).sqrMagnitude > range * range)
+                return;
+
+            if (!_groundSoundNames.TryGetValue(sfx.Name, out var names))
+            {
+                var soundName = sfx.Name.Substring(AnimationService.GroundSoundPrefix.Length);
+                names = ($"{soundName}_WATER", $"{soundName}_UNDEF");
+                _groundSoundNames[sfx.Name] = names;
+            }
+
+            var feet = Go.transform.position - Vector3.up * _restRootHeight;
+            var isInWater = Physics.Raycast(feet, Vector3.up, _restRootHeight, 1 << Constants.WaterLayer);
+            var clip = (isInWater ? _audioService.GetRandomSoundClip(names.Water) : null) ??
+                       _audioService.GetRandomSoundClip(names.Undef);
+            if (clip == null)
+                return;
+
+            // The step's own range (10 m unless the MDS says otherwise), not what the NPC's last sound left.
+            PrefabProps.NpcSound.maxDistance = range;
+            PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
@@ -751,11 +909,16 @@ namespace Gothic.Core.Adapters.Animations
             if (morphEvents == null)
                 return;
 
+            // Like the engine, an event without a node or on the head's node is a face animation (T_HURT, T_EAT).
+            // Others morph a held item (a bow's S_SHOOT) - not yet supported.
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph == null)
+                return;
+
             foreach (var morph in morphEvents)
             {
-                var type = PrefabProps.HeadMorph.GetAnimationTypeByName(morph.Animation);
-
-                PrefabProps.HeadMorph.StartAnimation(Properties.BodyData.Head, type);
+                if (string.IsNullOrEmpty(morph.Node) || morph.Node.EqualsIgnoreCase(_headNodeName))
+                    headMorph.StartEventFaceAnimation(morph.Animation);
             }
         }
 
@@ -778,25 +941,64 @@ namespace Gothic.Core.Adapters.Animations
             DisableObject();
         }
 
-        public void PlayHeadAnimation(HeadMorph.HeadMorphType viseme)
+        /// <summary>
+        /// A face animation held until stopped, e.g. the talking mouth (VISEME, loops) during an NPC's line.
+        /// </summary>
+        public void PlayHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            // FIXME - Implement
-            LogHeadAnimationWarning();
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph != null)
+                headMorph.StartFaceAnimation(headMorph.GetAnimationNameByType(type), 1f, -1f);
         }
 
-        public void StopHeadAnimation(HeadMorph.HeadMorphType viseme)
+        public void StopHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            // FIXME - Implement
-            LogHeadAnimationWarning();
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph != null)
+                headMorph.StopAnimation(headMorph.GetAnimationNameByType(type));
         }
 
-        private static void LogHeadAnimationWarning()
-        {
-            if (_isHeadAnimationWarningLogged)
-                return;
+        /// <summary>
+        /// The event frames of the current attack animation (AttackCombo applies them).
+        /// </summary>
+        public AttackFrames AttackFrames => new(AttackOptFrame, AttackHitEnd, AttackWindowFrames);
 
-            _isHeadAnimationWarningLogged = true;
-            Logger.LogWarning("Play/StopHeadAnimation not yet implemented (logged once).", LogCat.Animation);
+        /// <summary>
+        /// Time, frame rate and length of the playing track of the attack animation. Not one blending out: the previous
+        /// attack with the same animation may still blend out, its time past the hit frame - it would count as a hit of
+        /// the new attack.
+        /// </summary>
+        public bool TryGetAttackTrackTime(string animationName, out float time, out float fps, out float duration)
+        {
+            var track = GetPlayingAttackTrack(animationName);
+            time = track?.CurrentTime ?? 0f;
+            fps = track?.Track.FpsSource ?? 0f;
+            duration = track?.Track.Duration ?? 0f;
+            return track != null && fps > 0f;
+        }
+
+        /// <summary>
+        /// Moves the playing attack track forward to the time (a combo continues the animation from there).
+        /// </summary>
+        public void SetAttackTrackTime(string animationName, float time)
+        {
+            var track = GetPlayingAttackTrack(animationName);
+            if (track != null && track.CurrentTime < time)
+                track.CurrentTime = time;
+        }
+
+        private AnimationTrackInstance GetPlayingAttackTrack(string animationName)
+        {
+            foreach (var trackInstance in _trackInstances)
+            {
+                if (trackInstance.State is not (AnimationState.Play or AnimationState.BlendIn))
+                    continue;
+                if (trackInstance.Track.MatchesName(animationName) ||
+                    (AttackAnimation != null && trackInstance.AnimationName.EqualsIgnoreCase(AttackAnimation)))
+                    return trackInstance;
+            }
+
+            return null;
         }
 
         public bool IsPlaying(string animationName)

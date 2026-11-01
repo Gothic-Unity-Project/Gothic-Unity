@@ -14,6 +14,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.VR.Interaction.Models;
@@ -42,11 +43,15 @@ namespace Gothic.VR.Adapters.Player
         // private string _diveBubbleParticleName;
         
         private float _initialGravity;
-        private float _initialMoveSpeed;
-        private float _initialRunSpeed;
         private float _initialFallSpeed;
+        // Owns the walk and run speed (with a speed potion's): we only say whether we are in the water.
+        private VRHeroSpeed _heroSpeed;
 
         private VmGothicEnums.WalkMode _mode = VmGothicEnums.WalkMode.Walk;
+        private VmGothicEnums.WalkMode _bodyStateMode = VmGothicEnums.WalkMode.Walk;
+        // At the last check no water was above the feet: going below the surface then is an entry and can splash.
+        // False after a load or teleport - whoever appears in water doesn't splash.
+        private bool _wasOutOfWater;
 
         // Swim + Dive properties
         private Vector3 _currentVelocity;
@@ -89,9 +94,9 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private readonly NpcWaterService _npcWaterService;
 
         private void Awake()
         {
@@ -104,12 +109,7 @@ namespace Gothic.VR.Adapters.Player
 
 			GlobalEventDispatcher.ZenKitBootstrapped.AddListener(() =>
             {
-                if (_contextGameVersionService.IsGothic2())
-                {
-                    Logger.LogError("Swimming is not yet implemented for G2. Skipping...", LogCat.VR);
-                    return;
-                }
-                
+                // G2's Humans.mds has the same swim animations and sounds as G1's.
                 var mds = _resourceCacheService.TryGetModelScript("Humans");
                 if (mds == null)
                 {
@@ -163,12 +163,23 @@ namespace Gothic.VR.Adapters.Player
             {
                 _playerVob = ((NpcInstance)_gameStateService.GothicVm.GlobalHero).GetUserData()!.Vob;
                 _playerAi = (IAiHuman)_playerVob.Ai;
+                _wasOutOfWater = false;
             });
+            _rig.Teleported += OnTeleported;
             
             _initialGravity = _rig.Gravity;
-            _initialMoveSpeed = _rig.MoveSpeed;
-            _initialRunSpeed = _rig.RunSpeed;
             _initialFallSpeed = _rig.MaxFallSpeed;
+        }
+
+        private void OnDestroy()
+        {
+            if (_rig != null)
+                _rig.Teleported -= OnTeleported;
+        }
+
+        private void OnTeleported(Vector3 position)
+        {
+            _wasOutOfWater = false;
         }
 
         private void Update()
@@ -176,10 +187,39 @@ namespace Gothic.VR.Adapters.Player
             if (_playerAi == null)
                 return;
 
+            UpdateHeroBodyState();
+
             if (_mode == VmGothicEnums.WalkMode.Swim)
                 HandleSwim();
             else if (_mode == VmGothicEnums.WalkMode.Dive)
                 HandleDive();
+        }
+
+        /// <summary>
+        /// Like the engine, a swimming or diving hero has the body state BS_SWIM / BS_DIVE - the scripts read it
+        /// (ZS_MM_Master: monsters that don't follow into the water give up). Back on his feet he stands; walking and
+        /// running follow from there (HeroPerceptionService). Found on BoroBongo's branch.
+        /// A game saved while swimming and loaded on land brings BS_SWIM along: out of the water it's reset too.
+        /// </summary>
+        private void UpdateHeroBodyState()
+        {
+            var props = _playerService.HeroContainer?.Props;
+            if (props == null)
+                return;
+
+            var isInWater = _mode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive;
+            var isWaterStateLeft = !isInWater &&
+                                   props.BodyState is VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive;
+            if (_bodyStateMode == _mode && !isWaterStateLeft)
+                return;
+
+            _bodyStateMode = _mode;
+            props.BodyState = _mode switch
+            {
+                VmGothicEnums.WalkMode.Swim => VmGothicEnums.BodyState.BsSwim,
+                VmGothicEnums.WalkMode.Dive => VmGothicEnums.BodyState.BsDive,
+                _ => VmGothicEnums.BodyState.BsStand
+            };
         }
         
         private void FixedUpdate()
@@ -203,6 +243,10 @@ namespace Gothic.VR.Adapters.Player
             // Water between our feet and our head found!
             if (Physics.Raycast(transform.position, Vector3.up, out hit, chestDeepHeightWithBuffer, 1 << Constants.WaterLayer))
             {
+                // From dry ground below the surface (a fall, a jump, a step off an edge): it splashes where it's deep.
+                if (_wasOutOfWater)
+                    _npcWaterService.SplashIfDeep(hit.point, chestDeepHeight);
+
                 var previousWaterLevel = _playerAi.WaterLevel;
                 if (hit.distance < kneeDeepHeight)
                     _playerAi.WaterLevel = (int)ZenGineConst.WaterLevel.Normal;
@@ -213,6 +257,7 @@ namespace Gothic.VR.Adapters.Player
 
                 if (previousWaterLevel != _playerAi.WaterLevel)
                     ChangeWaterBehavior();
+                _wasOutOfWater = false;
             }
             // No water above us, but still swimming/diving: teleported out of the water (Marvin goto, savegame load,
             // world change) or fell through a waterfall. Walking out of the water passes knee depth instead. Diving
@@ -222,6 +267,9 @@ namespace Gothic.VR.Adapters.Player
             {
                 LeaveWater();
             }
+            // Out of the water, unless diving deeper than the ray above.
+            else
+                _wasOutOfWater = _playerAi.WaterLevel == (int)ZenGineConst.WaterLevel.Normal;
         }
 
         /// <summary>
@@ -270,12 +318,12 @@ namespace Gothic.VR.Adapters.Player
                 _waterBobbingCoroutine = null;
             }
 
+            SetInWater(_playerAi.WaterLevel != (int)ZenGineConst.WaterLevel.Normal);
+
             switch ((ZenGineConst.WaterLevel)_playerAi.WaterLevel)
             {
                 case ZenGineConst.WaterLevel.Normal:
                     _rig.Gravity = _initialGravity;
-                    _rig.MoveSpeed = _initialMoveSpeed;
-                    _rig.RunSpeed = _initialRunSpeed;
                     _rig.CanSprint = true;
                     _rig.MaxFallSpeed = _initialFallSpeed;
                     
@@ -288,8 +336,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySound(_sfxSwim2HangSound);
 
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -300,8 +347,6 @@ namespace Gothic.VR.Adapters.Player
                     Shader.SetGlobalInt(Constants.ShaderPropertyWaterEffectToggle, 0);
 
                     _rig.Gravity = _initialGravity;
-                    _rig.MoveSpeed = _initialMoveSpeed / 2;
-                    _rig.RunSpeed = _initialMoveSpeed / 2; // No running, but it might be, that we run into deep water, then we need to slow it down like walking.
                     _rig.CanSprint = false;
                     _rig.MaxFallSpeed = _initialFallSpeed;
                     
@@ -314,8 +359,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySound(_sfxSwim2HangSound);
                         
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -336,6 +380,21 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
+        /// <summary>
+        /// Knee deep or deeper: VRHeroSpeed slows the player to wading speed, without a speed potion's boost.
+        /// </summary>
+        private void SetInWater(bool isInWater)
+        {
+            if (_heroSpeed == null)
+                _heroSpeed = GetComponent<VRHeroSpeed>();
+
+            if (_heroSpeed != null)
+                _heroSpeed.SetInWater(isInWater);
+            else
+                Logger.LogWarning("[VRSwimDive] No VRHeroSpeed on the player - the speed in water stays as it is.",
+                    LogCat.VR);
+        }
+
         private IEnumerator WaterBobbing()
         {
             var time = 0f;
@@ -348,6 +407,23 @@ namespace Gothic.VR.Adapters.Player
             }
         }
         
+        /// <summary>
+        /// A mod's (or an unpatched game's) Humans.mds can miss a swim sound - swimming works without it.
+        /// </summary>
+        private void PlaySound(SfxModel sfx)
+        {
+            var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
+            if (clip != null)
+                _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+        }
+
+        private void PlaySoundWithCooldown(SfxModel sfx)
+        {
+            var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
+            if (clip != null)
+                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+        }
+
         private void StartDive()
         {
             _mode = VmGothicEnums.WalkMode.Dive;
@@ -365,7 +441,7 @@ namespace Gothic.VR.Adapters.Player
             _playerService.StartDiving();
             _rig.Fade(0.8f, 1/_playerService.CurrentAir); // We fade to black based on our start level of air (in seconds)
             
-            _vrSfxPlayer.Play(_audioService.CreateAudioClip(_sfxSwim2DiveSound.GetRandomSound()), Camera.main!.transform.position);
+            PlaySound(_sfxSwim2DiveSound);
             
             // FIXME - Bubbles are too big on screen. Needs more love.
             // _diveBubbles.SetActive(true);
@@ -464,14 +540,12 @@ namespace Gothic.VR.Adapters.Player
             // Play swim SFX for each hand that just started pulling
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxSwimSound);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxSwimSound);
                 _isSwimDiveForceRightJustStarted = false;
             }
 
@@ -541,14 +615,12 @@ namespace Gothic.VR.Adapters.Player
             // Play dive SFX for each hand that just started pulling, prevent overlap via cooldown
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxDiveSound);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxDiveSound);
                 _isSwimDiveForceRightJustStarted = false;
             }
 

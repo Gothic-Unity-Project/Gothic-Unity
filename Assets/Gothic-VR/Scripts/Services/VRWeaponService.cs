@@ -4,6 +4,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;
@@ -12,6 +13,7 @@ using Gothic.VR.Models.Vob;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 
 namespace Gothic.VR.Services
 {
@@ -28,6 +30,7 @@ namespace Gothic.VR.Services
         [Inject] private AudioService _audioService;
         [Inject] private PlayerService _playerService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private HeroPerceptionService _heroPerceptionService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -54,6 +57,8 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon grabbed with another hand.
                 _secondAttackDomain.TryHandle(vobContainer, weaponConfig, handSide, heroContainer);
             }
+
+            UpdateHeroWeaponState();
         }
 
         public void OnReleased(VrHandSide handSide, WeaponPhysicsConfig weaponConfig)
@@ -63,6 +68,18 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon released from another hand.
                 _secondAttackDomain.TryUnHandle(weaponConfig, handSide);
             }
+
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// A melee weapon in a hand is a drawn weapon for Gothic (found on BoroBongo's branch). Gothic knows one at a
+        /// time - with two, the first one counts.
+        /// </summary>
+        private void UpdateHeroWeaponState()
+        {
+            var domain = _firstAttackDomain.WeaponVobContainer != null ? _firstAttackDomain : _secondAttackDomain;
+            _heroPerceptionService.OnHeroMeleeWeaponChanged(domain.GetWeaponState(), domain.WeaponVobContainer?.Vob);
         }
 
         public void PlayDrawSound(VobContainer weapon)
@@ -176,8 +193,12 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___)
+        private void OnHit(NpcContainer attacker, NpcContainer __, Vector3 ___, ItemInstance ____)
         {
+            // NPCs hit too (AttackPlayAni) - only the hero's own hits move his weapon's attack state on.
+            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
+                return;
+
             // Find which domain's weapon caused this hit and advance its state.
             // We check based on the attacker being the owner of one of our domains.
             if (_firstAttackDomain.GetOwner() != null && _firstAttackDomain.IsInAttackState())

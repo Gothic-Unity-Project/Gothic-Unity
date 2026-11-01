@@ -226,12 +226,131 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Climbing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Gripped ledges: pull yourself up or fade onto them (less motion)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: pull up|fade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Ledge Hints
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: How a hand near a climbable ledge shows it
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: off|touch|near|assist
+    m_Metadata:
+      m_Items: []
   - m_Id: 187053241054658560
     m_Localized: Height Offset
     m_Metadata:
       m_Items: []
   - m_Id: 187053241104990208
     m_Localized: Camera height in 5 cm steps. Middle = no offset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: 'Saving isn''t possible: no game is running.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: Saving isn't possible while you're dead.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: Saving isn't possible during a dialog.
+  - m_Id: 188130682066042880
+    m_Localized: Vignette
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Darkens the edges of the view while the stick moves or turns you
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: off|light|strong
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Text size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Size of subtitles and dialog choices
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: normal|large|larger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: Color vision
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adjusts the colors for color blindness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: normal|red-weak|green-weak|blue-weak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Loading failed: the save game can''t be read.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Saving failed. The previous save game is kept.
+  - m_Id: 188441999989669888
+    m_Localized: Wind
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: Trees and grass sway in the wind - costs performance on the Quest
+  - m_Id: 188454143623823360
+    m_Localized: Handedness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: 'Left-handed: move and menu on the right controller, turn, teleport
+      and jump on the left'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: right-handed|left-handed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Jump button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: The button that jumps - crouching takes the other of the two buttons
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: lower button|upper button|stick click
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Menu button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: The button that opens the menu, on the hand that moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: upper button|lower button|menu button
     m_Metadata:
       m_Items: []
   references:

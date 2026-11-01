@@ -5,7 +5,9 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
 using Gothic.VR.Services;
 using Gothic.VR.Adapters.Vob.VobItem;
 using Gothic.VR.Interaction.Components;
@@ -27,6 +29,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly LockPickService _lockPickService;
+        [Inject] private readonly NpcService _npcService;
 
         private bool _isLocked;
         private string _combination;
@@ -37,8 +42,12 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         private IVrHinge _hinge;
 
         private const string _lockInteractionColliderName = "LockPickInteraction";
+        // A lock pick jiggling at the lock leaves and enters it again and again - refused once until it's away a while.
+        private const float _refusalRepeatSeconds = 1f;
 
         private int _combinationPos = 0;
+        private bool _isRefusalShown;
+        private float _lockPickExitTime = float.NegativeInfinity;
 
         public enum DoorLockStatus
         {
@@ -116,9 +125,24 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
+            // G2: only with the talent - the scripts refuse.
+            if (!_lockPickService.CanPickLocks(_npcService.GetHeroContainer()))
+            {
+                if (_isRefusalShown || Time.time - _lockPickExitTime < _refusalRepeatSeconds)
+                    return;
+
+                _isRefusalShown = true;
+                _lockPickService.Refuse();
+                _hapticsService.Vibrate(_handSide, VrHapticPreset.Error);
+                return;
+            }
+
             _combinationPos = 0;
             PlaySound(_vmService.DoorLockSoundName);
             _hapticsService.Vibrate(_handSide, VrHapticPreset.Info);
+            // Like the engine, picking a lock is using the chest or door: the NPCs around notice (found on BoroBongo's
+            // branch).
+            _heroPerceptionService.OnHeroUsedMob(_lockable.Vob);
 
             // For later event usage.
             _lockPick = other.gameObject.GetComponentInParent<VobLoader>().Container;
@@ -144,6 +168,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
+            _isRefusalShown = false;
+            _lockPickExitTime = Time.time;
+
             var lockPickProperties = other.gameObject.GetComponentInParent<VRLockPickProperties>();
             lockPickProperties.IsInsideLock = false;
             lockPickProperties.ActiveContainerDoorPicking = null;
@@ -166,13 +193,14 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 {
                     GlobalEventDispatcher.LockPickComboCorrect.Invoke(_lockPick, _lockable, (int)_handSide);
 
-                    PlaySound(_vmService.PickLockSuccessSoundName);
+                    OnTurn(true, false);
                     return DoorLockStatus.StepSuccess;
                 }
                 // Unlocked!
                 else
                 {
                     GlobalEventDispatcher.LockPickComboFinished.Invoke(_lockPick, _lockable, (int)_handSide);
+                    OnTurn(true, true);
 
                     UnlockAndPushOpen();
 
@@ -181,21 +209,35 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             }
             else
             {
-                // FIXME - Pseudo breaking for testings only. Use real skill value from hero.
-                if (Random.value > 0.5f)
+                // Like the engine, the hero's dexterity (G2) or lock picking talent (G1) decides if the pick breaks.
+                if (_lockPickService.RollsBreak(_npcService.GetHeroContainer()))
                 {
-                    GlobalEventDispatcher.LockPickComboWrong.Invoke(_lockPick, _lockable, (int)_handSide);
-                    PlaySound(_vmService.PickLockFailureSoundName);
+                    GlobalEventDispatcher.LockPickComboBroken.Invoke(_lockPick, _lockable, (int)_handSide);
+                    OnTurn(false, true);
                 }
                 else
                 {
-                    GlobalEventDispatcher.LockPickComboBroken.Invoke(_lockPick, _lockable, (int)_handSide);
-                    PlaySound(_vmService.PickLockBrokenSoundName);
+                    GlobalEventDispatcher.LockPickComboWrong.Invoke(_lockPick, _lockable, (int)_handSide);
+                    OnTurn(false, false);
                 }
 
                 _combinationPos = 0;
                 return DoorLockStatus.StepFailure;
             }
+        }
+
+        /// <summary>
+        /// The scripts' G_PickLock plays the turn's sound. Scripts without it (mods) get the sounds played here.
+        /// </summary>
+        private void OnTurn(bool isSuccess, bool isBrokenOpen)
+        {
+            if (_lockPickService.OnTurn(isSuccess, isBrokenOpen))
+                return;
+
+            if (!isSuccess)
+                PlaySound(isBrokenOpen ? _vmService.PickLockBrokenSoundName : _vmService.PickLockFailureSoundName);
+            else if (!isBrokenOpen)
+                PlaySound(_vmService.PickLockSuccessSoundName);
         }
 
         /// <summary>
@@ -258,7 +300,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
 
         private void PlaySound(string soundName, string fallback = null)
         {
-            var clip = _audioService.GetRandomSoundClip(soundName);
+            var clip = string.IsNullOrEmpty(soundName) ? null : _audioService.GetRandomSoundClip(soundName);
 
             if (clip == null && fallback != null)
             {

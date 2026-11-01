@@ -1,13 +1,19 @@
 using System.Collections.Generic;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToWp : AbstractWalkAnimationAction2
     {
+        // Within this distance (m) the NPC stands on the waypoint it reached last (OpenGothic: 40 cm, more for shared
+        // points - our NPCs stop a bit less exactly).
+        private const float _onWayPointDistance = 1f;
+
         private string Destination => Action.String0;
 
         private Stack<DijkstraWaypoint> _route;
@@ -18,7 +24,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            var currentWaypoint = Props.CurrentWayPoint ?? WayNetService.FindNearestWayPoint(PrefabProps.Bip01.position);
+            // Like the engine (OpenGothic World::wayTo), the route starts at the waypoint the NPC stands on, else at the
+            // nearest one. The stored one alone made an NPC interrupted on its way walk back to it first.
+            var position = NpcGo.transform.position;
+            var currentWaypoint = Props.CurrentWayPoint;
+            if (currentWaypoint == null ||
+                (currentWaypoint.Position - position).sqrMagnitude > _onWayPointDistance * _onWayPointDistance)
+                currentWaypoint = WayNetService.FindNearestWayPoint(position);
+            if (currentWaypoint == null)
+            {
+                Logger.LogWarning($"[GoToWp] No waypoint in the world - {NpcGo.name} can't walk to {Destination}.",
+                    LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
+
             var destinationWaypoint = (WayPoint)WayNetService.GetWayNetPoint(Destination);
             
             /*
@@ -59,12 +79,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override void OnDestinationReached()
         {
-            _route.Pop();
+            var reached = _route.Pop();
+            // The waypoint the NPC is at now - where its next route starts (found on BoroBongo's branch).
+            if (WayNetService.GetWayNetPoint(reached.Name) is WayPoint reachedWayPoint)
+                Props.CurrentWayPoint = reachedWayPoint;
 
             if (_route.Count != 0)
             {
                 // We need to reset this flag now. Otherwise, we will skip all movement elements...
                 IsDestReached = false;
+                // A ladder on the way to the next way point: it's climbed, the walk goes on from its other end.
+                NpcClimbService.TryStartLadder(NpcContainer, reached.Position, _route.Peek().Position);
                 return;
             }
 

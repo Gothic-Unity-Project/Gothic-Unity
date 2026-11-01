@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Model.UI.Menu;
+using Gothic.Core.Models.UI;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -26,6 +28,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly PauseService _pauseService;
 
         private Dictionary<string, GameObject> _menuList = new();
         private string _currentMenu;
@@ -43,6 +46,10 @@ namespace Gothic.Core.Adapters.UI.Menus
         {
             OpenMenu("MENU_MAIN");
 
+            // Opened while playing: the world waits, like in Gothic.
+            if (SceneManager.GetActiveScene().IsWorldScene())
+                _pauseService.Pause(PauseReasons.Menu);
+
             // Marvin mode activation: typed "marvin" while the menu is open, like in the original status screen.
             _marvinService.OnMenuOpened();
             if (Keyboard.current != null)
@@ -54,6 +61,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             if (Keyboard.current != null)
                 Keyboard.current.onTextInput -= _marvinService.OnTextTyped;
             _marvinService.OnMenuClosed();
+            _pauseService.Resume(PauseReasons.Menu);
 
             GlobalEventDispatcher.MenuClosed.Invoke();
         }

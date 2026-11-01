@@ -99,6 +99,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return ToState(_buttons[(int)side, (int)button]);
         }
 
+        public VrButtonState GetMenuButton()
+        {
+            return GetGothicAction(XriGothicAction.Menu);
+        }
+
+        public void ApplyControlLayout(VrControlLayout layout)
+        {
+            if (Actions == null)
+                return;
+
+            XriControlLayout.Apply(Actions, layout);
+            var hand = layout.IsLeftHanded ? "left" : "right";
+            Logger.Log($"[XRI] Controls: {hand}-handed, jump {layout.JumpButton}, crouch {layout.CrouchButton}, " +
+                       $"menu {layout.MenuButton}.", LogCat.VR);
+        }
+
         public float GetGripValue(VrHandSide side)
         {
             var action = _gripValues[(int)side];

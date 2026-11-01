@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Extensions;
@@ -16,11 +17,13 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.UI
 {
     public class VRDialog : MonoBehaviour
     {
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
 
@@ -32,8 +35,12 @@ namespace Gothic.VR.Adapters.UI
         [NonSerialized]
         public List<string> CurrentDialogOptionTexts;
         
+        // Meters from the player's head; a box at a farther NPC is shown on the way to it.
+        private const float _maxDistanceToPlayer = 4f;
+
         private float _dialogItemHeight;
         private int _dialogItemsInUse;
+        private Vector3 _baseWorldScale;
 
         private void Awake()
         {
@@ -44,6 +51,8 @@ namespace Gothic.VR.Adapters.UI
                 var rectTransform = _dialogItems.First().GetComponent<RectTransform>();
                 _dialogItemHeight = rectTransform.rect.height;
             }
+
+            _baseWorldScale = _dialogRoot.transform.lossyScale;
 
             // The whole dialog topic will be enabled later during gameplay.
             gameObject.SetActive(false);
@@ -65,6 +74,22 @@ namespace Gothic.VR.Adapters.UI
         {
             var npcDialog = npcGo.FindChildRecursively("DialogMenuRootPos");
             _dialogRoot.SetParent(npcDialog, true, true, true);
+            ApplyTextSize();
+
+            // An NPC can open a dialog up to 20 m away (DialogService): the box comes towards the player then, so it
+            // stays readable. Placed when shown - the player is pinned during the dialog.
+            var playerCamera = Camera.main;
+            if (playerCamera == null)
+            {
+                Logger.LogWarning("[VRDialog] No main camera - the dialog box stays at the NPC.", LogCat.Dialog);
+            }
+            else
+            {
+                var cameraPosition = playerCamera.transform.position;
+                var toBox = _dialogRoot.transform.position - cameraPosition;
+                if (toBox.magnitude > _maxDistanceToPlayer)
+                    _dialogRoot.transform.position = cameraPosition + toBox.normalized * _maxDistanceToPlayer;
+            }
 
             var rootRectHeight = _dialogItemHeight * _dialogItemsInUse;
             _dialogRoot.GetComponent<RectTransform>().SetHeight(rootRectHeight);
@@ -80,6 +105,20 @@ namespace Gothic.VR.Adapters.UI
             _uiOnTopService.SetHandsOnTop(this, true);
 
             StartCoroutine(ShowDialogWithDelay());
+        }
+
+        /// <summary>
+        /// The box keeps its size in the world when it moves to another NPC (worldPositionStays): the text size option
+        /// scales it from the size it had at start.
+        /// </summary>
+        private void ApplyTextSize()
+        {
+            var scale = VRConstants.GetTextScale(
+                _configService.Gothic.GetInt(VRConstants.IniNames.TextSize, VRConstants.TextSizeDefaultValue));
+            var rootTransform = _dialogRoot.transform;
+            var parentScale = rootTransform.parent == null ? Vector3.one : rootTransform.parent.lossyScale;
+            rootTransform.localScale = new Vector3(_baseWorldScale.x / parentScale.x, _baseWorldScale.y / parentScale.y,
+                _baseWorldScale.z / parentScale.z) * scale;
         }
 
         private IEnumerator ShowDialogWithDelay()

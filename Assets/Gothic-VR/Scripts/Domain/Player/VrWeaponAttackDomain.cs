@@ -250,6 +250,17 @@ namespace Gothic.VR.Domain.Player
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(attackAnimationName));
         }
 
+        /// <summary>
+        /// The fight mode the held weapon readies: one- or two-handed, none without a weapon.
+        /// </summary>
+        public VmGothicEnums.WeaponState GetWeaponState()
+        {
+            if (WeaponVobContainer == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            return Is2HD() ? VmGothicEnums.WeaponState.W2H : VmGothicEnums.WeaponState.W1H;
+        }
+
         private bool Is2HD()
         {
             return (WeaponVobContainer.GetItemInstance().Flags & _twoHandedFlags) != 0;

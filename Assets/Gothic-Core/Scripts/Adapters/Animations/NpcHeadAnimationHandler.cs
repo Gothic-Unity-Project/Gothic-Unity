@@ -11,6 +11,11 @@ namespace Gothic.Core.Animations
     public class NpcHeadAnimationHandler : BasePlayerBehaviour
     {
         private Transform _scriptTarget;
+
+        /// <summary>
+        /// What the scripts made the NPC look at (Npc_GetLookAtTarget), null if nothing.
+        /// </summary>
+        public Transform ScriptTarget => _scriptTarget;
         private Transform _dialogTarget;
         // Current head offset against the body's forward direction, eased towards the target angles.
         private float _yaw;

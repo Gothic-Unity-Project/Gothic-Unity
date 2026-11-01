@@ -17,6 +17,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
@@ -46,6 +47,12 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly MobRoutineService _mobRoutineService;
+        [Inject] private readonly WindService _windService;
+
+        // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
+        private readonly HashSet<int> _createdEarlyVobIds = new();
 
 
         /// <summary>
@@ -56,7 +63,9 @@ namespace Gothic.Core.Domain.Vobs
         ///                       and Lights could be sub-VOBs inside fire, we need to find the index from WorldPosition calculated at
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
         /// </summary>
-        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob)
+        /// <param name="parentVob">The ZenKit parent of a child VOB of the world.</param>
+        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            IVirtualObject parentVob = null)
         {
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
             GameObject go = null;
@@ -193,6 +202,9 @@ namespace Gothic.Core.Domain.Vobs
                     go = CreateTriggerZone(vob, parent, $"TriggerZone_{vob.Name}");
                     go.GetComponent<TriggerZoneHandler>().Init((ITrigger)vob);
                     break;
+                case VirtualObjectType.oCTouchDamage:
+                    go = CreateTouchDamage((ITouchDamage)vob, parent);
+                    break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = CreateTriggerZone(vob, parent, $"TriggerUntouch_{vob.Name}");
                     go.GetComponent<TriggerUntouchHandler>().Init((ITriggerUntouch)vob);
@@ -212,22 +224,16 @@ namespace Gothic.Core.Domain.Vobs
                     go.name = $"MessageFilter_{vob.Name}";
                     go.GetComponent<MessageFilterHandler>().Init((IMessageFilter)vob);
                     break;
-                case VirtualObjectType.zCVobScreenFX:
-                case VirtualObjectType.oCCSTrigger:
-                case VirtualObjectType.zCVobLensFlare:
-                case VirtualObjectType.zCZoneZFog:
-                case VirtualObjectType.zCZoneZFogDefault:
-                case VirtualObjectType.zCZoneVobFarPlane:
-                case VirtualObjectType.zCZoneVobFarPlaneDefault:
-                case VirtualObjectType.zCCSCamera:
-                case VirtualObjectType.zCCamTrj_KeyFrame:
-                case VirtualObjectType.oCTouchDamage:
-                case VirtualObjectType.zCEarthquake:
                 case VirtualObjectType.Ignored:
                 case VirtualObjectType.Unknown:
+                case var _ when IsUnbuiltVobType(vob.Type):
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
+                    // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
+                    // move its pillars and gates. Root ones: VobService made their children roots already.
+                    if (!isRootVob)
+                        InitChildren(vob, parent, worldPosition);
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -238,17 +244,84 @@ namespace Gothic.Core.Domain.Vobs
                     return;
             }
 
+            // A decal/particle VOB skipped because those visuals are off (both off in Production) still carries its
+            // children: an empty GameObject holds them. G2 Irdorath's trap and bridge triggers are children of particle
+            // VOBs, G2's treasure X marks children of decals. Root ones: VobService made their children roots already.
+            if (!go && !isRootVob && vob.Children.Count > 0 && IsVisualDisabled(vob))
+            {
+                go = new GameObject($"{vob.Name} (visual off)");
+                go.SetParent(parent);
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+            }
+
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
 
-            if (!isRootVob)
-                EnsureOwnVobLoader(vob, go);
+            // Trees and grass with Gothic's wind mode sway - WindService decides which.
+            _windService.Register(vob, go);
 
+            if (!isRootVob)
+                EnsureOwnVobLoader(vob, go, parentVob);
+
+            // Trigger zones and scripts are scaled to their bounding box - their children are created next to them.
+            var childParent = vob.Type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
+                VirtualObjectType.oCTriggerScript
+                ? parent
+                : go;
+            InitChildren(vob, childParent, worldPosition);
+        }
+
+        /// <summary>
+        /// The VOB's children, except the logic VOBs VobService already created with the world (MarkCreatedEarly).
+        /// </summary>
+        private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition)
+        {
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false);
+                if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
+                    continue;
+                InitVob(childVob, childParent, worldPosition, false, vob);
             }
+        }
+
+        /// <summary>
+        /// A logic VOB below a lazily loaded VOB was created with the world (VobService) - its parent skips it.
+        /// </summary>
+        public void MarkCreatedEarly(IVirtualObject vob)
+        {
+            _createdEarlyVobIds.Add(vob.Id);
+        }
+
+        public void ClearCreatedEarly()
+        {
+            _createdEarlyVobIds.Clear();
+        }
+
+        /// <summary>
+        /// Decal and particle VOBs aren't built while those visuals are off.
+        /// </summary>
+        public bool IsVisualDisabled(IVirtualObject vob)
+        {
+            return vob.Visual?.Type switch
+            {
+                VisualType.Decal => !_configService.Dev.EnableDecalVisuals,
+                VisualType.ParticleEffect => !_configService.Dev.EnableParticleEffects,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// VOB types InitVob only creates an empty placeholder for (cutscene cameras, fog zones, ...). VobService asks it
+        /// too, so both build the same ones.
+        /// </summary>
+        public static bool IsUnbuiltVobType(VirtualObjectType type)
+        {
+            return type is VirtualObjectType.zCVobScreenFX or VirtualObjectType.oCCSTrigger or
+                VirtualObjectType.zCVobLensFlare or VirtualObjectType.zCZoneZFog or VirtualObjectType.zCZoneZFogDefault or
+                VirtualObjectType.zCZoneVobFarPlane or VirtualObjectType.zCZoneVobFarPlaneDefault or
+                VirtualObjectType.zCCSCamera or VirtualObjectType.zCCamTrj_KeyFrame or VirtualObjectType.oCTouchDamage or
+                VirtualObjectType.zCEarthquake;
         }
 
         public void SetPosAndRot(GameObject obj, System.Numerics.Vector3 position, Matrix3x3 rotation)
@@ -416,15 +489,15 @@ namespace Gothic.Core.Domain.Vobs
 
         /// <summary>
         /// Some fire slots have the light too low to cast light onto the mesh and the surroundings.
+        /// A fireplace without a fire tree is still a mesh with children (found on BoroBongo's branch).
         /// </summary>
         [CanBeNull]
         private GameObject CreateFire(Fire vob, GameObject parent, Vector3 worldPosition)
         {
             var go = CreateDefaultMesh(vob, parent);
-
-            if (vob.VobTree == "")
+            if (go == null || vob.VobTree == "")
             {
-                return null;
+                return go;
             }
 
             var fireWorld = _resourceCacheService.TryGetWorld(vob.VobTree, _contextGameVersionService.Version, true);
@@ -432,10 +505,14 @@ namespace Gothic.Core.Domain.Vobs
             if (fireWorld == null)
             {
                 Logger.LogWarning($"Fire world {vob.VobTree} not found. Skipping usage...", LogCat.Loading);
-                return null;
+                return go;
             }
 
-            CreateFireVobs(fireWorld.RootObjects, go.FindChildRecursively(vob.Slot) ?? go, worldPosition);
+            // The fire tree in its own object, so the scheme's mob routine can light it or put it out.
+            var fireTree = new GameObject("FireTree");
+            fireTree.SetParent(go.FindChildRecursively(vob.Slot) ?? go, true, true);
+            CreateFireVobs(fireWorld.RootObjects, fireTree, worldPosition);
+            _mobRoutineService.RegisterFire(GetScheme(vob), fireTree);
 
             return go;
         }
@@ -445,14 +522,22 @@ namespace Gothic.Core.Domain.Vobs
         /// </summary>
         private void CreateFireVobs(List<IVirtualObject> vobs, GameObject parent, Vector3 worldPosition)
         {
+            // The tree's positions are relative to the fire already (ResourceCacheService moves them when loading).
             foreach (var vob in vobs)
             {
-                // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
-                vob.Position = default;
-
                 // Call normal mesh and Prefab loading logic
                 InitVob(vob, parent, worldPosition, false);
             }
+        }
+
+        /// <summary>
+        /// The mob scheme of a fire, its visual's name up to the first '_' (FIREPLACE_HIGH2.ASC: FIREPLACE).
+        /// </summary>
+        private static string GetScheme(IVirtualObject vob)
+        {
+            var visual = vob.Visual?.Name ?? string.Empty;
+            var end = visual.IndexOf('_');
+            return end > 0 ? visual.Substring(0, end) : visual;
         }
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
@@ -486,9 +571,10 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateMover(IMover vob, GameObject parent)
         {
-            // Each mover starts "Closed", when game boots. (At least for a new game.)
-            // TODO - We need to check if it's the case for a loaded game
-            vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
+            // Each mover starts "Closed" in a world entered for the first time. A save game (or a world we left)
+            // keeps its state, e.g. a move in progress (MoverAdapter).
+            if (_saveGameService.IsWorldEnteredFirstTime)
+                vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
 
             var go = CreateDefaultMesh(vob, parent);
 
@@ -538,33 +624,55 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateItemMesh(ItemInstance item, GameObject go, GameObject parent)
         {
-            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(item.Visual);
+            var visual = GetItemMeshName(item);
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visual);
 
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true,
+                return _meshService.CreateVob(visual, mrm, parent: parent, rootGo: go, useColliderCache: true,
                     useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
-            var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
+            var mmb = _resourceCacheService.TryGetMorphMesh(visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, parent: parent, rootGo: go, useColliderCache: true);
+            return _meshService.CreateVob(visual, mmb, parent: parent, rootGo: go, useColliderCache: true);
         }
 
         public GameObject CreateItemMesh(ItemInstance item, GameObject parentGo, Vector3 position)
         {
-            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(item.Visual);
+            var visual = GetItemMeshName(item);
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visual);
             if (mrm != null)
             {
-                return _meshService.CreateVob(item.Visual, mrm, position, default, false, parentGo,
+                return _meshService.CreateVob(visual, mrm, position, default, false, parentGo,
                     useTextureArray: false);
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
-            var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
+            var mmb = _resourceCacheService.TryGetMorphMesh(visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, position, default, parentGo, useColliderCache: true);
+            return _meshService.CreateVob(visual, mmb, position, default, parentGo, useColliderCache: true);
+        }
+
+        /// <summary>
+        /// The burning torch's visual is a VOB tree (ITLSTORCHBURNING.ZEN): its root carries the mesh, its children
+        /// the flame, light and sound (TorchService lights it). Like the bounds pre-caching, take the root's mesh.
+        /// </summary>
+        private string GetItemMeshName(ItemInstance item)
+        {
+            if (item.Visual == null || !item.Visual.EndsWithIgnoreCase(".zen"))
+                return item.Visual;
+
+            var world = _resourceCacheService.TryGetWorld(item.Visual, _contextGameVersionService.Version, true);
+            var meshName = world?.RootObjects.Count > 0 ? world.RootObjects[0].Visual?.Name : null;
+            if (string.IsNullOrEmpty(meshName))
+            {
+                Logger.LogWarning($"{item.Visual} has no mesh at its root - the item stays invisible.", LogCat.Vob);
+                return item.Visual;
+            }
+
+            return meshName;
         }
 
 
@@ -773,6 +881,21 @@ namespace Gothic.Core.Domain.Vobs
         }
 
         /// <summary>
+        /// A damage zone: a trigger box over its bounding box, on the layer of the other trigger VOBs.
+        /// </summary>
+        private GameObject CreateTouchDamage(ITouchDamage vob, GameObject parent)
+        {
+            var go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
+            go.layer = Constants.IgnoreRaycastLayer;
+            var box = go.GetComponent<BoxCollider>();
+            if (box == null)
+                box = go.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            go.AddComponent<TouchDamageHandler>().Init(vob);
+            return go;
+        }
+
+        /// <summary>
         /// Trigger VOBs that react to the player entering/leaving their bounding box (trigger collider of the prefab).
         /// </summary>
         private GameObject CreateTriggerZone(IVirtualObject vob, GameObject parent, string name)
@@ -835,7 +958,7 @@ namespace Gothic.Core.Domain.Vobs
         /// GetComponentInParent&lt;VobLoader&gt;() and got the PARENT's vob (often an unnamed zCVob) -
         /// InvalidCastExceptions, "No door or container found for ><", doors/chests that don't work (G2 Xardas' tower).
         /// </summary>
-        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go)
+        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
             if (vob is not (IInteractiveObject or IItem) && !IsNamedVobType(vob.Type))
                 return;
@@ -844,8 +967,9 @@ namespace Gothic.Core.Domain.Vobs
             if (loader != null && loader.Container?.Vob == vob)
                 return;
 
-            AddOwnVobLoader(vob, go);
-            // Movers and triggers are looked up by name (Wld_SendTrigger, chained targets), child VOBs included.
+            AddOwnVobLoader(vob, go, parentVob);
+            // Movers, triggers and chests are looked up by name (Wld_SendTrigger, chained targets, Mob_HasItems),
+            // child VOBs included.
             if (IsNamedVobType(vob.Type))
                 _gameStateService.RegisterNamedVob(go.GetComponent<VobLoader>().Container);
             Logger.Log($"[ChildVob] '{vob.Name}' ({vob.Type}) under '{loader?.Container?.Vob?.Name}' got its own " +
@@ -857,13 +981,13 @@ namespace Gothic.Core.Domain.Vobs
             return type is VirtualObjectType.zCMover or VirtualObjectType.oCTriggerScript
                 or VirtualObjectType.zCTriggerList or VirtualObjectType.zCCodeMaster
                 or VirtualObjectType.zCTrigger or VirtualObjectType.zCMoverController
-                or VirtualObjectType.zCMessageFilter;
+                or VirtualObjectType.zCMessageFilter or VirtualObjectType.oCMobContainer;
         }
 
-        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go)
+        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
             var ownLoader = go.AddComponent<VobLoader>();
-            ownLoader.Container = new VobContainer(vob) { Go = go };
+            ownLoader.Container = new VobContainer(vob) { Go = go, ParentVob = parentVob };
             ownLoader.IsLoaded = true;
         }
 

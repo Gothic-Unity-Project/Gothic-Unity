@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
@@ -11,6 +12,7 @@ using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using Unity.Collections;
+using Unity.Profiling;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -29,6 +31,12 @@ namespace Gothic.Core.Services.Npc
         // Speed-based, not displacement-based: short walk cycles of small creatures (e.g. Bloodfly's
         // s_FistWalkL moves only 0.45m per loop) must count, while slow pose drifts (t_Warn) must not.
         private const float _minMovementSpeed = 0.1f; // m/s
+
+        /// <summary>
+        /// Marks an animation's ground sound (*eventSFXGrnd, the steps of walk and run loops) among its sound events:
+        /// the ground's group is added when it plays (AnimationSystem).
+        /// </summary>
+        public const string GroundSoundPrefix = "GROUND:";
 
         // Track cache, two levels: MDS name (as passed by callers, any casing/extension) -> animation name -> track.
         // Both levels ignore case, so the per-PlayAnimation hot path runs without any string normalization
@@ -77,6 +85,11 @@ namespace Gothic.Core.Services.Npc
         }
 
 
+        // Profiler markers for the first use of an animation (later uses come from the track cache).
+        private static readonly ProfilerMarker _findAnimationMarker = new("AnimationService.FindAnimation");
+        private static readonly ProfilerMarker _loadAnimationMarker = new("AnimationService.LoadAnimation");
+        private static readonly ProfilerMarker _createTrackMarker = new("AnimationService.CreateTrack");
+
         /// <summary>
         /// Try to load animation based on both MDS values: overlay + base.
         /// </summary>
@@ -111,17 +124,21 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+            IAnimation anim;
             IAnimationAlias animAlias = null;
-
-            // AniAlias lookup
-            // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
-            if (anim == null)
+            using (_findAnimationMarker.Auto())
             {
-                animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
-                if (animAlias != null)
+                anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+
+                // AniAlias lookup
+                // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
+                if (anim == null)
                 {
-                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
+                    animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                    if (animAlias != null)
+                    {
+                        anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
+                    }
                 }
             }
 
@@ -133,7 +150,9 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            var modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
+            IModelAnimation modelAnimation;
+            using (_loadAnimationMarker.Auto())
+                modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
             if (modelAnimation == null)
             {
                 // Caching an empty track means, we don't need to try creating this track again.
@@ -153,8 +172,11 @@ namespace Gothic.Core.Services.Npc
             var bakedKey = GetCombinedAnimationKey(mdsName, anim.Name);
             _bakedSourceTracks.TryGetValue(bakedKey, out var bakedSource);
 
-            track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
-            SetClipMovementSpeed(track, modelAnimation, skeleton);
+            using (_createTrackMarker.Auto())
+            {
+                track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
+                SetClipMovementSpeed(track, modelAnimation, skeleton);
+            }
 
             if (bakedSource == null)
             {
@@ -188,6 +210,30 @@ namespace Gothic.Core.Services.Npc
             return mdsTracks;
         }
 
+        /// <summary>
+        /// The animation's sound events, its ground sounds (footsteps) included - they were skipped: NPCs and monsters
+        /// walked without a sound. Found on BoroBongo's branch.
+        /// </summary>
+        private static List<IEventSoundEffect> GetSoundEffects(IAnimation anim)
+        {
+            var soundEffects = anim.SoundEffects.Select(i => i.Cache()).ToList();
+            if (anim.SoundEffectGroundCount == 0)
+                return soundEffects;
+
+            foreach (var ground in anim.SoundEffectsGround)
+            {
+                soundEffects.Add(new CachedEventSoundEffect
+                {
+                    Frame = ground.Frame,
+                    Name = GroundSoundPrefix + ground.Name,
+                    Range = ground.Range,
+                    EmptySlot = ground.EmptySlot
+                });
+            }
+
+            return soundEffects;
+        }
+
         private AnimationTrack CreateTrack(IModelAnimation modelAnimation,
             AnimationSkeleton skeleton, IAnimation anim, IAnimationAlias animAlias, AnimationTrack bakedSource)
         {
@@ -216,7 +262,7 @@ namespace Gothic.Core.Services.Npc
                 // Cache() turns the native interop objects into plain managed copies once. The event lists are
                 // read-only at runtime, so tracks sharing baked data also share them instead of re-marshalling.
                 EventTags = bakedSource?.EventTags ?? anim.EventTags.Select(i => i.Cache()).ToList(),
-                SoundEffects = bakedSource?.SoundEffects ?? anim.SoundEffects.Select(i => i.Cache()).ToList(),
+                SoundEffects = bakedSource?.SoundEffects ?? GetSoundEffects(anim),
                 ParticleEffects = bakedSource?.ParticleEffects ?? anim.ParticleEffects.Select(i => i.Cache()).ToList(),
                 MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList()
             };
@@ -457,6 +503,31 @@ namespace Gothic.Core.Services.Npc
             return lowerKey.Replace(extension, "");
         }
 
+        /// <summary>
+        /// Like the engine, the water decides the walk animations, AI_SetWalkMode only says walk or run: wading
+        /// (S_WALKWL) knee deep, swimming (S_SWIMF) chest deep - water level set by NpcWaterService. Only if the model
+        /// has them; most monsters have no wading loop. Found on BoroBongo's branch.
+        /// </summary>
+        private VmGothicEnums.WalkMode GetWaterWalkMode(NpcContainer npc, string weaponStateString)
+        {
+            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            if (npc.Vob.Player || walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                return walkMode;
+
+            switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
+            {
+                case ZenGineConst.WaterLevel.Chest
+                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Swim;
+                case ZenGineConst.WaterLevel.Knee
+                    when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) !=
+                         null:
+                    return VmGothicEnums.WalkMode.Water;
+                default:
+                    return walkMode;
+            }
+        }
+
         public string GetAnimationName(VmGothicEnums.AnimationType type, NpcContainer npc, VmGothicEnums.WeaponState? overrideWeaponState = null)
         {
             // The name of the currently active weapon == prefix of animation.
@@ -464,7 +535,10 @@ namespace Gothic.Core.Services.Npc
 
             var weaponStateString = GetWeaponAnimationPrefix(overrideWeaponState ?? fightMode);
 
-            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            var walkMode = GetWaterWalkMode(npc, weaponStateString);
+            // Swimming and diving animations exist only once, without weapon variants (S_SWIM, T_SWIMTURNL, ...).
+            if (walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                weaponStateString = string.Empty;
             var walkModeString = GetWalkModeString(walkMode);
             var animationName = type switch
             {

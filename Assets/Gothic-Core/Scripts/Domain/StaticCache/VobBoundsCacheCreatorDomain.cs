@@ -97,7 +97,8 @@ namespace Gothic.Core.Domain.StaticCache
                         if (go2 == null)
                             continue;
                         boundingBox = CalculateBoundingBox(go2);
-                        Object.Destroy(go2);
+                        // The effect sits under its root object (the placement) - both go.
+                        Object.Destroy(go2.transform.parent != null ? go2.transform.parent.gameObject : go2);
                         break;
                     case VisualType.Unknown:
                         continue; // Skip this Vob as it's only a placeholder with no data.

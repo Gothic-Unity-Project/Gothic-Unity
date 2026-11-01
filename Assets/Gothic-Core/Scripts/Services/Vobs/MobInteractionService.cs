@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -28,6 +29,129 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+
+        // Per mob scheme (PAN, BSFIRE, ...): the item its use turns the used item into, null for none, and whether its
+        // use destroys the used item.
+        private readonly Dictionary<string, string> _exchangeItems = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, bool> _destroyingSchemes = new(StringComparer.OrdinalIgnoreCase);
+        private bool _isMissingHumansLogged;
+
+        /// <summary>
+        /// A mob used with an item and without a script of its own (pan, forge, anvil, cooling barrel, grindstone):
+        /// like the engine, its animation swaps the item (Humans.mds t_SCHEME_S1_2_S0, ItemExchange) - raw mutton
+        /// becomes fried mutton, raw steel hot steel, then a hot blade, a blade and a sword.
+        /// </summary>
+        public bool IsItemExchangeMob(IVirtualObject vob)
+        {
+            return vob is IInteractiveObject mob && vob is not IContainer && vob is not IDoor &&
+                   !string.IsNullOrEmpty(mob.Item) && string.IsNullOrEmpty(mob.OnStateChangeFunction) &&
+                   GetExchangeItem(GetScheme(vob)) != null;
+        }
+
+        /// <summary>
+        /// Turns the mob's item into what the mob makes of it. The hero needs the item: held in his hand (the platform
+        /// takes the held one away, so only the new item is added here) or in his inventory (taken from there).
+        /// </summary>
+        /// <returns>The new item's instance name, null if nothing changed.</returns>
+        public string TryExchangeMobItem(IVirtualObject vob, bool isItemHeld)
+        {
+            if (!IsItemExchangeMob(vob))
+                return null;
+
+            var mob = (IInteractiveObject)vob;
+            var hero = _playerService.HeroContainer;
+            var usedItem = _vmCacheService.TryGetItemData(mob.Item);
+            var newItem = _vmCacheService.TryGetItemData(GetExchangeItem(GetScheme(vob)));
+            if (usedItem == null || newItem == null)
+                return null;
+
+            if (!isItemHeld)
+            {
+                if (_npcInventoryService.ExtNpcHasItems(hero.Instance, usedItem.Index) <= 0)
+                {
+                    Logger.Log($"[MobInteractionService] '{vob.Name}' needs '{mob.Item}'.", LogCat.Vob);
+                    PlayMobMissingItemReaction(hero);
+                    return null;
+                }
+
+                _npcInventoryService.ExtRemoveInvItems(hero.Instance, usedItem.Index, 1);
+            }
+
+            _npcInventoryService.ExtCreateInvItems(hero.Instance, newItem.Index, 1);
+            var newItemName = _gameStateService.GothicVm.GetSymbolByIndex(newItem.Index)?.Name;
+            Logger.Log($"[MobInteractionService] '{vob.Name}' turns {mob.Item} into {newItemName}", LogCat.Vob);
+            return newItemName;
+        }
+
+        private static string GetScheme(IVirtualObject vob)
+        {
+            var visual = vob.Visual?.Name ?? string.Empty;
+            var end = visual.IndexOf('_');
+            if (end < 0)
+                end = visual.IndexOf('.');
+            return end > 0 ? visual.Substring(0, end) : visual;
+        }
+
+        /// <summary>
+        /// The item the scheme's use animations swap the used one for (ItemExchange), null for none. Like the engine,
+        /// both transitions count: G1's pan, forge, anvil and cooling barrel swap on the way out (t_SCHEME_S1_2_S0), G2's
+        /// forge on the way in (t_BSFIRE_S0_2_S1, found on BoroBongo's branch).
+        /// </summary>
+        private string GetExchangeItem(string scheme)
+        {
+            if (string.IsNullOrEmpty(scheme))
+                return null;
+            if (_exchangeItems.TryGetValue(scheme, out var cached))
+                return cached;
+
+            var humans = _resourceCacheService.TryGetModelScript("Humans");
+            if (humans == null)
+            {
+                // Not loaded yet (or a mod without it): not cached, so the next use asks again.
+                if (!_isMissingHumansLogged)
+                    Logger.LogWarning("[MobInteractionService] Humans.mds not loaded - no mob item exchange yet",
+                        LogCat.Vob);
+                _isMissingHumansLogged = true;
+                return null;
+            }
+
+            string result = null;
+            var isDestroying = false;
+            var useStart = $"t_{scheme}_S0_2_S1";
+            var useEnd = $"t_{scheme}_S1_2_S0";
+            foreach (var animation in humans.Animations)
+            {
+                if (!animation.Name.EqualsIgnoreCase(useStart) && !animation.Name.EqualsIgnoreCase(useEnd))
+                    continue;
+
+                foreach (var tag in animation.EventTags)
+                {
+                    if (tag.Type == ZenKit.EventType.ItemExchange && !string.IsNullOrEmpty(tag.Item))
+                        result ??= tag.Item;
+                    else if (tag.Type == ZenKit.EventType.ItemDestroy)
+                        isDestroying = true;
+                }
+            }
+
+            _exchangeItems[scheme] = result;
+            _destroyingSchemes[scheme] = isDestroying;
+            return result;
+        }
+
+        /// <summary>
+        /// The scheme's use animations destroy the used item (ItemDestroy) without swapping it for another.
+        /// </summary>
+        private bool IsDestroyingScheme(string scheme)
+        {
+            if (GetExchangeItem(scheme) != null)
+                return false;
+
+            return _destroyingSchemes.TryGetValue(scheme ?? "", out var isDestroying) && isDestroying;
+        }
+
+        // Item names of mobs the scripts don't know - warned once each, as the mob is used again and again.
+        private readonly HashSet<string> _unknownItemsLogged = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Doors use VR hinge physics and chests their lid physics - not the mob/trigger path.
@@ -86,20 +210,28 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
+            // Like the engine, a mob used with an item needs it to send its trigger too, e.g. G2's Jharkendar portal
+            // (ItMi_PortalRing_Addon) opened without the ornament ring. The item isn't taken, as in OpenGothic.
+            if (IsMissingRequiredItem(mob, loader.name))
+                return;
+
             // Like the engine (OpenGothic Interactive::implTick): the mob keeps its state. Used from state 0 it sends a
             // trigger, used again from its upper state an untrigger (e.g. a TriggerControl gate closes again).
             // Movers react per their behavior (MoverAdapter.OnTrigger/OnUntrigger), other targets (CodeMaster,
             // TriggerList, TriggerScript, ...) run their chain. The mob's VOB name is the sender, so a CodeMaster
             // can match it against its Slaves list.
-            var senderName = loader.Container.Vob.Name;
-            if (mob.State > 0)
+            // The current state is runtime state (saved by MobStatesSaveSection). The VOB's State is Gothic's
+            // stateNum (the number of its states), which a save game must keep.
+            var container = loader.Container;
+            var senderName = container.Vob.Name;
+            if (container.MobState > 0)
             {
-                mob.State = 0;
+                container.MobState = 0;
                 _vobService.DispatchUntrigger(target, senderName);
             }
             else
             {
-                mob.State = 1;
+                container.MobState = 1;
                 _vobService.DispatchTrigger(target, senderName);
             }
         }
@@ -128,16 +260,17 @@ namespace Gothic.Core.Services.Vobs
             }
 
             // Like the engine: a mob used with an item needs it in the inventory (e.g. a lab flask).
+            if (IsMissingRequiredItem(mob, loader.name))
+                return true;
+
+            // G2's anvil: its use animation destroys the hot steel before SMITHWEAPON offers the weapons (the
+            // script's end choice gives it back). Found on BoroBongo's branch.
             var hero = _playerService.HeroContainer;
-            if (!string.IsNullOrEmpty(mob.Item))
+            var item = string.IsNullOrEmpty(mob.Item) ? null : _vmCacheService.TryGetItemData(mob.Item);
+            if (item != null && IsDestroyingScheme(GetScheme(loader.Container.Vob)))
             {
-                var item = _vmCacheService.TryGetItemData(mob.Item);
-                if (item != null && _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) <= 0)
-                {
-                    Logger.Log($"[MobDialog] '{loader.name}' needs '{mob.Item}'.", LogCat.Dialog);
-                    PlayMobMissingItemReaction(hero);
-                    return true;
-                }
+                _npcInventoryService.ExtRemoveInvItems(hero.Instance, item.Index, 1);
+                Logger.Log($"[MobDialog] '{loader.name}' takes {mob.Item}.", LogCat.Dialog);
             }
 
             _dialogService.PrepareMobDialog(createDialogAnchor());
@@ -147,6 +280,36 @@ namespace Gothic.Core.Services.Vobs
             // Not every _S1 opens a dialog (e.g. a script only prints a message) - then the anchor isn't needed.
             _dialogService.ReleaseUnusedMobDialogAnchor();
 
+            return true;
+        }
+
+        /// <summary>
+        /// Like the engine: a mob used with an item (useWithItem) needs it in the hero's inventory. Without it the hero
+        /// says he's missing something.
+        /// </summary>
+        private bool IsMissingRequiredItem(IInteractiveObject mob, string mobName)
+        {
+            if (string.IsNullOrEmpty(mob.Item))
+                return false;
+
+            var hero = _playerService.HeroContainer;
+            var item = _vmCacheService.TryGetItemData(mob.Item);
+            if (item == null)
+            {
+                if (_unknownItemsLogged.Add(mob.Item))
+                {
+                    Logger.LogWarning($"[MobInteractionService] '{mobName}' needs item '{mob.Item}', which the " +
+                                      "scripts don't know - used without it.", LogCat.Vob);
+                }
+
+                return false;
+            }
+
+            if (hero == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, item.Index) > 0)
+                return false;
+
+            Logger.Log($"[MobInteractionService] '{mobName}' needs '{mob.Item}'.", LogCat.Vob);
+            PlayMobMissingItemReaction(hero);
             return true;
         }
 

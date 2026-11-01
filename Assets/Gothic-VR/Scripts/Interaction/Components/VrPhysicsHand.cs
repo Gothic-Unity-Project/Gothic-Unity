@@ -756,6 +756,10 @@ namespace Gothic.VR.Interaction.Components
             if (!_isPhysical || !isActiveAndEnabled)
                 return false;
 
+            // Paused world (menu, video): physics doesn't step, the hands follow the controllers meanwhile.
+            if (Time.timeScale <= 0f)
+                return false;
+
             // Ladders: the ClimbProvider moves the rig by the hand, blocked hands would fight it. The visual blends
             // to the controller meanwhile and the body starts from there again afterwards.
             return _rig == null || !_rig.IsClimbing;
@@ -835,7 +839,8 @@ namespace Gothic.VR.Interaction.Components
             if (_inactiveOffsetPosition == Vector3.zero && _inactiveOffsetRotation == Quaternion.identity)
                 return;
 
-            var deltaTime = Time.deltaTime;
+            // Unscaled: the hands also blend to the controllers while the world is paused (menu).
+            var deltaTime = Time.unscaledDeltaTime;
             _inactiveOffsetPosition = Vector3.MoveTowards(_inactiveOffsetPosition, Vector3.zero,
                 _inactiveBlendSpeed * deltaTime);
             _inactiveOffsetRotation = Quaternion.RotateTowards(_inactiveOffsetRotation, Quaternion.identity,

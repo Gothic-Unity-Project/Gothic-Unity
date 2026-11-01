@@ -60,6 +60,8 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRCarriedItemsSaveService _carriedItemsSaveService;
+        [Inject] private readonly TorchService _torchService;
 
         
         private void Awake()
@@ -88,6 +90,7 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            _carriedItemsSaveService.RegisterHolsters(_holsters);
         }
 
         private void OnDestroy()
@@ -179,6 +182,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
+            // Restored from a save game. It's part of the inventory already.
+            if (_carriedItemsSaveService.ConsumeSilentPlacement(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
 
             _playerService.PickUpItem(vobLoader.Container);
@@ -229,6 +236,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnItemPutOutOfHolster(VrGrabArgs args)
         {
+            // Emptied for a new game / loaded save. The inventory is replaced anyway.
+            if (_carriedItemsSaveService.ConsumeSilentRelease(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
             if (vobLoader == null)
                 return;
@@ -374,13 +385,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var item in items)
             {
-                var vobContainer = _vobService.CreateItem(new Item
-                {
-                    Name = item.Name,
-                    Visual = new VisualMesh(),
-                    Instance = item.Name,
-                    Amount = item.Amount
-                });
+                var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();
@@ -409,7 +414,9 @@ namespace Gothic.VR.Adapters.Player
             if (item == null)
                 return;
             
-            var matchingItem = inventory.FirstOrDefault(x => x.Name == item.Instance);
+            // A held burning torch counts as a torch in the inventory.
+            var instance = _torchService.GetInventoryInstance(item.Instance);
+            var matchingItem = inventory.FirstOrDefault(x => x.Name == instance);
 
             // == nothing found
             if (matchingItem == null)

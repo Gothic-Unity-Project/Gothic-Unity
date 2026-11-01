@@ -26,6 +26,8 @@ namespace Gothic.Core.Adapters.Npc
         public INpcSubtitles NpcSubtitles;
 
         [NonSerialized]
+        public Rigidbody RootMotionRigidbody; // ColliderRootMotion's body, set once by RootCollisionHandler
+        [NonSerialized]
         public Transform Head;
         [NonSerialized]
         public HeadMorph HeadMorph;

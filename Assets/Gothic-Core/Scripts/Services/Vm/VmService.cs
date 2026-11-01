@@ -6,6 +6,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Reflex.Attributes;
 using ZenKit;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Vm
@@ -30,9 +31,13 @@ namespace Gothic.Core.Services.Vm
 
         // Lock picking
         public string DoorLockSoundName => "DOOR_LOCK.WAV";
-        public string PickLockFailureSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_FAILURE").GetString(0);
-        public string PickLockBrokenSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_BROKEN").GetString(0);
-        public string PickLockSuccessSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_SUCCESS").GetString(0);
+        // Only G1's scripts have these (G2's G_PickLock names its sounds itself) - null without.
+        public string PickLockFailureSoundName =>
+            _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_FAILURE")?.GetString(0);
+        public string PickLockBrokenSoundName =>
+            _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_BROKEN")?.GetString(0);
+        public string PickLockSuccessSoundName =>
+            _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_SUCCESS")?.GetString(0);
         public string PickLockUnlockSoundName => _gameStateService.GothicVm.GetSymbolByName("_STR_SOUND_PICKLOCK_UNLOCK").GetString(0);
         // public string DoorUnlockSoundName => "DOOR_UNLOCK.WAV"; // _STR_*_UNLOCK value above couldn't be found/isn't used in G1, therefore we use this as fallback.
 
@@ -87,7 +92,9 @@ namespace Gothic.Core.Services.Vm
         // Menu
         // 
         
-        public readonly string[] DisabledGothicMenuSettings =
+        // Gothic's menu settings the game doesn't support: hidden in every context. A context hides the ones only it
+        // doesn't use with DisableGothicMenuSettings().
+        private readonly HashSet<string> _disabledGothicMenuSettings = new()
         {
             // Whole submenus
             "MENUITEM_OPT_VIDEO", "MENUITEM_OPT_CONTROLS",
@@ -110,6 +117,17 @@ namespace Gothic.Core.Services.Vm
             "MENUITEM_AUDIO_REVERB", "MENUITEM_AUDIO_REVERB_CHOICE",
             "MENUITEM_AUDIO_SAMPLERATE", "MENUITEM_AUDIO_SAMPLERATE_CHOICE"
         };
+
+        public IReadOnlyCollection<string> DisabledGothicMenuSettings => _disabledGothicMenuSettings;
+
+        /// <summary>
+        /// Hides Gothic menu settings a context doesn't use, on top of the ones no context supports. Called before the
+        /// menus are built (IContextMenuService.UpdateMainMenu()).
+        /// </summary>
+        public void DisableGothicMenuSettings(params string[] menuItemNames)
+        {
+            _disabledGothicMenuSettings.UnionWith(menuItemNames);
+        }
         
         public int MaxUserStrings => _gameStateService.MenuVm.GetSymbolInt("MAX_USERSTRINGS");
         public int MaxItems => _gameStateService.MenuVm.GetSymbolInt("MAX_ITEMS");
@@ -187,6 +205,53 @@ namespace Gothic.Core.Services.Vm
             }
 
             return true;
+        }
+
+        //
+        // NPC calls
+        //
+
+        /// <summary>
+        /// Calls a Daedalus function (a state function, ZS_Dead, ...) with the globals the engine sets for an NPC:
+        /// self, and other/victim if given. Restores them afterwards. Returns the int result (0 without one or on a
+        /// script error, which is logged - an exception mustn't escape into the VM's own call).
+        /// </summary>
+        public int CallAsNpc(int symbolIndex, NpcInstance self, NpcInstance other, NpcInstance victim, LogCat cat)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbol = vm.GetSymbolByIndex(symbolIndex);
+            if (symbol == null)
+                return 0;
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            var oldVictim = vm.GlobalVictim;
+            vm.GlobalSelf = self;
+            if (other != null)
+                vm.GlobalOther = other;
+            if (victim != null)
+                vm.GlobalVictim = victim;
+
+            try
+            {
+                if (symbol.ReturnType == DaedalusDataType.Int)
+                    return vm.Call<int>(symbolIndex);
+
+                vm.Call(symbolIndex);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[VmService] {symbol.Name} of {self.GetName(NpcNameSlot.Slot0)} failed: {e.Message}",
+                    cat);
+                return 0;
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+                vm.GlobalVictim = oldVictim;
+            }
         }
     }
 }

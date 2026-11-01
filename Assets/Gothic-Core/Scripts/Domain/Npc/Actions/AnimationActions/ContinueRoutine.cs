@@ -21,12 +21,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            ai.ClearState(false);
-
-            var routine = Props.RoutineCurrent;
-
-            // FIXME - Please align logic with StartState.cs handling. (i.e. no call of StartRoutine() directly. Instead handling via ClearState() above.
-            ai.StartRoutine(routine.Action, routine.Waypoint);
+            ai.ResumeRoutine();
 
             IsFinishedFlag = true;
         }

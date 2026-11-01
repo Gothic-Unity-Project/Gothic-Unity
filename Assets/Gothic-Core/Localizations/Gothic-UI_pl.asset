@@ -207,12 +207,136 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Wspinaczka
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: "Chwycone kraw\u0119dzie: podci\u0105gnij si\u0119 albo przenie\u015B
+      si\u0119 z wygaszeniem (mniej ruchu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: "podci\u0105ganie|wygaszenie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: "Wskaz\xF3wki kraw\u0119dzi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "Jak d\u0142o\u0144 przy kraw\u0119dzi pokazuje, \u017Ce mo\u017Cna
+      si\u0119 wspi\u0105\u0107"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: "wy\u0142\u0105czone|dotyk|blisko|pomoc"
+    m_Metadata:
+      m_Items: []
   - m_Id: 187053241054658560
     m_Localized: "Korekta wysoko\u015Bci"
     m_Metadata:
       m_Items: []
   - m_Id: 187053241104990208
     m_Localized: "Wysoko\u015B\u0107 kamery co 5 cm. \u015Arodek = brak korekty"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: "Zapis niemo\u017Cliwy: gra nie jest uruchomiona."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Zapis niemo\u017Cliwy, gdy jeste\u015B martwy."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Zapis niemo\u017Cliwy podczas rozmowy."
+  - m_Id: 188130682066042880
+    m_Localized: Winieta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: "Przyciemnia kraw\u0119dzie obrazu podczas ruchu lub obrotu dr\u0105\u017Ckiem"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: "wy\u0142\u0105czona|s\u0142aba|mocna"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Rozmiar tekstu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: "Rozmiar napis\xF3w i opcji dialogowych"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "normalny|du\u017Cy|wi\u0119kszy"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: "Widzenie kolor\xF3w"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Dostosowuje kolory do daltonizmu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: "normalne|s\u0142abe czerwone|s\u0142abe zielone|s\u0142abe niebieskie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "Wczytanie nie powiod\u0142o si\u0119: nie mo\u017Cna odczyta\u0107
+      zapisu."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Zapis nie powi\xF3d\u0142 si\u0119. Poprzedni zapis zosta\u0142
+      zachowany."
+  - m_Id: 188441999989669888
+    m_Localized: Wiatr
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "Drzewa i trawa ko\u0142ysz\u0105 si\u0119 na wietrze - obci\u0105\u017Ca
+      Questa"
+  - m_Id: 188454143623823360
+    m_Localized: "R\u0119czno\u015B\u0107"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Lewor\u0119czni: ruch i menu na prawym kontrolerze, obr\xF3t, teleport
+      i skok na lewym"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: "prawor\u0119czni|lewor\u0119czni"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Przycisk skoku
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: "Przycisk skoku - kucanie na drugim z dw\xF3ch przycisk\xF3w"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: "dolny przycisk|g\xF3rny przycisk|wci\u015Bni\u0119cie ga\u0142ki"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Przycisk menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "Przycisk otwieraj\u0105cy menu, na r\u0119ce do ruchu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: "g\xF3rny przycisk|dolny przycisk|przycisk menu"
     m_Metadata:
       m_Items: []
   references:

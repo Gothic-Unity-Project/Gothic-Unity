@@ -232,6 +232,7 @@ namespace Gothic.Core.Models.Vm
             ItemMulti = 1 << 21, // is multi
             ItemTorch = 1 << 28, // use like a torch
             ItemThrow = 1 << 29, // item can be thrown
+            ItemActive = 1 << 30, // equipped (engine flag, set on oCNpc inventory items of a save game)
 
             // Item weapon flags
             ItemSwd = 1 << 14, // use like sword
@@ -241,7 +242,8 @@ namespace Gothic.Core.Models.Vm
             ItemBow = 1 << 19, // use like bow
             ItemCrossbow = 1 << 20, // use like crossbow
             ItemAmulet = 1 << 22, // use like amulet
-            ItemRing = 1 << 11 // use like ring
+            ItemRing = 1 << 11, // use like ring
+            ItemBelt = 1 << 24 // use like belt (G2)
         }
 
         public enum InvCats

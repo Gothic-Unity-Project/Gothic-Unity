@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Vm;
-using Gothic.Core.Services;
+using Gothic.Core.Services.Movement;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -30,7 +29,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     public class XriRig : MonoBehaviour, IVrRig
     {
         [Inject] private readonly IVrInput _vrInput;
-        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly LedgeService _ledgeService;
 
         [Header("Rig")] [SerializeField] private XROrigin _origin;
         [SerializeField] private CharacterController _characterController;
@@ -56,7 +55,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [SerializeField] private ContinuousTurnProvider _continuousTurnProvider;
         [SerializeField] private TeleportationProvider _teleportationProvider;
         [SerializeField] private GravityProvider _gravityProvider;
-        [SerializeField] private JumpProvider _jumpProvider;
+        [SerializeField] private GothicJumpProvider _jumpProvider;
 
         [Tooltip("Moves the rig while a hand holds a ClimbInteractable (ladders) and pauses gravity meanwhile.")]
         [SerializeField]
@@ -104,6 +103,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [Tooltip("Camera height in m while crouching.")] [SerializeField]
         private float _crouchHeight = 0.7f;
 
+        [Tooltip("The camera up to this far (m) above the crouch height counts as crouching (sneaking) - also when " +
+                 "the player really crouches.")] [SerializeField]
+        private float _crouchDetectionMargin = 0.2f;
+
         [Tooltip("Speed in m/s of the camera moving down/up when crouching starts/ends.")] [SerializeField]
         private float _crouchSpeed = 1.5f;
 
@@ -123,6 +126,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isCrouching;
         private float _crouchOffset;
         private float _heightOffset;
+        // SetEyeHeightOverride(): the camera is held at this height, reached at once (behind a fade).
+        private float? _eyeHeightOverride;
+        private bool _isEyeHeightJumpPending;
         private bool _isMovementEnabled;
         private bool _isJumpEnabled;
         private float _lastGroundedTime = float.NegativeInfinity;
@@ -134,6 +140,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly List<XRInputSubsystem> _inputSubsystems = new();
         private int _collidingLayers;
         private bool _isAirborneOnPurpose;
+        private IVrLedgeHandler _ledgeHandler;
 
         public event Action<Vector3> Teleported;
 
@@ -145,6 +152,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public Camera Camera => _camera;
         public CharacterController CharacterController => _characterController;
         public float CameraHeight => _origin.CameraInOriginSpaceHeight;
+        public float StandingCameraHeight => CameraHeight + _crouchOffset;
+        public bool IsCrouching => _isCrouching || CameraHeight <= _crouchHeight + _crouchDetectionMargin;
 
         public bool IsGrounded
         {
@@ -355,6 +364,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private void UpdateClimbLock()
         {
             var isClimbing = IsClimbing;
+
+            // Grabbed mid-air: the jump ends here, its rest would be replayed after climbing.
+            if (isClimbing)
+                _jumpProvider.CancelJump();
+
             _moveProvider.enabled = _isMovementEnabled && !isClimbing;
             _jumpProvider.enabled = _isJumpEnabled && !isClimbing;
         }
@@ -457,16 +471,25 @@ namespace Gothic.VR.Interaction.Backends.Xri
             // While crouching, the CharacterController is lower than the player once standing up at the target.
             _teleportAimer.Init(stickAction, cancelAction, _rightController, _camera.transform, _characterController,
                 GetCollidingLayers(gameObject.layer), () => _teleportEnabled, () => IsGrounded,
-                () => CameraHeight + _crouchOffset, GetMaxSlopeAngle, Teleport);
+                () => StandingCameraHeight, GetMaxSlopeAngle, IsClimbableTop, Teleport);
+            _teleportAimer.SetHands(_leftController, _rightController);
         }
 
         /// <summary>
-        /// Slide angle (degrees) of the human guild from Gothic's GIL_Values. Steeper ground makes Gothic's player
-        /// slide. 0 if the script isn't loaded (the aimer then falls back to the CharacterController's slope limit).
+        /// The hero's SLIDE_ANGLE (degrees) from Gothic's GIL_VALUES: steeper ground makes Gothic's player slide. The
+        /// same value the ledge probes use, so a teleport onto a ledge checks one slope limit.
         /// </summary>
         private float GetMaxSlopeAngle()
         {
-            return _gameStateService?.GuildValues?.GetSlideAngle((int)VmGothicEnums.Guild.GIL_HUMAN) ?? 0;
+            return _ledgeService?.HeroRules.SlideAngle ?? 0f;
+        }
+
+        /// <summary>
+        /// Top of a ledge Gothic's hero can climb, seen from the player (VR ledge climbing decides).
+        /// </summary>
+        private bool IsClimbableTop(Vector3 point)
+        {
+            return _ledgeHandler != null && _ledgeHandler.IsClimbableTop(point);
         }
 
         private void UpdateSprint()
@@ -498,8 +521,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 ? 0f
                 : _origin.CameraYOffset;
             var standingCameraHeight = CameraHeight + _crouchOffset;
-            var targetOffset = _isCrouching ? Mathf.Max(0f, standingCameraHeight - _crouchHeight) : 0f;
-            _crouchOffset = Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            var targetHeight = _eyeHeightOverride ?? (_isCrouching ? _crouchHeight : (float?)null);
+            var targetOffset = targetHeight.HasValue ? Mathf.Max(0f, standingCameraHeight - targetHeight.Value) : 0f;
+            _crouchOffset = _isEyeHeightJumpPending
+                ? targetOffset
+                : Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            _isEyeHeightJumpPending = false;
 
             var position = CameraOffset.localPosition;
             position.y = baseOffset + _heightOffset - _crouchOffset;
@@ -526,6 +553,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
 
             return _origin.CurrentTrackingOriginMode;
+        }
+
+        public void SetEyeHeightOverride(float? meters)
+        {
+            _eyeHeightOverride = meters;
+            _isEyeHeightJumpPending = true;
         }
 
         public void ApplyComfortSettings(VrSitStand sitStand, VrMoveDirection direction, VrTurnType turn,
@@ -600,8 +633,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _gravityProvider.gravityAccelerationModifier = physicsGravity > 0f ? _gravity / physicsGravity : 0f;
             _gravityProvider.terminalVelocity = _maxFallSpeed;
 
+            _jumpProvider.Gravity = _gravity;
+
             if (_gravity <= 0f)
                 _gravityProvider.ResetFallForce();
+        }
+
+        public void SetLedgeHandler(IVrLedgeHandler handler)
+        {
+            _ledgeHandler = handler;
+            _jumpProvider.SetHandler(handler);
         }
 
         /// <summary>

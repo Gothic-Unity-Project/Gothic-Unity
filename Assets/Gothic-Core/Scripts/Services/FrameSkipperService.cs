@@ -21,8 +21,25 @@ namespace Gothic.Core.Services
         // We will leverage 50% (0.5f) of a frame time only.
         private const float _frameQuota = 0.5f;
 
+        // While the view is hidden (black after a world load), nobody sees a long frame. Fewer, longer frames leave
+        // more of the time to the queued work instead of the per-frame work of the rest of the game.
+        private const float _hiddenViewFrameQuota = 3f;
+
         private static float _targetFrameRate;
-        private static float _maxFrameUsage;
+        private static float _frameStart;
+
+        /// <summary>
+        /// Lets queued work use about three frames per frame instead of half a frame. Only while the player can't see
+        /// the world.
+        /// </summary>
+        public bool IsViewHidden { get; set; }
+
+        /// <summary>
+        /// Whether this frame's share for queued work is used up.
+        /// </summary>
+        public bool IsFrameBudgetUsed =>
+            Time.realtimeSinceStartup - _frameStart >
+            (IsViewHidden ? _hiddenViewFrameQuota : _frameQuota) / _targetFrameRate;
 
 
         /// <summary>
@@ -53,13 +70,13 @@ namespace Gothic.Core.Services
         public void Update()
         {
             // _debugSkippedCount = 0;
-            _maxFrameUsage = Time.realtimeSinceStartup + _frameQuota / _targetFrameRate;
+            _frameStart = Time.realtimeSinceStartup;
         }
 
         // private static int _debugSkippedCount;
         public async Task TrySkipToNextFrame()
         {
-            if (Time.realtimeSinceStartup > _maxFrameUsage)
+            if (IsFrameBudgetUsed)
             {
                 // Logger.Log($"FrameSkipper: Not skipped {_debugSkippedCount}x.");
                 await Task.Yield();
@@ -72,7 +89,7 @@ namespace Gothic.Core.Services
 
         public IEnumerator TrySkipToNextFrameCoroutine()
         {
-            if (Time.realtimeSinceStartup > _maxFrameUsage)
+            if (IsFrameBudgetUsed)
             {
                 // Logger.Log($"FrameSkipper: Not skipped {_debugSkippedCount}x.");
                 yield return null;

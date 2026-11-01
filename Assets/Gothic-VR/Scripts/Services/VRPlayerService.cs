@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
@@ -12,12 +13,14 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.VR.Services
 {
@@ -29,6 +32,9 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VobService _vobService;
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -92,7 +98,9 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            _playerService.PickUpItem(container);
+            _heroPerceptionService.OnHeroTookItem(container.Vob);
         }
 
         /// <summary>
@@ -132,6 +140,36 @@ namespace Gothic.VR.Services
             // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
             _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
                 keepOutOfWorld: IsSocketed(grabbable));
+        }
+
+        /// <summary>
+        /// Like the engine, a use takes one item (a bite, a read sealed letter): a stack loses one and stays where it is,
+        /// the last one leaves the hand, the inventory and the world's item list (found on BoroBongo's branch).
+        /// </summary>
+        public void UseUpItem(GameObject itemGo)
+        {
+            var container = itemGo.GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not IItem vobItem)
+                return;
+
+            var interactable = container.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
+            var isHeld = interactable != null &&
+                         (GrabbedItemLeft == interactable.gameObject || GrabbedItemRight == interactable.gameObject);
+            if (vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                // A held stack counts as inventory with its amount (SetGrab/UnsetGrab).
+                if (isHeld)
+                    _playerService.RemoveItem(!string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name);
+                Logger.Log($"[VRPlayerService] One {vobItem.Name} used up, {vobItem.Amount} left", LogCat.VR);
+                return;
+            }
+
+            // Letting go takes it out of the inventory like any dropped item.
+            if (isHeld)
+                interactable.ForceRelease();
+            _vobService.RemoveWorldItem(container);
+            Logger.Log($"[VRPlayerService] {vobItem.Name} used up", LogCat.VR);
         }
 
         /// <summary>
@@ -196,7 +234,57 @@ namespace Gothic.VR.Services
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
+            var vob = loader.Container?.Vob;
+            if (_mobInteractionService.IsItemExchangeMob(vob))
+            {
+                UseMobWithItem(vob);
+                return;
+            }
+
             _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
+        }
+
+        /// <summary>
+        /// A pan, forge, anvil, cooling barrel or grindstone: the item it needs is taken from the other hand if it holds
+        /// one (it disappears, the new item goes to the inventory), else from the inventory. A held stack (five raw
+        /// mutton from a chest) gives one item and stays in the hand with the rest.
+        /// </summary>
+        private void UseMobWithItem(IVirtualObject mob)
+        {
+            var neededItem = ((IInteractiveObject)mob).Item;
+            var heldItem = FindHeldItem(neededItem);
+            var vobLoader = heldItem != null ? heldItem.GetComponentInParent<VobLoader>() : null;
+            var heldStack = vobLoader != null ? vobLoader.Container?.VobAs<IItem>() : null;
+
+            // The grab put the whole stack into the inventory, so the used one is taken from there and the stack
+            // shrinks by it - releasing it later takes only the rest out again (UnsetGrab).
+            if (heldStack != null && heldStack.Amount > 1)
+            {
+                if (_mobInteractionService.TryExchangeMobItem(mob, false) != null)
+                    heldStack.Amount--;
+                return;
+            }
+
+            if (_mobInteractionService.TryExchangeMobItem(mob, heldItem != null) == null || heldItem == null)
+                return;
+
+            // Releasing it on destroy takes it out of the inventory (UnsetGrab). It doesn't lie in the world anymore.
+            if (vobLoader != null && vobLoader.Container?.Vob != null)
+                _saveGameService.CurrentWorldData.Vobs.Remove(vobLoader.Container.Vob);
+            Object.Destroy(vobLoader != null ? vobLoader.gameObject : heldItem);
+        }
+
+        private GameObject FindHeldItem(string instanceName)
+        {
+            foreach (var held in new[] { GrabbedItemLeft, GrabbedItemRight })
+            {
+                var item = held != null ? held.GetComponentInParent<VobLoader>()?.Container?.VobAs<IItem>() : null;
+                var name = item == null ? null : !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                if (name != null && name.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
+                    return held;
+            }
+
+            return null;
         }
 
         /// <summary>

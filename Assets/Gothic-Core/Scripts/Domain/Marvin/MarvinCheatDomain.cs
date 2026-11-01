@@ -139,11 +139,13 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// NPC routines follow with the next game minute tick (NpcRoutineService.OnGameTimeMinuteChanged).
+        /// Like sleeping (Wld_SetTime): an earlier time is tomorrow, and after a jump the NPCs go back to their
+        /// routine.
         /// </summary>
         public bool SetTime(int hour, int minute)
         {
-            _gameTimeService.SetTime(hour, minute);
+            if (_gameTimeService.SetTime(hour, minute))
+                _npcService.ResetNpcsToRoutines();
             Logger.Log($"[MarvinCheatDomain] Time set to {hour:D2}:{minute:D2}", LogCat.Ui);
             return true;
         }

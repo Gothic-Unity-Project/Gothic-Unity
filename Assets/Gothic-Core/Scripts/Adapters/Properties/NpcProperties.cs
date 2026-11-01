@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
+using Gothic.Core.Models.WayNet;
 using ZenKit.Daedalus;
 
 namespace Gothic.Core.Adapters.Properties
@@ -18,6 +20,9 @@ namespace Gothic.Core.Adapters.Properties
         public List<RoutineData> Routines = new();
         public RoutineData RoutinePrevious;
         public RoutineData RoutineCurrent;
+        // The time of the routine entry the current state belongs to is over (the engine: the state's end time passed).
+        // The state ends at its next loop unless the NPC fights, talks or is down (AiHandler).
+        public bool IsRoutineTimeOver;
 
         // WayNet
         public WayPoint CurrentWayPoint;
@@ -36,6 +41,8 @@ namespace Gothic.Core.Adapters.Properties
         // Visual
         public string MdmName;
         public string MdsNameBase;
+        // The overlay played: the newest of the scripts' (Vob.Overlays), or while a weapon is drawn the fight stance of
+        // the NPC's talent (HUMANS_1HST1.MDS).
         public string MdsNameOverlay;
         public string[] MdsNames => new[] { MdsNameBase, MdsNameOverlay };
 
@@ -55,6 +62,27 @@ namespace Gothic.Core.Adapters.Properties
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
 
+        // Like the engine, a state keeps the other/victim it was started with (AI_StartState): ZS_Attack_Loop fights
+        // the wolf it was started against, not the hero. Cleared when the NPC goes back to its routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
+        public readonly AttackCombo AttackCombo = new();
+
+        // Magic: the rune or scroll drawn (AI_ReadySpell, the VR hero's cast) with the mana an NPC invests before it
+        // casts, the cast going on, and the last spell that hit the NPC (Npc_GetLastHitSpellID).
+        public ItemInstance ActiveSpellItem;
+        public int ExpectedSpellInvest;
+        public SpellCast SpellCast;
+        public int LastHitSpell = -1;
+        public int SpellInfo;
+
+        // AI_Attack's run around an obstacle: the waynet route to the enemy (next waypoint on top, empty when none was
+        // found), where the enemy stood when it was searched and when (Time.time).
+        public Stack<DijkstraWaypoint> ChaseRoute;
+        public UnityEngine.Vector3 ChaseRouteTarget;
+        public float ChaseRouteSearchTime;
+
         public enum LoopState
         {
             None,
@@ -65,9 +93,21 @@ namespace Gothic.Core.Adapters.Properties
         }
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
 
+        // Mdl_ApplyRandomAni: a state animation -> the animations played now and then while it runs
+        // (S_EAT -> R_ROAM1, R_ROAM2). Mdl_ApplyRandomAniFreq: the average seconds between them.
+        public readonly Dictionary<string, List<string>> RandomAnis = new(StringComparer.OrdinalIgnoreCase);
+        public readonly Dictionary<string, float> RandomAniFrequencies = new(StringComparer.OrdinalIgnoreCase);
+        public float NextRandomAniTime;
+
         // HINT: This information isn't set within Daedalus. We need to define it manually.
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
         public VmGothicEnums.BodyState BodyState;
+
+        /// <summary>
+        /// Npc_IsDead(). Like Gothic, it's the death transition (FightService, loading a dead NPC), not HP <= 0:
+        /// scripts set HP directly and prepare NPCs with HP 0.
+        /// </summary>
+        public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
@@ -82,5 +122,10 @@ namespace Gothic.Core.Adapters.Properties
         
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;
+
+        // Falling (NpcFallService): the height (body y) it fell from, null while not in the air, and the last ground,
+        // null while its body has no physics (tracking starts again at the height it has then).
+        public float? FallStartY;
+        public float? LastGroundY;
     }
 }

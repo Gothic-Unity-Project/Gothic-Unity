@@ -30,6 +30,8 @@ namespace Gothic.Core.Domain.Culling
 
 
         private const int _initialBucketCapacity = 1024;
+        // Edge length (m) of the box a particle effect VOB is culled by - it has no mesh.
+        private const float _particleEffectBoundsSize = 2.8f;
 
         /// <summary>
         /// One CullingGroup per VOB size class. The sphere array is shared by reference with the CullingGroup
@@ -373,9 +375,13 @@ namespace Gothic.Core.Domain.Culling
                 default:
                     switch (vob.Visual?.Type)
                     {
-                        // We don't support Decal and Pfx so far.
+                        // We don't support Decals so far.
                         case VisualType.Decal:
+                            break;
+                        // A particle effect has no mesh: a fixed box, so it gets a culling entry at all (it was never
+                        // created) and is switched off at medium distance like the engine's 40 m particle range.
                         case VisualType.ParticleEffect:
+                            additionalBounds = new Bounds(Vector3.zero, Vector3.one * _particleEffectBoundsSize);
                             break;
                         default:
                             additionalBounds = GetLocalMeshBounds(vob);

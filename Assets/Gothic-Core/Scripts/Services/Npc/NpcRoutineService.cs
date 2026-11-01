@@ -30,9 +30,10 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Advance the time-based daily routine of all NPCs - including culled ones, so that the world progresses
-        /// while we're not looking. Visible NPCs pick the new routine up with their next StartNextRoutine().
-        /// For culled NPCs, the culling sphere follows the schedule to the new waypoint.
-        /// FIXME - Original G1 interrupts the current ZS_* state of visible NPCs when their routine changes.
+        /// while we're not looking. For culled NPCs, the culling sphere follows the schedule to the new waypoint.
+        /// Like the engine, the current state of an NPC ends when its routine entry's time is over (IsRoutineTimeOver,
+        /// AiHandler): its _End runs (standing up from the bench), then the new entry starts. Before, the routine states
+        /// looped forever - NPCs in sight never went to bed or to work.
         /// </summary>
         private void OnGameTimeMinuteChanged(DateTime now)
         {
@@ -45,7 +46,24 @@ namespace Gothic.Core.Services.Npc
                 if (!CalculateCurrentRoutine(npc.Instance))
                     continue;
 
+                npc.Props.IsRoutineTimeOver = true;
                 _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
+            }
+        }
+
+        /// <summary>
+        /// The time jumped (Wld_SetTime): every NPC's routine entry for the new time. Culled NPCs follow it with their
+        /// culling sphere, the others are put on it (NpcService.ResetNpcsToRoutines).
+        /// </summary>
+        public void RecalculateAllRoutines()
+        {
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc.Props == null || npc.Props.Routines.Count == 0)
+                    continue;
+
+                if (CalculateCurrentRoutine(npc.Instance))
+                    _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
             }
         }
 
@@ -70,26 +88,43 @@ namespace Gothic.Core.Services.Npc
             ExchangeRoutine(npcInstance, newRoutine.Index);
         }
 
+        /// <summary>
+        /// Npc_IsInRoutine(npc, Rtn_X): the NPC follows that daily routine right now (Npc_ExchangeRoutine changes it).
+        /// The only call, G1 Damarok's healing offer, passes a Rtn_ function. OpenGothic compares the routine entry's
+        /// state (ZS_*) instead, which is never true for it.
+        /// </summary>
+        public bool ExtNpcIsInRoutine(NpcInstance npc, int routineFunction)
+        {
+            var vob = npc?.GetUserData()?.Vob;
+            if (vob == null)
+            {
+                Logger.LogWarning($"Npc_IsInRoutine: NPC {npc?.Id} has no Unity data (not spawned?) - answering " +
+                                  "false.", LogCat.Npc);
+                return false;
+            }
+
+            var routineName = _vm.GetSymbolByIndex(routineFunction)?.Name;
+            return routineName != null && routineName.EqualsIgnoreCase(vob.CurrentRoutine);
+        }
+
         public void ExchangeRoutine(NpcInstance npc, string routineName)
         {
             var routine = _gameStateService.GothicVm.GetSymbolByName(routineName);
+
+            // An unknown name keeps the NPC's schedule: index 0 means "no routine" and would wipe it. NPCs without
+            // a schedule (monsters) go on as "no routine".
+            if (routine == null && npc.GetUserData()?.Props.Routines.Count > 0)
+            {
+                Logger.LogWarning($"Routine {routineName} couldn't be found - NPC {npc.Id} keeps its routine.",
+                    LogCat.Npc);
+                return;
+            }
 
             ExchangeRoutine(npc, routine == null ? 0: routine.Index);
         }
 
         public void ExchangeRoutine(NpcInstance npc, int routineIndex)
         {
-            // Monsters
-            // e.g. Monsters have no routine, and we just need to send StartAiState function.
-            if (routineIndex == 0)
-            {
-                // FIXME - Call StartRoutine somehow again.
-                // We always need to set "self" before executing any Daedalus function.
-                // GameData.GothicVm.GlobalSelf = npcInstance;
-                // go.GetComponent<AiHandler>().StartRoutine(npcInstance.StartAiState);
-                return;
-            }
-
             var npcContainer = npc.GetUserData();
             if (npcContainer == null)
             {
@@ -99,7 +134,25 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            // No daily routine (monsters): AiHandler starts the start state (start_aistate) when no routine entry is
+            // set. An NPC already running ends its current state for it, like at the end of a routine entry.
+            if (routineIndex == 0)
+            {
+                var hadRoutine = npcContainer.Props.RoutineCurrent != null;
+                npcContainer.Props.Routines.Clear();
+                npcContainer.Props.RoutineCurrent = null;
+                npcContainer.Props.RoutinePrevious = null;
+                npcContainer.Vob.HasRoutine = false;
+                if (hadRoutine)
+                    npcContainer.Props.IsRoutineTimeOver = true;
+                return;
+            }
+
             npcContainer.Props.Routines.Clear();
+
+            // The VOB keeps the active routine for save games (Npc_ExchangeRoutine changes it at runtime).
+            npcContainer.Vob.CurrentRoutine = _gameStateService.GothicVm.GetSymbolByIndex(routineIndex)?.Name
+                                              ?? string.Empty;
 
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npc;

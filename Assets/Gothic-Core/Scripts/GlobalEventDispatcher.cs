@@ -2,6 +2,9 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Doc;
+using Gothic.Core.Models.Effects;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -41,7 +44,14 @@ namespace Gothic.Core
         public static readonly UnityEvent GothicInisInitialized = new();
         public static readonly UnityEvent<string, object> PlayerPrefUpdated = new();
         
+        // The running game is replaced (new game or loaded save). VM, hero and world still exist. Called before
+        // LoadGameStart, which creates the new VM.
+        public static readonly UnityEvent UnloadGameStart = new();
         public static readonly UnityEvent LoadGameStart = new();
+
+        // The current world's runtime state is stored into its world data: before a save game is written (true) and
+        // before we leave the world (false). E.g. VR decides which items are part of the world or inventory.
+        public static readonly UnityEvent<bool> StoreWorldStateStart = new();
         
         
         public static readonly UnityEvent<NpcContainer, NpcLoader, bool, bool> NpcMeshCullingChanged = new();
@@ -96,9 +106,64 @@ namespace Gothic.Core
         /// <summary>
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
-        /// Vector3      - at which position
+        /// Vector3      - where the hit landed (on the target)
+        /// ItemInstance - the weapon it was made with: the VR hero's held weapon isn't equipped. Null for NPCs (their
+        ///                equipped weapon counts) and fists.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, ItemInstance> FightHit = new();
+
+        /// <summary>
+        /// An NPC died (NpcDeathDomain), by a hit or a script. Its ZS_Dead follows one frame later.
+        /// NpcContainer - who died
+        /// NpcContainer - who killed (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> NpcDied = new();
+
+        /// <summary>
+        /// The hero was knocked out (FightService) and lies on the ground.
+        /// float - seconds until he gets up again
+        /// </summary>
+        public static readonly UnityEvent<float> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
+
+        /// <summary>
+        /// The hero died (NpcDeathDomain), right after NpcDied. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (null if nobody, e.g. a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// A transformation spell turned the hero into a monster (TransformationService) - the player moves and looks
+        /// around like it.
+        /// </summary>
+        public static readonly UnityEvent<HeroTransformation> HeroTransformed = new();
+
+        /// <summary>
+        /// The hero is human again.
+        /// </summary>
+        public static readonly UnityEvent HeroTransformedBack = new();
+
+        /// <summary>
+        /// A script effect tints the whole view (WorldEffectService, screenblend.scx): DEMENTOR_FX, a spell's flash.
+        /// It ends after ScreenBlend.Seconds, or with ScreenBlendStopped.
+        /// </summary>
+        public static readonly UnityEvent<ScreenBlend> ScreenBlendStarted = new();
+
+        /// <summary>
+        /// The tint fades out over ScreenBlend.FadeSeconds.
+        /// </summary>
+        public static readonly UnityEvent<ScreenBlend> ScreenBlendStopped = new();
+
+        /// <summary>
+        /// The world shakes (WorldEffectService: FX_EarthQuake): position, radius in m, seconds, amplitude in m. VR
+        /// rumbles the controllers within the radius instead of shaking the view.
+        /// </summary>
+        public static readonly UnityEvent<Vector3, float, float, float> EarthquakeStarted = new();
         
 
         // LockPicking events
@@ -131,6 +196,18 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        // Trading (TradeService) started with this NPC: the trade window opens, the dialog's choices wait.
+        public static readonly UnityEvent<NpcContainer> TradeStarted = new();
+        // Trading with this NPC ended (closed by the player or the dialog ended).
+        public static readonly UnityEvent<NpcContainer> TradeEnded = new();
+        // A book, letter or map is shown (Doc_Show) - the platform's viewer opens it.
+        public static readonly UnityEvent<DocModel> DocShown = new();
+        /// <summary>
+        /// A timed overlay on the hero (Mdl_ApplyOverlayMDSTimed: G1's haste potions, G2's speed potion): the VR player
+        /// walks and runs that much faster for the seconds. Walk factor, run factor, seconds.
+        /// </summary>
+        public static readonly UnityEvent<float, float, float> HeroSpeedChanged = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 

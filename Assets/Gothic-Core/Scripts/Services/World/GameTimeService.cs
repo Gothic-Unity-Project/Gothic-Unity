@@ -36,16 +36,27 @@ namespace Gothic.Core.Services.World
         private DateTime _time = new(1, 1, 1, 15, 0, 0);
         private Coroutine _timeTickCoroutineHandler;
 
+        // A shorter step forward (a script correcting the clock) is no jump: the NPCs stay where they are.
+        private static readonly TimeSpan _minTimeJump = TimeSpan.FromMinutes(5);
+
 
         public void Init()
         {
-            // Set debug value for current Time.
-            _time = new DateTime(_time.Year, _time.Month, _time.Day, _configService.Dev.StartTimeHour, _configService.Dev.StartTimeMinute,
-                _time.Second);
-            _minutesInHour = _configService.Dev.StartTimeMinute;
+            ResetToStartTime();
 
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(PreWorldLoaded);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(PostWorldLoaded);
+        }
+
+        /// <summary>
+        /// Day 0 at the configured start time. A new game starts here (a loaded save sets its own time).
+        /// </summary>
+        public void ResetToStartTime()
+        {
+            _time = new DateTime(MinTime.Year, MinTime.Month, MinTime.Day, _configService.Dev.StartTimeHour,
+                _configService.Dev.StartTimeMinute, 0);
+            _secondsInMinute = 0;
+            _minutesInHour = _configService.Dev.StartTimeMinute;
         }
 
         private void PreWorldLoaded()
@@ -54,6 +65,7 @@ namespace Gothic.Core.Services.World
             if (_timeTickCoroutineHandler != null)
             {
                 _unityMonoService.StopCoroutine(_timeTickCoroutineHandler);
+                _timeTickCoroutineHandler = null;
             }
         }
 
@@ -126,16 +138,45 @@ namespace Gothic.Core.Services.World
             return _time.TimeOfDay;
         }
 
-        public void SetTime(int hour, int minute)
+        /// <summary>
+        /// Days passed since the game started. Gothic counts days starting with 0 (SAVEDAT.SAV day).
+        /// </summary>
+        public int GetElapsedDays()
+        {
+            return (_time.Date - MinTime.Date).Days;
+        }
+
+        /// <summary>
+        /// Used when loading a save game: day is Gothic's 0-based day counter.
+        /// </summary>
+        public void SetDayAndTime(int day, int hour, int minute)
+        {
+            _time = MinTime.AddDays(day).AddHours(hour).AddMinutes(minute);
+            _secondsInMinute = 0;
+            _minutesInHour = minute;
+        }
+
+        /// <summary>
+        /// Returns whether the time jumped: forward by more than _minTimeJump while the clock runs, not while a world
+        /// loads (startup scripts). After a jump the NPCs go back to their routine (NpcService.ResetNpcsToRoutines).
+        /// </summary>
+        public bool SetTime(int hour, int minute)
         {
             // From G2: Setzt die Uhrzeit auf hour:min. hour kann größer als 23 sein, um zum nächsten Tag zu springen.
             var daysToAdd = hour / 24;
             var normalizedHour = hour % 24;
 
-            _time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0);
-            
-            if (daysToAdd > 0)
-                _time = _time.AddDays(daysToAdd);
+            var time = new DateTime(_time.Year, _time.Month, _time.Day, normalizedHour, minute, 0).AddDays(daysToAdd);
+
+            // Like the engine (OpenGothic World::setDayTime), a time earlier than now is tomorrow: sleeping until the
+            // morning starts a new day.
+            if (daysToAdd == 0 && time < _time)
+                time = time.AddDays(1);
+
+            var jump = time - _time;
+            _time = time;
+
+            return _timeTickCoroutineHandler != null && jump > _minTimeJump;
         }
 
         public float GetSkyTime()

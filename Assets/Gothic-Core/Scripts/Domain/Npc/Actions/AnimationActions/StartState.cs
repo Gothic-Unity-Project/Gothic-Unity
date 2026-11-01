@@ -1,5 +1,6 @@
 using Gothic.Core.Models.Container;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Services;
 using ZenKit.Daedalus;
 
@@ -12,6 +13,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string _wayPoint => Action.String0;
         private NpcInstance _other => Action.Instance0;
         private NpcInstance _victim => Action.Instance1;
+        /// <summary>
+        /// The _End function of the state this one replaces (AI_StartState(..., 1, ...)), 0 for none.
+        /// </summary>
+        public int EndFunction => Action.Int1;
         
         public StartState(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -24,10 +29,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             var ai = PrefabProps.AiHandler;
 
+            // The old state ends with its own other/victim (G1 ZS_Talk_End: the hero's AIV_INVINCIBLE goes back).
+            // Without one, other is the hero like for the state's own functions (AiHandler.SetStateGlobals).
+            if (EndFunction != 0)
+            {
+                var other = Props.StateOther ?? (NpcInstance)GameStateService.GothicVm.GlobalHero;
+                VmService.CallAsNpc(EndFunction, NpcInstance, other, Props.StateVictim, LogCat.Ai);
+            }
+
             Vob.NextStateIndex = _action;
             Vob.NextStateName = GameStateService.GothicVm.GetSymbolByIndex(_action)!.Name;
             Vob.NextStateValid = true;
-            Vob.NextStateIsRoutine = true; // TODO - We need to check if this is correct or if we need to have it more dynamic.
+            // Like Gothic's isRtnState: started by AI_StartState, not by the daily routine (a save game continues it).
+            Vob.NextStateIsRoutine = false;
             
             ai.ClearState(_callEndFunction);
 
@@ -37,6 +51,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             GameStateService.GothicVm.GlobalOther = _other;
             GameStateService.GothicVm.GlobalVictim = _victim;
+
+            // The state's loop gets them too (AiHandler), like the engine keeps them per NPC.
+            Props.StateOther = _other;
+            Props.StateVictim = _victim;
         }
 
         /// <summary>

@@ -25,6 +25,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected virtual string OutputName => Action.String0;
 
+        /// <summary>
+        /// Said while doing something else (AI_OutputSVM_Overlay): no gesture, the queue goes on at once.
+        /// </summary>
+        protected virtual bool IsOverlay => false;
+
         private bool _isHeroSpeaking => Action.Int0 == 0;
         private float _audioPlaySeconds;
 
@@ -50,7 +55,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 }
             }
             
-            var audioClip = _audioService.CreateAudioClip(OutputName);
+            var audioClip = _audioService.CreateSpeechAudioClip(OutputName);
             if (audioClip == null)
                 Logger.LogWarning($"AudioClip >{OutputName}< not found — using fallback duration", LogCat.Dialog);
             _audioPlaySeconds = audioClip != null ? audioClip.length : 3f;
@@ -66,17 +71,28 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // NPC
             else
             {
-                var gestureCount = GetDialogGestureCount();
-                var randomId = Random.Range(1, gestureCount + 1);
+                if (!IsOverlay)
+                {
+                    var gestureCount = GetDialogGestureCount();
+                    var randomId = Random.Range(1, gestureCount + 1);
 
-                _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
-                PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
-                PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                    _randomDialogAnimationName = $"T_DIALOGGESTURE_{randomId:00}";
+                    PrefabProps.AnimationSystem.PlayAnimation(_randomDialogAnimationName);
+                    // Not for an overlay: it finishes at once, before the end of the line would stop the mouth.
+                    PrefabProps.AnimationSystem.PlayHeadAnimation(HeadMorph.HeadMorphType.Viseme);
+                }
 
                 if (audioClip != null)
                     PrefabProps.NpcSound.PlayOneShot(audioClip);
 
                 PrintDialog();
+            }
+
+            if (IsOverlay)
+            {
+                var speaker = _isHeroSpeaking ? _npcService.GetHeroContainer().PrefabProps : PrefabProps;
+                speaker.NpcSubtitles?.ScheduleHide(_audioPlaySeconds);
+                IsFinishedFlag = true;
             }
         }
 
@@ -92,8 +108,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = cutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+            // Looked up natively: Blocks builds a wrapper for every line of OU.BIN on each call (~20,000 allocations,
+            // 15-30 ms for every spoken line and NPC call-out).
+            var block = cutsceneLibrary.GetBlock(OutputName);
 
             // Mod-only output names can be missing in OU.BIN/OU.CSL. Skip the subtitle instead of throwing an NRE.
             if (block == null)
@@ -156,8 +173,20 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.NpcSound.Stop();
                 // The line stopped - so does its subtitle.
                 PrefabProps.NpcSubtitles?.HideSubtitles();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                StopGestureAndMouth();
             }
+        }
+
+        /// <summary>
+        /// Both ends of an NPC's line, finished or cut off: the mouth (VISEME) moves until it is stopped.
+        /// </summary>
+        private void StopGestureAndMouth()
+        {
+            if (_randomDialogAnimationName == null)
+                return;
+
+            PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+            PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
         }
 
         public override bool IsFinished()
@@ -176,11 +205,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // NPC
                 else
                 {
-                    if (_randomDialogAnimationName != null)
-                    {
-                        PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
-                    }
+                    StopGestureAndMouth();
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
