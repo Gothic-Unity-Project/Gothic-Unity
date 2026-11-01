@@ -553,8 +553,7 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
-                if (candidate == selfNpc || candidate.Props == null || candidate.Go == null ||
-                    candidate.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                if (candidate == selfNpc || candidate.Props == null || candidate.Go == null || !candidate.Props.IsDead)
                     continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
