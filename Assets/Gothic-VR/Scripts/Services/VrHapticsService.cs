@@ -19,6 +19,11 @@ namespace Gothic.VR.Services
         private const float _contactMaxSpeed = 3f;
         private const float _contactMinAmplitude = 0.15f;
 
+        // Body slots: a hand doesn't tick again this soon, e.g. at the item it just put in.
+        private const float _bodySlotMinInterval = 0.4f;
+
+        private readonly float[] _lastBodySlotTimes = { float.NegativeInfinity, float.NegativeInfinity };
+
         [Inject] private readonly IVrHaptics _vrHaptics;
         [Inject] private readonly VRWeaponService _vrWeaponService;
 
@@ -45,6 +50,22 @@ namespace Gothic.VR.Services
             // Physical hands
             GlobalEventDispatcher.PhysicalHandContact.AddListener((handSide, speed) =>
                 ContactVibration((VrHandSide)handSide, speed));
+
+            // Body slots
+            GlobalEventDispatcher.BodySlotReached.AddListener(handSide => BodySlotVibration((VrHandSide)handSide));
+        }
+
+        /// <summary>
+        /// A hand reached a body slot it can use: the slots are behind the back or out of sight.
+        /// </summary>
+        private void BodySlotVibration(VrHandSide handSide)
+        {
+            var index = (int)handSide;
+            if (Time.time - _lastBodySlotTimes[index] < _bodySlotMinInterval)
+                return;
+
+            _lastBodySlotTimes[index] = Time.time;
+            _vrHaptics.Vibrate(handSide, VrHapticPreset.Touch);
         }
 
         /// <summary>

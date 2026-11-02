@@ -4703,13 +4703,28 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5863888200715872623}
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!1 &6953280141841309769 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
   m_PrefabInstance: {fileID: 135218387121432214}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &5863888200715872623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6953280141841309769}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e35f9feabf0fb6968c190f3b6c6a1ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrSocketHaptics
 --- !u!4 &7102629128755440776 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
@@ -5019,7 +5034,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7112015170776039814}
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!4 &5023614060711596418 stripped
 Transform:
@@ -5031,6 +5049,18 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
   m_PrefabInstance: {fileID: 2794072044561062812}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &7112015170776039814
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5141402831213468995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e35f9feabf0fb6968c190f3b6c6a1ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrSocketHaptics
 --- !u!1001 &2990888653181709699
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6016,6 +6046,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5546392217823617135}
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3151384379896525148}
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!1 &417483402604974489 stripped
 GameObject:
@@ -6043,6 +6076,18 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.494, y: 0.351, z: 0.359}
   m_Center: {x: 0, y: 0.064, z: 0}
+--- !u!114 &3151384379896525148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 417483402604974489}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e35f9feabf0fb6968c190f3b6c6a1ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrSocketHaptics
 --- !u!4 &515004701307166040 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7165789852774304286, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
@@ -6147,6 +6192,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3034888681537794918}
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1510209276154289085}
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4233170170883495270}
+    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2930096339307632488}
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!4 &596995636331250637 stripped
 Transform:
@@ -6179,6 +6233,42 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.494, y: 0.351, z: 0.359}
   m_Center: {x: 0, y: 0.064, z: 0}
+--- !u!114 &1510209276154289085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 767420233899986700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e35f9feabf0fb6968c190f3b6c6a1ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrSocketHaptics
+--- !u!114 &4233170170883495270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 767420233899986700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28847abf5b0bcdc95b6baacf9ededbe2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrShoulderStash
+--- !u!114 &2930096339307632488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 767420233899986700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f382102bd1096d438da29068db36ed0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Interaction.VrDropZone
 --- !u!114 &3580726154319805747 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6523535316780004576, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}

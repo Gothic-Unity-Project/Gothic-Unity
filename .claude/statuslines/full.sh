@@ -7,7 +7,8 @@ mapfile -t fields < <(
          (.rate_limits.five_hour.used_percentage // "" | if type=="number" then round|tostring else . end),
          (.rate_limits.five_hour.resets_at // ""),
          (.rate_limits.seven_day.used_percentage // "" | if type=="number" then round|tostring else . end),
-         (.rate_limits.seven_day.resets_at // "")' <<< "$(cat)" | tr -d '\r'
+         (.rate_limits.seven_day.resets_at // "",
+         (.workspace.current_dir // .cwd // ""))' <<< "$(cat)" | tr -d '\r'
 )
 model="${fields[0]}"
 used="${fields[1]}"
@@ -15,6 +16,7 @@ effort="${fields[2]}"
 thinking="${fields[3]}"
 h5="${fields[4]}"; h5_reset="${fields[5]}"
 d7="${fields[6]}"; d7_reset="${fields[7]}"
+cwd="${fields[8]}"
 now=$(date +%s)
 
 esc() { printf '\e[%sm' "$1"; }
@@ -53,4 +55,28 @@ quota() { # label used reset
 }
 output="$output$(quota 5h "$h5" "$h5_reset")$(quota 7d "$d7" "$d7_reset")"
 
-printf "%s" "$output"
+# Right-aligned git part: branch + commits to push (up) / pull (down). Only cheap ref lookups, no worktree scan.
+git_part=""
+if [ -n "$cwd" ] && branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
+  git_part="$(esc 35)${branch}${reset}"
+  git_plain="$branch"
+  if read -r ahead behind < <(git -C "$cwd" rev-list --left-right --count HEAD...@{u} 2>/dev/null); then
+    [ "$ahead" -gt 0 ]  && { git_part="$git_part $(esc 32)↑${ahead}${reset}";  git_plain="$git_plain ↑${ahead}"; }
+    [ "$behind" -gt 0 ] && { git_part="$git_part $(esc 33)↓${behind}${reset}"; git_plain="$git_plain ↓${behind}"; }
+  fi
+fi
+
+if [ -n "$git_part" ]; then
+  shopt -s extglob
+  plain="${output//$'\e'\[+([0-9;])m/}"
+  read -r _ cols < <({ stty size </dev/tty; } 2>/dev/null)
+  cols="${cols:-${COLUMNS:-0}}"
+  pad=$(( cols - 2 - ${#plain} - ${#git_plain} ))   # 2 = margin for harness padding
+  if [ "$pad" -ge 2 ]; then
+    printf "%s%*s%s" "$output" "$pad" "" "$git_part"
+  else
+    printf "%s  %s" "$output" "$git_part"
+  fi
+else
+  printf "%s" "$output"
+fi

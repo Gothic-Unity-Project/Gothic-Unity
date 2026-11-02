@@ -46,6 +46,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         /// <summary>
@@ -56,7 +57,9 @@ namespace Gothic.Core.Domain.Vobs
         ///                       and Lights could be sub-VOBs inside fire, we need to find the index from WorldPosition calculated at
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
         /// </summary>
-        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob)
+        /// <param name="parentVob">The ZenKit parent of a child VOB of the world.</param>
+        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            IVirtualObject parentVob = null)
         {
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
             GameObject go = null;
@@ -243,11 +246,11 @@ namespace Gothic.Core.Domain.Vobs
                 return;
 
             if (!isRootVob)
-                EnsureOwnVobLoader(vob, go);
+                EnsureOwnVobLoader(vob, go, parentVob);
 
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false);
+                InitVob(childVob, go, worldPosition, false, vob);
             }
         }
 
@@ -486,9 +489,10 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateMover(IMover vob, GameObject parent)
         {
-            // Each mover starts "Closed", when game boots. (At least for a new game.)
-            // TODO - We need to check if it's the case for a loaded game
-            vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
+            // Each mover starts "Closed" in a world entered for the first time. A save game (or a world we left)
+            // keeps its state, e.g. a move in progress (MoverAdapter).
+            if (_saveGameService.IsWorldEnteredFirstTime)
+                vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
 
             var go = CreateDefaultMesh(vob, parent);
 
@@ -835,7 +839,7 @@ namespace Gothic.Core.Domain.Vobs
         /// GetComponentInParent&lt;VobLoader&gt;() and got the PARENT's vob (often an unnamed zCVob) -
         /// InvalidCastExceptions, "No door or container found for ><", doors/chests that don't work (G2 Xardas' tower).
         /// </summary>
-        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go)
+        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
             if (vob is not (IInteractiveObject or IItem) && !IsNamedVobType(vob.Type))
                 return;
@@ -844,7 +848,7 @@ namespace Gothic.Core.Domain.Vobs
             if (loader != null && loader.Container?.Vob == vob)
                 return;
 
-            AddOwnVobLoader(vob, go);
+            AddOwnVobLoader(vob, go, parentVob);
             // Movers and triggers are looked up by name (Wld_SendTrigger, chained targets), child VOBs included.
             if (IsNamedVobType(vob.Type))
                 _gameStateService.RegisterNamedVob(go.GetComponent<VobLoader>().Container);
@@ -860,10 +864,10 @@ namespace Gothic.Core.Domain.Vobs
                 or VirtualObjectType.zCMessageFilter;
         }
 
-        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go)
+        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
             var ownLoader = go.AddComponent<VobLoader>();
-            ownLoader.Container = new VobContainer(vob) { Go = go };
+            ownLoader.Container = new VobContainer(vob) { Go = go, ParentVob = parentVob };
             ownLoader.IsLoaded = true;
         }
 

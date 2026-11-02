@@ -9,6 +9,12 @@ namespace Gothic.Core.Model.UI.MenuItem
         public string Name { get; set; }
         public AbstractMenuInstance MenuInstance { get; set; }
 
+        /// <summary>
+        /// Ours, not in Gothic's menu scripts: a slider saves its value once the player lets go of it, not on every
+        /// step while dragging (e.g. the VR height offset, which would move the player holding the slider).
+        /// </summary>
+        public bool IsAppliedOnRelease { get; set; }
+
         protected AbstractMenuItemInstance(string menuItemName)
         {
             // As we will need it for most of the elements.

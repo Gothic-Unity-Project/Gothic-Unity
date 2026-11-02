@@ -21,6 +21,19 @@ namespace Gothic.Core.Models.Proxy
         protected bool IsNew;
 
         /// <summary>
+        /// VOB comes from a save game or from a world we left in this session (not created by Wld_InsertNpc).
+        /// </summary>
+        public bool IsRestored => !IsNew;
+
+        /// <summary>
+        /// When we leave a world, its NPCs are kept as VOBs and restored on the next visit.
+        /// </summary>
+        public void MarkAsRestored()
+        {
+            IsNew = false;
+        }
+
+        /// <summary>
         /// New Npc. Initialized when world is entered for the first time.
         /// </summary>
         public NpcProxy(int index) : base(new ZenKit.Vobs.Npc())
@@ -88,23 +101,72 @@ namespace Gothic.Core.Models.Proxy
             // If we load the world with it's NPCs from SaveGame, we won't copy the data again. (As the data might be different in running game already.
             if (!IsNew)
                 return;
-            
+
+            CopyStatsFromInstance(instance);
+            GuildTrue = instance.Guild;
+        }
+
+        /// <summary>
+        /// Daedalus changes the instance at runtime (teachers, potions, quests). The VOB stores the values for save
+        /// games. ScriptWaypoint isn't copied: AiHandler keeps the routine's waypoint inside the VOB.
+        /// </summary>
+        public void CopyStatsFromInstance(NpcInstance instance)
+        {
             Level = instance.Level;
             Xp = instance.Exp;
             XpNextLevel = instance.ExpNext;
+            Lp = instance.Lp;
             Guild = instance.Guild;
-            GuildTrue = instance.Guild;
             FightTactic = instance.FightTactic;
-            
+
             for (var i = 0; i < Enum.GetNames(typeof(DamageType)).Length; i++)
-            {
                 SetProtection(i, instance.GetProtection((DamageType)i));
-            }
-            
+
             for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
-            {
                 SetAttribute(i, instance.GetAttribute((NpcAttribute)i));
-            }
+
+            for (var i = 0; i < Enum.GetNames(typeof(NpcMissionSlot)).Length; i++)
+                SetMission(i, instance.GetMission((NpcMissionSlot)i));
+
+            // Hit chances are only stored in G2 save games.
+            for (var i = 0; i < HitChance.Count; i++)
+                SetHitChance(i, instance.GetHitChance((NpcTalent)i));
+
+            // Monsters have a start AI state instead of a routine. 0 means none.
+            StartAiState = instance.StartAiState > 0
+                ? _gameStateService.GothicVm.GetSymbolByIndex(instance.StartAiState)?.Name ?? string.Empty
+                : string.Empty;
+        }
+
+        /// <summary>
+        /// Counterpart of CopyStatsFromInstance(): A save game's values replace the ones of the instance constructor.
+        /// </summary>
+        public void CopyStatsToInstance(NpcInstance instance)
+        {
+            instance.Level = Level;
+            instance.Exp = Xp;
+            instance.ExpNext = XpNextLevel;
+            instance.Lp = Lp;
+            instance.Guild = Guild;
+            instance.FightTactic = FightTactic;
+            if (!string.IsNullOrEmpty(ScriptWaypoint))
+                instance.Wp = ScriptWaypoint;
+
+            for (var i = 0; i < Enum.GetNames(typeof(DamageType)).Length; i++)
+                instance.SetProtection((DamageType)i, GetProtection(i));
+
+            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
+                instance.SetAttribute((NpcAttribute)i, GetAttribute(i));
+
+            for (var i = 0; i < Enum.GetNames(typeof(NpcMissionSlot)).Length; i++)
+                instance.SetMission((NpcMissionSlot)i, GetMission(i));
+
+            for (var i = 0; i < HitChance.Count; i++)
+                instance.SetHitChance((NpcTalent)i, GetHitChance(i));
+
+            var startAiState = _gameStateService.GothicVm.GetSymbolByName(StartAiState);
+            if (startAiState != null)
+                instance.StartAiState = startAiState.Index;
         }
         
         public AiHuman AiHuman =>  (AiHuman)Ai;

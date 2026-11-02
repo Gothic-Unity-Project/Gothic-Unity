@@ -227,6 +227,34 @@ MonoBehaviour:
     m_Key: menuitem.ledgeHints.value
     m_Metadata:
       m_Items: []
+  - m_Id: 187053241054658560
+    m_Key: menuitem.heightOffset.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Key: menuitem.heightOffset.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Key: menuitem.save.blocked.noWorld
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Key: menuitem.save.blocked.dead
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Key: menuitem.save.blocked.dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Key: menuitem.load.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Key: menuitem.save.failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -233,6 +233,36 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|dotyk|blisko|pomoc"
     m_Metadata:
       m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "Korekta wysoko\u015Bci"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Wysoko\u015B\u0107 kamery co 5 cm. \u015Arodek = brak korekty"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: "Zapis niemo\u017Cliwy: gra nie jest uruchomiona."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Zapis niemo\u017Cliwy, gdy jeste\u015B martwy."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Zapis niemo\u017Cliwy podczas rozmowy."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "Wczytanie nie powiod\u0142o si\u0119: nie mo\u017Cna odczyta\u0107
+      zapisu."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Zapis nie powi\xF3d\u0142 si\u0119. Poprzedni zapis zosta\u0142
+      zachowany."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
