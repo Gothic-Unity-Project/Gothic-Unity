@@ -97,7 +97,8 @@ namespace Gothic.VR.Adapters
             if (_cachedObjectRenderer == null)
                 _cachedObjectRenderer = GetComponentInChildren<Renderer>();
 
-            if (_featureBrightenUp)
+            // An NPC can be without any mesh (its body failed to build) - nothing to brighten then.
+            if (_featureBrightenUp && _cachedObjectRenderer != null)
                 _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
                     shaderPropertyFocusBrightnessValue);
 
@@ -109,7 +110,7 @@ namespace Gothic.VR.Adapters
 
         private void OnHoverExit(VrGrabArgs _)
         {
-            if (_featureBrightenUp)
+            if (_featureBrightenUp && _cachedObjectRenderer != null)
             {
                 _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
                     Constants.ShaderPropertyFocusBrightnessDefault);
@@ -127,12 +128,14 @@ namespace Gothic.VR.Adapters
             // Calculate direction from parent object to camera
             var directionToCamera = (_mainCamera.transform.position - transform.position).normalized;
 
-            // Position canvas at the top of bounds, shifted toward camera
-            _nameCanvas.transform.position = new Vector3(
-                _cachedObjectRenderer.bounds.center.x,
-                _cachedObjectRenderer.bounds.max.y,
-                _cachedObjectRenderer.bounds.center.z
-            );
+            // Position canvas at the top of bounds, shifted toward camera. Without a mesh: at the object itself.
+            _nameCanvas.transform.position = _cachedObjectRenderer == null
+                ? transform.position
+                : new Vector3(
+                    _cachedObjectRenderer.bounds.center.x,
+                    _cachedObjectRenderer.bounds.max.y,
+                    _cachedObjectRenderer.bounds.center.z
+                );
 
             // Rotate to face camera
             _nameCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
