@@ -33,7 +33,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (otherProps.AnimationQueue.Contains(_lastOfOther))
                 return false;
 
-            return otherProps.CurrentAction != _lastOfOther || _lastOfOther.HasEnded;
+            // Kept, so an NPC waiting for this one (trialogues chain them) sees the end too.
+            IsFinishedFlag = otherProps.CurrentAction != _lastOfOther || _lastOfOther.HasEnded;
+            return IsFinishedFlag;
         }
     }
 }
