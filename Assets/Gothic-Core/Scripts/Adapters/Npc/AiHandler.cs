@@ -400,14 +400,15 @@ namespace Gothic.Core.Adapters.Npc
 
         /// <summary>
         /// An action that threw can't finish on its own - it threw again every frame and the NPC hung in it (an orc
-        /// frozen in his dialog line). It counts as done, the NPC goes on with the next one. Logged once per action type.
+        /// frozen in his dialog line). It counts as done, the NPC goes on with the next one. Logged once per action
+        /// type and NPC.
         /// </summary>
         private void SkipFailedAction(Exception e)
         {
             var actionType = Properties.CurrentAction.GetType();
             if (_failedActionTypes.Add(actionType))
-                Logger.LogError($"{actionType.Name} of {Go.transform.parent?.name} threw - skipped. Later failures of " +
-                                $"this action on this NPC are not logged. {e}", LogCat.Ai);
+                Logger.LogError($"{actionType.Name} of {Go.transform.parent?.name} threw - skipped. Later " +
+                                $"failures of this action on this NPC are not logged. {e}", LogCat.Ai);
 
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
         }
