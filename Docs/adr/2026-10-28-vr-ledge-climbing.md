@@ -23,4 +23,6 @@ In the original game the hero pulls himself up onto ledges with the jump key. In
 
 - Grabbing something in mid-air now ends the jump. This also fixes a jump that went on after climbing a ladder.
 - Nothing new is saved. Saving while hanging on a ledge saves you in mid-air, so saving should be blocked while climbing once the save game PR (#468) is merged.
-- Open: the "Climbing" option doesn't fit into its menu yet and has to move to another one.
+- The "Climbing" option is the 8th row of the accessibility menu, but Gothic's menus fit 6 rows. Menus now get
+  pages with up/down arrows (like the quest log) instead of moving options to another menu. Options stay in the
+  menu whose ini section stores them, so Smooth Spectator is back in the accessibility menu.
