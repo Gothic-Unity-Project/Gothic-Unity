@@ -149,11 +149,8 @@ namespace Gothic.VR.Adapters.Player
             // The backpack's hull doesn't collide with the world (it's worn on the
             // shoulder) - a loot backpack fell through the ground. It stays where it is (and where it's let go: XRI
             // restores the kinematic state on drop).
-            if (_configService != null)
-            {
-                foreach (var body in GetComponentsInChildren<Rigidbody>())
-                    body.isKinematic = true;
-            }
+            foreach (var body in GetComponentsInChildren<Rigidbody>())
+                body.isKinematic = true;
 
             Tint(_npcBackpackTint);
             RegisterUiCanvases();
@@ -441,7 +438,7 @@ namespace Gothic.VR.Adapters.Player
         private static string GetInstanceName(VobContainer vobContainer)
         {
             var item = vobContainer.VobAs<IItem>();
-            return !string.IsNullOrEmpty(item?.Instance) ? item.Instance : vobContainer.Vob.Name;
+            return item?.GetSymbolName() ?? vobContainer.Vob.Name;
         }
 
         private void OnDestroy()
@@ -873,6 +870,11 @@ namespace Gothic.VR.Adapters.Player
 
                 // Destroy VobLoader GO after releasing it from slot (proper event handling)
                 var heldRoot = socket.Held.transform.parent.gameObject;
+                // RefillSockets created it through VobService.CreateItem (VobCache) - every refresh (vacuum, loot, NPC
+                // inventory events) left a destroyed container in the cache.
+                var heldContainer = socket.Held.transform.GetComponentInParent<VobLoader>(true)?.Container;
+                if (heldContainer != null)
+                    _vobService.UntrackVobFromCache(heldContainer);
                 _refreshRemovals.Add(socket.Held);
                 socket.ForceRelease();
                 heldRoot.SetActive(false); // Disable it, as it would be with scale 1 in front of our camera for 1 second.

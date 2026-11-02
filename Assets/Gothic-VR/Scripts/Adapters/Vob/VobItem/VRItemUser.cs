@@ -150,7 +150,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var hero = _playerService.HeroContainer;
             var vobItem = _container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var instanceName = vobItem.GetSymbolName();
 
             // Items held in a hand already count as inventory (VRPlayerService.SetGrab/UnsetGrab). Release it first,
             // which takes it out of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
@@ -191,7 +191,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void Consume()
         {
             var item = _container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+            var instanceName = item.GetSymbolName();
 
             if (item.Amount > 1)
             {

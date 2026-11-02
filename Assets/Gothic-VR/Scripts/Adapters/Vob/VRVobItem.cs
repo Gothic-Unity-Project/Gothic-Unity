@@ -14,6 +14,7 @@ using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -233,7 +234,7 @@ namespace Gothic.VR.Adapters.Vob
             if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
                 return;
 
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var instanceName = vobItem.GetSymbolName();
             if (vobItem.Amount > 1)
             {
                 vobItem.Amount--;

@@ -100,7 +100,7 @@ namespace Gothic.VR.Adapters.Player
                 if (item == null)
                     continue;
 
-                var instanceName = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+                var instanceName = item.GetSymbolName();
                 var itemData = _vmCacheService.TryGetItemData(instanceName);
                 if (itemData == null || !NpcInventoryService.IsWearable(itemData))
                     continue;

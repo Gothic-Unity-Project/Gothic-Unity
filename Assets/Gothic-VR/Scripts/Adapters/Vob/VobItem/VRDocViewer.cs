@@ -15,7 +15,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     {
         [Inject] private readonly TextureCacheService _textureCacheService;
         [Inject] private readonly Gothic.Core.Services.DocService _docService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
         // The hero's position on a map of the current world (U.TGA arrow, like the engine/OpenGothic).
         private const string _markerTexture = "U.TGA";

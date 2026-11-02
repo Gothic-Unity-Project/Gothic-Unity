@@ -501,7 +501,7 @@ namespace Gothic.VR.Adapters
                 return;
 
             // An equipped weapon also leaves the NPC's body. NpcInventoryChanged refreshes us and the loot backpack.
-            _lootOwner.Remove(vobLoader.Container.Vob.Name, Mathf.Max(1, item.Amount));
+            _lootOwner.Remove(item.GetSymbolName(), Mathf.Max(1, item.Amount));
         }
 
         private IEnumerator RefreshAfterDelay()

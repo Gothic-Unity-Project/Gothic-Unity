@@ -672,7 +672,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private static string GetInstanceName(IItem item)
         {
-            return !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+            return item.GetSymbolName();
         }
     }
 }

@@ -28,7 +28,6 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Npc.NpcInventoryService _npcInventoryService;
@@ -337,7 +336,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             if (vobLoader?.Container?.Vob is not IItem vobItem)
                 return;
 
-            var itemInstance = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var itemInstance = vobItem.GetSymbolName();
             if (!itemInstance.EqualsIgnoreCase(_keyInstance))
                 return;
 

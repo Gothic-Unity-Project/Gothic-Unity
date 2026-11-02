@@ -10,6 +10,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -146,7 +147,7 @@ namespace Gothic.Core.Services.Player
             }
 
             // ItemInstance.Name is a display name. Only the Instance (symbol) is known to the VM.
-            symbolName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            symbolName = vobItem.GetSymbolName();
             amount = Mathf.Max(1, vobItem.Amount);
             return true;
         }

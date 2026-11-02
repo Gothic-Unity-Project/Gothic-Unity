@@ -25,7 +25,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
-        [Inject] private readonly MeshService _meshService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly UnityMonoService _unityMonoService;
 

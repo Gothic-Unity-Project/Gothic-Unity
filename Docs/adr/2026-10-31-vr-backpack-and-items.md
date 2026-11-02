@@ -10,7 +10,7 @@ In VR the player has no inventory screen. Items are physical: in the hands, in h
 
 ## Decisions
 
-1. **One backpack prefab for every inventory.** The hero's backpack, an NPC's loot and a container's loot are the same prefab. Each one shows an `IInventoryOwner` (hero, NPC, container), and changes go through it. Not chosen: a separate loot UI per case.
+1. **One backpack prefab for every inventory.** The hero's backpack and an NPC's loot are the same prefab. Each one shows an `IInventoryOwner` (hero, NPC; a container owner comes with the mummy loot), and changes go through it. Not chosen: a separate loot UI per case.
 2. **Equip and use with both hands and the trigger.** Holding an item with both hands and pressing the trigger uses it, like the engine's "use" (armor, amulets, rings and belts are put on; potions, food and pouches are used). In the backpack, a trigger click with an empty hand toggles a worn item. Equipped items get an [E] badge, and taking the last one out of the backpack takes it off. Not chosen: dropping an item onto the body, which can't be told apart from storing it.
 3. **The engine's equip rules apply to script equips too.** EquipItem creates the item if the NPC doesn't have it, and protection plus on_equip apply. An armor change sets the NPC's visual (MdmName), and the VR hero body follows it. Swapping an NPC's built mesh comes later.
 4. **Small gestures instead of menus:**
@@ -23,4 +23,4 @@ In VR the player has no inventory screen. Items are physical: in the hands, in h
 ## Consequences
 
 - Trade, theft, the favorites ring and save tracking of loose items plug into the same owners and backpack later.
-- Save/load: equipped items and the inventory are saved by the existing save. Items moved between the world and the backpack are tracked in the save/load PR.
+- Save/load: this PR saves nothing new. The hero's equipped state ([E]) isn't kept over a load yet, and equipping again after a load adds the bonus twice. Main's save/load (#468) stores equipped items in Gothic's format (`ITEM_ACTIVE`), so the gap closes when the stack is rebased onto main.

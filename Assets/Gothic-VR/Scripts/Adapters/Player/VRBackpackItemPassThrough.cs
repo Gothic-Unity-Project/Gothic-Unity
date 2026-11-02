@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Adapters.Vob;
 using Reflex.Attributes;
 using UnityEngine;
@@ -26,7 +25,6 @@ namespace Gothic.VR.Adapters.Player
         // every item near is checked again (a pair is forgotten once a collider was disabled).
         private const float _refreshSeconds = 0.5f;
 
-        [Inject] private readonly ConfigService _configService;
 
         private readonly List<Collider> _solids = new();
         private readonly Collider[] _overlapResults = new Collider[64];

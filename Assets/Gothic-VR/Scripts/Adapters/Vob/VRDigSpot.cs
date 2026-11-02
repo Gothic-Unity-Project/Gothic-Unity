@@ -124,7 +124,7 @@ namespace Gothic.VR.Adapters.Vob
 
             // Like vanilla, only the mob's own tool (e.g. the pickaxe) digs.
             var vobItem = container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var instanceName = vobItem.GetSymbolName();
             return instanceName.EqualsIgnoreCase(_mob.Item);
         }
 

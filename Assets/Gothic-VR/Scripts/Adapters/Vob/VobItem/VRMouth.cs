@@ -248,7 +248,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 vobItem.Amount--;
                 if (isHeld)
-                    _playerService.RemoveItem(!string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name, 1);
+                    _playerService.RemoveItem(vobItem.GetSymbolName(), 1);
 
                 Logger.Log($"[VRMouth] Stack decremented: {go.name} remaining={vobItem.Amount}", LogCat.VR);
                 yield break;

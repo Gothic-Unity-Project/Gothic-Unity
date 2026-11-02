@@ -4,6 +4,7 @@ using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;
@@ -483,7 +484,7 @@ namespace Gothic.VR.Interaction.Components
             var vob = body != null
                 ? body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as ZenKit.Vobs.IItem
                 : null;
-            var instance = vob == null ? null : !string.IsNullOrEmpty(vob.Instance) ? vob.Instance : vob.Name;
+            var instance = vob?.GetSymbolName();
             return instance != null && instance.StartsWith("ITKE_", StringComparison.OrdinalIgnoreCase);
         }
 

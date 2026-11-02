@@ -18,6 +18,15 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// The item's instance symbol (e.g. ITMW_1H_SWORD) - a world item's vob name isn't always its symbol (mods, items
+        /// placed in the world file). Inventory calls (CreateInvItems, Npc_RemoveInvItems) need the symbol.
+        /// </summary>
+        public static string GetSymbolName(this IItem item)
+        {
+            return !string.IsNullOrEmpty(item?.Instance) ? item.Instance : item?.Name;
+        }
+
+        /// <summary>
         /// The engine's scheme name of a mob's visual: "CHESTBIG_OCCHESTLARGE.MDS" -> "CHESTBIG", "CHAIR.ASC" -> "CHAIR".
         /// </summary>
         public static string GetVisualScheme([CanBeNull] this IVirtualObject vob)
