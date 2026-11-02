@@ -86,9 +86,6 @@ MonoBehaviour:
   EnableKnockoutTurning: 1
   HandLightInfluence: 0.3
   HandSkinTint: {r: 0.78, g: 0.58, b: 0.48, a: 1}
-  EnableSaveLoadSystem: 0
-  EnableLoadFeature: 0
-  EnableSaveFeature: 0
   EnableEquipItems: 1
   EnableBackpackEquipToggle: 1
   EnableItemDetailsPopup: 1
@@ -108,6 +105,8 @@ MonoBehaviour:
   G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
   EnableNpcRangedCombat: 0
   RangedKnockoutByDefault: 0
+  EnableVrStabFinish: 1
+  EnableVrFists: 1
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
   EnableVobWorldLight: 1
