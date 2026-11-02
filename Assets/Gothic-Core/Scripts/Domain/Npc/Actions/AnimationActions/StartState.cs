@@ -27,7 +27,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Vob.NextStateIndex = _action;
             Vob.NextStateName = GameStateService.GothicVm.GetSymbolByIndex(_action)!.Name;
             Vob.NextStateValid = true;
-            Vob.NextStateIsRoutine = true; // TODO - We need to check if this is correct or if we need to have it more dynamic.
+            // Like Gothic's isRtnState: started by AI_StartState, not by the daily routine (a save game continues it).
+            Vob.NextStateIsRoutine = false;
             
             ai.ClearState(_callEndFunction);
 

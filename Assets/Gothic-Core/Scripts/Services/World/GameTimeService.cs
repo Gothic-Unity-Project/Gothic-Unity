@@ -39,13 +39,21 @@ namespace Gothic.Core.Services.World
 
         public void Init()
         {
-            // Set debug value for current Time.
-            _time = new DateTime(_time.Year, _time.Month, _time.Day, _configService.Dev.StartTimeHour, _configService.Dev.StartTimeMinute,
-                _time.Second);
-            _minutesInHour = _configService.Dev.StartTimeMinute;
+            ResetToStartTime();
 
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(PreWorldLoaded);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(PostWorldLoaded);
+        }
+
+        /// <summary>
+        /// Day 0 at the configured start time. A new game starts here (a loaded save sets its own time).
+        /// </summary>
+        public void ResetToStartTime()
+        {
+            _time = new DateTime(MinTime.Year, MinTime.Month, MinTime.Day, _configService.Dev.StartTimeHour,
+                _configService.Dev.StartTimeMinute, 0);
+            _secondsInMinute = 0;
+            _minutesInHour = _configService.Dev.StartTimeMinute;
         }
 
         private void PreWorldLoaded()
@@ -124,6 +132,24 @@ namespace Gothic.Core.Services.World
         public TimeSpan GetCurrentTime()
         {
             return _time.TimeOfDay;
+        }
+
+        /// <summary>
+        /// Days passed since the game started. Gothic counts days starting with 0 (SAVEDAT.SAV day).
+        /// </summary>
+        public int GetElapsedDays()
+        {
+            return (_time.Date - MinTime.Date).Days;
+        }
+
+        /// <summary>
+        /// Used when loading a save game: day is Gothic's 0-based day counter.
+        /// </summary>
+        public void SetDayAndTime(int day, int hour, int minute)
+        {
+            _time = MinTime.AddDays(day).AddHours(hour).AddMinutes(minute);
+            _secondsInMinute = 0;
+            _minutesInHour = minute;
         }
 
         public void SetTime(int hour, int minute)
