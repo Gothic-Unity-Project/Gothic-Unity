@@ -19,8 +19,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableVrCrossbow): a held crossbow shoots bolts. Aim = the crossbow itself (HVR orients a
-    /// two-hand grab from both hands), the trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow):
+    /// DeveloperConfig.EnableVrCrossbow: a held crossbow shoots bolts. Aim = the crossbow itself (a two-hand grab is
+    /// oriented by both hands), the trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow):
     /// 1 munition item (bolt) per shot from the hero's inventory, 30 m/s with gravity, damage via RangedHit.
     /// DeveloperConfig.EnableVrCrossbowManualReload + the "crossbowReload" option (Immersion menu): after a shot the
     /// string sits at the prod (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls
@@ -32,7 +32,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
-        [Inject] private readonly Gothic.Core.Services.Context.ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -41,7 +41,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
 
-        private const int _crossbowTalent = 4; // NPC_TALENT_CROSSBOW
+        private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
         private const int _masterSkill = 2;
         private const int _oneHandPercent = 60;
 
@@ -98,7 +98,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             CalculateAxes();
             SetupString();
 
-            _vrWeaponService.SetRangedReadied(VmGothicEnums.WeaponState.CBow);
+            _vrWeaponService.UpdateHeroWeaponState();
             Logger.Log($"[VRCrossbow] {_item.Name} readied - munition={_munition?.Name ?? "none"} " +
                        $"forward(local)={_localForward} muzzle(local)={_localMuzzle} loaded={_isLoaded} " +
                        $"manualReload={_isManualReload}", LogCat.VR);
@@ -126,7 +126,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void OnDestroy()
         {
             if (_item != null)
-                _vrWeaponService.SetRangedReadied(null);
+                _vrWeaponService.UpdateHeroWeaponState(releasedItem: gameObject);
 
             // Let go mid-pull: the string snaps back.
             if (_isPulling && _string != null)
@@ -179,7 +179,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_vrInput.IsSimulator)
                 return Keyboard.current[Key.R].wasPressedThisFrame;
 
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _hands)
             {
                 var heldItem = side == VrHandSide.Left ? _vrPlayerService.GrabbedItemLeft : _vrPlayerService.GrabbedItemRight;
                 if (heldItem != gameObject)
@@ -364,10 +364,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hero == null)
                 return false;
 
-            var talent = hero.Vob.GetTalent(_crossbowTalent);
-            var percent = _contextGameVersionService.IsGothic2()
-                ? hero.Instance.GetHitChance((ZenKit.Daedalus.NpcTalent)_crossbowTalent)
-                : talent?.Value ?? 0;
+            var talentIndex = (int)ZenKit.Daedalus.NpcTalent.Crossbow;
+            var talent = hero.Vob.GetTalent(talentIndex);
+            var percent = _npcHelperService.GetTalentPercent(hero, talentIndex);
             var isMaster = (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;
             return !isMaster;
         }

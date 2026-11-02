@@ -131,9 +131,7 @@ namespace Gothic.Core.Models.Container
         /// </summary>
         public bool IsRangedWeapon()
         {
-            var item = GetItemInstance();
-            return item != null &&
-                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatFf) != 0;
+            return GetItemInstance().IsRangedWeapon();
         }
     }
 }

@@ -65,9 +65,6 @@ namespace Gothic.VR.Services
         // The hero's stab finish (one stuck blade at a time).
         private VrStabFinishDomain _stabFinish;
 
-        // A held bow/crossbow (VRBow/VRCrossbow), null without one.
-        private VmGothicEnums.WeaponState? _readiedRangedState;
-
         // DeveloperConfig.EnableVrFists: a fist is an empty hand with grip + trigger held; it punches like a weapon swing.
         private const float _fistPunchVelocity = 2f;
         private const float _fistPunchCooldownSeconds = 0.5f;
@@ -415,26 +412,44 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// Called by VRCrossbow/VRBow (held in any hand) - null when released.
+        /// A bow/crossbow in any hand (VRBow/VRCrossbow shoot with it). Read from the hands, not pushed by the
+        /// components: two held crossbows, one let go, still leave the hero armed.
         /// </summary>
-        public void SetRangedReadied(VmGothicEnums.WeaponState? rangedState)
+        private VmGothicEnums.WeaponState GetHeldRangedState(GameObject releasedItem)
         {
-            _readiedRangedState = rangedState;
-            UpdateHeroWeaponState();
+            foreach (var hand in GetHands())
+            {
+                var held = hand.Held;
+                if (held == null || held.gameObject == releasedItem)
+                    continue;
+
+                var item = held.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
+                if (!item.IsRangedWeapon())
+                    continue;
+                if (item.IsCrossbow())
+                {
+                    if (_configService.Dev.EnableVrCrossbow)
+                        return VmGothicEnums.WeaponState.CBow;
+                }
+                else if (_configService.Dev.EnableVrBows)
+                    return VmGothicEnums.WeaponState.Bow;
+            }
+            return VmGothicEnums.WeaponState.NoWeapon;
         }
 
         /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
         /// melee weapon in any hand > held crossbow/bow > fist > nothing (runes join with the magic PR).
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
+        /// releasedItem: a bow/crossbow being let go (VRBow/VRCrossbow.OnDestroy) - no longer counted.
         /// </summary>
-        public void UpdateHeroWeaponState()
+        public void UpdateHeroWeaponState(GameObject releasedItem = null)
         {
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
-            if (state == VmGothicEnums.WeaponState.NoWeapon && _readiedRangedState.HasValue)
-                state = _readiedRangedState.Value;
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = GetHeldRangedState(releasedItem);
             if (state == VmGothicEnums.WeaponState.NoWeapon && _isFistReadied)
                 state = VmGothicEnums.WeaponState.Fist;
 

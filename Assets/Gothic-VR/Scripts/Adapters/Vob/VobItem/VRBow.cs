@@ -21,10 +21,11 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableVrBows), variant B of vr-ranged-spells-plan.md: the Gothic bow mesh keeps its limbs,
+    /// DeveloperConfig.EnableVrBows (ADR 2026-11-02-vr-ranged): the Gothic bow mesh keeps its limbs,
     /// its own string triangles are cut out and replaced by our string (top limb tip -> nock -> bottom limb tip).
-    /// - Hold the bow in one hand. Put the other, empty hand to the string and hold its grip to draw. VRBowStringFilter
-    ///   stops HVR from grabbing the bow with that hand. An arrow (the bow's munition) is nocked if the hero has one.
+    /// - Hold the bow in one hand. Put the other, empty hand to the string and hold its grip to draw.
+    ///   VrInteractable.CanSecondHandGrabAt keeps that hand from grabbing the bow. An arrow (the bow's munition) is
+    ///   nocked if the hero has one.
     /// - The other hand can also grab the bow itself (limbs/grip) to hold it with both hands - only near the string it
     ///   draws instead.
     /// - Release the grip to shoot along the line drawing hand -> bow hand: speed and damage grow with the draw.
@@ -98,7 +99,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             CreateString();
             AddStringFilter();
             Application.onBeforeRender += OnBeforeRender;
-            _vrWeaponService.SetRangedReadied(VmGothicEnums.WeaponState.Bow);
+            _vrWeaponService.UpdateHeroWeaponState();
 
             Logger.Log($"[VRBow] {_item.Name} readied - munition={_munition?.Name ?? "none"}, maxDraw={_maxDraw:F2} m, " +
                        $"morph frames={_drawFrames?.Count ?? 0}, forward(local)={_localForward}", LogCat.VR);
@@ -110,7 +111,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_item == null)
                 return;
 
-            _vrWeaponService.SetRangedReadied(null);
+            _vrWeaponService.UpdateHeroWeaponState(releasedItem: gameObject);
             DropArrow();
             if (TryGetComponent<VrInteractable>(out var interactable))
                 interactable.CanSecondHandGrabAt = null;
@@ -382,7 +383,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// VRBowStringFilter: a hand closer to the string than to the bow's grip draws, otherwise it grabs the bow.
+        /// VrInteractable.CanSecondHandGrabAt: a hand closer to the string than to the bow's grip draws, otherwise it
+        /// grabs the bow.
         /// </summary>
         public bool IsAtString(Vector3 position)
         {
@@ -533,8 +535,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             if (_stringMaterial == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Unlit");
-                _stringMaterial = new Material(shader != null ? shader : Constants.ShaderSingleMeshLit) { color = _stringColor };
+                var shader = Constants.ShaderUnlit != null ? Constants.ShaderUnlit : Constants.ShaderSingleMeshLit;
+                _stringMaterial = new Material(shader) { color = _stringColor };
             }
 
             var stringGo = new GameObject("_BowString");

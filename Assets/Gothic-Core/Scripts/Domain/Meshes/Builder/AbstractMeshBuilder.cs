@@ -356,21 +356,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
             PrepareMeshRenderer(meshRenderer, Mmb.Mesh);
 
             // Morph mesh items (bows, crossbows) never got a collider: the hand grabbed "nothing" next to them and they
-            // fell through the world (crossbows from NPC loot too). Fitted boxes first, then slices along the mesh: the
-            // cached colliders of some bows are capsules as thick as an arm - the hand held the bow 10 cm next to it.
-            if (HasMeshCollider)
-            {
-                if (UseColliderCache)
-                {
-                    if (!TryAddFittedWeaponColliders(RootGo, meshFilter.sharedMesh) &&
-                        !AddSlicedBoxColliders(RootGo, meshFilter.sharedMesh))
-                        PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
-                }
-                else
-                {
-                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh);
-                }
-            }
+            // fell through the world (crossbows from NPC loot too). Items only (the collider cache): world VOBs with a
+            // morph visual (flags, plants) stay without one, as before.
+            if (HasMeshCollider && UseColliderCache)
+                PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -731,7 +720,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
             if (MeshName.StartsWith("ITMW", System.StringComparison.OrdinalIgnoreCase))
                 return AddFittedColliders(rootGo, mesh, keepThinParts: true);
 
+            // Bows and crossbows only: arrows and bolts (ITRW_ARROW, ITRW_BOLT, ...) are thin shafts the fitting drops
+            // as "strings" - they keep their cached colliders.
             return MeshName.StartsWith("ITRW", System.StringComparison.OrdinalIgnoreCase) &&
+                   MeshName.ContainsIgnoreCase("BOW") &&
                    (AddFittedColliders(rootGo, mesh) || AddSlicedBoxColliders(rootGo, mesh));
         }
 
@@ -790,13 +782,20 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return boxMesh;
         }
 
+        // One warning per mesh without cached colliders.
+        private static readonly HashSet<string> _meshesWithoutCachedColliders = new();
+
         protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
             if (TryAddFittedWeaponColliders(rootGo, mesh))
                 return;
 
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders) || colliders.Count == 0)
+            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders) ||
+                colliders.Count == 0)
             {
+                if (_meshesWithoutCachedColliders.Add(MeshName))
+                    Logger.LogWarning($"No cached colliders for {MeshName} - boxes from its mesh.", LogCat.Mesh);
+
                 // The pre-cached colliders are calculated from MRMs only - morph mesh items (bows, crossbows) got none:
                 // they fell through the ground, couldn't be force-grabbed and flew away when rotated in a hand.
                 // Thin boxes along the mesh itself. A box around the whole bow enclosed the holding hand - physics
@@ -871,7 +870,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             // Bows: the string runs from tip to tip (ends of the long axis) - it's drawn, never grabbed. Without its
             // vertices the boxes follow the limbs only (with them they became one flat plate).
-            var isBow = MeshName != null && MeshName.ContainsIgnoreCase("BOW") && !MeshName.ContainsIgnoreCase("CROSSBOW");
+            var isBow = MeshName != null && MeshName.ContainsIgnoreCase("BOW") &&
+                        !MeshName.ContainsIgnoreCase("CROSSBOW");
             var sliceCount = isBow ? _bowColliderSlices : _colliderSlices;
             var clusterGap = isBow ? _bowColliderClusterGap : _colliderClusterGap;
             if (isBow)

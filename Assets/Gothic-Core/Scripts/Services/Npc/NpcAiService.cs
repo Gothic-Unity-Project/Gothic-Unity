@@ -45,35 +45,36 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Call an NPC Perception (active like Assess_Player or passive like Assess_Talk are possible).
-        /// </summary>
-        // One log per new enemy and result (PERC_ASSESSENEMY runs every perception tick).
-        private readonly Dictionary<int, (int enemy, bool isAccepted)> _lastLoggedAssessEnemy = new();
-
-        /// <summary>
-        /// PERC_ASSESSENEMY on the nearest enemy (UpdateEnemyNpc). Like the engine (OpenGothic perceptionProcess), an
-        /// enemy the script rejects (G2 B_AssessEnemy returns FALSE: AIV_EnemyOverride, a party member's 15 m, height)
-        /// is forgotten, so the next tick looks again - kept, it blocked every other enemy: G2 Cavalorn, the hero's
-        /// party member, walked into the bandits without spotting them and fought only when hit, with the sword
-        /// (B_SelectWeapon takes the bow only beyond 10 m with a reason to kill). Not while he fights (weapon drawn).
+        /// PERC_ASSESSENEMY on the nearest enemy (UpdateEnemyNpc). An enemy the script rejects (G2 B_AssessEnemy returns
+        /// FALSE: AIV_EnemyOverride, a party member's 15 m, height) is forgotten, so the next tick looks again. Kept,
+        /// UpdateEnemyNpc held on to it (it keeps a valid enemy, closer ones don't replace it) and it blocked the others:
+        /// G2 Cavalorn, the hero's party member, fought the cave bandits only when hit, with the sword (B_SelectWeapon
+        /// takes the bow only beyond 10 m with a reason to kill). Now he rejects a bandit at 19 m, accepts one at 12 m
+        /// and shoots (play-tested). Ours, not
+        /// OpenGothic's - its updateNearestEnemy lets a closer enemy replace the kept one. Not while the NPC fights
+        /// (weapon drawn): the fight keeps its target.
         /// </summary>
         public void ExecuteAssessEnemy(NpcProperties properties, NpcInstance self)
         {
             var enemy = properties.EnemyNpc;
-            var isAccepted = ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, properties, self, null, enemy);
-            LogAssessEnemy(self, enemy, isAccepted);
+            var result = ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, properties, self, null, enemy);
+            if (result == null)
+                return;
+            LogAssessEnemy(properties, self, enemy, result.Value);
 
-            if (!isAccepted && properties.EnemyNpc == enemy &&
-                (VmGothicEnums.WeaponState)self.GetUserData().Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon)
-                properties.EnemyNpc = null;
+            if (result.Value || properties.EnemyNpc != enemy ||
+                (VmGothicEnums.WeaponState)self.GetUserData().Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
+                return;
+            properties.EnemyNpc = null;
+            if (properties.TargetNpc == enemy)
+                properties.TargetNpc = null;
         }
 
-        private void LogAssessEnemy(NpcInstance self, NpcInstance enemy, bool isAccepted)
+        private void LogAssessEnemy(NpcProperties properties, NpcInstance self, NpcInstance enemy, bool isAccepted)
         {
-            if (_lastLoggedAssessEnemy.TryGetValue(self.Index, out var last) && last.enemy == enemy.Index &&
-                last.isAccepted == isAccepted)
+            if (properties.LastLoggedAssessEnemy.Enemy == enemy && properties.LastLoggedAssessEnemy.Result == isAccepted)
                 return;
-            _lastLoggedAssessEnemy[self.Index] = (enemy.Index, isAccepted);
+            properties.LastLoggedAssessEnemy = (enemy, isAccepted);
 
             var selfGo = self.GetUserData()?.Go;
             var enemyGo = enemy.GetUserData()?.Go;
@@ -92,21 +93,26 @@ namespace Gothic.Core.Services.Npc
                 LogCat.Ai);
         }
 
+        // Perception function index -> it returns an int (G2 B_AssessEnemy). Symbol lookups allocate.
+        private readonly Dictionary<int, bool> _isIntPerception = new();
+
         /// <summary>
-        /// Runs a perception function. Returns the script's answer: false when a function with a return value
-        /// (G2 B_AssessEnemy) returned FALSE or didn't run; void functions count as true.
+        /// Call an NPC Perception (active like Assess_Player or passive like Assess_Talk are possible).
+        /// Returns null when it didn't run (not set, disabled, knocked out, chase cooldown, an exception), otherwise
+        /// the script's answer: an int function's value (G2 B_AssessEnemy returns FALSE to reject), true for void.
         /// </summary>
-        public bool ExecutePerception(VmGothicEnums.PerceptionType type, NpcProperties properties, NpcInstance self, NpcInstance victim, NpcInstance other)
+        public bool? ExecutePerception(VmGothicEnums.PerceptionType type, NpcProperties properties, NpcInstance self,
+            NpcInstance victim, NpcInstance other)
         {
             // Perception isn't set
             if (!properties.Perceptions.TryGetValue(type, out var perceptionFunction))
             {
-                return false;
+                return null;
             }
             // Perception is disabled
             else if (perceptionFunction < 0)
             {
-                return false;
+                return null;
             }
 
             // A knocked out NPC senses nothing but magic until he stands up
@@ -114,11 +120,11 @@ namespace Gothic.Core.Services.Npc
             if (type != VmGothicEnums.PerceptionType.AssessMagic &&
                 NpcHelperService.IsKnockedOut(self?.GetUserData()))
             {
-                return false;
+                return null;
             }
 
             if (IsHeroChaseCoolingDown(type, properties, self, other))
-                return false;
+                return null;
 
             var oldSelf = _gameStateService.GothicVm.GlobalSelf;
             var oldVictim = _gameStateService.GothicVm.GlobalVictim;
@@ -151,7 +157,13 @@ namespace Gothic.Core.Services.Npc
             // log instead of an anonymous NullReferenceException.
             try
             {
-                if (_gameStateService.GothicVm.GetSymbolByIndex(perceptionFunction)?.HasReturn == true)
+                if (!_isIntPerception.TryGetValue(perceptionFunction, out var isInt))
+                {
+                    isInt = _gameStateService.GothicVm.GetSymbolByIndex(perceptionFunction)?.ReturnType ==
+                            ZenKit.DaedalusDataType.Int;
+                    _isIntPerception[perceptionFunction] = isInt;
+                }
+                if (isInt)
                     return _gameStateService.GothicVm.Call<int>(perceptionFunction) != 0;
 
                 _gameStateService.GothicVm.Call(perceptionFunction);
@@ -160,7 +172,7 @@ namespace Gothic.Core.Services.Npc
             catch (Exception e)
             {
                 Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: {e.Message}", LogCat.Ai);
-                return false;
+                return null;
             }
             finally
             {

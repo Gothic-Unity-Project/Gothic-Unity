@@ -283,13 +283,15 @@ namespace Gothic.VR.Adapters.Vob
                 return;
 
             var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
-            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatFf)
+            if (!item.IsRangedWeapon())
                 return;
 
-            var flags = (VmGothicEnums.ItemFlags)item.Flags;
-            if (_configService.Dev.EnableVrCrossbow && flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow))
-                gameObject.AddComponent<VobItem.VRCrossbow>();
-            else if (_configService.Dev.EnableVrBows && flags.HasFlag(VmGothicEnums.ItemFlags.ItemBow))
+            if (item.IsCrossbow())
+            {
+                if (_configService.Dev.EnableVrCrossbow)
+                    gameObject.AddComponent<VobItem.VRCrossbow>();
+            }
+            else if (_configService.Dev.EnableVrBows)
                 gameObject.AddComponent<VobItem.VRBow>();
         }
 

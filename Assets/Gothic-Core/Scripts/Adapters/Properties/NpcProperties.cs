@@ -56,6 +56,8 @@ namespace Gothic.Core.Adapters.Properties
         // AI topics
 
         public NpcInstance EnemyNpc;
+        // NpcAiService.ExecuteAssessEnemy: the last logged enemy and result (one log per change).
+        public (NpcInstance Enemy, bool? Result) LastLoggedAssessEnemy;
         public NpcInstance TargetNpc;
         // Until when (Time.time) this NPC - the hero - counts as starting a
         // melee hit (the engine's isPrehit(): an attack animation before its hit frame).
