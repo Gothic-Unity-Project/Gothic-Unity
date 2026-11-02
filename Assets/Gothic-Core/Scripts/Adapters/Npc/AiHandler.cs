@@ -38,6 +38,9 @@ namespace Gothic.Core.Adapters.Npc
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
+
+        // When the state's _Loop may run again (Time.time). See the Loop case in Update.
+        private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
 
@@ -86,6 +89,8 @@ namespace Gothic.Core.Adapters.Npc
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
             if (!Properties.CurrentAction.IsFinished())
             {
+                // The NPC really does something - when it's done, the state's loop may react at once.
+                _nextLoopTime = 0f;
                 return;
             }
 
@@ -113,6 +118,7 @@ namespace Gothic.Core.Adapters.Npc
 
                         CallAiFunction(Vob.CurrentStateIndex);
                         Properties.CurrentLoopState = NpcProperties.LoopState.Loop;
+                        _nextLoopTime = 0f;
                         break;
                     case NpcProperties.LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
@@ -120,6 +126,13 @@ namespace Gothic.Core.Adapters.Npc
                             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
                             return;
                         }
+
+                        // A pass that only did instant things (AI_AlignToFP while aligned, pure checks) doesn't run
+                        // again every frame: like the engine (OpenGothic Npc::tickRoutine) it waits for the NPC's
+                        // perception time. After a real action it runs at once (fights, walking routines).
+                        if (Time.time < _nextLoopTime)
+                            break;
+                        _nextLoopTime = Time.time + Properties.PerceptionTime;
 
                         var loopResponse = CallAiFunction(Properties.StateLoop);
                         
