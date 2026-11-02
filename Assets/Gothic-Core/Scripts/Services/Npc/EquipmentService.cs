@@ -220,10 +220,21 @@ namespace Gothic.Core.Services.Npc
             return ((VmGothicEnums.ItemFlags)item.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemRing);
         }
 
+        /// <summary>
+        /// An armor worn on the head (wear = WEAR_HEAD). Like in the engine it has its own slot: it doesn't replace the
+        /// torso armor and doesn't change the body.
+        /// </summary>
+        public static bool IsHelmet(ItemInstance item)
+        {
+            return ((VmGothicEnums.ItemFlags)item.MainFlag).HasFlag(VmGothicEnums.ItemFlags.ItemKatArmor) &&
+                   ((VmGothicEnums.ItemWear)item.Wear).HasFlag(VmGothicEnums.ItemWear.Head);
+        }
+
         private static bool IsSameSlot(ItemInstance worn, ItemInstance item)
         {
             if (((VmGothicEnums.ItemFlags)item.MainFlag).HasFlag(VmGothicEnums.ItemFlags.ItemKatArmor))
-                return ((VmGothicEnums.ItemFlags)worn.MainFlag).HasFlag(VmGothicEnums.ItemFlags.ItemKatArmor);
+                return ((VmGothicEnums.ItemFlags)worn.MainFlag).HasFlag(VmGothicEnums.ItemFlags.ItemKatArmor) &&
+                       IsHelmet(worn) == IsHelmet(item);
 
             var slotFlags = VmGothicEnums.ItemFlags.ItemAmulet | VmGothicEnums.ItemFlags.ItemBelt;
             var itemSlot = (VmGothicEnums.ItemFlags)item.Flags & slotFlags;

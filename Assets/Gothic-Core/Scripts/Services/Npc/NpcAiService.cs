@@ -433,10 +433,14 @@ namespace Gothic.Core.Services.Npc
             return globalHero != null && npc.Index == globalHero.Index;
         }
 
+        /// <summary>
+        /// The torso armor - a helmet (WEAR_HEAD) isn't "the armor" the scripts ask for.
+        /// </summary>
         public ItemInstance ExtGetEquippedArmor(NpcInstance npc)
         {
             var armor = npc.GetUserData().Props.EquippedItems
-                .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor);
+                .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor &&
+                                     !EquipmentService.IsHelmet(i));
 
             return armor;
         }

@@ -82,7 +82,9 @@ namespace Gothic.Core.Services.Npc
 
             foreach (var worn in container.Props.EquippedItems.ToArray())
             {
-                if (worn != null && ((ItemFlags)worn.MainFlag).HasFlag(ItemFlags.ItemKatArmor))
+                // The torso armor only - a helmet stays on.
+                if (worn != null && ((ItemFlags)worn.MainFlag).HasFlag(ItemFlags.ItemKatArmor) &&
+                    !EquipmentService.IsHelmet(worn))
                     _equipmentService.Unequip(container, worn);
             }
 
@@ -97,9 +99,22 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             _equipmentService.EquipByScript(container, item);
+            Logger.Log($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} puts on {item.Name}.", LogCat.Npc);
+
+            // A helmet (DoM's slave shackle) doesn't change the body. It isn't drawn yet.
+            if (EquipmentService.IsHelmet(item))
+                return;
+
+            // Without a visual_change the NPC would get no body mesh at all - it keeps the one it has.
+            if (string.IsNullOrEmpty(item.VisualChange))
+            {
+                Logger.LogWarning($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)}: armor {item.Name} has no " +
+                                  "visual_change - the body stays as it is.", LogCat.Npc);
+                return;
+            }
+
             container.Props.BodyData.Armor = item.Index;
             container.Props.MdmName = item.VisualChange;
-            Logger.Log($"[Equipment] {npc.GetName(NpcNameSlot.Slot0)} puts on {item.Name}.", LogCat.Npc);
         }
         
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)

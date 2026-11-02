@@ -252,7 +252,16 @@ namespace Gothic.Core.Services.Npc
             {
                 // Like the engine (OpenGothic mdl_setvisualbody): the armor is worn like with EquipItem - it protects.
                 _equipmentService.EquipByScript(data.Npc.GetUserData(), armorData);
-                props.MdmName = armorData.VisualChange;
+
+                // A helmet or an armor without visual_change keeps the body - an empty mesh name leaves the NPC
+                // without any mesh.
+                var isHelmet = EquipmentService.IsHelmet(armorData);
+                var hasNoLook = string.IsNullOrEmpty(armorData.VisualChange);
+                if (hasNoLook && !isHelmet)
+                    Logger.LogWarning($"[NpcService] Mdl_SetVisualBody: armor {armorData.Name} of " +
+                                      $"{data.Npc.GetName(NpcNameSlot.Slot0)} has no visual_change - plain body",
+                        LogCat.Npc);
+                props.MdmName = isHelmet || hasNoLook ? data.Body : armorData.VisualChange;
             }
             else
             {

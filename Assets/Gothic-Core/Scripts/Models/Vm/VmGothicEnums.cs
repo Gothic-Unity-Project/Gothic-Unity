@@ -209,6 +209,17 @@ namespace Gothic.Core.Models.Vm
             BsModTransformed = 4096
         }
 
+        /// <summary>
+        /// C_Item.wear: where an armor sits. WEAR_HEAD items are helmets (mods, e.g. DoM's slave shackle).
+        /// </summary>
+        [Flags]
+        public enum ItemWear
+        {
+            Torso = 1 << 0,
+            Head = 1 << 1,
+            Effect = 1 << 4
+        }
+
         [Flags]
         public enum ItemFlags
         {
