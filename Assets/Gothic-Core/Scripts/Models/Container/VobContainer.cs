@@ -125,5 +125,15 @@ namespace Gothic.Core.Models.Container
             return item != null &&
                    ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
         }
+
+        /// <summary>
+        /// A ranged weapon (ITEM_KAT_FF: bows, crossbows).
+        /// </summary>
+        public bool IsRangedWeapon()
+        {
+            var item = GetItemInstance();
+            return item != null &&
+                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatFf) != 0;
+        }
     }
 }

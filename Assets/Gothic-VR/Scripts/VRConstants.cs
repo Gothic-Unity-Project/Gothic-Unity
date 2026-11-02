@@ -25,6 +25,8 @@ namespace Gothic.VR
             // Immersion
             // 1 = an unconscious NPC is finished off by a stab kept in the body (default), 0 = by any hit.
             public const string StabFinish = "stabFinish";
+            // 1 = a crossbow is reloaded by pulling its string (default), 0 = by itself.
+            public const string CrossbowReload = "crossbowReload";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";

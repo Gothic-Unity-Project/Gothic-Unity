@@ -36,8 +36,6 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
 
-        // One log per new enemy (PERC_ASSESSENEMY runs every perception tick).
-        private NpcInstance _lastLoggedEnemy;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly WayNetService _wayNetService;
@@ -397,17 +395,7 @@ namespace Gothic.Core.Adapters.Npc
 
                 // FIXME - Throws a lot of errors and warnings when NPCs are nearby monsters (e.g. Bridge guard next to OC)
                 if(Properties.EnemyNpc != null && !IsLookingAwayFrom(Properties.EnemyNpc))
-                {
-                    if (_lastLoggedEnemy != Properties.EnemyNpc)
-                    {
-                        _lastLoggedEnemy = Properties.EnemyNpc;
-                        Logger.Log($"[Perc] AssessEnemy {NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)} -> " +
-                                   $"{Properties.EnemyNpc.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)} " +
-                                   $"({Vector3.Distance(transform.position, Properties.EnemyNpc.GetUserData()?.Go?.transform.position ?? transform.position):F1} m)",
-                            LogCat.Ai);
-                    }
-                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
-                }
+                    _npcAiService.ExecuteAssessEnemy(Properties, NpcInstance);
             }
 
             // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never

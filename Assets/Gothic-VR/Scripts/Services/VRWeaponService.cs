@@ -64,6 +64,9 @@ namespace Gothic.VR.Services
         // The hero's stab finish (one stuck blade at a time).
         private VrStabFinishDomain _stabFinish;
 
+        // A held bow/crossbow (VRBow/VRCrossbow), null without one.
+        private VmGothicEnums.WeaponState? _readiedRangedState;
+
         // DeveloperConfig.EnableVrFists: a fist is an empty hand with grip + trigger held; it punches like a weapon swing.
         private const float _fistPunchVelocity = 2f;
         private const float _fistPunchCooldownSeconds = 0.5f;
@@ -411,8 +414,17 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// Called by VRCrossbow/VRBow (held in any hand) - null when released.
+        /// </summary>
+        public void SetRangedReadied(VmGothicEnums.WeaponState? rangedState)
+        {
+            _readiedRangedState = rangedState;
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > fist > nothing (bows and runes join with their PRs).
+        /// melee weapon in any hand > held crossbow/bow > fist > nothing (runes join with the magic PR).
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
         /// </summary>
         public void UpdateHeroWeaponState()
@@ -420,6 +432,8 @@ namespace Gothic.VR.Services
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon && _readiedRangedState.HasValue)
+                state = _readiedRangedState.Value;
             if (state == VmGothicEnums.WeaponState.NoWeapon && _isFistReadied)
                 state = VmGothicEnums.WeaponState.Fist;
 
