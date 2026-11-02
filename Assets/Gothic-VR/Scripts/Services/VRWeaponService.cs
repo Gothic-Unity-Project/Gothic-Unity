@@ -55,7 +55,8 @@ namespace Gothic.VR.Services
         [Inject] private ResourceCacheService _resourceCacheService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
         [Inject] private IVrInput _vrInput;
-        [Inject] private readonly VrHapticsService _hapticsService;
+        // Not VrHapticsService: it injects this service (AttackVibration) - a cycle, Reflex failed to inject both.
+        [Inject] private readonly IVrHaptics _vrHaptics;
         [Inject] private ContextInteractionService _contextInteractionService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -314,7 +315,7 @@ namespace Gothic.VR.Services
             if (!isSwinging || wasSwinging)
                 return;
 
-            _hapticsService.Vibrate(side, VrHapticPreset.FistSwing);
+            _vrHaptics.Vibrate(side, VrHapticPreset.FistSwing);
             var sound = GetFistSwingSound();
             if (sound != null)
                 _vrSfxPlayer.Play(_audioService.CreateAudioClip(sound.GetRandomSound()), hitbox.transform.position);
@@ -381,7 +382,7 @@ namespace Gothic.VR.Services
                 return;
 
             _lastPunchTime[hitbox.HandSide] = Time.time;
-            _hapticsService.Vibrate(hitbox.HandSide, VrHapticPreset.FistHit);
+            _vrHaptics.Vibrate(hitbox.HandSide, VrHapticPreset.FistHit);
             Logger.Log($"[VRFist] {hitbox.HandSide} punch at {speed:F1} m/s → {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
             GlobalEventDispatcher.FightHit.Invoke(hero, target, position);
         }
