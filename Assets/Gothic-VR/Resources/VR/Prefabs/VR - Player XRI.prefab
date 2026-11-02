@@ -2380,9 +2380,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrBodyAnchor
   _head: {fileID: 3795310480892305868}
   _heightBelowHead: 0.1
-  _pitchThreshold: 30
-  _catchUpAngle: 70
-  _catchUpSpeed: 90
 --- !u!1 &5943813740192046332
 GameObject:
   m_ObjectHideFlags: 0
@@ -4206,7 +4203,7 @@ MonoBehaviour:
   _angularDamping2HOneHanded: 0
   _angularDamping1HAnyHand2HTwoHanded: 0
   _weaponVelocityThreshold: 2
-  _weaponVelocityDropPercentage: 0.1
+  _weaponVelocityDropPercentage: 0.5
   _velocityCheckDuration: 0.5
   _velocitySampleCount: 5
 --- !u!114 &6245187427461270548
@@ -4340,6 +4337,7 @@ MonoBehaviour:
   _eyeHeight: 1.66
   _crouchHeight: 0.7
   _crouchSpeed: 1.5
+  _crouchDetectionMargin: 0.2
   _minCalibrationHeight: 0.5
 --- !u!1 &8603939626496884405
 GameObject:
@@ -4492,9 +4490,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrBodyAnchor
   _head: {fileID: 3795310480892305868}
   _heightBelowHead: 0.6
-  _pitchThreshold: 30
-  _catchUpAngle: 70
-  _catchUpSpeed: 90
 --- !u!1001 &74078208933106267
 PrefabInstance:
   m_ObjectHideFlags: 0
