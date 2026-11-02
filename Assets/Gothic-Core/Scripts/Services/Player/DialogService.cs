@@ -248,9 +248,9 @@ namespace Gothic.Core.Manager
 
         public void ExtAiOutput(NpcInstance self, NpcInstance target, string outputName)
         {
-            var isHero = self.Id == 0;
+            var isHero = IsHeroSpeaker(self);
             // Always the NPC we're talking to!
-            var speakerId = self.Id;
+            var speakerId = GetSpeakerId(self, isHero);
 
             var npcTalkingTo = isHero ? target : self;
 
@@ -284,9 +284,51 @@ namespace Gothic.Core.Manager
             Logger.LogWarning($"[Dialog] Hero has no line for {string.Join(", ", svmNames)}.", LogCat.Dialog);
         }
 
+        /// <summary>
+        /// The hero by instance, not by C_NPC.id == 0 - monsters don't set an id either (0). Speaker id 0 marks the hero
+        /// in Output/OutputSvm, others get a non-zero one.
+        /// </summary>
+        private bool IsHeroSpeaker(NpcInstance npc)
+        {
+            return _gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        private int GetSpeakerId(NpcInstance npc, bool isHero)
+        {
+            if (isHero)
+                return 0;
+            return npc.Id != 0 ? npc.Id : -1;
+        }
+
+        public void ExtAiOutputSvmOverlay(NpcInstance npc, NpcInstance target, string svmName)
+        {
+            var npcContainer = GetNpcContainer(npc);
+            var queue = npcContainer.Props.AnimationQueue;
+            var svmAction = new OutputSvm(
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, IsHeroSpeaker(npc)), string0: svmName,
+                    bool0: true),
+                npcContainer);
+
+            // Daedalus queues GoToNpc before AI_OutputSVM_Overlay in the same script execution.
+            // Reorder so the SVM fires first (fire-and-forget), then the NPC runs.
+            if (queue.Count > 0 && queue.Last() is GoToNpc)
+            {
+                var items = queue.ToArray();
+                queue.Clear();
+                for (var i = 0; i < items.Length - 1; i++)
+                    queue.Enqueue(items[i]);
+                queue.Enqueue(svmAction);
+                queue.Enqueue(items[items.Length - 1]);
+            }
+            else
+            {
+                queue.Enqueue(svmAction);
+            }
+        }
+
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
-            var isHero = npc.Id == 0;
+            var isHero = IsHeroSpeaker(npc);
 
             // Hero SVM: enqueue on target's queue (hero's queue is never processed); hero container provides voice ID.
             if (isHero && target != null)
@@ -304,7 +346,7 @@ namespace Gothic.Core.Manager
 
             var npcContainer = GetNpcContainer(npc);
             npcContainer.Props.AnimationQueue.Enqueue(new OutputSvm(
-                new AnimationAction(int0: npcContainer.Instance.Id, string0: svmName),
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, false), string0: svmName),
                 npcContainer));
         }
 

@@ -18,9 +18,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.CurrentInteractableSlot = null;
                 Props.CurrentInteractableStateId = -1;
                 Props.BodyState = VmGothicEnums.BodyState.BsStand;
-
-                PhysicsService.EnablePhysicsForNpc(PrefabProps);
             }
+
+            // Re-enable physics in case it was disabled by a fall (e.g. unconscious recovery).
+            PhysicsService.EnablePhysicsForNpc(PrefabProps);
 
             // Playing the idle blends out a possibly running Mobsi loop animation on the same layer.
             PrefabProps.AnimationSystem.PlayIdleAnimation();

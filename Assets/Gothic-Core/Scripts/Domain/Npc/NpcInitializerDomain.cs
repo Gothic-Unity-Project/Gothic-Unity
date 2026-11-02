@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Gothic.Core.Models.Npc;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties;
@@ -122,9 +123,10 @@ namespace Gothic.Core.Domain.Npc
         /// Spawns an NPC during gameplay (not during world loading), e.g. by the Marvin spawn cheat.
         /// The NPC is lazy loaded like all others: its mesh is created once the culling marks it visible.
         /// </summary>
-        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation)
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
         {
             var container = AllocZkInstance(npcIndex);
+            container.SummonedBy = summonedBy;
 
             // Same placement as a world-load NPC (free area around the spot + culling entry). A mid-game
             // Wld_InsertNpc spawn needs the same steps; once both exist, they should share one method.
@@ -132,6 +134,10 @@ namespace Gothic.Core.Domain.Npc
             go.transform.SetPositionAndRotation(GetFreeAreaAtSpawnPoint(position), rotation);
             _npcMeshCullingService.AddCullingEntry(go);
 
+            // The engine's default walk mode is running; G1's ZS_MM_SummonedByPC never sets one, so a summoned golem
+            // walked after the hero (it only ran in fights).
+            if (summonedBy != null && container.Vob?.AiHuman != null)
+                container.Vob.AiHuman.WalkMode = (int)VmGothicEnums.WalkMode.Run;
             return go;
         }
 
@@ -279,7 +285,7 @@ namespace Gothic.Core.Domain.Npc
             // Prepare some variables, which need to be calculated from save game.
             // We simply say: Restart whole logic for NPCs  .
             // FIXME - It's a hack for now, as the normal Vob.*Routine/*State variables aren't handled as of now.
-            npc.Props.CurrentLoopState = NpcProperties.LoopState.None;
+            npc.Props.CurrentLoopState = LoopState.None;
             npc.Vob.CurrentStateValid = false;
             npc.Vob.NextStateValid = false;
             

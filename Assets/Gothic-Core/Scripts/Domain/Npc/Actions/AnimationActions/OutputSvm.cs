@@ -18,12 +18,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         public override void Start()
         {
             var svm = VmCacheService.TryGetSvmData(NpcInstance.Voice);
-            _preparedSvmFileName = svm?.GetAudioName(Action.String0);
+            // G1's ZS_ClearRoom says "$WhyAreYouInHere " (trailing space) - not mapped,
+            // the NPC moved his lips without sound and subtitle.
+            var key = Action.String0;
+            if (key != null)
+                key = key.Trim();
+            _preparedSvmFileName = svm?.GetAudioName(key);
 
             // ZenKit's SvmInstance only knows G1's C_SVM members. Vanilla scripts name every entry SVM_<voice>_<key>,
             // like the OU.BIN subtitle.
-            if (_preparedSvmFileName == null && svm != null && !string.IsNullOrEmpty(Action.String0))
-                _preparedSvmFileName = $"SVM_{NpcInstance.Voice}_{Action.String0.TrimStart('$')}";
+            if (_preparedSvmFileName == null && svm != null && !string.IsNullOrEmpty(key))
+                _preparedSvmFileName = $"SVM_{NpcInstance.Voice}_{key.TrimStart('$')}";
 
             if (_preparedSvmFileName == null)
             {
@@ -33,10 +38,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             base.Start();
 
-            // Hero SVM (e.g. "Hej ty!") is fire-and-forget — NPC queue continues immediately
-            // so the NPC can turn and greet in parallel. Regular Output dialog lines stay blocking.
+            // Hero SVM or overlay SVM: audio plays, queue continues immediately.
+            // Bool0 = true means AI_OutputSVM_Overlay — fire-and-forget for NPC combat chatter.
             if (Action.Int0 == 0)
                 StartHeroFireAndForget();
+            else if (Action.Bool0)
+            {
+                PrefabProps.NpcSubtitles.ScheduleHide(_audioPlaySeconds);
+                IsFinishedFlag = true;
+            }
         }
     }
 }

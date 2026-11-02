@@ -208,6 +208,21 @@ namespace Gothic.Core.Services.Caches
         /// Please consider using SoundCreator.ToAudioClip() instead.
         /// </summary>
         [CanBeNull]
+        /// <summary>
+        /// A sound from _WORK/DATA/SOUND/{soundFolder} first (SFX for sound effects), then by name anywhere - a speech file
+        /// with the same name (another language's dubbing) doesn't win.
+        /// </summary>
+        public byte[] TryGetSoundBytes([NotNull] string key, [CanBeNull] string soundFolder)
+        {
+            if (soundFolder != null)
+            {
+                var node = Vfs.Resolve($"/_WORK/DATA/SOUND/{soundFolder}/{GetPreparedKey(key)}.wav");
+                if (node != null)
+                    return node.Buffer.Bytes;
+            }
+            return TryGetSoundBytes(key);
+        }
+
         public byte[] TryGetSoundBytes([NotNull] string key)
         {
             var node = Vfs.Find($"{GetPreparedKey(key)}.wav");

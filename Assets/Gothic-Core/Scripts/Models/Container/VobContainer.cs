@@ -12,6 +12,11 @@ namespace Gothic.Core.Models.Container
 {
     public class VobContainer
     {
+        /// <summary>
+        /// The player holds it (in a hand) - set by the platform module (VR grab/release).
+        /// </summary>
+        public bool IsHeldByPlayer;
+
         public IVirtualObject Vob;
 
         /// <summary>

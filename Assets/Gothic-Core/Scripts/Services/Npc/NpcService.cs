@@ -204,6 +204,11 @@ namespace Gothic.Core.Services.Npc
         }
 
         // FIXME - I think they are overwritten when an NPC is loaded from a SaveGame, as we Initialize them again...
+        public GameObject SpawnNpcRuntime(int npcIndex, Vector3 position, Quaternion rotation, NpcInstance summonedBy = null)
+        {
+            return _initializerDomain.SpawnNpcRuntime(npcIndex, position, rotation, summonedBy);
+        }
+
         public void ExtNpcSetTalentValue(NpcInstance npc, VmGothicEnums.Talent talent, int level)
         {
             var vob = npc.GetUserData()!.Vob;
@@ -244,7 +249,21 @@ namespace Gothic.Core.Services.Npc
             if (data.Armor >= 0)
             {
                 var armorData = _vmCacheService.TryGetItemData(data.Armor);
-                props.EquippedItems.Add(_vmCacheService.TryGetItemData(data.Armor));
+
+                // Mdl_SetVisualBody(..., armorInstance) equips the armor in the engine - incl. its protection.
+                // Most NPCs get their armor this way, not via EquipItem(). Same armor again (re-dressing): the slot
+                // conflict unequips + re-equips it, so nothing is doubled. An armor that isn't an item leaves the NPC in
+                // its body - a null armor threw here and stopped the whole world's NPC creation.
+                if (armorData == null)
+                {
+                    Logger.LogWarning($"[Mdl_SetVisualBody] {data.Npc.GetName(NpcNameSlot.Slot0)}: armor " +
+                                      $"'{_gameStateService.GothicVm.GetSymbolByIndex(data.Armor)?.Name}' ({data.Armor}) " +
+                                      "isn't an item - no armor.", LogCat.Npc);
+                    props.MdmName = data.Body;
+                    return;
+                }
+
+                _npcInventoryService.EquipItemWithEffects(data.Npc, armorData, deferItemFunctions: true);
                 props.MdmName = armorData.VisualChange;
             }
             else
@@ -284,13 +303,33 @@ namespace Gothic.Core.Services.Npc
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
         {
-            return _multiTypeCacheService.NpcCache
+            var npc = _multiTypeCacheService.NpcCache
                 .FirstOrDefault(i => i.Instance.Index == instanceId)?
                 .Instance;
+            if (npc != null)
+                return npc;
+
+            // The engine resolves any instance symbol, also a variable like SELF/OTHER - Mroczne Tajemnice's
+            // ZS_DragonEscape_Loop calls B_KillNpc(self) and then inserts the dragon's human form (NON_2013_ALGIRION);
+            // a null NPC broke the function before the insert and the dragon just vanished.
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(instanceId);
+            if (symbol is not { Type: DaedalusDataType.Instance } || symbol.GetInstance() is not NpcInstance variableNpc)
+                return null;
+
+            Logger.Log($"[NpcService] Hlp_GetNpc({symbol.Name}): the NPC the variable points to", LogCat.Npc);
+            return variableNpc;
         }
 
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
+            // A script passing a missing NPC (Hlp_GetNpc found none) mustn't break the calling function.
+            if (npc?.GetUserData()?.Vob == null)
+            {
+                Logger.LogWarning($"[NpcService] Npc_ChangeAttribute({attributeId}, {value}) without an NPC - skipped",
+                    LogCat.Npc);
+                return;
+            }
+
             var container = npc.GetUserData();
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
@@ -423,6 +462,10 @@ namespace Gothic.Core.Services.Npc
             _multiTypeCacheService.NpcCache.Add(npcData);
             _vm.InitInstance(heroInstance);
             vobNpc.CopyFromInstanceData(heroInstance);
+            // ZenKit initialises FightMode to 6 (its None enum), which we would otherwise
+            // misinterpret as WeaponState.Mage. Hero in VR never uses the AI draw-weapon flow,
+            // so force NoWeapon (0) so C_NpcIsInFightMode and AssessFighter checks are correct.
+            vobNpc.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
 
             if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
             {
@@ -450,7 +493,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
         {
-            npc.GetUserData().Props.MdsNameOverlay = overlayName;
+            var props = npc.GetUserData().Props;
+            props.MdsNameOverlay = overlayName;
+            props.MdsNameRoutineOverlay = overlayName;
         }
 
         public void ExtNpcSetToFistMode(NpcInstance npc)
@@ -477,8 +522,12 @@ namespace Gothic.Core.Services.Npc
         public void ExtNpcSetToFightMode(NpcInstance npc, int itemIndex)
         {
             var item = _vmCacheService.TryGetItemData(itemIndex);
-            npc.GetUserData()!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
-            npc.GetUserData().Props.CurrentItem = itemIndex;
+            var container = npc.GetUserData();
+            // VR hero never draws weapons via Gothic's fight-mode system — physical VR hands handle combat.
+            // Only update FightMode for non-hero NPCs so Daedalus fmode stays 0 for the hero.
+            if (container?.PrefabProps?.IsHero() != true)
+                container!.Vob.FightMode = (int)VmGothicEnums.WeaponState.W1H;
+            container!.Props.CurrentItem = itemIndex;
             
             // Also add item into Inventory (G1; e.g., Gobbo NailMace).
             // TODO - Check if it's the same in G2.
@@ -704,6 +753,31 @@ namespace Gothic.Core.Services.Npc
             }
         }
         
+        /// <summary>
+        /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
+        /// the item state resets.
+        /// </summary>
+        public void RemoveUsedItemFromHand(NpcContainer npcContainer)
+        {
+            var props = npcContainer?.Props;
+            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+                return;
+
+            var slotGo = npcContainer.PrefabProps?.Bip01 != null
+                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
+                : null;
+            if (slotGo != null)
+            {
+                for (var i = slotGo.transform.childCount - 1; i >= 0; i--)
+                    Object.Destroy(slotGo.transform.GetChild(i).gameObject);
+            }
+
+            Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
+                       $"'{props.UsedItemSlot}'", LogCat.Npc);
+            props.UsedItemSlot = string.Empty;
+            props.ItemAnimationState = -1;
+        }
+
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
         {
             if (slot2.Any())

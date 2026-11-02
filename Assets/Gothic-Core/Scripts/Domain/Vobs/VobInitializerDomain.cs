@@ -647,7 +647,7 @@ namespace Gothic.Core.Domain.Vobs
             if (fileName == null)
                 return;
 
-            var clip = await _audioService.CreateAudioClipAsync(fileName);
+            var clip = await _audioService.CreateSfxAudioClipAsync(fileName);
 
             // Unloaded meanwhile (e.g. world change).
             if (source == null || clip == null)
@@ -666,7 +666,7 @@ namespace Gothic.Core.Domain.Vobs
         public AudioClip GetSoundClip(string soundName)
         {
             var fileName = GetSoundFileName(soundName);
-            return fileName == null ? null : _audioService.CreateAudioClip(fileName);
+            return fileName == null ? null : _audioService.CreateSfxAudioClip(fileName);
         }
 
         /// <summary>

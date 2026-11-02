@@ -90,6 +90,10 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
             containerBuilder.AddSingleton(typeof(FightService));
+            containerBuilder.AddSingleton(typeof(NpcWaterService));
+            containerBuilder.AddSingleton(typeof(NpcNavMeshService));
+            containerBuilder.AddSingleton(typeof(ProjectileService));
+            containerBuilder.AddSingleton(typeof(Services.Audio.GroundSoundService));
             containerBuilder.AddSingleton(typeof(DocService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
 

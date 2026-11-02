@@ -24,6 +24,12 @@ namespace Gothic.Core.Services.Player
         public Quaternion HeroSpawnRotation;
         
         public string LastLevelChangeTriggerVobName;
+
+
+        /// <summary>
+        /// God mode (Marvin): hits and falls don't hurt the hero.
+        /// </summary>
+        public bool IsGodMode;
         public NpcContainer HeroContainer { get; private set; }
         
         

@@ -8,7 +8,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
-    /// AI_WhirlAround like the engine - the startled jump around towards the
+    /// DeveloperConfig.EnableAiWhirlAround: AI_WhirlAround like the engine - the startled jump around towards the
     /// target (Humans.mds t_surprise_CW / t_surprise_CCW, 16 frames), the body turns with it. G1 B_WhirlAround uses it
     /// when the NPC can't see the target, e.g. ZS_AssessFighter when the hero draws a weapon or a rune behind him.
     /// Models without the animation (monsters) turn normally.

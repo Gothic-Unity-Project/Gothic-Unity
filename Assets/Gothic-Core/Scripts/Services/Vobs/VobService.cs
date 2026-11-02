@@ -58,7 +58,13 @@ namespace Gothic.Core.Services.Vobs
         private const int VobInitBatchSize = 10;
 
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
+        private GameObject _vobRootGo;
         private Queue<VobLoader> _objectsToInitQueue = new();
+
+        /// <summary>
+        /// VOBs of the world still waiting to be created (spawned NPCs wait for them before they snap to the ground).
+        /// </summary>
+        public bool HasPendingVobInits => _objectsToInitQueue.Count > 0;
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
@@ -127,6 +133,14 @@ namespace Gothic.Core.Services.Vobs
             await Task.Yield();
 
             PostCreateWorldVobs();
+        }
+
+        /// <summary>
+        /// The collider belongs to a VOB of the current world (all VOBs live under the world's VOB root).
+        /// </summary>
+        public bool IsVobCollider(Collider collider)
+        {
+            return _vobRootGo != null && collider != null && collider.transform.IsChildOf(_vobRootGo.transform);
         }
 
         public GameObject GetRootGameObjectOfType(VirtualObjectType type)
@@ -227,16 +241,16 @@ namespace Gothic.Core.Services.Vobs
         /// Create item with mesh only. No special handling like grabbing etc.
         /// e.g. used for NPCs drinking beer mesh in their hand.
         /// </summary>
-        public void CreateItemMesh(int itemId, GameObject parentGo)
+        public GameObject CreateItemMesh(int itemId, GameObject parentGo)
         {
             if (itemId == -1)
             {
                 Logger.LogError("No ItemId found. Is this a bug on daedalus or our side?", LogCat.Vob);
-                return; // no item
+                return null; // no item
             }
             var item = _vmCacheService.TryGetItemData(itemId);
 
-            _initializerDomain.CreateItemMesh(item, parentGo, default);
+            return _initializerDomain.CreateItemMesh(item, parentGo, default);
         }
 
         /// <summary>
@@ -266,6 +280,8 @@ namespace Gothic.Core.Services.Vobs
         private void PreCreateWorldVobs(List<IVirtualObject> vobs, GameObject rootGo, LoadingService loading)
         {
             loading.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.VOB), GetTotalVobCount(vobs));
+
+            _vobRootGo = rootGo;
 
             // We reset the GO dictionary.
             _vobTypeParentGOs = new();
@@ -413,16 +429,34 @@ namespace Gothic.Core.Services.Vobs
             return container;
         }
         
+        /// <summary>
+        /// With a user, like the engine, a mob whose slots (ZS_*) are all used by
+        /// other NPCs isn't free - two miners spawned next to each other hacked at the same ore vein. A bench with two
+        /// slots takes two.
+        /// </summary>
         [CanBeNull]
-        public VobContainer GetFreeInteractableWithin10M(Vector3 position, string visualScheme)
+        public VobContainer GetFreeInteractableWithin10M(Vector3 position, string visualScheme,
+            NpcContainer user = null)
         {
             if (!_gameStateService.VobsInteractable.TryGetValue(visualScheme.ToUpper(), out var vobs))
                 return null;
-            
-            return vobs
+
+            var candidates = vobs
                 .Where(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position) < _interactableLookupDistance)
-                .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position))
-                .FirstOrDefault();
+                .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position));
+
+            if (user == null)
+                return candidates.FirstOrDefault();
+
+            foreach (var mob in candidates)
+            {
+                if (GetOtherMobUsers(mob, user).Count() < GetSlotCount(mob))
+                    return mob;
+            }
+
+            Logger.Log($"[VobService] No free '{visualScheme}' within {_interactableLookupDistance} m for " +
+                       $"{user.Instance?.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)}", LogCat.Vob);
+            return null;
         }
         public void ExtWldInsertItem(int itemInstance, string spawnPoint)
         {
@@ -797,6 +831,162 @@ namespace Gothic.Core.Services.Vobs
             _multiTypeCacheService.VobCache.Remove(container);
             _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
             Object.Destroy(container.Go);
+        }
+
+        private static readonly int _dropColliderLayer = LayerMask.NameToLayer("TransparentFX");
+
+        /// <summary>
+        /// Spawns an item VOB at a given world position with physics — used for weapon drops on NPC death/knockout.
+        /// </summary>
+        public VobContainer DropItemAtPosition(int symbolIndex, Vector3 worldPosition)
+        {
+            var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
+            if (!_configService.Dev.EnableVOBs || (!activeTypes.IsEmpty() && activeTypes.Contains(VirtualObjectType.oCItem)))
+                return null;
+
+            var sym = _gameStateService.GothicVm.GetSymbolByIndex(symbolIndex);
+            if (sym == null)
+            {
+                Logger.LogWarning($"[VobService] DropItemAtPosition: no symbol at index {symbolIndex}", LogCat.Vob);
+                return null;
+            }
+
+            Logger.Log($"[VobService] DropItemAtPosition: '{sym.Name}' at {worldPosition}", LogCat.Vob);
+
+            var vob = new Item
+            {
+                Name = sym.Name,
+                Position = worldPosition.ToZkVector(),
+                Rotation = Quaternion.identity.ToZkMatrix(),
+                Visual = new VisualMesh(),
+                Instance = sym.Name
+            };
+
+            var container = CreateContainerWithLoader(vob);
+            CreateVobNow(container);
+            // It's a regular world item from now on. Without a culling entry, grabbing it logs
+            // "Couldn't find object in Culling list" and its position updates aren't tracked.
+            _vobMeshCullingService.AddCullingEntry(container);
+            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+
+            // Add a solid BoxCollider so the existing Rigidbody has something to rest on world geometry.
+            // IMPORTANT: do NOT add a second Rigidbody — the oCItem prefab already has one (kinematic by
+            // default). VrWeaponAttackDomain.TryHandle() does GetComponentInChildren<Rigidbody>() to track
+            // weapon velocity; a second root Rigidbody would shadow the prefab's one and break hit detection
+            // for weapons picked directly from the ground.
+            if (container.Go != null)
+            {
+                // On a child on TransparentFX - it rests on the world
+                // (Default) but neither blocks the hero (Player, Hand) nor stops arrows/bolts. On the loader (Default) an
+                // archer's missed bolts lay in the ground in front of the hero, blocked his way and the next bolts hit
+                // them - they piled up in one spot. Grabbing uses the item mesh's own colliders.
+                var colliderGo = container.Go;
+                colliderGo = new GameObject("DropCollider") { layer = _dropColliderLayer };
+                colliderGo.transform.SetParent(container.Go.transform, false);
+                var col = colliderGo.AddComponent<BoxCollider>();
+                col.size = new Vector3(0.1f, 0.06f, 0.5f);
+                col.center = new Vector3(0f, 0.03f, 0f);
+
+                var rb = container.Go.GetComponentInChildren<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = false;
+                    rb.mass = 1f;
+                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                }
+            }
+
+            return container;
+        }
+
+        /// <summary>
+        /// Finds the nearest world VobContainer for a given item symbol within maxDist meters.
+        /// Uses actual GO position and skips kinematic (VR-grabbed) items.
+        /// </summary>
+        public VobContainer FindNearbyWorldItemContainer(string instanceName, Vector3 nearPosition, float maxDist = 5f)
+        {
+            VobContainer nearest = null;
+            var minDist = maxDist;
+
+            foreach (var container in _multiTypeCacheService.VobCache)
+            {
+                if (container.Vob is not IItem vobItem) continue;
+                if (container.Go == null) continue;
+                if (container.IsHeldByPlayer) continue;
+
+                var rb = container.Go.GetComponent<Rigidbody>();
+                if (rb != null && rb.isKinematic) continue;
+
+                var itemSym = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+                if (!string.Equals(itemSym, instanceName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var dist = Vector3.Distance(container.Go.transform.position, nearPosition);
+                if (dist >= minDist) continue;
+
+                minDist = dist;
+                nearest = container;
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// The nearest slot not taken by another NPC.
+        /// </summary>
+        [CanBeNull]
+        public GameObject GetNearestFreeSlot(VobContainer mob, Vector3 position, NpcContainer user)
+        {
+            var taken = GetOtherMobUsers(mob, user)
+                .Select(i => i.PrefabProps.CurrentInteractableSlot)
+                .Where(i => i != null)
+                .ToHashSet();
+
+            return GetSlots(mob.Go)
+                .Where(i => !taken.Contains(i))
+                .OrderBy(i => Vector3.Distance(i.transform.position, position))
+                .FirstOrDefault();
+        }
+
+        public bool TryGetMover(string name, out VobContainer container)
+        {
+            if (!TryGetMovers(name, out var list) || list.Count == 0)
+            {
+                container = null;
+                return false;
+            }
+            container = list[0];
+            return true;
+        }
+
+        /// <summary>
+        /// Other NPCs using this mob (in one of its states) or walking to it - a reservation left by an interrupted
+        /// walk doesn't block it.
+        /// </summary>
+        public IEnumerable<NpcContainer> GetOtherMobUsers(VobContainer mob, NpcContainer user)
+        {
+            return _multiTypeCacheService.NpcCache.Where(i =>
+                i != null && i != user && i.PrefabProps != null && i.PrefabProps.CurrentInteractable == mob &&
+                (i.Props.CurrentInteractableStateId >= 0 ||
+                 i.Props.CurrentAction is Gothic.Core.Domain.Npc.Actions.AnimationActions.UseMob));
+        }
+
+        private int GetSlotCount(VobContainer mob)
+        {
+            var slots = GetSlots(mob.Go);
+            // Not loaded yet or no slot objects: one user, like a mob with a single position.
+            return slots.Count > 0 ? slots.Count : 1;
+        }
+
+        private List<GameObject> GetSlots([CanBeNull] GameObject go)
+        {
+            if (go == null || go.transform.childCount == 0 || go.transform.GetChild(0).childCount == 0)
+                return new List<GameObject>();
+
+            // We need to move into next elements starting from VobLoader root.
+            var zm = go.transform.GetChild(0).GetChild(0);
+            return zm.gameObject.GetAllDirectChildren()
+                .Where(i => i.name.ContainsIgnoreCase("ZS"))
+                .ToList();
         }
     }
 }

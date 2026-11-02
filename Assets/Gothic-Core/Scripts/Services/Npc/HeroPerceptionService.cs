@@ -1,3 +1,4 @@
+using Gothic.Core.Models.Container;
 using System;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -37,7 +38,12 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Npc_GetDetectedMob / Npc_IsDetectedMobOwnedBy*: the mob the hero uses (or used last).
         /// </summary>
-        private IInteractiveObject _heroDetectedMob;
+        public IInteractiveObject HeroDetectedMob { get; private set; }
+
+        /// <summary>
+        /// Snd_IsSourceNpc / Npc_CanSeeSource: who made the last noise (the hero's steps come with the movement PR).
+        /// </summary>
+        public NpcContainer SoundSourceNpc { get; private set; }
 
         public void Update()
         {
@@ -96,7 +102,7 @@ namespace Gothic.Core.Services.Npc
             if (mob == null)
                 return;
 
-            _heroDetectedMob = mob;
+            HeroDetectedMob = mob;
             if (mob == _lastUseMob && Time.time < _lastUseMobTime + _sameMobRepeatSeconds)
                 return;
             _lastUseMob = mob;
@@ -118,7 +124,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public string GetHeroDetectedMobScheme()
         {
-            return _heroDetectedMob.GetVisualScheme();
+            return HeroDetectedMob.GetVisualScheme();
         }
 
         /// <summary>
@@ -126,7 +132,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool IsHeroDetectedMobOwnedBy(NpcInstance npc)
         {
-            var owner = (_heroDetectedMob as IMovableObject)?.Owner;
+            var owner = (HeroDetectedMob as IMovableObject)?.Owner;
             if (npc == null || string.IsNullOrEmpty(owner))
                 return false;
             var npcName = _gameStateService.GothicVm.GetSymbolByIndex(npc.Index)?.Name;
@@ -138,7 +144,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool IsHeroDetectedMobOwnedByGuild(int guild)
         {
-            var ownerGuild = (_heroDetectedMob as IMovableObject)?.OwnerGuild;
+            var ownerGuild = (HeroDetectedMob as IMovableObject)?.OwnerGuild;
             if (string.IsNullOrEmpty(ownerGuild))
                 return false;
             try

@@ -9,7 +9,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         private int _action => Action.Int0;
         private bool _callEndFunction => Action.Bool0;
-        // AI_StartState(..., 1, ...): the _End function of the state this one replaces.
+        // DeveloperConfig.EnableQueuedStateEnd: the _End function of the state this one replaces.
         private int _endFunction => Action.Int1;
         private string _wayPoint => Action.String0;
         private NpcInstance _other => Action.Instance0;

@@ -1,57 +1,191 @@
+using System.Linq;
+using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
+using Gothic.Core.Manager;
 using Gothic.Core.Services.Npc;
+using Logger = Gothic.Core.Logging.Logger;
+using Reflex.Attributes;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class UndrawWeapon : AbstractAnimationAction
     {
+        [Inject] private readonly AudioService _audioService;
+
+        private VmGothicEnums.WeaponState _weaponState;
+        private bool _weaponMoved;
+        private float _weaponMoveTime;
+
         public UndrawWeapon(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
         }
 
         public override void Start()
         {
-            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            _weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
+            Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} fightMode={_weaponState}", LogCat.Fight);
 
-            if (weaponState == VmGothicEnums.WeaponState.NoWeapon)
+            if (_weaponState == VmGothicEnums.WeaponState.NoWeapon)
             {
                 IsFinishedFlag = true;
                 return;
             }
 
-            MoveWeaponBackToStowSlot(weaponState);
+            var prefix = AnimationService.GetWeaponAnimationPrefix(_weaponState);
+            var walkMode = (VmGothicEnums.WalkMode)Vob.AiHuman.WalkMode;
 
-            var prefix = AnimationService.GetWeaponAnimationPrefix(weaponState);
+            // Run mode: layer-1 sheath (t_1hRun_2_1h, DEF_UNDRAWSOUND at frame 5 of 20 = 25%).
+            // Walk mode: layer-2 sheath (t_1hMove_2_Move, DEF_UNDRAWSOUND at frame 6 of 24 = 25%).
+            // Both animations fire the weapon-stow event at ~25% of their duration.
+            var animationName = walkMode == VmGothicEnums.WalkMode.Run
+                ? $"t_{prefix}Run_2_{prefix}"
+                : $"t_{prefix}Move_2_Move";
 
-            // From here on, follow-up animations are weaponless again (s_RunL, ...).
-            Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
-
-            var animationName = $"t_{prefix}Move_2_Move";
+            Logger.Log($"[UndrawWeapon] walkMode={walkMode} → playing '{animationName}'", LogCat.Animation);
 
             if (!PrefabProps.AnimationSystem.PlayAnimation(animationName))
             {
+                // No sheath animation — apply state directly.
+                ApplyVisualSheath();
+                ApplyStateSheath();
                 IsFinishedFlag = true;
                 return;
             }
 
             ActionEndEventTime = PrefabProps.AnimationSystem.GetAnimationDuration(animationName);
+            // Weapon moves at 25% of the sheath animation — matches DEF_UNDRAWSOUND frame in HUMANS.MDS.
+            _weaponMoveTime = ActionEndEventTime * 0.25f;
+        }
+
+        public override void Tick()
+        {
+            base.Tick();
+            if (IsFinishedFlag) return;
+
+            if (!_weaponMoved && ActionTime >= _weaponMoveTime)
+            {
+                _weaponMoved = true;
+                Logger.Log($"[UndrawWeapon] frame-6 event — moving weapon to stow slot", LogCat.Fight);
+                ApplyVisualSheath();
+            }
+        }
+
+        protected override void AnimationEnd()
+        {
+            if (!_weaponMoved)
+            {
+                _weaponMoved = true;
+                ApplyVisualSheath();
+            }
+            ApplyStateSheath();
+            base.AnimationEnd();
+        }
+
+        // Reparent weapon mesh + play sound — happens at the DEF_UNDRAWSOUND frame (~25% through animation).
+        private void ApplyVisualSheath()
+        {
+            if (_weaponState == VmGothicEnums.WeaponState.NoWeapon || _weaponState == VmGothicEnums.WeaponState.Fist)
+                return;
+            MoveWeaponBackToStowSlot(_weaponState);
+            PlayWeaponSound(sheathing: true);
+        }
+
+        // Game-state changes — applied at end of animation so overlays and fight mode update cleanly.
+        private void ApplyStateSheath()
+        {
+            if (_weaponState == VmGothicEnums.WeaponState.NoWeapon || _weaponState == VmGothicEnums.WeaponState.Fist)
+                return;
+            Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
+            Props.MdsNameOverlay = Props.MdsNameRoutineOverlay;
+            Props.CurrentItem = -1;
+            if (_weaponState == VmGothicEnums.WeaponState.Mage)
+            {
+                if (NpcContainer.ActiveSpellVfxGo != null)
+                {
+                    UnityEngine.Object.Destroy(NpcContainer.ActiveSpellVfxGo);
+                    NpcContainer.ActiveSpellVfxGo = null;
+                }
+
+                // B_DrawSpell (switching spells mid-fight) calls AI_UnreadySpell immediately followed
+                // by AI_ReadySpell in the same Daedalus tick — ExtAiReadySpell already set ActiveSpell
+                // to the NEW spell synchronously, before this queued UndrawWeapon animation even started
+                // playing. Blindly zeroing it here would wipe that back to 0 (= "Light", spellFXInstanceNames[0])
+                // once this animation finishes, so the mage would visibly cast Light instead of the spell
+                // it actually switched to. Only clear it when nothing is about to re-draw magic right after.
+                var isSwitchingSpells = Props.AnimationQueue.OfType<DrawWeapon>().Any(d => d.IsMagicRequest);
+                if (!isSwitchingSpells)
+                    NpcContainer.ActiveSpell = 0;
+            }
+        }
+
+        private void PlayWeaponSound(bool sheathing)
+        {
+            if (_weaponState == VmGothicEnums.WeaponState.Fist || _weaponState == VmGothicEnums.WeaponState.Mage)
+                return;
+
+            var soundName = (_weaponState == VmGothicEnums.WeaponState.Bow || _weaponState == VmGothicEnums.WeaponState.CBow)
+                ? (sheathing ? DaedalusConst.SoundUndrawWood : DaedalusConst.SoundDrawWood)
+                : (sheathing ? DaedalusConst.SoundUndrawMetal : DaedalusConst.SoundDrawMetal);
+
+            var clip = _audioService.GetRandomSoundClip(soundName);
+            if (clip != null)
+                PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
         private void MoveWeaponBackToStowSlot(VmGothicEnums.WeaponState weaponState)
         {
-            // Fists carry no mesh.
-            if (weaponState == VmGothicEnums.WeaponState.Fist)
+            if (weaponState == VmGothicEnums.WeaponState.Fist || weaponState == VmGothicEnums.WeaponState.Mage)
                 return;
 
-            var handGo = NpcGo.FindChildRecursively(DrawWeapon.GetHandSlotName(weaponState));
-            var slotGo = NpcGo.FindChildRecursively(DrawWeapon.GetStowSlotName(weaponState));
+            // Use GOs recorded at draw time if available; otherwise fall back to slot name lookup.
+            var handGo = NpcContainer.WeaponHandSlotGo;
+            var slotGo = NpcContainer.WeaponStowSlotGo;
+            NpcContainer.WeaponHandSlotGo = null;
+            NpcContainer.WeaponStowSlotGo = null;
 
-            if (handGo == null || slotGo == null || handGo.transform.childCount == 0)
+            var handSlotName = DrawWeapon.GetHandSlotName(weaponState);
+            var stowSlotName = DrawWeapon.GetStowSlotName(weaponState);
+
+            if (handGo == null)
+                handGo = NpcGo.FindChildRecursively(handSlotName);
+            if (slotGo == null)
+                slotGo = NpcGo.FindChildRecursively(stowSlotName);
+
+            if (handGo == null)
+            {
+                Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} handSlot '{handSlotName}' not found!", LogCat.Fight);
                 return;
+            }
+            if (slotGo == null)
+            {
+                Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} stowSlot '{stowSlotName}' not found!", LogCat.Fight);
+                return;
+            }
+            if (handGo.transform.childCount == 0)
+            {
+                Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} handSlot '{handGo.name}' has no children — weapon not in hand!", LogCat.Fight);
+                return;
+            }
 
+            Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} moving weapon from '{handGo.name}' → '{slotGo.name}'", LogCat.Fight);
             handGo.transform.GetChild(0).gameObject.SetParent(slotGo, true, true);
+        }
+
+        /// <summary>
+        /// Immediately reparent weapon mesh and update fight state without playing the sheath animation.
+        /// Called when a state change discards the queue before UndrawWeapon can execute normally.
+        /// </summary>
+        public void SheathImmediately()
+        {
+            if (_weaponState == VmGothicEnums.WeaponState.NoWeapon || _weaponState == VmGothicEnums.WeaponState.Fist)
+                return;
+
+            Logger.LogWarning($"[UndrawWeapon] {NpcGo.transform.parent?.name} SheathImmediately fightMode={_weaponState}", LogCat.Fight);
+            ApplyVisualSheath();
+            ApplyStateSheath();
         }
     }
 }
