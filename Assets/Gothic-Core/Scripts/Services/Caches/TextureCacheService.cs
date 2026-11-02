@@ -128,22 +128,14 @@ namespace Gothic.Core.Services.Caches
             //    Logger.LogWarning($"Texture {zkTexture.Name} has no Mips and won't get one this way.", LogCat.Mesh);
             //  }
             // Let Unity generate Mipmaps if they aren't provided by Gothic texture itself.
-            var updateMipmaps = zkTexture.MipmapCount == 1;
-            
+            var mipCount = zkTexture.MipmapCount;
+            var updateMipmaps = mipCount == 1;
+
             // Use Gothic's mips if provided.
-            texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, zkTexture.MipmapCount, false);
-            for (var i = 0; i < zkTexture.MipmapCount; i++)
+            texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, mipCount, false);
+            for (var i = 0; i < mipCount; i++)
             {
-                if (format == TextureFormat.RGBA32)
-                {
-                    // RGBA is uncompressed format.
-                    texture.SetPixelData(zkTexture.AllMipmapsRgba[i], i);
-                }
-                else
-                {
-                    // Raw means "compressed data provided by Gothic texture"
-                    texture.SetPixelData(zkTexture.AllMipmapsRaw[i], i);
-                }
+                texture.SetPixelData(GetMipmapData(zkTexture, i, format), i);
             }
 
             texture.Apply(updateMipmaps, true);
@@ -157,6 +149,69 @@ namespace Gothic.Core.Services.Caches
             }
 
             return texture;
+        }
+
+        /// <summary>
+        /// Source texture for one texture array slice: only the mip levels which end up in the array - the first
+        /// level not larger than MaxTextureSize and at most MaxMipCount levels from there. The larger levels are
+        /// neither decoded nor uploaded. Returns null if the texture has no such level.
+        /// </summary>
+        [CanBeNull]
+        private Texture2D CreateArraySourceTexture(ITexture zkTexture, string key)
+        {
+            var skippedMips = 0;
+            var width = zkTexture.Width;
+            var height = zkTexture.Height;
+
+            // If a texture's size is higher than MaxTextureSize, then divide by 2 until we shrink it enough.
+            var maxDim = Mathf.Max(width, height);
+            while (maxDim > MaxTextureSize)
+            {
+                skippedMips++;
+                maxDim /= 2;
+                width /= 2;
+                height /= 2;
+            }
+
+            var mipCount = zkTexture.MipmapCount;
+            var levelCount = Mathf.Min(mipCount - skippedMips, MaxMipCount);
+            if (levelCount <= 0)
+            {
+                Logger.LogWarning($"Texture {key} is larger than {MaxTextureSize} px and has no smaller mip level. " +
+                                  "Its texture array slice stays empty.", LogCat.PreCaching);
+                return null;
+            }
+
+            var format = zkTexture.Format.AsUnityTextureFormat();
+            var texture = new Texture2D(width, height, format, levelCount, false);
+            for (var level = 0; level < levelCount; level++)
+            {
+                texture.SetPixelData(GetMipmapData(zkTexture, skippedMips + level, format), level);
+            }
+
+            // Same as TryGetTexture(): only a texture without Gothic mips asks Unity for mips (it has one level anyway).
+            texture.Apply(mipCount == 1, true);
+            texture.filterMode = FilterMode.Trilinear;
+            texture.name = key;
+
+            return texture;
+        }
+
+        /// <summary>
+        /// Pixels of one mip level: RGBA for uncompressed formats, else the compressed data as stored by Gothic.
+        /// A native ZenKit texture decodes just this level. ZenKit's CachedTexture.GetMipmapRgba() returns the raw
+        /// data instead, so cached textures are read from their lists.
+        /// </summary>
+        private static byte[] GetMipmapData(ITexture zkTexture, int level, TextureFormat format)
+        {
+            var isRgba = format == TextureFormat.RGBA32;
+
+            if (zkTexture.IsCached())
+            {
+                return isRgba ? zkTexture.AllMipmapsRgba[level] : zkTexture.AllMipmapsRaw[level];
+            }
+
+            return isRgba ? zkTexture.GetMipmapRgba(level) : zkTexture.GetMipmapRaw(level);
         }
 
         public void GetTextureArrayIndex(IMaterial materialData, out TextureArrayTypes textureArrayType, out int arrayIndex, out Vector2 textureScale, out int maxMipLevel, out int animFrameCount)
@@ -271,46 +326,25 @@ namespace Gothic.Core.Services.Caches
                     break;
                 }
 
-                var sourceTex = TryGetTexture(texInfo.Key, false);
+                var zkTexture = _resourceCacheService.TryGetTexture(texInfo.Key);
+                var sourceTex = zkTexture == null ? null : CreateArraySourceTexture(zkTexture, GetPreparedKey(texInfo.Key));
 
                 if (sourceTex == null)
                 {
                     continue;
                 }
 
-                var skipCountOfOversizeMips = 0;
-                var sourceMaxDim = Mathf.Max(sourceTex.width, sourceTex.height);
-                var effectiveWidth = sourceTex.width;  // The actual size we'll use in the array
+                // The source texture already starts at the array's size (oversized mips are left out), so its mip
+                // levels are the array's mip levels. Smaller textures are tiled.
+                var effectiveWidth = sourceTex.width;
                 var effectiveHeight = sourceTex.height;
+                var tilesX = texArray.width / effectiveWidth;
+                var tilesY = texArray.height / effectiveHeight;
 
-                // If a texture's size is higher than MaxTextureSize, then divide by 2 until we shrink it enough.
-                while (sourceMaxDim > MaxTextureSize)
+                for (var mip = 0; mip < sourceTex.mipmapCount; mip++)
                 {
-                    skipCountOfOversizeMips++;
-                    sourceMaxDim /= 2;
-                    effectiveWidth /= 2;
-                    effectiveHeight /= 2;
-                }
-
-                for (var mip = skipCountOfOversizeMips; mip < sourceTex.mipmapCount; mip++)
-                {
-                    // e.g. if we skip 1 oversizeMip, then the targetMip is always one lower than the actual one.
-                    // In this example, we would _skip_ the highest mip and go with one below.
-                    var targetMip = mip - skipCountOfOversizeMips;
-
-                    // If a texture has more mips than we want to use. Skip the highest ones (== the ones with ultra-low resolution)
-                    if (targetMip >= MaxMipCount)
-                    {
-                        break;
-                    }
-
-                    // Calculate mip dimensions based on EFFECTIVE size, not source size
-                    var mipWidth = effectiveWidth >> targetMip;
-                    var mipHeight = effectiveHeight >> targetMip;
-
-                    // Tile based on the effective size at mip 0
-                    var tilesX = texArray.width / effectiveWidth;
-                    var tilesY = texArray.height / effectiveHeight;
+                    var mipWidth = effectiveWidth >> mip;
+                    var mipHeight = effectiveHeight >> mip;
 
                     for (var x = 0; x < tilesX; x++)
                     {
@@ -319,7 +353,7 @@ namespace Gothic.Core.Services.Caches
                             if (texArray is Texture2DArray)
                             {
                                 Graphics.CopyTexture(sourceTex, 0, mip, 0, 0,
-                                    mipWidth, mipHeight, texArray, i, targetMip,
+                                    mipWidth, mipHeight, texArray, i, mip,
                                     mipWidth * x, mipHeight * y);
                             }
                             // aka Water
@@ -327,7 +361,7 @@ namespace Gothic.Core.Services.Caches
                             {
                                 var cmd = CommandBufferPool.Get();
                                 var rt = (RenderTexture)texArray;
-                                cmd.SetRenderTarget(new RenderTargetBinding(new RenderTargetSetup(rt.colorBuffer, rt.depthBuffer, targetMip, CubemapFace.Unknown, i)));
+                                cmd.SetRenderTarget(new RenderTargetBinding(new RenderTargetSetup(rt.colorBuffer, rt.depthBuffer, mip, CubemapFace.Unknown, i)));
                                 var scale = new Vector2((float)effectiveWidth / texArray.width, (float)effectiveHeight / texArray.height);
                                 Blitter.BlitQuad(cmd, sourceTex, new Vector4(1, 1, 0, 0), new Vector4(scale.x, scale.y, scale.x * x, scale.y * y), mip, false);
                                 Graphics.ExecuteCommandBuffer(cmd);
