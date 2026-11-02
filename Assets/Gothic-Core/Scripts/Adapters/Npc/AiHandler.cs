@@ -60,8 +60,10 @@ namespace Gothic.Core.Adapters.Npc
                 // NPC died before this session (e.g. killed before save). Run ZS_Dead so Daedalus quest
                 // variables (e.g. CAVALORN_BRAGO_KILLED) are set in the fresh VM — dialog conditions depend on them.
                 // Only for HP=0 deaths (not HP=1 knockout-restores). Guard against double-call if OnNpcDied already ran.
+                // No killer (other = the dead NPC, like the engine's script kill): with the hero as other, B_DeathXP
+                // paid him for Nek, whom G1's startup scripts kill, in every new game.
                 if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
-                    _fightService.RunZsDead(NpcInstance, _npcService.GetHeroContainer());
+                    _fightService.RunZsDead(NpcInstance, null);
             }
         }
 
