@@ -911,7 +911,8 @@ namespace Gothic.Core.Domain.Vobs
             if (mdl != null)
             {
                 // G2's treasure X marks (TREASURE_ADDON_01) are a color-only mesh without texture. MeshService skips
-                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs to be visible and diggable.
+                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs its mesh to be diggable. Where the
+                // world hides it (showVisual=FALSE, Newworld's spots) it isn't drawn, like in the original.
                 var isDigSpot = _vmCacheService.IsDigSpot(vob);
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
                     useTextureArray: !isDigSpot, allowUntextured: isDigSpot);
