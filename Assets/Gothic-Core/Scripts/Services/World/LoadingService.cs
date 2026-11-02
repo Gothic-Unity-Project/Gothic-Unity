@@ -85,6 +85,10 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void Tick()
         {
+            // No phase set (e.g. finalized already): a missing step on the bar isn't worth aborting a world load.
+            if (_currentType == null)
+                return;
+
             _progressByType[_currentType] += _currentProgressPerElement;
             _isDirty = true; // Recalculate and render ProgressBar update next frame.
         }

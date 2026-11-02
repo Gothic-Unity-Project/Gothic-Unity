@@ -71,6 +71,7 @@ namespace Gothic.Core.Domain.Npc
         {
             _isInitialNpcLoadComplete = false;
             var saveGameNpcs = _saveGameService.CurrentWorldData.Npcs;
+            loading.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Npc), saveGameNpcs.Count);
 
             foreach (var vobNpc in saveGameNpcs)
             {
@@ -81,6 +82,8 @@ namespace Gothic.Core.Domain.Npc
                 var npcContainer = AllocZkInstance(vobNpc);
                 SaveGameAddLazyLoadingAnywhere(npcContainer, vobNpc.ScriptWaypoint);
             }
+
+            loading.FinalizePhase();
             _isInitialNpcLoadComplete = true;
         }
 
