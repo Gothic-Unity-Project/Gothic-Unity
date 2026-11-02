@@ -40,6 +40,15 @@
       "dependencies": {},
       "hash": "312131b3c5c8e9b2450b07a03f249bb3e21dcbcf"
     },
+    "com.tyroonis.xr.linuxopenxr": {
+      "version": "https://github.com/tyroonis/UnityVR-Linux.git#upm/v0.3.3",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.xr.management": "4.5.0"
+      },
+      "hash": "73524addb76168f9d7768b8e114677669e7886ac"
+    },
     "com.unity.addressables": {
       "version": "2.9.1",
       "depth": 1,

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c8595111ec4fdcfb1e8b32af735b8b, type: 3}
+  m_Name: LinuxXRSettings
+  m_EditorClassIdentifier: Tyroonis.XR.LinuxXR::Tyroonis.XR.LinuxXR.LinuxXRSettings
+  runtime: 0
+  customRuntimeManifest: 
+  trackingOrigin: 0
+  stereoMode: 0
+  mirrorMode: 0
+  renderScale: 1
+  verboseLogging: 0
+  forwardLogToConsole: 1
