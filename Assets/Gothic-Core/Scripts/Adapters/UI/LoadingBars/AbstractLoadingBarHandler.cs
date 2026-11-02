@@ -15,6 +15,7 @@ namespace Gothic.Core.Adapters.UI.LoadingBars
         
         [Inject] protected readonly TextureService TextureService;
 
+        private Sprite _barSprite;
 
         public abstract List<string> GetProgressTypes();
         
@@ -45,6 +46,21 @@ namespace Gothic.Core.Adapters.UI.LoadingBars
             LoadingImage.material = TextureService.GothicLoadingMenuMaterial;
             ProgressBackgroundImage.material = TextureService.LoadingBarBackgroundMaterial;
             ProgressBarImage.material = TextureService.LoadingBarMaterial;
+
+            // The bar only fills with a sprite. Its own picture instead of the placeholder sprite: shaders which take
+            // the picture from the sprite (VR's on-top UI on the black view) draw the bar, not a white box.
+            if (TextureService.LoadingBarMaterial.mainTexture is Texture2D barTexture)
+            {
+                _barSprite = Sprite.Create(barTexture, new Rect(0, 0, barTexture.width, barTexture.height),
+                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+                ProgressBarImage.sprite = _barSprite;
+            }
+        }
+
+        protected virtual void OnDestroy()
+        {
+            if (_barSprite != null)
+                Destroy(_barSprite);
         }
     }
 }
