@@ -449,9 +449,9 @@ namespace Gothic.VR.Adapters.Vob
 
         private void TryShowWeaponRequirement()
         {
-            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
-            if (item != null && (VmGothicEnums.ItemFlags)item.MainFlag == VmGothicEnums.ItemFlags.ItemKatNf)
-                _fightService.CheckHeroWeaponRequirement(item, isMessageShown: true);
+            var container = GetComponentInParent<VobLoader>()?.Container;
+            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem && container.IsMeleeWeapon())
+                _fightService.CheckHeroWeaponRequirement(container.GetItemInstance(), isMessageShown: true);
         }
     }
 }

@@ -22,6 +22,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -54,14 +55,14 @@ namespace Gothic.VR.Services
         [Inject] private ResourceCacheService _resourceCacheService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
         [Inject] private IVrInput _vrInput;
-        [Inject] private IVrHaptics _vrHaptics;
+        [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private ContextInteractionService _contextInteractionService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
 
-        private bool _isRuneReadied;
-        private VmGothicEnums.WeaponState? _readiedRangedState;
+        // The hero's stab finish (one stuck blade at a time).
+        private VrStabFinishDomain _stabFinish;
 
         // DeveloperConfig.EnableVrFists: a fist is an empty hand with grip + trigger held; it punches like a weapon swing.
         private const float _fistPunchVelocity = 2f;
@@ -73,10 +74,6 @@ namespace Gothic.VR.Services
         private SfxModel _fistSwingSound;
         private bool _isFistSwingSoundResolved;
         private const string _fistAttackAnimName = "S_FISTATTACK";
-        private const float _fistSwingHapticAmplitude = 0.25f;
-        private const float _fistSwingHapticSeconds = 0.05f;
-        private const float _fistHitHapticAmplitude = 0.8f;
-        private const float _fistHitHapticSeconds = 0.12f;
 
         public void Init()
         {
@@ -215,9 +212,10 @@ namespace Gothic.VR.Services
                 if (grabbed == null)
                     continue;
 
-                var item = grabbed.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
-                if (item == null || item.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+                var container = grabbed.GetComponentInParent<VobLoader>()?.Container;
+                if (container == null || !container.IsMeleeWeapon())
                     continue;
+                var item = container.GetItemInstance()!;
 
                 Logger.Log($"[VRWeaponService] Hero knocked out - dropping '{item.Name}' from {hand.HandSide} hand.", LogCat.VR);
                 hand.ForceRelease();
@@ -229,6 +227,36 @@ namespace Gothic.VR.Services
             _firstAttackDomain.FixedUpdate();
             _secondAttackDomain.FixedUpdate();
             UpdateFists();
+            if (_stabFinish?.IsStuck == true)
+                _stabFinish.Tick();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrStabFinish + the "stabFinish" option: an unconscious NPC is finished off by a stab
+        /// kept in the body only (VrStabFinishDomain).
+        /// </summary>
+        public bool IsStabFinishOn()
+        {
+            return _configService.Dev.EnableVrStabFinish &&
+                   _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+        }
+
+        /// <summary>
+        /// The hero's held weapon entered an unconscious NPC: a stab along the blade sticks it in.
+        /// </summary>
+        public void TryStabFinish(VobContainer weapon, NpcContainer target, VrInteractable interactable)
+        {
+            if (_stabFinish?.IsStuck == true)
+                return;
+
+            var attacker = GetWeaponOwner(weapon);
+            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
+                return;
+
+            var playerVelocity = GetRig()?.CharacterController?.velocity ?? Vector3.zero;
+            // Created on first use, like the scene's other VR domains (its services live in the VR scene scope).
+            _stabFinish ??= new VrStabFinishDomain().Inject();
+            _stabFinish.TryStab(attacker, target, interactable, playerVelocity);
         }
 
         /// <summary>
@@ -286,7 +314,7 @@ namespace Gothic.VR.Services
             if (!isSwinging || wasSwinging)
                 return;
 
-            _vrHaptics.Vibrate(side, _fistSwingHapticAmplitude, _fistSwingHapticSeconds);
+            _hapticsService.Vibrate(side, VrHapticPreset.FistSwing);
             var sound = GetFistSwingSound();
             if (sound != null)
                 _vrSfxPlayer.Play(_audioService.CreateAudioClip(sound.GetRandomSound()), hitbox.transform.position);
@@ -338,6 +366,10 @@ namespace Gothic.VR.Services
             var target = npcLoader.Container;
             if (hero == null || target == null || target == hero)
                 return;
+            // An unconscious hero doesn't punch; a knocked out human is finished off by a stab only (a fist finished
+            // him - Bullit and his quest were gone after one punch).
+            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious || NpcHelperService.IsKnockedOut(target))
+                return;
 
             var speed = _vrInput.GetControllerVelocity(hitbox.HandSide).magnitude;
             if (speed < _fistPunchVelocity)
@@ -349,7 +381,7 @@ namespace Gothic.VR.Services
                 return;
 
             _lastPunchTime[hitbox.HandSide] = Time.time;
-            _vrHaptics.Vibrate(hitbox.HandSide, _fistHitHapticAmplitude, _fistHitHapticSeconds);
+            _hapticsService.Vibrate(hitbox.HandSide, VrHapticPreset.FistHit);
             Logger.Log($"[VRFist] {hitbox.HandSide} punch at {speed:F1} m/s → {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
             GlobalEventDispatcher.FightHit.Invoke(hero, target, position);
         }
@@ -379,27 +411,8 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// Called by VRRuneCaster (rune dual-grabbed / released). Can't be derived from hero.ActiveSpell,
-        /// as spell ID 0 (SPL_LIGHT) is the same as "no spell".
-        /// </summary>
-        public void SetRuneReadied(bool isReadied)
-        {
-            _isRuneReadied = isReadied;
-            UpdateHeroWeaponState();
-        }
-
-        /// <summary>
-        /// Called by VRCrossbow/VRBow (held in any hand) - null when released.
-        /// </summary>
-        public void SetRangedReadied(VmGothicEnums.WeaponState? rangedState)
-        {
-            _readiedRangedState = rangedState;
-            UpdateHeroWeaponState();
-        }
-
-        /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > held crossbow/bow (VRCrossbow/VRBow) > readied rune (VRRuneCaster sets hero.ActiveSpell) > nothing.
+        /// melee weapon in any hand > fist > nothing (bows and runes join with their PRs).
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
         /// </summary>
         public void UpdateHeroWeaponState()
@@ -407,10 +420,6 @@ namespace Gothic.VR.Services
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
-            if (state == VmGothicEnums.WeaponState.NoWeapon && _readiedRangedState.HasValue)
-                state = _readiedRangedState.Value;
-            if (state == VmGothicEnums.WeaponState.NoWeapon && _isRuneReadied)
-                state = VmGothicEnums.WeaponState.Mage;
             if (state == VmGothicEnums.WeaponState.NoWeapon && _isFistReadied)
                 state = VmGothicEnums.WeaponState.Fist;
 

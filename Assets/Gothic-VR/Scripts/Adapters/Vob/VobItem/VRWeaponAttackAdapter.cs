@@ -5,10 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
-using Gothic.VR.Domain.Player;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
@@ -27,13 +24,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRWeaponAttackAdapter : MonoBehaviour
     {
         [Inject] private readonly VRWeaponService _vrWeaponService; 
-        [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly VmCacheService _vmCacheService;
 
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
-        private VrStabFinishDomain _stabFinish;
 
         private void Start()
         {
@@ -77,7 +70,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
-            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab and a twist only.
+            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab kept in the body only.
             if (IsStabFinishOn() && NpcHelperService.IsKnockedOut(targetNpcContainer))
             {
                 TryStabFinish(targetNpcContainer);
@@ -108,34 +101,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 TryStabFinish(target);
         }
 
-        private void Update()
-        {
-            if (_stabFinish?.IsStuck == true)
-                _stabFinish.Tick();
-        }
-
-        private Vector3 GetPlayerVelocity()
-        {
-            return _vrPlayerService.VRContextInteractionService.Rig.CharacterController.velocity;
-        }
-
         private bool IsStabFinishOn()
         {
-            return _configService != null && _configService.Dev.EnableVrStabFinish &&
-                   _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+            return _vrWeaponService != null && _vrWeaponService.IsStabFinishOn();
         }
 
         private void TryStabFinish(NpcContainer target)
         {
-            if (_vrWeaponService == null || _stabFinish?.IsStuck == true)
-                return;
-
-            var attacker = _vrWeaponService.GetWeaponOwner(_weaponVobContainer);
-            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
-                return;
-
-            _stabFinish ??= new VrStabFinishDomain().Inject();
-            _stabFinish.TryStab(attacker, target, GetComponent<VrInteractable>(), GetPlayerVelocity());
+            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, GetComponent<VrInteractable>());
         }
 
         private void OnTriggerExit(Collider other)
@@ -169,10 +142,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
-            // DeveloperConfig.EnableEngineMeleeDamage: the weapon in the hand isn't equipped in VR - FightService takes
-            // its damage from here (only during the hit).
-            var weaponName = _weaponVobContainer?.Vob?.Name;
-            attacker.Props.MeleeHitWeapon = weaponName != null ? _vmCacheService.TryGetItemData(weaponName) : null;
+            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the
+            // hit). By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
+            attacker.Props.MeleeHitWeapon = _weaponVobContainer?.GetItemInstance();
             try
             {
                 GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);

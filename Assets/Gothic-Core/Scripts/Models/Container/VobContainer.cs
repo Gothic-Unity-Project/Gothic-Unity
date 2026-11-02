@@ -1,5 +1,6 @@
 using System;
 using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -113,6 +114,16 @@ namespace Gothic.Core.Models.Container
                 throw new Exception("Vob Item -> no usable name found.");
 
             return _vmCacheService.TryGetItemData(itemName);
+        }
+
+        /// <summary>
+        /// A melee weapon (ITEM_KAT_NF: swords, axes, clubs) - what can be swung, blocked with and stabbed.
+        /// </summary>
+        public bool IsMeleeWeapon()
+        {
+            var item = GetItemInstance();
+            return item != null &&
+                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
         }
     }
 }

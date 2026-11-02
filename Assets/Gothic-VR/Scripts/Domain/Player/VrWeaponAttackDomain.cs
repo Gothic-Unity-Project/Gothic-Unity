@@ -101,6 +101,7 @@ namespace Gothic.VR.Domain.Player
                 _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
 
                 WeaponVobContainer = vobContainer;
+                ClearVelocityHistory();
                 var attackAnimation = GetAttackAnimation();
                 var windowTimes = _fallbackWindowTimes;
 
@@ -209,6 +210,16 @@ namespace Gothic.VR.Domain.Player
             _handlesLeftHand = false;
             _handlesRightHand = false;
             _stateMachine = null;
+            ClearVelocityHistory();
+        }
+
+        /// <summary>
+        /// Samples of an earlier hold (a throw, the weapon flying into the hand on a grab) started the next swing at once.
+        /// </summary>
+        private void ClearVelocityHistory()
+        {
+            _velocityHistory.Clear();
+            _velocityCheckTimer = 0f;
         }
 
         /// <summary>
@@ -440,7 +451,8 @@ namespace Gothic.VR.Domain.Player
             if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
-            if (_currentWeaponVelocity >= _attackVelocityThreshold)
+            // A full set of samples: right after a grab one fast sample was the whole "average".
+            if (_velocityHistory.Count >= _velocitySampleCount && _currentWeaponVelocity >= _attackVelocityThreshold)
                 StartAttack();
         }
 
@@ -460,13 +472,11 @@ namespace Gothic.VR.Domain.Player
 
             _stateMachine.StartAttack();
 
-            // DeveloperConfig.EnableNpcPrehitReaction: the swing is the hero's "prehit" - NPCs can parry or jump back.
+            // The swing is the hero's "prehit" - NPCs can parry or jump back.
             if (GetOwner()?.PrefabProps?.IsHero() == true)
             {
-                var item = WeaponVobContainer?.GetItemInstance();
-                var isMeleeWeapon = item != null &&
-                                    ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
-                GlobalEventDispatcher.HeroMeleeSwing.Invoke(isMeleeWeapon ? item.Material : -1);
+                var isMeleeWeapon = WeaponVobContainer?.IsMeleeWeapon() == true;
+                GlobalEventDispatcher.HeroMeleeSwing.Invoke(isMeleeWeapon ? WeaponVobContainer.GetItemInstance()!.Material : -1);
             }
         }
 

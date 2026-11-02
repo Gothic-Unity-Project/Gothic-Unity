@@ -1,4 +1,3 @@
-using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
@@ -12,7 +11,6 @@ namespace Gothic.VR.Adapters.Player
     public class VRHandsOnTop : MonoBehaviour
     {
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
 
         [SerializeField] private Renderer[] _handRenderers;
@@ -80,11 +78,10 @@ namespace Gothic.VR.Adapters.Player
 
             if (_pointerLines == null)
                 return;
-            var isLineOnTop = onTop;
             for (var i = 0; i < _pointerLines.Length; i++)
             {
                 if (_pointerLines[i] != null && _pointerLineOnTopCopies[i] != null)
-                    _pointerLines[i].sharedMaterial = isLineOnTop ? _pointerLineOnTopCopies[i] : _pointerLineMaterials[i];
+                    _pointerLines[i].sharedMaterial = onTop ? _pointerLineOnTopCopies[i] : _pointerLineMaterials[i];
             }
         }
     }

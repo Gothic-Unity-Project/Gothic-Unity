@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Gothic.Core.Domain.Meshes
 {
     /// <summary>
-    /// DeveloperConfig.EnableRangedFittedColliders: oriented boxes that follow an item mesh - for bows and crossbows,
-    /// whose parts are curved or lie diagonally (axis aligned boxes left gaps and air).
-    /// 1. The mesh is split into its separate parts (crossbow: stock, prod, trigger, string; bow: limbs, string).
+    /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned boxes
+    /// left gaps and air): a sword's slanted cross guard, an axe head; bows and crossbows with the ranged PR.
+    /// 1. The mesh is split into its separate parts (sword: blade, guard, grip, pommel; crossbow: stock, prod, string).
     /// 2. Each part is sampled densely (its triangles, not only the few low-poly vertices) and gets a box along its
     ///    principal axes (PCA). Curved parts are halved along their long axis as long as that removes a lot of air.
     /// 3. Line-thin boxes (bow and crossbow strings) are left out - the string is drawn, not grabbed.

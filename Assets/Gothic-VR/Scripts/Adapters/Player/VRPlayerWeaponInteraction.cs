@@ -4,7 +4,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Models.Marvin;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -19,7 +18,6 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly VRWeaponService _weaponService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ConfigService _configService;
 
         // The melee weapon equipped before one was grabbed.
         private ZenKit.Daedalus.ItemInstance _equippedBeforeGrab;
@@ -114,7 +112,31 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _weaponService.OnReleased(args.HandSide, GetWeaponPhysicsConfig());
+
+            // The other hand still holds a melee weapon (the same sword in two hands, or one weapon per hand): that one
+            // stays equipped, and the one from before the grab is kept for when it's let go too. Restored at the first
+            // release, the hero ended with nothing equipped after letting go of the second hand.
+            var otherHandWeapon = GetMeleeWeaponInOtherHand(args);
+            if (otherHandWeapon != null)
+            {
+                SyncEquippedWeaponToHero(otherHandWeapon, equip: true);
+                return;
+            }
+
             SyncEquippedWeaponToHero(itemInstance, equip: false);
+        }
+
+        private ZenKit.Daedalus.ItemInstance GetMeleeWeaponInOtherHand(VrGrabArgs args)
+        {
+            foreach (var grabber in _rig.HandGrabbers)
+            {
+                if (grabber.HandSide == args.HandSide || grabber.Held == null)
+                    continue;
+                var container = grabber.Held.GetComponentInParent<VobLoader>()?.Container;
+                if (container != null && container.Vob.Type == VirtualObjectType.oCItem && container.IsMeleeWeapon())
+                    return container.GetItemInstance();
+            }
+            return null;
         }
 
         private bool IsHeldByOtherHand(VrGrabArgs args)
@@ -140,7 +162,7 @@ namespace Gothic.VR.Adapters.Player
             var equippedItems = heroContainer.Props.EquippedItems;
 
             // The held weapon counts as equipped only while held - letting go
-            // gives the equipped one back (the favorites ring shows it). Before, any weapon grabbed and let go left
+            // gives the equipped one back. Before, any weapon grabbed and let go left
             // the hero with no equipped melee weapon at all (Rockefeller's orc hammer was gone after the first grab).
             if (equip)
             {
@@ -152,7 +174,6 @@ namespace Gothic.VR.Adapters.Player
             }
             else
             {
-                // The ring's own weapon too: where it ends up decides (VRFavoritesRing, EnableRingWeaponLeavesOnDrop).
                 equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
                 if (_equippedBeforeGrab != null)
                     equippedItems.Add(_equippedBeforeGrab);

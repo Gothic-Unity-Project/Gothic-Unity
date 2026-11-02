@@ -28,7 +28,6 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
@@ -171,12 +170,12 @@ namespace Gothic.VR.Adapters.Player
             if (held == null || held != _vrPlayerService.GrabbedItemRight)
                 return false;
 
-            var instanceName = held.GetComponentInParent<VobLoader>()?.Container?.Vob?.Name;
-            var item = instanceName != null ? _vmCacheService.TryGetItemData(instanceName) : null;
-            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatNf)
+            // By its symbol (a world item's vob name isn't always it).
+            var container = held.GetComponentInParent<VobLoader>()?.Container;
+            if (container == null || !container.IsMeleeWeapon())
                 return false;
 
-            material = item.Material;
+            material = container.GetItemInstance()!.Material;
             return true;
         }
 

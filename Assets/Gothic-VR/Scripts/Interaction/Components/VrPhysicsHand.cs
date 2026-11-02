@@ -1,3 +1,4 @@
+using Gothic.Core.Extensions;
 using System;
 using System.Collections.Generic;
 using Gothic.Core;
@@ -435,7 +436,7 @@ namespace Gothic.VR.Interaction.Components
         {
             // A held lock pick or key passes through the door/chest into
             // its lock until it's out again - the body of the door or chest stopped it before the lock.
-            if (isHeldItem && IsLockToolThroughLockables() && IsLockTool(_heldBody) && IsLockable(collision.collider))
+            if (isHeldItem && IsLockTool(_heldBody) && IsLockable(collision.collider))
             {
                 foreach (var heldCollider in _heldColliders)
                     _heldPassThrough.Add(heldCollider, collision.collider);
@@ -483,15 +484,8 @@ namespace Gothic.VR.Interaction.Components
             var vob = body != null
                 ? body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as ZenKit.Vobs.IItem
                 : null;
-            var instance = vob == null ? null : !string.IsNullOrEmpty(vob.Instance) ? vob.Instance : vob.Name;
+            var instance = vob?.GetSymbolName();
             return instance != null && instance.StartsWith("ITKE_", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsLockToolThroughLockables()
-        {
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
-                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
-            return config?.Dev != null;
         }
 
         private bool IsBlocking(Rigidbody other)
@@ -537,7 +531,7 @@ namespace Gothic.VR.Interaction.Components
             // With two hands on an item, the item holds the hands at
             // their grips - the controllers are away from them (turning the item, a swing). That isn't stuck: the second
             // hand let go of the sword mid-swing.
-            var isTwoHandHold = _heldVisual != null && _heldVisual.HolderCount > 1 && IsTwoHandStuckIgnored();
+            var isTwoHandHold = _heldVisual != null && _heldVisual.HolderCount > 1;
             if (_separation > _maxDistance && !isTwoHandHold)
             {
                 _stuckTime += deltaTime;
@@ -638,9 +632,7 @@ namespace Gothic.VR.Interaction.Components
             // On the grip of the item as it's shown, not of its physics
             // body (the fist hung between the controller and the grip), and turned like the controller (the knuckles
             // follow the hand, the grip stays).
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
-                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
-            if (config?.Dev != null && _heldVisual.TryGetShownPose(out var itemPosition, out var itemRotation))
+            if (_heldVisual.TryGetShownPose(out var itemPosition, out var itemRotation))
             {
                 GetHandPoseOnGrip(itemPosition, itemRotation, out position, out _);
                 GetTargetPose(out _, out rotation);
@@ -814,13 +806,6 @@ namespace Gothic.VR.Interaction.Components
             _heldBody.position = position;
             _heldBody.rotation = rotation;
             _heldBody.transform.SetPositionAndRotation(position, rotation);
-        }
-
-        private static bool IsTwoHandStuckIgnored()
-        {
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer
-                ?.Resolve<Gothic.Core.Services.Config.ConfigService>();
-            return config?.Dev != null;
         }
 
         private void ReleaseStuckItem()

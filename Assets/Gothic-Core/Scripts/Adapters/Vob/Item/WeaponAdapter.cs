@@ -11,7 +11,6 @@ namespace Gothic.Core.Adapters.Vob.Item
         [SerializeField] private TrailRenderer _trailRenderer;
 
         [Inject] private TextureService _textureService;
-        [Inject] private Gothic.Core.Services.Config.ConfigService _configService;
 
         
         private void Awake()
@@ -29,8 +28,7 @@ namespace Gothic.Core.Adapters.Vob.Item
         {
             // The scale at Start was the item's in a backpack slot or
             // before it was held (XRI) - a short, oddly scaled trail in the middle of the blade. Measured now.
-            if (_configService != null)
-                SetTrailWidthFromLength();
+            SetTrailWidthFromLength();
             _trailRenderer.enabled = true;
         }
 

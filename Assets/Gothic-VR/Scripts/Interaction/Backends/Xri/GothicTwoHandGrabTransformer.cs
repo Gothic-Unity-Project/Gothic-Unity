@@ -7,7 +7,7 @@ using UnityEngine.XR.Interaction.Toolkit.Transformers;
 namespace Gothic.VR.Interaction.Backends.Xri
 {
     /// <summary>
-    /// DeveloperConfig.EnableXriSecondHandFixed: an item held with two hands, both hands equal. The line between the
+    /// An item held with two hands, both hands equal. The line between the
     /// two grips always lies on the line between the two controllers, its middle between them - moving one hand turns
     /// the item around the other one. The turn around that line is the average of both hands. Both hands are shown on
     /// their grips (VrPhysicsHand.ShowOnGrip).
