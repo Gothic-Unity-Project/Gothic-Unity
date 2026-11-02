@@ -21,6 +21,10 @@ namespace Gothic.VR
 
             // 1 = the hero's own fists are the VR hands (with the VR hero body), 0 = the VR hand models (default).
             public const string HeroHands = "heroHands";
+
+            // Immersion
+            // 1 = an unconscious NPC is finished off by a stab kept in the body (default), 0 = by any hit.
+            public const string StabFinish = "stabFinish";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";

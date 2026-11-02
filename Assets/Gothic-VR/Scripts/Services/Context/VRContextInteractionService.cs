@@ -171,6 +171,13 @@ namespace Gothic.VR.Services.Context
                 equipToggle.transform.SetParent(_player.transform, false);
             }
 
+            // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
+            if (developerConfig.EnableVrHeroBlock)
+            {
+                var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+                heroBlock.transform.SetParent(_player.transform, false);
+            }
+
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;

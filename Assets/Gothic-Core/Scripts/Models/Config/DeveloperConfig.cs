@@ -427,6 +427,14 @@ namespace Gothic.Core.Models.Config
         [Tooltip("The \"Ranged knockout\" option's value when Gothic.ini has none yet.")]
         public bool RangedKnockoutByDefault;
 
+        [Tooltip("VR: The hero finishes off an unconscious NPC with a stab - the blade kept in the body for 2 seconds " +
+                 "kills - instead of any slash. The 'Finishing' option in the Immersion menu (off: any hit).")]
+        public bool EnableVrStabFinish = true;
+
+        [Tooltip("VR: An empty hand with grip + trigger held is a fist - the hero is in fist mode and punches with a " +
+                 "swing (hand speed), the damage is the engine's fist damage (strength, blunt).")]
+        public bool EnableVrFists = true;
+
         [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
                  "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
         public bool EnableHeroSleepBody = true;
