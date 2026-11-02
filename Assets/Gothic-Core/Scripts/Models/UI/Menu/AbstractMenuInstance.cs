@@ -12,6 +12,12 @@ namespace Gothic.Core.Model.UI.Menu
         public AbstractMenuInstance Parent;
         public List<AbstractMenuItemInstance> Items;
 
+        // DeveloperConfig.EnableMenuScrolling: the window (virtual Y, top inclusive, bottom exclusive) the scrollable
+        // rows are shown in, and the row height. ScrollTopY -1 = no scrolling.
+        public int ScrollTopY = -1;
+        public int ScrollBottomY;
+        public int ScrollStepY;
+
         protected AbstractMenuInstance(string name, [CanBeNull] AbstractMenuInstance parentMenu)
         {
             // As we will need it for most of the elements.

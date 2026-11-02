@@ -23,6 +23,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Scenes
@@ -207,6 +208,7 @@ namespace Gothic.Core.Adapters.Scenes
 
                     if (debugGo != null)
                     {
+                        Logger.Log($"[Spawn] Debug waypoint '{debugSpawnAtWayPoint}'", LogCat.Loading);
                         TeleportPlayerToStart(debugGo.transform.position, debugGo.transform.rotation);
                         return;
                     }
@@ -216,6 +218,7 @@ namespace Gothic.Core.Adapters.Scenes
             // 2.
             if (_playerService.HeroSpawnPosition != default)
             {
+                Logger.Log($"[Spawn] Stored hero position {_playerService.HeroSpawnPosition}", LogCat.Loading);
                 TeleportPlayerToStart(_playerService.HeroSpawnPosition, _playerService.HeroSpawnRotation);
                 return;
             }
@@ -226,11 +229,28 @@ namespace Gothic.Core.Adapters.Scenes
             // 3.
             if(_playerService.LastLevelChangeTriggerVobName != null)
             {
-                startPoint = spots.FirstOrDefault(
-                    go => go.Key.EqualsIgnoreCase(_playerService.LastLevelChangeTriggerVobName));
-                TeleportPlayerToStart(startPoint.Value.Position, startPoint.Value.Rotation);
+                var startVobName = _playerService.LastLevelChangeTriggerVobName;
                 _playerService.LastLevelChangeTriggerVobName = null;
-                return;
+                startPoint = spots.FirstOrDefault(go => go.Key.EqualsIgnoreCase(startVobName));
+                if (startPoint.Value != null)
+                {
+                    Logger.Log($"[Spawn] Level change start '{startVobName}'", LogCat.Loading);
+                    TeleportPlayerToStart(startPoint.Value.Position, startPoint.Value.Rotation);
+                    return;
+                }
+
+                // DeveloperConfig.EnableLevelChangeSpawnFallback: the trigger's start VOB can be a waypoint or any
+                // named VOB, or missing (Mroczne Tajemnice's ANCIENTTEMPLE sends the hero back to TEMPLE_TO_CAVE,
+                // which ABANDONEDMINE doesn't have) - the start point lookup crashed and the loading screen stalled.
+                if (_configService.Dev.EnableLevelChangeSpawnFallback &&
+                    TryFindLevelChangeSpawn(startVobName, out var position, out var rotation))
+                {
+                    TeleportPlayerToStart(position, rotation);
+                    return;
+                }
+
+                Logger.LogWarning($"Level change start VOB '{startVobName}' not found - spawning at START like the " +
+                                  "engine", LogCat.Loading);
             }
 
             // 4.
@@ -244,7 +264,83 @@ namespace Gothic.Core.Adapters.Scenes
                 return;
             }
 
+            Logger.Log($"[Spawn] World start '{startPoint.Key}' {startPoint.Value.Position}", LogCat.Loading);
             TeleportPlayerToStart(startPoint.Value.Position, startPoint.Value.Rotation);
+        }
+
+        /// <summary>
+        /// The start VOB as a waypoint or any named VOB; when it's missing, the way point next to the trigger leading
+        /// back to the world we came from (outside its box, or it fires again). The engine would use START, which
+        /// can be over the void (Mroczne Tajemnice's abandoned mine).
+        /// </summary>
+        private bool TryFindLevelChangeSpawn(string startVobName, out Vector3 position, out Quaternion rotation)
+        {
+            var wayPoint = _gameStateService.WayPoints.Values.FirstOrDefault(i => i.Name.EqualsIgnoreCase(startVobName));
+            if (wayPoint != null)
+            {
+                Logger.Log($"Level change start '{startVobName}' is a waypoint", LogCat.Loading);
+                position = wayPoint.Position;
+                rotation = wayPoint.Rotation;
+                return true;
+            }
+
+            var vobs = _saveGameService.CurrentWorldData.Vobs;
+            var startVob = FindVob(vobs, i => i.Name.EqualsIgnoreCase(startVobName));
+            if (startVob != null)
+            {
+                Logger.Log($"Level change start '{startVobName}' is a {startVob.Type}", LogCat.Loading);
+                position = startVob.Position.ToUnityVector();
+                rotation = startVob.Rotation.ToUnityQuaternion();
+                return true;
+            }
+
+            var fromWorld = _playerService.LastLevelChangeFromWorld;
+            var backTrigger = fromWorld == null
+                ? null
+                : FindVob(vobs, i => i is ITriggerChangeLevel trigger && trigger.LevelName.EqualsIgnoreCase(fromWorld));
+            if (backTrigger != null)
+            {
+                var bounds = backTrigger.BoundingBox.ToUnityBounds();
+                bounds.Expand(2f);
+                // Height counts triple: a point on another floor (a cave level below) is no way back.
+                var nearest = _gameStateService.WayPoints.Values.Cast<WayNetPoint>()
+                    .Concat(_gameStateService.FreePoints.Values)
+                    .Where(i => !bounds.Contains(i.Position))
+                    .OrderBy(i =>
+                    {
+                        var offset = i.Position - bounds.center;
+                        offset.y *= 3f;
+                        return offset.sqrMagnitude;
+                    })
+                    .FirstOrDefault();
+                if (nearest != null)
+                {
+                    Logger.LogWarning($"Level change start VOB '{startVobName}' not found - spawning at " +
+                                      $"'{nearest.Name}' next to the trigger '{backTrigger.Name}' back to " +
+                                      $"'{fromWorld}'", LogCat.Loading);
+                    position = nearest.Position;
+                    var toTrigger = Vector3.ProjectOnPlane(bounds.center - nearest.Position, Vector3.up);
+                    rotation = toTrigger.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toTrigger) : Quaternion.identity;
+                    return true;
+                }
+            }
+
+            position = default;
+            rotation = default;
+            return false;
+        }
+
+        private static IVirtualObject FindVob(List<IVirtualObject> vobs, Func<IVirtualObject, bool> match)
+        {
+            foreach (var vob in vobs)
+            {
+                if (match(vob))
+                    return vob;
+                var child = FindVob(vob.Children, match);
+                if (child != null)
+                    return child;
+            }
+            return null;
         }
 
         private void TeleportPlayerToStart(Vector3 position, Quaternion rotation)

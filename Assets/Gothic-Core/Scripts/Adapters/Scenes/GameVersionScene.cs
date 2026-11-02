@@ -1,11 +1,14 @@
 using System;
+using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Config;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -35,8 +38,17 @@ namespace Gothic.Core.Adapters.Scenes
              * 4. If there are two, show selection between these two games. Once one is selected, call Context.SetGameVersion(version)
              */
 
+            // DeveloperConfig.EnableGameVersionScenePlacement: onto the scene's floor first (like Logo/MainMenu) - the
+            // player falls through the Player scene, which has none, until this scene is loaded.
+            if (_configService.Dev.EnableGameVersionScenePlacement)
+                _contextInteractionService.TeleportPlayerTo(Vector3.zero);
+
             // Whatever comes next, we don't want the player to move around right now.
             _contextInteractionService.LockPlayerInPlace();
+
+            // GameSettings.json "EnableGameProfiles": pick G1/G2/mod from a list instead of the normal config.
+            if (_configService.IsGameProfileSelectionEnabled && TryShowGameProfileMenu())
+                return;
 
             var isG1Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic1);
             var isG2Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic2);
@@ -85,6 +97,61 @@ namespace Gothic.Core.Adapters.Scenes
                 _bootstrapService.InitPhase2(version);
                 _bootstrapService.LoadScene(Constants.SceneLogo, Constants.SceneGameVersion);
             }
+        }
+
+        private bool TryShowGameProfileMenu()
+        {
+            var profiles = _configService.GetAvailableGameProfiles();
+            if (profiles.Count == 0)
+            {
+                Logger.LogWarning("EnableGameProfiles is on, but no profile can be started - using the normal config.",
+                    LogCat.Loading);
+                return false;
+            }
+
+            Logger.Log($"Showing game profile menu with {profiles.Count} profile(s).", LogCat.Loading);
+
+            ShowMenu("GameProfileMenu", profiles, OnGameProfileSelected, null);
+            return true;
+        }
+
+        private void ShowMenu(string menuName, System.Collections.Generic.IReadOnlyList<JsonGameProfile> profiles,
+            Action<JsonGameProfile> onSelected, Action onBack)
+        {
+            var menuGo = new GameObject(menuName);
+            SceneManager.MoveGameObjectToScene(menuGo, gameObject.scene);
+            menuGo.AddComponent<GameProfileMenu>().Build(profiles, onSelected, onBack);
+
+            // Registers the new canvas for the VR laser pointer.
+            _contextInteractionService.InitUIInteraction();
+        }
+
+        private void OnGameProfileSelected(JsonGameProfile profile)
+        {
+            // DeveloperConfig.EnableGameProfileIniChoice: a mod with several game inis (Mroczne Tajemnice's
+            // difficulties) asks which one first.
+            var iniChoices = _configService.GetGameProfileIniChoices(profile);
+            if (iniChoices.Count > 1)
+            {
+                Logger.Log($"Game profile >{profile.Name}<: {iniChoices.Count} game inis to choose from.",
+                    LogCat.Loading);
+                ShowMenu("GameProfileIniMenu", iniChoices, StartGameProfile,
+                    () => ShowMenu("GameProfileMenu", _configService.GetAvailableGameProfiles(),
+                        OnGameProfileSelected, null));
+                return;
+            }
+
+            StartGameProfile(iniChoices.Count == 1 ? iniChoices[0] : profile);
+        }
+
+        private void StartGameProfile(JsonGameProfile profile)
+        {
+            _configService.TryGetGameProfileVersion(profile, out var version);
+            _configService.SelectGameProfile(profile);
+
+            // Same path as a preselected game: the static cache is kept per (game, mod) and created if missing.
+            _bootstrapService.InitPhase2(version);
+            _bootstrapService.LoadScene(Constants.ScenePreCaching, Constants.SceneGameVersion);
         }
     }
 }

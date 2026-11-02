@@ -31,6 +31,11 @@ namespace Gothic.VR.Services
             });
         }
 
+        /// <summary>
+        /// A UI wants the hands on top now (VRHeroBody draws the hero's fists over it too).
+        /// </summary>
+        public bool AreHandsOnTop => _handsOnTopRequesters.Count > 0;
+
         public void RegisterHands(VRHandsOnTop hands)
         {
             _hands = hands;

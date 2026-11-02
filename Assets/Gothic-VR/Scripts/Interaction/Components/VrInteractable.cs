@@ -47,6 +47,51 @@ namespace Gothic.VR.Interaction.Components
 
         public IReadOnlyList<Collider> Colliders => Backend != null ? Backend.Colliders : Array.Empty<Collider>();
 
+        /// <summary>
+        /// While a hand holds it: can another hand at this position grab it too? null = yes. VRBow: not at the string -
+        /// that hand draws instead. Read by the XRI backend; HVR uses VRBowStringFilter.
+        /// </summary>
+        public Func<Vector3, bool> CanSecondHandGrabAt { get; set; }
+
+        /// <summary>
+        /// See IVrInteractableBackend.IsGrabEnabled.
+        /// </summary>
+        public bool IsGrabEnabled
+        {
+            get => Backend == null || Backend.IsGrabEnabled;
+            set
+            {
+                if (Backend != null)
+                    Backend.IsGrabEnabled = value;
+            }
+        }
+
+        /// <summary>
+        /// See IVrInteractableBackend.IsOneHandOnly.
+        /// </summary>
+        public bool IsOneHandOnly
+        {
+            get => Backend != null && Backend.IsOneHandOnly;
+            set
+            {
+                if (Backend != null)
+                    Backend.IsOneHandOnly = value;
+            }
+        }
+
+        /// <summary>
+        /// See IVrInteractableBackend.IsDistanceGrabbable.
+        /// </summary>
+        public bool IsDistanceGrabbable
+        {
+            get => Backend == null || Backend.IsDistanceGrabbable;
+            set
+            {
+                if (Backend != null)
+                    Backend.IsDistanceGrabbable = value;
+            }
+        }
+
         private IVrInteractableBackend Backend
         {
             get
@@ -90,9 +135,9 @@ namespace Gothic.VR.Interaction.Components
         /// <summary>
         /// Re-collects the colliders (call after meshes/colliders were added at runtime).
         /// </summary>
-        public void SetupColliders()
+        public void SetupColliders(bool isChildLinked = false)
         {
-            Backend?.SetupColliders();
+            Backend?.SetupColliders(isChildLinked);
         }
 
         /// <summary>

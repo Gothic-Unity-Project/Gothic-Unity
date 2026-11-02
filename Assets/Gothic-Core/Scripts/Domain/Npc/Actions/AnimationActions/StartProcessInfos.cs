@@ -40,7 +40,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             var isInSubDialog = _gameStateService.Dialogs.CurrentOptions.Any();
 
-            if (isInSubDialog)
+            // DeveloperConfig.EnableChoiceRemovedBeforeCall: DialogService removed the chosen choice before its function.
+            if (isInSubDialog && !ConfigService.Dev.EnableChoiceRemovedBeforeCall)
             {
                 var foundItem = _gameStateService.Dialogs.CurrentOptions
                         .FirstOrDefault(option => option.Function == _dialogId);

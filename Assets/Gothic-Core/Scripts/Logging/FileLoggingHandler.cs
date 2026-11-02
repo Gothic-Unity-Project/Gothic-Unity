@@ -1,54 +1,67 @@
-using Gothic.Core.Models.Config;
-#if !UNITY_EDITOR
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Models.Config;
 using UberLogger;
 using UnityEngine;
 using ILogger = UberLogger.ILogger;
 using Object = UnityEngine.Object;
-#endif
 
 namespace Gothic.Core.Logging
 {
     public class FileLoggingHandler
     {
-#if UNITY_EDITOR
-        public void Init(JsonRootConfig _)
-        {
-            // Disabled in Editor.
-        }
+        private const string _legacyLogFileName = "Gothic-Unity.log.txt";
 
-        public void Destroy()
-        {
-            // Disabled in Editor.
-        }
-#else
+        // DeveloperConfig.EnableSessionLogFiles: one file per session (a build's run, an Editor play mode), named after
+        // its start (local time) - a stream's VOD can be matched to it line by line.
+        private const string _logFolderName = "Logs";
+        private const string _logFilePrefix = "Gothic-Unity_";
+        private const string _logFileSuffix = ".log.txt";
+        private const int _keptSessionLogs = 30;
+
+        private readonly bool _isSessionLog;
         private FileLoggingLogger _logger;
 
-        private const string _logFileName = "Gothic-Unity.log.txt";
-        
-        public FileLoggingHandler()
+        public FileLoggingHandler(DeveloperConfig developerConfig)
         {
+            _isSessionLog = developerConfig != null && developerConfig.EnableSessionLogFiles;
+
+            // The Editor has its console and Editor.log - only session logs are written there.
+            if (Application.isEditor && !_isSessionLog)
+                return;
+
             // As we need to get logs as early as possible, we will pre-initialize it immediately.
             PreInit();
         }
 
         private void PreInit()
         {
-            string rootFolder;
-            if (Application.platform == RuntimePlatform.Android)
+            var rootFolder = Application.persistentDataPath;
+
+            string logFilePath;
+            var sessionStart = DateTime.Now;
+            if (_isSessionLog)
             {
-                rootFolder = Application.persistentDataPath;
+                var logFolder = Path.Combine(rootFolder, _logFolderName);
+                Directory.CreateDirectory(logFolder);
+                DeleteOldSessionLogs(logFolder);
+                logFilePath = Path.Combine(logFolder,
+                    $"{_logFilePrefix}{sessionStart:yyyy-MM-dd_HH-mm-ss}{_logFileSuffix}");
             }
             else
             {
-                rootFolder = Application.persistentDataPath;
+                logFilePath = Path.Combine(rootFolder, _legacyLogFileName);
             }
 
-            _logger = new FileLoggingLogger($"{rootFolder}/{_logFileName}", false);
+            _logger = new FileLoggingLogger(logFilePath, false, _isSessionLog, sessionStart.ToUniversalTime());
             UberLogger.Logger.AddLogger(_logger);
 
+            if (_isSessionLog)
+                _logger.WriteLine($"Session start: {sessionStart:yyyy-MM-dd HH:mm:ss} " +
+                                  $"({(Application.isEditor ? "Editor" : "build")}; every line starts with the local " +
+                                  "time, then the seconds since the start)");
             _logger.WriteLine("DeviceModel: " + SystemInfo.deviceModel);
             _logger.WriteLine("DeviceType: " + SystemInfo.deviceType);
             _logger.WriteLine("OperatingSystem: " + SystemInfo.operatingSystem);
@@ -58,8 +71,31 @@ namespace Gothic.Core.Logging
             _logger.WriteLine(string.Empty);
         }
 
+        /// <summary>
+        /// Keeps the newest session logs only (the names sort by date).
+        /// </summary>
+        private static void DeleteOldSessionLogs(string logFolder)
+        {
+            try
+            {
+                var oldLogs = Directory.GetFiles(logFolder, $"{_logFilePrefix}*{_logFileSuffix}")
+                    .OrderByDescending(path => Path.GetFileName(path))
+                    .Skip(_keptSessionLogs - 1);
+                foreach (var oldLog in oldLogs)
+                    File.Delete(oldLog);
+            }
+            catch (Exception e)
+            {
+                // Logging isn't set up yet - a log that can't be deleted just stays.
+                Debug.LogWarning($"Old session logs couldn't be deleted: {e.Message}");
+            }
+        }
+
         public void Init(JsonRootConfig rootConfig)
         {
+            if (_logger == null)
+                return;
+
             LogSeverity logLevel;
 
             if (Enum.TryParse(rootConfig.LogLevel, true, out LogSeverity value))
@@ -98,11 +134,22 @@ namespace Gothic.Core.Logging
             }
             _logger.WriteLine(string.Empty);
 
-            UberLogger.Logger.AddFilter(new FileLoggingFilter(logLevel, logCategories));
+            // UberLogger's filters silence the Unity console too - in the Editor only the file is filtered.
+            var filter = new FileLoggingFilter(logLevel, logCategories);
+            if (Application.isEditor)
+                _logger.Filter = filter;
+            else
+                UberLogger.Logger.AddFilter(filter);
         }
 
         public void Destroy()
         {
+            if (_logger == null)
+                return;
+
+            // The Editor keeps UberLogger's static loggers without a domain reload - the next play mode adds its own.
+            UberLogger.Logger.RemoveLogger(typeof(FileLoggingLogger).FullName);
+            _logger.Close();
             _logger = null;
         }
 
@@ -111,25 +158,45 @@ namespace Gothic.Core.Logging
         {
             private readonly StreamWriter _logFileWriter;
             private readonly bool _includeCallStacks;
+            private readonly bool _isLocalTimeShown;
+            // Seconds since the start from UTC: UberLogger's relative time is local (DateTime.Now) and went negative
+            // when the clock went back an hour (daylight saving time ended mid-session).
+            private readonly DateTime _sessionStartUtc;
 
-            public FileLoggingLogger(string fileLogPath, bool includeCallStacks)
+            // The Editor's own filter (in builds UberLogger filters globally).
+            public IFilter Filter;
+
+            public FileLoggingLogger(string fileLogPath, bool includeCallStacks, bool isLocalTimeShown,
+                DateTime sessionStartUtc)
             {
                 _includeCallStacks = includeCallStacks;
+                _isLocalTimeShown = isLocalTimeShown;
+                _sessionStartUtc = sessionStartUtc;
                 _logFileWriter = new StreamWriter(fileLogPath, false);
                 _logFileWriter.AutoFlush = true;
             }
 
             public void Log(LogInfo logInfo)
             {
+                if (Filter != null && !Filter.ApplyFilter(logInfo.Channel, null, logInfo.Severity, logInfo.Message))
+                    return;
+
                 lock(this)
                 {
-                    // RFC 5424: <timestamp> <severity> [<category>] <message>
-                    var fullMessage = string.Format("{0} {1} [{2}] {3}",
-                        logInfo.GetRelativeTimeStampAsString(),
-                        logInfo.Severity,
-                        logInfo.Channel,
-                        logInfo.Message
-                    );
+                    // RFC 5424: <timestamp> <severity> [<category>] <message> - session logs start with the local time
+                    // (VOD timestamps).
+                    var fullMessage = _isLocalTimeShown
+                        ? string.Format(CultureInfo.InvariantCulture, "{0:HH:mm:ss.fff} ({1:0.0000}) {2} [{3}] {4}",
+                            logInfo.AbsoluteTimeStamp.ToLocalTime(),
+                            (logInfo.AbsoluteTimeStamp - _sessionStartUtc).TotalSeconds,
+                            logInfo.Severity,
+                            logInfo.Channel,
+                            logInfo.Message)
+                        : string.Format("{0} {1} [{2}] {3}",
+                            logInfo.GetRelativeTimeStampAsString(),
+                            logInfo.Severity,
+                            logInfo.Channel,
+                            logInfo.Message);
 
                     _logFileWriter.WriteLine(fullMessage);
 
@@ -152,6 +219,14 @@ namespace Gothic.Core.Logging
                 lock(this)
                 {
                     _logFileWriter.WriteLine(message);
+                }
+            }
+
+            public void Close()
+            {
+                lock (this)
+                {
+                    _logFileWriter.Close();
                 }
             }
 
@@ -182,6 +257,5 @@ namespace Gothic.Core.Logging
                        && (_logCategories.Length == 0 || _logCategories.Contains(channel));
             }
         }
-#endif
     }
 }

@@ -147,6 +147,8 @@ PlayerSettings:
   bundleVersion: SET-VIA-RELEASE-PIPELINE
   preloadedAssets:
   - {fileID: 11400000, guid: f528c8266c3365449b0110f9b4155c00, type: 2}
+  - {fileID: -6130017761474525160, guid: 62335432a157ca04fa416f6c859c1ce4, type: 2}
+  - {fileID: -4365899983932584079, guid: bf3e862595e1e234bb413ecbf9a1156d, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1

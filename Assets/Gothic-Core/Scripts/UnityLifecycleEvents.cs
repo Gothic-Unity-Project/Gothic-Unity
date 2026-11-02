@@ -33,6 +33,7 @@ namespace Gothic.VR
 
         // Misc
         [Inject] private readonly StationaryLightsService _lightsService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly SkyService _skyService;
         [Inject] private readonly BarrierService _barrierService;
         [Inject] private readonly SpeechToTextService _speechToTextService;
@@ -42,6 +43,7 @@ namespace Gothic.VR
         {
             _frameSkipperService.Update();
             _npcMeshCullingService.Update();
+            _heroPerceptionService.Update();
             _loadingService.Update();
         }
 

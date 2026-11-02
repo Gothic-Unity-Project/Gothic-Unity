@@ -215,6 +215,7 @@ namespace Gothic.Core.Extensions
                 "$youaskedforit" => svm.YouAskedForIt,
                 "$nowwaitintruder" => svm.NowWaitIntruder,
                 "$iwillteachyourespectforforei" => svm.IWillTeachYouRespectForForeignProperty,
+                "$iwillteachyourespectforforeignproperty" => svm.IWillTeachYouRespectForForeignProperty,
                 "$dirtythief" => svm.DirtyThief,
                 "$youattackedmycharge" => svm.YouAttackedMyCharge,
                 "$youkilledoneofus" => svm.YouKilledOneOfUs,
@@ -235,6 +236,7 @@ namespace Gothic.Core.Extensions
                 "$handsoff" => svm.HandsOff,
                 "$getoutofhere" => svm.GetOutOfHere,
                 "$youviolatedforbiddenterritor" => svm.YouViolatedForbiddenTerritory,
+                "$youviolatedforbiddenterritory" => svm.YouViolatedForbiddenTerritory,
                 "$youwannafoolme" => svm.YouWannaFoolMe,
                 "$whatsthissupposedtobe" => svm.WhatsThisSupposedToBe,
                 "$whyareyouinhere" => svm.WhyAreYouInHere,
@@ -337,9 +339,7 @@ namespace Gothic.Core.Extensions
             };
 
             if (fileName == null)
-            {
-                Logger.LogError($"key {svmEntry} not (yet) implemented.", LogCat.Misc);
-            }
+                Logger.Log($"SVM key {svmEntry} not mapped — skipping audio.", LogCat.Misc);
 
             return fileName;
         }

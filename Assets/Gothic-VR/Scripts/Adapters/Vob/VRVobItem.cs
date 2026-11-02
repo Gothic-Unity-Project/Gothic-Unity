@@ -1,17 +1,24 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
 using Gothic.VR.Services;
 using Gothic.Core;
+using Gothic.Core.Logging;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob
 {
@@ -22,6 +29,17 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly DocService _docService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+
+        // DeveloperConfig.EnableDocConsumeOnClose: a sealed letter (MAPSEALED) is used up when it's read - but only
+        // when the reading ends (one hand lets go), not while it's still in front of the player.
+        private bool _isConsumedOnDocClose;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -96,7 +114,12 @@ namespace Gothic.VR.Adapters.Vob
             // OnGrabbed is normally called multiple times. Even after an object is already socketed. If so, then let's stop Grab behaviour.
             // If we sock an object on our hips or backpack etc.
             if (args.Kind == VrGrabberKind.Socket)
+            {
+                // DeveloperConfig.EnableVrCrossbowManualReload: out of a holster/backpack a crossbow is cocked.
+                if (TryGetComponent<Adapters.Vob.VobItem.VRCrossbowString>(out var crossbowString))
+                    crossbowString.SetProgress(1f);
                 return;
+            }
 
             // Stop collisions while being dragged around (at least shortly; otherwise e.g. items might stick inside chests when pulled out).
             gameObject.layer = Constants.VobItemNoWorldCollision;
@@ -110,6 +133,20 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
+
+            // DeveloperConfig.EnableWeaponRequirementCap: the engine's "missing ... points" for a weapon he can't use.
+            TryShowWeaponRequirement();
+
+            // One hand is enough for ranged weapons and torches.
+            TryPrepareRangedWeapon();
+            TryPrepareTorch();
+
+            if (_vrPlayerService.IsDualGrabbed)
+            {
+                TryShowDocument();
+                TryCastSpell();
+                TryPrepareItemUse();
+            }
         }
 
         /// <summary>
@@ -135,6 +172,192 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
+
+            // Bows/crossbows shoot as long as any hand holds them. Removed immediately: a release + grab in the same
+            // frame (holster -> hand, hand -> hand) found the component still pending destruction and added no new
+            // one - the bow ended up without its string.
+            var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject || _vrPlayerService.GrabbedItemRight == gameObject;
+            if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRCrossbow>(out var crossbow))
+                DestroyImmediate(crossbow);
+            if (!isStillHeld && TryGetComponent<Adapters.Vob.VobItem.VRBow>(out var bow))
+                DestroyImmediate(bow);
+
+            // Close any open document viewer / rune caster when item is no longer dual-grabbed.
+            if (!_vrPlayerService.IsDualGrabbed)
+            {
+                var viewer = GetComponent<Adapters.Vob.VobItem.VRDocViewer>();
+                if (viewer != null)
+                    Destroy(viewer);
+                foreach (Transform child in transform)
+                {
+                    if (child.name == "_DocCanvas")
+                        Destroy(child.gameObject);
+                }
+
+                if (_isConsumedOnDocClose)
+                {
+                    _isConsumedOnDocClose = false;
+                    ConsumeDocument();
+                    return;
+                }
+
+                var itemUser = GetComponent<Adapters.Vob.VobItem.VRItemUser>();
+                if (itemUser != null)
+                    Destroy(itemUser);
+
+                var caster = GetComponent<Adapters.Vob.VobItem.VRRuneCaster>();
+                if (caster != null)
+                {
+                    // During telekinesis, keep the caster alive while one hand still holds the rune —
+                    // the freed hand needs to grab the distant item. Destroy when both hands are clear.
+                    // Throwable spells (DeveloperConfig.EnableThrowableSpells) are held in one hand by design.
+                    var runeStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject
+                                     || _vrPlayerService.GrabbedItemRight == gameObject;
+                    var keepAlive = runeStillHeld
+                        && (_vrPlayerService.IsTelekinesisActive || caster.IsTargetingActive || caster.IsThrowable);
+                    if (!keepAlive)
+                        Destroy(caster);
+                }
+            }
+        }
+
+        private void TryShowDocument()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatDocs)
+                return;
+
+            var onStateIndex = item.GetOnState(0);
+            if (onStateIndex == 0)
+                return;
+
+            // Ensure VRDocViewer is present on this GO before Daedalus fires Doc_Show.
+            if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
+
+            var vm = _gameStateService.GothicVm;
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = vm.GlobalHero;
+            _docService.PendingItemGo = gameObject;
+            try
+            {
+                vm.Call(onStateIndex);
+                Logger.Log($"[VRVobItem] Called on_state[0] for doc item {item.Name}", LogCat.VR);
+
+                // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
+                if (_configService.Dev.EnableDocConsumeOnClose &&
+                    Adapters.Vob.VobItem.VRItemUser.IsConsumedOnUse(item, _resourceCacheService))
+                    _isConsumedOnDocClose = true;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[VRVobItem] on_state[0] failed for {item.Name}: {e.Message}", LogCat.VR);
+                _docService.PendingItemGo = null;
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
+        }
+
+        /// <summary>
+        /// The read sealed document is used up: one of a stack, or the whole item (released from the other hand first,
+        /// which also takes it out of the inventory like a dropped item).
+        /// </summary>
+        private void ConsumeDocument()
+        {
+            // Unpaid trader goods (trade counter) can be read, but not used up.
+            if (GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+                return;
+
+            var container = GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
+                return;
+
+            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            if (vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                if (_interactable != null && _interactable.IsHeld)
+                    _playerService.RemoveItem(instanceName, 1);
+                Logger.Log($"[VRVobItem] {instanceName} read - one used up, remaining={vobItem.Amount}", LogCat.VR);
+                return;
+            }
+
+            Logger.Log($"[VRVobItem] {instanceName} read - used up", LogCat.VR);
+            if (_interactable != null && _interactable.IsHeld)
+                _interactable.ForceRelease();
+            _vobService.RemoveWorldItem(container);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrTorch: torches (ITEM_TORCH) get lit/put out with the trigger (VRTorch).
+        /// </summary>
+        private void TryPrepareTorch()
+        {
+            if (!_configService.Dev.EnableVrTorch || GetComponent<Adapters.Vob.VobItem.VRTorch>() != null)
+                return;
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item != null && ((int)item.Flags & (int)VmGothicEnums.ItemFlags.ItemTorch) != 0)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRTorch>();
+        }
+
+        private void TryCastSpell()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatRune)
+                return;
+
+            if (GetComponent<Adapters.Vob.VobItem.VRRuneCaster>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRRuneCaster>();
+        }
+
+        /// <summary>
+        /// V1 (DeveloperConfig.EnableVrCrossbow / EnableVrBows): ranged weapons shoot while held (vr-ranged-spells-plan.md).
+        /// </summary>
+        private void TryShowWeaponRequirement()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            var mainFlag = item != null ? (VmGothicEnums.ItemFlags)item.MainFlag : 0;
+            if (mainFlag is VmGothicEnums.ItemFlags.ItemKatNf or VmGothicEnums.ItemFlags.ItemKatFf)
+                _fightService.CheckHeroWeaponRequirement(item, isMessageShown: true);
+        }
+
+        private void TryPrepareRangedWeapon()
+        {
+            if (GetComponent<Adapters.Vob.VobItem.VRCrossbow>() != null || GetComponent<Adapters.Vob.VobItem.VRBow>() != null)
+                return;
+
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatFf)
+                return;
+
+            var flags = (VmGothicEnums.ItemFlags)item.Flags;
+            if (_configService.Dev.EnableVrCrossbow && flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow))
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRCrossbow>();
+            else if (_configService.Dev.EnableVrBows && flags.HasFlag(VmGothicEnums.ItemFlags.ItemBow))
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRBow>();
+        }
+
+        /// <summary>
+        /// Items with a "use" function (on_state[0]) like pouches. VRItemUser waits for the trigger while dual-grabbed.
+        /// </summary>
+        private void TryPrepareItemUse()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (!Adapters.Vob.VobItem.VRItemUser.IsUsable(item, _configService.Dev.EnableEquipItems))
+                return;
+
+            if (GetComponent<Adapters.Vob.VobItem.VRItemUser>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRItemUser>();
         }
 
         /// <summary>
@@ -142,7 +365,8 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         private void OnDrawGizmos()
         {
-            if (!Application.isPlaying || !_configService.Dev.ShowCapsuleOverlapGizmos)
+            // Not injected yet (item just created): the Scene view draws gizmos every frame anyway.
+            if (!Application.isPlaying || _configService == null || !_configService.Dev.ShowCapsuleOverlapGizmos)
             {
                 return;
             }

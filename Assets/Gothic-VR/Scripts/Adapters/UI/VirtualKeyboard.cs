@@ -5,6 +5,7 @@ using Gothic.Core.Adapters.UI;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.UI;
 using TMPro;
@@ -43,6 +44,9 @@ namespace Gothic.VR.Adapters.UI
 
         private static VirtualKeyboard _current;
 
+        private const string _clearLabel = "Clear";
+        private Button _clearButton;
+
         private string _text = string.Empty;
         private bool _isUpperCase;
         private int _maxLength = DefaultMaxLength;
@@ -61,6 +65,7 @@ namespace Gothic.VR.Adapters.UI
         private VirtualKeyboardKey[] _keys;
         private TMP_Text _spaceLabel;
         private readonly List<string> _suggestions = new();
+        private readonly List<(LineRenderer Line, int SortingOrder)> _raisedPointerLines = new();
 
         public string Text => _text;
 
@@ -141,15 +146,23 @@ namespace Gothic.VR.Adapters.UI
             _shiftButton.onClick.AddListener(ToggleCase);
             _spaceButton.onClick.AddListener(() => Type(' '));
             _backspaceButton.onClick.AddListener(Backspace);
+            if (ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableKeyboardClearButton)
+                CreateClearButton();
             _submitButton.onClick.AddListener(Submit);
             _cancelButton.onClick.AddListener(Cancel);
 
             // The optional rows changed - recalculate the panel size before the laser sees it.
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
 
+            // DeveloperConfig.EnableUiGrabBars: following an anchor (Marvin), it's moved with the anchor's bar.
+            if (!_hasFollowTarget && ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableUiGrabBars)
+                VRGrabBar.Create((RectTransform)transform, transform);
+
             RefreshDisplay();
             // A canvas created at runtime: the UI laser only hits registered canvases.
             ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().RegisterCanvas(GetComponent<Canvas>());
+            if (ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableKeyboardPointerOnTop)
+                RaisePointerLines();
             Logger.Log("[VirtualKeyboard] Shown", LogCat.Ui);
         }
 
@@ -212,6 +225,31 @@ namespace Gothic.VR.Adapters.UI
             }
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableKeyboardClearButton: a copy of the backspace key between it and OK empties the text at
+        /// once (a save's name to overwrite).
+        /// </summary>
+        private void CreateClearButton()
+        {
+            var clear = Instantiate(_backspaceButton.gameObject, _backspaceButton.transform.parent);
+            clear.name = _clearLabel;
+            clear.transform.SetSiblingIndex(_backspaceButton.transform.GetSiblingIndex() + 1);
+            _clearButton = clear.GetComponent<Button>();
+            _clearButton.onClick = new Button.ButtonClickedEvent();
+            _clearButton.onClick.AddListener(Clear);
+            foreach (var label in clear.GetComponentsInChildren<TMP_Text>(true))
+                label.text = _clearLabel;
+        }
+
+        private void Clear()
+        {
+            if (_text.Length == 0)
+                return;
+            _text = string.Empty;
+            RefreshDisplay();
+            _onTextChanged?.Invoke(_text);
+        }
+
         private void Backspace()
         {
             if (_text.Length == 0)
@@ -244,6 +282,8 @@ namespace Gothic.VR.Adapters.UI
 
             SetKeyInteractable(_spaceButton, _spaceLabel, IsKeyAllowed(' '));
             _backspaceButton.interactable = _text.Length > 0;
+            if (_clearButton != null)
+                _clearButton.interactable = _text.Length > 0;
             _submitButton.interactable = IsSubmitAllowed();
         }
 
@@ -378,6 +418,39 @@ namespace Gothic.VR.Adapters.UI
         {
             if (_current == this)
                 _current = null;
+            RestorePointerLines();
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableKeyboardPointerOnTop: the keyboard canvas sorts above the rest (sortingOrder 100) - the
+        /// UI laser (sorting order 0, same transparent queue) was drawn under it, aiming at a key was guesswork. While
+        /// it's open, the lasers sort above it.
+        /// </summary>
+        private void RaisePointerLines()
+        {
+            var cam = Camera.main;
+            if (cam == null)
+                return;
+
+            var order = GetComponent<Canvas>().sortingOrder + 1;
+            var lines = ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().GetPointerLines(cam.transform.root);
+            foreach (var line in lines)
+            {
+                if (line.sortingOrder >= order)
+                    continue;
+                _raisedPointerLines.Add((line, line.sortingOrder));
+                line.sortingOrder = order;
+            }
+        }
+
+        private void RestorePointerLines()
+        {
+            foreach (var (line, sortingOrder) in _raisedPointerLines)
+            {
+                if (line != null)
+                    line.sortingOrder = sortingOrder;
+            }
+            _raisedPointerLines.Clear();
         }
     }
 }

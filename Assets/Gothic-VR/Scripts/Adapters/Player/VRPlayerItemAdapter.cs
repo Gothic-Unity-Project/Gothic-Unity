@@ -1,4 +1,6 @@
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
+using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -13,6 +15,7 @@ namespace Gothic.VR.Adapters.Player
     public class VRPlayerItemAdapter : MonoBehaviour
     {
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         private IVrRig _rig;
 
@@ -57,6 +60,13 @@ namespace Gothic.VR.Adapters.Player
             {
                 rb.isKinematic = false;
             }
+
+            // Promote item to the world VOB list if it isn't already there (e.g. grabbed from a chest
+            // socket — chest items are created as fresh VOBs not in CurrentWorldData.Vobs).
+            // For regular world items already in the list this is a no-op add + position track.
+            var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container != null)
+                _saveGameService.PromoteChestItemToWorld(vobLoader.Container);
         }
     }
 }

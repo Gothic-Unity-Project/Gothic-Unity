@@ -1,7 +1,9 @@
 using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -16,15 +18,45 @@ namespace Gothic.Core.Adapters.Vob
     public class TriggerListHandler : MonoBehaviour
     {
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly ConfigService _configService;
 
         private ITriggerList _triggerList;
         private int _activationCount;
+        public int ActivationCount => _activationCount;
+
+        /// <summary>
+        /// Can fire again - a code master without saved state frees its used-up slaves (CodeMasterHandler.Start).
+        /// </summary>
+        public void ResetActivationCount() => _activationCount = 0;
+
+        /// <summary>
+        /// DeveloperConfig.EnableLogicVobSaveState: fired since the world was loaded - maxActivationCount holds after
+        /// loading a save.
+        /// </summary>
+        public bool TryCaptureState(out LogicVobSaveEntry entry)
+        {
+            entry = _activationCount > 0 && _triggerList != null
+                ? new LogicVobSaveEntry
+                {
+                    Key = LogicVobSaveState.MakeKey(_triggerList), ActivationCount = _activationCount
+                }
+                : null;
+            return entry != null;
+        }
 
         private void Awake() => this.Inject();
 
         public void Init(ITriggerList triggerList)
         {
             _triggerList = triggerList;
+            if (_configService == null)
+                this.Inject();
+            if (_configService.Dev.EnableLogicVobSaveState && LogicVobSaveState.TryTake(_triggerList, out var saved))
+            {
+                _activationCount = saved.ActivationCount;
+                Logger.Log($"[LogicVobSave] '{_triggerList.Name}' restored from save - fired {_activationCount} time(s)",
+                    LogCat.Vob);
+            }
         }
 
         public void Trigger()
@@ -54,8 +86,15 @@ namespace Gothic.Core.Adapters.Vob
             switch (_triggerList.Mode)
             {
                 case TriggerBatchMode.All:
+                    // DeveloperConfig.EnableTriggerListSummedDelays: in the engine every target's delay counts from
+                    // the previous one (OpenGothic TriggerList: offset += delay) - not each from the trigger moment.
+                    var offset = 0f;
                     foreach (var target in targets)
-                        ScheduleDispatch(target.Name, (float)target.Delay.TotalSeconds);
+                    {
+                        var delay = (float)target.Delay.TotalSeconds;
+                        offset = _configService.Dev.EnableTriggerListSummedDelays ? offset + delay : delay;
+                        ScheduleDispatch(target.Name, offset);
+                    }
                     break;
                 case TriggerBatchMode.Next:
                     var index = _triggerList.ActTarget % targets.Count;

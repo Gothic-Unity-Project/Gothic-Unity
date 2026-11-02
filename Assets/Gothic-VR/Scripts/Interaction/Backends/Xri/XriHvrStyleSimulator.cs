@@ -247,8 +247,17 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (interactor == null)
                 return;
 
-            interactor.selectInput.QueueManualState(isGripping, isGripping ? 1f : 0f);
-            interactor.activateInput.QueueManualState(isTrigger, isTrigger ? 1f : 0f);
+            // Only a change is queued: a queued state takes effect the frame after it was queued, and this runs every
+            // frame before the interaction manager reads it (k_InteractionSimulator) - queued again each frame, its
+            // target frame moved on forever and the grip never took effect (no grab, no talk).
+            QueueIfChanged(interactor.selectInput, isGripping);
+            QueueIfChanged(interactor.activateInput, isTrigger);
+        }
+
+        private static void QueueIfChanged(XRInputButtonReader reader, bool isPressed)
+        {
+            if (reader.ReadIsPerformed() != isPressed)
+                reader.QueueManualState(isPressed, isPressed ? 1f : 0f);
         }
 
         private void Look(Vector2 mouseDelta)

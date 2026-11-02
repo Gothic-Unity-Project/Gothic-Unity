@@ -56,6 +56,8 @@ namespace Gothic.Core.Adapters.Vob
                 case MessageFilterAction.Enable:
                 case MessageFilterAction.Disable:
                 case MessageFilterAction.Toggle:
+                    if (_vobService.DispatchEnable(_vob.Target, action))
+                        break;
                     Logger.LogWarning($"[MessageFilter] '{_vob.Name}' action={action} not yet implemented " +
                                       $"(target='{_vob.Target}')", LogCat.Vob);
                     break;

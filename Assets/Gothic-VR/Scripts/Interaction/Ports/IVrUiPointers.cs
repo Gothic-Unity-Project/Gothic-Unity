@@ -21,5 +21,10 @@ namespace Gothic.VR.Interaction.Ports
         /// Which hand's pointer raised the UI event. false if it came from no VR pointer.
         /// </summary>
         bool TryGetHandSide(PointerEventData eventData, out VrHandSide side);
+
+        /// <summary>
+        /// The lines drawn by the pointers under the rig (DeveloperConfig.EnablePointerLineOnTop draws them over menus).
+        /// </summary>
+        LineRenderer[] GetPointerLines(Transform rigRoot);
     }
 }

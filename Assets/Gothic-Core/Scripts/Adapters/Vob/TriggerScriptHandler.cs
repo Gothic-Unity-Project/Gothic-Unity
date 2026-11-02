@@ -1,6 +1,9 @@
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.World;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vm;
 using Reflex.Attributes;
 using UnityEngine;
@@ -9,16 +12,47 @@ using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Vob
 {
-    public class TriggerScriptHandler : MonoBehaviour
+    public class TriggerScriptHandler : MonoBehaviour, IDamageable
     {
         [Inject] private readonly VmService _vmService;
 
         private ITriggerScript _triggerScript;
         private int _activationCount;
+        public int ActivationCount => _activationCount;
+
+        /// <summary>
+        /// Can fire again - a code master without saved state frees its used-up slaves (CodeMasterHandler.Start).
+        /// </summary>
+        public void ResetActivationCount() => _activationCount = 0;
+
+        /// <summary>
+        /// DeveloperConfig.EnableLogicVobSaveState: fired since the world was loaded - maxActivationCount holds after
+        /// loading a save.
+        /// </summary>
+        public bool TryCaptureState(out LogicVobSaveEntry entry)
+        {
+            entry = _activationCount > 0 && _triggerScript != null
+                ? new LogicVobSaveEntry
+                {
+                    Key = LogicVobSaveState.MakeKey(_triggerScript), ActivationCount = _activationCount
+                }
+                : null;
+            return entry != null;
+        }
+
+        private void OnDestroy() => DamageTargets.Unregister(transform);
 
         public void Init(ITriggerScript triggerScript)
         {
             _triggerScript = triggerScript;
+            if (ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableLogicVobSaveState &&
+                LogicVobSaveState.TryTake(_triggerScript, out var saved))
+            {
+                _activationCount = saved.ActivationCount;
+                Logger.Log($"[LogicVobSave] '{_triggerScript.Name}' restored from save - fired {_activationCount} time(s)", LogCat.Vob);
+            }
+            if (_triggerScript.ReactToOnDamage)
+                DamageTargets.Register(transform);
         }
 
         /// <summary>
@@ -54,6 +88,18 @@ namespace Gothic.Core.Adapters.Vob
                 return;
             }
             _vmService.Vm.Call(sym.Index);
+        }
+
+        /// <summary>
+        /// Hit by an arrow/bolt/spell (reactToOnDamage).
+        /// </summary>
+        public void OnDamage(NpcContainer attacker)
+        {
+            if (!_triggerScript.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[TriggerScript] '{_triggerScript.Function}' hit by a projectile", LogCat.Vob);
+            Trigger();
         }
 
         private void OnTriggerEnter(Collider other)

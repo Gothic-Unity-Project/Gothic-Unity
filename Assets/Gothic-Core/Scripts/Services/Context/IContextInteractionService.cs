@@ -9,12 +9,20 @@ namespace Gothic.Core.Services.Context
         float GetFrameRate();
         void SetupPlayerController(DeveloperConfig developerConfig);
         GameObject GetCurrentPlayerController();
-        void LockPlayerInPlace();
+        /// <summary>
+        /// No walking/teleporting. allowTurning: the player can still turn (snap/smooth turn) - knocked out heroes.
+        /// </summary>
+        void LockPlayerInPlace(bool allowTurning = false);
         void UnlockPlayer();
         void SetWalkingControls();
         void SetSwimmingControls();
         void SetDivingControls();
         void TeleportPlayerTo(Vector3 position, Quaternion rotation = default);
+
+        /// <summary>
+        /// What the hands hold goes into the hero's inventory (teleport, saving).
+        /// </summary>
+        void StoreHeldItemsInBackpack();
 
         /// <summary>
         /// Holds the player horizontally inside the circle around center. Between softRadius and radius, movement

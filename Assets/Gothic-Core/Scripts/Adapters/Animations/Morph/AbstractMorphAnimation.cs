@@ -55,8 +55,40 @@ namespace Gothic.Core.Adapters.Animations.Morph
             }
         }
 
-        protected void StartAnimation(string morphMeshName, [CanBeNull] string animationName)
+        /// <summary>
+        /// Blend all running morphs on top of each other (face: mood + viseme + blink) instead of the last one setting
+        /// the whole mesh.
+        /// </summary>
+        protected virtual bool IsBlendingMorphs => false;
+
+        // IsBlendingMorphs: the summed vertices (reused every frame) and whether the mesh is off its rest pose.
+        private Vector3[] _blendedVertices;
+        private string _blendedMeshName;
+        private bool _isMeshMorphed;
+        private bool _isBlendMismatchLogged;
+
+        public bool IsAnimationRunning(string animationName)
         {
+            return _runningMorphs.Any(i => !i.IsStopping && i.AnimationName.EqualsIgnoreCase(animationName));
+        }
+
+        protected void StartAnimation(string morphMeshName, [CanBeNull] string animationName, float weight = 1f,
+            float holdSeconds = 0f)
+        {
+            // IsBlendingMorphs: the same animation again (a viseme for the next line, the same mood) only refreshes it.
+            if (IsBlendingMorphs && animationName != null)
+            {
+                var running = _runningMorphs.FirstOrDefault(i =>
+                    !i.IsStopping && i.AnimationName.EqualsIgnoreCase(animationName));
+                if (running != null)
+                {
+                    running.Weight = Mathf.Clamp01(weight);
+                    running.HoldSeconds = holdSeconds;
+                    running.HoldTimer = 0f;
+                    return;
+                }
+            }
+
             var newMorph = new MorphAnimationData();
 
             newMorph.MeshMetadata = _resourceCacheService.TryGetMorphMesh(morphMeshName);
@@ -82,6 +114,21 @@ namespace Gothic.Core.Adapters.Animations.Morph
                 _morphMeshCacheService.TryGetMorphData(morphMeshName, newMorph.AnimationMetadata.Name);
             if (newMorph.AnimationFrameData == null)
                 return;
+
+            // IsBlendingMorphs: like the engine, one animation per MMB layer - a new mood fades the old one out (T_EAT and
+            // T_HURT share the moods' layer 1, VISEME has layer 2, R_EYESBLINK 4).
+            if (IsBlendingMorphs)
+            {
+                foreach (var sameLayer in _runningMorphs.Where(i =>
+                             i.AnimationMetadata.Layer == newMorph.AnimationMetadata.Layer))
+                    sameLayer.IsStopping = true;
+
+                newMorph.Weight = Mathf.Clamp01(weight);
+                newMorph.HoldSeconds = holdSeconds;
+                newMorph.IsLooping = newMorph.AnimationMetadata.Flags.HasFlag(MorphAnimationFlags.Loop);
+                _runningMorphs.Add(newMorph);
+                return;
+            }
 
             // Reset if already added and playing
             if (_runningMorphs.Any(i => i.MeshName == newMorph.MeshName))
@@ -111,6 +158,14 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
         public void StopAnimation(string animationName)
         {
+            // IsBlendingMorphs: fades out with its MMB blend out; not running is fine (a line without a viseme).
+            if (IsBlendingMorphs)
+            {
+                foreach (var morph in _runningMorphs.Where(i => i.AnimationName.EqualsIgnoreCase(animationName)))
+                    morph.IsStopping = true;
+                return;
+            }
+
             var morphToStop = _runningMorphs.FirstOrDefault(i => i.AnimationName.EqualsIgnoreCase(animationName));
 
             if (morphToStop == null)
@@ -142,8 +197,110 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
         private void Update()
         {
-            UpdateRunningMorphs();
+            if (IsBlendingMorphs)
+                UpdateBlendedMorphs();
+            else
+                UpdateRunningMorphs();
             CheckIfRandomAnimationShouldBePlayed();
+        }
+
+        /// <summary>
+        /// IsBlendingMorphs: like the engine, every running morph adds its offset from the rest pose, weighted by its
+        /// intensity and its blend in/out (MMB values are weight per millisecond: a blink closes in 40 ms, a mood in 1 s).
+        /// Before, each morph set the whole mesh - a blink or a mood would wipe out the talking mouth.
+        /// </summary>
+        private void UpdateBlendedMorphs()
+        {
+            if (_runningMorphs.Count == 0)
+            {
+                if (_isMeshMorphed)
+                {
+                    _isMeshMorphed = false;
+                    ResetToRestPose(_morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName));
+                }
+                return;
+            }
+
+            _blendedMeshName = _runningMorphs[0].MeshName;
+            var baseVertices = _morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName);
+            if (_mesh == null || baseVertices == null || baseVertices.Length != _mesh.vertexCount)
+            {
+                if (!_isBlendMismatchLogged)
+                {
+                    _isBlendMismatchLogged = true;
+                    Logger.LogWarning($"[FaceAni] {gameObject.name}: no rest pose for '{_runningMorphs[0].MeshName}' " +
+                                      "matching the mesh - face animations off for it", LogCat.Mesh);
+                }
+                _runningMorphs.Clear();
+                return;
+            }
+
+            if (_blendedVertices == null || _blendedVertices.Length != baseVertices.Length)
+                _blendedVertices = new Vector3[baseVertices.Length];
+            Array.Copy(baseVertices, _blendedVertices, baseVertices.Length);
+
+            var deltaMs = Time.deltaTime * 1000f;
+            foreach (var morph in _runningMorphs.ToList())
+            {
+                morph.Time += Time.deltaTime;
+                morph.HoldTimer += Time.deltaTime;
+                var animation = morph.AnimationMetadata;
+
+                if (morph.IsStopping)
+                {
+                    var blendOut = Mathf.Abs(animation.BlendOut);
+                    morph.BlendWeight = blendOut > 0f ? morph.BlendWeight - deltaMs * blendOut : 0f;
+                    if (morph.BlendWeight <= 0f)
+                    {
+                        _runningMorphs.Remove(morph);
+                        continue;
+                    }
+                }
+                else
+                {
+                    morph.BlendWeight = animation.BlendIn > 0f
+                        ? Mathf.Min(1f, morph.BlendWeight + deltaMs * animation.BlendIn)
+                        : 1f;
+                    if (morph.BlendWeight >= 1f && IsMorphOver(morph))
+                        morph.IsStopping = true;
+                }
+
+                var frames = morph.AnimationFrameData;
+                var frameFloat = morph.Time * 1000f * animation.Speed % frames.Count;
+                var frame = Mathf.Clamp((int)frameFloat, 0, frames.Count - 1);
+                var current = frames[frame];
+                var next = frames[(frame + 1) % frames.Count];
+                if (current.Length != baseVertices.Length || next.Length != baseVertices.Length)
+                    continue;
+
+                var lerp = frameFloat - frame;
+                var weight = morph.BlendWeight * morph.Weight;
+                for (var i = 0; i < baseVertices.Length; i++)
+                    _blendedVertices[i] += (Vector3.LerpUnclamped(current[i], next[i], lerp) - baseVertices[i]) * weight;
+            }
+
+            _mesh.vertices = _blendedVertices;
+            _isMeshMorphed = true;
+        }
+
+        private void ResetToRestPose(Vector3[] restVertices)
+        {
+            if (restVertices != null && _mesh != null && restVertices.Length == _mesh.vertexCount)
+                _mesh.vertices = restVertices;
+        }
+
+        /// <summary>
+        /// HoldSeconds > 0: held that long; &lt; 0: until stopped; 0: the MMB duration (R_EYESBLINK 0 = blend in and out,
+        /// T_EAT 2 s, a looping mood -1 = until stopped).
+        /// </summary>
+        private static bool IsMorphOver(MorphAnimationData morph)
+        {
+            if (morph.HoldSeconds > 0f)
+                return morph.HoldTimer >= morph.HoldSeconds;
+            if (morph.HoldSeconds < 0f)
+                return false;
+            var duration = (float)morph.AnimationMetadata.Duration.TotalSeconds;
+            return duration >= 0f && morph.HoldTimer >= duration;
         }
 
         // FIXME - We currently calculate morphs every frame but could lower it's value with 60, 30, 15 frames in mind (e.g. for each distance culling).

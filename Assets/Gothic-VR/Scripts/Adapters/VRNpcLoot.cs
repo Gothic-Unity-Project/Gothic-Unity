@@ -5,15 +5,19 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
+using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -23,6 +27,8 @@ using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Gothic.Core.Logging;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -36,12 +42,25 @@ namespace Gothic.VR.Adapters
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
 
+        /// <summary>
+        /// The loot socket - also used for the trade counter's offer zones.
+        /// </summary>
+        public GameObject SocketPrefab => _slotPrefab;
+
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
+
+        // The active backend's backpack prefab (VRBackpack.PrefabPath).
+        private static string _backpackPrefabPath => VRBackpack.PrefabPath;
+        private NpcInventoryOwner _lootOwner;
+        private VRBackpack _lootBackpack;
+        private GameObject _lootBackpackRoot;
+        private Coroutine _lootBackpackTimeout;
 
         private NpcContainer _npcContainer;
         private NpcLoader _npcLoader;
@@ -79,15 +98,213 @@ namespace Gothic.VR.Adapters
         public void Open(NpcContainer npc)
         {
             _npcContainer = npc;
+            _lootOwner = new NpcInventoryOwner(npc);
             _isOpen = true;
+            GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             PlayOpenSound();
-            CreateSockets();
-            StartCoroutine(FillSockets());
+
+            // DeveloperConfig.NpcLootMode: loot sockets, the NPC's backpack, or both.
+            var lootMode = _configService.Dev.NpcLootMode;
+            if (lootMode != DeveloperConfigEnums.NpcLootMode.Backpack)
+            {
+                CreateSockets();
+                StartCoroutine(FillSockets());
+            }
+            if (lootMode != DeveloperConfigEnums.NpcLootMode.Sockets)
+                SpawnLootBackpack(npc);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.NpcLootMode Backpack/Both: the NPC's items in a tinted copy of the hero's backpack (categories,
+        /// pages) lying next to the NPC - next to the loot sockets, both stay in sync (NpcInventoryChanged).
+        /// </summary>
+        private void SpawnLootBackpack(NpcContainer npc)
+        {
+            var prefab = Resources.Load<GameObject>(_backpackPrefabPath);
+            if (prefab == null)
+            {
+                Logger.LogWarning($"[VRNpcLoot] Backpack prefab {_backpackPrefabPath} not found.", LogCat.VR);
+                return;
+            }
+
+            var npcTransform = npc.Go.transform;
+            var position = npcTransform.position + npcTransform.right * 0.7f + Vector3.up * 0.4f;
+            var backpackGo = Instantiate(prefab, position, Quaternion.LookRotation(-npcTransform.right));
+            backpackGo.name = $"LootBackpack_{npc.Instance.GetName(NpcNameSlot.Slot0)}";
+            backpackGo.Inject();
+
+            _lootBackpack = backpackGo.GetComponentInChildren<VRBackpack>(true);
+            if (_lootBackpack == null)
+            {
+                Destroy(backpackGo);
+                return;
+            }
+            _lootBackpackRoot = backpackGo;
+            _lootBackpack.SetNpcOwner(npc);
+
+            // Lying untouched for a while: gone like closing the loot - no backpacks lying around the battlefield.
+            // Held, it stays; let go, the time starts again.
+            var interactable = VrInteractable.Find(_lootBackpack);
+            if (interactable != null)
+            {
+                interactable.Grabbed += _ => StopLootBackpackTimeout();
+                interactable.Released += _ => StartLootBackpackTimeout();
+            }
+            StartLootBackpackTimeout();
+            Logger.Log($"[VRNpcLoot] Loot backpack of {npc.Go.name} spawned", LogCat.VR);
+        }
+
+        private void StartLootBackpackTimeout()
+        {
+            StopLootBackpackTimeout();
+            if (_isOpen && isActiveAndEnabled)
+                _lootBackpackTimeout = StartCoroutine(CloseUnusedLootBackpack());
+        }
+
+        private void StopLootBackpackTimeout()
+        {
+            if (_lootBackpackTimeout == null)
+                return;
+            StopCoroutine(_lootBackpackTimeout);
+            _lootBackpackTimeout = null;
+        }
+
+        private IEnumerator CloseUnusedLootBackpack()
+        {
+            yield return new WaitForSeconds(Mathf.Max(1f, _configService.Dev.NpcLootBackpackTimeout));
+            _lootBackpackTimeout = null;
+            if (!_isOpen)
+                yield break;
+
+            Logger.Log("[VRNpcLoot] Loot backpack not picked up - loot closed", LogCat.VR);
+            Close();
+        }
+
+        private void DespawnLootBackpack()
+        {
+            StopLootBackpackTimeout();
+            if (_lootBackpack != null)
+                _lootBackpack.Despawn(_lootBackpackRoot);
+            else if (_lootBackpackRoot != null)
+                Destroy(_lootBackpackRoot);
+            _lootBackpack = null;
+            _lootBackpackRoot = null;
+        }
+
+        /// <summary>
+        /// The NPC got culled while its loot was open: no Update/coroutines anymore - close everything right now
+        /// (the loot backpack stayed lying around).
+        /// </summary>
+        private void OnDisable()
+        {
+            if (!_isOpen)
+                return;
+
+            _isOpen = false;
+            GlobalEventDispatcher.NpcInventoryChanged.RemoveListener(OnNpcInventoryChanged);
+            DespawnLootBackpack();
+            _pendingRefresh = null;
+
+            // Socketed loot items must not count as taken from the NPC.
+            _tempIgnoreSocketing = true;
+            foreach (var socket in _sockets)
+            {
+                if (socket == null || !socket.IsOccupied)
+                    continue;
+                var heldRoot = socket.Held.transform.parent.gameObject;
+                socket.ForceRelease();
+                Destroy(heldRoot);
+            }
+            DestroySockets();
+            _tempIgnoreSocketing = false;
+            _vrWeaponService.DrawSoundsActive = true;
+        }
+
+        /// <summary>
+        /// Something left to take: equipped weapons and inventory items, without armor (BuildLootList).
+        /// </summary>
+        public bool HasLoot(NpcContainer npc)
+        {
+            var previous = _npcContainer;
+            _npcContainer = npc;
+            try
+            {
+                return BuildLootList().Count > 0;
+            }
+            finally
+            {
+                if (_isOpen)
+                    _npcContainer = previous;
+            }
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableEmptyCorpseInert: a dead NPC with nothing left to take closes its loot (the backpack
+        /// goes) and can't be hovered or grabbed anymore - the looted corpse still lit up and opened an empty loot.
+        /// </summary>
+        public bool TryMakeEmptyCorpseInert(NpcContainer npc)
+        {
+            if (!_configService.Dev.EnableEmptyCorpseInert || npc?.Props == null ||
+                npc.Props.BodyState != VmGothicEnums.BodyState.BsDead || HasLoot(npc))
+                return false;
+
+            if (_isOpen)
+                Close();
+            var interactable = VrInteractable.Find(this);
+            if (interactable != null)
+            {
+                if (interactable.IsHeld)
+                    interactable.ForceRelease();
+                interactable.IsGrabEnabled = false;
+            }
+            Logger.Log($"[VRNpcLoot] {npc.Instance.GetName(NpcNameSlot.Slot0)} looted empty - corpse no longer " +
+                       "grabbable", LogCat.VR);
+            return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableCorpseHoldTakesAll: everything the NPC gives away into the hero's inventory (like the
+        /// loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// </summary>
+        public int TakeAll(NpcContainer npc)
+        {
+            var itemCount = VRBackpack.TakeAll(new NpcInventoryOwner(npc));
+            PlayOpenSound();
+            Logger.Log($"[VRNpcLoot] Took all from {npc.Instance.GetName(NpcNameSlot.Slot0)}: {itemCount} item(s)",
+                LogCat.VR);
+            if (!TryMakeEmptyCorpseInert(npc) && _isOpen)
+                Close();
+            return itemCount;
+        }
+
+        private void OnNpcInventoryChanged(NpcContainer npc)
+        {
+            if (!_isOpen || npc != _npcContainer)
+                return;
+
+            if (TryMakeEmptyCorpseInert(npc))
+                return;
+
+            if (_pendingRefresh != null)
+                StopCoroutine(_pendingRefresh);
+            _pendingRefresh = StartCoroutine(RefreshAfterDelay());
+        }
+
+        private void Update()
+        {
+            if (!_isOpen || _npcContainer == null)
+                return;
+
+            var state = _npcContainer.Props.BodyState;
+            if (state != VmGothicEnums.BodyState.BsDead && state != VmGothicEnums.BodyState.BsUnconscious)
+                Close();
         }
 
         public void Close()
         {
             _isOpen = false;
+            GlobalEventDispatcher.NpcInventoryChanged.RemoveListener(OnNpcInventoryChanged);
+            DespawnLootBackpack();
             if (_pendingRefresh != null)
             {
                 StopCoroutine(_pendingRefresh);
@@ -283,30 +500,8 @@ namespace Gothic.VR.Adapters
             if (item == null)
                 return;
 
-            var itemName = vobLoader.Container.Vob.Name;
-            var itemData = _vmCacheService.TryGetItemData(itemName);
-            if (itemData == null)
-                return;
-
-            // If this was an equipped weapon: destroy the mesh from NPC body and remove from equipped list
-            var equippedMatch = _npcContainer.Props.EquippedItems
-                .FirstOrDefault(e => string.Equals(
-                    _gameStateService.GothicVm.GetSymbolByIndex(e.Index)?.Name,
-                    itemName,
-                    StringComparison.OrdinalIgnoreCase));
-            if (equippedMatch != null)
-            {
-                _npcContainer.Props.EquippedItems.Remove(equippedMatch);
-                var weaponGo = FindEquippedWeaponGo(equippedMatch);
-                if (weaponGo != null)
-                    Destroy(weaponGo);
-            }
-
-            _npcInventoryService.ExtRemoveInvItems(_npcContainer.Instance, itemData.Index, item.Amount);
-
-            if (_pendingRefresh != null)
-                StopCoroutine(_pendingRefresh);
-            _pendingRefresh = StartCoroutine(RefreshAfterDelay());
+            // An equipped weapon also leaves the NPC's body. NpcInventoryChanged refreshes us and the loot backpack.
+            _lootOwner.Remove(vobLoader.Container.Vob.Name, Mathf.Max(1, item.Amount));
         }
 
         private IEnumerator RefreshAfterDelay()
@@ -314,52 +509,6 @@ namespace Gothic.VR.Adapters
             yield return new WaitForSeconds(RefreshDelay);
             _pendingRefresh = null;
             StartCoroutine(ClearAndRefill());
-        }
-
-        /// <summary>
-        /// Finds the weapon GameObject in the NPC skeleton using the same slot mapping as NpcWeaponMeshBuilder.
-        /// Tries the holster slot first, then ZS_RIGHTHAND as fallback (for NPCs that died mid-draw).
-        /// </summary>
-        private GameObject FindEquippedWeaponGo(ItemInstance equipped)
-        {
-            if (_npcLoader == null)
-                return null;
-
-            var mainFlag = (VmGothicEnums.ItemFlags)equipped.MainFlag;
-            var flags = (VmGothicEnums.ItemFlags)equipped.Flags;
-            var npcRoot = _npcLoader.gameObject;
-
-            string holsterSlot;
-            switch (mainFlag)
-            {
-                case VmGothicEnums.ItemFlags.ItemKatNf:
-                    switch (flags)
-                    {
-                        case VmGothicEnums.ItemFlags.Item2HdAxe:
-                        case VmGothicEnums.ItemFlags.Item2HdSwd:
-                            holsterSlot = "ZS_LONGSWORD";
-                            break;
-                        default:
-                            holsterSlot = "ZS_SWORD";
-                            break;
-                    }
-                    break;
-                case VmGothicEnums.ItemFlags.ItemKatFf:
-                    holsterSlot = flags == VmGothicEnums.ItemFlags.ItemCrossbow ? "ZS_CROSSBOW" : "ZS_BOW";
-                    break;
-                default:
-                    return null;
-            }
-
-            // Try holster slot, fall back to drawn position
-            foreach (var slotName in new[] { holsterSlot, "ZS_RIGHTHAND" })
-            {
-                var slotGo = npcRoot.FindChildRecursively(slotName);
-                if (slotGo != null && slotGo.transform.childCount > 0)
-                    return slotGo.transform.GetChild(0).gameObject;
-            }
-
-            return null;
         }
 
         private GameObject GetSocketRoot(IVrSocket socket)
