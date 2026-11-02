@@ -119,6 +119,11 @@ namespace Gothic.Core
         // 2. Impact speed in m/s along the contact normal
         public static readonly UnityEvent<int, float> PhysicalHandContact = new();
 
+        // Body slots (VR): a hand reached a slot on the body it can use - with something the slot takes, or empty at
+        // the slot's content (backpack on the shoulder, holstered item). Raised by VrBodySlot.
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> BodySlotReached = new();
+
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
         public static readonly UnityEvent<PrintScreenMessage> PrintScreen = new();

@@ -207,6 +207,14 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "H\xF6henversatz"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Kamerah\xF6he in 5-cm-Schritten. Mitte = kein Versatz"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

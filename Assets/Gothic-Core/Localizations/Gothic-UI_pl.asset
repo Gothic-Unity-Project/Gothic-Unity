@@ -207,6 +207,14 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "Korekta wysoko\u015Bci"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Wysoko\u015B\u0107 kamery co 5 cm. \u015Arodek = brak korekty"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

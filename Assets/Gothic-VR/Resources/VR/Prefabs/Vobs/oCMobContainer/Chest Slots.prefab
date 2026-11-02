@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3949755421704255249}
   - component: {fileID: 1234346388781301805}
   - component: {fileID: 374303439776667446}
+  - component: {fileID: 1513101800840873679}
   m_Layer: 1
   m_Name: DropZone
   m_TagString: Untagged
@@ -67,6 +68,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrContainerDropZone
   _containerGo: {fileID: 0}
+--- !u!114 &1513101800840873679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5519229375552910421}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f382102bd1096d438da29068db36ed0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Interaction.VrDropZone
 --- !u!1 &6249990430216635295
 GameObject:
   m_ObjectHideFlags: 0
