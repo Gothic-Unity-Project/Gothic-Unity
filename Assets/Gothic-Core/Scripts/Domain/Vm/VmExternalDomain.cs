@@ -47,6 +47,9 @@ namespace Gothic.Core.Domain.Vm
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
+        // Unknown externals are reported once each - scripts call some of them on every perception.
+        private readonly HashSet<string> _reportedDefaultExternals = new();
+
         // (optional) Some messages from Daedalus are quite spammy. Ignore them.
         private static readonly string[] _spammyMessages = new[]
         {
@@ -116,6 +119,19 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
+
+            // Engine externals some scripts (mostly mods) call - only registered where the scripts declare them
+            // (G1 has no AI_StopFX).
+            if (vm.GetSymbolByName("Npc_IsWayBlocked") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsWayBlocked", Npc_IsWayBlocked);
+            if (vm.GetSymbolByName("AI_WaitTillEnd") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WaitTillEnd", AI_WaitTillEnd);
+            if (vm.GetSymbolByName("AI_AimAt") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_AimAt", AI_AimAt);
+            if (vm.GetSymbolByName("AI_StopFX") != null)
+                vm.RegisterExternal<NpcInstance, string>("AI_StopFX", AI_StopFX);
+            if (vm.GetSymbolByName("Wld_InsertObject") != null)
+                vm.RegisterExternal<string, string>("Wld_InsertObject", Wld_InsertObject);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
@@ -276,6 +292,10 @@ namespace Gothic.Core.Domain.Vm
         {
             // FIXME: Once Gothic is fully released, we can safely throw an exception as it tells us: The game will not work until you implement this missing function.
             //throw new NotImplementedException("External >" + value + "< not registered but required by DaedalusVM.");
+            // ZenKit already took the arguments and pushed the default result - here we only report it, once.
+            if (!_reportedDefaultExternals.Add(sym.Name))
+                return;
+
             try
             {
                 if (_gameStateService.GothicVm.GlobalSelf == null)
@@ -503,6 +523,33 @@ namespace Gothic.Core.Domain.Vm
         public void AI_TurnToNPC(NpcInstance npc, NpcInstance target)
         {
             _npcAiService.ExtAiTurnToNpc(npc, target);
+        }
+
+        /// <summary>
+        /// DoM asks it on every perception (B_AssessPlayer) to let NPCs step aside. Our walking has no "blocked"
+        /// detection yet - the way is free, as before, just without a warning per call.
+        /// </summary>
+        public int Npc_IsWayBlocked(NpcInstance npc)
+        {
+            return LogInstantExternal(nameof(Npc_IsWayBlocked), 0, npc);
+        }
+
+        public void AI_WaitTillEnd(NpcInstance npc, NpcInstance other)
+        {
+            _npcAiService.ExtAiWaitTillEnd(npc, other);
+        }
+
+        public void AI_AimAt(NpcInstance npc, NpcInstance target)
+        {
+            _npcAiService.ExtAiAimAt(npc, target);
+        }
+
+        /// <summary>
+        /// There are no effects on NPCs to stop yet (AI_PlayFX isn't implemented either).
+        /// </summary>
+        public void AI_StopFX(NpcInstance npc, string effect)
+        {
+            LogInstantExternal(nameof(AI_StopFX), new object[] { npc, effect });
         }
 
         public void AI_PlayAniBS(NpcInstance npc, string name, int bodyState)
@@ -1319,6 +1366,11 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_InsertItem(int itemInstance, string spawnpoint)
         {
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
+        }
+
+        public void Wld_InsertObject(string visual, string spawnpoint)
+        {
+            _vobService.ExtWldInsertObject(visual, spawnpoint);
         }
 
         public void Wld_ExchangeGuildAttitudes(string name)
