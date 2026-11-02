@@ -103,10 +103,13 @@ MonoBehaviour:
   SmokePuffs: 4
   SmokeStartDelay: 1.5
   G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
-  EnableNpcRangedCombat: 0
+  EnableNpcRangedCombat: 1
   RangedKnockoutByDefault: 0
   EnableVrStabFinish: 1
   EnableVrFists: 1
+  EnableVrBows: 1
+  EnableVrCrossbow: 1
+  EnableVrCrossbowManualReload: 1
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
   EnableVobWorldLight: 1
