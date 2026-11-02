@@ -23,6 +23,23 @@ namespace Gothic.Core.Adapters.UI.LoadingBars
             SetMaterials();
         }
         
+        /// <summary>
+        /// While loading, the player stands at this handler's position, looking along +z (LoadingScene). When they are
+        /// put somewhere else before the loading is over, the picture and bar move along and stay in front of them,
+        /// e.g. at the spawn point while the world around them is built. The floor stays here.
+        /// </summary>
+        public void MoveAlongWithPlayer(Vector3 playerPosition, Quaternion playerRotation)
+        {
+            // Only the turn around the up axis: the screen stays upright. No rotation given = looking along +z.
+            var turn = playerRotation == default
+                ? Quaternion.identity
+                : Quaternion.Euler(0f, playerRotation.eulerAngles.y, 0f);
+
+            var screen = LoadingImage.canvas.transform;
+            screen.SetPositionAndRotation(playerPosition + turn * (screen.position - transform.position),
+                turn * screen.rotation);
+        }
+
         protected virtual void SetMaterials()
         {
             LoadingImage.material = TextureService.GothicLoadingMenuMaterial;

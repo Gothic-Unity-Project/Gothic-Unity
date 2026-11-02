@@ -72,9 +72,9 @@ namespace Gothic.Core.Services.Context
             _impl.TeleportPlayerTo(position,rotation);
         }
 
-        public void SetViewHidden(bool isHidden)
+        public void SetViewHidden(bool isHidden, GameObject visibleUi = null)
         {
-            _impl.SetViewHidden(isHidden);
+            _impl.SetViewHidden(isHidden, visibleUi);
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Extensions;
@@ -46,7 +47,7 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly FrameSkipperService _frameSkipperService;
 
         // VOBs and NPCs this close to the spawn point are built before the view is shown (m). Lights reach the ground
-        // up to StationaryLightsService's 80 m, but the near ones matter most and keep the black short.
+        // up to StationaryLightsService's 80 m, but the near ones matter most and keep the wait short.
         private const float _surroundingsRadius = 50f;
 
         // Longest wait for them (s). Whatever is still missing then appears while the player looks around.
@@ -170,8 +171,10 @@ namespace Gothic.Core.Adapters.Scenes
 
                 _skyService.InitWorld();
 
-                // Black until the surroundings are built (see BuildSurroundingsAsync), so they don't pop in.
-                _contextInteractionService.SetViewHidden(true);
+                // The world stays hidden until the surroundings are built (see BuildSurroundingsAsync), so they don't
+                // pop in. The loading screen goes along with the player and stays visible meanwhile.
+                var loadingScreen = _loadingService.LoadingScreen;
+                _contextInteractionService.SetViewHidden(true, loadingScreen != null ? loadingScreen.gameObject : null);
                 TeleportPlayerToStart();
 
                 // There are many handlers which listen to this event. If any of these fails, we won't get notified without a try-catch.
@@ -205,9 +208,10 @@ namespace Gothic.Core.Adapters.Scenes
         }
 
         /// <summary>
-        /// Waits until the queued VOBs and NPCs around the spawn point are built. The screen is black meanwhile, so
-        /// the queues may use long frames (FrameSkipperService.IsViewHidden). With half a frame per frame (the
-        /// default), a crowded place like the Old Camp popped in over several seconds.
+        /// Waits until the queued VOBs and NPCs around the spawn point are built. Only the loading screen is visible
+        /// meanwhile, its bar shows how many of them are built. So the queues may use long frames
+        /// (FrameSkipperService.IsViewHidden). With half a frame per frame (the default), a crowded place like the Old
+        /// Camp popped in over several seconds.
         /// </summary>
         private async Task BuildSurroundingsAsync()
         {
@@ -216,6 +220,7 @@ namespace Gothic.Core.Adapters.Scenes
 
             var center = _spawnPosition.Value;
             var watch = Stopwatch.StartNew();
+            _loadingService.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Surroundings), 1);
             _frameSkipperService.IsViewHidden = true;
             _vobService.SetInitFocus(center, _surroundingsRadius);
             _npcService.SetInitFocus(center, _surroundingsRadius);
@@ -228,9 +233,20 @@ namespace Gothic.Core.Adapters.Scenes
                 for (var i = 0; i < _cullingUpdateFrames; i++)
                     await Task.Yield();
 
-                while (_vobService.HasQueuedVobWithin(center, _surroundingsRadius) ||
-                       _npcService.HasQueuedNpcWithin(center, _surroundingsRadius))
+                // Culling still queues objects while the first ones are built - the bar never goes back.
+                var mostWaiting = 0;
+                var progress = 0f;
+                while (true)
                 {
+                    var waiting = _vobService.CountQueuedVobsWithin(center, _surroundingsRadius) +
+                                  _npcService.CountQueuedNpcsWithin(center, _surroundingsRadius);
+                    if (waiting == 0)
+                        break;
+
+                    mostWaiting = Math.Max(mostWaiting, waiting);
+                    progress = Math.Max(progress, 1f - (float)waiting / mostWaiting);
+                    _loadingService.SetPhaseProgress(progress);
+
                     if (watch.Elapsed.TotalSeconds >= _surroundingsMaxWait)
                     {
                         Logger.LogWarning($"Surroundings not built after {_surroundingsMaxWait} s. " +
@@ -246,6 +262,7 @@ namespace Gothic.Core.Adapters.Scenes
                 _frameSkipperService.IsViewHidden = false;
                 _vobService.ClearInitFocus();
                 _npcService.ClearInitFocus();
+                _loadingService.FinalizePhase();
             }
 
             Logger.Log($"Surroundings within {_surroundingsRadius} m built after {watch.Elapsed.TotalSeconds:0.00} s.",
@@ -334,6 +351,10 @@ namespace Gothic.Core.Adapters.Scenes
             _contextInteractionService.TeleportPlayerTo(position, rotation);
             _contextInteractionService.UnlockPlayer();
             _playerService.ResetSpawn();
+
+            var loadingScreen = _loadingService.LoadingScreen;
+            if (loadingScreen != null)
+                loadingScreen.MoveAlongWithPlayer(position, rotation);
         }
     }
 }

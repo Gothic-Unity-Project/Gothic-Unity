@@ -20,7 +20,8 @@ namespace Gothic.Core.Services.Context
         /// Hides the view (black at once) or shows it again (short fade in), e.g. while the world around the player
         /// is still built after loading.
         /// </summary>
-        void SetViewHidden(bool isHidden);
+        /// <param name="visibleUi">UI which stays visible on the hidden view, e.g. the loading screen.</param>
+        void SetViewHidden(bool isHidden, GameObject visibleUi = null);
 
         /// <summary>
         /// Holds the player horizontally inside the circle around center. Between softRadius and radius, movement

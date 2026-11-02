@@ -15,7 +15,8 @@ namespace Gothic.Core.Adapters.UI.LoadingBars
         {
             WorldMesh,
             VOB,
-            Npc
+            Npc,
+            Surroundings // The world around the spawn point, built while the loading screen is still shown.
         }
         
         public override List<string> GetProgressTypes()

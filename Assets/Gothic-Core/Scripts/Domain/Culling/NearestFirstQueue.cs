@@ -105,16 +105,17 @@ namespace Gothic.Core.Domain.Culling
             return true;
         }
 
-        public bool HasEntryWithin(Vector3 center, float radius)
+        public int CountWithin(Vector3 center, float radius)
         {
             var sqrRadius = radius * radius;
+            var count = 0;
             foreach (var entry in _entries)
             {
                 if ((entry.Position - center).sqrMagnitude <= sqrRadius)
-                    return true;
+                    count++;
             }
 
-            return false;
+            return count;
         }
     }
 }

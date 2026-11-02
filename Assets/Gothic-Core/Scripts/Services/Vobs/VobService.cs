@@ -174,11 +174,11 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
-        /// Whether a VOB within radius of center still waits for its lazy initialization.
+        /// How many VOBs within radius of center still wait for their lazy initialization.
         /// </summary>
-        public bool HasQueuedVobWithin(Vector3 center, float radius)
+        public int CountQueuedVobsWithin(Vector3 center, float radius)
         {
-            return _objectsToInitQueue.HasEntryWithin(center, radius);
+            return _objectsToInitQueue.CountWithin(center, radius);
         }
 
         /// <summary>
