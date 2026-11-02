@@ -434,8 +434,9 @@ namespace Gothic.Core.Services.Npc
         {
             // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning Vm.GlobalHero.
             // A (mod) script calling Npc_IsPlayer during that window finds no hero yet - nobody is the player then.
+            // Scripts ask it for NULL too (DoM's start) - NULL is nobody.
             var globalHero = _gameStateService.GothicVm.GlobalHero;
-            return globalHero != null && npc.Index == globalHero.Index;
+            return npc != null && globalHero != null && npc.Index == globalHero.Index;
         }
 
         /// <summary>
