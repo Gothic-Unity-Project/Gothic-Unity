@@ -125,6 +125,8 @@ namespace Gothic.Core.Services.Vobs
         {
             PreCreateWorldVobs(vobs, root, loading);
             await CreateWorldVobs(config, loading, vobs);
+            // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
+            loading.FinalizePhase();
 
             // Ensure all Vob skeletons are created.
             await Task.Yield();

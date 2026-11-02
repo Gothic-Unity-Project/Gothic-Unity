@@ -192,6 +192,9 @@ namespace Gothic.Core.Adapters.Scenes
                 await BuildSurroundingsAsync();
                 watch.LogAndRestart("Surroundings built");
 
+                // Unloading the scene takes some frames - the loading screen must not stay over the world fading in.
+                if (loadingScreen != null)
+                    loadingScreen.gameObject.SetActive(false);
                 _loadingService.StopLoading();
                 SceneManager.UnloadSceneAsync(Constants.SceneLoading);
             }
