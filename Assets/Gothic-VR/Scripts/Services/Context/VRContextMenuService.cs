@@ -39,16 +39,16 @@ namespace Gothic.VR.Services.Context
 
             vrAccessibilityMenu.Items.Add(CreateSitStandLabel(gameMenu, menuStartY + menuDY * 0));
             vrAccessibilityMenu.Items.Add(CreateSitStandChoicebox(gameMenu, menuStartY + menuDY * 0));
-            vrAccessibilityMenu.Items.Add(CreateMoveDirectionLabel(gameMenu, menuStartY + menuDY * 1));
-            vrAccessibilityMenu.Items.Add(CreateMoveDirectionChoicebox(gameMenu, menuStartY + menuDY * 1));
-            vrAccessibilityMenu.Items.Add(CreateRotationTypeLabel(gameMenu, menuStartY + menuDY * 2));
-            vrAccessibilityMenu.Items.Add(CreateRotationTypeChoicebox(gameMenu, menuStartY + menuDY * 2));
-            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedLabel(gameMenu, menuStartY + menuDY * 3));
-            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedSlider(gameMenu, menuStartY + menuDY * 3));
-            vrAccessibilityMenu.Items.Add(CreateSnapRotationLabel(gameMenu, menuStartY + menuDY * 4));
-            vrAccessibilityMenu.Items.Add(CreateSnapRotationChoicebox(gameMenu, menuStartY + menuDY * 4));
-            vrAccessibilityMenu.Items.Add(CreateSmoothSpectatorLabel(gameMenu, menuStartY + menuDY * 5));
-            vrAccessibilityMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 5));
+            vrAccessibilityMenu.Items.Add(CreateHeightOffsetLabel(gameMenu, menuStartY + menuDY * 1));
+            vrAccessibilityMenu.Items.Add(CreateHeightOffsetSlider(gameMenu, menuStartY + menuDY * 1));
+            vrAccessibilityMenu.Items.Add(CreateMoveDirectionLabel(gameMenu, menuStartY + menuDY * 2));
+            vrAccessibilityMenu.Items.Add(CreateMoveDirectionChoicebox(gameMenu, menuStartY + menuDY * 2));
+            vrAccessibilityMenu.Items.Add(CreateRotationTypeLabel(gameMenu, menuStartY + menuDY * 3));
+            vrAccessibilityMenu.Items.Add(CreateRotationTypeChoicebox(gameMenu, menuStartY + menuDY * 3));
+            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedLabel(gameMenu, menuStartY + menuDY * 4));
+            vrAccessibilityMenu.Items.Add(CreateSmoothRotationSpeedSlider(gameMenu, menuStartY + menuDY * 4));
+            vrAccessibilityMenu.Items.Add(CreateSnapRotationLabel(gameMenu, menuStartY + menuDY * 5));
+            vrAccessibilityMenu.Items.Add(CreateSnapRotationChoicebox(gameMenu, menuStartY + menuDY * 5));
 
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
             
@@ -60,6 +60,10 @@ namespace Gothic.VR.Services.Context
             vrImmersionMenu.Items.Add(CreateMicrophoneChoice(gameMenu, menuStartY + menuDY * 0));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsLabel(gameMenu, menuStartY + menuDY * 1));
             vrImmersionMenu.Items.Add(CreatePhysicalHandsChoice(gameMenu, menuStartY + menuDY * 1));
+            // Gothic's menus fit 6 rows, the accessibility menu is full. Its ini value stays in the accessibility
+            // section, so existing settings keep working.
+            vrImmersionMenu.Items.Add(CreateSmoothSpectatorLabel(gameMenu, menuStartY + menuDY * 2));
+            vrImmersionMenu.Items.Add(CreateSmoothSpectatorChoicebox(gameMenu, menuStartY + menuDY * 2));
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }
 
@@ -121,7 +125,40 @@ namespace Gothic.VR.Services.Context
             
             return sitStandSetting;
         }
-        
+
+        private AbstractMenuItemInstance CreateHeightOffsetLabel(AbstractMenuInstance gameMenu, int posY)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var heightOffsetLabel =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HEIGHT_OFFSET", subtitlesLabel);
+
+            heightOffsetLabel.PosY = posY;
+
+            heightOffsetLabel.SetText(0, _localizationService.GetText("menuitem.heightOffset.label"));
+            heightOffsetLabel.SetText(1, _localizationService.GetText("menuitem.heightOffset.description"));
+
+            return heightOffsetLabel;
+        }
+
+        private AbstractMenuItemInstance CreateHeightOffsetSlider(AbstractMenuInstance gameMenu, int posY)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var heightOffsetSetting =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HEIGHT_OFFSET_SLIDER", mouseSlider);
+
+            heightOffsetSetting.PosY = posY;
+            // Default value if no INI value exists. Middle == no offset.
+            heightOffsetSetting.SetUserFloat(3, VRConstants.HeightOffsetDefaultValue);
+
+            heightOffsetSetting.SetUserFloat(0, VRConstants.HeightOffsetSettingAmount);
+            heightOffsetSetting.OnChgSetOption = VRConstants.IniNames.HeightOffset;
+            heightOffsetSetting.OnChgSetOptionSection = VRConstants.IniSectionAccessibility;
+            // Moving the view on every step moved the player away from the slider they were holding.
+            heightOffsetSetting.IsAppliedOnRelease = true;
+
+            return heightOffsetSetting;
+        }
+
         private AbstractMenuItemInstance CreateMoveDirectionLabel(AbstractMenuInstance gameMenu, int posY)
         {
             var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);

@@ -82,6 +82,7 @@ namespace Gothic.VR.Services.Context
             {
                 SetRenderDistance(_configService.Gothic.IniVisualRange);
                 ApplyComfortSettings();
+                ApplyHeightOffset();
                 ApplyPhysicalHands();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
@@ -201,10 +202,28 @@ namespace Gothic.VR.Services.Context
                 // Just update everything.
                 ApplyComfortSettings();
             }
+            else if (key == VRConstants.IniNames.HeightOffset)
+            {
+                // Not part of ApplyComfortSettings(): that one requests the tracking origin again, which recenters
+                // the view in sitting mode on every slider step.
+                ApplyHeightOffset();
+            }
             else if (key == VRConstants.IniNames.PhysicalHands)
             {
                 ApplyPhysicalHands();
             }
+        }
+
+        /// <summary>
+        /// Accessibility setting "height offset" from Gothic.ini. Slider value 0...1 maps to -1m...+1m.
+        /// </summary>
+        private void ApplyHeightOffset()
+        {
+            var setting = _configService.Gothic.GetFloat(VRConstants.IniNames.HeightOffset,
+                VRConstants.HeightOffsetDefaultValue);
+            var meters = (Mathf.Clamp01(setting) * 2f - 1f) * VRConstants.HeightOffsetMaxMeters;
+
+            _rig.SetHeightOffset(meters);
         }
 
         /// <summary>
