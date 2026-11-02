@@ -84,7 +84,7 @@ namespace Gothic.Core.Domain.Vm
                 // zSpyChannel are bitwise checks. Therefore, we calculate the bit operation like (1 << PD_TA_FRAME(1) - 1)==1000
                 _zSpyChannel = _configService.Dev.ZSpyChannels.Value.Sum(i => 1 << ((int)i - 1));
 
-            var vm = _gameStateService.GothicVm;
+            var vm = new VmExternalGuard(_gameStateService.GothicVm);
             vm.RegisterExternalDefault(DefaultExternal);
 
             // AI
@@ -689,7 +689,7 @@ namespace Gothic.Core.Domain.Vm
         /// G1/G2: int PlayVideo(string), G2: int PlayVideoEx(string, int screenBlend, int exitSession).
         /// VR plays it in a "cinema" (VRCinema) and pauses the world meanwhile, like the engine blocks the game.
         /// </summary>
-        private void RegisterPlayVideo(DaedalusVm vm)
+        private void RegisterPlayVideo(VmExternalGuard vm)
         {
             try
             {
@@ -736,7 +736,7 @@ namespace Gothic.Core.Domain.Vm
         /// VM stack breaks - so we register based on the symbol.
         /// AI_PrintScreen is shown immediately instead of being queued in the NPC's AI.
         /// </summary>
-        private void RegisterPrintScreen(DaedalusVm vm, string name)
+        private void RegisterPrintScreen(VmExternalGuard vm, string name)
         {
             var symbol = vm.GetSymbolByName(name);
             if (symbol == null)
