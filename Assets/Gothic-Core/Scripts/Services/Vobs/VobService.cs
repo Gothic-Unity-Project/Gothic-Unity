@@ -123,6 +123,7 @@ namespace Gothic.Core.Services.Vobs
         public async Task CreateWorldVobsAsync(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs, GameObject root)
         {
             PreCreateWorldVobs(vobs, root, loading);
+            _initializerDomain.ClearCreatedEarly();
             await CreateWorldVobs(config, loading, vobs);
             // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
             loading.FinalizePhase();
@@ -342,7 +343,8 @@ namespace Gothic.Core.Services.Vobs
             }
         }
 
-        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
+        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs,
+            IVirtualObject parentVob = null)
         {
             foreach (var vob in vobs)
             {
@@ -368,6 +370,19 @@ namespace Gothic.Core.Services.Vobs
                 }
 
                 var container = CreateContainerWithLoader(vob);
+                container.ParentVob = parentVob;
+
+                // Cutscene cameras, fog zones, ... aren't built (no visual, never lazy loaded), nor are decal/particle
+                // VOBs while those visuals are off (both off in Production). Their children become VOBs of their own:
+                // G2 Irdorath's camera VOBs carry the trigger lists that move its pillars and gates, its trap and bridge
+                // triggers sit below particle VOBs, G2's treasure X marks below decals.
+                if (vob.Children.Count > 0 &&
+                    (VobInitializerDomain.IsUnbuiltVobType(vob.Type) || _initializerDomain.IsVisualDisabled(vob)))
+                    await CreateWorldVobs(config, loading, vob.Children, vob);
+                // Logic VOBs (triggers, trigger lists, scripts, free points, ...) below a lazily loaded VOB only existed
+                // once the player came near it - a trigger sent from far away found nothing. They're created now.
+                else if (vob.Children.Count > 0 && !_vobTypesNonLazyLoading.Contains(vob.Type))
+                    await CreateLogicDescendants(config, loading, vob);
 
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
@@ -382,6 +397,32 @@ namespace Gothic.Core.Services.Vobs
                     AddToMobInteractableList(container);
                 }
             }
+        }
+
+        private async Task CreateLogicDescendants(DeveloperConfig config, LoadingService loading, IVirtualObject parent)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child.Id != 0 && IsEagerLogicType(child.Type))
+                {
+                    // Its lazily loaded parent skips it later.
+                    _initializerDomain.MarkCreatedEarly(child);
+                    await CreateWorldVobs(config, loading, new List<IVirtualObject> { child }, parent);
+                }
+                else if (child.Children.Count > 0)
+                {
+                    await CreateLogicDescendants(config, loading, child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Logic VOBs created at once - movers (with their meshes and children) stay with their parent.
+        /// </summary>
+        private static bool IsEagerLogicType(VirtualObjectType type)
+        {
+            return _vobTypesNonLazyLoading.Contains(type) && type is not (VirtualObjectType.zCMover or
+                VirtualObjectType.zCVobLevelCompo or VirtualObjectType.zCPFXController);
         }
 
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)
