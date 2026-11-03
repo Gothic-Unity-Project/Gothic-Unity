@@ -125,6 +125,9 @@ namespace Gothic.Core.Const
         // VR ledge grab points (VrLedgeAnchor). Collides with nothing, only the hands' near grab finds it: leave it out
         // of masks that would see everything.
         public static LayerMask ClimbAnchorLayer = LayerMask.NameToLayer("ClimbAnchor");
+        // Items inside a VR slot (holster, backpack, chest). Collides with nothing (hands, body, ground check), only
+        // the hands' near grab finds it.
+        public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
 
         
         /*
