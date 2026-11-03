@@ -60,6 +60,7 @@ EditorBuildSettings:
     path: Packages/com.gothic.core.binaries/Scenes/Worlds/Gothic2-NotR/oldworld.zen.unity
     guid: 6a11964fa8f1b314c9f2ee6c546edf3f
   m_configObjects:
+    Tyroonis.XR.LinuxXR.Settings: {fileID: 11400000, guid: d2fa145e21dfb04118ca986c650a00ed, type: 2}
     com.unity.addressableassets: {fileID: 11400000, guid: ff52f86ad39b84b41887ae7cd9a949f4, type: 2}
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.localization.settings: {fileID: 11400000, guid: f528c8266c3365449b0110f9b4155c00, type: 2}

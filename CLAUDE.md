@@ -28,6 +28,10 @@ CI triggers on PRs labeled `pipeline-test-build`. All dependencies are free pack
 
 PlayMode tests live in `Assets/Gothic-Tests/PlayMode/` (assembly: `Gothic.Tests.PlayMode.asmdef`). Run them via the Unity Test Runner window.
 
+EditMode tests live in `Assets/Gothic-Tests/EditMode/`. `CoreArchitectureTest` enforces the Core layer model (see
+Architecture). Known violations are in `ArchitectureBaseline.txt` next to it; it may only shrink. Fix new violations
+by moving code to the right layer - never add baseline lines to make the test pass.
+
 ## Architecture
 
 ### Layer Model
@@ -46,7 +50,12 @@ Gothic.Core               with engine, services, domain logic
 
 **Assembly topology**: Every module depends on `Gothic.Core` and has **no interaction with other Gothic modules** (star topology — no lateral dependencies).
 
-Within Core, responsibility is further split into four layers: **Model** (data) → **Domain** (business logic) → **Service** (orchestration) → **Adapter** (Unity integration). Dependencies flow upward only.
+Within Core, responsibility is further split into layers: **Model** (data) ← **Domain** (business logic) ⇄ **Service** (orchestration) ← **Adapter** (Unity integration). Arrows point to what a layer may use:
+- Models only use Models.
+- Domain and Services are one rank and may use each other. Domain classes are workers owned by a Service, created via `new XDomain().Inject()` (not registered in Reflex), and may `[Inject]` Services.
+- Nothing below Adapters uses Adapters.
+
+Principles, dependency rules and "where does my code go": `Docs/architecture.md`.
 
 ### Dependency Injection (Reflex)
 
@@ -68,7 +77,7 @@ Injection approaches:
 (Each pattern lives in its folder representation like Adapters in `/Adapters/`.)
 - **Adapters**: MonoBehaviour classes that bridge Unity lifecycle (Start/Update/etc.) to domain services. They are thin wrappers — logic belongs in services.
 - **Services**: Pure C# classes injected via DI.
-- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_).
+- **Domain**: Business logic independent of Unity MonoBehaviours (often includes sub-naming _Creators_). Created and owned by a Service, never by an Adapter.
 - **Models**: Data containers, often with a `Container` suffix (e.g. `NpcContainer`, `VobContainer`) wrapping entity state.
 - **GlobalEventDispatcher**: Central event bus (`Assets/Gothic-Core/Scripts/GlobalEventDispatcher.cs`) used for cross-service communication (scene loading, NPC creation, fight events, time changes, etc.). Used for all! events at runtime for easy seekability.
 
@@ -164,8 +173,8 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 ## Workflow Notes
 
 - Branch from `main`, submit PRs with detailed descriptions of what changed and how to test manually.
-- Commits end with `Co-Authored-By: Claude <MODEL VERSION> <noreply@anthropic.com>` (e.g. Opus 5.5, Sonnet 5.5);
-  PR descriptions end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+- Before coding a feature, design it with the `design` skill (plan, ADR draft, `architecture-reviewer` on the plan).
+- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`).
 - Staging, commit style and PR template: see the `commit-pr` skill.
 - The project tracks issues and feature status on [GitHub Projects](https://github.com/Gothic-Unity-Project/Gothic-Unity/projects?query=is%3Aopen).
 - Team coordination happens on Discord; align with in-progress work before starting large features.

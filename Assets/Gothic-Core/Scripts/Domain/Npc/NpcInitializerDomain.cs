@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.UI.LoadingBars;
+using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -80,9 +81,17 @@ namespace Gothic.Core.Domain.Npc
                 await _frameSkipperService.TrySkipToNextFrame();
 
                 var npcContainer = AllocZkInstance(vobNpc);
-                SaveGameAddLazyLoadingAnywhere(npcContainer, vobNpc.ScriptWaypoint);
+                if (npcContainer == null)
+                    continue;
+
+                // Saves from Gothic-Unity contain the NPC's position. Otherwise, the routine decides.
+                if (vobNpc.Position != System.Numerics.Vector3.Zero)
+                    SaveGameAddLazyLoadingNearby(npcContainer, vobNpc);
+                else
+                    SaveGameAddLazyLoadingAnywhere(npcContainer, vobNpc.ScriptWaypoint);
             }
 
+            RunInitScriptsOfRestoredWorld();
             loading.FinalizePhase();
             _isInitialNpcLoadComplete = true;
         }
@@ -90,6 +99,9 @@ namespace Gothic.Core.Domain.Npc
         public void InitNpcVobSaveGame(INpc vobNpc)
         {
             var npcContainer = AllocZkInstance(vobNpc);
+            if (npcContainer == null)
+                return;
+
             SaveGameAddLazyLoadingNearby(npcContainer, vobNpc);
         }
 
@@ -107,6 +119,10 @@ namespace Gothic.Core.Domain.Npc
         /// </summary>
         public void ExtWldInsertNpc(int npcInstanceIndex, string spawnPoint)
         {
+            // NPCs of a restored world exist already.
+            if (_saveGameService.IsRunningInitScriptsOfRestoredWorld)
+                return;
+
             var userDataObject = AllocZkInstance(npcInstanceIndex);
 
             if (_isInitialNpcLoadComplete)
@@ -138,9 +154,18 @@ namespace Gothic.Core.Domain.Npc
             return go;
         }
 
+        [CanBeNull]
         private NpcContainer AllocZkInstance(INpc vobNpc)
         {
-            var symbol = _gameStateService.GothicVm.GetSymbolByName(vobNpc.Name)!;
+            var instanceName = string.IsNullOrEmpty(vobNpc.NpcInstance) ? vobNpc.Name : vobNpc.NpcInstance;
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(instanceName);
+            if (symbol == null)
+            {
+                Logger.LogWarning($"NPC instance {instanceName} from save game doesn't exist in scripts. Skipping it.",
+                    LogCat.Npc);
+                return null;
+            }
+
             var userDataObject = AllocZkInstance(symbol.Index);
             userDataObject.Vob = (NpcProxy)vobNpc;
             
@@ -182,13 +207,30 @@ namespace Gothic.Core.Domain.Npc
             
             // Inside Startup.d, it's always STARTUP_{MAPNAME} and INIT_{MAPNAME}
             // FIXME - Inside Startup.d some Startup_*() functions also call Init_*() some not. How to handle properly? (Force calling it here? Even if done twice?)
-            _gameStateService.GothicVm.Call($"STARTUP_{_saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN")}");
-            
-            
-            if(Vm.GetSymbolByName("INIT_GLOBAL") != null)
+            _gameStateService.GothicVm.Call($"STARTUP_{_saveGameService.CurrentWorldName.ToGothicWorldName()}");
+
+            CallInitScripts(); // call init as well, as per opengothic
+        }
+
+        /// <summary>
+        /// Like original Gothic, INIT_GLOBAL and INIT_{WORLD} run on every world load (STARTUP_* only on the first
+        /// visit).
+        /// Insertions are skipped, as NPCs and items of a restored world exist already.
+        /// </summary>
+        private void RunInitScriptsOfRestoredWorld()
+        {
+            Vm.GlobalSelf = Vm.GlobalHero;
+            _saveGameService.RunInitScriptsOfRestoredWorld(CallInitScripts);
+        }
+
+        private void CallInitScripts()
+        {
+            if (Vm.GetSymbolByName("INIT_GLOBAL") != null)
                 Vm.Call("INIT_GLOBAL");
 
-            _gameStateService.GothicVm.Call($"INIT_{_saveGameService.CurrentWorldName.ToUpper().RemoveEnd(".ZEN")}"); // call init as well, as per opengothic
+            var worldInitName = $"INIT_{_saveGameService.CurrentWorldName.ToGothicWorldName()}";
+            if (Vm.GetSymbolByName(worldInitName) != null)
+                Vm.Call(worldInitName);
         }
 
         /// <summary>
@@ -316,8 +358,15 @@ namespace Gothic.Core.Domain.Npc
         {
             // As we have our back reference between NpcInstance and NpcData, we can now initialize the object on ZenKit side.
             // Lookups like Npc_SetTalentValue() will work now as NpcInstance.UserData() points to our object which stores the information.
-            Vm.InitInstance(npc.Instance);
-            npc.Vob.CopyFromInstanceData(npc.Instance);
+            if (npc.Vob.IsRestored)
+            {
+                _saveGameService.InitNpcInstanceFromSave(npc, () => Vm.InitInstance(npc.Instance));
+            }
+            else
+            {
+                Vm.InitInstance(npc.Instance);
+                npc.Vob.CopyFromInstanceData(npc.Instance);
+            }
 
             // NpcInstance is the initialized Daedalus Instance which contains initial data.
             // Vob.Npc contains runtime information. If no runtime information is set (new game started / world entered for the first time), we use the initial data.
@@ -400,9 +449,11 @@ namespace Gothic.Core.Domain.Npc
             // Some FP/WP are on a hill. The spawn check will therefore lift the location for a little to not interfere with world mesh collision check.
             var groundControlDifference = new Vector3(0, 1f, 0);
             var initialSpawnPointGroundControl = positionToScan + groundControlDifference;
+            // VR ledge grab points near the player's hands aren't in the way.
+            var blockingLayers = Physics.DefaultRaycastLayers & ~(1 << Constants.ClimbAnchorLayer);
 
             // Check if the spawn point is free.
-            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2))
+            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2, blockingLayers))
             {
                 return positionToScan;
             }
@@ -420,7 +471,7 @@ namespace Gothic.Core.Domain.Npc
                     var checkPointGroundControl = initialSpawnPointGroundControl + offsetPoint;
 
                     // Check if the point is clear (no obstacles)
-                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2))
+                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2, blockingLayers))
                     {
                         return positionToScan + offsetPoint;
                     }

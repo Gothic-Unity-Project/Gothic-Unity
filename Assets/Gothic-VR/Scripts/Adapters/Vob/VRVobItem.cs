@@ -4,6 +4,8 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.World;
+using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -22,6 +24,7 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -32,6 +35,7 @@ namespace Gothic.VR.Adapters.Vob
         private static int _ignoreLayerCollisionCheck;
 
         private VrInteractable _interactable;
+        private Coroutine _reEnableCollisionRoutine;
 
 
         private struct OverlapCheckData
@@ -96,7 +100,10 @@ namespace Gothic.VR.Adapters.Vob
             // OnGrabbed is normally called multiple times. Even after an object is already socketed. If so, then let's stop Grab behaviour.
             // If we sock an object on our hips or backpack etc.
             if (args.Kind == VrGrabberKind.Socket)
+            {
+                SetSocketedLayer();
                 return;
+            }
 
             // Stop collisions while being dragged around (at least shortly; otherwise e.g. items might stick inside chests when pulled out).
             gameObject.layer = Constants.VobItemNoWorldCollision;
@@ -106,10 +113,16 @@ namespace Gothic.VR.Adapters.Vob
                 Constants.ShaderPropertyTransparencyValue);
 
             // If we want Item collisions, we just temporarily deactivate them until the item is free of collisions.
-            StartCoroutine(ReEnableCollisionRoutine());
+            StopReEnableCollisionRoutine();
+            _reEnableCollisionRoutine = StartCoroutine(ReEnableCollisionRoutine());
 
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
+
+            // An item lying on another VOB (e.g. a mover) is no longer part of it.
+            var vobContainer = GetComponentInParent<VobLoader>()?.Container;
+            if (vobContainer != null)
+                _saveGameService.DetachChildVob(vobContainer);
         }
 
         /// <summary>
@@ -123,9 +136,14 @@ namespace Gothic.VR.Adapters.Vob
             _vrPlayerService.UpdatePlayerCollision(args, false);
 
             // If we release an object from our hips or backpack etc.
-            // We then assume, that the item is already with correct values as it was grabbed before (shader, layer, ...)
+            // We then assume, that the item is already with correct values as it was grabbed before (shader, ...).
+            // A hand taking it out sets its own layer right after (OnGrabbed).
             if (args.Kind == VrGrabberKind.Socket)
+            {
+                if (gameObject.layer == Constants.VobItemSocketedLayer)
+                    gameObject.layer = Constants.VobItemLayer;
                 return;
+            }
 
             gameObject.layer = Constants.VobItemLayer; // Back to default
 
@@ -191,6 +209,27 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
+        /// Nothing collides with an item in a slot (hands, body, the head-down ground check), but the hands' near grab
+        /// still finds it. Placed right after a hand let go, the hand grab's ghost phase must not end on VobItem.
+        /// </summary>
+        private void SetSocketedLayer()
+        {
+            StopReEnableCollisionRoutine();
+            gameObject.layer = Constants.VobItemSocketedLayer;
+            _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyTransparency,
+                Constants.ShaderPropertyTransparencyDefault);
+        }
+
+        private void StopReEnableCollisionRoutine()
+        {
+            if (_reEnableCollisionRoutine == null)
+                return;
+
+            StopCoroutine(_reEnableCollisionRoutine);
+            _reEnableCollisionRoutine = null;
+        }
+
+        /// <summary>
         /// Check every n-th frame if the object has no collisions any longer. Then re-enable collisions.
         ///
         /// FIXME - If we want to have our sword always as a ghost, we need to properly implement it:
@@ -201,6 +240,8 @@ namespace Gothic.VR.Adapters.Vob
         {
             // while (IsColliderOverlapping())
             yield return new WaitForSeconds(1f);
+
+            _reEnableCollisionRoutine = null;
 
             // Re-enable collisions
             gameObject.layer = Constants.VobItemLayer;

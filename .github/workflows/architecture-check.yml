@@ -1,0 +1,22 @@
+name: Architecture
+
+# Layer and namespace rules of Gothic.Core (Docs/architecture.md), checked against ArchitectureBaseline.txt.
+# Plain .NET, no Unity license needed. Manual only, to save Actions minutes: Actions > Architecture > Run workflow,
+# then pick the PR's branch.
+on:
+  workflow_dispatch:
+
+jobs:
+  layers:
+    name: Core layer rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Check layers and namespaces against the baseline
+        run: dotnet run --project .github/architecture-check -- "$GITHUB_WORKSPACE"

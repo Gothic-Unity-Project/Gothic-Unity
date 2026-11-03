@@ -34,7 +34,7 @@ namespace Gothic.VR.Interaction.Components
     public class VrSocketSlot : MonoBehaviour, IVrSocket
     {
         private const int MaxFitFrames = 5;
-        private const float MinExtent = 0.0001f;
+        private const float MinSide = 0.0002f;
 
         private static readonly ConditionalWeakTable<Transform, StrongBox<Bounds>> _boundsCache = new();
         private static readonly List<Renderer> _rendererBuffer = new();
@@ -42,11 +42,12 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Where the item is put. Empty: this transform.")]
         [SerializeField] private Transform _attachPoint;
 
-        [Tooltip("Scales the item while it's inside, so that half of its largest side is Size (like HVR's socket " +
-                 "Size: backpack slot 0.05, chest slot 0.18). Measured in the attach point's space.")]
+        [Tooltip("Shrinks the item while it's inside, so that its largest side is Size (like HVR's socket Size: " +
+                 "backpack slot 0.05, chest slot 0.18, holster 0.3). Smaller items keep their size, nothing grows. " +
+                 "Measured in the attach point's space.")]
         [SerializeField] private bool _shouldScaleToFit = true;
 
-        [Tooltip("Half of the largest side of an item inside the slot (see Should Scale To Fit).")]
+        [Tooltip("Largest side of an item inside the slot (see Should Scale To Fit).")]
         [SerializeField] private float _size = 0.05f;
 
         [Tooltip("Rotates the item by its Gothic category (weapons diagonal, documents flat, ...).")]
@@ -91,6 +92,8 @@ namespace Gothic.VR.Interaction.Components
         private Transform _heldRoot;
         private Transform _previousParent;
         private Vector3 _previousScale;
+        // The held root's local scale under the attach point at which it keeps its size from before the slot.
+        private float _naturalScale = 1f;
         private Rigidbody _heldRigidbody;
         private bool _wasKinematic;
         private bool _isPlacedEventRaised;
@@ -250,6 +253,14 @@ namespace Gothic.VR.Interaction.Components
             Backend?.SetDetectionEnabled(isEnabled);
         }
 
+        /// <summary>
+        /// The interactable's socket sound or the slot's fallback, as if it was put in (e.g. stashed through the slot).
+        /// </summary>
+        public void PlayPlacedSound(VrInteractable interactable)
+        {
+            PlaySound(interactable.SocketedSound != null ? interactable.SocketedSound : _placedSoundFallback, false);
+        }
+
         public bool TryPlace(VrInteractable interactable, bool silent)
         {
             if (interactable == null || IsOccupied)
@@ -326,7 +337,7 @@ namespace Gothic.VR.Interaction.Components
                 return;
 
             _isPlacedEventRaised = true;
-            PlaySound(interactable.SocketedSound != null ? interactable.SocketedSound : _placedSoundFallback, false);
+            PlayPlacedSound(interactable);
             Grabbed?.Invoke(CreateArgs(interactable));
         }
 
@@ -399,6 +410,7 @@ namespace Gothic.VR.Interaction.Components
 
             _previousParent = rootTransform.parent;
             _previousScale = rootTransform.localScale;
+            _naturalScale = rootTransform.lossyScale.x / AttachPoint.lossyScale.x;
 
             // A hand moved the grabbable child away from its VobLoader. Inside the slot, both are at one place again.
             var grabbableTransform = interactable.transform;
@@ -499,10 +511,11 @@ namespace Gothic.VR.Interaction.Components
             if (!TryGetLocalBounds(root, out var bounds))
                 return false;
 
-            var extents = bounds.extents;
-            var maxExtent = Mathf.Max(extents.x, Mathf.Max(extents.y, extents.z));
-            if (_shouldScaleToFit && maxExtent > MinExtent)
-                root.localScale = Vector3.one * (_size / maxExtent);
+            // Like HVR, the largest side becomes Size. But only shrink: a coin in a holster keeps its size.
+            var boundsSize = bounds.size;
+            var maxSide = Mathf.Max(boundsSize.x, Mathf.Max(boundsSize.y, boundsSize.z));
+            if (_shouldScaleToFit && maxSide > MinSide)
+                root.localScale = Vector3.one * Mathf.Min(_size / maxSide, _naturalScale);
 
             if (_shouldCenterItem)
             {

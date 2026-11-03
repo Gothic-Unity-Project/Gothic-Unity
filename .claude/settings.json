@@ -8,6 +8,8 @@
       "Bash(git branch *)",
       "Bash(git blame *)",
       "Bash(git fetch *)",
+      "Bash(bash .claude/scripts/architecture-facts.sh)",
+      "Bash(bash .claude/scripts/architecture-facts.sh *)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__unityMCP__read_console",

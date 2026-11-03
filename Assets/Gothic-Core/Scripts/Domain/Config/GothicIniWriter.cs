@@ -15,26 +15,42 @@ namespace Gothic.Core.Domain.Config
             _iniFilePath = iniFilePath;
         }
         
+        /// <summary>
+        /// A failed write is logged, never thrown: the menus keep working and the value stays active for this session.
+        /// </summary>
         public void WriteSetting(string section, string key, string value)
         {
-            TryCreateIniBackup();
+            try
+            {
+                // Linux and Android are case-sensitive (e.g. Wine/Proton writes GOTHIC.INI). Like IniLoader,
+                // write into the file that exists, whatever its casing.
+                var iniFilePath = IniLoader.FindFileCaseInsensitive(_iniFilePath);
+                if (iniFilePath == null)
+                {
+                    Logger.LogError($"Couldn't write setting [{section}]{key}: {_iniFilePath} doesn't exist.",
+                        LogCat.Misc);
+                    return;
+                }
 
-            if (IsGothicUnitySetting(section))
-                WriteSetting(section, key, value, true);
-            else
-                WriteSetting(section, key, value, false);
+                TryCreateIniBackup(iniFilePath);
+                WriteSetting(iniFilePath, section, key, value, IsGothicUnitySetting(section));
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Logger.LogError($"Couldn't write setting [{section}]{key} to {_iniFilePath}: {e.Message}", LogCat.Misc);
+            }
         }
 
         /// <summary>
         /// Check if an Gothic Unity backup file already exists before saving Gothic.ini for the first time.
         /// If not, create backup now.
         /// </summary>
-        private void TryCreateIniBackup()
+        private void TryCreateIniBackup(string iniFilePath)
         {
-            // aka $GOTHICPATH\system\Gothic.ini.Gothic.Unity.bak
-            var backupPath = Path.Combine(Path.GetDirectoryName(_iniFilePath)!, _iniFilePath + ".Gothic.Unity.bak");
-            if (!File.Exists(backupPath))
-                File.Copy(_iniFilePath!, backupPath);
+            // aka $GOTHICPATH\system\Gothic.ini.Gothic.Unity.bak - any casing counts, the first backup is the original.
+            var backupPath = iniFilePath + ".Gothic.Unity.bak";
+            if (IniLoader.FindFileCaseInsensitive(backupPath) == null)
+                File.Copy(iniFilePath, backupPath);
         }
 
         private bool IsGothicUnitySetting(string section)
@@ -48,9 +64,10 @@ namespace Gothic.Core.Domain.Config
         /// b. !Section + !Key is found -> Create section and key, but only if isCreateSettingAllowed=true
         /// c. Section + !Key is found -> Create key, but only if isCreateSettingAllowed=true
         /// </summary>
-        private void WriteSetting(string section, string key, string value, bool isCreateSettingAllowed)
+        private void WriteSetting(string iniFilePath, string section, string key, string value,
+            bool isCreateSettingAllowed)
         {
-            var lines = File.ReadAllLines(_iniFilePath).ToList();
+            var lines = File.ReadAllLines(iniFilePath).ToList();
             var sectionFound = false;
             var keyFound = false;
             
@@ -97,7 +114,7 @@ namespace Gothic.Core.Domain.Config
         
             
             // Write full file now
-            File.WriteAllLines(_iniFilePath, lines);
+            File.WriteAllLines(iniFilePath, lines);
         }
     }
 }
