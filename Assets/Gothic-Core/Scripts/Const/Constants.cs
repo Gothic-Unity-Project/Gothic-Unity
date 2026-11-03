@@ -17,6 +17,13 @@ namespace Gothic.Core.Const
             public const string LightRefresh = "lightRefresh";
             // 1 (default) = an NPC finishing off the knocked out hero kills him like in Gothic, 0 = only knocked out.
             public const string HeroDeath = "heroDeath";
+            // 1 = "-X HP" numbers over NPC heads and next to the hero's bar, 0 = off (default).
+            public const string HitNumbers = "hitNumbers";
+            // 1 = "HP/MAX" on health bars (and "MANA/MAX" on the hero's mana bar), 0 = off (default).
+            public const string HealthNumbers = "healthNumbers";
+            // Slider 0...1 for the "-X HP" numbers: 0 = smallest (default size), 1 = HitNumbersMaxScale times bigger.
+            public const string HitNumbersSize = "hitNumbersSize";
+            public const float HitNumbersMaxScale = 3f;
         }
 
         public static class Animations

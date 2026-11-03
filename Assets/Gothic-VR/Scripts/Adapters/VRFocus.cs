@@ -12,6 +12,7 @@ using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using Gothic.Core.Services.Player;
 
 namespace Gothic.VR.Adapters
 {
@@ -29,6 +30,7 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
@@ -97,6 +99,14 @@ namespace Gothic.VR.Adapters
 
         private void OnHoverEnter(VrGrabArgs _)
         {
+            // The hero's focus (PlayerService.FocusNpc) - e.g. Marvin's "kill" hits the NPC the hand pointed at.
+            if (_isNpc && _configService.Dev.EnableMarvinKill)
+            {
+                var loader = GetComponentInParent<NpcLoader>();
+                if (loader != null && loader.Container != null)
+                    _playerService.FocusNpc = loader.Container;
+            }
+
             OnHoverEnter(_isNpc
                 ? Constants.ShaderPropertyFocusBrightnessNpcValue
                 : Constants.ShaderPropertyFocusBrightnessValue);

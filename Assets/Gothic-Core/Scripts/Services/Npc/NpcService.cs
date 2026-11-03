@@ -391,9 +391,12 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void SetAttribute(NpcContainer npc, NpcAttribute attribute, int value)
         {
+            var amount = value - npc.Vob.GetAttribute((int)attribute);
             npc.Vob.SetAttribute((int)attribute, value);
             npc.Instance.SetAttribute(attribute, value);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, attribute);
+            if (amount != 0)
+                GlobalEventDispatcher.NpcAttributeAmountChanged.Invoke(npc, attribute, amount);
         }
 
         public void SetLevel(NpcContainer npc, int level)

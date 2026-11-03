@@ -102,6 +102,8 @@ namespace Gothic.VR.Services.Context
                 new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
                 // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
                 VRHandSkinLight.Apply(_configService);
+                // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): out of the world -> back.
+                new UnityEngine.GameObject("_MarvinFallRescue").AddComponent<MarvinFallRescue>();
             });
             // The trade counter between the hero and the trader.
             GlobalEventDispatcher.TradeStarted.AddListener(_ =>
@@ -123,6 +125,7 @@ namespace Gothic.VR.Services.Context
                 ApplyComfortSettings();
                 ApplyHeightOffset();
                 ApplyPhysicalHands();
+                ApplyMarvinVisibility();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
@@ -178,6 +181,7 @@ namespace Gothic.VR.Services.Context
             }
 
             _rig = _player.GetComponent<IVrRig>();
+            VRGrabBar.SetPorts(_rig, _vrInput, _vrHapticsService);
             var playerRoot = _player.transform.root.gameObject;
             foreach (var otherRoot in players.Select(i => i.transform.root.gameObject).Distinct())
             {
@@ -234,15 +238,71 @@ namespace Gothic.VR.Services.Context
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
-            _marvinRoot.SetActive(_marvinService.IsMarvinMode);
+            if (developerConfig.EnableUiGrabBars)
+                AddMarvinGrabBar();
+            ApplyMarvinVisibility();
 
             // PrintScreen() messages in front of the camera
             activeScene.GetComponentInChildren<VRPrintScreen>(true)!.Init();
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableUiGrabBars: grabbed, the Marvin panel leaves the left hand and floats where it's put
+        /// (it lazily follows the head) - one element with its keyboard (it follows the panel's KeyboardAnchor), so the
+        /// bar is upright at the side. Released in the sphere above the left hand, it docks back.
+        /// </summary>
+        private void AddMarvinGrabBar()
+        {
+            var panel = _marvinRoot.transform;
+            var hand = panel.parent;
+            var dockedPosition = panel.localPosition;
+            var dockedRotation = panel.localRotation;
+            var dockedScale = panel.localScale;
+            var playerSpace = _player.transform;
+
+            var bar = VRGrabBar.Create((RectTransform)panel, panel, true,
+                () =>
+                {
+                    if (panel.parent != playerSpace)
+                        panel.SetParent(playerSpace, true);
+                },
+                hand,
+                () =>
+                {
+                    panel.SetParent(hand, false);
+                    panel.SetLocalPositionAndRotation(dockedPosition, dockedRotation);
+                    panel.localScale = dockedScale;
+                    Logger.Log("[VRContextInteractionService] Marvin panel docked to the hand", LogCat.VR);
+                },
+                true);
+
+            // Centered where the panel meets its keyboard (KeyboardAnchor below the panel) - one bar for both.
+            var barRect = (RectTransform)bar.transform;
+            barRect.anchorMin = barRect.anchorMax = new Vector2(1f, 0f);
+            barRect.sizeDelta = new Vector2(barRect.sizeDelta.x, ((RectTransform)panel).rect.height);
+        }
+
         private void OnMarvinModeChanged(bool isActive)
         {
-            _marvinRoot.SetActive(isActive);
+            ApplyMarvinVisibility();
+        }
+
+        /// <summary>
+        /// Our Immersion option "Marvin" (Gothic.ini, on by default) hides/shows the Marvin panel - only while Marvin
+        /// mode is on (MarvinService.IsMarvinMode). The panel can't do it itself: it is inactive then.
+        /// </summary>
+        private void ApplyMarvinVisibility()
+        {
+            if (_marvinRoot == null)
+                return;
+
+            var isShown = _marvinService.IsMarvinMode &&
+                          (_configService.Gothic == null ||
+                           _configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 1) == 1);
+            if (_marvinRoot.activeSelf == isShown)
+                return;
+            _marvinRoot.SetActive(isShown);
+            Logger.Log($"[VRContextInteractionService] Marvin panel {(isShown ? "shown" : "hidden")}", LogCat.VR);
         }
 
         /// <summary>
@@ -288,6 +348,10 @@ namespace Gothic.VR.Services.Context
             else if (key == VRConstants.IniNames.PhysicalHands)
             {
                 ApplyPhysicalHands();
+            }
+            else if (key == VRConstants.IniNames.MarvinPanel)
+            {
+                ApplyMarvinVisibility();
             }
         }
 

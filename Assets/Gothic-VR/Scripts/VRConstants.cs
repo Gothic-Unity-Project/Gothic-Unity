@@ -18,6 +18,8 @@ namespace Gothic.VR
 
             // Immersion
             public const string Microphone = "microphone";
+            // 0 = Marvin panel hidden, 1 = shown (default) - only while Marvin mode is on (MarvinService.IsMarvinMode).
+            public const string MarvinPanel = "marvinPanel";
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
@@ -41,6 +43,7 @@ namespace Gothic.VR
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
 
         public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
+        public const string MenuCommandRestartGame = "RESTART_GAME";
 
         // 0...10 Ini values
         public const int SmoothRotationSettingAmount = 10;

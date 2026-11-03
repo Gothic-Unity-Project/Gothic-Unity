@@ -63,8 +63,23 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints",
                         VRConstants.IniNames.LedgeHints, VRConstants.IniSectionImmersion,
-                        VRConstants.LedgeHintsDefaultValue))
+                        VRConstants.LedgeHintsDefaultValue)),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers", "-X HP / +X MANA over NPC heads"),
+                    CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers)),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
+                    "Size of the -X HP / +X MANA numbers"), CreateHitNumbersSizeSlider(gameMenu)),
+                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers", "HP/MAX on health bars"),
+                    CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
+                (CreateToggleLabel(gameMenu, "MARVIN", "Marvin", "Show the Marvin panel (needs Marvin mode)"),
+                    CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel, 1)),
+                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
+                    "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))
             };
+            // DeveloperConfig.EnableHeroDeath: off = an NPC finishing you off only keeps you knocked out.
+            if (_configService.Dev.EnableHeroDeath)
+                rows.Add((CreateToggleLabel(gameMenu, "HERO_DEATH", "Death",
+                        "NPCs can finish you off (off: only knocked out)"),
+                    CreateToggleChoice(gameMenu, "HERO_DEATH", Constants.IniNames.HeroDeath, 1)));
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
                 rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
@@ -92,13 +107,26 @@ namespace Gothic.VR.Services.Context
                 rows.Add((CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
                     "Both hands up + both triggers: equipped spells and weapons"), spellRingChoice));
             }
+            // DeveloperConfig.EnableRangedKnockoutOption: off (OpenGothic) = arrows, bolts and spells kill.
+            if (_configService.Dev.EnableRangedKnockoutOption)
+                rows.Add((CreateToggleLabel(gameMenu, "RANGED_KNOCKOUT", "Ranged knockout",
+                        "Arrows/spells knock out, the next one kills"),
+                    CreateToggleChoice(gameMenu, "RANGED_KNOCKOUT", FightConst.RangedKnockoutIniName,
+                        _configService.Dev.RangedKnockoutByDefault ? 1 : 0)));
+            // DeveloperConfig.EnableKillerXpOnly: off (Gothic) only the hero's, his summons' and his party's kills give
+            // experience, on every death anywhere does.
+            if (_configService.Dev.EnableKillerXpOnly)
+                rows.Add((CreateToggleLabel(gameMenu, "XP_FOR_ANY_KILL", "XP for every death",
+                        "Cheat: any death gives you XP (Gothic: only your kills)"),
+                    CreateToggleChoice(gameMenu, "XP_FOR_ANY_KILL", FightConst.XpForAnyKillIniName)));
+            rows.Add((CreateRestartButton(mainMenu), null));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }
 
         /// <summary>
-        /// One row per option (label + value). Gothic's menus fit _rowsPerPage rows, further rows go on the next page,
-        /// which the menu shows with up/down arrows.
+        /// One row per option (label + value, a button has no value). Gothic's menus fit _rowsPerPage rows, further
+        /// rows go on the next page, which the menu shows with up/down arrows.
         /// </summary>
         private void AddOptionRows(AbstractMenuInstance menu,
             params (AbstractMenuItemInstance label, AbstractMenuItemInstance value)[] rows)
@@ -108,6 +136,8 @@ namespace Gothic.VR.Services.Context
                 var posY = _vmService.MenuStartY + _vmService.MenuDY * (i % _rowsPerPage);
                 foreach (var item in new[] { rows[i].label, rows[i].value })
                 {
+                    if (item == null)
+                        continue;
                     item.PosY = posY;
                     item.Page = i / _rowsPerPage;
                     menu.Items.Add(item);
@@ -141,6 +171,44 @@ namespace Gothic.VR.Services.Context
             item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
             return item;
+        }
+
+        private MutableMenuItemInstance CreateLightRefreshChoice(AbstractMenuInstance gameMenu)
+        {
+            var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh);
+            item.SetText(0, "Low|Medium|High");
+            return item;
+        }
+
+        private AbstractMenuItemInstance CreateHitNumbersSizeSlider(AbstractMenuInstance gameMenu)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var slider = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_HIT_NUMBERS_SIZE_SLIDER",
+                mouseSlider);
+
+            slider.SetUserFloat(0, VRConstants.SmoothRotationSettingAmount); // Steps.
+            // Default = smallest. AbstractMenu turns a default of exactly 0 into 1 (full), hence the tiny value.
+            slider.SetUserFloat(3, 0.0001f);
+            slider.OnChgSetOption = Constants.IniNames.HitNumbersSize;
+            slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return slider;
+        }
+
+        /// <summary>
+        /// Starts the game again (GameRestartDomain) - e.g. to pick another game profile.
+        /// </summary>
+        private MutableMenuItemInstance CreateRestartButton(AbstractMenuInstance mainMenu)
+        {
+            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
+            var restartButton = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
+
+            restartButton.SetText(0, "Restart game");
+            restartButton.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);
+            restartButton.SetOnSelActionS(0, VRConstants.MenuCommandRestartGame);
+
+            return restartButton;
         }
 
         private MutableMenuInstance CreateAccessibilityMenu(AbstractMenuInstance mainMenu)

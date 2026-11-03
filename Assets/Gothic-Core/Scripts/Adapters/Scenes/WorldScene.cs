@@ -25,6 +25,7 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Gothic.Core.Adapters.Npc;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Scenes
@@ -52,6 +53,9 @@ namespace Gothic.Core.Adapters.Scenes
 
         public void Init()
         {
+            // "-X HP" over NPC heads (option "hitNumbers").
+            gameObject.AddComponent<NpcHitNumbers>();
+
 #pragma warning disable CS4014 // Do not wait. We want to update player movement (VR) and camera view (progress bar)
             LoadWorldContentAsync();
 #pragma warning restore CS4014
