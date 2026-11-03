@@ -25,6 +25,8 @@ namespace Gothic.VR.Adapters.Vob
         {
             var vobDoor = GetComponentInParent<VobLoader>().Container.VobAs<IDoor>();
             PrepareSounds(vobDoor);
+            VRMobHinge.Follow(VrHinges.FindActive(this),
+                GetComponentInParent<VobLoader>().Container);
         }
         
         /// <summary>

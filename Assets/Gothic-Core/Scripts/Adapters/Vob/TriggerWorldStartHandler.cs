@@ -1,6 +1,7 @@
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -10,11 +11,16 @@ namespace Gothic.Core.Adapters.Vob
 {
     /// <summary>
     /// Handles zCTriggerWorldStart: fires Target once when the world finishes loading.
-    /// If FireOnce is true and the world was already entered, HasFired prevents re-firing (save/load support).
+    /// Like OpenGothic (WorldObjects::triggerOnStart):
+    /// - A world restored from a save game or from a visit earlier in this session fires nothing. Its state contains
+    ///   the result already.
+    /// - FireOnce triggers fire only when the world is entered for the first time (G1 save games don't store
+    ///   HasFired).
     /// </summary>
     public class TriggerWorldStartHandler : MonoBehaviour
     {
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         private ITriggerWorldStart _vob;
 
@@ -24,7 +30,9 @@ namespace Gothic.Core.Adapters.Vob
 
         private void Start()
         {
-            if (_vob.FireOnce && _vob.HasFired)
+            if (_saveGameService.IsWorldRestored)
+                return;
+            if (_vob.FireOnce && (_vob.HasFired || !_saveGameService.IsWorldEnteredFirstTime))
                 return;
 
             var target = _vob.Target;

@@ -89,7 +89,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
 
@@ -104,12 +103,7 @@ namespace Gothic.VR.Adapters.Player
 
 			GlobalEventDispatcher.ZenKitBootstrapped.AddListener(() =>
             {
-                if (_contextGameVersionService.IsGothic2())
-                {
-                    Logger.LogError("Swimming is not yet implemented for G2. Skipping...", LogCat.VR);
-                    return;
-                }
-                
+                // G2's Humans.mds has the same swim animations and sounds as G1's.
                 var mds = _resourceCacheService.TryGetModelScript("Humans");
                 if (mds == null)
                 {
@@ -288,8 +282,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySound(_sfxSwim2HangSound);
 
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -314,8 +307,7 @@ namespace Gothic.VR.Adapters.Player
                         _playerService.StopDiving();
                         _rig.Fade(0, float.MaxValue); // Immediately fade the screen back to normal (no fade)
 
-                        var clip = _audioService.CreateAudioClip(_sfxSwim2HangSound.GetRandomSound());
-                        _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+                        PlaySound(_sfxSwim2HangSound);
                         
                         // FIXME - Bubbles are too big on screen. Needs more love.
                         // _diveBubbles.SetActive(false);
@@ -348,6 +340,23 @@ namespace Gothic.VR.Adapters.Player
             }
         }
         
+        /// <summary>
+        /// A mod's (or an unpatched game's) Humans.mds can miss a swim sound - swimming works without it.
+        /// </summary>
+        private void PlaySound(SfxModel sfx)
+        {
+            var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
+            if (clip != null)
+                _vrSfxPlayer.Play(clip, Camera.main!.transform.position);
+        }
+
+        private void PlaySoundWithCooldown(SfxModel sfx)
+        {
+            var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
+            if (clip != null)
+                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+        }
+
         private void StartDive()
         {
             _mode = VmGothicEnums.WalkMode.Dive;
@@ -365,7 +374,7 @@ namespace Gothic.VR.Adapters.Player
             _playerService.StartDiving();
             _rig.Fade(0.8f, 1/_playerService.CurrentAir); // We fade to black based on our start level of air (in seconds)
             
-            _vrSfxPlayer.Play(_audioService.CreateAudioClip(_sfxSwim2DiveSound.GetRandomSound()), Camera.main!.transform.position);
+            PlaySound(_sfxSwim2DiveSound);
             
             // FIXME - Bubbles are too big on screen. Needs more love.
             // _diveBubbles.SetActive(true);
@@ -464,14 +473,12 @@ namespace Gothic.VR.Adapters.Player
             // Play swim SFX for each hand that just started pulling
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxSwimSound);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxSwimSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxSwimSound);
                 _isSwimDiveForceRightJustStarted = false;
             }
 
@@ -541,14 +548,12 @@ namespace Gothic.VR.Adapters.Player
             // Play dive SFX for each hand that just started pulling, prevent overlap via cooldown
             if (_isSwimDiveForceLeftJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxDiveSound);
                 _isSwimDiveForceLeftJustStarted = false;
             }
             if (_isSwimDiveForceRightJustStarted && _currentVelocity.magnitude > 1f)
             {
-                var clip = _audioService.CreateAudioClip(_sfxDiveSound.GetRandomSound())!;
-                _vrSfxPlayer.PlayWithCooldown(clip, Camera.main!.transform.position, _swimDiveSfxUuid, clip.length);
+                PlaySoundWithCooldown(_sfxDiveSound);
                 _isSwimDiveForceRightJustStarted = false;
             }
 

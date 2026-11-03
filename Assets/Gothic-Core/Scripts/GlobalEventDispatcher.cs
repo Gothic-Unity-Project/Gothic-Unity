@@ -42,13 +42,26 @@ namespace Gothic.Core
         public static readonly UnityEvent GothicInisInitialized = new();
         public static readonly UnityEvent<string, object> PlayerPrefUpdated = new();
         
+        // The running game is replaced (new game or loaded save). VM, hero and world still exist. Called before
+        // LoadGameStart, which creates the new VM.
+        public static readonly UnityEvent UnloadGameStart = new();
         public static readonly UnityEvent LoadGameStart = new();
+
+        // The current world's runtime state is stored into its world data: before a save game is written (true) and
+        // before we leave the world (false). E.g. VR decides which items are part of the world or inventory.
+        public static readonly UnityEvent<bool> StoreWorldStateStart = new();
         
         
         public static readonly UnityEvent<NpcContainer, NpcLoader, bool, bool> NpcMeshCullingChanged = new();
         public static readonly UnityEvent<GameObject> VobMeshCullingChanged = new();
 
         public static readonly UnityEvent<INpc> CreateNpc = new();
+
+        /// <summary>
+        /// An item was put into the loaded world (Wld_InsertItem) - it lies there like the world's own items.
+        /// Raised by VobService.ExtWldInsertItem.
+        /// </summary>
+        public static readonly UnityEvent<IVirtualObject> WorldItemInserted = new();
 
         /// <summary>
         /// Plays a Bink video in the platform's cinema (VR: VRCinema). Several calls in a row are queued.
@@ -174,8 +187,8 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
         /// <summary>
-        /// NpcContainer - the hero, finished off (AI_FinishingMove) - BodyState is already BsDead
-        /// (DeveloperConfig.EnableHeroDeath and the "heroDeath" option).
+        /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
 
@@ -226,6 +239,14 @@ namespace Gothic.Core
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> BodySlotReached = new();
 
+        // Ledge climbing (VR): a hand came into touch range of a climbable lip (VrLedgeReach, hints not Off).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeTouched = new();
+
+        // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
         public static readonly UnityEvent<PrintScreenMessage> PrintScreen = new();
@@ -233,6 +254,11 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        // Trading (TradeService) started with this NPC: the trade window opens, the dialog's choices wait.
+        public static readonly UnityEvent<NpcContainer> TradeStarted = new();
+        // Trading with this NPC ended (closed by the player or the dialog ended).
+        public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 

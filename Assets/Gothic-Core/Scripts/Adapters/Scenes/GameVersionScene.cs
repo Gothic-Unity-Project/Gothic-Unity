@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -43,7 +44,7 @@ namespace Gothic.Core.Adapters.Scenes
             _contextInteractionService.TeleportPlayerTo(Vector3.zero);
 
             // Whatever comes next, we don't want the player to move around right now.
-            _contextInteractionService.LockPlayerInPlace();
+            _contextInteractionService.LockPlayer(PlayerLocks.Loading);
 
             // GameSettings.json "EnableGameProfiles": pick G1/G2/mod from a list instead of the normal config.
             if (_configService.IsGameProfileSelectionEnabled && TryShowGameProfileMenu())
