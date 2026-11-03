@@ -213,6 +213,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return slot;
         }
 
+        /// <summary>
+        /// Only the walk to the mob stops. Once there, the NPC goes on using it, like in the engine.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            if (!IsDestReached)
+                base.StopImmediately();
+        }
+
         protected override void OnDestinationReached()
         {
             base.OnDestinationReached();
@@ -272,6 +281,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
             Props.CurrentInteractableStateId += step;
+
+            // Like Gothic, the mob keeps the state its user left it in (e.g. a wheel turned by a guard), for
+            // Wld_GetMobState() and save games. -1 means the NPC isn't using it anymore.
+            if (Props.CurrentInteractableStateId >= 0 && _mobContainer != null)
+                _mobContainer.MobState = Props.CurrentInteractableStateId;
         }
 
         private void PlayTransitionAnimation()

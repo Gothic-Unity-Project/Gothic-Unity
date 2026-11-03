@@ -69,7 +69,7 @@ namespace Gothic.VR.Adapters
 
         private void OnGrabbed(VrGrabArgs args)
         {
-            var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            var isDead = _npcData.Props.IsDead;
 
             if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {

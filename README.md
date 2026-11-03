@@ -44,6 +44,8 @@ To support our game development efforts, we practice agentic engineering: the te
 ## How to contribute
 If you're interested in Core Unity development, C# coding, or you're seasoned with VR game mechanics development, feel free to look at [CONTRIBUTING.md](./CONTRIBUTING.md). There you find information on how to create fixes, features, or join us as a core maintainer.
 
+Setting up your machine (incl. optional reference repositories like ZenKit, OpenGothic and the Daedalus scripts): [DEVELOPMENT.md](./DEVELOPMENT.md).
+
 ## Workflow/Gameflow
 
 ![data flow](Docs/data-flow.drawio.png)

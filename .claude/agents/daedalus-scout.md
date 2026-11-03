@@ -14,15 +14,16 @@ Daedalus scripts through ZenKit). You never edit files.
 ## Sources, in this order
 
 1. Gothic scripts:
-   - local copy if the caller gives a path (MDK `_work/data/Scripts/`)
+   - `./Daedalus/` (symlink to the local `Scripts` folder; `Content/`, `System/`, `_compiled/`), if it exists
+   - a path the caller gives (MDK `_work/data/Scripts/`)
    - otherwise https://github.com/VaanaCZ/gothic-1-classic-scripts (G1) Branches contain the actual entries like: **1.08j-EN** for the English version Read via raw.githubusercontent.com
    - for G2 ask for a local MDK path or search GitHub yourself
    - key files: `Externals.d` (extern signatures and parameter types), `AI_Constants.d`, `C_Functions.d`,
      `GUILDS.D`, `ZS_*.d`, `B_*.d`
-2. OpenGothic https://github.com/Try/OpenGothic - `game/game/gamescript.cpp` (external implementations),
-   `game/world/objects/npc.cpp`, `game/game/` for save/load. Use it to learn expected engine behaviour.
-3. ZenKit / ZenKitCS https://github.com/GothicKit/ZenKit, https://github.com/GothicKit/ZenKitCS (also at
-   `./ZenKitCS/` in the repo) - API and serialization details.
+2. OpenGothic, local at `./OpenGothic/` (else https://github.com/Try/OpenGothic) - `common/game/gamescript.cpp`
+   (external implementations), `common/world/objects/npc.cpp`, `common/game/` for save/load. Use it to learn expected engine behaviour.
+3. ZenKit / ZenKitCS / ZenKitCAPI, local at `./ZenKit/`, `./ZenKitCS/`, `./ZenKitCAPI/` (else
+   https://github.com/GothicKit/ZenKit, https://github.com/GothicKit/ZenKitCS) - API and serialization details.
 4. Our implementation - only narrow paths, never grep the repo root or all of `Assets/`:
    `Assets/Gothic-Core/Scripts/Domain/Vm/`, `Assets/Gothic-Core/Scripts/Services/Npc/`,
    `Assets/Gothic-Core/Scripts/Services/Vm/`.

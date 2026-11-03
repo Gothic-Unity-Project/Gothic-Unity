@@ -78,6 +78,18 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
         }
 
+        /// <summary>
+        /// Npc_ClearAIQueue stops a walk like the engine: the walk animation ends, the NPC stands where it is.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            if (_executedWalkModeAnimationString != null)
+                PrefabProps.AnimationSystem.StopAnimation(_executedWalkModeAnimationString);
+
+            State = WalkState.Done;
+            base.StopImmediately();
+        }
+
         private string GetWalkModeAnimationString()
         {
             var fightMode = (VmGothicEnums.WeaponState)Vob.FightMode;
