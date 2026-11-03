@@ -63,7 +63,7 @@ MonoBehaviour:
     Value: 
   EnableNpcEyeBlinking: 0
   EnableNpcLooting: 0
-  EnableDialogFreeMovement: 1
+  EnableDialogFreeMovement: 0
   ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0
