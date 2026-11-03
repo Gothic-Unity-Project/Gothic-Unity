@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -107,6 +108,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
             RegisterIfDeclared(vm, "AI_UseItem", () => vm.RegisterExternal<NpcInstance, int>("AI_UseItem", AI_UseItem));
+            RegisterIfDeclared(vm, "AI_UnequipWeapons",
+                () => vm.RegisterExternal<NpcInstance>("AI_UnequipWeapons", AI_UnequipWeapons));
             vm.RegisterExternal<NpcInstance, float>("AI_Wait", AI_Wait);
             vm.RegisterExternal<NpcInstance, int>("AI_WaitMs", AI_WaitMs);
             vm.RegisterExternal<int, NpcInstance, string, int>("AI_UseMob", AI_UseMob);
@@ -617,6 +620,43 @@ namespace Gothic.Core.Domain.Vm
         public void AI_PlayAniBS(NpcInstance npc, string name, int bodyState)
         {
             _npcAiService.ExtAiPlayAniBs(npc, name, bodyState);
+        }
+
+        /// <summary>
+        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back
+        /// too, a drawn one the hand (found on BoroBongo's branch).
+        /// </summary>
+        public void AI_UnequipWeapons(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            container.Props.EquippedItems.RemoveAll(i =>
+                i.MainFlag is (int)VmGothicEnums.ItemFlags.ItemKatNf or (int)VmGothicEnums.ItemFlags.ItemKatFf);
+
+            // Like after AI_RemoveWeapon, a drawn weapon is gone and follow-up animations are weaponless. Fists stay.
+            var weaponState = (VmGothicEnums.WeaponState)container.Vob.FightMode;
+            var isWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H or
+                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow;
+            if (isWeaponDrawn)
+                container.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
+            if (container.Go == null)
+                return;
+
+            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
+                Constants.SlotCrossbow };
+            if (isWeaponDrawn)
+                slotNames.Add(Npc.Actions.AnimationActions.DrawWeapon.GetHandSlotName(weaponState));
+            foreach (var slotName in slotNames)
+            {
+                var slot = container.Go.FindChildRecursively(slotName);
+                if (slot == null)
+                    continue;
+
+                for (var i = slot.transform.childCount - 1; i >= 0; i--)
+                    UnityEngine.Object.Destroy(slot.transform.GetChild(i).gameObject);
+            }
         }
 
         public void AI_UnequipArmor(NpcInstance npc)
