@@ -29,6 +29,17 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             
             var item = VmCacheService.TryGetItemData(ItemToUse);
 
+            // Nothing to play (already there, or not an item): done - it waited
+            // for an animation end that never came and the NPC froze for good (Lukis after a fight, ZS_HealSelf).
+            if (current == target || item == null)
+            {
+                if (item == null)
+                    Logger.LogWarning($"[UseItemToState] {NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)}: " +
+                                      $"item {ItemToUse} unknown - skipped", LogCat.Animation);
+                IsFinishedFlag = true;
+                return;
+            }
+
             while (current != target)
             {
                 int next = current + step;
@@ -74,6 +85,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 Props.CurrentItem = -1;
             }
             Logger.LogWarningEditor($"No animation found for transition from {Props.ItemAnimationState} to {DesiredState} for item {ItemToUse}. Forced state update.",LogCat.Animation);
+            IsFinishedFlag = true;
         }
 
         protected override void AnimationEnd()
