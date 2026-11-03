@@ -28,6 +28,25 @@ namespace Gothic.Core.Services.Npc
         // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
         private readonly HashSet<int> _npcsKnowingPlayer = new();
 
+        // Passive perceptions of this frame, delivered to the NPCs around the sender in their next AI update.
+        private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
+            NpcInstance Victim, NpcInstance Other)> _sentPassivePerceptions = new();
+        private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
+            NpcInstance Victim, NpcInstance Other)> _deliveredPassivePerceptions = new();
+        private int _deliveryFrame = -1;
+
+
+        public void Init()
+        {
+            // Perceptions not delivered yet belong to the NPCs of the world they were sent in.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearPassivePerceptions);
+        }
+
+        private void ClearPassivePerceptions()
+        {
+            _sentPassivePerceptions.Clear();
+            _deliveredPassivePerceptions.Clear();
+        }
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
         {
@@ -64,17 +83,11 @@ namespace Gothic.Core.Services.Npc
             var oldVictim = _gameStateService.GothicVm.GlobalVictim;
             var oldOther = _gameStateService.GothicVm.GlobalOther;
 
+            // Like the engine (OpenGothic invokeState), other and victim are this perception's, null included - a
+            // left-over victim made B_AssessWarn or B_AssessUseMob see a crime that wasn't there.
             _gameStateService.GothicVm.GlobalSelf = self;
-
-            if(other != null)
-            {
-                _gameStateService.GothicVm.GlobalOther = other;
-            }
-
-            if(victim != null)
-            {
-                _gameStateService.GothicVm.GlobalVictim = victim;
-            }
+            _gameStateService.GothicVm.GlobalOther = other;
+            _gameStateService.GothicVm.GlobalVictim = victim;
 
             // The finally block ensures a throwing perception function doesn't leave the globals
             // polluted for every subsequent script call of all NPCs.
@@ -814,76 +827,90 @@ namespace Gothic.Core.Services.Npc
             if (sender == null)
                 return;
 
-            var notified = BroadcastPassivePerception(sender, perc, victim, other);
-            Logger.Log($"[PassivePerc] {npc.GetName(NpcNameSlot.Slot0)} sends {perc} " +
-                       $"(other={other?.GetName(NpcNameSlot.Slot0)}, victim={victim?.GetName(NpcNameSlot.Slot0)}) " +
-                       $"to {notified} NPC(s)", LogCat.Ai);
+            if (BroadcastPassivePerception(sender, perc, victim, other))
+                Logger.Log($"[PassivePerc] {npc.GetName(NpcNameSlot.Slot0)} sends {perc} " +
+                           $"(other={other?.GetName(NpcNameSlot.Slot0)}, victim={victim?.GetName(NpcNameSlot.Slot0)})",
+                    LogCat.Ai);
         }
 
         /// <summary>
-        /// Passive perception around the sender to every NPC which registered it: not the sender, not the hero, not
-        /// dead/unconscious or culled NPCs. Range: Perc_SetRange, capped by the receiver's senses_range.
+        /// Passive perception around the sender. Like the engine, it isn't run inside the sender's script call but
+        /// in the receivers' next AI update (DeliverPassivePerceptions): run at once, a receiver that sends again
+        /// bounced between two NPCs until the VM stack overflowed (Khorinis after a few minutes).
         /// </summary>
-        public int BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
+        /// <returns>false if it was dropped: the sender isn't in the world, or there is no other.</returns>
+        public bool BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
             NpcInstance victim, NpcInstance other)
         {
             if (sender?.Go == null)
-                return 0;
+                return false;
 
-            // The receivers' functions run inside the sender's external: one that sends again (a mod's B_CallComrades)
-            // could bounce between two NPCs until the VM stack overflows. OpenGothic queues them for the next tick.
-            if (_passivePerceptionDepth >= _maxPassivePerceptionDepth)
+            // Like the engine: dropped without other - the perception scripts (B_AssessWarn, ...) read it.
+            if (other == null)
             {
-                Logger.LogWarning($"[PassivePerc] {perception} from {sender.Instance?.GetName(NpcNameSlot.Slot0)} " +
-                                  $"dropped - sent from inside {_passivePerceptionDepth} other passive perceptions",
-                    LogCat.Ai);
-                return 0;
+                Logger.LogWarning($"[PassivePerc] {perception} of {sender.Instance?.GetName(NpcNameSlot.Slot0)} has " +
+                                  "no other - not sent", LogCat.Ai);
+                return false;
             }
 
-            _passivePerceptionDepth++;
-            try
-            {
-                return SendPassivePerception(sender, perception, victim, other);
-            }
-            finally
-            {
-                _passivePerceptionDepth--;
-            }
+            _sentPassivePerceptions.Add((perception, sender.Go.transform.position, sender, victim, other));
+            return true;
         }
 
-        private const int _maxPassivePerceptionDepth = 2;
-        private int _passivePerceptionDepth;
-
-        private int SendPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
-            NpcInstance victim, NpcInstance other)
+        /// <summary>
+        /// Called by every awake NPC once per frame: runs the passive perceptions sent in the frames before on it, if
+        /// it's within the perception's range of the sender. Not on the hero, the dead and the knocked out; culled
+        /// NPCs have no AI update.
+        /// </summary>
+        public void DeliverPassivePerceptions(NpcContainer receiver)
         {
-            var senderPos = sender.Go.transform.position;
-            var notified = 0;
-
-            // Copy: a perception function can insert/remove NPCs (Wld_InsertNpc, AI_Teleport).
-            foreach (var candidate in _multiTypeCacheService.NpcCache.ToArray())
+            if (_deliveryFrame != Time.frameCount)
             {
-                if (candidate == sender || candidate.Props == null || candidate.Instance == null) continue;
-                if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
-                if (NpcHelperService.IsDown(candidate)) continue;
-                if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
-                if (!candidate.Props.Perceptions.TryGetValue(perception, out var perceptionFunction) || perceptionFunction < 0) continue;
-
-                var range = Mathf.Min(_npcHelperService.GetPerceptionRange(perception), candidate.Instance.SensesRange / 100f);
-                if ((candidate.Go.transform.position - senderPos).sqrMagnitude > range * range) continue;
-
-                // B_AssessWarn targets a non-human warner as a monster (ZS_AssessMonster -> ZS_Attack): the scripts expect
-                // only humans to warn, but orcs run the human AI - the comrades attacked the orc that called them.
-                // A friendly non-human warner: hand over the threat as the victim, B_AssessWarn takes its human path.
-                var receiverVictim = perception == VmGothicEnums.PerceptionType.AssessWarn &&
-                                     IsFriendlyNonHumanWarner(candidate, victim, other)
-                    ? other
-                    : victim;
-                ExecutePassivePerception(perception, perceptionFunction, candidate, receiverVictim, other);
-                notified++;
+                _deliveryFrame = Time.frameCount;
+                _deliveredPassivePerceptions.Clear();
+                _deliveredPassivePerceptions.AddRange(_sentPassivePerceptions);
+                _sentPassivePerceptions.Clear();
             }
 
-            return notified;
+            if (_deliveredPassivePerceptions.Count == 0)
+                return;
+
+            if (receiver?.Go == null || receiver.Props == null || receiver.Instance == null)
+                return;
+            if (receiver.PrefabProps != null && receiver.PrefabProps.IsHero())
+                return;
+            if (NpcHelperService.IsDown(receiver))
+                return;
+
+            var position = receiver.Go.transform.position;
+            foreach (var perception in _deliveredPassivePerceptions)
+            {
+                // The sender itself by object - NPCs of the same instance (a wolf pack, the camp's guards) share the
+                // instance index.
+                if (perception.Sender == receiver)
+                    continue;
+                if (!receiver.Props.Perceptions.TryGetValue(perception.Type, out var perceptionFunction) ||
+                    perceptionFunction < 0)
+                    continue;
+
+                // Like the engine (OpenGothic percRanges): the range of the perception (Perc_SetRange), else the
+                // receiver's senses range. Passive perceptions ignore the senses (hear/see) themselves.
+                var range = _npcHelperService.GetPerceptionRange(perception.Type);
+                if (range >= float.MaxValue)
+                    range = receiver.Instance.SensesRange / 100f;
+                if ((perception.Position - position).sqrMagnitude > range * range)
+                    continue;
+
+                // B_AssessWarn targets a non-human warner as a monster (ZS_AssessMonster -> ZS_Attack): the scripts
+                // expect only humans to warn, but orcs run the human AI - the comrades attacked the orc that called
+                // them. A friendly non-human warner: hand over the threat as the victim, B_AssessWarn takes its human
+                // path.
+                var victim = perception.Type == VmGothicEnums.PerceptionType.AssessWarn &&
+                             IsFriendlyNonHumanWarner(receiver, perception.Victim, perception.Other)
+                    ? perception.Other
+                    : perception.Victim;
+                ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
+            }
         }
 
         private bool IsFriendlyNonHumanWarner(NpcContainer receiver, NpcInstance warner, NpcInstance threat)
@@ -912,10 +939,8 @@ namespace Gothic.Core.Services.Npc
             var oldOther = vm.GlobalOther;
             var oldVictim = vm.GlobalVictim;
             vm.GlobalSelf = receiver.Instance;
-            if (other != null)
-                vm.GlobalOther = other;
-            if (victim != null)
-                vm.GlobalVictim = victim;
+            vm.GlobalOther = other;
+            vm.GlobalVictim = victim;
             try
             {
                 ExtAiStartState(receiver.Instance, perceptionFunction, true, "");

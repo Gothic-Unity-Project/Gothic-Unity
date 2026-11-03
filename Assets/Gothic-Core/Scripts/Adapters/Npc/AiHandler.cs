@@ -93,6 +93,7 @@ namespace Gothic.Core.Adapters.Npc
                 return;
             }
 
+            _npcAiService.DeliverPassivePerceptions(NpcData);
             ExecuteActivePerceptions();
             ExecuteStates();
 
