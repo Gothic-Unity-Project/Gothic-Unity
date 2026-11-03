@@ -290,7 +290,10 @@ namespace Gothic.Core.Domain.Culling
                 if (container?.Vob == null)
                     continue;
 
-                var root = loader.transform;
+                // A built NPC is its body ("Root" below the loader) - the loader itself goes to the world's origin once
+                // the body is built. Read from the loader, every NPC around was saved at height 0 (knocked out bodies
+                // came back floating) and the others at the origin (back at their routine's spot after loading).
+                var root = container.Go != null ? container.Go.transform : loader.transform;
                 var position = root.position;
                 var bip01 = container.PrefabProps == null ? null : container.PrefabProps.Bip01;
                 if (_visibleNpcs.Contains(i) && bip01 != null)
