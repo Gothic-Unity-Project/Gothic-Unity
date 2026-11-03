@@ -19,6 +19,7 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly Gothic.Core.Services.Npc.NpcService _npcService;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
         public MenuHandler MenuHandler;
@@ -74,9 +75,16 @@ namespace Gothic.VR.Adapters.Player
         {
             if (IsMenuActivated && IsGameScene() && (Cinema == null || !Cinema.IsBlockingInput))
             {
-                _gameStateService.InGameAndAlive = true;
+                // A dead hero's menu offers loading, not saving or continuing.
+                _gameStateService.InGameAndAlive = !IsHeroDead();
                 MenuHandler.ToggleVisibility();
             }
+        }
+
+        private bool IsHeroDead()
+        {
+            var hero = _npcService.GetHeroContainer();
+            return hero?.Props != null && hero.Props.IsDead;
         }
 
         /// <summary>
