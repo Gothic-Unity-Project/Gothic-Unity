@@ -55,7 +55,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private void StrafeTick()
         {
             // For rotation speed, we use the guild value for human if any type of human or the monster guild itself.
-            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var guild = NpcInstance.GetValuesGuild();
 
             // e.g., Goblins aren't rotating fast enough to rotate around the target. Therefore *2;
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild) * 2;

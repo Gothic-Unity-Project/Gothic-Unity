@@ -41,6 +41,9 @@ namespace Gothic.VR.Services.Context
 
         private const string _contextName = "VR";
 
+        // Alpha per second when the view is shown again (about 0.3 s).
+        private const float _viewFadeInSpeed = 3f;
+
         // Meters per second the player is pulled back when they ended up beyond KeepPlayerWithin's radius.
         private const float _keepWithinPullBackSpeed = 1f;
 
@@ -343,6 +346,29 @@ namespace Gothic.VR.Services.Context
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
             _rig.Teleport(position, rotation);
+        }
+
+        public void SetViewHidden(bool isHidden, GameObject visibleUi = null)
+        {
+            if (_rig == null)
+            {
+                var action = isHidden ? "hide" : "show";
+                Logger.LogWarning($"[VRContextInteractionService] No VR rig to {action} the view.", LogCat.Loading);
+                return;
+            }
+
+            // The fade covers everything but on-top UI. visibleUi goes on top like the game menu.
+            if (isHidden && visibleUi != null)
+            {
+                var menuOnTop = _player.MenuHandler.GetComponentInChildren<VRUiOnTop>(true);
+                if (menuOnTop != null)
+                    menuOnTop.ApplyTo(visibleUi);
+                else
+                    Logger.LogWarning($"[VRContextInteractionService] No on-top UI on the menu, {visibleUi.name} " +
+                                      "is hidden with the view.", LogCat.Loading);
+            }
+
+            _rig.Fade(isHidden ? 1f : 0f, isHidden ? float.MaxValue : _viewFadeInSpeed);
         }
 
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)

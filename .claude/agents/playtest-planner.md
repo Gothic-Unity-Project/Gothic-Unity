@@ -17,7 +17,8 @@ Read-only: never edit files.
    `Assets/Gothic-Core/Scripts/Models/Config/DeveloperConfig.cs` - every flag there is an untested feature.
 3. The changed files themselves, to understand the player-visible effect.
 4. To pick a concrete test location (NPC, item, place), look it up in the Gothic scripts
-   (A local MDK path the caller gives or https://github.com/VaanaCZ/gothic-1-classic-scripts for G1) - prefer
+   (`./Daedalus/` if it exists, else a local MDK path the caller gives or
+   https://github.com/VaanaCZ/gothic-1-classic-scripts for G1) - prefer
    things reachable early (G1: Old Camp area / Diego / the exchange place; G2: Xardas' tower, Khorinis road).
 
 ## Output

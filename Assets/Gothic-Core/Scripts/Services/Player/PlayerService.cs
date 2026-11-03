@@ -32,6 +32,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly Npc.HeroPerceptionService _heroPerceptionService;
 
 
         // Air in lungs isn't stored in G1 savegame, therefore setting it here temporarily at runtime.
@@ -96,8 +97,9 @@ namespace Gothic.Core.Services.Player
             if (removeCulling)
                 _vobMeshCullingService.RemoveCullingEntry(item);
 
-            _saveGameService.CurrentWorldData.Vobs.Remove(item.Vob);
+            _saveGameService.RemoveVobFromWorld(item.Vob);
             AddItem(item);
+            _heroPerceptionService.OnHeroTookItem(item.Vob);
         }
 
         /// <summary>
@@ -107,11 +109,7 @@ namespace Gothic.Core.Services.Player
         public void DropItem(VobContainer item, bool addCulling = false, bool keepOutOfWorld = false)
         {
             if (!keepOutOfWorld)
-            {
-                var worldVobs = _saveGameService.CurrentWorldData.Vobs;
-                if (!worldVobs.Contains(item.Vob))
-                    worldVobs.Add(item.Vob);
-            }
+                _saveGameService.AddVobToWorld(item.Vob);
 
             if (addCulling)
                 _vobMeshCullingService.AddCullingEntry(item);

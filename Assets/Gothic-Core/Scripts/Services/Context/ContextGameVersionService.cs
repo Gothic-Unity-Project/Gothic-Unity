@@ -18,5 +18,6 @@ namespace Gothic.Core.Services.Context
         public string RootPath => _impl.RootPath;
         public string CutsceneFileSuffix => _impl.CutsceneFileSuffix;
         public string InitialWorld => _impl.InitialWorld;
+        public bool PrefersCompiledModelScript => _impl.PrefersCompiledModelScript;
     }
 }

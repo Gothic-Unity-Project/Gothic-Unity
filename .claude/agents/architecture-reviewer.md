@@ -45,7 +45,7 @@ The layer ranks are in `CLAUDE.md` (Domain and Services share a rank and may use
 | folder or class | planning a split or a refactor | skip step 1; read the files, output an ordered step plan of PR-sized refactorings instead of findings |
 
 Ignore unrelated local changes (`.asset`, `ProjectSettings/*`, scenes the change doesn't need) and third-party code
-(`ZenKitCS/`, `Assets/HurricaneVR/`, packages). Prefabs, scenes and settings the change does touch are reviewed
+(`ZenKitCS/`, packages). Prefabs, scenes and settings the change does touch are reviewed
 ("Unity assets" below) - by grepping their YAML for facts, never by reading it whole.
 
 ## 1. Collect facts (cheap, deterministic)
@@ -99,12 +99,19 @@ baselined violation). A rule of the doc or CLAUDE.md that itself causes friction
   seams or extracted methods, by use case, not into `*Helper`.
 - A change that needs more than ~4 files open to follow: scattered rule, missing facade, pass-through layers.
 - Grab-bag names (`*Manager`, `*Helper`, `*Util`) and names that don't use Gothic's terms.
+- Magic numbers and strings (principle 3: one rule, one place): a new literal that carries meaning - distances,
+  thresholds, timings, counts, layer/tag/bone/shader names - or a new `private const` / `static readonly` in a
+  service, domain or adapter. Check each against the constants files (`Gothic-Core/Scripts/Const/`: `Constants`,
+  `DaedalusConst`, `FightConst`, `ZenGineConst`; `Gothic-VR/Scripts/VRConstants.cs`): does a matching constant exist
+  (reuse it), or is the value used in 2+ files or a tunable rule (move it there, in the fitting file)? A const used
+  by one private method only, and obvious values (0, 1, -1, `Vector3.zero`), may stay local. Report as one grouped
+  finding per file, not one per literal.
 - A new non-trivial context without `Docs/<context>.md`; missing "why" on a Gothic/ZenKit quirk.
 - A change that decides something (feature, setting, trade-off) without a decision record in `Docs/adr/`.
 - Many new public members that could be private/internal; new public Core types used by one module only.
 
-**VR module** (`Docs/architecture.md` > "Inside Gothic-VR", rules 1-6)
-- An XRI or HVR type outside `Interaction/Backends/`, or a Gothic rule decided inside a backend.
+**VR module** (`Docs/architecture.md` > "Inside Gothic-VR", rules 1-5)
+- An XRI type outside `Interaction/Backends/`, or a Gothic rule decided inside a backend.
 - A component in `Interaction/Components/` using `Adapters/`, `Services/` or `IVrHaptics` directly instead of
   announcing a fact; preset or strength chosen outside `VrHapticsService`.
 - Destroying, re-parenting or placing objects inside a backend's select/hover event instead of the next `Update`.

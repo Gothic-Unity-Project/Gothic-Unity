@@ -15,6 +15,7 @@ namespace Gothic.VR
         public void InstallBindings(ContainerBuilder containerBuilder)
         {
             containerBuilder.OnContainerBuilt += (container) => ReflexProjectInstaller.DIContainer = container;
+            containerBuilder.OnContainerBuilt += (container) => container.Resolve<VRCarriedItemsSaveService>().Init();
 
             // VR ports (IVrInput, IVrHaptics, ...) come from the XR Interaction Toolkit backend.
             var backend = new XriBackend();
@@ -27,6 +28,7 @@ namespace Gothic.VR
             containerBuilder.AddSingleton(typeof(VrDropZoneService));
             containerBuilder.AddSingleton(typeof(VRCinemaService));
             containerBuilder.AddSingleton(typeof(VRUiOnTopService));
+            containerBuilder.AddSingleton(typeof(VRCarriedItemsSaveService));
         }
     }
 }

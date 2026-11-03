@@ -160,6 +160,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
         }
 
+        public override bool HasEnded => IsFinishedFlag || _audioPlaySeconds <= 0f;
+
         public override bool IsFinished()
         {
             if (IsFinishedFlag) return true;

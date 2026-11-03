@@ -33,9 +33,16 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly ConfigService _configService;
 
         private VirtualMemory _memory;
+        private VmExternalGuard _guard;
 
         // Maps symbol index → fake address; used for MEM_InstToPtr round-trips.
         private readonly Dictionary<int, int> _instancePtrMap = new();
+
+        // Stubs warn once per topic - the scripts call some of them every frame.
+
+        // MEM_PrintStackTrace dumps the whole VM state (dozens of log lines). Only the first ones are worth it.
+        private const int _maxStackTraces = 3;
+        private int _stackTraceCount;
 
 
         public VmIkarusLeGoDomain()
@@ -46,6 +53,7 @@ namespace Gothic.Core.Domain.Vm
         public void Init()
         {
             _memory = new VirtualMemory();
+            _guard = new VmExternalGuard(_gameStateService.GothicVm);
 
             SetupCoreFunctions();
             SetupMemoryFunctions();
@@ -65,7 +73,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupCoreFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction("MEMINT_SetupExceptionHandler", () => { });
             vm.OverrideFunction("MEMINT_ReplaceSlowFunctions", () => { });
@@ -87,12 +95,14 @@ namespace Gothic.Core.Domain.Vm
             });
 
             // Loop control — requires unsafe_jump + PC access, not yet in the ZenKit C# API.
-            SafeOverride("repeat", () =>
-                Logger.LogWarning("[Ikarus] repeat() loop control not implemented (needs unsafe_jump).", LogCat.ZenKit));
-            SafeOverride("while", () =>
-                Logger.LogWarning("[Ikarus] while() loop control not implemented (needs unsafe_jump).", LogCat.ZenKit));
-            SafeOverride("mem_goto", () =>
-                Logger.LogWarning("[Ikarus] mem_goto() not implemented (needs unsafe_jump).", LogCat.ZenKit));
+            // They take their arguments off the stack like the scripts declare them (repeat(var, limit), while(cond),
+            // MEM_Goto(label)), otherwise every call leaves them behind.
+            SafeOverride<int, int>("repeat", (_, _) =>
+                WarnOnce("repeat", "repeat() loop control not implemented (needs unsafe_jump) - the body runs once."));
+            SafeOverride<int>("while", _ =>
+                WarnOnce("while", "while() loop control not implemented (needs unsafe_jump) - the body runs once."));
+            SafeOverride<int>("mem_goto", _ =>
+                WarnOnce("mem_goto", "mem_goto() not implemented (needs unsafe_jump)."));
 
             // Functions that patch assembly or need sorted NPC lists — safe to NOP
             SafeOverride<int, int>("WRITENOP", (_, _) => { });
@@ -112,7 +122,7 @@ namespace Gothic.Core.Domain.Vm
             SafeOverride("ASMINT_Init", AsmInt_Init);
             SafeOverride("ASMINT_MyExternal", () => { });
             SafeOverride("ASMINT_CallMyExternal", () =>
-                Logger.LogWarning("[Ikarus] ASMINT_CallMyExternal — CPU emulation not supported.", LogCat.ZenKit));
+                WarnOnce("ASMINT_CallMyExternal", "ASMINT_CallMyExternal — CPU emulation not supported."));
         }
 
         private void AsmInt_Init()
@@ -137,7 +147,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupMemoryFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction<int, int>("MEM_Alloc", amount =>
             {
@@ -194,32 +204,33 @@ namespace Gothic.Core.Domain.Vm
             // Consume the pushed parameter to keep the VM stack balanced.
             vm.OverrideFunction<int, int>("_@", _ =>
             {
-                Logger.LogWarning("[Ikarus] _@() / MEM_GetIntAddress() — variable address not supported (needs pop_reference).", LogCat.ZenKit);
+                WarnOnce("_@", "_@() / MEM_GetIntAddress() — variable address not supported (needs pop_reference).");
                 return 0;
             });
-            SafeOverride<int, int>("_@s", _ =>
+            // The string and float variants take a string / float - popped as int they broke the VM stack.
+            SafeOverride<int, string>("_@s", _ =>
             {
-                Logger.LogWarning("[Ikarus] _@s() / MEM_GetStringAddress() — not supported.", LogCat.ZenKit);
+                WarnOnce("_@s", "_@s() / MEM_GetStringAddress() — not supported.");
                 return 0;
             });
-            SafeOverride<int, int>("_@f", _ =>
+            SafeOverride<int, float>("_@f", _ =>
             {
-                Logger.LogWarning("[Ikarus] _@f() / MEM_GetFloatAddress() — not supported.", LogCat.ZenKit);
+                WarnOnce("_@f", "_@f() / MEM_GetFloatAddress() — not supported.");
                 return 0;
             });
             SafeOverride<int, int>("MEM_GetIntAddress", _ =>
             {
-                Logger.LogWarning("[Ikarus] MEM_GetIntAddress() — not supported.", LogCat.ZenKit);
+                WarnOnce("MEM_GetIntAddress", "MEM_GetIntAddress() — not supported.");
                 return 0;
             });
-            SafeOverride<int, int>("MEM_GetStringAddress", _ =>
+            SafeOverride<int, string>("MEM_GetStringAddress", _ =>
             {
-                Logger.LogWarning("[Ikarus] MEM_GetStringAddress() — not supported.", LogCat.ZenKit);
+                WarnOnce("MEM_GetStringAddress", "MEM_GetStringAddress() — not supported.");
                 return 0;
             });
-            SafeOverride<int, int>("MEM_GetFloatAddress", _ =>
+            SafeOverride<int, float>("MEM_GetFloatAddress", _ =>
             {
-                Logger.LogWarning("[Ikarus] MEM_GetFloatAddress() — not supported.", LogCat.ZenKit);
+                WarnOnce("MEM_GetFloatAddress", "MEM_GetFloatAddress() — not supported.");
                 return 0;
             });
         }
@@ -231,7 +242,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupDirectFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // MEM_PtrToInst / _^ — convert a fake address to a transient Daedalus instance
             vm.OverrideFunction<DaedalusInstance, int>("MEM_PtrToInst", address =>
@@ -263,13 +274,26 @@ namespace Gothic.Core.Domain.Vm
                 _instancePtrMap[symId] = address;
             });
 
-            // MEM_GetFuncIdByOffset — only needed for hook / self-modifying patterns
+            // MEM_GetFuncIdByOffset — the function that starts at a bytecode address (see MEM_GetFuncOffset)
             vm.OverrideFunction<int, int>("MEM_GetFuncIdByOffset", offset =>
             {
-                if (offset != 0)
-                    Logger.LogWarning($"[Ikarus] MEM_GetFuncIdByOffset({offset}) — not supported.", LogCat.ZenKit);
-                return 0;
+                var sym = _gameStateService.GothicVm.GetSymbolByAddress(offset);
+                if (sym is { Type: DaedalusDataType.Function })
+                    return sym.Index;
+
+                WarnOnce($"MEM_GetFuncIdByOffset {offset}", $"MEM_GetFuncIdByOffset({offset}): no function there.");
+                return -1;
             });
+
+            // MEM_GetFuncID / MEM_GetFuncPtr / MEM_GetFuncOffset(var func f) — Ikarus reads the parser's symbol table
+            // from engine memory for them, which we don't have. A func argument arrives as a symbol index.
+            SafeOverride<int, int>("MEM_GetFuncID", GetFuncId);
+            SafeOverride<int, int>("MEM_GetFuncPtr", symId => GetFuncAddress("MEM_GetFuncPtr", symId));
+            SafeOverride<int, int>("MEM_GetFuncOffset", symId => GetFuncAddress("MEM_GetFuncOffset", symId));
+
+            // MEM_FindParserSymbol / MEM_GetSymbolIndex(name) — a symbol's index, -1 if there is none
+            SafeOverride<int, string>("MEM_FindParserSymbol", FindSymbolIndex);
+            SafeOverride<int, string>("MEM_GetSymbolIndex", FindSymbolIndex);
 
             // MEM_CallByID — call a Daedalus function by symbol index
             vm.OverrideFunction<int>("MEM_CallByID", symId =>
@@ -295,21 +319,13 @@ namespace Gothic.Core.Domain.Vm
                 _gameStateService.GothicVm.Call(sym.Index);
             });
 
-            // Raw stack push/pop — not accessible through the typed C# API
-            SafeOverride("memint_stackpushint", () =>
-                Logger.LogWarning("[Ikarus] memint_stackpushint — raw stack push not supported.", LogCat.ZenKit));
-            SafeOverride("memint_stackpushinst", () =>
-                Logger.LogWarning("[Ikarus] memint_stackpushinst — raw stack push not supported.", LogCat.ZenKit));
-            SafeOverride("memint_stackpushvar", () =>
-                Logger.LogWarning("[Ikarus] memint_stackpushvar — raw stack push not supported.", LogCat.ZenKit));
-            SafeOverride("memint_popstring", () =>
-                Logger.LogWarning("[Ikarus] memint_popstring — raw stack pop not supported.", LogCat.ZenKit));
-            SafeOverride("mem_popintresult", () =>
-                Logger.LogWarning("[Ikarus] mem_popintresult — raw stack pop not supported.", LogCat.ZenKit));
-            SafeOverride("mem_popstringresult", () =>
-                Logger.LogWarning("[Ikarus] mem_popstringresult — raw stack pop not supported.", LogCat.ZenKit));
-            SafeOverride("mem_popinstresult", () =>
-                Logger.LogWarning("[Ikarus] mem_popinstresult — raw stack pop not supported.", LogCat.ZenKit));
+            // Raw stack push/pop. MEMINT_StackPushInt ("return val" - the value stays on the stack), MEMINT_PopString
+            // and MEM_Pop*Result (a bare return of what is on the stack) are plain Daedalus that runs as is in our VM -
+            // no override. Pushing an instance or a variable needs engine memory: take the argument, push nothing.
+            SafeOverride<int>("memint_stackpushinst", _ =>
+                WarnOnce("memint_stackpushinst", "memint_stackpushinst — raw instance push not supported."));
+            SafeOverride<int>("memint_stackpushvar", _ =>
+                WarnOnce("memint_stackpushvar", "memint_stackpushvar — raw variable push not supported."));
         }
 
 
@@ -319,7 +335,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupMathFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // MKF: int → float bits (treat the int value as a float and return its bit pattern)
             vm.OverrideFunction<int, int>("MKF", v => BitConverter.SingleToInt32Bits((float)v));
@@ -362,7 +378,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupStringFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction<string, string, int, int>("STR_SubStr", (str, start, count) =>
             {
@@ -408,7 +424,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupConfigFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // Section is ignored since our config is a flat key→value dictionary
             vm.OverrideFunction<string, string, string>("MEM_GetGothOpt", (_, key) =>
@@ -462,9 +478,10 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupDiagnosticFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
-            vm.OverrideFunction("MEM_PrintStackTrace", () => _gameStateService.GothicVm.PrintStackTrace());
+            // Ikarus prints it with every MEM_Warn/MEM_Error (whose text arrives through MEM_SendToSpy).
+            vm.OverrideFunction("MEM_PrintStackTrace", PrintStackTrace);
 
             vm.OverrideFunction<int, string>("MEM_SendToSpy", (channel, message) =>
                 Logger.Log($"[zSpy ch{channel}] {message}", LogCat.ZenKit));
@@ -522,50 +539,110 @@ namespace Gothic.Core.Domain.Vm
         }
 
 
+        /// <summary>
+        /// The function a func argument means: a function itself, or a func variable/parameter that holds one
+        /// (Ikarus follows the variable's content the same way). -1 if it leads to no function.
+        /// </summary>
+        private int GetFuncId(int symId)
+        {
+            var vm = _gameStateService.GothicVm;
+            var id = symId;
+            for (var hops = 0; hops < 16; hops++)
+            {
+                var sym = vm.GetSymbolByIndex(id);
+                if (sym is not { Type: DaedalusDataType.Function })
+                    break;
+                if (sym.IsConst)
+                    return sym.Index;
+
+                id = sym.GetInt(0);
+            }
+
+            WarnOnce($"MEM_GetFuncID {symId}",
+                $"MEM_GetFuncID({vm.GetSymbolByIndex(symId)?.Name ?? $"#{symId}"}): no function behind it.");
+            return -1;
+        }
+
+        /// <summary>
+        /// Our "pointer" to a function is its bytecode address - MEM_CallByPtr and MEM_GetFuncIdByOffset take it back.
+        /// </summary>
+        private int GetFuncAddress(string caller, int symId)
+        {
+            var funcId = GetFuncId(symId);
+            if (funcId < 0)
+                return 0;
+
+            var sym = _gameStateService.GothicVm.GetSymbolByIndex(funcId);
+            if (sym.IsExternal)
+                WarnOnce($"{caller} {sym.Name}", $"{caller}({sym.Name}): an external has no bytecode address.");
+            return sym.Address;
+        }
+
+        private int FindSymbolIndex(string name)
+        {
+            return _gameStateService.GothicVm.GetSymbolByName(name)?.Index ?? -1;
+        }
+
+        private void PrintStackTrace()
+        {
+            _stackTraceCount++;
+            if (_stackTraceCount <= _maxStackTraces)
+                _gameStateService.GothicVm.PrintStackTrace();
+            if (_stackTraceCount == _maxStackTraces)
+                Logger.LogWarning($"[Ikarus] MEM_PrintStackTrace: {_maxStackTraces} stack traces printed - " +
+                                  "further ones are skipped.", LogCat.ZenKit);
+        }
+
+        private void WarnOnce(string topic, string message)
+        {
+            Logger.LogWarningOnce($"Ikarus.{topic}", $"[Ikarus] {message} (logged once)", LogCat.ZenKit);
+        }
+
+
         // ─────────────────────────────────────────────────────────────
-        // SafeOverride helpers — skip silently if symbol is not in the scripts
+        // SafeOverride helpers — skip if the symbol is not in the scripts or declared with another signature
         // ─────────────────────────────────────────────────────────────
 
         private void SafeOverride(string name, Action handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, null))
                 return;
-            _gameStateService.GothicVm.OverrideFunction(name, () => handler());
+            _guard.OverrideFunction(name, () => handler());
         }
 
         private void SafeOverride<TP0>(string name, Action<TP0> handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0)))
                 return;
-            _gameStateService.GothicVm.OverrideFunction<TP0>(name, p0 => handler(p0));
+            _guard.OverrideFunction<TP0>(name, p0 => handler(p0));
         }
 
         private void SafeOverride<TP0, TP1>(string name, Action<TP0, TP1> handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0), typeof(TP1)))
                 return;
-            _gameStateService.GothicVm.OverrideFunction<TP0, TP1>(name, (p0, p1) => handler(p0, p1));
+            _guard.OverrideFunction<TP0, TP1>(name, (p0, p1) => handler(p0, p1));
         }
 
         private void SafeOverride<TP0, TP1, TP2>(string name, Action<TP0, TP1, TP2> handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0), typeof(TP1), typeof(TP2)))
                 return;
-            _gameStateService.GothicVm.OverrideFunction<TP0, TP1, TP2>(name, (p0, p1, p2) => handler(p0, p1, p2));
+            _guard.OverrideFunction<TP0, TP1, TP2>(name, (p0, p1, p2) => handler(p0, p1, p2));
         }
 
         private void SafeOverride<TR>(string name, Func<TR> handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, typeof(TR)))
                 return;
-            _gameStateService.GothicVm.OverrideFunction(name, () => handler());
+            _guard.OverrideFunction(name, () => handler());
         }
 
         private void SafeOverride<TR, TP0>(string name, Func<TP0, TR> handler)
         {
-            if (_gameStateService.GothicVm.GetSymbolByName(name) == null)
+            if (!_gameStateService.GothicVm.HasSignature(name, typeof(TR), typeof(TP0)))
                 return;
-            _gameStateService.GothicVm.OverrideFunction(name, (TP0 p0) => handler(p0));
+            _guard.OverrideFunction(name, (TP0 p0) => handler(p0));
         }
 
 
@@ -580,6 +657,9 @@ namespace Gothic.Core.Domain.Vm
 
             private int _nextAddress = _baseAddress;
             private readonly Dictionary<int, byte[]> _heap = new();
+
+            private const int _maxReportedAddresses = 256;
+            private int _reportedAddressCount;
 
             /// <summary>Allocates <paramref name="size"/> bytes and returns the fake address.</summary>
             public int Alloc(int size)
@@ -668,7 +748,12 @@ namespace Gothic.Core.Domain.Vm
                     if (address >= kv.Key && address + requiredBytes <= kv.Key + kv.Value.Length)
                         return (kv.Value, address - kv.Key);
                 }
-                Logger.LogWarning($"[Ikarus] Virtual memory access out of range: 0x{address:X} ({requiredBytes} bytes).", LogCat.ZenKit);
+                // Engine addresses (no heap of ours) are read again and again - each one is logged once.
+                if (_reportedAddressCount < _maxReportedAddresses && Logger.LogWarningOnce(
+                        $"Ikarus.VMem.0x{address:X}", $"[Ikarus] Virtual memory access out of range: 0x{address:X} " +
+                                                      $"({requiredBytes} bytes) - logged once per address.",
+                        LogCat.ZenKit))
+                    _reportedAddressCount++;
                 return (null, 0);
             }
         }

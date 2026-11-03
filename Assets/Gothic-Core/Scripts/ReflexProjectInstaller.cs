@@ -8,6 +8,7 @@ using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Movement;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.StaticCache;
@@ -63,6 +64,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextMenuService));
             containerBuilder.AddSingleton(typeof(ContextDialogService));
             containerBuilder.AddSingleton(typeof(ContextTextInputService));
+            containerBuilder.AddSingleton(typeof(ContextScreenshotService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
@@ -103,11 +105,13 @@ namespace Gothic.Core
             // World
             containerBuilder.AddSingleton(typeof(LoadingService));
             containerBuilder.AddSingleton(typeof(WayNetService));
+            containerBuilder.AddSingleton(typeof(SurroundingsBuildService));
             containerBuilder.AddSingleton(typeof(SaveGameService));
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
             containerBuilder.AddSingleton(typeof(RoomService));
+            containerBuilder.AddSingleton(typeof(LedgeService));
 
             // Misc
             containerBuilder.AddSingleton(typeof(AudioService));

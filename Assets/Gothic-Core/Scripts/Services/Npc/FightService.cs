@@ -73,7 +73,7 @@ namespace Gothic.Core.Services.Npc
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.IsDead)
                 return;
 
             if (_gameStateService.Dialogs.IsInDialog)
@@ -545,10 +545,10 @@ namespace Gothic.Core.Services.Npc
             if (victim == null || killer == null || victim == killer)
                 return;
 
-            var notified = _npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance,
-                killer.Instance, exclude: killer);
-            Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
-                       $"{victim.Instance.GetName(NpcNameSlot.Slot0)}, {notified} witness(es)", LogCat.Fight);
+            if (_npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance, killer.Instance,
+                    exclude: killer))
+                Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
+                           $"{victim.Instance.GetName(NpcNameSlot.Slot0)} sent", LogCat.Fight);
         }
 
         /// <summary>
