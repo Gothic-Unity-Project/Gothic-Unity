@@ -423,7 +423,7 @@ namespace Gothic.Core.Services.Npc
             // FIXME - Does it make sense? It would mean we never add an item if we loaded a SaveGame...
             // We also initialize NPCs inside Daedalus when we load a save game. It's needed as some data isn't stored on save games.
             // But e.g., inventory items will be skipped as they are stored inside save game VOBs.
-            // if (!_saveGameService.IsWorldLoadedForTheFirstTime)
+            // if (!_saveGameService.IsWorldEnteredFirstTime)
             //     return;
 
             if (npc.GetUserData() == null)
@@ -448,7 +448,7 @@ namespace Gothic.Core.Services.Npc
             var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
-            var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
+            var items = vob.GetPacked((int)inventoryCat).UnpackItems();
             var itemFound = false;
             
             for (var i = 0; i < items.Count; i++)
@@ -464,7 +464,7 @@ namespace Gothic.Core.Services.Npc
             if (!itemFound)
                 items.Add(new ContentItem(itemInstance.Name, amount));
 
-            vob.SetPacked((int)inventoryCat, _vobService.PackItems(items));
+            vob.SetPacked((int)inventoryCat, items.PackItems());
         }
 
         public void ExtRemoveInvItems(NpcInstance npc, int itemIndex, int amount)
@@ -484,7 +484,7 @@ namespace Gothic.Core.Services.Npc
             var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
-            var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
+            var items = vob.GetPacked((int)inventoryCat).UnpackItems();
             var itemFound = false;
             
             for (var i = 0; i < items.Count; i++)
@@ -506,13 +506,13 @@ namespace Gothic.Core.Services.Npc
             if (!itemFound)
                 return;
 
-            vob.SetPacked((int)inventoryCat, _vobService.PackItems(items));
+            vob.SetPacked((int)inventoryCat, items.PackItems());
         }
 
         public List<ContentItem> GetInventoryItems(NpcInstance npc, VmGothicEnums.InvCats category)
         {
             var npcVob = npc.GetUserData()!.Vob;
-            return _vobService.UnpackItems(npcVob.GetPacked((int)category));
+            return npcVob.GetPacked((int)category).UnpackItems();
         }
 
         /// <summary>
@@ -537,6 +537,30 @@ namespace Gothic.Core.Services.Npc
                 }
             }
             return items;
+        }
+
+        /// <summary>
+        /// Npc_GetInvItem: the item if the NPC carries it - it also becomes the scripts' 'item' (G2: the Holy Hammer).
+        /// </summary>
+        public ItemInstance ExtNpcGetInvItem(NpcInstance npc, int itemId)
+        {
+            if (npc == null || itemId <= 0)
+                return null;
+
+            // ExtNpcHasItems needs the symbol's name.
+            if (_gameStateService.GothicVm.GetSymbolByIndex(itemId) == null)
+            {
+                Logger.LogWarning($"Npc_GetInvItem: no symbol with index {itemId}.", LogCat.Npc);
+                return null;
+            }
+
+            if (ExtNpcHasItems(npc, itemId) <= 0)
+                return null;
+
+            var item = _vmCacheService.TryGetItemData(itemId);
+            if (item != null)
+                _gameStateService.GothicVm.GlobalItem = item;
+            return item;
         }
 
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
@@ -683,9 +707,25 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// Npc_ClearInventory like the engine (OpenGothic Inventory::clear): everything goes except the items worn or
+        /// held (equipped) and mission items. Found comparing with BoroBongo's branch.
+        /// </summary>
         public void ExtNpcClearInventory(NpcInstance npc)
         {
-            npc.GetUserData()!.Vob.ClearItems();
+            var container = npc?.GetUserData();
+            if (container?.Vob == null)
+                return;
+
+            foreach (var item in GetAllInventoryItems(npc))
+            {
+                var itemData = _vmCacheService.TryGetItemData(item.Name);
+                if (itemData == null || ((ItemFlags)itemData.Flags).HasFlag(ItemFlags.ItemMission) ||
+                    container.Props.EquippedItems.Any(equipped => equipped?.Index == itemData.Index))
+                    continue;
+
+                ExtRemoveInvItems(npc, itemData.Index, item.Amount);
+            }
         }
     }
 }

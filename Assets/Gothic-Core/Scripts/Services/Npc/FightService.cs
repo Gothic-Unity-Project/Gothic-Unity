@@ -9,6 +9,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -49,6 +50,9 @@ namespace Gothic.Core.Services.Npc
         // DAM_FIRE in Constants.d (bit after DAM_EDGE).
         private const int _damFire = 8;
 
+        // Bumped by every knockout and every load - a recovery of an older one doesn't stand the hero up.
+        private int _heroKnockoutId;
+
         public void Init()
         {
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
@@ -60,6 +64,7 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.RangedHit.AddListener(OnRangedHit);
             GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
             GlobalEventDispatcher.HeroMeleeSwing.AddListener(OnHeroMeleeSwing);
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
 
         /// <summary>
@@ -329,13 +334,15 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void OnScriptHitPointsDepleted(NpcContainer victim)
         {
-            if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead ||
-                (victim.PrefabProps != null && victim.PrefabProps.IsHero()))
+            // The hero too: like the engine, a script taking his last hit points kills him (no knockout).
+            if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
             // Not built yet (the scripts' startup kills corpses) or culled: only the dead state - running ZS_Dead in the
-            // middle of the startup's VM call hung the loading.
-            if (victim.Go == null || victim.PrefabProps?.AnimationSystem == null)
+            // middle of the startup's VM call hung the loading. A culled NPC comes back lying dead (AiHandler).
+            // The VR hero has no animated body, but is always there: his death ends the game (drowning).
+            var isHero = victim.Instance.IsHero(_gameStateService.GothicVm);
+            if (!isHero && (victim.Go == null || victim.PrefabProps?.AnimationSystem == null))
             {
                 _deathDomain.Die(victim);
                 return;
@@ -604,10 +611,11 @@ namespace Gothic.Core.Services.Npc
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 position, int? damageOverride,
             int overrideProtectionIndex = (int)DamageType.Fire)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.IsDead)
                 return;
 
-            if (_gameStateService.Dialogs.IsInDialog)
+            // The two in a dialog can't hurt each other - others can still hit them (the engine has no dialog check).
+            if (IsInCurrentDialog(attacker) || IsInCurrentDialog(target))
             {
                 Logger.Log("[FightService] Hit blocked — dialog in progress", LogCat.Fight);
                 return;
@@ -684,6 +692,9 @@ namespace Gothic.Core.Services.Npc
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             if (OnHitUpdateHealth(attacker, target, damageOverride, overrideProtectionIndex))
             {
+                // The hero goes down by the same rule as everybody (OpenGothic checkHealth): monsters and humans
+                // hostile to him kill him, the others knock him out.
+                var isHeroKnockedOut = isHero && IsHuman(target) && IsKnockedOutNotKilled(attacker, target);
                 if (!isHero && NpcHelperService.IsKnockedOut(target))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} finished off while unconscious — DEAD", LogCat.Npc);
@@ -691,12 +702,12 @@ namespace Gothic.Core.Services.Npc
                     OnDyingChangeAnimation(target);
                     OnNpcDied(target, attacker);
                 }
-                else if (isHero)
+                else if (isHeroKnockedOut)
                 {
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
                     OnHeroKnockedOut(target, attacker);
                 }
-                else if (IsHuman(target) && !IsRangedKill(damageOverride) &&
+                else if (!isHero && IsHuman(target) && !IsRangedKill(damageOverride) &&
                          IsKnockedOutNotKilled(GetCreditedAttacker(attacker), target))
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
@@ -706,9 +717,7 @@ namespace Gothic.Core.Services.Npc
                 else
                 {
                     Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
-                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                    OnDyingChangeAnimation(target);
-                    OnNpcDied(target, GetCreditedAttacker(attacker));
+                    Kill(target, GetCreditedAttacker(attacker));
                 }
             }
             else
@@ -1206,15 +1215,24 @@ namespace Gothic.Core.Services.Npc
             BroadcastDownPerception(npc, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
         }
 
+        /// <summary>
+        /// What a knocked out or dead hero can't do: walk away and grab. DeveloperConfig.EnableKnockoutTurning keeps
+        /// turning on the spot free.
+        /// </summary>
+        public PlayerControls GetDownLockedControls()
+        {
+            return _configService.Dev.EnableKnockoutTurning
+                ? PlayerControls.Walking | PlayerControls.Grab
+                : PlayerControls.All;
+        }
+
         private void OnHeroKnockedOut(NpcContainer hero, NpcContainer attacker)
         {
             hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             SetHasDefeatedHero(attacker);
             hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
             hero.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
-            // DeveloperConfig.EnableKnockoutTurning: knocked out the hero can't walk, but can turn with the stick -
-            // seated players couldn't look around otherwise.
-            _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
+            _contextInteractionService.LockPlayer(PlayerLocks.Knockout, GetDownLockedControls());
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
             // this very knockout before its SVM warning/ZS_Attack ever ran) gets its tempAttitude reset
@@ -1248,7 +1266,7 @@ namespace Gothic.Core.Services.Npc
             BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
             GlobalEventDispatcher.HeroKnockedOut.Invoke(hero);
 
-            _unityMonoService.StartCoroutine(KnockoutRecovery(hero));
+            _unityMonoService.StartCoroutine(KnockoutRecovery(hero, ++_heroKnockoutId));
         }
 
         /// <summary>
@@ -1318,16 +1336,11 @@ namespace Gothic.Core.Services.Npc
             if (hero.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
-            hero.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-            hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
-            hero.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
-            _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
             Logger.LogWarning($"[FightService] Hero finished off by {attacker.Instance.GetName(NpcNameSlot.Slot0)} - " +
                               "DEAD", LogCat.Fight);
-
-            PlayDeathScream(hero);
             BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessMurder);
-            GlobalEventDispatcher.HeroDied.Invoke(hero);
+            // The same death as any other (EndGame: locked, the death scream, the menu offers loading only).
+            Kill(hero, attacker);
         }
 
         /// <summary>
@@ -1393,15 +1406,36 @@ namespace Gothic.Core.Services.Npc
             return false;
         }
 
-        private IEnumerator KnockoutRecovery(NpcContainer hero)
+        private IEnumerator KnockoutRecovery(NpcContainer hero, int knockoutId)
         {
             yield return new WaitForSeconds(10f);
-            // Finished off in the meantime (EnableHeroDeath) - the dead don't stand up.
+            // A game was loaded meanwhile, or he was knocked out again - that knockout's recovery stands him up.
+            if (knockoutId != _heroKnockoutId)
+                yield break;
+            // Finished off in the meantime - the dead don't stand up.
             if (hero.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 yield break;
             hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
-            _contextInteractionService.UnlockPlayer();
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout);
             Logger.Log("[FightService] Hero recovered from knockout", LogCat.Fight);
+        }
+
+        /// <summary>
+        /// A loaded game ends the hero's knockout and death: no recovery of the old game stands him up later.
+        /// </summary>
+        private void OnLoadGameStart()
+        {
+            _heroKnockoutId++;
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout | PlayerLocks.Death);
+        }
+
+        private bool IsInCurrentDialog(NpcContainer npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            if (!dialogs.IsInDialog || npc == null)
+                return false;
+
+            return npc == dialogs.CurrentDialogNpc || (npc.PrefabProps != null && npc.PrefabProps.IsHero());
         }
 
         /// <summary>
@@ -1602,10 +1636,10 @@ namespace Gothic.Core.Services.Npc
             if (victim == null || killer == null || victim == killer)
                 return;
 
-            var notified = _npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance,
-                killer.Instance, exclude: killer);
-            Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
-                       $"{victim.Instance.GetName(NpcNameSlot.Slot0)}, {notified} witness(es)", LogCat.Fight);
+            if (_npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance, killer.Instance,
+                    exclude: killer))
+                Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
+                           $"{victim.Instance.GetName(NpcNameSlot.Slot0)} sent", LogCat.Fight);
         }
 
         /// <summary>
@@ -1961,6 +1995,48 @@ namespace Gothic.Core.Services.Npc
         {
             // Dead state, AI queue dropped, animations stopped, physics off and the dying animation.
             _deathDomain.Die(target);
+        }
+
+        /// <summary>
+        /// The NPC dies: dead state, AI queue dropped, the dying animation (NpcDeathDomain), then ZS_Dead with the killer.
+        /// The hero's death ends the game (EndGame).
+        /// </summary>
+        private void Kill(NpcContainer victim, NpcContainer killer)
+        {
+            _deathDomain.Die(victim);
+            OnNpcDied(victim, killer);
+
+            if (victim.Instance.IsHero(_gameStateService.GothicVm))
+                EndGame(victim, killer);
+        }
+
+        /// <summary>
+        /// The hero's death ends the game like in Gothic: he can't move, teleport or grab any more (until a game is
+        /// loaded), and the menu offers loading, but no saving or continuing (InGameAndAlive).
+        /// </summary>
+        private void EndGame(NpcContainer hero, NpcContainer killer)
+        {
+            _gameStateService.InGameAndAlive = false;
+            _contextInteractionService.LockPlayer(PlayerLocks.Death, GetDownLockedControls());
+            PlayHeroDeathScream(hero);
+
+            var killerName = killer == null || killer == hero ? "a script" : killer.Instance.GetName(NpcNameSlot.Slot0);
+            Logger.Log($"[FightService] The hero was killed by {killerName}. Game over.", LogCat.Fight);
+            GlobalEventDispatcher.HeroDied.Invoke(killer);
+        }
+
+        /// <summary>
+        /// The VR hero has no body that plays the dying animation - his scream comes from where his lines come from.
+        /// </summary>
+        private void PlayHeroDeathScream(NpcContainer hero)
+        {
+            var source = hero.Go != null ? hero.Go.GetComponent<AudioSource>() : null;
+            if (hero.Instance.Voice <= 0 || source == null)
+                return;
+
+            var clip = _audioService.GetRandomSoundClip($"SVM_{hero.Instance.Voice}_DEAD");
+            if (clip != null)
+                source.PlayOneShot(clip);
         }
 
         private void OnHitChangeAnimation(NpcContainer target)

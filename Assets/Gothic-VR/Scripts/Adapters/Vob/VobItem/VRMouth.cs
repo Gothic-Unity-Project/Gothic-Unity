@@ -15,6 +15,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;

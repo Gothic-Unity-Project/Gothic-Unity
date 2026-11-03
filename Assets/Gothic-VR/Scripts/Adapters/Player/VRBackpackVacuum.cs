@@ -236,7 +236,6 @@ namespace Gothic.VR.Adapters.Player
             }
 
             Logger.Log($"[VRBackpackVacuum] Stored '{item.name}'.", LogCat.VR);
-            _heroPerceptionService.OnHeroTakesItem(item.GetComponentInParent<VobLoader>()?.Container);
         }
     }
 }

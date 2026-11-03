@@ -22,6 +22,7 @@ namespace Gothic.Core.Services.Caches
     public class ResourceCacheService
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         
         public readonly Vfs Vfs = new();
 
@@ -31,6 +32,9 @@ namespace Gothic.Core.Services.Caches
         private readonly Loader _dmLoader = Loader.Create(LoaderOptions.Default);
 
         private readonly HashSet<string> _brokenSegments = new();
+        // Segments loaded and downloaded once - music zones switch themes back and forth, no need to parse and download
+        // a theme again on the main thread while the audio thread renders (found on BoroBongo's branch).
+        private readonly Dictionary<string, Segment> _downloadedSegments = new(StringComparer.OrdinalIgnoreCase);
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -107,8 +111,11 @@ namespace Gothic.Core.Services.Caches
             _multiResolutionMesh = new(s => new MultiResolutionMesh(Vfs, s).Cache());
             _morphMesh = new(s => new MorphMesh(Vfs, s).Cache());
             _font = new(s => new Font(Vfs, s).Cache());
-            _texture = new(s => new Texture(Vfs, s).Cache());
-            
+            // Textures stay native ZenKit objects: their size and format are cheap native reads, and the pixels of a
+            // mip level are decoded only when a Texture2D or the texture array asks for that level. Cache() would
+            // decode every mip level as raw AND as RGBA up front - gigabytes for a big mod (Destiny of Myrtana).
+            _texture = new(s => new Texture(Vfs, s));
+
             _prefab = new(s =>
             {
                 // Lookup is done in following places:
@@ -126,6 +133,7 @@ namespace Gothic.Core.Services.Caches
             // 2024 - Initial idea: ZenKit texture data is not cached as we do not need to keep the pixel data in memory as managed objects.
             //        Instead, TextureCache loads the texture data when need and creates a Texture2D.
             // 2025 - But reality shows that loading time from e.g., G2.DragonIsland is reduced from 30sec to 2sec with it (called very often during calculation of WorldChunks)
+            // 2026 - The cache keeps the loaded native texture, not its decoded pixels (see Init()).
             try
             {
                 return _texture.TryLoad($"{GetPreparedKey(key)}-c.tex", out var item) ? item : null;
@@ -151,7 +159,15 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public IModelScript TryGetModelScript([NotNull] string key, bool printNotFoundWarning = true)
         {
-            return _modelScript.TryLoad($"{GetPreparedKey(key)}.mds", out var item, printNotFoundWarning) ? item : null;
+            var name = GetPreparedKey(key);
+
+            // Like the G2 engine (and OpenGothic), the compiled .msb comes first: mods ship their changed animations
+            // only there, while the text .mds can be the vanilla source in _work (DoM's HUMANS/ORC). G1 keeps the text.
+            if (_contextGameVersionService.PrefersCompiledModelScript
+                && _modelScript.TryLoad($"{name}.msb", out var compiled, false))
+                return compiled;
+
+            return _modelScript.TryLoad($"{name}.mds", out var item, printNotFoundWarning) ? item : null;
         }
 
         [CanBeNull]
@@ -234,6 +250,8 @@ namespace Gothic.Core.Services.Caches
         {
             if (_brokenSegments.Contains(key))
                 return null;
+            if (_downloadedSegments.TryGetValue(key, out var downloaded))
+                return downloaded;
 
             Segment segment = null;
 
@@ -242,9 +260,10 @@ namespace Gothic.Core.Services.Caches
                 segment = _dmLoader.GetSegment(key);
 
                 // Mods can ship hand-crafted "silence" stubs (e.g. Dolina Zombie's Silience.sgt/.sty/.dls)
-                // whose instrument data dmusic can't download. Referenced styles and DLS collections are
-                // cached inside the loader, so re-downloading an already prepared segment stays cheap.
+                // whose instrument data dmusic can't download.
                 segment?.Download(_dmLoader);
+                if (segment != null)
+                    _downloadedSegments[key] = segment;
                 return segment;
             }
             catch (Exception e)
@@ -429,11 +448,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>The absolute path to the <c>_work</c> folder of the Gothic installation</returns>
         private string FindWorkPath(string root)
         {
-            var path = Directory.GetDirectories(root, "_work", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "_work") ??
+                       throw new DirectoryNotFoundException($"No _work folder in the Gothic installation {root}");
 
             return Path.GetFullPath(path, root);
         }
@@ -446,11 +462,8 @@ namespace Gothic.Core.Services.Caches
         /// <returns>A list of absolute paths to all <c>.vdf</c> files the <c>data</c> folder of the Gothic installation</returns>
         private List<string> FindDiskPaths(string root)
         {
-            var path = Directory.GetDirectories(root, "data", new EnumerationOptions
-            {
-                MatchCasing = MatchCasing.CaseInsensitive,
-                RecurseSubdirectories = false
-            }).First();
+            var path = PathExtension.FindIgnoringCase(root, "data") ??
+                       throw new DirectoryNotFoundException($"No Data folder in the Gothic installation {root}");
 
             var data = Path.GetFullPath(path, root);
             var vdfs = Directory.GetFiles(data, "*.vdf", new EnumerationOptions

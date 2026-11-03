@@ -209,8 +209,6 @@ namespace Gothic.VR.Services
             // Otherwise alter inventory count
             var container = grabbable.GetComponentInParent<VobLoader>().Container;
             _playerService.PickUpItem(container);
-            // NPCs who see it may call it theft (PERC_ASSESSTHEFT).
-            _heroPerceptionService.OnHeroTakesItem(container);
         }
 
         /// <summary>

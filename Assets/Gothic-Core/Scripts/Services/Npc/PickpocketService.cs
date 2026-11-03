@@ -153,11 +153,11 @@ namespace Gothic.Core.Services.Npc
             // G2 victims may not know PERC_CATCHTHIEF: they attack like the caught pickpocket dialog (B_Beklauen).
             if (!isVictimReacting && !IsGothic1)
                 AttackThief(victim, hero);
-            var witnesses = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
-                victim.Instance, hero.Instance, victim);
+            var isWitnessed = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
+                victim.Instance, hero.Instance, exclude: victim);
             Logger.Log($"[Pickpocket] {victim.Instance.GetName(NpcNameSlot.Slot0)} caught the hero " +
                        $"(PERC_CATCHTHIEF {(isVictimReacting ? "sent" : "not registered")}, " +
-                       $"PERC_ASSESSTHEFT to {witnesses} NPC(s))", LogCat.Npc);
+                       $"PERC_ASSESSTHEFT {(isWitnessed ? "sent" : "not sent")})", LogCat.Npc);
         }
 
         private void AttackThief(NpcContainer victim, NpcContainer hero)

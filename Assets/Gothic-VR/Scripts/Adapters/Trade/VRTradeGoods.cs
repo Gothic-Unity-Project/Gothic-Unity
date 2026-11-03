@@ -44,14 +44,14 @@ namespace Gothic.VR.Adapters.Trade
             _grabbable = GetComponentInChildren<VrInteractable>(true);
             if (_grabbable != null)
                 _grabbable.Released += OnReleased;
-            GlobalEventDispatcher.TradeClosed.AddListener(OnTradeClosed);
+            GlobalEventDispatcher.TradeEnded.AddListener(OnTradeClosed);
         }
 
         private void OnDestroy()
         {
             if (_grabbable != null)
                 _grabbable.Released -= OnReleased;
-            GlobalEventDispatcher.TradeClosed.RemoveListener(OnTradeClosed);
+            GlobalEventDispatcher.TradeEnded.RemoveListener(OnTradeClosed);
         }
 
         private void OnReleased(VrGrabArgs args)
@@ -74,9 +74,9 @@ namespace Gothic.VR.Adapters.Trade
             ReturnToTrader();
         }
 
-        private void OnTradeClosed(TradeSession session)
+        private void OnTradeClosed(NpcContainer trader)
         {
-            if (session.Trader != Trader || IsSettled)
+            if (trader != Trader || IsSettled)
                 return;
 
             // Lying in the goods (a view of the trader's inventory) or on the counter (TradeService gives the offers

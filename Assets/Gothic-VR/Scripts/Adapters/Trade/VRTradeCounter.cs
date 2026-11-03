@@ -12,7 +12,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
-using Gothic.Core.Services.Trade;
+using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -135,7 +135,7 @@ namespace Gothic.VR.Adapters.Trade
 
             GlobalEventDispatcher.TradeOfferChanged.AddListener(OnOfferChanged);
             GlobalEventDispatcher.TradeCommitted.AddListener(OnCommitted);
-            GlobalEventDispatcher.TradeClosed.AddListener(OnClosed);
+            GlobalEventDispatcher.TradeEnded.AddListener(OnClosed);
             PlaySound(_audioService.InvOpen);
             UpdateTexts();
         }
@@ -144,7 +144,7 @@ namespace Gothic.VR.Adapters.Trade
         {
             GlobalEventDispatcher.TradeOfferChanged.RemoveListener(OnOfferChanged);
             GlobalEventDispatcher.TradeCommitted.RemoveListener(OnCommitted);
-            GlobalEventDispatcher.TradeClosed.RemoveListener(OnClosed);
+            GlobalEventDispatcher.TradeEnded.RemoveListener(OnClosed);
             if (_canvas != null)
                 _vrUiPointers.UnregisterCanvas(_canvas);
         }
@@ -164,7 +164,7 @@ namespace Gothic.VR.Adapters.Trade
             if (isOut)
             {
                 Logger.Log("[Trade] The trader can't trade any more - closed", LogCat.VR);
-                _tradeService.Cancel();
+                _tradeService.End(false);
                 return;
             }
 
@@ -656,14 +656,14 @@ namespace Gothic.VR.Adapters.Trade
             if (_tradeService.TryCommit())
             {
                 PlaySound(_audioService.InvClose);
-                _tradeService.Cancel();
+                _tradeService.End();
             }
         }
 
         private void OnClose()
         {
             if (_tradeService.Current == _session)
-                _tradeService.Cancel();
+                _tradeService.End();
         }
 
         /// <summary>
@@ -675,9 +675,9 @@ namespace Gothic.VR.Adapters.Trade
                 RemovePlacedItems();
         }
 
-        private void OnClosed(TradeSession session)
+        private void OnClosed(NpcContainer trader)
         {
-            if (session != _session)
+            if (_session == null || trader != _session.Trader)
                 return;
 
             // TradeService gave the offers back already - the items on the counter only need to disappear.

@@ -1,6 +1,6 @@
 ---
 name: gothic-reviewer
-description: Reviews a diff (working tree, branch vs main, or given commits) for Gothic-Unity-specific pitfalls:
+description: Reviews a diff (working tree, branch vs main, or given commits) for Gothic-Unity-specific pitfalls -
     Daedalus storage/sync bugs, missing logs, DeveloperConfig flags without asset values, save/load impact,
     layer matrix, DI wiring, coding style. Use before committing or opening a PR.
 tools: Read, Grep, Glob, Bash

@@ -1,8 +1,10 @@
 using Gothic.Core.Models.Container;
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -16,8 +18,8 @@ namespace Gothic.Core.Services.Npc
     /// What the engine tells the NPCs about the hero on its own (OpenGothic: Npc/MoveAlgo/Interactive):
     /// - PERC_ASSESSUSEMOB when the hero uses a mob (opens a chest or door, tries a lock),
     /// - PERC_ASSESSQUIETSOUND for his footsteps - not while sneaking,
-    /// - PERC_ASSESSTHEFT when he takes an item lying in the world,
-    /// - PERC_ASSESSENTERROOM when he walks into another portal room (RoomService).
+    /// - PERC_ASSESSENTERROOM when he walks into another portal room (RoomService),
+    /// - PERC_ASSESSTHEFT when he takes an item that lay in the world.
     /// The Daedalus scripts decide what the NPCs do with it (owner's chest, whose hut, ...).
     /// </summary>
     public class HeroPerceptionService
@@ -25,7 +27,8 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly RoomService _roomService;
-        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly Gothic.Core.Services.Caches.MultiTypeCacheService _multiTypeCacheService;
 
         private const float _walkStepInterval = 0.55f;
@@ -52,6 +55,19 @@ namespace Gothic.Core.Services.Npc
         /// Snd_IsSourceNpc / Npc_CanSeeSource: who made the last noise.
         /// </summary>
         public NpcContainer SoundSourceNpc { get; private set; }
+
+        // The items lying in the world since it was loaded. Taking one of them is what NPCs can see as theft - items
+        // the hero carried before (e.g. taken out of his backpack) are his. ZenKit hands out a new object for the same
+        // VOB each time a parent's children are read, so the loaded items are known by their index in the world file
+        // (Id) and only the ones created since (Wld_InsertItem, Id 0) by their object.
+        private readonly HashSet<int> _worldItemIds = new();
+        private readonly HashSet<IVirtualObject> _insertedWorldItems = new();
+
+        public HeroPerceptionService()
+        {
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldLoaded);
+            GlobalEventDispatcher.WorldItemInserted.AddListener(AddWorldItem);
+        }
 
         public void Update()
         {
@@ -84,10 +100,14 @@ namespace Gothic.Core.Services.Npc
             _pendingRoom = null;
             _roomService.SetHeroRoom(room);
 
-            var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessEnterRoom,
-                hero.Instance, hero.Instance);
-            Logger.Log($"[HeroPerc] AssessEnterRoom ('{_roomService.HeroFormerRoom}' -> '{_roomService.HeroRoom}') " +
-                       $"sent to {notified} NPC(s)", LogCat.Ai);
+            // Like the engine (OpenGothic MoveAlgo), sneaking into a room isn't noticed - the room changes anyway.
+            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsSneak)
+                return;
+
+            if (_npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessEnterRoom,
+                    hero.Instance, hero.Instance))
+                Logger.Log($"[HeroPerc] AssessEnterRoom ('{_roomService.HeroFormerRoom}' -> " +
+                           $"'{_roomService.HeroRoom}') sent", LogCat.Ai);
         }
 
         /// <summary>
@@ -121,57 +141,78 @@ namespace Gothic.Core.Services.Npc
                 return;
             var hero = heroInstance.GetUserData();
 
-            var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessUseMob,
-                heroInstance, heroInstance);
-            Logger.Log($"[HeroPerc] AssessUseMob '{mob.Name}' {mob.Visual?.Name} (owner '{(mob as IMovableObject)?.Owner}', " +
-                       $"guild '{(mob as IMovableObject)?.OwnerGuild}') sent to {notified} NPC(s)", LogCat.Ai);
+            if (_npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessUseMob,
+                    heroInstance, heroInstance))
+                Logger.Log($"[HeroPerc] AssessUseMob '{mob.Name}' {mob.Visual?.Name} " +
+                           $"(owner '{(mob as IMovableObject)?.Owner}', guild '{(mob as IMovableObject)?.OwnerGuild}') " +
+                           "sent", LogCat.Ai);
         }
 
         /// <summary>
-        /// Like the engine taking an item (OpenGothic Npc::takeItem), the hero
-        /// taking an item lying in the world sends PERC_ASSESSTHEFT with it as the global item. The scripts decide
-        /// (B_AssessTheft: the item's owner, the owner of the room - "Thief!" in Lares' hut or a citizen's house).
-        /// Only the first take of a world item counts, nothing out of an inventory (VobContainer.IsTakenWithoutTheft).
+        /// The hero took an item into his inventory. Only the first take of an item that lay in the world is noticed:
+        /// PERC_ASSESSTHEFT with the item as the scripts' 'item' and no victim (B_AssessTheft reads a victim as
+        /// picked pockets).
         /// </summary>
-        public void OnHeroTakesItem(VobContainer container)
+        public void OnHeroTookItem(IVirtualObject itemVob)
         {
-            if (container == null || container.IsTakenWithoutTheft ||
-                container.Vob is not IItem vobItem)
+            if (itemVob is not IItem itemVobData || !RemoveWorldItem(itemVob))
                 return;
-            container.IsTakenWithoutTheft = true;
 
-            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
-                return;
-            var hero = heroInstance.GetUserData();
-            var instanceName = vobItem.GetSymbolName();
+            var instanceName = !string.IsNullOrEmpty(itemVobData.Instance) ? itemVobData.Instance : itemVob.Name;
             var item = _vmCacheService.TryGetItemData(instanceName);
-            if (hero == null || item == null)
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            if (item == null || hero == null)
+            {
+                Logger.LogWarning($"[HeroPerc] The hero takes {instanceName} - no theft perception: " +
+                                  (item == null ? "no item data" : "no hero"), LogCat.Ai);
+                return;
+            }
+
+            if (_npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft, null,
+                    hero.Instance, item))
+                Logger.Log($"[HeroPerc] AssessTheft '{item.Name}' sent", LogCat.Ai);
+        }
+
+        private void OnWorldLoaded()
+        {
+            _worldItemIds.Clear();
+            _insertedWorldItems.Clear();
+            HeroDetectedMob = null;
+            _lastUseMob = null;
+            if (_saveGameService.CurrentWorldName == null)
                 return;
 
-            var vm = _gameStateService.GothicVm;
-            var oldItem = vm.GlobalItem;
-            var oldVictim = vm.GlobalVictim;
-            // Like the engine, a taken item has no victim - the scripts tell it from pickpocketing by "item && !victim"
-            // (G1's B_AssessTheft): with the hero as the victim, Ghorri warned him "Behind you!" for every item picked
-            // up on the jetty.
-            try
+            AddWorldItems(_saveGameService.CurrentWorldData.Vobs);
+            Logger.Log($"[HeroPerc] {_worldItemIds.Count + _insertedWorldItems.Count} items lie in the world",
+                LogCat.Ai);
+        }
+
+        private bool RemoveWorldItem(IVirtualObject itemVob)
+        {
+            return itemVob.Id != 0 ? _worldItemIds.Remove(itemVob.Id) : _insertedWorldItems.Remove(itemVob);
+        }
+
+        private void AddWorldItems(IEnumerable<IVirtualObject> vobs)
+        {
+            if (vobs == null)
+                return;
+
+            foreach (var vob in vobs)
             {
-                vm.GlobalItem = item;
-                vm.GlobalVictim = null;
-                var notified = _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessTheft,
-                    null, heroInstance);
-                Logger.Log($"[HeroPerc] AssessTheft '{instanceName}' (room '{_roomService.HeroRoom}') sent to " +
-                           $"{notified} NPC(s)", LogCat.Ai);
+                AddWorldItem(vob);
+                AddWorldItems(vob.Children);
             }
-            catch (Exception e)
-            {
-                Logger.LogWarning($"[HeroPerc] AssessTheft '{instanceName}' failed: {e.Message}", LogCat.Ai);
-            }
-            finally
-            {
-                vm.GlobalItem = oldItem;
-                vm.GlobalVictim = oldVictim;
-            }
+        }
+
+        private void AddWorldItem(IVirtualObject vob)
+        {
+            if (vob is not IItem)
+                return;
+
+            if (vob.Id != 0)
+                _worldItemIds.Add(vob.Id);
+            else
+                _insertedWorldItems.Add(vob);
         }
 
         /// <summary>

@@ -46,6 +46,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
         [Inject] private readonly StackSplitService _stackSplitService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
@@ -237,8 +238,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var piece = SpawnPiece(item, GetUnpaidTrader(source), palm.position, palm.rotation);
             if (piece == null)
                 return false;
-            // A piece off a stack lying in the world can be theft like the stack (PERC_ASSESSTHEFT).
-            piece.IsTakenWithoutTheft = source.IsTakenWithoutTheft;
+            // Taking a piece off a stack lying in the world is taking from that stack: it can be theft (PERC_ASSESSTHEFT,
+            // once per stack).
+            _heroPerceptionService.OnHeroTookItem(source.Vob);
             PutIntoPalm(emptyHand, piece);
 
             item.Amount--;
