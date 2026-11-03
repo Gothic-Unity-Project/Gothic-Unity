@@ -1549,7 +1549,7 @@ namespace Gothic.Core.Domain.Vm
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
         }
 
-        private static void RegisterIfDeclared(DaedalusVm vm, string name, System.Action register)
+        private static void RegisterIfDeclared(VmExternalGuard vm, string name, System.Action register)
         {
             if (vm.GetSymbolByName(name) != null)
                 register();
