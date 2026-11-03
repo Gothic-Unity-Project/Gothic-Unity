@@ -123,6 +123,7 @@ namespace Gothic.Core.Services.Vobs
         public async Task CreateWorldVobsAsync(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs, GameObject root)
         {
             PreCreateWorldVobs(vobs, root, loading);
+            _initializerDomain.ClearCreatedEarly();
             await CreateWorldVobs(config, loading, vobs);
             // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
             loading.FinalizePhase();
@@ -342,7 +343,8 @@ namespace Gothic.Core.Services.Vobs
             }
         }
 
-        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
+        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs,
+            IVirtualObject parentVob = null)
         {
             foreach (var vob in vobs)
             {
@@ -368,6 +370,19 @@ namespace Gothic.Core.Services.Vobs
                 }
 
                 var container = CreateContainerWithLoader(vob);
+                container.ParentVob = parentVob;
+
+                // Cutscene cameras, fog zones, ... aren't built (no visual, never lazy loaded), nor are decal/particle
+                // VOBs while those visuals are off (both off in Production). Their children become VOBs of their own:
+                // G2 Irdorath's camera VOBs carry the trigger lists that move its pillars and gates, its trap and bridge
+                // triggers sit below particle VOBs, G2's treasure X marks below decals.
+                if (vob.Children.Count > 0 &&
+                    (VobInitializerDomain.IsUnbuiltVobType(vob.Type) || _initializerDomain.IsVisualDisabled(vob)))
+                    await CreateWorldVobs(config, loading, vob.Children, vob);
+                // Logic VOBs (triggers, trigger lists, scripts, free points, ...) below a lazily loaded VOB only existed
+                // once the player came near it - a trigger sent from far away found nothing. They're created now.
+                else if (vob.Children.Count > 0 && !_vobTypesNonLazyLoading.Contains(vob.Type))
+                    await CreateLogicDescendants(config, loading, vob);
 
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
@@ -382,6 +397,32 @@ namespace Gothic.Core.Services.Vobs
                     AddToMobInteractableList(container);
                 }
             }
+        }
+
+        private async Task CreateLogicDescendants(DeveloperConfig config, LoadingService loading, IVirtualObject parent)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child.Id != 0 && IsEagerLogicType(child.Type))
+                {
+                    // Its lazily loaded parent skips it later.
+                    _initializerDomain.MarkCreatedEarly(child);
+                    await CreateWorldVobs(config, loading, new List<IVirtualObject> { child }, parent);
+                }
+                else if (child.Children.Count > 0)
+                {
+                    await CreateLogicDescendants(config, loading, child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Logic VOBs created at once - movers (with their meshes and children) stay with their parent.
+        /// </summary>
+        private static bool IsEagerLogicType(VirtualObjectType type)
+        {
+            return _vobTypesNonLazyLoading.Contains(type) && type is not (VirtualObjectType.zCMover or
+                VirtualObjectType.zCVobLevelCompo or VirtualObjectType.zCPFXController);
         }
 
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)
@@ -484,14 +525,16 @@ namespace Gothic.Core.Services.Vobs
                 return;
 
             var item = _vmCacheService.TryGetItemData(itemInstance);
-            var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
+            var instanceName = item != null ? _gameStateService.GothicVm.GetSymbolByIndex(item.Index)?.Name : null;
             var wp = _wayNetService.GetWayNetPoint(spawnPoint);
 
-            // An exception would abort the calling STARTUP_* script (e.g. G2's STARTUP_OLDWORLD).
-            if (wp == null)
+            // Like OpenGothic, an unknown item or spawn point is skipped. The exception aborted the whole world startup
+            // script: G2's STARTUP_OLDWORLD stopped half way, the Valley of Mines stayed half empty.
+            if (instanceName == null || wp == null)
             {
-                Logger.LogWarning($"Wld_InsertItem: Waypoint {spawnPoint} for {instanceName} doesn't exist. Skipping.",
-                    LogCat.Vob);
+                var itemText = instanceName == null ? $"no item {itemInstance}" : $"'{instanceName}'";
+                var pointText = wp == null ? " - no such waypoint/freepoint" : "";
+                Logger.LogWarning($"Wld_InsertItem: {itemText} at '{spawnPoint}'{pointText}. Skipped.", LogCat.Vob);
                 return;
             }
 
@@ -794,6 +837,51 @@ namespace Gothic.Core.Services.Vobs
             }
 
             Logger.LogWarning($"[VobService] DispatchUntrigger: '{name}' - no handler found", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// A message filter's Enable, Disable or Toggle: like the engine (OpenGothic AbstractTrigger, T_Enable/
+        /// T_Disable/T_ToggleEnable) the named triggers, trigger lists, trigger scripts and movers are switched on or
+        /// off - a disabled one ignores triggers and untriggers. Stored in the VOB's own enabled flag, which Gothic's
+        /// save keeps. Found comparing with BoroBongo's branch.
+        /// </summary>
+        public void DispatchEnable(string name, MessageFilterAction action)
+        {
+            if (string.IsNullOrEmpty(name))
+                return;
+
+            var targets = new List<VobContainer>();
+            if (TryGetMovers(name, out var movers))
+                targets.AddRange(movers);
+
+            var key = name.ToUpper();
+            foreach (var registry in new[]
+                     {
+                         _gameStateService.VobsTrigger, _gameStateService.VobsTriggerList,
+                         _gameStateService.VobsTriggerScript
+                     })
+            {
+                if (registry.TryGetValue(key, out var container))
+                    targets.Add(container);
+            }
+
+            foreach (var target in targets)
+            {
+                if (target?.Vob is not ITrigger trigger)
+                    continue;
+
+                trigger.IsEnabled = action switch
+                {
+                    MessageFilterAction.Enable => true,
+                    MessageFilterAction.Disable => false,
+                    _ => !trigger.IsEnabled
+                };
+                Logger.Log($"[VobService] {action} '{name}' -> {(trigger.IsEnabled ? "enabled" : "disabled")}",
+                    LogCat.Vob);
+            }
+
+            if (targets.Count == 0)
+                Logger.LogWarning($"[VobService] {action} '{name}': no trigger or mover of that name", LogCat.Vob);
         }
 
         private static bool TryGetTriggerVob(Dictionary<string, VobContainer> registry, string key,

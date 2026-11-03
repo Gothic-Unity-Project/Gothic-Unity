@@ -54,6 +54,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -76,6 +77,8 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.LoadGameStart.AddListener(() =>
             {
                 ClearQueues();
+                // The new game's VM has its own dialogs (BootstrapDomain).
+                _ambientInfoByPrefix = null;
             });
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
@@ -179,9 +182,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.RootGo = rootGo;
         }
 
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
-            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan);
+            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan, ownNpc);
         }
 
         /// <summary>
@@ -490,14 +493,22 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtMdlSetModelScale(NpcInstance npc, System.Numerics.Vector3 scale)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelScale = scale;
+            var container = npc.GetUserData();
+            container.Vob.ModelScale = scale;
+            _initializerDomain.ApplyModelScale(container);
         }
 
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelFatness = fatness;
+            var container = npc.GetUserData();
+            if (container == null)
+            {
+                Logger.LogWarning($"[NpcService] Mdl_SetModelFatness: NPC {npc.Index} has no container - " +
+                    $"fatness {fatness} ignored.", LogCat.Npc);
+                return;
+            }
+
+            _npcLookService.SetFatness(container, fatness);
         }
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
@@ -753,6 +764,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     ReEnableNpc(npcContainer);
                 }
+
+                // An NPC built before keeps its body while culled, but loses a ghost's see-through look.
+                if (!initializedNow)
+                    _npcLookService.Apply(npcContainer);
             }
         }
         

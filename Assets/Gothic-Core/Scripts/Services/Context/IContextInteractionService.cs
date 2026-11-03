@@ -28,9 +28,10 @@ namespace Gothic.Core.Services.Context
         void SetViewHidden(bool isHidden, GameObject visibleUi = null);
 
         /// <summary>
-        /// Holds the player horizontally inside the circle around center. Between softRadius and radius, movement
-        /// slows down the farther out the player is; walking outward stops at radius, walking back in speeds up
-        /// steadily. Beyond radius the player drifts back.
+        /// Holds the player horizontally inside the circle around center, measured at the head (the camera), so a
+        /// physical step counts and turning doesn't. Between softRadius and radius, movement slows down the farther
+        /// out the player is; walking outward stops at radius, walking back in speeds up steadily. Beyond radius the
+        /// player drifts back.
         /// Call it every frame while holding. Does nothing while the player is airborne or climbing.
         /// </summary>
         void KeepPlayerWithin(Vector3 center, float softRadius, float radius);

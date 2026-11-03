@@ -81,7 +81,7 @@ namespace Gothic.Core.Adapters.Animations
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
         private static readonly HashSet<string> _missingAnimationsLogged = new();
-        private static bool _isHeadAnimationWarningLogged;
+        private const string _headNodeName = "BIP01 HEAD";
 
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
@@ -751,11 +751,16 @@ namespace Gothic.Core.Adapters.Animations
             if (morphEvents == null)
                 return;
 
+            // Like the engine, an event without a node or on the head's node is a face animation (T_HURT, T_EAT).
+            // Others morph a held item (a bow's S_SHOOT) - not yet supported.
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph == null)
+                return;
+
             foreach (var morph in morphEvents)
             {
-                var type = PrefabProps.HeadMorph.GetAnimationTypeByName(morph.Animation);
-
-                PrefabProps.HeadMorph.StartAnimation(Properties.BodyData.Head, type);
+                if (string.IsNullOrEmpty(morph.Node) || morph.Node.EqualsIgnoreCase(_headNodeName))
+                    headMorph.StartEventFaceAnimation(morph.Animation);
             }
         }
 
@@ -778,25 +783,21 @@ namespace Gothic.Core.Adapters.Animations
             DisableObject();
         }
 
-        public void PlayHeadAnimation(HeadMorph.HeadMorphType viseme)
+        /// <summary>
+        /// A face animation held until stopped, e.g. the talking mouth (VISEME, loops) during an NPC's line.
+        /// </summary>
+        public void PlayHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            // FIXME - Implement
-            LogHeadAnimationWarning();
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph != null)
+                headMorph.StartFaceAnimation(headMorph.GetAnimationNameByType(type), 1f, -1f);
         }
 
-        public void StopHeadAnimation(HeadMorph.HeadMorphType viseme)
+        public void StopHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            // FIXME - Implement
-            LogHeadAnimationWarning();
-        }
-
-        private static void LogHeadAnimationWarning()
-        {
-            if (_isHeadAnimationWarningLogged)
-                return;
-
-            _isHeadAnimationWarningLogged = true;
-            Logger.LogWarning("Play/StopHeadAnimation not yet implemented (logged once).", LogCat.Animation);
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph != null)
+                headMorph.StopAnimation(headMorph.GetAnimationNameByType(type));
         }
 
         public bool IsPlaying(string animationName)

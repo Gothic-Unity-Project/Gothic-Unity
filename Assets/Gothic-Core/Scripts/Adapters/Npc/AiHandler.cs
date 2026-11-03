@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
@@ -40,6 +41,10 @@ namespace Gothic.Core.Adapters.Npc
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
+        private readonly HashSet<Type> _failedActionTypes = new();
+
+        // When the state's _Loop may run again (Time.time). See the Loop case in Update.
+        private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
         private const string _deadStateAnimation = "S_DeadB";
@@ -80,9 +85,9 @@ namespace Gothic.Core.Adapters.Npc
             // enqueued by FightService), then stop any further process logic.
             if (Properties.IsDead)
             {
-                Properties.CurrentAction.Tick();
+                TickCurrentAction();
 
-                if (Properties.CurrentAction.IsFinished())
+                if (IsCurrentActionFinished())
                 {
                     if (Properties.AnimationQueue.Count > 0)
                         PlayNextAnimation(Properties.AnimationQueue.Dequeue());
@@ -97,7 +102,7 @@ namespace Gothic.Core.Adapters.Npc
             ExecuteActivePerceptions();
             ExecuteStates();
 
-            Properties.CurrentAction.Tick();
+            TickCurrentAction();
 
             // Add new milliseconds when stateTime shall be measured.
             if (Properties.IsStateTimeActive && Properties.CurrentLoopState == NpcProperties.LoopState.Loop)
@@ -106,8 +111,10 @@ namespace Gothic.Core.Adapters.Npc
             }
 
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
-            if (!Properties.CurrentAction.IsFinished())
+            if (!IsCurrentActionFinished())
             {
+                // The NPC really does something - when it's done, the state's loop may react at once.
+                _nextLoopTime = 0f;
                 return;
             }
 
@@ -137,6 +144,7 @@ namespace Gothic.Core.Adapters.Npc
 
                         CallAiFunction(Vob.CurrentStateIndex);
                         Properties.CurrentLoopState = NpcProperties.LoopState.Loop;
+                        _nextLoopTime = 0f;
                         break;
                     case NpcProperties.LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
@@ -154,6 +162,13 @@ namespace Gothic.Core.Adapters.Npc
                             Properties.CurrentLoopState = NpcProperties.LoopState.Start;
                             return;
                         }
+
+                        // A pass that only did instant things (AI_AlignToFP while aligned, pure checks) doesn't run
+                        // again every frame: like the engine (OpenGothic Npc::tickRoutine) it waits for the NPC's
+                        // perception time. After a real action it runs at once (fights, walking routines).
+                        if (Time.time < _nextLoopTime)
+                            break;
+                        _nextLoopTime = Time.time + Properties.PerceptionTime;
 
                         var loopResponse = CallAiFunction(Properties.StateLoop);
                         
@@ -553,7 +568,54 @@ namespace Gothic.Core.Adapters.Npc
         private void PlayNextAnimation(AbstractAnimationAction action)
         {
             Properties.CurrentAction = action;
-            action.Start();
+            try
+            {
+                action.Start();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private void TickCurrentAction()
+        {
+            try
+            {
+                Properties.CurrentAction.Tick();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private bool IsCurrentActionFinished()
+        {
+            try
+            {
+                return Properties.CurrentAction.IsFinished();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// An action that threw can't finish on its own - it threw again every frame and the NPC hung in it (an orc
+        /// frozen in his dialog line). It counts as done, the NPC goes on with the next one. Logged once per action
+        /// type and NPC.
+        /// </summary>
+        private void SkipFailedAction(Exception e)
+        {
+            var actionType = Properties.CurrentAction.GetType();
+            if (_failedActionTypes.Add(actionType))
+                Logger.LogError($"{actionType.Name} of {Go.transform.parent?.name} threw - skipped. Later " +
+                                $"failures of this action on this NPC are not logged. {e}", LogCat.Ai);
+
+            Properties.CurrentAction = new None(new AnimationAction(), NpcData);
         }
 
         /// <summary>
@@ -590,7 +652,7 @@ namespace Gothic.Core.Adapters.Npc
                 var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
                 if (wp != null)
                 {
-                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position, gameObject);
                     Properties.CurrentFreePoint = wp as FreePoint;
                     Properties.CurrentWayPoint = wp as WayPoint;
                 }
