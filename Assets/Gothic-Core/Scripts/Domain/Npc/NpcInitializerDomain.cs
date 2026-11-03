@@ -47,6 +47,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         public GameObject RootGo;
@@ -461,6 +462,9 @@ namespace Gothic.Core.Domain.Npc
                 _meshService.CreateNpcWeapon(newNpc, weaponInHand, (VmGothicEnums.ItemFlags)weaponInHand.MainFlag,
                     (VmGothicEnums.ItemFlags)weaponInHand.Flags, true);
             }
+
+            // Fatness and ghosts need the finished body, weapons included.
+            _npcLookService.Apply(npcData);
         }
 
         [CanBeNull]
