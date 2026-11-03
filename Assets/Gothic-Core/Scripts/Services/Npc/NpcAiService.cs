@@ -29,7 +29,6 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<int> _npcsKnowingPlayer = new();
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly NpcService _npcService;
 
         // Reused by UpdateEnemyNpc() on every perception tick.
         private readonly List<NpcContainer> _awakeNpcs = new();
@@ -1166,7 +1165,7 @@ namespace Gothic.Core.Services.Npc
 
             // Only the hero and the NPCs that are awake: asleep NPCs are far away and frozen. Scanning every NPC of
             // the world on each perception made crowded places stutter (Old Camp: 52 awake of 992).
-            var hero = _npcService.GetHeroContainer();
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
             if (hero != null && IsCloserEnemy(self, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
                 closestEnemy = hero;
 
