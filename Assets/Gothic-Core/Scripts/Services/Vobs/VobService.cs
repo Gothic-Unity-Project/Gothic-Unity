@@ -473,6 +473,7 @@ namespace Gothic.Core.Services.Vobs
             var container = CreateContainerWithLoader(vob);
             _vobMeshCullingService.AddCullingEntry(container);
             _saveGameService.AddVobToWorld(container.Vob);
+            GlobalEventDispatcher.WorldItemInserted.Invoke(container.Vob);
         }
 
         /// <summary>
@@ -606,7 +607,7 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
-                    var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
+                    var visualScheme = container.Vob.GetVisualScheme();
                     
                     if (visualScheme.IsNullOrEmpty())
                         return;

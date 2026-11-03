@@ -30,9 +30,9 @@ namespace Gothic.Core.Services.Npc
 
         // Passive perceptions of this frame, delivered to the NPCs around the sender in their next AI update.
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
-            NpcInstance Victim, NpcInstance Other)> _sentPassivePerceptions = new();
+            NpcInstance Victim, NpcInstance Other, ItemInstance Item)> _sentPassivePerceptions = new();
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
-            NpcInstance Victim, NpcInstance Other)> _deliveredPassivePerceptions = new();
+            NpcInstance Victim, NpcInstance Other, ItemInstance Item)> _deliveredPassivePerceptions = new();
         private int _deliveryFrame = -1;
 
         private const float _quickLookSeconds = 2f;
@@ -696,14 +696,20 @@ namespace Gothic.Core.Services.Npc
             if (npc1 == null || npc2 == null)
                 return 0;
 
-            var npc1Pos = npc1.GetUserData().Go.transform.position;
+            var npc1Go = npc1.GetUserData()?.Go;
+            var npc2Go = npc2.GetUserData()?.Go;
+            if (npc1Go == null)
+                return 0;
+            var npc1Pos = npc1Go.transform.position;
 
             Vector3 npc2Pos;
-            // If hero
-            if (npc2.Id == 0)
-                npc2Pos = Camera.main!.transform.position;
+            // The hero's eyes. Not by Id == 0 - monsters have it too, and every monster measured to the hero's head.
+            if (npc2.IsHero(_gameStateService.GothicVm) && Camera.main != null)
+                npc2Pos = Camera.main.transform.position;
+            else if (npc2Go != null)
+                npc2Pos = npc2Go.transform.position;
             else
-                npc2Pos = npc2.GetUserData().Go.transform.position;
+                return 0;
 
             return (int)((npc2Pos.y - npc1Pos.y) * 100);
         }
@@ -866,9 +872,10 @@ namespace Gothic.Core.Services.Npc
         /// in the receivers' next AI update (DeliverPassivePerceptions): run at once, a receiver that sends again
         /// bounced between two NPCs until the VM stack overflowed (Khorinis after a few minutes).
         /// </summary>
+        /// <param name="item">PERC_ASSESSTHEFT's item: like the engine, the receivers find it in the global 'item'.</param>
         /// <returns>false if it was dropped: the sender isn't in the world, or there is no other.</returns>
         public bool BroadcastPassivePerception(NpcContainer sender, VmGothicEnums.PerceptionType perception,
-            NpcInstance victim, NpcInstance other)
+            NpcInstance victim, NpcInstance other, ItemInstance item = null)
         {
             if (sender?.Go == null)
                 return false;
@@ -881,7 +888,7 @@ namespace Gothic.Core.Services.Npc
                 return false;
             }
 
-            _sentPassivePerceptions.Add((perception, sender.Go.transform.position, sender, victim, other));
+            _sentPassivePerceptions.Add((perception, sender.Go.transform.position, sender, victim, other, item));
             return true;
         }
 
@@ -937,7 +944,23 @@ namespace Gothic.Core.Services.Npc
                              IsFriendlyNonHumanWarner(receiver, perception.Victim, perception.Other)
                     ? perception.Other
                     : perception.Victim;
-                ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
+                if (perception.Item == null)
+                {
+                    ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
+                    continue;
+                }
+
+                var vm = _gameStateService.GothicVm;
+                var oldItem = vm.GlobalItem;
+                vm.GlobalItem = perception.Item;
+                try
+                {
+                    ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
+                }
+                finally
+                {
+                    vm.GlobalItem = oldItem;
+                }
             }
         }
 
