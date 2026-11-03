@@ -7,7 +7,8 @@ mapfile -t fields < <(
          (.rate_limits.five_hour.used_percentage // "" | if type=="number" then round|tostring else . end),
          (.rate_limits.five_hour.resets_at // ""),
          (.rate_limits.seven_day.used_percentage // "" | if type=="number" then round|tostring else . end),
-         (.rate_limits.seven_day.resets_at // "")' <<< "$(cat)" | tr -d '\r'
+         (.rate_limits.seven_day.resets_at // "",
+         (.workspace.current_dir // .cwd // ""))' <<< "$(cat)" | tr -d '\r'
 )
 model="${fields[0]}"
 used="${fields[1]}"
@@ -15,6 +16,7 @@ effort="${fields[2]}"
 thinking="${fields[3]}"
 h5="${fields[4]}"; h5_reset="${fields[5]}"
 d7="${fields[6]}"; d7_reset="${fields[7]}"
+cwd="${fields[8]}"
 now=$(date +%s)
 
 esc() { printf '\e[%sm' "$1"; }
@@ -53,4 +55,33 @@ quota() { # label used reset
 }
 output="$output$(quota 5h "$h5" "$h5_reset")$(quota 7d "$d7" "$d7_reset")"
 
-printf "%s" "$output"
+# Right-aligned git part: branch [up/down slot]. Only cheap ref lookups, no worktree scan.
+# The up/down slot has a fixed width so it never shifts or gets cut; it sits right of the branch name.
+GIT_MARGIN=${STATUSLINE_MARGIN:-8}   # columns left free at the right edge (harness padding / truncation)
+SYNC_SLOT=8                          # width of " ↑99 ↓99"
+git_part=""
+if [ -n "$cwd" ] && branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
+  sync_part=""; sync_plain=""
+  if read -r ahead behind < <(git -C "$cwd" rev-list --left-right --count HEAD...@{u} 2>/dev/null); then
+    [ "$ahead" -gt 0 ]  && { sync_part="$sync_part $(esc 32)↑${ahead}${reset}";  sync_plain="$sync_plain ↑${ahead}"; }
+    [ "$behind" -gt 0 ] && { sync_part="$sync_part $(esc 33)↓${behind}${reset}"; sync_plain="$sync_plain ↓${behind}"; }
+  fi
+  sync_pad=$(( SYNC_SLOT - ${#sync_plain} )); [ $sync_pad -lt 0 ] && sync_pad=0
+  git_part="$(esc 35)${branch}${reset}${sync_part}$(printf '%*s' "$sync_pad" "")"
+  git_plain="${branch}$(printf '%*s' "$SYNC_SLOT" "")"
+fi
+
+if [ -n "$git_part" ]; then
+  shopt -s extglob
+  plain="${output//$'\e'\[+([0-9;])m/}"
+  read -r _ cols < <({ stty size </dev/tty; } 2>/dev/null)
+  cols="${cols:-${COLUMNS:-0}}"
+  pad=$(( cols - GIT_MARGIN - ${#plain} - ${#git_plain} ))
+  if [ "$pad" -ge 2 ]; then
+    printf "%s%*s%s" "$output" "$pad" "" "$git_part"
+  else
+    printf "%s  %s" "$output" "$git_part"
+  fi
+else
+  printf "%s" "$output"
+fi

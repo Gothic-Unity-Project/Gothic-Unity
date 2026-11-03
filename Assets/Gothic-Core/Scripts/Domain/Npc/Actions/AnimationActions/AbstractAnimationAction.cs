@@ -125,6 +125,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return IsFinishedFlag;
         }
 
+        /// <summary>
+        /// Whether the action is done, for other NPCs to ask (AI_WaitTillEnd). Unlike IsFinished() it doesn't move the
+        /// action on - some count their time down in IsFinished().
+        /// </summary>
+        public virtual bool HasEnded => IsFinishedFlag;
+
         public virtual void StopImmediately()
         {
             IsFinishedFlag = true;

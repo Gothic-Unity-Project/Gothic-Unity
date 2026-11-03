@@ -176,7 +176,9 @@ namespace Gothic.Core.Services.Npc
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
             
-            if (_saveGameService.IsNewGame)
+            // STARTUP_* runs only the first time a world is entered (new game or a world not inside the save yet).
+            // Otherwise, the NPCs are restored from the save game / the state stored when we left the world.
+            if (_saveGameService.IsWorldEnteredFirstTime)
                 await _initializerDomain.InitNpcsNewGame(loading);
             else
                 await _initializerDomain.InitNpcsSaveGame(loading);
@@ -188,7 +190,8 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void CreateVobNpc(INpc vobNpc)
         {
-            if (vobNpc.Name.EqualsIgnoreCase(Constants.DaedalusHeroInstanceName))
+            // Mods can use another hero instance than PC_HERO (Gothic.ini/mod ini: player=).
+            if (vobNpc.Player || vobNpc.NpcInstance.EqualsIgnoreCase(_configService.GothicMod.Player))
             {
                 _playerService.HeroSpawnPosition = vobNpc.Position.ToUnityVector();
                 _playerService.HeroSpawnRotation = vobNpc.Rotation.ToUnityQuaternion();
@@ -285,13 +288,29 @@ namespace Gothic.Core.Services.Npc
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
         {
-            return _multiTypeCacheService.NpcCache
+            var npc = _multiTypeCacheService.NpcCache
                 .FirstOrDefault(i => i.Instance.Index == instanceId)?
                 .Instance;
+            if (npc != null)
+                return npc;
+
+            // Like the engine, a variable (SELF, OTHER, ...) gives the NPC it points to: Hlp_GetNpc(self) in
+            // B_KillNpc(self) was null (found on BoroBongo's branch).
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(instanceId);
+            var variableNpc = symbol is { Type: DaedalusDataType.Instance } ? symbol.GetInstance() as NpcInstance : null;
+            return variableNpc?.GetUserData()?.Vob != null ? variableNpc : null;
         }
 
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
+            // A script passing no NPC (Hlp_GetNpc found none) mustn't break the calling function.
+            if (npc?.GetUserData()?.Vob == null)
+            {
+                Logger.LogWarning($"[NpcService] Npc_ChangeAttribute({attributeId}, {value}) without an NPC - skipped",
+                    LogCat.Npc);
+                return;
+            }
+
             var container = npc.GetUserData();
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
@@ -353,12 +372,7 @@ namespace Gothic.Core.Services.Npc
             if (hero == null)
                 return;
 
-            hero.Vob.Level = hero.Instance.Level;
-            hero.Vob.Xp = hero.Instance.Exp;
-            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
-            hero.Vob.Lp = hero.Instance.Lp;
-            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
-                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
+            hero.Vob.CopyStatsFromInstance(hero.Instance);
 
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPointsMax);
@@ -399,7 +413,8 @@ namespace Gothic.Core.Services.Npc
             var heroInstance = _gameStateService.GothicVm.AllocInstance<NpcInstance>(_configService.GothicMod.Player);
             var heroDaedalusInstance = _gameStateService.GothicVm.GetSymbolByName(_configService.GothicMod.Player)!;
 
-            var vobNpc = new NpcProxy(heroDaedalusInstance.Index)
+            // A loaded save game brings its own hero (attributes, inventory, talents, ...).
+            var vobNpc = _saveGameService.GetSavedHero() ?? new NpcProxy(heroDaedalusInstance.Index)
             {
                 Player = true
             };
@@ -421,12 +436,19 @@ namespace Gothic.Core.Services.Npc
 
             _playerService.SetHero(npcData);
             _multiTypeCacheService.NpcCache.Add(npcData);
-            _vm.InitInstance(heroInstance);
-            vobNpc.CopyFromInstanceData(heroInstance);
-
-            if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            if (vobNpc.IsRestored)
             {
-                var items = _vobService.UnpackItems(_configService.Dev.PlayerInventoryAddition);
+                _saveGameService.InitNpcInstanceFromSave(npcData, () => _vm.InitInstance(heroInstance));
+            }
+            else
+            {
+                _vm.InitInstance(heroInstance);
+                vobNpc.CopyFromInstanceData(heroInstance);
+            }
+
+            if (!vobNpc.IsRestored && _configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            {
+                var items = _configService.Dev.PlayerInventoryAddition.UnpackItems();
                 foreach (var item in items)
                 {
                     _playerService.AddItem(item.Name, item.Amount);

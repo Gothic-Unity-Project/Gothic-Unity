@@ -75,28 +75,13 @@ namespace Gothic.Core.Services.Npc
 
             var prefabProps = npcInstance.GetUserData().PrefabProps;
 
-            InteractiveProperties props;
+            var mob = prefabProps.CurrentInteractable ??
+                      _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme);
 
-            if (prefabProps.CurrentInteractable != null)
-            {
-                try
-                {
-                    // Check current gameobject and children as well
-                    props = prefabProps.CurrentInteractable.PropsAs<InteractiveProperties>();
-                }
-                catch (Exception)
-                {
-                    Logger.LogError($"Wld_GetMobState() returned an exception for {npcGo.name}", LogCat.Npc);
-                    return -1;
-                }
-            }
-            else
-                props = _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme)?.PropsAs<InteractiveProperties>();
-
-            if (props == null)
+            if (mob?.Props is not InteractiveProperties)
                 return -1;
 
-            return Math.Max(0, props.State);
+            return Math.Max(0, mob.MobState);
         }
 
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)
@@ -360,9 +345,14 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool CanSenseNpc(NpcInstance self, NpcInstance other, bool freeLOS, float maxRangeMeters = float.MaxValue)
         {
+            // An NPC that isn't in the world (culled, not spawned yet) senses nothing and can't be sensed.
+            var selfGo = self?.GetUserData()?.Go;
+            var otherGo = other?.GetUserData()?.Go;
+            if (selfGo == null || otherGo == null)
+                return false;
+
             var senseRangeMeters = Mathf.Min(self.SensesRange / 100f, maxRangeMeters); // daedalus values are in cm, we need them in m
-            var range = Vector3.Distance(other.GetUserData().Go.transform.position,
-                self.GetUserData().Go.transform.position);
+            var range = Vector3.Distance(otherGo.transform.position, selfGo.transform.position);
 
             if (range > senseRangeMeters)
             {
