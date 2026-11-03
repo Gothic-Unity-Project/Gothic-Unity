@@ -470,6 +470,31 @@ namespace Gothic.Core.Models.Config
                  "uses it up like in Gothic. Off: scrolls are cast forever.")]
         public bool EnableScrollUseOption = true;
 
+        [Tooltip("VR: Gothic's spell selection - both empty hands above the head + both triggers (1 s) open a " +
+                 "carousel of the equipped runes/scrolls (max 8). Grip takes a spell, trigger + move turns it, a " +
+                 "trigger click unequips; a rune/scroll held into the empty slot is equipped. 'Favorites ring' " +
+                 "Immersion option (ini spellRing).")]
+        public bool EnableVrSpellRing = true;
+
+        [Tooltip("VR: The favorites ring opens around the player at eye level, 2.2 times the size (radius ~0.6 m), the " +
+                 "first slot in front - the slot the head looks at is the selected one; the hand turns it like a " +
+                 "carousel. Off: a small ring in front of the chest that snaps to the nearest slot.")]
+        public bool EnableRingAroundPlayer = true;
+
+        [Tooltip("VR: The favorites ring also holds the equipped melee weapon and bow/crossbow - at most 8 spells + 2 " +
+                 "weapons. Grip takes the weapon into the hand, a weapon held into the empty slot (or onto the " +
+                 "equipped one of its kind) is equipped, a trigger click unequips.")]
+        public bool EnableRingWeaponSlots = true;
+
+        [Tooltip("VR: The favorites ring also holds up to 3 favorite items (a torch, a key, potions, food) and the " +
+                 "money (G1 ore, G2 gold) - let go at its empty slot to put one in, grabbed out one at a time (grip " +
+                 "held at a stack takes more and more), a trigger click takes one off the ring. Not saved yet.")]
+        public bool EnableRingItemSlots = true;
+
+        [Tooltip("VR: While the favorites ring is open the right stick up/down (simulator: mouse wheel) makes it " +
+                 "bigger or smaller (x0.5-x2) - like the menu's distance. Kept for the session.")]
+        public bool EnableRingZoom = true;
+
         [Tooltip("Seconds an instant spell (G2 summons, fire rain, transformations, heal...) glows in the hand before " +
                  "it goes off - to enjoy the effects. 0 = at once like the engine. Throwable spells aren't affected.")]
         public float MinSpellCastSeconds = 2f;

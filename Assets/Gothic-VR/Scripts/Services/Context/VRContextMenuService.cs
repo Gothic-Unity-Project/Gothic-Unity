@@ -99,6 +99,17 @@ namespace Gothic.VR.Services.Context
                     "A cast uses the scroll up (Gothic)", menuStartY + menuDY * nextRow));
                 vrImmersionMenu.Items.Add(CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE",
                     VRConstants.IniNames.ScrollsSingleUse, menuStartY + menuDY * nextRow, 1));
+                nextRow++;
+            }
+            // DeveloperConfig.EnableVrSpellRing: Gesture (both hands up, both triggers) or Off.
+            if (_configService.Dev.EnableVrSpellRing)
+            {
+                vrImmersionMenu.Items.Add(CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
+                    "Both hands up + both triggers: equipped spells and weapons", menuStartY + menuDY * nextRow));
+                var spellRingChoice = CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing,
+                    menuStartY + menuDY * nextRow, 1);
+                spellRingChoice.SetText(0, "Off|Gesture");
+                vrImmersionMenu.Items.Add(spellRingChoice);
             }
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }

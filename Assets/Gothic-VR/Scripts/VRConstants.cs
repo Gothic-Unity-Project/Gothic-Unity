@@ -29,6 +29,8 @@ namespace Gothic.VR
             public const string CrossbowReload = "crossbowReload";
             // 1 = a scroll is used up by its cast like in Gothic (default), 0 = scrolls are cast forever.
             public const string ScrollsSingleUse = "scrollsSingleUse";
+            // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
+            public const string SpellRing = "spellRing";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
