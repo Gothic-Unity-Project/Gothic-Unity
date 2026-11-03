@@ -19,8 +19,8 @@ TagManager:
   - VobNpcOrMonster
   - VobMovable
   - VobHitbox
-  - 
-  - 
+  - ClimbAnchor
+  - VobItemSocketed
   - 
   - 
   - 

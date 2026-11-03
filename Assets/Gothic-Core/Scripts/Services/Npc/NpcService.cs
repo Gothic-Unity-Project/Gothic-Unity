@@ -177,7 +177,9 @@ namespace Gothic.Core.Services.Npc
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
             
-            if (_saveGameService.IsNewGame)
+            // STARTUP_* runs only the first time a world is entered (new game or a world not inside the save yet).
+            // Otherwise, the NPCs are restored from the save game / the state stored when we left the world.
+            if (_saveGameService.IsWorldEnteredFirstTime)
                 await _initializerDomain.InitNpcsNewGame(loading);
             else
                 await _initializerDomain.InitNpcsSaveGame(loading);
@@ -189,7 +191,8 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void CreateVobNpc(INpc vobNpc)
         {
-            if (vobNpc.Name.EqualsIgnoreCase(Constants.DaedalusHeroInstanceName))
+            // Mods can use another hero instance than PC_HERO (Gothic.ini/mod ini: player=).
+            if (vobNpc.Player || vobNpc.NpcInstance.EqualsIgnoreCase(_configService.GothicMod.Player))
             {
                 _playerService.HeroSpawnPosition = vobNpc.Position.ToUnityVector();
                 _playerService.HeroSpawnRotation = vobNpc.Rotation.ToUnityQuaternion();
@@ -335,23 +338,15 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             // It runs after every NPC's state start (a state may pay the hero): mostly nothing changed, and then
-            // nothing is announced. Each field is compared where it's copied, so a new one can't miss the check.
+            // nothing is announced. The announced values are compared before the copy, which takes all stats.
             var vob = hero.Vob;
             var instance = hero.Instance;
-            var isChanged = vob.Level != instance.Level;
-            vob.Level = instance.Level;
-            isChanged |= vob.Xp != instance.Exp;
-            vob.Xp = instance.Exp;
-            isChanged |= vob.XpNextLevel != instance.ExpNext;
-            vob.XpNextLevel = instance.ExpNext;
-            isChanged |= vob.Lp != instance.Lp;
-            vob.Lp = instance.Lp;
-            for (var i = 0; i < _attributeCount; i++)
-            {
-                var value = instance.GetAttribute((NpcAttribute)i);
-                isChanged |= vob.GetAttribute(i) != value;
-                vob.SetAttribute(i, value);
-            }
+            var isChanged = vob.Level != instance.Level || vob.Xp != instance.Exp ||
+                            vob.XpNextLevel != instance.ExpNext || vob.Lp != instance.Lp;
+            for (var i = 0; i < _attributeCount && !isChanged; i++)
+                isChanged = vob.GetAttribute(i) != instance.GetAttribute((NpcAttribute)i);
+
+            vob.CopyStatsFromInstance(instance);
 
             if (!isChanged)
                 return;
@@ -395,7 +390,8 @@ namespace Gothic.Core.Services.Npc
             var heroInstance = _gameStateService.GothicVm.AllocInstance<NpcInstance>(_configService.GothicMod.Player);
             var heroDaedalusInstance = _gameStateService.GothicVm.GetSymbolByName(_configService.GothicMod.Player)!;
 
-            var vobNpc = new NpcProxy(heroDaedalusInstance.Index)
+            // A loaded save game brings its own hero (attributes, inventory, talents, ...).
+            var vobNpc = _saveGameService.GetSavedHero() ?? new NpcProxy(heroDaedalusInstance.Index)
             {
                 Player = true
             };
@@ -417,12 +413,19 @@ namespace Gothic.Core.Services.Npc
 
             _playerService.SetHero(npcData);
             _multiTypeCacheService.NpcCache.Add(npcData);
-            _vm.InitInstance(heroInstance);
-            vobNpc.CopyFromInstanceData(heroInstance);
-
-            if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            if (vobNpc.IsRestored)
             {
-                var items = _vobService.UnpackItems(_configService.Dev.PlayerInventoryAddition);
+                _saveGameService.InitNpcInstanceFromSave(npcData, () => _vm.InitInstance(heroInstance));
+            }
+            else
+            {
+                _vm.InitInstance(heroInstance);
+                vobNpc.CopyFromInstanceData(heroInstance);
+            }
+
+            if (!vobNpc.IsRestored && _configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            {
+                var items = _configService.Dev.PlayerInventoryAddition.UnpackItems();
                 foreach (var item in items)
                 {
                     _playerService.AddItem(item.Name, item.Amount);

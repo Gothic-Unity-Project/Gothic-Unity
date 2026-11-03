@@ -71,7 +71,7 @@ namespace Gothic.Core.Services.Npc
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __, ItemInstance weapon)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.IsDead)
                 return;
 
             // Like the engine, nobody hurts the dialog partners during a dialog. Fights around go on.

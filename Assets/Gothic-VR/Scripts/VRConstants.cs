@@ -6,17 +6,24 @@ namespace Gothic.VR
         {
             // Accessibility
             public const string SitStand = "sitStand";
+            public const string HeightOffset = "heightOffset";
             public const string MoveDirection = "moveDirection";
             public const string RotationType = "rotationType";
             public const string SnapRotationAmount = "snapRotationAmount";
             public const string SmoothRotationSpeed = "smoothRotationSpeed";
             public const string SmoothSpectator = "smoothSpectator";
 
+            // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
+            public const string LedgeClimbMode = "ledgeClimbMode";
+
             // Immersion
             public const string Microphone = "microphone";
 
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
+
+            // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
+            public const string LedgeHints = "ledgeHints";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
@@ -34,7 +41,15 @@ namespace Gothic.VR
         public const int SnapRotationDefaultValue = 2; // Element index==3
         public const int SnapRotationAmountSettingTickAmount = 5;
 
+        // Height offset slider: 0...1 Ini value, 0.5 == no offset. 40 steps from -1m to +1m, i.e. 5cm each.
+        public const int HeightOffsetSettingAmount = 40;
+        public const float HeightOffsetMaxMeters = 1f;
+        public const float HeightOffsetDefaultValue = 0.5f;
+
         public const int PhysicalHandsDefaultValue = 1;
+
+        public const int LedgeClimbModeDefaultValue = 0;
+        public const int LedgeHintsDefaultValue = 1;
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;
