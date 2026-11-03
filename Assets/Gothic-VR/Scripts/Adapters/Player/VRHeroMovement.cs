@@ -36,6 +36,8 @@ namespace Gothic.VR.Adapters.Player
         private AudioSource _stepSource;
         private float _strideDistance;
         private Vector3 _lastStepPosition;
+        // Why the last step was silent (logged once per change).
+        private string _silentStepReason;
 
         // Speed potions (Mdl_ApplyOverlayMDSTimed HUMANS_SPRINT.MDS): faster VR movement for the potion's time.
         private const string _sprintOverlayName = "SPRINT";
@@ -233,11 +235,24 @@ namespace Gothic.VR.Adapters.Player
             props.BodyState = bodyState;
         }
 
+        private void LogSilentStep(string reason)
+        {
+            if (reason == _silentStepReason)
+                return;
+            _silentStepReason = reason;
+            Logger.Log($"[HeroSteps] No step sound: {reason}", LogCat.VR);
+        }
+
         private void UpdateHeroFootsteps()
         {
-            if (!_configService.Dev.EnableFootstepSounds || !_rig.IsGrounded ||
+            if (!_configService.Dev.EnableFootstepSounds ||
                 _gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
                 return;
+            if (!_rig.IsGrounded)
+            {
+                LogSilentStep("not grounded");
+                return;
+            }
             var position = _rig.Root.position;
             var moved = new Vector2(position.x - _lastStepPosition.x, position.z - _lastStepPosition.z).magnitude;
             _lastStepPosition = position;
@@ -246,7 +261,11 @@ namespace Gothic.VR.Adapters.Player
             // A teleport or a fall isn't walking; sneaking (with the talent) is silent.
             if (bodyState is not (VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun) ||
                 moved > _runStrideMeters)
+            {
+                if (moved > 0.001f)
+                    LogSilentStep(moved > _runStrideMeters ? $"jump of {moved:0.00} m" : $"body state {bodyState}");
                 return;
+            }
 
             _strideDistance += moved;
             var stride = bodyState == VmGothicEnums.BodyState.BsRun ? _runStrideMeters : _walkStrideMeters;
@@ -254,9 +273,16 @@ namespace Gothic.VR.Adapters.Player
                 return;
             _strideDistance = 0f;
 
-            var clip = _audioService.GetRandomSoundClip(_groundSoundService.GetSoundName(_stepSound, position));
+            var soundName = _groundSoundService.GetSoundName(_stepSound, position);
+            var clip = _audioService.GetRandomSoundClip(soundName);
             if (clip == null)
+            {
+                LogSilentStep($"no clip for {soundName}");
                 return;
+            }
+            if (_silentStepReason != null)
+                Logger.Log($"[HeroSteps] Steps play again ({soundName})", LogCat.VR);
+            _silentStepReason = null;
             if (_stepSource == null)
             {
                 _stepSource = gameObject.AddComponent<AudioSource>();
