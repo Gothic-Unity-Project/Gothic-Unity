@@ -31,7 +31,8 @@ namespace Gothic.Core.Services.Player
     /// - piece by piece (Buy/Sell): each item changes hands at once (the VR trade window, Flat later),
     /// - DeveloperConfig.EnableVrTrade, the VR trade counter (Current): items laid into the offers are reserved (out of
     ///   their owner's inventory) and only change hands on TryCommit(); the difference is paid in currency. Ending the
-    ///   trade gives the offers back.
+    ///   trade gives the offers back. The dialog goes on meanwhile (its choices come back at once, like talking to a
+    ///   cashier) and its end ends the trade.
     /// </summary>
     public class TradeService
     {
@@ -100,6 +101,10 @@ namespace Gothic.Core.Services.Player
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} (currency {_currencyName}, " +
                        $"sell x{_sellMultiplier}{(Current != null ? ", counter" : "")})", LogCat.Dialog);
             GlobalEventDispatcher.TradeStarted.Invoke(trader);
+
+            // The counter doesn't hold the dialog: its choices come back right away.
+            if (Current != null)
+                ResumeDialog(trader);
         }
 
         /// <param name="isDialogResumed">The dialog goes on with its choices (the player closed the trade), not when
@@ -110,13 +115,24 @@ namespace Gothic.Core.Services.Player
                 return;
 
             var trader = Trader;
+            // The counter's dialog went on already.
+            var isDialogWaiting = Current == null;
             ReturnOffers();
             Trader = null;
             Current = null;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
             GlobalEventDispatcher.TradeEnded.Invoke(trader);
 
-            if (isDialogResumed && _gameStateService.Dialogs.IsInDialog && trader.Props != null)
+            if (isDialogResumed && isDialogWaiting)
+                ResumeDialog(trader);
+        }
+
+        /// <summary>
+        /// The dialog's choices of the entry that opened the trade.
+        /// </summary>
+        private void ResumeDialog(NpcContainer trader)
+        {
+            if (_gameStateService.Dialogs.IsInDialog && trader.Props != null)
                 trader.Props.AnimationQueue.Enqueue(new StartProcessInfos(
                     new AnimationAction(int0: _returnInformation), trader));
         }
