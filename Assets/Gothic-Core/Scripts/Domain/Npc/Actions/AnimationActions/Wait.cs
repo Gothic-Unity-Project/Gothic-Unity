@@ -22,5 +22,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             return _waitSeconds <= 0f;
         }
+
+        public override bool HasEnded => _waitSeconds <= 0f;
     }
 }

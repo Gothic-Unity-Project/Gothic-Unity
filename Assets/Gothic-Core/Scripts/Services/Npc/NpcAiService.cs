@@ -283,6 +283,33 @@ namespace Gothic.Core.Services.Npc
             container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
         }
 
+        /// <summary>
+        /// AI_WaitTillEnd(self, other): self goes on once other has done what it was given so far (trialogues: one NPC
+        /// answers after the other finished his line).
+        /// </summary>
+        public void ExtAiWaitTillEnd(NpcInstance npc, NpcInstance other)
+        {
+            var self = npc.GetUserData();
+            var otherContainer = other.GetUserData();
+            if (self == null || otherContainer == null)
+            {
+                Logger.LogWarning($"[NpcAi] AI_WaitTillEnd: {(self == null ? "self" : "other")} is no NPC - no wait.",
+                    LogCat.Ai);
+                return;
+            }
+
+            self.Props.AnimationQueue.Enqueue(new WaitTillEnd(new AnimationAction(instance0: other), self,
+                otherContainer));
+        }
+
+        /// <summary>
+        /// AI_AimAt: the NPC turns to the target. The aiming pose of the drawn bow isn't played yet.
+        /// </summary>
+        public void ExtAiAimAt(NpcInstance npc, NpcInstance target)
+        {
+            ExtAiTurnToNpc(npc, target);
+        }
+
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
         {
             if (other == null)

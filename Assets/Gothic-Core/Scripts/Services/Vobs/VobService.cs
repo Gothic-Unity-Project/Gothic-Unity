@@ -475,6 +475,33 @@ namespace Gothic.Core.Services.Vobs
             _saveGameService.AddVobToWorld(container.Vob);
         }
 
+        /// <summary>
+        /// Wld_InsertObject(visual, point): a plain mob (oCMOB) with that visual at a waypoint or free point.
+        /// </summary>
+        public void ExtWldInsertObject(string visual, string spawnPoint)
+        {
+            var wp = string.IsNullOrEmpty(spawnPoint) ? null : _wayNetService.GetWayNetPoint(spawnPoint);
+            if (string.IsNullOrEmpty(visual) || wp == null)
+            {
+                Logger.LogWarning($"[VobService] Wld_InsertObject({visual}, {spawnPoint}): no visual or no such " +
+                                  "point - nothing inserted.", LogCat.Vob);
+                return;
+            }
+
+            var vob = new MovableObject
+            {
+                Name = visual,
+                Position = wp.Position.ToZkVector(),
+                Rotation = wp.Rotation.ToZkMatrix(),
+                Visual = new VisualMesh { Name = visual },
+                ShowVisual = true
+            };
+
+            var container = CreateContainerWithLoader(vob);
+            _vobMeshCullingService.AddCullingEntry(container);
+            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+        }
+
         [CanBeNull]
         public GameObject GetNearestSlot(GameObject go, Vector3 position)
         {
