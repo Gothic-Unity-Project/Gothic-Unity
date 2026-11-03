@@ -127,6 +127,8 @@ namespace Gothic.Core.Services.Vobs
         {
             PreCreateWorldVobs(vobs, root, loading);
             await CreateWorldVobs(config, loading, vobs);
+            // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
+            loading.FinalizePhase();
 
             // Ensure all Vob skeletons are created.
             await Task.Yield();
@@ -176,11 +178,11 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
-        /// Whether a VOB within radius of center still waits for its lazy initialization.
+        /// How many VOBs within radius of center still wait for their lazy initialization.
         /// </summary>
-        public bool HasQueuedVobWithin(Vector3 center, float radius)
+        public int CountQueuedVobsWithin(Vector3 center, float radius)
         {
-            return _objectsToInitQueue.HasEntryWithin(center, radius);
+            return _objectsToInitQueue.CountWithin(center, radius);
         }
 
         /// <summary>

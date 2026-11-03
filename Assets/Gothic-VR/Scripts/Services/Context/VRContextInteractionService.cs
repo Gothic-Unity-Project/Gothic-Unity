@@ -348,13 +348,24 @@ namespace Gothic.VR.Services.Context
             _rig.Teleport(position, rotation);
         }
 
-        public void SetViewHidden(bool isHidden)
+        public void SetViewHidden(bool isHidden, GameObject visibleUi = null)
         {
             if (_rig == null)
             {
                 var action = isHidden ? "hide" : "show";
                 Logger.LogWarning($"[VRContextInteractionService] No VR rig to {action} the view.", LogCat.Loading);
                 return;
+            }
+
+            // The fade covers everything but on-top UI. visibleUi goes on top like the game menu.
+            if (isHidden && visibleUi != null)
+            {
+                var menuOnTop = _player.MenuHandler.GetComponentInChildren<VRUiOnTop>(true);
+                if (menuOnTop != null)
+                    menuOnTop.ApplyTo(visibleUi);
+                else
+                    Logger.LogWarning($"[VRContextInteractionService] No on-top UI on the menu, {visibleUi.name} " +
+                                      "is hidden with the view.", LogCat.Loading);
             }
 
             _rig.Fade(isHidden ? 1f : 0f, isHidden ? float.MaxValue : _viewFadeInSpeed);

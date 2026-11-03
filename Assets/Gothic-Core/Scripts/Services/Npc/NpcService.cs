@@ -88,11 +88,11 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Whether an NPC within radius of center still waits for its lazy initialization.
+        /// How many NPCs within radius of center still wait for their lazy initialization.
         /// </summary>
-        public bool HasQueuedNpcWithin(Vector3 center, float radius)
+        public int CountQueuedNpcsWithin(Vector3 center, float radius)
         {
-            return _objectsToInitQueue.HasEntryWithin(center, radius);
+            return _objectsToInitQueue.CountWithin(center, radius);
         }
 
         /// <summary>

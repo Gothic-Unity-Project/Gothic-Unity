@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Extensions;
+using JetBrains.Annotations;
+using UnityEngine;
 
 namespace Gothic.Core.Manager
 {
@@ -16,6 +18,12 @@ namespace Gothic.Core.Manager
         private bool _isInitialized;
         // Recalculate and update loading bar next frame if something changed. Do not recalculate with every Tick() (for sake of performance)
         private bool _isDirty;
+
+        /// <summary>
+        /// Loading screen (picture and bar) of the running loading. null if nothing is loading.
+        /// </summary>
+        [CanBeNull]
+        public AbstractLoadingBarHandler LoadingScreen => _isInitialized ? _loadingBarHandler : null;
 
         public void Update()
         {
@@ -77,8 +85,25 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void Tick()
         {
+            // No phase set (e.g. finalized already): a missing step on the bar isn't worth aborting a world load.
+            if (_currentType == null)
+                return;
+
             _progressByType[_currentType] += _currentProgressPerElement;
             _isDirty = true; // Recalculate and render ProgressBar update next frame.
+        }
+
+        /// <summary>
+        /// Sets the progress of the current phase (0 - 1) directly. For phases whose amount of elements isn't known
+        /// up front, e.g. the objects around the spawn point, which culling queues while they are built.
+        /// </summary>
+        public void SetPhaseProgress(float progress)
+        {
+            if (!_isInitialized || _currentType == null || !_progressByType.ContainsKey(_currentType))
+                return;
+
+            _progressByType[_currentType] = Mathf.Clamp01(progress);
+            _isDirty = true;
         }
 
         /// <summary>
