@@ -464,7 +464,7 @@ namespace Gothic.Core.Services.Vobs
                 return 0;
             }
 
-            return UnpackItems(container.VobAs<IContainer>().Contents)
+            return container.VobAs<IContainer>().Contents.UnpackItems()
                 .Where(i => i.Name.EqualsIgnoreCase(itemName))
                 .Sum(i => i.Amount);
         }
