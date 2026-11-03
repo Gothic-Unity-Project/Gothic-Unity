@@ -42,17 +42,17 @@ namespace Gothic.Core.Services.World
         /// <summary>
         /// Waits until the queued VOBs and NPCs around center are built. Only the loading screen is visible
         /// meanwhile, its bar (loadingPhase) shows how many of them are built. So the queues may use long frames
-        /// (FrameSkipperService.IsViewHidden). With half a frame per frame (the default), a crowded place like the Old
-        /// Camp popped in over several seconds.
+        /// (FrameSkipperService.UseLoadingBudget). With half a frame per frame (the default), a crowded place like
+        /// the Old Camp popped in over several seconds.
         /// </summary>
         public async Task BuildAround(Vector3 center, string loadingPhase)
         {
             var watch = Stopwatch.StartNew();
             _loadingService.SetPhase(loadingPhase, 1);
-            _frameSkipperService.IsViewHidden = true;
             var lazyInitQueues = new ILazyInitQueue[] { _vobService, _npcService };
             foreach (var queue in lazyInitQueues)
                 queue.SetInitFocus(center, _surroundingsRadius);
+            using var loadingBudget = _frameSkipperService.UseLoadingBudget();
             try
             {
                 // The VR rig applies a teleport in its next update, so the camera is still at the loading screen
@@ -87,7 +87,6 @@ namespace Gothic.Core.Services.World
             }
             finally
             {
-                _frameSkipperService.IsViewHidden = false;
                 foreach (var queue in lazyInitQueues)
                     queue.ClearInitFocus();
                 _loadingService.FinalizePhase();
