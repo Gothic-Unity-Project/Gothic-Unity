@@ -96,7 +96,7 @@ namespace Gothic.Core.Services.Player
             if (removeCulling)
                 _vobMeshCullingService.RemoveCullingEntry(item);
 
-            _saveGameService.CurrentWorldData.Vobs.Remove(item.Vob);
+            _saveGameService.RemoveVobFromWorld(item.Vob);
             AddItem(item);
         }
 
@@ -107,11 +107,7 @@ namespace Gothic.Core.Services.Player
         public void DropItem(VobContainer item, bool addCulling = false, bool keepOutOfWorld = false)
         {
             if (!keepOutOfWorld)
-            {
-                var worldVobs = _saveGameService.CurrentWorldData.Vobs;
-                if (!worldVobs.Contains(item.Vob))
-                    worldVobs.Add(item.Vob);
-            }
+                _saveGameService.AddVobToWorld(item.Vob);
 
             if (addCulling)
                 _vobMeshCullingService.AddCullingEntry(item);

@@ -4,7 +4,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
@@ -15,7 +14,6 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly VobService _vobService;
 
         
         public void ExtEquipItem(NpcInstance npc, int itemId)
@@ -31,7 +29,7 @@ namespace Gothic.Core.Services.Npc
             // FIXME - Does it make sense? It would mean we never add an item if we loaded a SaveGame...
             // We also initialize NPCs inside Daedalus when we load a save game. It's needed as some data isn't stored on save games.
             // But e.g., inventory items will be skipped as they are stored inside save game VOBs.
-            // if (!_saveGameService.IsWorldLoadedForTheFirstTime)
+            // if (!_saveGameService.IsWorldEnteredFirstTime)
             //     return;
 
             if (npc.GetUserData() == null)
@@ -47,7 +45,7 @@ namespace Gothic.Core.Services.Npc
             var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
-            var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
+            var items = vob.GetPacked((int)inventoryCat).UnpackItems();
             var itemFound = false;
             
             for (var i = 0; i < items.Count; i++)
@@ -63,7 +61,7 @@ namespace Gothic.Core.Services.Npc
             if (!itemFound)
                 items.Add(new ContentItem(itemInstance.Name, amount));
 
-            vob.SetPacked((int)inventoryCat, _vobService.PackItems(items));
+            vob.SetPacked((int)inventoryCat, items.PackItems());
         }
 
         public void ExtRemoveInvItems(NpcInstance npc, int itemIndex, int amount)
@@ -80,7 +78,7 @@ namespace Gothic.Core.Services.Npc
             var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
-            var items = _vobService.UnpackItems(vob.GetPacked((int)inventoryCat));
+            var items = vob.GetPacked((int)inventoryCat).UnpackItems();
             var itemFound = false;
             
             for (var i = 0; i < items.Count; i++)
@@ -102,13 +100,13 @@ namespace Gothic.Core.Services.Npc
             if (!itemFound)
                 return;
 
-            vob.SetPacked((int)inventoryCat, _vobService.PackItems(items));
+            vob.SetPacked((int)inventoryCat, items.PackItems());
         }
 
         public List<ContentItem> GetInventoryItems(NpcInstance npc, VmGothicEnums.InvCats category)
         {
             var npcVob = npc.GetUserData()!.Vob;
-            return _vobService.UnpackItems(npcVob.GetPacked((int)category));
+            return npcVob.GetPacked((int)category).UnpackItems();
         }
 
         /// <summary>

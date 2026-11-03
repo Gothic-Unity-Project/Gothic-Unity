@@ -28,7 +28,7 @@ namespace Gothic.Core.Services.Npc
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __)
         {
-            if (target.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (target.Props.IsDead)
                 return;
 
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);

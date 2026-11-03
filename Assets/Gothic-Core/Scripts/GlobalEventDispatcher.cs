@@ -41,7 +41,14 @@ namespace Gothic.Core
         public static readonly UnityEvent GothicInisInitialized = new();
         public static readonly UnityEvent<string, object> PlayerPrefUpdated = new();
         
+        // The running game is replaced (new game or loaded save). VM, hero and world still exist. Called before
+        // LoadGameStart, which creates the new VM.
+        public static readonly UnityEvent UnloadGameStart = new();
         public static readonly UnityEvent LoadGameStart = new();
+
+        // The current world's runtime state is stored into its world data: before a save game is written (true) and
+        // before we leave the world (false). E.g. VR decides which items are part of the world or inventory.
+        public static readonly UnityEvent<bool> StoreWorldStateStart = new();
         
         
         public static readonly UnityEvent<NpcContainer, NpcLoader, bool, bool> NpcMeshCullingChanged = new();
@@ -123,6 +130,14 @@ namespace Gothic.Core
         // the slot's content (backpack on the shoulder, holstered item). Raised by VrBodySlot.
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> BodySlotReached = new();
+
+        // Ledge climbing (VR): a hand came into touch range of a climbable lip (VrLedgeReach, hints not Off).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeTouched = new();
+
+        // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeClimbRefused = new();
 
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
