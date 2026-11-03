@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
@@ -40,6 +41,7 @@ namespace Gothic.Core.Adapters.Npc
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
+        private readonly HashSet<Type> _failedActionTypes = new();
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
         private const string _deadStateAnimation = "S_DeadB";
@@ -80,9 +82,9 @@ namespace Gothic.Core.Adapters.Npc
             // enqueued by FightService), then stop any further process logic.
             if (Properties.IsDead)
             {
-                Properties.CurrentAction.Tick();
+                TickCurrentAction();
 
-                if (Properties.CurrentAction.IsFinished())
+                if (IsCurrentActionFinished())
                 {
                     if (Properties.AnimationQueue.Count > 0)
                         PlayNextAnimation(Properties.AnimationQueue.Dequeue());
@@ -96,7 +98,7 @@ namespace Gothic.Core.Adapters.Npc
             ExecuteActivePerceptions();
             ExecuteStates();
 
-            Properties.CurrentAction.Tick();
+            TickCurrentAction();
 
             // Add new milliseconds when stateTime shall be measured.
             if (Properties.IsStateTimeActive && Properties.CurrentLoopState == NpcProperties.LoopState.Loop)
@@ -105,7 +107,7 @@ namespace Gothic.Core.Adapters.Npc
             }
 
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
-            if (!Properties.CurrentAction.IsFinished())
+            if (!IsCurrentActionFinished())
             {
                 return;
             }
@@ -381,7 +383,54 @@ namespace Gothic.Core.Adapters.Npc
         private void PlayNextAnimation(AbstractAnimationAction action)
         {
             Properties.CurrentAction = action;
-            action.Start();
+            try
+            {
+                action.Start();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private void TickCurrentAction()
+        {
+            try
+            {
+                Properties.CurrentAction.Tick();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private bool IsCurrentActionFinished()
+        {
+            try
+            {
+                return Properties.CurrentAction.IsFinished();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// An action that threw can't finish on its own - it threw again every frame and the NPC hung in it (an orc
+        /// frozen in his dialog line). It counts as done, the NPC goes on with the next one. Logged once per action
+        /// type and NPC.
+        /// </summary>
+        private void SkipFailedAction(Exception e)
+        {
+            var actionType = Properties.CurrentAction.GetType();
+            if (_failedActionTypes.Add(actionType))
+                Logger.LogError($"{actionType.Name} of {Go.transform.parent?.name} threw - skipped. Later " +
+                                $"failures of this action on this NPC are not logged. {e}", LogCat.Ai);
+
+            Properties.CurrentAction = new None(new AnimationAction(), NpcData);
         }
 
         /// <summary>

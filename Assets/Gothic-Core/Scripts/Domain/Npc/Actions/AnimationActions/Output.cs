@@ -186,6 +186,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
+                // Asked again every frame until the next action starts - the line ends only once.
+                IsFinishedFlag = true;
                 return true;
             }
 
