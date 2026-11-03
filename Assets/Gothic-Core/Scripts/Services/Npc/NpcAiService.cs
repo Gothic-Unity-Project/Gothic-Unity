@@ -22,7 +22,6 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly WayNetService _wayNetService;
 
         // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
