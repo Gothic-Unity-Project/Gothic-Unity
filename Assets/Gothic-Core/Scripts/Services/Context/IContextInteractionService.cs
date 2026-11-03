@@ -1,4 +1,5 @@
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using UnityEngine;
 
 namespace Gothic.Core.Services.Context
@@ -9,12 +10,22 @@ namespace Gothic.Core.Services.Context
         float GetFrameRate();
         void SetupPlayerController(DeveloperConfig developerConfig);
         GameObject GetCurrentPlayerController();
-        void LockPlayerInPlace();
-        void UnlockPlayer();
+        /// <summary>
+        /// Blocks these player controls, the others are free. ContextInteractionService combines the locks of all
+        /// owners (LockPlayer(), UnlockPlayer()) and passes the result on.
+        /// </summary>
+        void SetBlockedControls(PlayerControls blockedControls);
         void SetWalkingControls();
         void SetSwimmingControls();
         void SetDivingControls();
         void TeleportPlayerTo(Vector3 position, Quaternion rotation = default);
+
+        /// <summary>
+        /// Hides the view (black at once) or shows it again (short fade in), e.g. while the world around the player
+        /// is still built after loading.
+        /// </summary>
+        /// <param name="visibleUi">UI which stays visible on the hidden view, e.g. the loading screen.</param>
+        void SetViewHidden(bool isHidden, GameObject visibleUi = null);
 
         /// <summary>
         /// Holds the player horizontally inside the circle around center. Between softRadius and radius, movement

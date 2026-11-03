@@ -18,5 +18,7 @@ namespace Gothic.G1
 
         // FIXME - Load from GothicGame.ini
         public string InitialWorld => "world.zen";
+
+        public bool PrefersCompiledModelScript => false;
     }
 }

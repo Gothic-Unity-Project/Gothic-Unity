@@ -34,15 +34,15 @@ namespace Gothic.Core.Adapters.Scenes
                 // We need to invoke this event, even when we skip MainMenu (for event listeners, main menu is 'loaded')
                 GlobalEventDispatcher.MainMenuSceneLoaded.Invoke();
 
-                if (_configService.Dev.LoadFromSaveSlot)
+                var saveId = (SaveGameService.SlotId)_configService.Dev.SaveSlotToLoad;
+                var save = _configService.Dev.LoadFromSaveSlot ? _saveGameService.GetSaveGame(saveId) : null;
+                if (save != null)
                 {
-                    var saveId = (SaveGameService.SlotId)_configService.Dev.SaveSlotToLoad;
-                    var save = _saveGameService.GetSaveGame(saveId);
                     _bootstrapService.LoadWorld(save.Metadata.World, saveId, Constants.SceneMainMenu);
                 }
                 else
                 {
-                    // Load New game at certain world
+                    // Load New game at certain world (also if the save slot to load can't be read)
                     _bootstrapService.LoadWorld(GetWorldNameToSpawn(), 0, Constants.SceneMainMenu);
                 }
                 return;

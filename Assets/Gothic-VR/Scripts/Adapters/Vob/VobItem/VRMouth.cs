@@ -9,6 +9,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
@@ -30,6 +31,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         
         // Do not eat them twice during destroy time.
@@ -63,7 +65,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // Only use the VobLoader root if it belongs to this specific item (not a parent chest/container).
             if (vobLoaderComp != null && vobLoaderComp.Container.Vob.Type == VirtualObjectType.oCItem)
+            {
                 rootGo = vobLoaderComp.gameObject;
+
+                // An eaten item lying in the world must not come back with the next save game.
+                _saveGameService.RemoveVobFromWorld(vobLoaderComp.Container.Vob);
+            }
 
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime));
         }

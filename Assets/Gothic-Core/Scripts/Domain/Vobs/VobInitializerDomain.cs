@@ -46,6 +46,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         /// <summary>
@@ -56,7 +57,9 @@ namespace Gothic.Core.Domain.Vobs
         ///                       and Lights could be sub-VOBs inside fire, we need to find the index from WorldPosition calculated at
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
         /// </summary>
-        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob)
+        /// <param name="parentVob">The ZenKit parent of a child VOB of the world.</param>
+        public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            IVirtualObject parentVob = null)
         {
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
             GameObject go = null;
@@ -243,11 +246,11 @@ namespace Gothic.Core.Domain.Vobs
                 return;
 
             if (!isRootVob)
-                EnsureOwnVobLoader(vob, go);
+                EnsureOwnVobLoader(vob, go, parentVob);
 
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false);
+                InitVob(childVob, go, worldPosition, false, vob);
             }
         }
 
@@ -486,9 +489,10 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateMover(IMover vob, GameObject parent)
         {
-            // Each mover starts "Closed", when game boots. (At least for a new game.)
-            // TODO - We need to check if it's the case for a loaded game
-            vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
+            // Each mover starts "Closed" in a world entered for the first time. A save game (or a world we left)
+            // keeps its state, e.g. a move in progress (MoverAdapter).
+            if (_saveGameService.IsWorldEnteredFirstTime)
+                vob.MoverState = (int)VmGothicEnums.MoverState.Closed;
 
             var go = CreateDefaultMesh(vob, parent);
 
@@ -835,39 +839,59 @@ namespace Gothic.Core.Domain.Vobs
         /// GetComponentInParent&lt;VobLoader&gt;() and got the PARENT's vob (often an unnamed zCVob) -
         /// InvalidCastExceptions, "No door or container found for ><", doors/chests that don't work (G2 Xardas' tower).
         /// </summary>
-        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go)
+        private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
-            if (vob is not (IInteractiveObject or IItem) && !IsNamedVobType(vob.Type))
+            if (vob is not (IInteractiveObject or IItem) && !vob.Type.IsLookedUpByName())
                 return;
 
             var loader = go.GetComponentInParent<VobLoader>();
             if (loader != null && loader.Container?.Vob == vob)
                 return;
 
-            AddOwnVobLoader(vob, go);
-            // Movers and triggers are looked up by name (Wld_SendTrigger, chained targets), child VOBs included.
-            if (IsNamedVobType(vob.Type))
+            AddOwnVobLoader(vob, go, parentVob);
+            // Movers, triggers and chests are looked up by name (Wld_SendTrigger, chained targets, Mob_HasItems),
+            // child VOBs included.
+            if (vob.Type.IsLookedUpByName())
                 _gameStateService.RegisterNamedVob(go.GetComponent<VobLoader>().Container);
             Logger.Log($"[ChildVob] '{vob.Name}' ({vob.Type}) under '{loader?.Container?.Vob?.Name}' got its own " +
                        "VobLoader.", LogCat.Vob);
         }
 
-        private static bool IsNamedVobType(VirtualObjectType type)
-        {
-            return type is VirtualObjectType.zCMover or VirtualObjectType.oCTriggerScript
-                or VirtualObjectType.zCTriggerList or VirtualObjectType.zCCodeMaster
-                or VirtualObjectType.zCTrigger or VirtualObjectType.zCMoverController
-                or VirtualObjectType.zCMessageFilter;
-        }
-
-        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go)
+        private static void AddOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
             var ownLoader = go.AddComponent<VobLoader>();
-            ownLoader.Container = new VobContainer(vob) { Go = go };
+            ownLoader.Container = new VobContainer(vob) { Go = go, ParentVob = parentVob };
             ownLoader.IsLoaded = true;
         }
 
         private GameObject CreateDefaultMesh(IVirtualObject vob, GameObject parent)
+        {
+            var go = BuildDefaultMesh(vob, parent);
+            if (go != null && !vob.ShowVisual)
+                HideVisual(vob, go);
+
+            return go;
+        }
+
+        /// <summary>
+        /// showVisual=FALSE (Spacer): like in the engine (OpenGothic ObjVisual::setVisual) the mesh isn't drawn and a
+        /// plain vob doesn't collide. Mods place such vobs as interaction anchors on world geometry (DoM: ore piles,
+        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes. The
+        /// renderers stay enabled, only drawing is off, so their bounds still work (focus, dig spots).
+        /// </summary>
+        private static void HideVisual(IVirtualObject vob, GameObject go)
+        {
+            foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
+                renderer.forceRenderingOff = true;
+
+            if (vob is IInteractiveObject)
+                return;
+
+            foreach (var collider in go.GetComponentsInChildren<Collider>(true))
+                collider.enabled = false;
+        }
+
+        private GameObject BuildDefaultMesh(IVirtualObject vob, GameObject parent)
         {
             var go = GetPrefab(vob);
             var meshName = vob.GetVisualName();
@@ -884,7 +908,8 @@ namespace Gothic.Core.Domain.Vobs
             if (mdl != null)
             {
                 // G2's treasure X marks (TREASURE_ADDON_01) are a color-only mesh without texture. MeshService skips
-                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs to be visible and diggable.
+                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs its mesh to be diggable. Where the
+                // world hides it (showVisual=FALSE, Newworld's spots) it isn't drawn, like in the original.
                 var isDigSpot = _vmCacheService.IsDigSpot(vob);
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
                     useTextureArray: !isDigSpot, allowUntextured: isDigSpot);

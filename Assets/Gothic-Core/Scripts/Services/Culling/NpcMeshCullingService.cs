@@ -48,6 +48,11 @@ namespace Gothic.Core.Services.Culling
             _npcDomain.UpdateVobPositionOfVisibleNpcs();
         }
 
+        public void UpdateVobPositionOfAllNpcs()
+        {
+            _npcDomain.UpdateVobPositionOfAllNpcs();
+        }
+
         public List<NpcContainer> GetVisibleNpcs()
         {
             return _npcDomain.GetVisibleNpcs();

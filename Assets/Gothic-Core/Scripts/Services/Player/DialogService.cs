@@ -9,6 +9,7 @@ using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
@@ -61,6 +62,25 @@ namespace Gothic.Core.Manager
         /// </summary>
         public bool SkipNextOutput;
         
+        public void Init()
+        {
+            GlobalEventDispatcher.UnloadGameStart.AddListener(StopDialogOnUnloadGame);
+        }
+
+        /// <summary>
+        /// Loading a game (or starting a new one) while talking: the dialog partner is destroyed with the world.
+        /// The dialog needs to end before, otherwise its coroutines access the destroyed NPC.
+        /// </summary>
+        private void StopDialogOnUnloadGame()
+        {
+            var dialogNpc = _gameStateService.Dialogs.CurrentDialogNpc;
+            if (!_gameStateService.Dialogs.IsInDialog || dialogNpc == null)
+                return;
+
+            Logger.Log("[Dialog] A game is loaded - closing the active dialog.", LogCat.Dialog);
+            StopDialog(dialogNpc);
+        }
+
         /// <summary>
         /// Check if NPC has at least one dialog which isn't told and Hero should know about.
         /// important
@@ -133,8 +153,7 @@ namespace Gothic.Core.Manager
             }
             else
             {
-                // WIP: locking movement
-                _contextInteractionService.LockPlayerInPlace();
+                _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.InPlace);
             }
 
             // We are already inside a sub-dialog
@@ -492,8 +511,7 @@ namespace Gothic.Core.Manager
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
 
-            // WIP: unlocking movement
-            _contextInteractionService.UnlockPlayer();
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Dialog);
 
             _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();
