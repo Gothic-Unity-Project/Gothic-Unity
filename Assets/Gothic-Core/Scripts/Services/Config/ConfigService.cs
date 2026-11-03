@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Gothic.Core.Domain.Config;
 using Gothic.Core.Logging;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Config;
 using MyBox;
 using ZenKit;
@@ -276,9 +277,13 @@ namespace Gothic.Core.Services.Config
         {
             var baseRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
             var rootPath = EffectiveModPath ?? baseRootPath;
-            var gothicIniPath = Path.Combine(baseRootPath, "system/Gothic.ini");
+            // In any case (Linux: an installation may have System/ or GOTHIC.INI). A missing one keeps its expected
+            // path for the error.
+            var gothicIniPath = PathExtension.FindIgnoringCase(baseRootPath, "system/Gothic.ini") ??
+                                Path.Combine(baseRootPath, "system/Gothic.ini");
 
-            var gothicModIniPath = Path.Combine(rootPath, "system", EffectiveModIniFileName);
+            var gothicModIniPath = PathExtension.FindIgnoringCase(rootPath, "system", EffectiveModIniFileName) ??
+                                   Path.Combine(rootPath, "system", EffectiveModIniFileName);
 
             Gothic = new GothicIniConfig(IniLoader.LoadFile(gothicIniPath), gothicIniPath);
             GothicMod = new GothicModIniConfig(IniLoader.LoadFile(gothicModIniPath), gothicModIniPath);
@@ -292,7 +297,8 @@ namespace Gothic.Core.Services.Config
         public bool CheckIfGothicInstallationExists(GameVersion version)
         {
             var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
-            return Directory.Exists($"{rootPath}/_work") && Directory.Exists($"{rootPath}/Data");
+            return PathExtension.FindIgnoringCase(rootPath, "_work") != null &&
+                   PathExtension.FindIgnoringCase(rootPath, "Data") != null;
         }
     }
 }

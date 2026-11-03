@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
@@ -59,6 +60,10 @@ namespace Gothic.Core.Services
         // [zCMessageFilter] keyed by VOB Name — converts OnTrigger/OnUntrigger to another action on its Target
         public readonly Dictionary<string, VobContainer> VobsMessageFilter = new();
 
+        // [oCMobContainer] keyed by VOB Name — chests asked by Mob_HasItems. Like the engine, the first one of a
+        // name counts.
+        public readonly Dictionary<string, VobContainer> VobsContainer = new();
+
         public int GuildHumanCount;
         public int GuildCount;
         public int[] GuildAttitudes;
@@ -88,46 +93,50 @@ namespace Gothic.Core.Services
             WayPoints.Clear();
             FreePoints.Clear();
             VobsInteractable.Clear();
-            ClearTriggerVobs();
+            ClearNamedVobs();
 
             Dialogs.Dispose();
         }
 
         /// <summary>
-        /// Registers movers and trigger VOBs (root and child VOBs alike) in their by-name lookups.
+        /// Registers movers, trigger VOBs and chests (root and child VOBs alike) in their by-name lookups.
         /// Does nothing for other VOB types or empty names.
         /// </summary>
         public void RegisterNamedVob(VobContainer container)
         {
             var name = container.Vob.Name;
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name) || !container.Vob.Type.IsLookedUpByName())
                 return;
 
             switch (container.Vob.Type)
             {
                 case VirtualObjectType.zCMover:
-                    var moverKey = name.ToUpper();
+                    var moverKey = name.ToUpperInvariant();
                     if (!VobsMover.TryGetValue(moverKey, out var moverList))
                         VobsMover[moverKey] = moverList = new();
                     moverList.Add(container);
                     return;
+                case VirtualObjectType.oCMobContainer:
+                    // Hundreds per world - not logged.
+                    VobsContainer.TryAdd(name.ToUpperInvariant(), container);
+                    return;
                 case VirtualObjectType.oCTriggerScript:
-                    VobsTriggerScript[name.ToUpper()] = container;
+                    VobsTriggerScript[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCTriggerList:
-                    VobsTriggerList[name.ToUpper()] = container;
+                    VobsTriggerList[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCCodeMaster:
-                    VobsCodeMaster[name.ToUpper()] = container;
+                    VobsCodeMaster[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCTrigger:
-                    VobsTrigger[name.ToUpper()] = container;
+                    VobsTrigger[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCMoverController:
-                    VobsMoverController[name.ToUpper()] = container;
+                    VobsMoverController[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCMessageFilter:
-                    VobsMessageFilter[name.ToUpper()] = container;
+                    VobsMessageFilter[name.ToUpperInvariant()] = container;
                     break;
                 default:
                     return;
@@ -137,9 +146,9 @@ namespace Gothic.Core.Services
         }
 
         /// <summary>
-        /// Movers and trigger VOBs are looked up by name - none of them may survive a world change.
+        /// Movers, trigger VOBs and chests are looked up by name - none of them may survive a world change.
         /// </summary>
-        public void ClearTriggerVobs()
+        public void ClearNamedVobs()
         {
             VobsMover.Clear();
             VobsTriggerScript.Clear();
@@ -148,6 +157,7 @@ namespace Gothic.Core.Services
             VobsTrigger.Clear();
             VobsMoverController.Clear();
             VobsMessageFilter.Clear();
+            VobsContainer.Clear();
         }
     }
 }

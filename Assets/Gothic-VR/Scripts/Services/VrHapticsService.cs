@@ -1,3 +1,4 @@
+using System;
 using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -11,8 +12,10 @@ namespace Gothic.VR.Services
 {
     /// <summary>
     /// Decides which game event vibrates which hand with which preset. The vibration itself is done by IVrHaptics.
+    /// Lives in the VR scene scope: Reflex disposes it with the scene, which removes the listeners from the static
+    /// events. Otherwise a reloaded VR scene would vibrate twice.
     /// </summary>
-    public class VrHapticsService
+    public class VrHapticsService : IDisposable
     {
         // Contact haptics: impact speed (m/s) for the weakest and the strongest pulse.
         private const float _contactMinSpeed = 0.3f;
@@ -22,6 +25,9 @@ namespace Gothic.VR.Services
         // Body slots: a hand doesn't tick again this soon, e.g. at the item it just put in.
         private const float _bodySlotMinInterval = 0.4f;
 
+        // Ledge climbing: the tick when a hand comes within touch range of a lip.
+        private const float _ledgeTouchAmplitude = 0.3f;
+
         private readonly float[] _lastBodySlotTimes = { float.NegativeInfinity, float.NegativeInfinity };
 
         [Inject] private readonly IVrHaptics _vrHaptics;
@@ -30,30 +36,73 @@ namespace Gothic.VR.Services
         public VrHapticsService()
         {
             // Fight
-            GlobalEventDispatcher.FightWindowAttack.AddListener(combatant =>
-                AttackVibration(combatant, VrHapticPreset.Success)); // Attack can happen now
-            GlobalEventDispatcher.FightWindowCombo.AddListener(combatant =>
-                AttackVibration(combatant, VrHapticPreset.Info)); // Now you can start another attack
-            GlobalEventDispatcher.FightWindowComboFailed.AddListener(combatant =>
-                AttackVibration(combatant, VrHapticPreset.Error)); // Attack window passed
+            GlobalEventDispatcher.FightWindowAttack.AddListener(OnFightWindowAttack);
+            GlobalEventDispatcher.FightWindowCombo.AddListener(OnFightWindowCombo);
+            GlobalEventDispatcher.FightWindowComboFailed.AddListener(OnFightWindowComboFailed);
 
             // Lock picking
-            GlobalEventDispatcher.LockPickComboWrong.AddListener((_, _, handSide) =>
-                Vibrate((VrHandSide)handSide, VrHapticPreset.Warning));
-            GlobalEventDispatcher.LockPickComboBroken.AddListener((_, _, handSide) =>
-                Vibrate((VrHandSide)handSide, VrHapticPreset.Error));
-            GlobalEventDispatcher.LockPickComboCorrect.AddListener((_, _, handSide) =>
-                Vibrate((VrHandSide)handSide, VrHapticPreset.Success));
-            GlobalEventDispatcher.LockPickComboFinished.AddListener((_, _, handSide) =>
-                Vibrate((VrHandSide)handSide, VrHapticPreset.Success));
+            GlobalEventDispatcher.LockPickComboWrong.AddListener(OnLockPickComboWrong);
+            GlobalEventDispatcher.LockPickComboBroken.AddListener(OnLockPickComboBroken);
+            GlobalEventDispatcher.LockPickComboCorrect.AddListener(OnLockPickComboSucceeded);
+            GlobalEventDispatcher.LockPickComboFinished.AddListener(OnLockPickComboSucceeded);
 
             // Physical hands
-            GlobalEventDispatcher.PhysicalHandContact.AddListener((handSide, speed) =>
-                ContactVibration((VrHandSide)handSide, speed));
+            GlobalEventDispatcher.PhysicalHandContact.AddListener(OnPhysicalHandContact);
 
             // Body slots
-            GlobalEventDispatcher.BodySlotReached.AddListener(handSide => BodySlotVibration((VrHandSide)handSide));
+            GlobalEventDispatcher.BodySlotReached.AddListener(OnBodySlotReached);
+
+            // Ledge climbing
+            GlobalEventDispatcher.LedgeTouched.AddListener(OnLedgeTouched);
+            GlobalEventDispatcher.LedgeClimbRefused.AddListener(OnLedgeClimbRefused);
         }
+
+        public void Dispose()
+        {
+            GlobalEventDispatcher.FightWindowAttack.RemoveListener(OnFightWindowAttack);
+            GlobalEventDispatcher.FightWindowCombo.RemoveListener(OnFightWindowCombo);
+            GlobalEventDispatcher.FightWindowComboFailed.RemoveListener(OnFightWindowComboFailed);
+
+            GlobalEventDispatcher.LockPickComboWrong.RemoveListener(OnLockPickComboWrong);
+            GlobalEventDispatcher.LockPickComboBroken.RemoveListener(OnLockPickComboBroken);
+            GlobalEventDispatcher.LockPickComboCorrect.RemoveListener(OnLockPickComboSucceeded);
+            GlobalEventDispatcher.LockPickComboFinished.RemoveListener(OnLockPickComboSucceeded);
+
+            GlobalEventDispatcher.PhysicalHandContact.RemoveListener(OnPhysicalHandContact);
+
+            GlobalEventDispatcher.BodySlotReached.RemoveListener(OnBodySlotReached);
+
+            GlobalEventDispatcher.LedgeTouched.RemoveListener(OnLedgeTouched);
+            GlobalEventDispatcher.LedgeClimbRefused.RemoveListener(OnLedgeClimbRefused);
+        }
+
+        // Attack can happen now
+        private void OnFightWindowAttack(NpcContainer combatant) => AttackVibration(combatant, VrHapticPreset.Success);
+
+        // Now you can start another attack
+        private void OnFightWindowCombo(NpcContainer combatant) => AttackVibration(combatant, VrHapticPreset.Info);
+
+        // Attack window passed
+        private void OnFightWindowComboFailed(NpcContainer combatant) =>
+            AttackVibration(combatant, VrHapticPreset.Error);
+
+        private void OnLockPickComboWrong(VobContainer lockPick, VobContainer target, int handSide) =>
+            Vibrate((VrHandSide)handSide, VrHapticPreset.Warning);
+
+        private void OnLockPickComboBroken(VobContainer lockPick, VobContainer target, int handSide) =>
+            Vibrate((VrHandSide)handSide, VrHapticPreset.Error);
+
+        private void OnLockPickComboSucceeded(VobContainer lockPick, VobContainer target, int handSide) =>
+            Vibrate((VrHandSide)handSide, VrHapticPreset.Success);
+
+        private void OnPhysicalHandContact(int handSide, float speed) => ContactVibration((VrHandSide)handSide, speed);
+
+        private void OnBodySlotReached(int handSide) => BodySlotVibration((VrHandSide)handSide);
+
+        private void OnLedgeTouched(int handSide) =>
+            Vibrate((VrHandSide)handSide, VrHapticPreset.Contact, _ledgeTouchAmplitude);
+
+        private void OnLedgeClimbRefused(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Error);
 
         /// <summary>
         /// A hand reached a body slot it can use: the slots are behind the back or out of sight.
@@ -65,7 +114,7 @@ namespace Gothic.VR.Services
                 return;
 
             _lastBodySlotTimes[index] = Time.time;
-            _vrHaptics.Vibrate(handSide, VrHapticPreset.Touch);
+            Vibrate(handSide, VrHapticPreset.Touch);
         }
 
         /// <summary>
@@ -77,7 +126,7 @@ namespace Gothic.VR.Services
                 Mathf.InverseLerp(_contactMinSpeed, _contactMaxSpeed, speed));
             Logger.LogEditor($"[VrHapticsService] Contact {handSide}: {speed:0.00} m/s -> amplitude {amplitude:0.00}",
                 LogCat.VR);
-            _vrHaptics.Vibrate(handSide, VrHapticPreset.Contact, amplitude);
+            Vibrate(handSide, VrHapticPreset.Contact, amplitude);
         }
 
         private void AttackVibration(NpcContainer combatant, VrHapticPreset preset)
@@ -100,6 +149,11 @@ namespace Gothic.VR.Services
         public void Vibrate(VrHandSide handSide, VrHapticPreset preset)
         {
             _vrHaptics.Vibrate(handSide, preset);
+        }
+
+        public void Vibrate(VrHandSide handSide, VrHapticPreset preset, float amplitudeScale)
+        {
+            _vrHaptics.Vibrate(handSide, preset, amplitudeScale);
         }
     }
 }

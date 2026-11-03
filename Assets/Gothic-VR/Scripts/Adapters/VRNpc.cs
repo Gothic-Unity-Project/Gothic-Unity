@@ -80,9 +80,10 @@ namespace Gothic.VR.Adapters
                 args.Interactable.ForceRelease();
                 return;
             }
-            var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            // Like the engine (OpenGothic isDown), the dead and the knocked out can be robbed.
+            var isDown = NpcHelperService.IsDown(_npcData);
 
-            if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
+            if (isDown && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {
                 _npcLoot.Toggle(_npcData);
                 // Grabbing turns physics on (VRPlayerItemAdapter); release immediately and freeze the corpse.

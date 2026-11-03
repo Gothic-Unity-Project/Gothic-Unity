@@ -16,7 +16,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected override Quaternion GetRotationDirection()
         {
-            var direction = NpcGo.transform.position - Action.Instance0.GetUserData().Go.transform.position;
+            // The other one isn't in the world (culled, removed): keep facing the way the NPC faces.
+            var other = Action.Instance0?.GetUserData();
+            if (other?.Go == null)
+                return NpcGo.transform.rotation;
+
+            var direction = NpcGo.transform.position - other.Go.transform.position;
             direction.y = 0;
 
             return direction.sqrMagnitude > 0.0001f
