@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Gothic.Core.Logging;
@@ -70,6 +71,15 @@ namespace Gothic.Core.Extensions
         public static bool IsEmpty<T>(this IEnumerable<T> self)
         {
             return !self.Any();
+        }
+
+        /// <summary>
+        /// Gothic's name of a world: upper case, without folder and extension (AddonWorld\NewWorld.zen -> NEWWORLD).
+        /// Save games (ZenKit's world lookup is case-sensitive), STARTUP_*/INIT_* and loading screens use it.
+        /// </summary>
+        public static string ToGothicWorldName(this string worldFileName)
+        {
+            return Path.GetFileNameWithoutExtension(worldFileName.Replace('\\', '/')).ToUpperInvariant();
         }
 
         public static bool EqualsIgnoreCase(this string self, string other)
