@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -36,7 +37,7 @@ namespace Gothic.Core.Services.Npc
     /// <summary>
     /// Manage all NPC related calls a(Ext* engine calls and e.g. load Npcs at WorldSceneManager time)
     /// </summary>
-    public class NpcService
+    public class NpcService : ILazyInitQueue
     {
         public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
 
@@ -53,13 +54,14 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
 
 
-        private Queue<NpcLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
         private Queue<NpcContainer> _objectToReEnableQueue = new();
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
@@ -75,6 +77,8 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.LoadGameStart.AddListener(() =>
             {
                 ClearQueues();
+                // The new game's VM has its own dialogs (BootstrapDomain).
+                _ambientInfoByPrefix = null;
             });
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
@@ -87,17 +91,36 @@ namespace Gothic.Core.Services.Npc
             _objectToReEnableQueue.Clear();
         }
 
+        public int CountQueuedWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.CountWithin(center, radius);
+        }
+
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued NPCs nearest to the camera first, until this frame's share is used up.
+        /// </summary>
         private IEnumerator InitNpcCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
+                _objectsToInitQueue.UpdateOrderAroundCamera();
+
+                while (_objectsToInitQueue.TryDequeue(out var npcElement))
                 {
-                    yield return null;
-                }
-                else
-                {
-                    var npcElement = _objectsToInitQueue.Dequeue();
+                    // Destroyed in the meantime (e.g. world change).
+                    if (npcElement == null)
+                        continue;
+
                     var npcId = npcElement.Npc.Id;
                     var monsterId = npcElement.Npc.GetAiVar(_vmService.AIVMMRealId);
 
@@ -116,10 +139,20 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init NPC {npcElement.name}: {e}", LogCat.Npc);
+                    }
+
+                    if (_frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
 
-                yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                yield return null;
             }
         }
 
@@ -149,9 +182,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.RootGo = rootGo;
         }
 
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
-            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan);
+            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan, ownNpc);
         }
 
         /// <summary>
@@ -175,7 +208,9 @@ namespace Gothic.Core.Services.Npc
             MobRoutines.ClearAndReleaseMemory();
             MobRoutines = new();
             
-            if (_saveGameService.IsNewGame)
+            // STARTUP_* runs only the first time a world is entered (new game or a world not inside the save yet).
+            // Otherwise, the NPCs are restored from the save game / the state stored when we left the world.
+            if (_saveGameService.IsWorldEnteredFirstTime)
                 await _initializerDomain.InitNpcsNewGame(loading);
             else
                 await _initializerDomain.InitNpcsSaveGame(loading);
@@ -187,7 +222,8 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void CreateVobNpc(INpc vobNpc)
         {
-            if (vobNpc.Name.EqualsIgnoreCase(Constants.DaedalusHeroInstanceName))
+            // Mods can use another hero instance than PC_HERO (Gothic.ini/mod ini: player=).
+            if (vobNpc.Player || vobNpc.NpcInstance.EqualsIgnoreCase(_configService.GothicMod.Player))
             {
                 _playerService.HeroSpawnPosition = vobNpc.Position.ToUnityVector();
                 _playerService.HeroSpawnRotation = vobNpc.Rotation.ToUnityQuaternion();
@@ -284,13 +320,29 @@ namespace Gothic.Core.Services.Npc
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
         {
-            return _multiTypeCacheService.NpcCache
+            var npc = _multiTypeCacheService.NpcCache
                 .FirstOrDefault(i => i.Instance.Index == instanceId)?
                 .Instance;
+            if (npc != null)
+                return npc;
+
+            // Like the engine, a variable (SELF, OTHER, ...) gives the NPC it points to: Hlp_GetNpc(self) in
+            // B_KillNpc(self) was null (found on BoroBongo's branch).
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(instanceId);
+            var variableNpc = symbol is { Type: DaedalusDataType.Instance } ? symbol.GetInstance() as NpcInstance : null;
+            return variableNpc?.GetUserData()?.Vob != null ? variableNpc : null;
         }
 
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
+            // A script passing no NPC (Hlp_GetNpc found none) mustn't break the calling function.
+            if (npc?.GetUserData()?.Vob == null)
+            {
+                Logger.LogWarning($"[NpcService] Npc_ChangeAttribute({attributeId}, {value}) without an NPC - skipped",
+                    LogCat.Npc);
+                return;
+            }
+
             var container = npc.GetUserData();
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
@@ -353,12 +405,7 @@ namespace Gothic.Core.Services.Npc
             if (hero == null)
                 return;
 
-            hero.Vob.Level = hero.Instance.Level;
-            hero.Vob.Xp = hero.Instance.Exp;
-            hero.Vob.XpNextLevel = hero.Instance.ExpNext;
-            hero.Vob.Lp = hero.Instance.Lp;
-            for (var i = 0; i < Enum.GetNames(typeof(NpcAttribute)).Length; i++)
-                hero.Vob.SetAttribute(i, hero.Instance.GetAttribute((NpcAttribute)i));
+            hero.Vob.CopyStatsFromInstance(hero.Instance);
 
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPointsMax);
@@ -399,7 +446,8 @@ namespace Gothic.Core.Services.Npc
             var heroInstance = _gameStateService.GothicVm.AllocInstance<NpcInstance>(_configService.GothicMod.Player);
             var heroDaedalusInstance = _gameStateService.GothicVm.GetSymbolByName(_configService.GothicMod.Player)!;
 
-            var vobNpc = new NpcProxy(heroDaedalusInstance.Index)
+            // A loaded save game brings its own hero (attributes, inventory, talents, ...).
+            var vobNpc = _saveGameService.GetSavedHero() ?? new NpcProxy(heroDaedalusInstance.Index)
             {
                 Player = true
             };
@@ -421,12 +469,19 @@ namespace Gothic.Core.Services.Npc
 
             _playerService.SetHero(npcData);
             _multiTypeCacheService.NpcCache.Add(npcData);
-            _vm.InitInstance(heroInstance);
-            vobNpc.CopyFromInstanceData(heroInstance);
-
-            if (_configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            if (vobNpc.IsRestored)
             {
-                var items = _vobService.UnpackItems(_configService.Dev.PlayerInventoryAddition);
+                _saveGameService.InitNpcInstanceFromSave(npcData, () => _vm.InitInstance(heroInstance));
+            }
+            else
+            {
+                _vm.InitInstance(heroInstance);
+                vobNpc.CopyFromInstanceData(heroInstance);
+            }
+
+            if (!vobNpc.IsRestored && _configService.Dev.PlayerInventoryAddition.NotNullOrEmpty())
+            {
+                var items = _configService.Dev.PlayerInventoryAddition.UnpackItems();
                 foreach (var item in items)
                 {
                     _playerService.AddItem(item.Name, item.Amount);
@@ -438,14 +493,22 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtMdlSetModelScale(NpcInstance npc, System.Numerics.Vector3 scale)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelScale = scale;
+            var container = npc.GetUserData();
+            container.Vob.ModelScale = scale;
+            _initializerDomain.ApplyModelScale(container);
         }
 
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelFatness = fatness;
+            var container = npc.GetUserData();
+            if (container == null)
+            {
+                Logger.LogWarning($"[NpcService] Mdl_SetModelFatness: NPC {npc.Index} has no container - " +
+                    $"fatness {fatness} ignored.", LogCat.Npc);
+                return;
+            }
+
+            _npcLookService.SetFatness(container, fatness);
         }
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
@@ -522,7 +585,7 @@ namespace Gothic.Core.Services.Npc
             }
             else
             {
-                _objectsToInitQueue.Enqueue(loaderComp);
+                _objectsToInitQueue.Enqueue(loaderComp, loaderComp.transform.position);
             }
 
             return true;
@@ -701,6 +764,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     ReEnableNpc(npcContainer);
                 }
+
+                // An NPC built before keeps its body while culled, but loses a ghost's see-through look.
+                if (!initializedNow)
+                    _npcLookService.Apply(npcContainer);
             }
         }
         

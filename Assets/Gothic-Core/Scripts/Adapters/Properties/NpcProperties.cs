@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
@@ -68,9 +69,21 @@ namespace Gothic.Core.Adapters.Properties
         }
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
 
+        // Mdl_ApplyRandomAni: a state animation -> the animations played now and then while it runs
+        // (S_EAT -> R_ROAM1, R_ROAM2). Mdl_ApplyRandomAniFreq: the average seconds between them.
+        public readonly Dictionary<string, List<string>> RandomAnis = new(StringComparer.OrdinalIgnoreCase);
+        public readonly Dictionary<string, float> RandomAniFrequencies = new(StringComparer.OrdinalIgnoreCase);
+        public float NextRandomAniTime;
+
         // HINT: This information isn't set within Daedalus. We need to define it manually.
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
         public VmGothicEnums.BodyState BodyState;
+
+        /// <summary>
+        /// Npc_IsDead(). Like Gothic, it's the death transition (FightService, loading a dead NPC), not HP <= 0:
+        /// scripts set HP directly and prepare NPCs with HP 0.
+        /// </summary>
+        public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;

@@ -4,6 +4,7 @@ using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -36,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
 
         // The body looks at the water itself - the swim state flickered while
@@ -331,7 +333,7 @@ namespace Gothic.VR.Adapters.Player
                 var menu = GetMenuHandler();
                 var isMenuOpen = menu != null && menu.gameObject.activeSelf;
                 if (_wasMenuOpenWhileDead && !isMenuOpen)
-                    _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
+                    _contextInteractionService.LockPlayer(PlayerLocks.Death, _fightService.GetDownLockedControls());
                 _wasMenuOpenWhileDead = isMenuOpen;
             }
             var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead;

@@ -15,6 +15,13 @@ namespace Gothic.Core.Model.UI.MenuItem
         /// </summary>
         public bool IsAppliedOnRelease { get; set; }
 
+        /// <summary>
+        /// Ours, not in Gothic's menu scripts: page of a menu with more option rows than fit on one screen (e.g. the
+        /// VR accessibility menu). The menu shows up/down arrows to switch pages. Null: shown on every page (headline,
+        /// back button).
+        /// </summary>
+        public int? Page { get; set; }
+
         protected AbstractMenuItemInstance(string menuItemName)
         {
             // As we will need it for most of the elements.

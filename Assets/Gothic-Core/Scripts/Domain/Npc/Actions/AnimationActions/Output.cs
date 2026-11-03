@@ -92,8 +92,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = cutsceneLibrary.Blocks.Find(x => x.Name == OutputName);
+            // Looked up natively: Blocks builds a wrapper for every line of OU.BIN on each call (~20,000 allocations,
+            // 15-30 ms for every spoken line and NPC call-out).
+            var block = cutsceneLibrary.GetBlock(OutputName);
 
             // Mod-only output names can be missing in OU.BIN/OU.CSL. Skip the subtitle instead of throwing an NRE.
             if (block == null)
@@ -156,8 +157,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.NpcSound.Stop();
                 // The line stopped - so does its subtitle.
                 PrefabProps.NpcSubtitles?.HideSubtitles();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                StopGestureAndMouth();
             }
+        }
+
+        public override bool HasEnded => IsFinishedFlag || _audioPlaySeconds <= 0f;
+        /// <summary>
+        /// Both ends of an NPC's line, finished or cut off: the mouth (VISEME) moves until it is stopped.
+        /// </summary>
+        private void StopGestureAndMouth()
+        {
+            if (_randomDialogAnimationName == null)
+                return;
+
+            PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+            PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
         }
 
         public override bool IsFinished()
@@ -176,14 +190,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // NPC
                 else
                 {
-                    if (_randomDialogAnimationName != null)
-                    {
-                        PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
-                    }
+                    StopGestureAndMouth();
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
+                // Asked again every frame until the next action starts - the line ends only once.
+                IsFinishedFlag = true;
                 return true;
             }
 
