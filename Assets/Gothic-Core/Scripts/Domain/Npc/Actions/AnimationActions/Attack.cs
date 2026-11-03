@@ -31,6 +31,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
+            // Without an enemy, the action would never end and the NPC's AI would stand still for good. The state's
+            // loop ends or attacks again once it found one.
+            if (_enemy == null)
+            {
+                Logger.LogWarning($"AI_Attack() of {Vob.Name} without enemy - skipping.", LogCat.Ai);
+                IsFinishedFlag = true;
+                return;
+            }
+
             if (Vob.GuildTrue < (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM)
             {
                 Logger.Log($"AI_Attack() on human NPC (guild={Vob.GuildTrue}) — not yet implemented, skipping.", LogCat.Ai);

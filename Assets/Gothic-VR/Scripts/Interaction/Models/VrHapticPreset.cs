@@ -28,6 +28,11 @@ namespace Gothic.VR.Interaction.Models
         /// <summary>
         /// e.g., a physical hand or the item it holds hit a wall. Short tick, amplitude scaled by impact speed.
         /// </summary>
-        Contact
+        Contact,
+
+        /// <summary>
+        /// e.g., a hand reached a body slot it can use (backpack on the shoulder, hip holster). Short soft tick.
+        /// </summary>
+        Touch
     }
 }

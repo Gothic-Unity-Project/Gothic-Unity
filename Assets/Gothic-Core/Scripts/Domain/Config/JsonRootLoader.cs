@@ -11,8 +11,11 @@ namespace Gothic.Core.Domain.Config
 {
     public static class JsonRootLoader
     {
-        public const string DefaultSteamGothic1Folder = @"C:\Program Files (x86)\Steam\steamapps\common\Gothic\";
-        public const string DefaultSteamGothic2Folder = @"C:\Program Files (x86)\Steam\steamapps\common\Gothic II\";
+        private const string _windowsSteamCommon = @"C:\Program Files (x86)\Steam\steamapps\common\";
+        private const string _linuxSteamCommon = ".local/share/Steam/steamapps/common/";
+
+        public static readonly string DefaultSteamGothic1Folder = GetSteamCommonFolder() + "Gothic" + GetSeparator();
+        public static readonly string DefaultSteamGothic2Folder = GetSteamCommonFolder() + "Gothic II" + GetSeparator();
 
         private const string _settingsFileName = "GameSettings.json";
         private const string _settingsFileNameDev = "GameSettings.dev.json";
@@ -21,6 +24,26 @@ namespace Gothic.Core.Domain.Config
         private const string _speechToTextHowto = "HOWTO.txt";
         
 
+
+        private static string GetSeparator()
+        {
+            return Application.platform == RuntimePlatform.LinuxPlayer ||
+                   Application.platform == RuntimePlatform.LinuxEditor
+                ? "/"
+                : @"\";
+        }
+
+        private static string GetSteamCommonFolder()
+        {
+            if (Application.platform == RuntimePlatform.LinuxPlayer ||
+                Application.platform == RuntimePlatform.LinuxEditor)
+            {
+                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                return $"{home}/{_linuxSteamCommon}";
+            }
+
+            return _windowsSteamCommon;
+        }
 
         public static JsonRootConfig Load()
         {
