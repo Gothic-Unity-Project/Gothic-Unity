@@ -142,7 +142,21 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcClearAiQueue(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Clear();
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            var props = container.Props;
+            props.AnimationQueue.Clear();
+
+            // Like the engine, a running walk or wait stops too, and the scripts' look-at ends: G1's B_FullStop has to
+            // stop an escort that runs ahead (Baal Parvez waits for the hero). An animation or a dialog line plays on.
+            var isWalkOrWait = props.CurrentAction is AbstractWalkAnimationAction2 or GoToFp or GoToNpc or Wait;
+            if (isWalkOrWait && container.Go != null)
+                props.CurrentAction.StopImmediately();
+
+            props.LookAtTarget = null;
+            container.PrefabProps?.AnimationHeadHandler?.StopLookAt();
         }
 
         public void ExtAttack(NpcInstance npc)

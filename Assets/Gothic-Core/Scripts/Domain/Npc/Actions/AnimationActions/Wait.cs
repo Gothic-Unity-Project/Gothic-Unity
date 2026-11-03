@@ -24,5 +24,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         public override bool HasEnded => _waitSeconds <= 0f;
+
+        /// <summary>
+        /// Npc_ClearAIQueue ends an AI_Wait like the engine.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            _waitSeconds = 0f;
+            base.StopImmediately();
+        }
     }
 }
