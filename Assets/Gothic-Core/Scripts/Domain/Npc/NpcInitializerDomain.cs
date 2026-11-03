@@ -123,6 +123,11 @@ namespace Gothic.Core.Domain.Npc
 
             var userDataObject = AllocZkInstance(npcInstanceIndex);
 
+            // Like the engine, the instance script runs at once: the STARTUP_* script changes an NPC right after
+            // inserting it (G1 kills Nek: Npc_ChangeAttribute(nek, ATR_HITPOINTS, -nek.attribute[ATR_HITPOINTS_MAX])).
+            // Run later, the script read 0 hit points there, and Nek got his full health afterwards.
+            InitNewInstance(userDataObject);
+
             if (_isInitialNpcLoadComplete)
             {
                 Logger.Log($"Wld_InsertNpc called after the initial NPC load - spawning at '{spawnPoint}' now.",
@@ -352,6 +357,13 @@ namespace Gothic.Core.Domain.Npc
             return go;
         }
 
+        private void InitNewInstance(NpcContainer npc)
+        {
+            Vm.InitInstance(npc.Instance);
+            npc.Vob.CopyFromInstanceData(npc.Instance);
+            npc.IsInstanceInitialized = true;
+        }
+
         private void InitZkInstance(NpcContainer npc)
         {
             // As we have our back reference between NpcInstance and NpcData, we can now initialize the object on ZenKit side.
@@ -360,10 +372,9 @@ namespace Gothic.Core.Domain.Npc
             {
                 _saveGameService.InitNpcInstanceFromSave(npc, () => Vm.InitInstance(npc.Instance));
             }
-            else
+            else if (!npc.IsInstanceInitialized)
             {
-                Vm.InitInstance(npc.Instance);
-                npc.Vob.CopyFromInstanceData(npc.Instance);
+                InitNewInstance(npc);
             }
 
             // NpcInstance is the initialized Daedalus Instance which contains initial data.

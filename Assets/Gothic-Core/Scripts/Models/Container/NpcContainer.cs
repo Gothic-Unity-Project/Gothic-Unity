@@ -156,6 +156,8 @@ namespace Gothic.Core.Models.Container
         // ZenKit data
         public NpcInstance Instance;
         public NpcProxy Vob;
+        // The instance script ran already (Wld_InsertNpc) - running it again would undo what the scripts changed since.
+        public bool IsInstanceInitialized;
 
         // Unity Data
         public GameObject Go;
