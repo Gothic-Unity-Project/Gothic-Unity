@@ -446,7 +446,7 @@ namespace Gothic.Core.Adapters.Npc
                 var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
                 if (wp != null)
                 {
-                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position, gameObject);
                     Properties.CurrentFreePoint = wp as FreePoint;
                     Properties.CurrentWayPoint = wp as WayPoint;
                 }

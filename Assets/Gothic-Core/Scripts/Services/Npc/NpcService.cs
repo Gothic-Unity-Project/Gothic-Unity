@@ -180,9 +180,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.RootGo = rootGo;
         }
 
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
-            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan);
+            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan, ownNpc);
         }
 
         /// <summary>
