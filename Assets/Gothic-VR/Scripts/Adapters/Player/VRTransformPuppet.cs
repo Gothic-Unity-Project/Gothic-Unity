@@ -854,7 +854,7 @@ namespace Gothic.VR.Adapters.Player
             _orb = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _orb.name = "_TransformOrb";
             Destroy(_orb.GetComponent<Collider>());
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            var shader = Gothic.Core.Const.Constants.ShaderUnlit;
             _orbMaterial = new Material(shader) { mainTexture = _pipTexture };
             _orb.GetComponent<MeshRenderer>().sharedMaterial = _orbMaterial;
             _orb.transform.localScale = Vector3.one * _orbSize;
@@ -886,6 +886,9 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnDestroy()
         {
+            // Destroyed with the world scene: the rig (player scope) gets its camera height, speed and grabbing back.
+            if (!_isReleased)
+                Release();
             if (_orbMaterial != null)
                 Destroy(_orbMaterial);
         }

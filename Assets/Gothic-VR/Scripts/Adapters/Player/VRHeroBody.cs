@@ -339,7 +339,9 @@ namespace Gothic.VR.Adapters.Player
             }
             // Put to sleep by a spell (HeroSpellStateDomain), the body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE)
             // and wakes up (T_VICTIM_SLE_2_STAND) like an NPC's ZS_MagicSleep - before, nothing showed it.
-            var isAsleep = hero.Vob.CurrentStateName == Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName &&
+            // DeveloperConfig.EnableHeroSleepBody.
+            var isAsleep = _configService.Dev.EnableHeroSleepBody &&
+                           hero.Vob.CurrentStateName == Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName &&
                            bodyState != VmGothicEnums.BodyState.BsDead;
             var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
                          isAsleep;

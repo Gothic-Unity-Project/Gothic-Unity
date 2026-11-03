@@ -223,7 +223,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var lineGo = new GameObject("ChainLightning");
             _line = lineGo.AddComponent<LineRenderer>();
-            _lineMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            _lineMaterial = new Material(Gothic.Core.Const.Constants.ShaderUnlit);
             _lineMaterial.SetColor("_BaseColor", _beamColor);
             _line.sharedMaterial = _lineMaterial;
             _line.startWidth = _beamWidth;

@@ -142,13 +142,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _investLevelScale = 0.25f;
         private const int _maxInvestLevel = 4;
         // Throw speed: the spell's own speed (emtrjeasevel) scaled by the swing - a lazy flick is slow.
-        private const float _fullSwingSpeed = 3f;
-        private const float _minSwingFactor = 0.4f;
         private const float _maxSwingFactor = 1.5f;
         private float _throwSpeedFactor = 1f;
         private readonly Queue<(float time, Vector3 position)> _handSamples = new();
         private const float _handVelocityWindow = 0.1f;
-        private const float _minThrowSpeed = 1.5f;
 
         // What the swing of the last throw gives the projectile.
         private float _throwGravityScale;
@@ -250,8 +247,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             ReleaseIfLostFromHands();
             if (_item == null || _castThisGrab) return;
 
-            // No casting while knocked out.
-            if (_npcService.GetHeroContainer()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+            // No casting while knocked out, asleep or frozen (HeroSpellStateDomain).
+            var heroForState = _npcService.GetHeroContainer();
+            if (heroForState?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious ||
+                heroForState?.Vob.CurrentStateName is Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName
+                    or "ZS_MAGICFREEZE")
                 return;
 
             bool triggered;
@@ -265,7 +265,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_vrTransformService.IsTransformed && IsTransformSpell())
                 return;
 
-            // DeveloperConfig.EnableRuneCircleRequirement: a rune of a higher circle than the hero's doesn't cast - a
+            // A rune of a higher circle than the hero's doesn't cast - a
             // trigger press says how many circles are missing (G_CanNotCast).
             if (!_fightService.CheckHeroRuneCircle(_item, false))
             {
@@ -299,45 +299,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             UpdateHoldToCast(triggered);
             if (!_isCasting)
                 return;
-            else if (triggered && !_isTargeting && !_isCasting)
-            {
-                // Trigger 1: enter targeting mode — extend rune-hand bags, SFX starts
-                _isTargeting = true;
-                var isRuneLeft = _vrPlayerService.GrabbedItemLeft == gameObject;
-                _runeHandSide = RingHand ?? (isRuneLeft ? VrHandSide.Left : VrHandSide.Right);
-                _vrPlayerService.ActivateSpellTargeting(_runeHandSide, _targetRange);
-                StartInvestSound(_item.Spell);
-                SpawnSpellVfx();
-                Logger.Log($"[VRRuneCaster] Targeting — spell {_item.Spell} ({_item.Name}), aim rune hand at NPC and press trigger to fire", LogCat.VR);
-            }
-            else if (triggered && _isTargeting && !_isCasting)
-            {
-                // Trigger 2: confirm target and start mana investment. The effect stays in the hand while charging.
-                _isTargeting = false;
-                _vrPlayerService.DeactivateSpellTargeting();
-                StartCasting();
-            }
-            else if (triggered && _isCasting && _manaInvested > 0)
-            {
-                // Released before the cast like the engine - only the spells
-                // Spell_ProcessMana_Release allows go off early (Fireball, Windfist, ...), the rest is stopped.
-                if (!IsEarlyReleaseCastAllowed())
-                {
-                    CancelCast("released early - Spell_ProcessMana_Release: SPL_SENDSTOP");
-                    return;
-                }
-
-                // Trigger 3+: fire now at whatever level has been charged so far. Chargeable spells
-                // (Fireball, Firestorm, Windfist, Stormfist, Thunderball, Firerain) only auto-fire via
-                // Daedalus once mana hits the max threshold — without this, we'd always charge to max
-                // (or fizzle if mana runs out first) and never let the player release early for a
-                // quicker, weaker cast, exactly like releasing CTRL early in the original engine.
-                Logger.Log($"[VRRuneCaster] Fire-now triggered at level {_manaInvested}", LogCat.VR);
-                FinalizeCast(applyEffect: true);
-                return;
-            }
-
-            if (!_isCasting) return;
 
             if (_isSendcastPending)
             {
@@ -364,6 +325,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 DestroyBodyFx();
                 _isCasting = false;
                 _castThisGrab = true;
+                // Targeting stayed on: NPC grabs were ignored and the rune hand kept its long distance grab.
+                _isTargeting = false;
+                _vrPlayerService.DeactivateSpellTargeting();
                 return;
             }
 
@@ -384,9 +348,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (result == _splSendcast || result == _splSendstop)
             {
                 Logger.Log($"[VRRuneCaster] result={result} after {_manaInvested} ticks — spell fired", LogCat.VR);
-                // The script refused (no valid target, e.g. Shrink on a human): nothing happens, the mana invested so
-                // far comes back (G1 takes it per tick before asking the script).
-                if (result == _splSendstop)
+                // The script refused on the first tick (no valid target, e.g. Shrink on a human): nothing happens, the
+                // mana comes back (G1 takes it per tick before asking the script). Later, SENDSTOP ends a spell that
+                // worked (G1 Heal at full HP, Pyrokinesis on a dead victim) - its mana stays spent like the engine.
+                if (result == _splSendstop && _manaInvested <= 1)
                     RefundInvestedMana();
                 FinalizeCast(applyEffect: result == _splSendcast);
             }
@@ -657,6 +622,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
+            SyncManaFromInstance(hero);
             return true;
         }
 
@@ -664,6 +630,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             return _spellTarget?.SummonedBy != null &&
                    string.Equals(GetSpellMfxName(_item.Spell), "Shrink", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The scripts take mana on the instance (G2 Spell_Logic_Trf*, ChargeFireball per level, Spell_Cast_*): the VOB
+        /// (mana bar, the next tick's check) follows. Before, the next tick wrote VOB - 1 and undid the script's cost.
+        /// </summary>
+        private void SyncManaFromInstance(Gothic.Core.Models.Container.NpcContainer hero)
+        {
+            var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
+            if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
+                return;
+            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
+            RefreshManaFill();
         }
 
         /// <summary>
@@ -701,10 +680,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var mfxName = GetSpellMfxName(_item.Spell);
             var vm = _gameStateService.GothicVm;
             var castSymbol = mfxName != null ? vm.GetSymbolByName($"Spell_Cast_{mfxName}") : null;
-            if (castSymbol == null)
-                return;
-
             var hero = _npcService.GetHeroContainer();
+            if (castSymbol == null)
+            {
+                if (hero != null)
+                    SyncManaFromInstance(hero);
+                return;
+            }
+
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = vm.GlobalHero;
@@ -790,7 +773,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 }
                 else
                 {
-                    var spellDmg = GetSpellDamage(_item.Spell) * _manaInvested;
+                    // Per level like the engine (OpenGothic damage_per_level * level) - per mana tick a held
+                    // charge spell did thousands.
+                    var spellDmg = GetSpellDamage(_item.Spell) * Mathf.Clamp(_bodyInvestLevel, 1, _maxInvestLevel);
                     var hero = _npcService.GetHeroContainer();
                     var isAoe = mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName);
                     // Summons have no target like the engine
@@ -1452,14 +1437,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
             else
             {
-                // A swing throws along the hand's movement; without one (or in the simulator) it flies where you look.
-                direction = handVelocity.magnitude >= _minThrowSpeed || Camera.main == null
-                    ? handVelocity.normalized
-                    : Camera.main.transform.forward;
-                // The simulator can't swing - full speed there.
-                _throwSpeedFactor = isWasd
-                    ? 1f
-                    : Mathf.Clamp(handVelocity.magnitude / _fullSwingSpeed, _minSwingFactor, _maxSwingFactor);
+                // The simulator can't swing: where you look, at full speed.
+                direction = Camera.main != null ? Camera.main.transform.forward : handGo.transform.forward;
+                _throwSpeedFactor = 1f;
                 _throwGravityScale = 0f;
                 _isThrowHoming = true;
             }
@@ -1470,8 +1450,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             PlayCastSound(_item.Spell);
 
             var origin = handGo.transform.position + direction * 0.15f;
-            SpawnSpellProjectile(origin, direction, _manaInvested);
+            // Per level like the engine (castLevel + 1): per mana tick a held fireball did thousands.
+            SpawnSpellProjectile(origin, direction, Mathf.Clamp(_investLevel + 1, 1, _maxInvestLevel));
             InvokeSpellCast();
+            // A thrown scroll is used up like a cast one - Firebolt/Fireball scrolls were thrown forever.
+            TryUseUpScroll();
 
             // The charging effects (hand/body, looping) end with the throw - only a cancel removed them before, so
             // every throw left its fire in the hand and the next charge added more.
@@ -1564,11 +1547,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var audioService = _audioService;
             var particleService = _particleService;
             var baseFx = vmCacheService.TryGetVfxData($"spellFX_{mfxName}");
+            var spellId = _item.Spell;
 
             projectile.OnNpcHit = (npc, position, normal) =>
             {
                 Logger.Log($"[VRRuneCaster] {mfxName} hit {npc.Instance.GetName(NpcNameSlot.Slot0)} (level {level}, dmg {damage})", LogCat.VR);
+                // FightService reads the spell from the caster's ActiveSpell (fire, AOE, damage type): it was the
+                // Light spell (0) once the rune was let go before the fireball landed - no fire.
+                var activeSpell = hero.ActiveSpell;
+                hero.ActiveSpell = spellId;
                 GlobalEventDispatcher.SpellHit.Invoke(hero, npc, position, damage);
+                hero.ActiveSpell = activeSpell;
                 SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollDynS, investLevel, position, normal);
                 Destroy(projectileGo);
             };
@@ -1577,12 +1566,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollStatS, investLevel, position, normal);
                 // A fire storm on the ground: its burning area still damages the NPCs around (FightService).
                 if (mfxName != null && SpellConst.SpreadEffectNames.Contains(mfxName))
+                {
+                    var activeSpell = hero.ActiveSpell;
+                    hero.ActiveSpell = spellId;
                     GlobalEventDispatcher.SpellSpreadHit.Invoke(hero, position, damage);
+                    hero.ActiveSpell = activeSpell;
+                }
                 Destroy(projectileGo);
             };
             projectile.OnExpired = () => Destroy(projectileGo);
 
-            Logger.Log($"[VRRuneCaster] Threw {mfxName} mana {level} level {investLevel} at {speed:F1} m/s, " +
+            Logger.Log($"[VRRuneCaster] Threw {mfxName} damage level {level} invest level {investLevel} at {speed:F1} m/s, " +
                        $"homing={homingTarget?.Instance?.GetName(NpcNameSlot.Slot0) ?? "none"}", LogCat.VR);
         }
 
@@ -1728,20 +1722,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private int GetSpellDamage(int spellId)
         {
-            var mfxName = GetSpellMfxName(spellId);
-            if (mfxName == null) return 0;
-
-            // Like the engine, only SPELL_BAD spells hurt - G1's sleep
-            // (SPELL_NEUTRAL) inherits damage_per_level = 1 from C_Spell_Proto and hit its target.
-            var spell = _vmCacheService.TryGetSpellData(spellId);
-            var spellBad = _gameStateService.GothicVm.GetSymbolByName("SPELL_BAD")?.GetInt(0) ?? 2;
-            if (spell != null && spell.SpellType != spellBad)
-                return 0;
-
-            var sym = _gameStateService.GothicVm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}");
-            // The engine's value: SPELL_<effect>.damage_per_level. G2's fire storm rune has the effect "Pyrokinesis"
-            // (SPL_Damage_Firestorm, no SPL_DAMAGE_PYROKINESIS) - it did 0 damage.
-            return sym?.GetInt(0) ?? _vmCacheService.TryGetSpellData(spellId)?.DamagePerLevel ?? 0;
+            return _vmCacheService.GetSpellDamagePerLevel(spellId, GetSpellMfxName(spellId));
         }
 
         private string GetSpellMfxName(int spellId)
@@ -1793,18 +1774,20 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _manaBar = FindManaBar();
             if (_manaBar == null) return;
             RefreshManaFill();
-            _manaBar.FadeIn();
+            if (_manaBar != null)
+                _manaBar.FadeIn();
         }
 
         private void HideManaBar()
         {
-            _manaBar?.FadeOut();
+            if (_manaBar != null)
+                _manaBar.FadeOut();
         }
 
         private void RefreshManaFill()
         {
             var hero = _npcService.GetHeroContainer();
-            if (hero == null) return;
+            if (hero == null || _manaBar == null) return;
             var mana = hero.Vob.GetAttribute((int)NpcAttribute.Mana);
             var manaMax = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             if (manaMax > 0)

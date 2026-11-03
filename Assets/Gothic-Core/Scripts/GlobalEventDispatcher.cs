@@ -30,6 +30,8 @@ namespace Gothic.Core
         public static readonly UnityEvent MainMenuSceneLoaded = new();
         public static readonly UnityEvent LoadingSceneLoaded = new();
         public static readonly UnityEvent WorldSceneLoaded = new();
+        // AI_Teleport moves the hero (a teleport spell) - VR: the held items go into the backpack first.
+        public static readonly UnityEvent HeroScriptTeleporting = new();
 
         public static readonly UnityEvent<DateTime> GameTimeSecondChangeCallback = new();
         public static readonly UnityEvent<DateTime> GameTimeMinuteChangeCallback = new();

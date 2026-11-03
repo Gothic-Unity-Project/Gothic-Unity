@@ -217,6 +217,24 @@ namespace Gothic.Core.Services.Caches
         /// (e.g. 0 -> "Light" -> Spell_Light). Works for G1, G2 and mods as long as they follow this convention.
         /// </summary>
         [CanBeNull]
+        /// <summary>
+        /// A spell's damage per level - the hero's (VRRuneCaster) and the NPCs' (AttackPlayAni) spells. Like the engine,
+        /// only SPELL_BAD spells hurt: G1/G2 sleep inherits damage_per_level = 1 from C_Spell_Proto and hurt instead of
+        /// putting to sleep. SPL_DAMAGE_<EFFECT> first, then SPELL_<effect>.damage_per_level (G2's fire storm rune has
+        /// the effect "Pyrokinesis": SPL_Damage_Firestorm, no SPL_DAMAGE_PYROKINESIS - it did 0 damage).
+        /// </summary>
+        public int GetSpellDamagePerLevel(int spellId, string mfxName)
+        {
+            if (string.IsNullOrEmpty(mfxName))
+                return 0;
+            var vm = _gameStateService.GothicVm;
+            var spell = TryGetSpellData(spellId);
+            var spellBad = vm.GetSymbolByName("SPELL_BAD")?.GetInt(0) ?? 2;
+            if (spell != null && spell.SpellType != spellBad)
+                return 0;
+            return vm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}")?.GetInt(0) ?? spell?.DamagePerLevel ?? 0;
+        }
+
         public SpellInstance TryGetSpellData(int spellId)
         {
             if (_spellDataCache.TryGetValue(spellId, out var data))

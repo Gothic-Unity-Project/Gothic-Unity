@@ -42,12 +42,17 @@ namespace Gothic.VR.Services
         private int _originalVobGuild;
         private int _originalVobGuildTrue;
 
-        public bool IsTransformed => _puppet != null;
+        // Not the puppet's Unity null: it's destroyed with the world scene, the guild must still come back.
+        private bool _isTransformed;
+        public bool IsTransformed => _isTransformed;
 
 
         public VRTransformService()
         {
-            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() => _puppet = null);
+            // Leaving the world transformed (level change, loading a save) kept the monster's guild for good -
+            // camps attacked - and the rig's camera height, speed and no-grab.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(TransformBack);
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(TransformBack);
         }
 
         /// <returns>False if the hero wasn't transformed (the scroll isn't used up then).</returns>
@@ -94,6 +99,7 @@ namespace Gothic.VR.Services
             hero.Vob.GuildTrue = monster.Instance.Guild;
 
             _puppet = new GameObject("_TransformPuppet").AddComponent<VRTransformPuppet>();
+            _isTransformed = true;
             _puppet.Init(this, monster, loaderGo, castingHand);
 
             Logger.Log($"[VRTransform] Hero transformed into {monster.Instance.GetName(NpcNameSlot.Slot0)} " +
@@ -136,9 +142,11 @@ namespace Gothic.VR.Services
                 hero.Vob.GuildTrue = _originalVobGuildTrue;
             }
 
+            _isTransformed = false;
             var puppet = _puppet;
             _puppet = null;
-            puppet.Release();
+            if (puppet != null)
+                puppet.Release();
             Logger.Log("[VRTransform] Hero transformed back.", LogCat.VR);
         }
     }

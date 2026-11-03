@@ -98,6 +98,9 @@ namespace Gothic.VR.Services.Context
                 ApplyPhysicalHands();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
+            // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
+            // place (or vanished) and the hero stayed in magic mode. Not on scene teleports (loads).
+            GlobalEventDispatcher.HeroScriptTeleporting.AddListener(StoreHeldItemsInBackpack);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.MarvinLogoPoked.AddListener(OnMarvinLogoPoked);
         }
@@ -374,9 +377,6 @@ namespace Gothic.VR.Services.Context
 
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
-            // What the hands hold goes into the backpack first - a held rune stayed at the old place (or vanished)
-            // and the hero stayed in magic mode.
-            StoreHeldItemsInBackpack();
             _rig.Teleport(position, rotation);
         }
 
@@ -386,6 +386,8 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         public void StoreHeldItemsInBackpack()
         {
+            if (_rig == null)
+                return;
             // A rune held with both hands is one item - stored once.
             var stored = new HashSet<VrInteractable>();
             foreach (var hand in _rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand).ToList())
