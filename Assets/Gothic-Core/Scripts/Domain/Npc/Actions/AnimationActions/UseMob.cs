@@ -100,13 +100,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PrefabProps.CurrentInteractable = _mobContainer;
             PrefabProps.CurrentInteractableSlot = _slotGo;
 
-            SetBodyState();
-
             // base.Start() checks the walk destination and may start the walk loop - it must only
             // run once _destination is set, and not at all when no slot was found.
             base.Start();
         }
 
+        /// <summary>
+        /// The body state of using the mob (e.g. BS_SIT on a bench). Set once the NPC is at the mob: the walk there
+        /// ends with BS_STAND. Routine loops check it (ZS_Sit_Bench_Loop: !C_BodyStateContains(self, BS_SIT) ->
+        /// AI_UseMob again), so with BS_STAND every NPC at a mob used it again on each loop pass.
+        /// </summary>
         private void SetBodyState()
         {
             if (VmService.MobSit.Contains(_mobsiScheme))
@@ -229,6 +232,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             
             PhysicsService.DisablePhysicsForNpc(PrefabProps);
 
+            // Stopping (-1) keeps the mob's body state until the NPC stands again (TickMobUsage()).
+            if (!IsStopUsingMob)
+                SetBodyState();
+
             // The slot is where the NPC stands in front of the mob - the transition animation's root motion moves it
             // onto the seat (OpenGothic: same). Routines call AI_UseMob(BENCH, 1) again and again: snapping back to
             // the slot then pulled the seated NPC off the bench into the air in front of it.
@@ -265,6 +272,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var step = Props.CurrentInteractableStateId > TargetState ? -1 : +1;
             Props.CurrentInteractableStateId += step;
+
+            // Like Gothic, the mob keeps the state its user left it in (e.g. a wheel turned by a guard), for
+            // Wld_GetMobState() and save games. -1 means the NPC isn't using it anymore.
+            if (Props.CurrentInteractableStateId >= 0 && _mobContainer != null)
+                _mobContainer.MobState = Props.CurrentInteractableStateId;
         }
 
         private void PlayTransitionAnimation()

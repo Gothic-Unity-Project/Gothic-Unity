@@ -60,10 +60,6 @@ namespace Gothic.Core.Models.Config
 
         public Controls GameControls = Controls.VR;
 
-        [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
-        [Tooltip("VR interaction framework. Hvr falls back to Xri if HVR isn't installed (no GOTHIC_HVR_INSTALLED).")]
-        public VrInteractionBackend VrInteractionBackend = VrInteractionBackend.Hvr;
-
         [Separator("Debug")]
         [ConditionalField(fieldToCheck: nameof(GameControls), compareValues: Controls.VR)]
         public bool EnableVRDeviceSimulator;

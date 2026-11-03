@@ -27,7 +27,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
     {
         [Tooltip("Added to the near caster's radius: a target this close to the hand at selection is a Hand grab, " +
                  "everything further away a Distance grab.")]
-        [SerializeField] private float _nearGrabMargin = 0.05f;
+        [SerializeField]
+        private float _nearGrabMargin = 0.05f;
 
         public event Action<VrGrabArgs> BeforeGrabbed;
         public event Action<VrGrabArgs> Grabbed;
@@ -198,7 +199,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 return;
             }
 
-            _physicsHand.SetHeldItem(body, grabInteractable.GetAttachTransform(Interactor));
+            _physicsHand.SetHeldItem(body, grabInteractable.GetAttachTransform(Interactor),
+                () => grabInteractable.GetTargetPose().rotation);
         }
 
         private void OnSelectExited(SelectExitEventArgs args)

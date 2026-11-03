@@ -1,4 +1,5 @@
-﻿using Gothic.Core.Adapters.Vob;
+﻿using System.Collections.Generic;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
@@ -41,7 +42,22 @@ namespace Gothic.VR.Services
             Right
         }
 
+        // Who currently holds an item: hands (per side) and sockets. Decides which collisions the item ignores.
+        private readonly Dictionary<VrInteractable, HashSet<(VrGrabberKind, VrHandSide)>> _grabbers = new();
+
         public bool IsDualGrabbed => GrabbedItemLeft != null && GrabbedItemLeft == GrabbedItemRight;
+
+        public bool IsHeldInHand(VrInteractable grabbable)
+        {
+            return grabbable != null && (GrabbedItemLeft == grabbable.gameObject
+                                         || GrabbedItemRight == grabbable.gameObject);
+        }
+
+        private bool IsSocketed(VrInteractable grabbable)
+        {
+            return _grabbers.TryGetValue(grabbable, out var grabbers)
+                   && grabbers.Contains((VrGrabberKind.Socket, VrHandSide.Left));
+        }
 
         /// <summary>
         /// An item was grabbed by a hand (directly or by distance). Sockets and other grabbers are ignored.
@@ -76,9 +92,7 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.AddItem(instanceName, vobItem.Amount);
+            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
         }
 
         /// <summary>
@@ -115,31 +129,65 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            var vobItem = grabbable.GetComponentInParent<VobLoader>().Container.VobAs<IItem>();
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
-            _playerService.RemoveItem(instanceName, vobItem.Amount);
+            // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
+            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
+                keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>
         /// The player collides with VobItems (stuck at a sword in the ground like in Gothic). Items in our hands or
         /// sockets (hips, back) would push our own CharacterController, so they ignore it while being held.
-        /// The same goes for our physical hands (a held sword would push the hand holding it).
+        ///
+        /// Physical hands (like HVR): only the hand holding an item ignores it (a held sword would push the hand
+        /// holding it). The other hand still collides with it and can push it. Socketed items ignore both hands,
+        /// otherwise reaching for the hip or backpack pushes them around.
         /// </summary>
-        public void IgnorePlayerCollision(VrInteractable grabbable, bool ignore)
+        public void UpdatePlayerCollision(VrGrabArgs args, bool isGrabbed)
         {
+            var grabbable = args.Interactable;
+            if (!_grabbers.TryGetValue(grabbable, out var grabbers))
+            {
+                grabbers = new HashSet<(VrGrabberKind, VrHandSide)>();
+                _grabbers[grabbable] = grabbers;
+            }
+
+            // Sockets and other grabbers count as one (their HandSide is meaningless).
+            var key = args.IsHandOrDistance ? (args.Kind, args.HandSide) : (VrGrabberKind.Socket, VrHandSide.Left);
+            if (isGrabbed)
+                grabbers.Add(key);
+            else
+                grabbers.Remove(key);
+
+            if (grabbers.Count == 0)
+                _grabbers.Remove(grabbable);
+
+            var isSocketed = grabbers.Contains((VrGrabberKind.Socket, VrHandSide.Left));
             var context = VRContextInteractionService;
             foreach (var hand in context.PhysicsHands)
-                hand.IgnoreCollisions(grabbable.Colliders, ignore);
+            {
+                var isHolding = grabbers.Contains((VrGrabberKind.Hand, hand.Side))
+                                || grabbers.Contains((VrGrabberKind.Distance, hand.Side));
+                hand.IgnoreCollisions(grabbable.Colliders, isSocketed || isHolding);
+            }
 
             var characterController = context.Rig?.CharacterController;
             if (characterController == null)
                 return;
 
+            var ignoreCharacterController = grabbers.Count > 0;
             foreach (var itemCollider in grabbable.Colliders)
             {
                 if (itemCollider != null)
-                    Physics.IgnoreCollision(characterController, itemCollider, ignore);
+                    Physics.IgnoreCollision(characterController, itemCollider, ignoreCharacterController);
             }
+        }
+
+        /// <summary>
+        /// The item is destroyed (e.g. put into a chest or eaten) while it might still be held.
+        /// </summary>
+        public void ForgetPlayerCollision(VrInteractable grabbable)
+        {
+            _grabbers.Remove(grabbable);
         }
 
         /// <summary>

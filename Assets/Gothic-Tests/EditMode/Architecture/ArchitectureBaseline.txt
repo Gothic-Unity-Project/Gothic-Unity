@@ -1,0 +1,76 @@
+# Known architecture violations of Gothic.Core, tolerated by CoreArchitectureTest.
+# Format: rule | file (relative to Assets/Gothic-Core/Scripts) or type | detail
+#
+# Rules:
+#   layer          - file uses a namespace of a higher layer (Models <- Domain/Services <- Adapters)
+#   namespace      - namespace doesn't start with Gothic.Core.{Layer} of its folder
+#   monobehaviour  - MonoBehaviour outside of Adapters
+#
+# This list may only shrink. Remove lines once fixed (the test tells you). Add lines only for reviewed exceptions.
+
+layer | Domain/Audio/MusicDomain.cs | Gothic.Core.Adapters.Vob
+layer | Domain/Culling/NpcMeshCullingDomain.cs | Gothic.Core.Adapters.Npc
+layer | Domain/Culling/VobMeshCullingDomain.cs | Gothic.Core.Adapters.Vob
+layer | Domain/Meshes/Builder/NpcHeadMeshBuilder.cs | Gothic.Core.Adapters.Animations.Morph
+layer | Domain/Meshes/Builder/NpcHeadMeshBuilder.cs | Gothic.Core.Adapters.Npc
+layer | Domain/Meshes/Builder/NpcMeshBuilder.cs | Gothic.VR.Adapters.Npc
+layer | Domain/Meshes/Builder/VobPfxMeshBuilder.cs | Gothic.Core.Adapters.Properties.Vob
+layer | Domain/Meshes/Builder/WorldMeshBuilder.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/Npc/Actions/AnimationActions/AbstractAnimationAction.cs | Gothic.Core.Adapters.Npc
+layer | Domain/Npc/Actions/AnimationActions/AbstractAnimationAction.cs | Gothic.Core.Adapters.Properties
+layer | Domain/Npc/Actions/AnimationActions/ContinueRoutine.cs | Gothic.Core.Adapters.Npc
+layer | Domain/Npc/Actions/AnimationActions/Output.cs | Gothic.Core.Adapters.Animations.Morph
+layer | Domain/Npc/Actions/AnimationActions/UseMob.cs | Gothic.Core.Adapters.Vob
+layer | Domain/Npc/NpcInitializerDomain.cs | Gothic.Core.Adapters.Npc
+layer | Domain/Npc/NpcInitializerDomain.cs | Gothic.Core.Adapters.Properties
+layer | Domain/Npc/NpcInitializerDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/StaticCache/StationaryLightCacheCreatorDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/StaticCache/TextureArrayCacheCreatorDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/StaticCache/VobBoundsCacheCreatorDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/StaticCache/VobItemColliderCacheCreatorDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/StaticCache/WorldChunkCacheCreatorDomain.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Domain/Vobs/VobInitializerDomain.cs | Gothic.Core.Adapters.Properties
+layer | Domain/Vobs/VobInitializerDomain.cs | Gothic.Core.Adapters.Vob
+layer | Models/Audio/SfxModel.cs | Gothic.Core.Services
+layer | Models/Config/DeveloperConfig.cs | Gothic.Core.Services.World
+layer | Models/Config/GothicIniConfig.cs | Gothic.Core.Domain.Config
+layer | Models/Container/NpcContainer.cs | Gothic.Core.Adapters.Npc
+layer | Models/Container/NpcContainer.cs | Gothic.Core.Adapters.Properties
+layer | Models/Container/VobContainer.cs | Gothic.Core.Adapters.Properties.Vobs
+layer | Models/Container/VobContainer.cs | Gothic.Core.Services.Caches
+layer | Models/Container/WorldContainer.cs | Gothic.Core.Services.Caches
+layer | Models/Context/Controls.cs | Gothic.Core.Services.Context
+layer | Models/Proxy/FightAiProxy.cs | Gothic.Core.Services.Vm
+layer | Models/Proxy/NpcProxy.cs | Gothic.Core.Services
+layer | Models/Proxy/NpcProxy.cs | Gothic.Core.Services.Vm
+layer | Models/UI/Menu/MenuInstanceAdapter.cs | Gothic.Core.Services
+layer | Models/UI/Menu/MutableMenuInstance.cs | Gothic.Core.Services
+layer | Models/UI/Menu/MutableMenuInstance.cs | Gothic.Core.Services.Vm
+layer | Models/UI/MenuItem/MutableMenuItemInstance.cs | Gothic.Core.Services.Vm
+layer | Services/BootstrapService.cs | Gothic.Core.Adapters.Scenes
+layer | Services/Npc/NpcAiService.cs | Gothic.Core.Adapters.Properties
+layer | Services/Npc/NpcHelperService.cs | Gothic.Core.Adapters.Properties
+layer | Services/Npc/NpcHelperService.cs | Gothic.Core.Adapters.Properties.Vobs
+layer | Services/Npc/NpcService.cs | Gothic.Core.Adapters.Npc
+layer | Services/Player/DialogService.cs | Gothic.Core.Adapters.Properties
+layer | Services/Vobs/MobInteractionService.cs | Gothic.Core.Adapters.Vob
+layer | Services/Vobs/VobService.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Services/Vobs/VobService.cs | Gothic.Core.Adapters.Vob
+layer | Services/World/LoadingService.cs | Gothic.Core.Adapters.UI.LoadingBars
+layer | Services/World/PhysicsService.cs | Gothic.Core.Adapters.Npc
+layer | Services/World/StationaryLightsService.cs | Gothic.Core.Adapters.Vob
+namespace | Adapters/Animations/NpcHeadAnimationHandler.cs | Gothic.Core.Animations
+namespace | Adapters/Npc/NpcHitboxColliderAdapter.cs | Gothic.VR.Adapters.Npc
+namespace | Models/UI/Menu/AbstractMenuInstance.cs | Gothic.Core.Model.UI.Menu
+namespace | Models/UI/Menu/MenuInstanceAdapter.cs | Gothic.Core.Model.UI.Menu
+namespace | Models/UI/Menu/MutableMenuInstance.cs | Gothic.Core.Model.UI.Menu
+namespace | Models/UI/MenuItem/AbstractMenuItemInstance.cs | Gothic.Core.Model.UI.MenuItem
+namespace | Models/UI/MenuItem/MenuItemInstanceAdapter.cs | Gothic.Core.Model.UI.MenuItem
+namespace | Models/UI/MenuItem/MutableMenuItemInstance.cs | Gothic.Core.Model.UI.MenuItem
+namespace | Services/Audio/AudioService.cs | Gothic.Core.Manager
+namespace | Services/Marvin/MarvinService.cs | Gothic.Core.Manager
+namespace | Services/Player/DialogService.cs | Gothic.Core.Manager
+namespace | Services/UI/LocalizationService.cs | Gothic.Services.UI
+namespace | Services/UnityMonoService.cs | Gothic.Core.Manager
+namespace | Services/World/LoadingService.cs | Gothic.Core.Manager
+namespace | Services/World/WayNetService.cs | Gothic.Core.Creator

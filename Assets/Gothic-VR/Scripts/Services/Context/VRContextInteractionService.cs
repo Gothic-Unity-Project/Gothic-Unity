@@ -82,6 +82,7 @@ namespace Gothic.VR.Services.Context
             {
                 SetRenderDistance(_configService.Gothic.IniVisualRange);
                 ApplyComfortSettings();
+                ApplyHeightOffset();
                 ApplyPhysicalHands();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
@@ -119,17 +120,17 @@ namespace Gothic.VR.Services.Context
             // We call this method once at the very beginning of game start. We can safely assume we are in the Player.unity scene.
             var activeScene = SceneManager.GetActiveScene();
 
-            // VR Player: Gothic part and the backend's rig live on the same GameObject. The scene contains one
-            // (inactive) player prefab per VR backend. We use the one of the active backend and remove the others, so
-            // that scene-wide lookups (dialog, canvases, ...) find only ours.
+            // VR Player: Gothic part and the backend's rig live on the same GameObject (inactive in the scene). We use
+            // the one with the backend's rig and remove any other, so that scene-wide lookups (dialog, canvases, ...)
+            // find only ours.
             var players = activeScene.GetRootGameObjects()
                 .SelectMany(i => i.GetComponentsInChildren<VRPlayer>(true))
                 .ToList();
             _player = players.FirstOrDefault(i => _vrBackend.OwnsRig(i.GetComponent<IVrRig>()));
             if (_player == null)
             {
-                var message = $"No VR player with a rig of the active VR backend ({_vrBackend.Name}) found. " +
-                              "Check DeveloperConfig.VrInteractionBackend and the player prefabs in Player.unity.";
+                var message = $"No VR player with a rig of the VR backend ({_vrBackend.Name}) found. " +
+                              "Check the player prefab in Player.unity.";
                 Logger.LogError(message, LogCat.VR);
                 throw new MissingComponentException(message);
             }
@@ -154,7 +155,7 @@ namespace Gothic.VR.Services.Context
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
             // Marvin Mode
-            // Searched inside our player only: the other backends' players are destroyed at the end of this frame.
+            // Searched inside our player only: other players are destroyed at the end of this frame.
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
             _marvinRoot.SetActive(_marvinService.IsMarvinMode);
 
@@ -201,10 +202,28 @@ namespace Gothic.VR.Services.Context
                 // Just update everything.
                 ApplyComfortSettings();
             }
+            else if (key == VRConstants.IniNames.HeightOffset)
+            {
+                // Not part of ApplyComfortSettings(): that one requests the tracking origin again, which recenters
+                // the view in sitting mode on every slider step.
+                ApplyHeightOffset();
+            }
             else if (key == VRConstants.IniNames.PhysicalHands)
             {
                 ApplyPhysicalHands();
             }
+        }
+
+        /// <summary>
+        /// Accessibility setting "height offset" from Gothic.ini. Slider value 0...1 maps to -1m...+1m.
+        /// </summary>
+        private void ApplyHeightOffset()
+        {
+            var setting = _configService.Gothic.GetFloat(VRConstants.IniNames.HeightOffset,
+                VRConstants.HeightOffsetDefaultValue);
+            var meters = (Mathf.Clamp01(setting) * 2f - 1f) * VRConstants.HeightOffsetMaxMeters;
+
+            _rig.SetHeightOffset(meters);
         }
 
         /// <summary>

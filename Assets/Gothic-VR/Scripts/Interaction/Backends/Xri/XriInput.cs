@@ -5,7 +5,6 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Interaction.Backends.Xri
@@ -27,7 +26,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private const string _thumbTouchActionName = "Thumb Touch";
 
         // Binding groups of the "Gothic" map: controller bindings ("XR") are always used, the keyboard shortcuts
-        // ("Simulator") only while the XR Interaction Simulator is active.
+        // ("Simulator") only while the simulator is active.
         private const string _xrBindingGroup = "XR";
 
         // Indexed by VrButton.
@@ -52,7 +51,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly int[] _simulatedVelocityFrames = { -1, -1 };
 
         private InputActionMap _gothicMap;
-        private XRInteractionSimulator _simulator;
+        private XriHvrStyleSimulator _simulator;
         private XriRig _simulatorRig;
         private bool _isSimulatorActive;
 
@@ -133,7 +132,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
-        /// The XR Interaction Simulator's controllers report no velocity (swim strokes would do nothing). Derived from
+        /// The simulated controllers report no velocity (swim strokes would do nothing). Derived from
         /// the controller's position in the tracking space between two frames instead. Zero on the first call after a
         /// pause, as there is nothing to compare against.
         /// </summary>
@@ -168,12 +167,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _isSimulatorActive = isActive;
 
             if (_simulator == null)
-                _simulator = SceneManager.GetActiveScene().GetComponentInChildren<XRInteractionSimulator>(true);
+                _simulator = SceneManager.GetActiveScene().GetComponentInChildren<XriHvrStyleSimulator>(true);
 
             if (_simulator == null)
             {
                 if (isActive)
-                    Logger.LogWarning("XRI backend: no XR Interaction Simulator in the active scene. " +
+                    Logger.LogWarning("XRI backend: no XriHvrStyleSimulator in the active scene. " +
                                       "Add 'VR - XR Interaction Simulator.prefab' (inactive) to the player scene.",
                         LogCat.VR);
                 ApplyKeyboardShortcuts(false);
@@ -181,29 +180,24 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
 
             if (isActive)
-                AssignSimulatorControllers();
+                AssignSimulatorRig();
 
             _simulator.gameObject.SetActive(isActive);
             ApplyKeyboardShortcuts(isActive);
         }
 
         /// <summary>
-        /// The simulator finds the controllers only via an XRInputModalityManager, which our rig doesn't have. Without
-        /// them, point-and-click (mouse aims the controller ray) would aim the camera instead.
-        /// Called before the simulator's GameObject is enabled, as it reads them in OnEnable.
+        /// The simulator aims the right hand at the mouse cursor through the rig's camera and tracking space.
+        /// Called before the simulator's GameObject is enabled.
         /// </summary>
-        private void AssignSimulatorControllers()
+        private void AssignSimulatorRig()
         {
             var rig = Object.FindFirstObjectByType<XriRig>();
             if (rig == null)
                 return;
 
             _simulatorRig = rig;
-
-            if (_simulator.leftControllerTransform == null)
-                _simulator.leftControllerTransform = rig.LeftHand;
-            if (_simulator.rightControllerTransform == null)
-                _simulator.rightControllerTransform = rig.RightHand;
+            _simulator.Rig = rig;
         }
 
         /// <summary>

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Context;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -24,9 +23,10 @@ namespace Gothic.VR.Interaction.Components
     /// - Lock() holds the leaf at 0 degrees, Unlock() frees it with a small push open (lock picking).
     /// - Being kinematic, the player's CharacterController can't push the leaf through its limits.
     /// - Releases the leaf when the hand gets farther than BreakDistance from it (e.g. teleporting while holding).
+    /// - A physical hand (VrPhysicsHand) touching the leaf without holding it pushes it: the part of the hand's
+    ///   blocked movement along the leaf's swing direction at the contact turns the leaf, at most MaxHandSpeed.
     ///
     /// The grab itself is done by the backend (GothicGrabInteractable + XriInteractableBridge, with tracking off).
-    /// Inactive on HVR, where HVRPhysicsDoor next to HvrHingeBridge is the hinge.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class VrHinge : MonoBehaviour, IVrHinge
@@ -90,17 +90,19 @@ namespace Gothic.VR.Interaction.Components
         private float _speed;
         private float _grabHandAngle;
         private float _grabLeafAngle;
+        private float _pushAngle;
         private float _lastSoundTime = float.NegativeInfinity;
         private bool _isStarted;
         private bool _isSubscribed;
         private bool _isLocked;
         private bool _isOpen;
         private bool _isClosed = true;
+        private bool _isOpenPending;
 
         public event Action Opened;
         public event Action Closed;
 
-        public bool IsActive => _vrBackend != null && _vrBackend.Kind == VrInteractionBackend.Xri;
+        public bool IsActive => _vrBackend != null;
         public bool IsOpen => _isOpen;
         public bool IsClosed => _isClosed;
         public bool IsLocked => _isLocked;
@@ -132,6 +134,9 @@ namespace Gothic.VR.Interaction.Components
             var reference = Mathf.Abs(Vector3.Dot(worldAxis, Vector3.up)) > 0.9f ? Vector3.right : Vector3.up;
             _planeReference = Vector3.ProjectOnPlane(reference, worldAxis).normalized;
             _isStarted = true;
+
+            if (_isOpenPending)
+                OpenInstantly();
 
             _interactable = GetComponent<VrInteractable>();
             if (_interactable == null)
@@ -167,10 +172,44 @@ namespace Gothic.VR.Interaction.Components
                 MoveTo(0f, deltaTime);
             else if (IsHeld)
                 FollowHand(deltaTime);
+            else if (_pushAngle != 0f)
+                Push(deltaTime);
             else
                 Swing(deltaTime);
 
+            _pushAngle = 0f;
             UpdateState(_angle);
+        }
+
+        /// <summary>
+        /// Collects the push of physical hands touching the leaf. Kinematic leaf vs. dynamic hand still reports
+        /// contacts. Unity sends this to disabled components as well, hence the _isStarted check.
+        /// </summary>
+        private void OnCollisionStay(Collision collision)
+        {
+            if (!_isStarted || _isLocked || IsHeld || !VrPhysicsHand.TryGetByBody(collision.rigidbody, out var hand))
+                return;
+
+            var push = hand.PushOffset;
+            if (push.sqrMagnitude < 0.000001f)
+                return;
+
+            var worldAxis = GetWorldAxis();
+            var openingAxis = _isOpeningInverted ? -worldAxis : worldAxis;
+            for (var i = 0; i < collision.contactCount; i++)
+            {
+                var lever = Vector3.ProjectOnPlane(collision.GetContact(i).point - transform.position, worldAxis);
+                var radius = lever.magnitude;
+                // A contact right at the hinge has no leverage.
+                if (radius < 0.05f)
+                    continue;
+
+                // Direction a point on the leaf moves when the opened angle grows.
+                var swingDirection = Vector3.Cross(openingAxis, lever) / radius;
+                var angle = Vector3.Dot(push, swingDirection) / radius * Mathf.Rad2Deg;
+                if (Mathf.Abs(angle) > Mathf.Abs(_pushAngle))
+                    _pushAngle = angle;
+            }
         }
 
         public void Lock()
@@ -194,6 +233,20 @@ namespace Gothic.VR.Interaction.Components
             // The push open of the lock picking.
             _speed = _unlockPushSpeed;
             RebaselineGrab();
+        }
+
+        public void OpenInstantly()
+        {
+            // Before Start(), the closed rotation isn't known yet.
+            _isOpenPending = !_isStarted;
+            if (!_isStarted || _isLocked)
+                return;
+
+            _speed = 0f;
+            _angle = _maxAngle;
+            ApplyAngle();
+            _isClosed = false;
+            _isOpen = true;
         }
 
         public void SetSounds(AudioClip opened, AudioClip closed)
@@ -236,6 +289,16 @@ namespace Gothic.VR.Interaction.Components
             MoveTo(target, deltaTime, _maxHandSpeed);
 
             // Keeps its speed for the swing after letting go.
+            _speed = Mathf.Lerp(_speed, (_angle - previous) / deltaTime, 0.5f);
+        }
+
+        private void Push(float deltaTime)
+        {
+            var target = Mathf.Clamp(_angle + _pushAngle, _minAngle, _maxAngle);
+            var previous = _angle;
+            MoveTo(target, deltaTime, _maxHandSpeed);
+
+            // Swings on when the hand stops touching.
             _speed = Mathf.Lerp(_speed, (_angle - previous) / deltaTime, 0.5f);
         }
 

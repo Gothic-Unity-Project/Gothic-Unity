@@ -122,6 +122,9 @@ namespace Gothic.Core.Const
         public static LayerMask VobNpcOrMonsterLayer = LayerMask.NameToLayer("VobNpcOrMonster");
         public static LayerMask VobMovableLayer = LayerMask.NameToLayer("VobMovable"); // No collision with world (e.g. for chest lid and door)
         public static LayerMask VobHitbox = LayerMask.NameToLayer("VobHitbox");
+        // VR ledge grab points (VrLedgeAnchor). Collides with nothing, only the hands' near grab finds it: leave it out
+        // of masks that would see everything.
+        public static LayerMask ClimbAnchorLayer = LayerMask.NameToLayer("ClimbAnchor");
 
         
         /*
@@ -160,8 +163,6 @@ namespace Gothic.Core.Const
         public const string SlotHelmet		= "ZS_HELMET";
         public const string SlotTorso		= "ZS_TORSO";
 
-
-        public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
         // Alter this value to enforce game to recreate cache during next start.
         public const string StaticCacheVersion = "5";

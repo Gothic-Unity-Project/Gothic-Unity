@@ -119,6 +119,7 @@ Assets/Gothic-Core/Resources/DeveloperConfigs/Local/*
 # Local references / symlinks
 Gothic-Unity.wiki
 ZenKit
+ZenKitCAPI
 ZenKitCS
 Daedalus
 OpenGothic
@@ -128,6 +129,7 @@ OpenGothic
 !.claude/skills/
 !.claude/agents/
 !.claude/hooks/
+!.claude/scripts/
 !.claude/settings.json
 !.claude/README.md
 !.claude/CLAUDE-SETUP.md
@@ -138,5 +140,6 @@ OpenGothic
 /[Aa]ssets/[Ss]amples/
 /[Aa]ssets/[Ss]amples.meta
 
-
-ultimatexr-unity/
+# LinuxXR copies its native plug-in here on every Linux Editor start (Linux only, never in builds) - see the package.
+/[Aa]ssets/LinuxXR/
+/[Aa]ssets/LinuxXR.meta

@@ -345,6 +345,10 @@ namespace Gothic.Tests.PlayMode
             {
             }
 
+            public void SetHeightOffset(float meters)
+            {
+            }
+
             public void Teleport(Vector3 position, Quaternion rotation)
             {
                 transform.SetPositionAndRotation(position, rotation);

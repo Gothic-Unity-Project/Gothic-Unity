@@ -4,13 +4,12 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
-using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
-using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -26,6 +25,7 @@ namespace Gothic.VR.Adapters.Player
     /// The player's backpack (inventory pages) and holsters. The backpack itself is a VrInteractable with an
     /// IVrSocketContainer for its slots. Items put into holsters or slots are added to the hero's inventory.
     /// While the backpack is on the shoulder, its slots detect nothing (VrSocketSlot; HVR does it itself).
+    /// Like held items (VRVobItem), the backpack ignores the hand holding it and, on the shoulder, both hands.
     /// </summary>
     public class VRBackpack : MonoBehaviour
     {
@@ -58,10 +58,9 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VobService _vobService;
-        [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
-        [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRCarriedItemsSaveService _carriedItemsSaveService;
 
         
         private void Awake()
@@ -71,8 +70,8 @@ namespace Gothic.VR.Adapters.Player
             CollectSockets(_holsterSockets, _holsters);
             CollectSockets(_inventorySockets, _slots);
 
-            _interactable.Grabbed += OnBackpackGrabbedToShoulder;
-            _interactable.Released += OnBackpackReleasedFromShoulder;
+            _interactable.Grabbed += OnBackpackGrabbed;
+            _interactable.Released += OnBackpackReleased;
 
             foreach (var holster in _holsters)
             {
@@ -90,14 +89,16 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            _carriedItemsSaveService.RegisterHolsters(_holsters);
         }
 
         private void OnDestroy()
         {
             if (_interactable != null)
             {
-                _interactable.Grabbed -= OnBackpackGrabbedToShoulder;
-                _interactable.Released -= OnBackpackReleasedFromShoulder;
+                _vrPlayerService?.ForgetPlayerCollision(_interactable);
+                _interactable.Grabbed -= OnBackpackGrabbed;
+                _interactable.Released -= OnBackpackReleased;
             }
 
             foreach (var holster in _holsters)
@@ -134,15 +135,20 @@ namespace Gothic.VR.Adapters.Player
             _isZenKitBootstrapped = true;
         }
 
-        private void OnBackpackGrabbedToShoulder(VrGrabArgs args)
+        private void OnBackpackGrabbed(VrGrabArgs args)
         {
+            // The held backpack follows the physical hand. Colliding with it, it would push the hand away and spin.
+            _vrPlayerService.UpdatePlayerCollision(args, true);
+
             // We could potentially remove the meshes inside Backpack or simply hide it from rendering later.
             if (IsShoulderSocket(args))
                 SetSlotDetectionEnabled(false);
         }
 
-        private void OnBackpackReleasedFromShoulder(VrGrabArgs args)
+        private void OnBackpackReleased(VrGrabArgs args)
         {
+            _vrPlayerService.UpdatePlayerCollision(args, false);
+
             if (!IsShoulderSocket(args))
                 return;
 
@@ -171,15 +177,17 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// When putting into holster, culling is already deactivated.
-        /// We simply need to tell the game: add inventory amount.
+        /// When putting into holster, culling is already paused (hand grab). The item is in the inventory now.
         /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
-            var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
-            var vobContainer = vobLoader.Container;
+            // Restored from a save game. It's part of the inventory already.
+            if (_carriedItemsSaveService.ConsumeSilentPlacement(args.Interactable))
+                return;
 
-            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
+
+            _playerService.PickUpItem(vobLoader.Container);
         }
 
 
@@ -189,28 +197,54 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>(true);
-            var vobContainer = vobLoader.Container;
-
-            _vobMeshCullingService.RemoveCullingEntry(vobContainer);
-            _saveGameService.CurrentWorldData.Vobs.Remove(vobContainer.Vob);
-
-            _playerService.AddItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            _playerService.PickUpItem(vobLoader.Container, removeCulling: true);
 
             UpdateInventoryView();
         }
 
         /// <summary>
-        /// When putting out of holster, culling is already deactivated.
-        /// We simply need to tell the game: substract inventory amount.
+        /// A Gothic item (not the backpack, not a mob) that TryStash() takes.
+        /// </summary>
+        public bool CanStash(VrInteractable item)
+        {
+            return VrSocketSlot.IsItem(item);
+        }
+
+        /// <summary>
+        /// Over-the-shoulder stash (VrShoulderStash): the item goes into the inventory like into a backpack slot, but
+        /// leaves the world at once, the backpack stays on the shoulder.
+        /// </summary>
+        public bool TryStash(VrInteractable item)
+        {
+            if (!CanStash(item) || item.IsHeld)
+                return false;
+
+            var vobLoader = item.GetComponentInParent<VobLoader>(true);
+            _playerService.PickUpItem(vobLoader.Container, removeCulling: true);
+
+            vobLoader.gameObject.SetActive(false);
+            StartCoroutine(DestroyNextFrame(vobLoader.gameObject));
+
+            UpdateInventoryView();
+            return true;
+        }
+
+        /// <summary>
+        /// When putting out of holster, culling is still paused (the hand moves it next).
+        /// If a hand holds the item already, it stays in the inventory.
         /// </summary>
         private void OnItemPutOutOfHolster(VrGrabArgs args)
         {
+            // Emptied for a new game / loaded save. The inventory is replaced anyway.
+            if (_carriedItemsSaveService.ConsumeSilentRelease(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
             if (vobLoader == null)
                 return;
-            var vobContainer = vobLoader.Container;
 
-            _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            _playerService.DropItem(vobLoader.Container,
+                keepOutOfWorld: _vrPlayerService.IsHeldInHand(args.Interactable));
         }
 
         private void OnItemPutOutOfBackpack(VrGrabArgs args)
@@ -219,12 +253,9 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
-            var vobContainer = vobLoader.Container;
 
-            _vobMeshCullingService.AddCullingEntry(vobContainer);
-            _saveGameService.CurrentWorldData.Vobs.Add(vobContainer.Vob);
-
-            _playerService.RemoveItem(vobContainer.Vob.Name, Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            _playerService.DropItem(vobLoader.Container, addCulling: true,
+                keepOutOfWorld: _vrPlayerService.IsHeldInHand(args.Interactable));
 
             UpdateInventoryView();
         }
@@ -353,13 +384,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var item in items)
             {
-                var vobContainer = _vobService.CreateItem(new Item
-                {
-                    Name = item.Name,
-                    Visual = new VisualMesh(),
-                    Instance = item.Name,
-                    Amount = item.Amount
-                });
+                var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();
