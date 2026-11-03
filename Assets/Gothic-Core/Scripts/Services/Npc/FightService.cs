@@ -65,7 +65,9 @@ namespace Gothic.Core.Services.Npc
 
             // Not built yet (the scripts' startup kills corpses) or culled: only the dead state - running ZS_Dead in the
             // middle of the startup's VM call hung the loading. A culled NPC comes back lying dead (AiHandler).
-            if (victim.Go == null || victim.PrefabProps?.AnimationSystem == null)
+            // The VR hero has no animated body, but is always there: his death ends the game (drowning).
+            var isHero = victim.Instance.IsHero(_gameStateService.GothicVm);
+            if (!isHero && (victim.Go == null || victim.PrefabProps?.AnimationSystem == null))
             {
                 _deathDomain.Die(victim);
                 return;
