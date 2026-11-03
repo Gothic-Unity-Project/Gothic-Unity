@@ -17,6 +17,13 @@ namespace Gothic.Core.Services.Context
         void TeleportPlayerTo(Vector3 position, Quaternion rotation = default);
 
         /// <summary>
+        /// Hides the view (black at once) or shows it again (short fade in), e.g. while the world around the player
+        /// is still built after loading.
+        /// </summary>
+        /// <param name="visibleUi">UI which stays visible on the hidden view, e.g. the loading screen.</param>
+        void SetViewHidden(bool isHidden, GameObject visibleUi = null);
+
+        /// <summary>
         /// Holds the player horizontally inside the circle around center. Between softRadius and radius, movement
         /// slows down the farther out the player is; walking outward stops at radius, walking back in speeds up
         /// steadily. Beyond radius the player drifts back.
