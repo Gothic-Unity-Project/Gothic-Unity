@@ -152,6 +152,7 @@ namespace Gothic.Core.Domain.Vm
             // Mission
 
             // Mob
+            vm.RegisterExternal<int, string, int>("Mob_HasItems", Mob_HasItems);
 
             // NPC
             vm.RegisterExternal<NpcInstance, int, int>("Npc_SetTalentValue", Npc_SetTalentValue);
@@ -239,6 +240,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
             vm.RegisterExternal<NpcInstance, int, int, int, string>("TA", Ta);
             vm.RegisterExternal<NpcInstance, string>("Npc_ExchangeRoutine", Npc_ExchangeRoutine);
+            vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInRoutine", Npc_IsInRoutine);
 
             // World
             vm.RegisterExternal<int, string>("Wld_InsertNpc", Wld_InsertNpc);
@@ -856,7 +858,11 @@ namespace Gothic.Core.Domain.Vm
 
         #region Mob
 
-        //
+        public int Mob_HasItems(string mobName, int itemInstance)
+        {
+            var count = _vobService.ExtMobHasItems(mobName, itemInstance);
+            return LogInstantExternal(nameof(Mob_HasItems), count, mobName, itemInstance);
+        }
 
         #endregion
 
@@ -1235,6 +1241,12 @@ namespace Gothic.Core.Domain.Vm
         public void Npc_ExchangeRoutine(NpcInstance self, string routineName)
         {
             _npcRoutineService.ExtNpcExchangeRoutine(self, routineName);
+        }
+
+        public int Npc_IsInRoutine(NpcInstance npc, int routineFunction)
+        {
+            var res = _npcRoutineService.ExtNpcIsInRoutine(npc, routineFunction);
+            return LogInstantExternal(nameof(Npc_IsInRoutine), Convert.ToInt32(res), npc, routineFunction);
         }
 
         #endregion

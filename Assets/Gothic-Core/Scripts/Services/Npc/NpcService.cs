@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -35,7 +36,7 @@ namespace Gothic.Core.Services.Npc
     /// <summary>
     /// Manage all NPC related calls a(Ext* engine calls and e.g. load Npcs at WorldSceneManager time)
     /// </summary>
-    public class NpcService
+    public class NpcService : ILazyInitQueue
     {
         public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
 
@@ -58,7 +59,7 @@ namespace Gothic.Core.Services.Npc
         private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
 
 
-        private Queue<NpcLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
         private Queue<NpcContainer> _objectToReEnableQueue = new();
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
@@ -86,17 +87,36 @@ namespace Gothic.Core.Services.Npc
             _objectToReEnableQueue.Clear();
         }
 
+        public int CountQueuedWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.CountWithin(center, radius);
+        }
+
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued NPCs nearest to the camera first, until this frame's share is used up.
+        /// </summary>
         private IEnumerator InitNpcCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
+                _objectsToInitQueue.UpdateOrderAroundCamera();
+
+                while (_objectsToInitQueue.TryDequeue(out var npcElement))
                 {
-                    yield return null;
-                }
-                else
-                {
-                    var npcElement = _objectsToInitQueue.Dequeue();
+                    // Destroyed in the meantime (e.g. world change).
+                    if (npcElement == null)
+                        continue;
+
                     var npcId = npcElement.Npc.Id;
                     var monsterId = npcElement.Npc.GetAiVar(_vmService.AIVMMRealId);
 
@@ -115,10 +135,20 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init NPC {npcElement.name}: {e}", LogCat.Npc);
+                    }
+
+                    if (_frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
 
-                yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                yield return null;
             }
         }
 
@@ -497,7 +527,7 @@ namespace Gothic.Core.Services.Npc
             }
             else
             {
-                _objectsToInitQueue.Enqueue(loaderComp);
+                _objectsToInitQueue.Enqueue(loaderComp, loaderComp.transform.position);
             }
 
             return true;
