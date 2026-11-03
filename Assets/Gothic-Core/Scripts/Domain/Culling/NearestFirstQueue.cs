@@ -88,6 +88,26 @@ namespace Gothic.Core.Domain.Culling
         }
 
         /// <summary>
+        /// UpdateOrder() around the main camera - or around the focus center while focused, as the camera may not be
+        /// there yet (the black wait after loading).
+        /// </summary>
+        public void UpdateOrderAroundCamera()
+        {
+            if (IsFocused)
+            {
+                UpdateOrder(_focusCenter);
+                return;
+            }
+
+            if (_entries.Count == 0)
+                return;
+
+            var camera = Camera.main;
+            if (camera != null)
+                UpdateOrder(camera.transform.position);
+        }
+
+        /// <summary>
         /// The nearest entry as of the last UpdateOrder(). Entries added since then come first.
         /// </summary>
         public bool TryDequeue(out T item)

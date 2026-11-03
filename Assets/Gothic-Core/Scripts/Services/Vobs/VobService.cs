@@ -30,7 +30,7 @@ using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Services.Vobs
 {
-    public class VobService
+    public class VobService : ILazyInitQueue
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -177,18 +177,11 @@ namespace Gothic.Core.Services.Vobs
             _objectsToInitQueue.Enqueue(loaderComp, go.transform.position);
         }
 
-        /// <summary>
-        /// How many VOBs within radius of center still wait for their lazy initialization.
-        /// </summary>
-        public int CountQueuedVobsWithin(Vector3 center, float radius)
+        public int CountQueuedWithin(Vector3 center, float radius)
         {
             return _objectsToInitQueue.CountWithin(center, radius);
         }
 
-        /// <summary>
-        /// Only VOBs within radius of center are initialized until ClearInitFocus(), e.g. while the view is black
-        /// after loading. The others wait, so the near ones (and NPCs) get the whole budget.
-        /// </summary>
         public void SetInitFocus(Vector3 center, float radius)
         {
             _objectsToInitQueue.SetFocus(center, radius);
@@ -207,17 +200,7 @@ namespace Gothic.Core.Services.Vobs
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsFocused)
-                {
-                    // The black wait after loading: sorted around the focus center, the camera may not be there yet.
-                    _objectsToInitQueue.UpdateOrder(_objectsToInitQueue.FocusCenter);
-                }
-                else if (_objectsToInitQueue.Count > 0)
-                {
-                    var camera = Camera.main;
-                    if (camera != null)
-                        _objectsToInitQueue.UpdateOrder(camera.transform.position);
-                }
+                _objectsToInitQueue.UpdateOrderAroundCamera();
 
                 var initCount = 0;
                 while (_objectsToInitQueue.TryDequeue(out var item))

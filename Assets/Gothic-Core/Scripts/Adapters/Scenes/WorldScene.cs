@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -225,8 +226,9 @@ namespace Gothic.Core.Adapters.Scenes
             var watch = Stopwatch.StartNew();
             _loadingService.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Surroundings), 1);
             _frameSkipperService.IsViewHidden = true;
-            _vobService.SetInitFocus(center, _surroundingsRadius);
-            _npcService.SetInitFocus(center, _surroundingsRadius);
+            var lazyInitQueues = new ILazyInitQueue[] { _vobService, _npcService };
+            foreach (var queue in lazyInitQueues)
+                queue.SetInitFocus(center, _surroundingsRadius);
             try
             {
                 // The VR rig applies a teleport in its next update, so the camera is still at the loading screen
@@ -241,8 +243,7 @@ namespace Gothic.Core.Adapters.Scenes
                 var progress = 0f;
                 while (true)
                 {
-                    var waiting = _vobService.CountQueuedVobsWithin(center, _surroundingsRadius) +
-                                  _npcService.CountQueuedNpcsWithin(center, _surroundingsRadius);
+                    var waiting = lazyInitQueues.Sum(queue => queue.CountQueuedWithin(center, _surroundingsRadius));
                     if (waiting == 0)
                         break;
 
@@ -263,8 +264,8 @@ namespace Gothic.Core.Adapters.Scenes
             finally
             {
                 _frameSkipperService.IsViewHidden = false;
-                _vobService.ClearInitFocus();
-                _npcService.ClearInitFocus();
+                foreach (var queue in lazyInitQueues)
+                    queue.ClearInitFocus();
                 _loadingService.FinalizePhase();
             }
 
