@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Extensions;
@@ -43,8 +44,11 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        
-        
+        [Inject] private readonly SurroundingsBuildService _surroundingsBuildService;
+
+        private Vector3? _spawnPosition;
+
+
         public void Init()
         {
 #pragma warning disable CS4014 // Do not wait. We want to update player movement (VR) and camera view (progress bar)
@@ -153,6 +157,9 @@ namespace Gothic.Core.Adapters.Scenes
 
                 _skyService.InitWorld();
 
+                // The world stays hidden until the surroundings are built (see SurroundingsBuildService), so they don't
+                // pop in. The loading screen goes along with the player and stays visible meanwhile.
+                _contextInteractionService.SetViewHidden(true, _loadingService.ScreenRoot);
                 TeleportPlayerToStart();
 
                 // There are many handlers which listen to this event. If any of these fails, we won't get notified without a try-catch.
@@ -165,9 +172,17 @@ namespace Gothic.Core.Adapters.Scenes
                     Logger.LogError(e.ToString(), LogCat.Loading);
                 }
 
-                // The culling sweep inside WorldSceneLoaded only _enqueued_ all VOBs around the spawn point for
-                // lazy initialization. InitVobCoroutine() drains the queue in the background while the player is
-                // already in the world - a brief pop-in is preferred over holding the loading screen any longer.
+                // Culling only _enqueues_ the VOBs and NPCs around the spawn point for lazy initialization. The near
+                // ones are built now, the rest in the background, nearest first.
+                if (_spawnPosition != null)
+                {
+                    await _surroundingsBuildService.BuildAround(_spawnPosition.Value,
+                        nameof(WorldLoadingBarHandler.ProgressType.Surroundings));
+                }
+                watch.LogAndRestart("Surroundings built");
+
+                // Unloading the scene takes some frames - the loading screen must not stay over the world fading in.
+                _loadingService.HideScreen();
                 _loadingService.StopLoading();
                 SceneManager.UnloadSceneAsync(Constants.SceneLoading);
             }
@@ -177,6 +192,7 @@ namespace Gothic.Core.Adapters.Scenes
             }
             finally
             {
+                _contextInteractionService.SetViewHidden(false);
                 _contextInteractionService.EnableMenus();
                 fullWatch.Log("Full world loaded");
             }
@@ -249,9 +265,12 @@ namespace Gothic.Core.Adapters.Scenes
 
         private void TeleportPlayerToStart(Vector3 position, Quaternion rotation)
         {
+            _spawnPosition = position;
             _contextInteractionService.TeleportPlayerTo(position, rotation);
             _contextInteractionService.UnlockPlayer();
             _playerService.ResetSpawn();
+
+            _loadingService.MoveScreenAlong(position, rotation);
         }
     }
 }
