@@ -451,13 +451,18 @@ namespace Gothic.Core.Services.Npc
         {
             // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning Vm.GlobalHero.
             // A (mod) script calling Npc_IsPlayer during that window finds no hero yet - nobody is the player then.
+            // Scripts ask it for NULL too (DoM's start) - NULL is nobody.
             var globalHero = _gameStateService.GothicVm.GlobalHero;
-            return globalHero != null && npc.Index == globalHero.Index;
+            return npc != null && globalHero != null && npc.Index == globalHero.Index;
         }
 
+        /// <summary>
+        /// Scripts ask this for NULL too (G2 ZS_Attack_Loop -> C_PlayerIsFakeBandit(self, other) once the target is
+        /// gone). Like the engine: no NPC, no armor.
+        /// </summary>
         public ItemInstance ExtGetEquippedArmor(NpcInstance npc)
         {
-            var armor = npc.GetUserData().Props.EquippedItems
+            var armor = npc.GetUserData()?.Props?.EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor);
 
             return armor;
