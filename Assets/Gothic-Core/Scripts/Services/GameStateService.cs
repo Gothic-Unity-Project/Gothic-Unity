@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
@@ -103,38 +104,38 @@ namespace Gothic.Core.Services
         public void RegisterNamedVob(VobContainer container)
         {
             var name = container.Vob.Name;
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name) || !container.Vob.Type.IsLookedUpByName())
                 return;
 
             switch (container.Vob.Type)
             {
                 case VirtualObjectType.zCMover:
-                    var moverKey = name.ToUpper();
+                    var moverKey = name.ToUpperInvariant();
                     if (!VobsMover.TryGetValue(moverKey, out var moverList))
                         VobsMover[moverKey] = moverList = new();
                     moverList.Add(container);
                     return;
                 case VirtualObjectType.oCMobContainer:
                     // Hundreds per world - not logged.
-                    VobsContainer.TryAdd(name.ToUpper(), container);
+                    VobsContainer.TryAdd(name.ToUpperInvariant(), container);
                     return;
                 case VirtualObjectType.oCTriggerScript:
-                    VobsTriggerScript[name.ToUpper()] = container;
+                    VobsTriggerScript[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCTriggerList:
-                    VobsTriggerList[name.ToUpper()] = container;
+                    VobsTriggerList[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCCodeMaster:
-                    VobsCodeMaster[name.ToUpper()] = container;
+                    VobsCodeMaster[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCTrigger:
-                    VobsTrigger[name.ToUpper()] = container;
+                    VobsTrigger[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCMoverController:
-                    VobsMoverController[name.ToUpper()] = container;
+                    VobsMoverController[name.ToUpperInvariant()] = container;
                     break;
                 case VirtualObjectType.zCMessageFilter:
-                    VobsMessageFilter[name.ToUpper()] = container;
+                    VobsMessageFilter[name.ToUpperInvariant()] = container;
                     break;
                 default:
                     return;

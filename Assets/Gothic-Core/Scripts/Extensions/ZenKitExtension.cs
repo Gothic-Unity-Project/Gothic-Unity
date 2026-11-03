@@ -388,5 +388,17 @@ namespace Gothic.Core.Extensions
 
             return fileName;
         }
+
+        /// <summary>
+        /// Movers, triggers and chests are looked up by name (Wld_SendTrigger, chained targets, Mob_HasItems) - root
+        /// and child VOBs alike. The one rule for GameStateService.RegisterNamedVob and the child VOB loader.
+        /// </summary>
+        public static bool IsLookedUpByName(this VirtualObjectType type)
+        {
+            return type is VirtualObjectType.zCMover or VirtualObjectType.oCTriggerScript
+                or VirtualObjectType.zCTriggerList or VirtualObjectType.zCCodeMaster
+                or VirtualObjectType.zCTrigger or VirtualObjectType.zCMoverController
+                or VirtualObjectType.zCMessageFilter or VirtualObjectType.oCMobContainer;
+        }
     }
 }

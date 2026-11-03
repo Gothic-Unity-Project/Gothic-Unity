@@ -841,7 +841,7 @@ namespace Gothic.Core.Domain.Vobs
         /// </summary>
         private void EnsureOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)
         {
-            if (vob is not (IInteractiveObject or IItem) && !IsNamedVobType(vob.Type))
+            if (vob is not (IInteractiveObject or IItem) && !vob.Type.IsLookedUpByName())
                 return;
 
             var loader = go.GetComponentInParent<VobLoader>();
@@ -851,18 +851,10 @@ namespace Gothic.Core.Domain.Vobs
             AddOwnVobLoader(vob, go, parentVob);
             // Movers, triggers and chests are looked up by name (Wld_SendTrigger, chained targets, Mob_HasItems),
             // child VOBs included.
-            if (IsNamedVobType(vob.Type))
+            if (vob.Type.IsLookedUpByName())
                 _gameStateService.RegisterNamedVob(go.GetComponent<VobLoader>().Container);
             Logger.Log($"[ChildVob] '{vob.Name}' ({vob.Type}) under '{loader?.Container?.Vob?.Name}' got its own " +
                        "VobLoader.", LogCat.Vob);
-        }
-
-        private static bool IsNamedVobType(VirtualObjectType type)
-        {
-            return type is VirtualObjectType.zCMover or VirtualObjectType.oCTriggerScript
-                or VirtualObjectType.zCTriggerList or VirtualObjectType.zCCodeMaster
-                or VirtualObjectType.zCTrigger or VirtualObjectType.zCMoverController
-                or VirtualObjectType.zCMessageFilter or VirtualObjectType.oCMobContainer;
         }
 
         private static void AddOwnVobLoader(IVirtualObject vob, GameObject go, [CanBeNull] IVirtualObject parentVob)

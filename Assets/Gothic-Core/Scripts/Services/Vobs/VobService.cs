@@ -453,7 +453,7 @@ namespace Gothic.Core.Services.Vobs
         /// </summary>
         public int ExtMobHasItems(string mobName, int itemInstance)
         {
-            if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpper(),
+            if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpperInvariant(),
                     out var container))
             {
                 if (_missingContainerNames.Add(mobName ?? string.Empty))
@@ -607,6 +607,9 @@ namespace Gothic.Core.Services.Vobs
             if (container.Go == null)
                 return;
 
+            // Movers, triggers and chests are asked by name (Wld_SendTrigger, Mob_HasItems); ignores other types.
+            _gameStateService.RegisterNamedVob(container);
+
             switch (container.Vob.Type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
@@ -617,10 +620,6 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
-                    // Chests are also asked by name (Mob_HasItems).
-                    if (container.Vob.Type == VirtualObjectType.oCMobContainer)
-                        _gameStateService.RegisterNamedVob(container);
-
                     var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
                     
                     if (visualScheme.IsNullOrEmpty())
@@ -628,16 +627,6 @@ namespace Gothic.Core.Services.Vobs
                     
                     _gameStateService.VobsInteractable.TryAdd(visualScheme, new());
                     _gameStateService.VobsInteractable[visualScheme!].Add(container);
-                    break;
-
-                case VirtualObjectType.zCMover:
-                case VirtualObjectType.oCTriggerScript:
-                case VirtualObjectType.zCTriggerList:
-                case VirtualObjectType.zCCodeMaster:
-                case VirtualObjectType.zCTrigger:
-                case VirtualObjectType.zCMoverController:
-                case VirtualObjectType.zCMessageFilter:
-                    _gameStateService.RegisterNamedVob(container);
                     break;
             }
         }
@@ -691,7 +680,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -764,7 +753,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -804,7 +793,7 @@ namespace Gothic.Core.Services.Vobs
             var start = 0;
             while (start < name.Length && !char.IsLetterOrDigit(name[start]))
                 start++;
-            var key = name.Substring(start).ToUpper();
+            var key = name.Substring(start).ToUpperInvariant();
             if (_gameStateService.VobsMover.TryGetValue(key, out containers))
                 return true;
             return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
