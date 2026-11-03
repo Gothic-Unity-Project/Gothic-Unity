@@ -19,6 +19,21 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// Pixels of one mip level: RGBA, or the data as stored by Gothic (e.g. compressed).
+        /// A native ZenKit texture decodes just this level. ZenKit's CachedTexture.GetMipmapRgba() returns the raw
+        /// data instead, so cached textures are read from their lists.
+        /// </summary>
+        public static byte[] GetMipmapPixels(this ITexture zkTexture, int level, bool rgba)
+        {
+            if (zkTexture.IsCached())
+            {
+                return rgba ? zkTexture.AllMipmapsRgba[level] : zkTexture.AllMipmapsRaw[level];
+            }
+
+            return rgba ? zkTexture.GetMipmapRgba(level) : zkTexture.GetMipmapRaw(level);
+        }
+
+        /// <summary>
         /// Beds are oCMobDoors in Gothic's data - recognizable only by their visual (G1 BED_*, G2 also BEDHIGH_*).
         /// </summary>
         public static bool IsBed([CanBeNull] this IVirtualObject vob)

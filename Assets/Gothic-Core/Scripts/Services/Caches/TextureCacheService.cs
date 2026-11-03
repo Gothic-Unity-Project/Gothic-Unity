@@ -135,7 +135,7 @@ namespace Gothic.Core.Services.Caches
             texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, mipCount, false);
             for (var i = 0; i < mipCount; i++)
             {
-                texture.SetPixelData(GetMipmapData(zkTexture, i, format), i);
+                texture.SetPixelData(zkTexture.GetMipmapPixels(i, format == TextureFormat.RGBA32), i);
             }
 
             texture.Apply(updateMipmaps, true);
@@ -186,7 +186,8 @@ namespace Gothic.Core.Services.Caches
             var texture = new Texture2D(width, height, format, levelCount, false);
             for (var level = 0; level < levelCount; level++)
             {
-                texture.SetPixelData(GetMipmapData(zkTexture, skippedMips + level, format), level);
+                var pixels = zkTexture.GetMipmapPixels(skippedMips + level, format == TextureFormat.RGBA32);
+                texture.SetPixelData(pixels, level);
             }
 
             // Same as TryGetTexture(): only a texture without Gothic mips asks Unity for mips (it has one level anyway).
@@ -195,23 +196,6 @@ namespace Gothic.Core.Services.Caches
             texture.name = key;
 
             return texture;
-        }
-
-        /// <summary>
-        /// Pixels of one mip level: RGBA for uncompressed formats, else the compressed data as stored by Gothic.
-        /// A native ZenKit texture decodes just this level. ZenKit's CachedTexture.GetMipmapRgba() returns the raw
-        /// data instead, so cached textures are read from their lists.
-        /// </summary>
-        private static byte[] GetMipmapData(ITexture zkTexture, int level, TextureFormat format)
-        {
-            var isRgba = format == TextureFormat.RGBA32;
-
-            if (zkTexture.IsCached())
-            {
-                return isRgba ? zkTexture.AllMipmapsRgba[level] : zkTexture.AllMipmapsRaw[level];
-            }
-
-            return isRgba ? zkTexture.GetMipmapRgba(level) : zkTexture.GetMipmapRaw(level);
         }
 
         public void GetTextureArrayIndex(IMaterial materialData, out TextureArrayTypes textureArrayType, out int arrayIndex, out Vector2 textureScale, out int maxMipLevel, out int animFrameCount)
