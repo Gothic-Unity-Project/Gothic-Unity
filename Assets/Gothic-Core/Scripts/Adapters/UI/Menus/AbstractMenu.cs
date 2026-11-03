@@ -16,6 +16,7 @@ using MyBox;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
@@ -42,6 +43,13 @@ namespace Gothic.Core.Adapters.UI.Menus
 
         // Ini value of each slider the player is dragging that applies on release (IsAppliedOnRelease).
         private readonly Dictionary<AbstractMenuItemInstance, float> _pendingSliderValues = new();
+
+        // Items with a Page (AbstractMenuItemInstance.Page). Only the current page's items are visible.
+        private readonly List<(AbstractMenuItemInstance item, GameObject go)> _pagedItems = new();
+        private GameObject _pageUpArrow;
+        private GameObject _pageDownArrow;
+        private int _currentPage;
+        private int _pageCount;
 
         // Pixel ratio of whole menu (Canvas) is based on background picture pixel and virtual pixels named inside Daedalus.
         protected float PixelRatioX;
@@ -118,6 +126,7 @@ namespace Gothic.Core.Adapters.UI.Menus
             SetupCanvasSize(backPic);
             ComputePixelRatios(backPic);
             BuildAllMenuItems();
+            SetupPaging();
         }
         
         private void BuildAllMenuItems()
@@ -139,6 +148,85 @@ namespace Gothic.Core.Adapters.UI.Menus
             SetupTextIfAny(itemGo, item, itemWidth, itemHeight);
             SetupCommentIfAny(itemGo, item);
             ApplyDisabledStateIfNeeded(itemGo, item);
+        }
+
+        /// <summary>
+        /// A menu with more option rows than fit gets up/down arrows right of its rows, one arrow width apart, like
+        /// the quest log's text viewer.
+        /// </summary>
+        private void SetupPaging()
+        {
+            foreach (var cachedItem in MenuItemCache.Values)
+            {
+                // A disabled item hidden by ApplyDisabledStateIfNeeded() stays hidden on its page too.
+                if (cachedItem.item.Page.HasValue && cachedItem.go.activeSelf)
+                    _pagedItems.Add(cachedItem);
+            }
+
+            _pageCount = _pagedItems.Count == 0 ? 0 : _pagedItems.Max(i => i.item.Page!.Value) + 1;
+            if (_pageCount <= 1)
+                return;
+
+            var right = float.MinValue;
+            var top = float.MinValue;
+            var bottom = float.MaxValue;
+            foreach (var (_, go) in _pagedItems)
+            {
+                var rect = go.GetComponent<RectTransform>();
+                right = Mathf.Max(right, rect.anchoredPosition.x + rect.sizeDelta.x / 2);
+                top = Mathf.Max(top, rect.anchoredPosition.y + rect.sizeDelta.y / 2);
+                bottom = Mathf.Min(bottom, rect.anchoredPosition.y - rect.sizeDelta.y / 2);
+            }
+
+            _pageUpArrow = CreatePageArrow("ARROW_UP", TextureService.ArrowUpMaterial, right, top, true,
+                () => ShowPage(_currentPage - 1));
+            _pageDownArrow = CreatePageArrow("ARROW_DOWN", TextureService.ArrowDownMaterial, right, bottom, false,
+                () => ShowPage(_currentPage + 1));
+
+            ShowPage(0);
+        }
+
+        private GameObject CreatePageArrow(string arrowName, Material material, float rowsRight, float rowsEdgeY,
+            bool isTop, UnityAction onClick)
+        {
+            var go = _resourceCacheService.TryGetPrefabObject(PrefabType.UiButtonTextured, name: arrowName,
+                parent: Canvas)!;
+            var rect = go.GetComponentInChildren<RectTransform>();
+            var rend = go.GetComponentInChildren<MeshRenderer>();
+            var button = go.GetComponentInChildren<Button>();
+
+            go.transform.localScale = new Vector3(2, 2, 1);
+            rend.sharedMaterial = material;
+            button.onClick.AddListener(onClick);
+
+            var arrowWidth = material.mainTexture.width * go.transform.localScale.x;
+            var halfArrowHeight = material.mainTexture.height * go.transform.localScale.y / 2;
+            rect.SetWidth(material.mainTexture.width);
+            rect.SetHeight(material.mainTexture.height);
+            // One arrow width of space between the rows and the arrow.
+            rect.SetPositionX(rowsRight + arrowWidth * 1.5f);
+            rect.SetPositionY(isTop ? rowsEdgeY - halfArrowHeight : rowsEdgeY + halfArrowHeight);
+
+            var position = rect.localPosition;
+            position.z = -0.03f;
+            rect.localPosition = position;
+
+            return go;
+        }
+
+        private void ShowPage(int page)
+        {
+            _currentPage = Mathf.Clamp(page, 0, _pageCount - 1);
+
+            foreach (var (item, go) in _pagedItems)
+                go.SetActive(item.Page == _currentPage);
+
+            _pageUpArrow.SetActive(_currentPage > 0);
+            _pageDownArrow.SetActive(_currentPage < _pageCount - 1);
+
+            // The hovered item's pointer exit doesn't fire once it's hidden.
+            if (Comment != null)
+                Comment.text = string.Empty;
         }
 
         private void SetupBackground(Material backPic)

@@ -131,6 +131,14 @@ namespace Gothic.Core
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> BodySlotReached = new();
 
+        // Ledge climbing (VR): a hand came into touch range of a climbable lip (VrLedgeReach, hints not Off).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeTouched = new();
+
+        // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
         public static readonly UnityEvent<PrintScreenMessage> PrintScreen = new();

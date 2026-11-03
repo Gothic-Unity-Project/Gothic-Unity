@@ -1,0 +1,29 @@
+# ADR: VR ledge climbing
+
+- Status: accepted (PR #456)
+- Date: 2026-10-28
+- Technical details: Docs/ledge-climbing.md
+
+## Context
+
+In the original game the hero pulls himself up onto ledges with the jump key. In VR, the player could only climb ladders. Gothic doesn't mark ledges in its worlds: the engine decides from the shape of the world and a few values in the game scripts, such as how high the hero can step, jump and pull himself up.
+
+## Decisions
+
+1. **Gothic's own rules decide what can be climbed.** We do what the original engine does, with the hero's values from the game scripts. Not chosen: marking ledges by hand (every world and every mod would need it), or letting the player climb any edge (walls and palisades that are meant to block the way would no longer do that).
+2. **The rules belong to the game, not to VR.** The flat-screen version and the NPCs can use the same rules later.
+3. **Three ways up:** grab the edge and pull yourself up (default), a comfort option that fades out and puts you on top (for players who get motion sick), and teleporting onto a ledge you could climb.
+4. **The jump reaches the ledge instead of copying Gothic's jump.** In front of a high ledge, a jump lifts your hands just above the edge. All other jumps stay as they are. Not chosen: Gothic's full jump of about two metres, which is too much for VR.
+5. **Hints only close to your hands.** Near a climbable edge the hand half closes and vibrates once, and a short strip on the edge can glow. Players choose: off (only the hand) or glow (the hand and the strip). Not chosen: markers you can see from far away, which break the immersion.
+6. **Only your hands notice the edge you grab.** It can't push you or get in the way of walking and teleporting.
+7. **No climbing by accident.** You only end up on top after really pulling yourself up, with your head above the edge. Grabbing the edge of a table does nothing.
+8. **Only for VR** (XR Interaction Toolkit), and always on. There is no switch: climbing is only off when the
+   rig has no anchor prefab, then `VrLedgeReach.Climber` stays empty.
+
+## Consequences
+
+- Grabbing something in mid-air now ends the jump. This also fixes a jump that went on after climbing a ladder.
+- Nothing new is saved. Saving while hanging on a ledge saves you in mid-air, so saving should be blocked while climbing once the save game PR (#468) is merged.
+- The "Climbing" option is the 8th row of the accessibility menu, but Gothic's menus fit 6 rows. Menus now get
+  pages with up/down arrows (like the quest log) instead of moving options to another menu. Options stay in the
+  menu whose ini section stores them, so Smooth Spectator is back in the accessibility menu.
