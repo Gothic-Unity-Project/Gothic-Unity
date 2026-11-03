@@ -48,6 +48,8 @@ namespace Gothic.Core.Adapters.Npc
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
         private const string _deadStateAnimation = "S_DeadB";
+        private const string _unconsciousState = "ZS_UNCONSCIOUS";
+        private const string _unconsciousStateAnimation = "S_Wounded";
 
         private void Start()
         {
@@ -56,6 +58,30 @@ namespace Gothic.Core.Adapters.Npc
             // NPCs which died before a save game was written (or before we left the world) are dead from the start.
             if (Properties.IsDead)
                 StartDead();
+            // Knocked out ones lie there too until ZS_Unconscious ends (a loaded game, the NPC coming back into view).
+            else if (IsUnconsciousFromStart())
+                StartUnconscious();
+        }
+
+        private bool IsUnconsciousFromStart()
+        {
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return true;
+
+            var state = Vob.NextStateValid ? Vob.NextStateName : Vob.CurrentStateName;
+            return string.Equals(state, _unconsciousState, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The engine drops a knocked out NPC itself (FightService) - ZS_Unconscious only waits. Without it, a loaded
+        /// one stood there (with no physics, wherever the load put him) until he got up.
+        /// </summary>
+        private void StartUnconscious()
+        {
+            Properties.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+            Properties.KnockedOutTime = Time.time;
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(_unconsciousStateAnimation), NpcData));
+            _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
         }
 
         /// <summary>
