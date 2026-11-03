@@ -106,6 +106,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PrefabProps.AnimationSystem.PlayAnimation(_startedWalkAnimationName);
         }
 
+        /// <summary>
+        /// Npc_ClearAIQueue stops a walk like the engine: the walk animation ends, the NPC stands where it is.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            StopWalk();
+            base.StopImmediately();
+        }
+
         protected virtual void StopWalk()
         {
             PhysicsService.EnablePhysicsForNpc(PrefabProps);

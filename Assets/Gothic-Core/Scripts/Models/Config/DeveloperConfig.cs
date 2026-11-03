@@ -218,16 +218,14 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
         public MonsterTypesCollection SpawnMonsterInstances = new();
 
-        [Tooltip("WIP - Not production ready.")]
-        [ConditionalField(fieldToCheck: nameof(EnableNpcs), compareValues: true)]
-        public bool EnableNpcEyeBlinking;
-        
         [Separator("WIP")]
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;
 
-        [Tooltip("The hero can move during dialogs (inside Constants.DialogMaxDistance); walking away chooses END if offered.")]
-        public bool EnableDialogFreeMovement = true;
+        [Tooltip("On: the hero can move during dialogs (inside Constants.DialogFreeMovementRadius around the NPC), " +
+                 "walking away chooses END if offered, a dialog only starts within that radius. " +
+                 "Off: the hero is pinned where he stood when the dialog opened, until it ends.")]
+        public bool EnableDialogFreeMovement;
 
         [Separator("Debug")]
         [Tooltip("Draw wireframe boxes for all NPC bone colliders. Green = active (attack window), White = inactive. Works in all builds including release.")]
@@ -543,11 +541,6 @@ namespace Gothic.Core.Models.Config
                  "12 m and proclaims, and gives the chase up after HAI_TIME_PURSUIT - its loop only looked again once " +
                  "it caught the hero, who ran away right after his attack (Lukis chased forever).")]
         public bool EnableProclaimFromAfar = true;
-
-        [Tooltip("NPC faces like the engine - the mouth moves while talking (VISEME), Mdl_StartFaceAni moods " +
-                 "(S_FRIENDLY, S_ANGRY, S_FRIGHTENED...) and blinking, blended on top of each other with the MMB's " +
-                 "blend in/out. Before, talking showed nothing and each morph replaced the whole face.")]
-        public bool EnableFaceAnimations = true;
 
         [Tooltip("Particle effects of animations (*eventPFX/*eventPFXStop in the MDS): joint smoke of smoking NPCs, " +
                  "bubbles, teleport rings of scrolls, ... attached to their bone. Before they were only logged.")]

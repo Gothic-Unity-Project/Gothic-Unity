@@ -387,6 +387,7 @@ namespace Gothic.VR.Adapters.Player
                 }
             }
         }
+        [Inject] private readonly VRCarriedItemsSaveService _carriedItemsSaveService;
 
         
         private void Awake()
@@ -418,6 +419,9 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            // Main's carried items save: only the hero's own backpack (a loot copy got its NPC owner before Start).
+            if (!IsNpcBackpack)
+                _carriedItemsSaveService.RegisterHolsters(_holsters);
 
             // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum. Not for an NPC's loot backpack.
             if (!IsNpcBackpack && GetComponent<VRBackpackVacuum>() == null)
@@ -630,6 +634,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
+            // Restored from a save game. It's part of the inventory already.
+            if (_carriedItemsSaveService.ConsumeSilentPlacement(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
 
             var vobContainer = vobLoader.Container;
@@ -690,6 +698,10 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnItemPutOutOfHolster(VrGrabArgs args)
         {
+            // Emptied for a new game / loaded save. The inventory is replaced anyway.
+            if (_carriedItemsSaveService.ConsumeSilentRelease(args.Interactable))
+                return;
+
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
             if (vobLoader == null)
                 return;
@@ -896,13 +908,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var item in items)
             {
-                var vobContainer = _vobService.CreateItem(new Item
-                {
-                    Name = item.Name,
-                    Visual = new VisualMesh(),
-                    Instance = item.Name,
-                    Amount = item.Amount
-                });
+                var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();

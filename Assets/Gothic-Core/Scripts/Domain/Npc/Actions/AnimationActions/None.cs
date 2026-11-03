@@ -17,5 +17,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             return true;
         }
+
+        public override bool HasEnded => true;
     }
 }

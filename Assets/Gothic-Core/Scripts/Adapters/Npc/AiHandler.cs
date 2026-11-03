@@ -1,7 +1,7 @@
 ﻿using Gothic.Core.Models.Npc;
+using System;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -15,6 +15,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.World;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -40,9 +41,15 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly AnimationService _animationService;
+        [Inject] private readonly PhysicsService _physicsService;
 
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
+        private readonly HashSet<Type> _failedActionTypes = new();
+
+        // When the state's _Loop may run again (Time.time). See the Loop case in Update.
+        private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
         private const string _proclaimState = "ZS_PROCLAIMANDPUNISH";
@@ -52,17 +59,21 @@ namespace Gothic.Core.Adapters.Npc
         // True while the combo-preload CallAiFunction is executing. Used by ExtNpcClearAiQueue to
         // avoid stopping the active AttackPlayAni when Npc_ClearAIQueue fires from ZS_Attack_Loop.
         public bool IsInComboPreload { get; private set; }
+        private const string _deadStateAnimation = "S_DeadB";
+        private const string _unconsciousState = "ZS_UNCONSCIOUS";
+        private const string _unconsciousStateAnimation = "S_Wounded";
 
         private void Start()
         {
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
 
-            // Killed by startup scripts before its mesh was created (e.g. Nek in G1): it lies dead.
+            // Killed by startup scripts before its mesh was created (e.g. Nek in G1), or died before a save game was
+            // written (or before we left the world): it lies dead from the start.
             var spawnHp = Vob.GetAttribute((int)NpcAttribute.HitPoints);
-            if (spawnHp <= 0 || Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (spawnHp <= 0 || Properties.IsDead)
             {
                 Properties.BodyState = VmGothicEnums.BodyState.BsDead;
-                PlayDeadPose();
+                StartDead();
                 Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: dead on spawn HP={spawnHp}", LogCat.Npc);
 
                 // ZS_Dead once, without a killer (other = the dead NPC, like the engine's script kill): with the hero
@@ -70,6 +81,44 @@ namespace Gothic.Core.Adapters.Npc
                 if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
                     _fightService.RunZsDead(NpcInstance, _npcService.GetHeroContainer().Instance, killer: null);
             }
+            // Knocked out ones lie there too until ZS_Unconscious ends (a loaded game, the NPC coming back into view).
+            else if (IsUnconsciousFromStart())
+                StartUnconscious();
+        }
+
+        private bool IsUnconsciousFromStart()
+        {
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return true;
+
+            var state = Vob.NextStateValid ? Vob.NextStateName : Vob.CurrentStateName;
+            return string.Equals(state, _unconsciousState, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The engine drops a knocked out NPC itself (FightService) - ZS_Unconscious only waits. Without it, a loaded
+        /// one stood there (with no physics, wherever the load put him) until he got up.
+        /// </summary>
+        private void StartUnconscious()
+        {
+            Properties.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+            Properties.KnockedOutTime = Time.time;
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(_unconsciousStateAnimation), NpcData));
+            _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
+        }
+
+        /// <summary>
+        /// Update() only plays out queued animations of dead NPCs. They lie on the ground already (state ani): the
+        /// dying ani (T_DeadB) would let them fall down again on every load. It's the fallback for models without one.
+        /// </summary>
+        private void StartDead()
+        {
+            var deadAnimation = _animationService.GetTrack(_deadStateAnimation, Properties.MdsNameBase,
+                Properties.MdsNameOverlay) != null
+                ? _deadStateAnimation
+                : _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, NpcData);
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(deadAnimation), NpcData));
+            _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
         }
 
         /// <summary>
@@ -83,11 +132,11 @@ namespace Gothic.Core.Adapters.Npc
         {
             // If NPC/Monster is dead, only play out the already queued animations (e.g. the dying animation
             // enqueued by FightService), then stop any further process logic.
-            if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (Properties.IsDead)
             {
-                Properties.CurrentAction.Tick();
+                TickCurrentAction();
 
-                if (Properties.CurrentAction.IsFinished())
+                if (IsCurrentActionFinished())
                 {
                     if (Properties.AnimationQueue.Count > 0)
                         PlayNextAnimation(Properties.AnimationQueue.Dequeue());
@@ -98,11 +147,12 @@ namespace Gothic.Core.Adapters.Npc
                 return;
             }
 
+            _npcAiService.DeliverPassivePerceptions(NpcData);
             ExecuteActivePerceptions();
             CheckProclaimChase();
             ExecuteStates();
 
-            Properties.CurrentAction.Tick();
+            TickCurrentAction();
 
             // Add new milliseconds when stateTime shall be measured.
             if (Properties.IsStateTimeActive && Properties.CurrentLoopState == LoopState.Loop)
@@ -111,7 +161,7 @@ namespace Gothic.Core.Adapters.Npc
             }
 
             // If we're not yet done, we won't handle further tasks (like dequeuing another Action)
-            if (!Properties.CurrentAction.IsFinished())
+            if (!IsCurrentActionFinished())
             {
                 // Combo preload: Gothic's fight AI runs continuously, so the next attack is always
                 // queued before the combo window opens. We replicate this by firing the fight loop
@@ -131,6 +181,8 @@ namespace Gothic.Core.Adapters.Npc
                     if (preloadResponse != _daedalusLoopContinue)
                         Properties.CurrentLoopState = LoopState.End;
                 }
+                // The NPC really does something - when it's done, the state's loop may react at once.
+                _nextLoopTime = 0f;
                 return;
             }
 
@@ -160,6 +212,7 @@ namespace Gothic.Core.Adapters.Npc
 
                         CallAiFunction(Vob.CurrentStateIndex);
                         Properties.CurrentLoopState = LoopState.Loop;
+                        _nextLoopTime = 0f;
                         break;
                     case LoopState.Loop:
                         if (Properties.StateLoop == 0 && Vob.CurrentStateIndex != 0)
@@ -177,6 +230,13 @@ namespace Gothic.Core.Adapters.Npc
                             Properties.CurrentLoopState = LoopState.Start;
                             return;
                         }
+
+                        // A pass that only did instant things (AI_AlignToFP while aligned, pure checks) doesn't run
+                        // again every frame: like the engine (OpenGothic Npc::tickRoutine) it waits for the NPC's
+                        // perception time. After a real action it runs at once (fights, walking routines).
+                        if (Time.time < _nextLoopTime)
+                            break;
+                        _nextLoopTime = Time.time + Properties.PerceptionTime;
 
                         var loopResponse = CallAiFunction(Properties.StateLoop);
                         
@@ -475,7 +535,7 @@ namespace Gothic.Core.Adapters.Npc
             // We have set some "next" state. Use it instead of going back to daily routine first.
             if (Vob.NextStateValid)
             {
-                StartRoutine(Vob.NextStateIndex);
+                StartRoutine(Vob.NextStateIndex, Vob.NextStateIsRoutine);
 
                 // As we use NextStateIndex as new "current" one, we clear it now safely.
                 Vob.NextStateIndex = -1;
@@ -568,14 +628,17 @@ namespace Gothic.Core.Adapters.Npc
         // States in which the NPC looks away from the hero on purpose.
         private static readonly string[] _lookingAwayStates = { "ZS_TURNAWAY" };
 
-        public void StartRoutine(int action)
+        /// <param name="isRoutineState">Like Gothic's isRtnState (saved): true if the daily routine (or a monster's
+        /// StartAiState) runs the state, false for states started by AI_StartState. A loaded NPC continues the latter
+        /// (SaveGameNpcDomain).</param>
+        public void StartRoutine(int action, bool isRoutineState = true)
         {
             var didRoutineChange = Vob.CurrentStateIndex != action;
 
             Vob.LastAiState = Vob.CurrentStateIndex;
             Vob.CurrentStateIndex = action;
             Vob.CurrentStateValid = true;
-            Vob.CurrentStateIsRoutine = false;
+            Vob.CurrentStateIsRoutine = isRoutineState;
 
             var routineSymbol = Vm.GetSymbolByIndex(action)!;
             Vob.CurrentStateName = routineSymbol.Name;
@@ -586,11 +649,7 @@ namespace Gothic.Core.Adapters.Npc
 
             var symbolLoop = Vm.GetSymbolByName($"{routineSymbol.Name}_Loop");
             if (symbolLoop != null)
-            {
-                // If we have a _Loop entry, we can safely assume, we are in a routine and not just a monster AiState.
-                Vob.CurrentStateIsRoutine = true;
                 Properties.StateLoop = symbolLoop.Index;
-            }
 
             var symbolEnd = Vm.GetSymbolByName($"{routineSymbol.Name}_End");
             if (symbolEnd != null)
@@ -676,7 +735,54 @@ namespace Gothic.Core.Adapters.Npc
         private void PlayNextAnimation(AbstractAnimationAction action)
         {
             Properties.CurrentAction = action;
-            action.Start();
+            try
+            {
+                action.Start();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private void TickCurrentAction()
+        {
+            try
+            {
+                Properties.CurrentAction.Tick();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+            }
+        }
+
+        private bool IsCurrentActionFinished()
+        {
+            try
+            {
+                return Properties.CurrentAction.IsFinished();
+            }
+            catch (Exception e)
+            {
+                SkipFailedAction(e);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// An action that threw can't finish on its own - it threw again every frame and the NPC hung in it (an orc
+        /// frozen in his dialog line). It counts as done, the NPC goes on with the next one. Logged once per action
+        /// type and NPC.
+        /// </summary>
+        private void SkipFailedAction(Exception e)
+        {
+            var actionType = Properties.CurrentAction.GetType();
+            if (_failedActionTypes.Add(actionType))
+                Logger.LogError($"{actionType.Name} of {Go.transform.parent?.name} threw - skipped. Later " +
+                                $"failures of this action on this NPC are not logged. {e}", LogCat.Ai);
+
+            Properties.CurrentAction = new None(new AnimationAction(), NpcData);
         }
 
         /// <summary>
@@ -713,7 +819,7 @@ namespace Gothic.Core.Adapters.Npc
                 var wp = _wayNetService.GetWayNetPoint(currentRoutine.Waypoint);
                 if (wp != null)
                 {
-                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position);
+                    gameObject.transform.position = _npcService.GetFreeAreaAtSpawnPoint(wp.Position, gameObject);
                     // Only overwrite CurrentFreePoint when the routine WP is itself a FreePoint.
                     // If it's a WayPoint (e.g. SPAWN_ZOLLO), preserve the home FP so GoToNextFp
                     // can reclaim it instead of grabbing the nearest unlocked one.
@@ -735,8 +841,8 @@ namespace Gothic.Core.Adapters.Npc
             // point.
             if (Properties.CurrentInteractableStateId >= 0)
             {
-                if (PrefabProps.CurrentInteractable?.Props is InteractiveProperties mobProps)
-                    mobProps.State = -1;
+                if (PrefabProps.CurrentInteractable != null)
+                    PrefabProps.CurrentInteractable.MobState = -1;
 
                 PrefabProps.CurrentInteractable = null;
                 PrefabProps.CurrentInteractableSlot = null;
@@ -792,7 +898,7 @@ namespace Gothic.Core.Adapters.Npc
             else
             {
                 //if we don't have a routine means it's about a monster
-                StartRoutine(Vob.CurrentStateIndex);
+                StartRoutine(Vob.CurrentStateIndex, Vob.CurrentStateIsRoutine);
             }
         }
 

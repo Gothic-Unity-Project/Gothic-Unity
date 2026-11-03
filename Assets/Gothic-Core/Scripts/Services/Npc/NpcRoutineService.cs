@@ -74,6 +74,25 @@ namespace Gothic.Core.Services.Npc
             ExchangeRoutine(npcInstance, newRoutine.Index);
         }
 
+        /// <summary>
+        /// Npc_IsInRoutine(npc, Rtn_X): the NPC follows that daily routine right now (Npc_ExchangeRoutine changes it).
+        /// The only call, G1 Damarok's healing offer, passes a Rtn_ function. OpenGothic compares the routine entry's
+        /// state (ZS_*) instead, which is never true for it.
+        /// </summary>
+        public bool ExtNpcIsInRoutine(NpcInstance npc, int routineFunction)
+        {
+            var vob = npc?.GetUserData()?.Vob;
+            if (vob == null)
+            {
+                Logger.LogWarning($"Npc_IsInRoutine: NPC {npc?.Id} has no Unity data (not spawned?) - answering " +
+                                  "false.", LogCat.Npc);
+                return false;
+            }
+
+            var routineName = _vm.GetSymbolByIndex(routineFunction)?.Name;
+            return routineName != null && routineName.EqualsIgnoreCase(vob.CurrentRoutine);
+        }
+
         public void ExchangeRoutine(NpcInstance npc, string routineName)
         {
             var routine = _gameStateService.GothicVm.GetSymbolByName(routineName);
@@ -104,6 +123,10 @@ namespace Gothic.Core.Services.Npc
             }
 
             npcContainer.Props.Routines.Clear();
+
+            // The VOB keeps the active routine for save games (Npc_ExchangeRoutine changes it at runtime).
+            npcContainer.Vob.CurrentRoutine = _gameStateService.GothicVm.GetSymbolByIndex(routineIndex)?.Name
+                                              ?? string.Empty;
 
             // We always need to set "self" before executing any Daedalus function.
             _gameStateService.GothicVm.GlobalSelf = npc;

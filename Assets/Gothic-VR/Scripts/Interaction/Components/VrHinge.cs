@@ -97,6 +97,7 @@ namespace Gothic.VR.Interaction.Components
         private bool _isLocked;
         private bool _isOpen;
         private bool _isClosed = true;
+        private bool _isOpenPending;
 
         public event Action Opened;
         public event Action Closed;
@@ -133,6 +134,9 @@ namespace Gothic.VR.Interaction.Components
             var reference = Mathf.Abs(Vector3.Dot(worldAxis, Vector3.up)) > 0.9f ? Vector3.right : Vector3.up;
             _planeReference = Vector3.ProjectOnPlane(reference, worldAxis).normalized;
             _isStarted = true;
+
+            if (_isOpenPending)
+                OpenInstantly();
 
             _interactable = GetComponent<VrInteractable>();
             if (_interactable == null)
@@ -229,6 +233,20 @@ namespace Gothic.VR.Interaction.Components
             // The push open of the lock picking.
             _speed = _unlockPushSpeed;
             RebaselineGrab();
+        }
+
+        public void OpenInstantly()
+        {
+            // Before Start(), the closed rotation isn't known yet.
+            _isOpenPending = !_isStarted;
+            if (!_isStarted || _isLocked)
+                return;
+
+            _speed = 0f;
+            _angle = _maxAngle;
+            ApplyAngle();
+            _isClosed = false;
+            _isOpen = true;
         }
 
         public void SetSounds(AudioClip opened, AudioClip closed)

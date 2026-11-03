@@ -10,9 +10,9 @@ namespace Gothic.Core.Models.Animations.Morph
         public float Time;
         public bool IsLooping;
 
-        // Blended morphs (HeadMorph, DeveloperConfig.EnableFaceAnimations), like the engine's face animations:
-        // Weight = intensity (Mdl_StartFaceAni), HoldSeconds > 0 = stop after it, < 0 = hold until stopped,
-        // 0 = the animation's own duration. BlendWeight follows the MMB blend in/out, HoldTimer restarts with a refresh.
+        // Blended morphs (head), like the engine's face animations: Weight = intensity (Mdl_StartFaceAni),
+        // HoldSeconds > 0 = stop after it, < 0 = hold until stopped, 0 = the animation's own duration.
+        // BlendWeight follows the MMB blend in/out, HoldTimer restarts with a refresh.
         public float Weight = 1f;
         public float HoldSeconds;
         public float HoldTimer;
