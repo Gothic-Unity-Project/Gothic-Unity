@@ -207,12 +207,58 @@ MonoBehaviour:
     m_Localized: aus|an
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Klettern
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Gegriffene Kanten: selbst hochziehen oder hinaufblenden (weniger
+      Bewegung)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: hochziehen|blenden
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Kletterhinweise
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "Hand schlie\xDFt sich und vibriert an Kanten; leuchten markiert
+      die Kante"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: aus|leuchten
+    m_Metadata:
+      m_Items: []
   - m_Id: 187053241054658560
     m_Localized: "H\xF6henversatz"
     m_Metadata:
       m_Items: []
   - m_Id: 187053241104990208
     m_Localized: "Kamerah\xF6he in 5-cm-Schritten. Mitte = kein Versatz"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: "Speichern nicht m\xF6glich: Es l\xE4uft kein Spiel."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Speichern nicht m\xF6glich, solange du tot bist."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Speichern ist w\xE4hrend eines Dialogs nicht m\xF6glich."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Laden fehlgeschlagen: Der Spielstand kann nicht gelesen werden.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Speichern fehlgeschlagen. Der vorherige Spielstand bleibt erhalten.
     m_Metadata:
       m_Items: []
   references:

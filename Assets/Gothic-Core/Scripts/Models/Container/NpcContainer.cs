@@ -156,8 +156,8 @@ namespace Gothic.Core.Models.Container
         // ZenKit data
         public NpcInstance Instance;
         public NpcProxy Vob;
-        // True after Vm.InitInstance() was called for this container (prevents double-init in InitZkInstance).
-        public bool IsZkInstanceInitialized;
+        // The instance script ran already (Wld_InsertNpc) - running it again would undo what the scripts changed since.
+        public bool IsInstanceInitialized;
         // True after ZS_Dead was called for this NPC (prevents double-call between OnNpcDied and dead-on-spawn).
         public bool IsZsDeadCalled;
 

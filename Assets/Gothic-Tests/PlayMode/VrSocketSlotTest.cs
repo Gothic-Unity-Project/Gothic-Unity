@@ -65,6 +65,22 @@ namespace Gothic.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator SmallItemDoesNotGrow()
+        {
+            var world = Create("World");
+            var slot = Create("Slot").AddComponent<VrSocketSlot>();
+            slot.Size = CubeSize * 3; // A coin in a hip holster.
+            var item = CreateItem(world.transform, withXri: false);
+            yield return null;
+
+            Assert.IsTrue(slot.TryPlace(item.Interactable, true));
+            Assert.That(item.Loader.transform.localScale.x, Is.EqualTo(1f).Within(Tolerance),
+                "A slot only shrinks items, it must not grow them.");
+            Assert.That(Vector3.Distance(item.Cube.bounds.center, slot.AttachPoint.position),
+                Is.LessThan(Tolerance), "The item must be centered in the slot.");
+        }
+
+        [UnityTest]
         public IEnumerator PlaceAndRemoveOnXri()
         {
             Create("XR Interaction Manager").AddComponent<XRInteractionManager>();
@@ -124,6 +140,37 @@ namespace Gothic.Tests.PlayMode
             Assert.That(item.Loader.transform.localScale.x, Is.EqualTo(1f).Within(Tolerance));
         }
 
+        [UnityTest]
+        public IEnumerator GrabAreaOnlyWhileInSlotOnXri()
+        {
+            const float areaSize = 0.3f;
+            var manager = Create("XR Interaction Manager").AddComponent<XRInteractionManager>();
+            var world = Create("World");
+            var slot = CreateXriSlot(new Vector3(0, 1, 0));
+            var item = CreateItem(world.transform, withXri: true);
+            var areaGo = new GameObject("GrabArea");
+            areaGo.transform.SetParent(item.Grabbable.transform, false);
+            var area = areaGo.AddComponent<BoxCollider>();
+            areaGo.AddComponent<VrSocketedGrabArea>();
+            var hand = Create("Hand").AddComponent<XRDirectInteractor>();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(area.enabled, "The grab area is off outside a slot.");
+
+            slot.TryPlace(item.Interactable, true);
+            yield return null;
+            Physics.SyncTransforms();
+            Assert.IsTrue(item.GrabInteractable.IsSocketed);
+            Assert.IsTrue(area.enabled, "The grab area is on while the item is in the slot.");
+            Assert.That(area.bounds.size.x, Is.EqualTo(areaSize).Within(Tolerance),
+                "The grab area keeps its world size although the slot shrank the item.");
+
+            manager.SelectEnter((IXRSelectInteractor)hand, item.GrabInteractable);
+            yield return null;
+            Assert.IsTrue(hand.IsSelecting(item.GrabInteractable));
+            Assert.IsFalse(area.enabled, "The grab area is off while a hand holds the item.");
+        }
+
         private void AssertInSlot(VrSocketSlot slot, TestItem item)
         {
             Assert.IsTrue(slot.IsOccupied);
@@ -134,8 +181,8 @@ namespace Gothic.Tests.PlayMode
             Assert.That(item.Grabbable.transform.localPosition.magnitude, Is.LessThan(Tolerance));
             Assert.IsTrue(item.Rigidbody.isKinematic);
 
-            // Scale-to-fit: the largest side becomes Size (as HVR's sockets).
-            var expectedScale = slot.Size / CubeSize;
+            // Scale-to-fit: the largest side becomes Size (as HVR's sockets), but only shrinking.
+            var expectedScale = Mathf.Min(slot.Size / CubeSize, 1f);
             Assert.That(item.Loader.transform.localScale.x, Is.EqualTo(expectedScale).Within(Tolerance));
             Assert.That(Vector3.Distance(item.Cube.bounds.center, slot.AttachPoint.position),
                 Is.LessThan(Tolerance), "The item must be centered in the slot.");

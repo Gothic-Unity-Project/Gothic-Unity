@@ -46,6 +46,27 @@ namespace Gothic.Core.Adapters.Animations.Morph
             RandomAnimationTimers =
                 new(); // It's faster to alter a list entry than rewriting the whole Tuple struct above.
 
+        /// <summary>
+        /// Blend all running morphs on top of each other (face: mood + talking mouth + blink) instead of the last one
+        /// setting the whole mesh.
+        /// </summary>
+        protected virtual bool IsBlendingMorphs => false;
+
+        /// <summary>
+        /// IsBlendingMorphs: beyond this distance to the camera the mesh stays in its rest pose - nobody sees a face
+        /// from afar, and each morphed frame rewrites the whole mesh.
+        /// </summary>
+        protected virtual float MaxBlendDistance => float.MaxValue;
+
+        // IsBlendingMorphs: the summed vertices (reused every frame), the mesh they belong to, whether the mesh is off
+        // its rest pose and whether it needs to be computed again although no morph changed.
+        private Vector3[] _blendedVertices;
+        private string _blendedMeshName;
+        private bool _isMeshMorphed;
+        private bool _isBlendDirty;
+        private bool _isBlendMismatchLogged;
+        private static Camera _mainCamera;
+
         protected virtual void Start()
         {
             // As we don't set component inside Prefab, we need to assign mesh later at runtime.
@@ -55,18 +76,6 @@ namespace Gothic.Core.Adapters.Animations.Morph
             }
         }
 
-        /// <summary>
-        /// Blend all running morphs on top of each other (face: mood + viseme + blink) instead of the last one setting
-        /// the whole mesh.
-        /// </summary>
-        protected virtual bool IsBlendingMorphs => false;
-
-        // IsBlendingMorphs: the summed vertices (reused every frame) and whether the mesh is off its rest pose.
-        private Vector3[] _blendedVertices;
-        private string _blendedMeshName;
-        private bool _isMeshMorphed;
-        private bool _isBlendMismatchLogged;
-
         public bool IsAnimationRunning(string animationName)
         {
             return _runningMorphs.Any(i => !i.IsStopping && i.AnimationName.EqualsIgnoreCase(animationName));
@@ -75,7 +84,7 @@ namespace Gothic.Core.Adapters.Animations.Morph
         protected void StartAnimation(string morphMeshName, [CanBeNull] string animationName, float weight = 1f,
             float holdSeconds = 0f)
         {
-            // IsBlendingMorphs: the same animation again (a viseme for the next line, the same mood) only refreshes it.
+            // IsBlendingMorphs: the same animation again (the mouth for the next line, a mood) only refreshes it.
             if (IsBlendingMorphs && animationName != null)
             {
                 var running = _runningMorphs.FirstOrDefault(i =>
@@ -85,6 +94,7 @@ namespace Gothic.Core.Adapters.Animations.Morph
                     running.Weight = Mathf.Clamp01(weight);
                     running.HoldSeconds = holdSeconds;
                     running.HoldTimer = 0f;
+                    _isBlendDirty = true;
                     return;
                 }
             }
@@ -115,8 +125,8 @@ namespace Gothic.Core.Adapters.Animations.Morph
             if (newMorph.AnimationFrameData == null)
                 return;
 
-            // IsBlendingMorphs: like the engine, one animation per MMB layer - a new mood fades the old one out (T_EAT and
-            // T_HURT share the moods' layer 1, VISEME has layer 2, R_EYESBLINK 4).
+            // IsBlendingMorphs: like the engine, one animation per MMB layer - a new mood fades the old one out (T_EAT
+            // and T_HURT share the moods' layer 1, VISEME has layer 2, R_EYESBLINK 4).
             if (IsBlendingMorphs)
             {
                 foreach (var sameLayer in _runningMorphs.Where(i =>
@@ -127,6 +137,7 @@ namespace Gothic.Core.Adapters.Animations.Morph
                 newMorph.HoldSeconds = holdSeconds;
                 newMorph.IsLooping = newMorph.AnimationMetadata.Flags.HasFlag(MorphAnimationFlags.Loop);
                 _runningMorphs.Add(newMorph);
+                _isBlendDirty = true;
                 return;
             }
 
@@ -158,11 +169,14 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
         public void StopAnimation(string animationName)
         {
-            // IsBlendingMorphs: fades out with its MMB blend out; not running is fine (a line without a viseme).
+            // IsBlendingMorphs: fades out with its MMB blend out; not running is fine (a line without a mouth).
             if (IsBlendingMorphs)
             {
-                foreach (var morph in _runningMorphs.Where(i => i.AnimationName.EqualsIgnoreCase(animationName)))
-                    morph.IsStopping = true;
+                foreach (var morph in _runningMorphs)
+                {
+                    if (morph.AnimationName.EqualsIgnoreCase(animationName))
+                        morph.IsStopping = true;
+                }
                 return;
             }
 
@@ -206,45 +220,27 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
         /// <summary>
         /// IsBlendingMorphs: like the engine, every running morph adds its offset from the rest pose, weighted by its
-        /// intensity and its blend in/out (MMB values are weight per millisecond: a blink closes in 40 ms, a mood in 1 s).
-        /// Before, each morph set the whole mesh - a blink or a mood would wipe out the talking mouth.
+        /// intensity and its blend in/out (MMB values are weight per millisecond: a blink closes in 40 ms, a mood in
+        /// 1 s). The mesh is only rewritten while something changes and the camera is near.
         /// </summary>
         private void UpdateBlendedMorphs()
         {
             if (_runningMorphs.Count == 0)
             {
                 if (_isMeshMorphed)
-                {
-                    _isMeshMorphed = false;
-                    ResetToRestPose(_morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName));
-                }
+                    ResetToRestPose();
                 return;
             }
-
-            _blendedMeshName = _runningMorphs[0].MeshName;
-            var baseVertices = _morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName);
-            if (_mesh == null || baseVertices == null || baseVertices.Length != _mesh.vertexCount)
-            {
-                if (!_isBlendMismatchLogged)
-                {
-                    _isBlendMismatchLogged = true;
-                    Logger.LogWarning($"[FaceAni] {gameObject.name}: no rest pose for '{_runningMorphs[0].MeshName}' " +
-                                      "matching the mesh - face animations off for it", LogCat.Mesh);
-                }
-                _runningMorphs.Clear();
-                return;
-            }
-
-            if (_blendedVertices == null || _blendedVertices.Length != baseVertices.Length)
-                _blendedVertices = new Vector3[baseVertices.Length];
-            Array.Copy(baseVertices, _blendedVertices, baseVertices.Length);
 
             var deltaMs = Time.deltaTime * 1000f;
-            foreach (var morph in _runningMorphs.ToList())
+            var isChanged = _isBlendDirty;
+            for (var m = _runningMorphs.Count - 1; m >= 0; m--)
             {
+                var morph = _runningMorphs[m];
+                var animation = morph.AnimationMetadata;
+                var previousWeight = morph.BlendWeight;
                 morph.Time += Time.deltaTime;
                 morph.HoldTimer += Time.deltaTime;
-                var animation = morph.AnimationMetadata;
 
                 if (morph.IsStopping)
                 {
@@ -252,7 +248,8 @@ namespace Gothic.Core.Adapters.Animations.Morph
                     morph.BlendWeight = blendOut > 0f ? morph.BlendWeight - deltaMs * blendOut : 0f;
                     if (morph.BlendWeight <= 0f)
                     {
-                        _runningMorphs.Remove(morph);
+                        _runningMorphs.RemoveAt(m);
+                        isChanged = true;
                         continue;
                     }
                 }
@@ -265,8 +262,56 @@ namespace Gothic.Core.Adapters.Animations.Morph
                         morph.IsStopping = true;
                 }
 
+                // A single frame at a steady weight (a held mood) doesn't change the mesh.
+                isChanged |= morph.BlendWeight != previousWeight || morph.AnimationFrameCount > 1;
+            }
+
+            if (!IsNearCamera())
+            {
+                if (_isMeshMorphed)
+                    ResetToRestPose();
+                // Computed again when the camera comes near.
+                _isBlendDirty = true;
+                return;
+            }
+
+            if (!isChanged)
+                return;
+
+            _isBlendDirty = false;
+            if (_runningMorphs.Count == 0)
+            {
+                ResetToRestPose();
+                return;
+            }
+
+            BlendMorphs();
+        }
+
+        private void BlendMorphs()
+        {
+            _blendedMeshName = _runningMorphs[0].MeshName;
+            var baseVertices = _morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName);
+            if (_mesh == null || baseVertices == null || baseVertices.Length != _mesh.vertexCount)
+            {
+                if (!_isBlendMismatchLogged)
+                {
+                    _isBlendMismatchLogged = true;
+                    Logger.LogWarning($"{gameObject.name}: no rest pose for '{_blendedMeshName}' matching the mesh - " +
+                                      "face animations off for it", LogCat.Mesh);
+                }
+                _runningMorphs.Clear();
+                return;
+            }
+
+            if (_blendedVertices == null || _blendedVertices.Length != baseVertices.Length)
+                _blendedVertices = new Vector3[baseVertices.Length];
+            Array.Copy(baseVertices, _blendedVertices, baseVertices.Length);
+
+            foreach (var morph in _runningMorphs)
+            {
                 var frames = morph.AnimationFrameData;
-                var frameFloat = morph.Time * 1000f * animation.Speed % frames.Count;
+                var frameFloat = morph.Time * 1000f * morph.AnimationMetadata.Speed % frames.Count;
                 var frame = Mathf.Clamp((int)frameFloat, 0, frames.Count - 1);
                 var current = frames[frame];
                 var next = frames[(frame + 1) % frames.Count];
@@ -276,22 +321,37 @@ namespace Gothic.Core.Adapters.Animations.Morph
                 var lerp = frameFloat - frame;
                 var weight = morph.BlendWeight * morph.Weight;
                 for (var i = 0; i < baseVertices.Length; i++)
-                    _blendedVertices[i] += (Vector3.LerpUnclamped(current[i], next[i], lerp) - baseVertices[i]) * weight;
+                {
+                    var offset = Vector3.LerpUnclamped(current[i], next[i], lerp) - baseVertices[i];
+                    _blendedVertices[i] += offset * weight;
+                }
             }
 
             _mesh.vertices = _blendedVertices;
             _isMeshMorphed = true;
         }
 
-        private void ResetToRestPose(Vector3[] restVertices)
+        private void ResetToRestPose()
         {
+            _isMeshMorphed = false;
+            var restVertices = _morphMeshCacheService.GetOriginalUnityVertices(_blendedMeshName);
             if (restVertices != null && _mesh != null && restVertices.Length == _mesh.vertexCount)
                 _mesh.vertices = restVertices;
         }
 
+        private bool IsNearCamera()
+        {
+            // Shared by all heads, looked up again when the scene's camera is gone (loading -> world).
+            if (_mainCamera == null || !_mainCamera.isActiveAndEnabled)
+                _mainCamera = Camera.main;
+
+            return _mainCamera == null || (_mainCamera.transform.position - transform.position).sqrMagnitude <=
+                MaxBlendDistance * MaxBlendDistance;
+        }
+
         /// <summary>
-        /// HoldSeconds > 0: held that long; &lt; 0: until stopped; 0: the MMB duration (R_EYESBLINK 0 = blend in and out,
-        /// T_EAT 2 s, a looping mood -1 = until stopped).
+        /// HoldSeconds > 0: held that long; &lt; 0: until stopped; 0: the MMB duration (R_EYESBLINK 0 = blend in and
+        /// out, T_EAT 2 s, a looping mood -1 = until stopped).
         /// </summary>
         private static bool IsMorphOver(MorphAnimationData morph)
         {
@@ -386,9 +446,13 @@ namespace Gothic.Core.Adapters.Animations.Morph
 
                 var anim = RandomAnimations[i];
 
-                // FIXME - Set maxWeight for animation based on random value.
-                // FIXME - var weight = Random.value * 0.4f + 0.6f
-                StartAnimation(anim.morphMeshName, anim.animationName);
+                // IsBlendingMorphs: nobody sees a blink from afar - only the timer goes on.
+                if (!IsBlendingMorphs || IsNearCamera())
+                {
+                    // FIXME - Set maxWeight for animation based on random value.
+                    // FIXME - var weight = Random.value * 0.4f + 0.6f
+                    StartAnimation(anim.morphMeshName, anim.animationName);
+                }
 
                 if (Random.value < anim.probabilityOfFirst)
                 {

@@ -8,7 +8,6 @@
 #
 # This list may only shrink. Remove lines once fixed (the test tells you). Add lines only for reviewed exceptions.
 
-layer | Domain/Audio/MusicDomain.cs | Gothic.Core.Adapters.Vob
 layer | Domain/Culling/NpcMeshCullingDomain.cs | Gothic.Core.Adapters.Npc
 layer | Domain/Culling/VobMeshCullingDomain.cs | Gothic.Core.Adapters.Vob
 layer | Domain/Meshes/Builder/NpcHeadMeshBuilder.cs | Gothic.Core.Adapters.Animations.Morph

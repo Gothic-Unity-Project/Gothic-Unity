@@ -133,6 +133,12 @@ namespace Gothic.Core.Const
         public static LayerMask VobNpcOrMonsterLayer = LayerMask.NameToLayer("VobNpcOrMonster");
         public static LayerMask VobMovableLayer = LayerMask.NameToLayer("VobMovable"); // No collision with world (e.g. for chest lid and door)
         public static LayerMask VobHitbox = LayerMask.NameToLayer("VobHitbox");
+        // VR ledge grab points (VrLedgeAnchor). Collides with nothing, only the hands' near grab finds it: leave it out
+        // of masks that would see everything.
+        public static LayerMask ClimbAnchorLayer = LayerMask.NameToLayer("ClimbAnchor");
+        // Items inside a VR slot (holster, backpack, chest). Collides with nothing (hands, body, ground check), only
+        // the hands' near grab finds it.
+        public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
 
         
         /*
@@ -154,11 +160,12 @@ namespace Gothic.Core.Const
         public const float NpcDestinationReachedThreshold = 0.6f;
         public const float NpcRotationSpeed = 500f;
 
-        // Meters between hero and NPC for starting and keeping a dialog (DeveloperConfig.EnableDialogFreeMovement).
-        public const float DialogMaxDistance = 5f;
-        // Meters between hero and NPC from which walking away slows down until it stops at DialogMaxDistance.
+        // DeveloperConfig.EnableDialogFreeMovement: meters between hero and NPC for starting and keeping a dialog.
+        public const float DialogFreeMovementRadius = 5f;
+        // DeveloperConfig.EnableDialogFreeMovement: meters between hero and NPC from which walking away slows down
+        // until it stops at DialogFreeMovementRadius.
         public const float DialogSlowDownDistance = 3f;
-        // Max height difference (floor, cliff, ladder) between hero and NPC for starting and keeping a dialog.
+        // Max height difference (floor, cliff, ladder) to where the hero is held during a dialog.
         public const float DialogMaxHeightDifference = 3f;
         
 
@@ -171,8 +178,6 @@ namespace Gothic.Core.Const
         public const string SlotHelmet		= "ZS_HELMET";
         public const string SlotTorso		= "ZS_TORSO";
 
-
-        public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
         // Alter this value to enforce game to recreate cache during next start.
         public const string StaticCacheVersion = "5";

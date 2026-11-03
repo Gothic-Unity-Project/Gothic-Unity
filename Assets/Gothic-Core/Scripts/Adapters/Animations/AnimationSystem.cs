@@ -102,7 +102,7 @@ namespace Gothic.Core.Adapters.Animations
         // Warnings that routine loops would repeat every few frames per NPC (thousands per minute in Khorinis): each
         // one is logged once only, as every log captures a stack trace, also in builds.
         private static readonly HashSet<string> _missingAnimationsLogged = new();
-        private static bool _isHeadAnimationWarningLogged;
+        private const string _headNodeName = "BIP01 HEAD";
 
         private List<AnimationTrackInstance> _trackInstances = new();
         // Reusable snapshot for Update(): instances can be added (NextAni/idle) or removed while iterating.
@@ -1065,20 +1065,16 @@ namespace Gothic.Core.Adapters.Animations
             if (morphEvents == null)
                 return;
 
+            // Like the engine, an event without a node or on the head's node is a face animation (T_HURT, T_EAT).
+            // Others morph a held item (a bow's S_SHOOT) - not yet supported.
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph == null)
+                return;
+
             foreach (var morph in morphEvents)
             {
-                // DeveloperConfig.EnableFaceAnimations: any face animation by name (T_HURT loops - held a moment).
-                if (_configService.Dev.EnableFaceAnimations)
-                {
-                    if (PrefabProps.HeadMorph != null)
-                        PrefabProps.HeadMorph.StartFaceAnimation(morph.Animation, 1f,
-                            HeadMorph.EventFaceAnimationSeconds);
-                    continue;
-                }
-
-                var type = PrefabProps.HeadMorph.GetAnimationTypeByName(morph.Animation);
-
-                PrefabProps.HeadMorph.StartAnimation(Properties.BodyData.Head, type);
+                if (string.IsNullOrEmpty(morph.Node) || morph.Node.EqualsIgnoreCase(_headNodeName))
+                    headMorph.StartEventFaceAnimation(morph.Animation);
             }
         }
 
@@ -1102,34 +1098,13 @@ namespace Gothic.Core.Adapters.Animations
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableFaceAnimations: the talking mouth (VISEME, loops) during an NPC's line.
+        /// A face animation held until stopped, e.g. the talking mouth (VISEME, loops) during an NPC's line.
         /// </summary>
-        public void PlayHeadAnimation(HeadMorph.HeadMorphType viseme)
+        public void PlayHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            if (!_configService.Dev.EnableFaceAnimations)
-            {
-                // FIXME - Implement
-                LogHeadAnimationWarning();
-                return;
-            }
-
             var headMorph = PrefabProps.HeadMorph;
             if (headMorph != null)
-                headMorph.StartFaceAnimation(headMorph.GetAnimationNameByType(viseme), 1f, -1f);
-        }
-
-        public void StopHeadAnimation(HeadMorph.HeadMorphType viseme)
-        {
-            if (!_configService.Dev.EnableFaceAnimations)
-            {
-                // FIXME - Implement
-                LogHeadAnimationWarning();
-                return;
-            }
-
-            var headMorph = PrefabProps.HeadMorph;
-            if (headMorph != null)
-                headMorph.StopFaceAnimation(headMorph.GetAnimationNameByType(viseme));
+                headMorph.StartFaceAnimation(headMorph.GetAnimationNameByType(type), 1f, -1f);
         }
 
         /// <summary>
@@ -1292,13 +1267,11 @@ namespace Gothic.Core.Adapters.Animations
             Go.transform.localPosition += SlideAlongWalls(worldMove);
         }
 
-        private static void LogHeadAnimationWarning()
+        public void StopHeadAnimation(HeadMorph.HeadMorphType type)
         {
-            if (_isHeadAnimationWarningLogged)
-                return;
-
-            _isHeadAnimationWarningLogged = true;
-            Logger.LogWarning("Play/StopHeadAnimation not yet implemented (logged once).", LogCat.Animation);
+            var headMorph = PrefabProps.HeadMorph;
+            if (headMorph != null)
+                headMorph.StopAnimation(headMorph.GetAnimationNameByType(type));
         }
 
         public bool IsPlaying(string animationName)

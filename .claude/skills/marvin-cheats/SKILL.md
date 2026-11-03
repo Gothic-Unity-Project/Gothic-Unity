@@ -55,5 +55,5 @@ Caveats:
 - Modding guide/tutorial: https://mondgesaenge.de/MDB/guide_tutorial.htm
 - zSpy (script debug output): https://gothic-modding-community.github.io/gmc/zengin/tools/zSpy/
 
-**There may be more settings than listed here.** Tell the user to check OpenGothic and the original Gothic 1/2
+**There may be more settings than listed here.** Check `./OpenGothic/common/marvin.cpp` (if present) and tell the user to check the original Gothic 1/2
 (marvin mode, console, Gothic.ini) for further candidates before inventing a new parameter.

@@ -37,10 +37,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         protected readonly NpcContainer NpcContainer;
         protected readonly NpcInstance NpcInstance;
-        protected readonly GameObject NpcGo;
         protected readonly NpcProperties Props;
         protected readonly NpcProxy Vob;
-        protected readonly NpcPrefabProperties PrefabProps;
+
+        // Read when used, not when queued: scripts queue actions (AI_Output, SVMs) for NPCs whose object isn't built
+        // yet - a copy taken then stayed null and the action threw every frame.
+        protected GameObject NpcGo => NpcContainer.Go;
+        protected NpcPrefabProperties PrefabProps => NpcContainer.PrefabProps;
 
         protected float ActionTime;
         protected float ActionEndEventTime;
@@ -52,10 +55,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             Action = action;
             NpcContainer = npcData;
             NpcInstance = npcData.Instance;
-            NpcGo = npcData.Go;
             Props = npcData.Props;
             Vob = npcData.Vob;
-            PrefabProps = npcData.PrefabProps;
 
             // As we will need a lot of different *Service interactions, we inject all of our elements now.
             this.Inject();
@@ -126,6 +127,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             return IsFinishedFlag;
         }
+
+        /// <summary>
+        /// Whether the action is done, for other NPCs to ask (AI_WaitTillEnd). Unlike IsFinished() it doesn't move the
+        /// action on - some count their time down in IsFinished().
+        /// </summary>
+        public virtual bool HasEnded => IsFinishedFlag;
 
         public virtual void StopImmediately()
         {

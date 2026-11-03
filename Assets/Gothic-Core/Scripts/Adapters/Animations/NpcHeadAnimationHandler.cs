@@ -15,6 +15,8 @@ namespace Gothic.Core.Animations
     public class NpcHeadAnimationHandler : BasePlayerBehaviour
     {
         private Transform _scriptTarget;
+        // When a quick look (AI_Quicklook) ends by itself - never for the other look-ats.
+        private float _scriptTargetEndTime = float.PositiveInfinity;
         private Transform _dialogTarget;
         // Current head offset against the body's forward direction, eased towards the target angles.
         private float _yaw;
@@ -49,6 +51,16 @@ namespace Gothic.Core.Animations
         public void StartLookAt(Transform destinationTransform)
         {
             _scriptTarget = destinationTransform;
+            _scriptTargetEndTime = float.PositiveInfinity;
+        }
+
+        /// <summary>
+        /// Daedalus: AI_Quicklook. Like AI_LookAtNpc, but the head turns back by itself after the seconds given.
+        /// </summary>
+        public void StartQuickLook(Transform destinationTransform, float seconds)
+        {
+            _scriptTarget = destinationTransform;
+            _scriptTargetEndTime = Time.time + seconds;
         }
 
         /// <summary>
@@ -57,6 +69,7 @@ namespace Gothic.Core.Animations
         public void StopLookAt()
         {
             _scriptTarget = null;
+            _scriptTargetEndTime = float.PositiveInfinity;
         }
 
         public void StartDialogLookAt(Transform destinationTransform)
@@ -78,6 +91,9 @@ namespace Gothic.Core.Animations
         /// </summary>
         private void LateUpdate()
         {
+            if (Time.time >= _scriptTargetEndTime)
+                StopLookAt();
+
             if (PrefabProps.Head == null)
                 return;
 
