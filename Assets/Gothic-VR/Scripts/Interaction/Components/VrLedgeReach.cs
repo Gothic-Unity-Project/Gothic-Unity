@@ -67,7 +67,7 @@ namespace Gothic.VR.Interaction.Components
         public event Action<VrGrabArgs> Released;
 
         /// <summary>
-        /// The player as climber. null: ledge climbing is off (DeveloperConfig, no IVrRig next to it or no anchor
+        /// The player as climber. null: ledge climbing is off (no IVrRig next to it or no anchor
         /// prefab). Decided once, on the first access.
         /// </summary>
         public VrLedgeClimber Climber
@@ -260,9 +260,6 @@ namespace Gothic.VR.Interaction.Components
 
         private VrLedgeClimber CreateClimber()
         {
-            if (!_configService.Dev.EnableVrLedgeClimbing)
-                return null;
-
             var rig = GetComponent<IVrRig>();
             if (rig == null || _anchorPrefab == null)
             {

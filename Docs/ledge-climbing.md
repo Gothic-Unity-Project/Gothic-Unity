@@ -1,7 +1,7 @@
 # Ledge climbing
 
 The VR player climbs exactly the ledges Gothic's hero can climb: by gripping the lip and pulling up, by a comfort
-fade, or by teleporting onto the top. Behind the DeveloperConfig flag `EnableVrLedgeClimbing`, XRI backend only.
+fade, or by teleporting onto the top. XRI backend only.
 Why it's built this way: Docs/adr/2026-10-28-vr-ledge-climbing.md.
 
 ## Gothic's rules (Core)
@@ -32,7 +32,7 @@ they block room and headroom.
 
 All on the XR Origin of `VR - Player XRI.prefab`:
 
-- `VrLedgeReach`: owns whether climbing is on (`Climber`: null if the flag is off, no rig or no anchor prefab - then
+- `VrLedgeReach`: owns whether climbing is on (`Climber`: null if there is no rig or no anchor prefab - then
   the other two stay off as well). Moves one `VrLedgeAnchor` per empty hand along the climbable lip it reaches, plus
   the hints (hand half closes, haptic tick, glow strip). Lips count from the floor the player last stood on, so a jump
   doesn't lower them.
