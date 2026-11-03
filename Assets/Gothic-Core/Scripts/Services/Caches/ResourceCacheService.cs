@@ -160,7 +160,8 @@ namespace Gothic.Core.Services.Caches
 
             // Like the G2 engine (and OpenGothic), the compiled .msb comes first: mods ship their changed animations
             // only there, while the text .mds can be the vanilla source in _work (DoM's HUMANS/ORC). G1 keeps the text.
-            if (_contextGameVersionService.IsGothic2() && _modelScript.TryLoad($"{name}.msb", out var compiled, false))
+            if (_contextGameVersionService.PrefersCompiledModelScript
+                && _modelScript.TryLoad($"{name}.msb", out var compiled, false))
                 return compiled;
 
             return _modelScript.TryLoad($"{name}.mds", out var item, printNotFoundWarning) ? item : null;
