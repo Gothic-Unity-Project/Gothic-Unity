@@ -53,6 +53,10 @@ namespace Gothic.Core.Adapters.Vob
         private int _moveStep;
         private int _moveDestination;
 
+        // The nearest mover above this one (SetPose()), looked up once - "none" is a valid answer, hence the flag.
+        private MoverAdapter _parentMover;
+        private bool _isParentMoverResolved;
+
         /// <summary>
         /// The VOB keeps the current key for save games (zCMover actKeyframe).
         /// </summary>
@@ -77,6 +81,9 @@ namespace Gothic.Core.Adapters.Vob
             GlobalEventDispatcher.StoreWorldStateStart.RemoveListener(StoreMoveState);
         }
 
+        // Moved to another parent: the parent mover is looked up again.
+        private void OnTransformParentChanged() => _isParentMoverResolved = false;
+
         private void Start()
         {
             if (_keyframes == null || _savedKeyIndex < 0 || _savedKeyIndex >= _keyframes.Length)
@@ -85,7 +92,7 @@ namespace Gothic.Core.Adapters.Vob
             // Chained movers restore their own key and move. No trigger is sent.
             if (_savedKeyIndex > 0)
             {
-                (transform.position, transform.rotation) = _keyframes[_savedKeyIndex];
+                SetPose(_keyframes[_savedKeyIndex].pos, _keyframes[_savedKeyIndex].rot);
                 _currentKeyIndex = _savedKeyIndex;
                 _isOpen = true;
                 Logger.Log($"[MoverAdapter] {_mover.Name} restored at key {_savedKeyIndex}.", LogCat.Vob);
@@ -177,13 +184,45 @@ namespace Gothic.Core.Adapters.Vob
                 _segmentSeconds[i] = CalculateSegmentSeconds(i, (i + 1) % _keyframes.Length, mover.Speed);
 
             if (_keyframes.Length > 0)
-                (transform.position, transform.rotation) = _keyframes[0];
+                SetPose(_keyframes[0].pos, _keyframes[0].rot);
 
             // A save game (or a world we left) stores the reached key.
             _savedKeyIndex = mover.ActKeyframe;
 
             Logger.Log($"[MoverAdapter] {mover.Name} init - {_keyframes.Length} keyframes, speed={mover.Speed}",
                 LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic MoveTrigger moves the local transform), a mover below another mover moves along
+        /// with it - its keyframes count from where the parent mover started. G2's Jharkendar portal: the petals are
+        /// movers below movers; set in world space they ignored their parent. Found on BoroBongo's branch.
+        /// </summary>
+        private void SetPose(Vector3 position, Quaternion rotation)
+        {
+            if (!_isParentMoverResolved)
+            {
+                _parentMover = transform.parent != null ? transform.parent.GetComponentInParent<MoverAdapter>() : null;
+                _isParentMoverResolved = true;
+            }
+
+            if (_parentMover != null)
+                _parentMover.MapFromStartPose(ref position, ref rotation);
+            transform.SetPositionAndRotation(position, rotation);
+        }
+
+        /// <summary>
+        /// A pose given relative to this mover's start (keyframe 0), moved along with this mover's current pose.
+        /// </summary>
+        private void MapFromStartPose(ref Vector3 position, ref Quaternion rotation)
+        {
+            if (_keyframes == null || _keyframes.Length == 0)
+                return;
+
+            var (startPos, startRot) = _keyframes[0];
+            var delta = transform.rotation * Quaternion.Inverse(startRot);
+            position = transform.position + delta * (position - startPos);
+            rotation = delta * rotation;
         }
 
         /// <summary>
@@ -219,6 +258,10 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnTrigger()
         {
+            // Switched off by a message filter (VobService.DispatchEnable), like the engine's disabled trigger.
+            if (!_mover.IsEnabled)
+                return;
+
             switch (_mover.Behavior)
             {
                 case MoverBehavior.TriggerControl:
@@ -238,7 +281,7 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnUntrigger()
         {
-            if (_mover.Behavior == MoverBehavior.TriggerControl)
+            if (_mover.IsEnabled && _mover.Behavior == MoverBehavior.TriggerControl)
                 Close();
         }
 
@@ -346,8 +389,7 @@ namespace Gothic.Core.Adapters.Vob
 
             if (direct)
             {
-                transform.position = _keyframes[key].pos;
-                transform.rotation = _keyframes[key].rot;
+                SetPose(_keyframes[key].pos, _keyframes[key].rot);
                 CurrentKeyIndex = key;
                 _isOpen = key != 0;
                 TriggerChainedMover(opening: _isOpen);
@@ -429,13 +471,11 @@ namespace Gothic.Core.Adapters.Vob
                     elapsed += Time.deltaTime;
                     _segmentProgress = Mathf.Clamp01(elapsed / duration);
                     var t = ApplySpeedCurve(_segmentProgress, isFirstSegment, isLastSegment);
-                    transform.position = Vector3.Lerp(startPos, endPos, t);
-                    transform.rotation = Quaternion.Slerp(startRot, endRot, t);
+                    SetPose(Vector3.Lerp(startPos, endPos, t), Quaternion.Slerp(startRot, endRot, t));
                     yield return null;
                 }
 
-                transform.position = endPos;
-                transform.rotation = endRot;
+                SetPose(endPos, endRot);
                 segmentStart = segmentEnd;
             }
 
