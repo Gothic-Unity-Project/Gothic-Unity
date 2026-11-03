@@ -107,8 +107,11 @@ namespace Gothic.Core.Services.Caches
             _multiResolutionMesh = new(s => new MultiResolutionMesh(Vfs, s).Cache());
             _morphMesh = new(s => new MorphMesh(Vfs, s).Cache());
             _font = new(s => new Font(Vfs, s).Cache());
-            _texture = new(s => new Texture(Vfs, s).Cache());
-            
+            // Textures stay native ZenKit objects: their size and format are cheap native reads, and the pixels of a
+            // mip level are decoded only when a Texture2D or the texture array asks for that level. Cache() would
+            // decode every mip level as raw AND as RGBA up front - gigabytes for a big mod (Destiny of Myrtana).
+            _texture = new(s => new Texture(Vfs, s));
+
             _prefab = new(s =>
             {
                 // Lookup is done in following places:
@@ -126,6 +129,7 @@ namespace Gothic.Core.Services.Caches
             // 2024 - Initial idea: ZenKit texture data is not cached as we do not need to keep the pixel data in memory as managed objects.
             //        Instead, TextureCache loads the texture data when need and creates a Texture2D.
             // 2025 - But reality shows that loading time from e.g., G2.DragonIsland is reduced from 30sec to 2sec with it (called very often during calculation of WorldChunks)
+            // 2026 - The cache keeps the loaded native texture, not its decoded pixels (see Init()).
             try
             {
                 return _texture.TryLoad($"{GetPreparedKey(key)}-c.tex", out var item) ? item : null;
