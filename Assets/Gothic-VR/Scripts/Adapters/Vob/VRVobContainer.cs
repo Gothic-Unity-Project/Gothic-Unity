@@ -40,6 +40,8 @@ namespace Gothic.VR.Adapters.Vob
             }
 
             PrepareSounds(container);
+            VRMobHinge.Follow(VrHinges.FindActive(this),
+                GetComponentInParent<VobLoader>().Container);
         }
 
         /// <summary>

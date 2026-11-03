@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using JetBrains.Annotations;
 using MyBox;
 using UnityEngine;
@@ -25,6 +26,23 @@ namespace Gothic.Core.Extensions
             var visualName = vob?.Visual?.Name;
             return !string.IsNullOrEmpty(visualName) &&
                    visualName.StartsWith("BED", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Like Gothic, a trigger counts its remaining activations down in CountCanBeActivated, which save games store
+        /// (a .zen sets it to MaxActivationCount: -1 = unlimited, 0 = never, N = N times).
+        /// Returns false if no activation is left.
+        /// </summary>
+        public static bool TryConsumeActivation(this ITrigger trigger)
+        {
+            if (trigger.MaxActivationCount < 0)
+                return true;
+
+            if (trigger.CountCanBeActivated <= 0)
+                return false;
+
+            trigger.CountCanBeActivated--;
+            return true;
         }
 
         /// <summary>
@@ -55,6 +73,18 @@ namespace Gothic.Core.Extensions
         public static NpcContainer GetUserData(this NpcInstance instance)
         {
             return instance?.UserData as NpcContainer;
+        }
+
+        /// <summary>
+        /// The GIL_VALUES slot holding the values (turn speed, jump heights, ...) of the NPC's guild. The scripts fill
+        /// only GIL_HUMAN for all human guilds ("set constants for ALL human guilds", Constants.d), monsters have their
+        /// own slot. The hero is human: its values are in GIL_HUMAN.
+        /// </summary>
+        public static int GetValuesGuild(this NpcInstance npc)
+        {
+            return npc.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM
+                ? (int)VmGothicEnums.Guild.GIL_HUMAN
+                : npc.Guild;
         }
 
         public static TextureFormat AsUnityTextureFormat(this ZenKit.TextureFormat format)

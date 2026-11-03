@@ -207,6 +207,62 @@ MonoBehaviour:
     m_Localized: "wy\u0142\u0105czone|w\u0142\u0105czone"
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Wspinaczka
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: "Chwycone kraw\u0119dzie: podci\u0105gnij si\u0119 albo przenie\u015B
+      si\u0119 z wygaszeniem (mniej ruchu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: "podci\u0105ganie|wygaszenie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: "Wskaz\xF3wki kraw\u0119dzi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "D\u0142o\u0144 zaciska si\u0119 i dr\u017Cy przy kraw\u0119dzi;
+      \u015Bwiecenie pod\u015Bwietla kraw\u0119d\u017A"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: "wy\u0142\u0105czone|\u015Bwiecenie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "Korekta wysoko\u015Bci"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Wysoko\u015B\u0107 kamery co 5 cm. \u015Arodek = brak korekty"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: "Zapis niemo\u017Cliwy: gra nie jest uruchomiona."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Zapis niemo\u017Cliwy, gdy jeste\u015B martwy."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "Zapis niemo\u017Cliwy podczas rozmowy."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "Wczytanie nie powiod\u0142o si\u0119: nie mo\u017Cna odczyta\u0107
+      zapisu."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Zapis nie powi\xF3d\u0142 si\u0119. Poprzedni zapis zosta\u0142
+      zachowany."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

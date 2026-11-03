@@ -226,6 +226,59 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Climbing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Gripped ledges: pull yourself up or fade onto them (less motion)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: pull up|fade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Ledge Hints
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: Near a ledge the hand closes and vibrates; glow also lights the
+      ledge
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: off|glow
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: Height Offset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: Camera height in 5 cm steps. Middle = no offset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: 'Saving isn''t possible: no game is running.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: Saving isn't possible while you're dead.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: Saving isn't possible during a dialog.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Loading failed: the save game can''t be read.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Saving failed. The previous save game is kept.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
