@@ -45,7 +45,6 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly RoomService _roomService;
         [Inject] private readonly SkyService _skyService;
