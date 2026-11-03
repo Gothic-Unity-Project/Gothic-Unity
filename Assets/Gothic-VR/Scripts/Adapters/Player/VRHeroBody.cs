@@ -685,6 +685,8 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_animator == null || !_animator.IsValid)
                 return;
+            // The speed potion's overlay (VRHeroMovement): the body runs faster too.
+            _animator.OverlayOverride = VRHeroMovement.SpeedOverlay;
 
             var yaw = _body.transform.eulerAngles.y;
             if (Time.deltaTime > 0f)

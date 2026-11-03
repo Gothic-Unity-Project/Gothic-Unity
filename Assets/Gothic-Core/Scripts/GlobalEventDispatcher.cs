@@ -30,6 +30,14 @@ namespace Gothic.Core
         public static readonly UnityEvent MainMenuSceneLoaded = new();
         public static readonly UnityEvent LoadingSceneLoaded = new();
         public static readonly UnityEvent WorldSceneLoaded = new();
+
+        /// <summary>
+        /// Trade with an NPC (TradeService). TradeSession - the running trade.
+        /// </summary>
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeStarted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeOfferChanged = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeCommitted = new();
+        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeClosed = new();
         // AI_Teleport moves the hero (a teleport spell) - VR: the held items go into the backpack first.
         public static readonly UnityEvent HeroScriptTeleporting = new();
 

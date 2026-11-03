@@ -34,6 +34,7 @@ namespace Gothic.Core.Manager
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly Gothic.Core.Services.Trade.TradeService _tradeService;
 
         /// <summary>
         /// Set while a mob dialog (MOBSI, e.g. G2 shrine: [onStateFunc]_S1 -> AI_ProcessInfos(hero)) is open.
@@ -685,6 +686,11 @@ namespace Gothic.Core.Manager
 
             // Delegate remaining tasks to general implementation of CallInformation
             CallInformation(npcContainer, infoInstance.Information);
+
+            // DeveloperConfig.EnableVrTrade: a choice with trade != 0 opens the trade after its info function (G2 fills
+            // the trader's goods there, e.g. B_GiveTradeInv).
+            if (infoInstance.Trade != 0)
+                _tradeService.TryStart(npcContainer);
         }
 
         private void CallInformation(NpcContainer npcContainer, int information)

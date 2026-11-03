@@ -423,6 +423,8 @@ namespace Gothic.Core.Services.Vobs
         public VobContainer CreateItem(IItem item)
         {
             var container = CreateContainerWithLoader(item);
+            // Out of an inventory (backpack, chest, split stack) - taking it isn't stealing.
+            container.IsTakenWithoutTheft = true;
             
             CreateVobNow(container);
 

@@ -86,9 +86,14 @@ namespace Gothic.VR.Services.Context
                     new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
                 // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
                 new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
+                // DeveloperConfig.EnableHeroPersonalSpace (checked at runtime): NPC bodies stay out of the camera.
+                new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
                 // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
                 VRHandSkinLight.Apply(_configService);
             });
+            // DeveloperConfig.EnableVrTrade: the trade counter between the hero and the trader.
+            GlobalEventDispatcher.TradeStarted.AddListener(session =>
+                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(session, _rig.Head));
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -182,6 +187,16 @@ namespace Gothic.VR.Services.Context
                 var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
                 favoritesRing.transform.SetParent(_player.transform, false);
             }
+
+            // DeveloperConfig.EnableVrPickpocket: purses on the hips of NPCs who can't see the sneaking hero (G1).
+            if (developerConfig.EnableVrPickpocket)
+            {
+                var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+                pickpocket.transform.SetParent(_player.transform, false);
+            }
+
+            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
+            _player.gameObject.AddComponent<VRHeroMovement>();
 
             // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
             if (developerConfig.EnableVrHeroBlock)

@@ -31,6 +31,7 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
 
         public VRContextInteractionService VRContextInteractionService =>
@@ -206,7 +207,10 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            _playerService.PickUpItem(container);
+            // NPCs who see it may call it theft (PERC_ASSESSTHEFT).
+            _heroPerceptionService.OnHeroTakesItem(container);
         }
 
         /// <summary>

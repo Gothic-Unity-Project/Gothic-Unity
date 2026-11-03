@@ -89,12 +89,14 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcHelperService));
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
+            containerBuilder.AddSingleton(typeof(PickpocketService));
             containerBuilder.AddSingleton(typeof(FightService));
             containerBuilder.AddSingleton(typeof(NpcWaterService));
             containerBuilder.AddSingleton(typeof(NpcNavMeshService));
             containerBuilder.AddSingleton(typeof(ProjectileService));
             containerBuilder.AddSingleton(typeof(Services.Audio.GroundSoundService));
             containerBuilder.AddSingleton(typeof(DocService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Trade.TradeService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
 
             // Caches
