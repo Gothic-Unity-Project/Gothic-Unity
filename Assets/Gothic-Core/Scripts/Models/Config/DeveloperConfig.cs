@@ -445,8 +445,8 @@ namespace Gothic.Core.Models.Config
                  "the master talent) one is enough.")]
         public bool EnableVrCrossbow = true;
 
-        [Tooltip("VR: After a shot the crossbow's string sits at the prod (Gothic's own S_RELAX shape). Grab it with " +
-                 "the free hand (grip), pull it back along the stock until it locks - then it's cocked and shows a " +
+        [Tooltip("VR: After a shot the crossbow's string sits at the prod (Gothic's own S_RELAX shape). Hold it with " +
+                 "the free hand (trigger), pull it back along the stock until it locks - then it's cocked and shows a " +
                  "bolt. Out of a holster/backpack it's cocked. The 'Crossbow' Immersion option turns it off (automatic " +
                  "reload).")]
         public bool EnableVrCrossbowManualReload = true;
