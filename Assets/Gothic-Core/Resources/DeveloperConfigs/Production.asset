@@ -110,6 +110,13 @@ MonoBehaviour:
   EnableVrBows: 1
   EnableVrCrossbow: 1
   EnableVrCrossbowManualReload: 1
+  EnableThrowableSpells: 1
+  EnableTwoHandSpellCharge: 1
+  EnableVrTransformations: 1
+  EnableScrollUseOption: 1
+  MinSpellCastSeconds: 2
+  SpellThrowSpeedMultiplier: 1.25
+  SpellThrowFullSwingSpeed: 6
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
   EnableVobWorldLight: 1
