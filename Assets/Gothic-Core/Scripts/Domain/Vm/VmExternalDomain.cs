@@ -12,7 +12,6 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -45,7 +44,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly SkyService _skyService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
 
@@ -141,6 +140,7 @@ namespace Gothic.Core.Domain.Vm
             if (vm.GetSymbolByName("Wld_InsertObject") != null)
                 vm.RegisterExternal<string, string>("Wld_InsertObject", Wld_InsertObject);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
+            vm.RegisterExternal<NpcInstance>("AI_Dodge", AI_Dodge);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
             RegisterSmallExternals(vm);
@@ -244,11 +244,10 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
             vm.RegisterExternal<int, NpcInstance, int, NpcInstance, NpcInstance>("Npc_HasNews", Npc_HasNews);
 
-            // G2 externals only.
-            if (_contextGameVersionService.IsGothic2())
-            {
-                vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetHeightToNpc", (a, b) => AsNpc(a, "Npc_GetHeightToNpc") is { } first && AsNpc(b, "Npc_GetHeightToNpc") is { } second ? Npc_GetHeightToNpc(first, second) : 0);
-            }
+            // G2 externals only: G1's scripts (and mods) that don't declare them would make the registration throw.
+            RegisterIfDeclared(vm, "Npc_GetHeightToNpc", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetHeightToNpc", (a, b) => AsNpc(a, "Npc_GetHeightToNpc") is { } first && AsNpc(b, "Npc_GetHeightToNpc") is { } second ? Npc_GetHeightToNpc(first, second) : 0));
+            RegisterIfDeclared(vm, "Npc_StopAni", () => vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni));
+            RegisterIfDeclared(vm, "Wld_IsRaining", () => vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining));
 
             RegisterIfDeclared(vm, "Wld_RemoveNpc", () => vm.RegisterExternal<int>("Wld_RemoveNpc", Wld_RemoveNpc));
 
@@ -580,6 +579,11 @@ namespace Gothic.Core.Domain.Vm
         public void AI_StopLookAt(NpcInstance npc)
         {
             _npcAiService.ExtAiStopLookAt(npc);
+        }
+
+        public void AI_Dodge(NpcInstance npc)
+        {
+            _npcAiService.ExtAiDodge(npc);
         }
 
         public void AI_ContinueRoutine(NpcInstance npc)
@@ -1455,6 +1459,11 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_IsDead), ret, npc);
         }
 
+        public void Npc_StopAni(NpcInstance npc, string name)
+        {
+            _npcAiService.ExtNpcStopAni(npc, name);
+        }
+
         public int Npc_IsInState(NpcInstance npc, int state)
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcIsInState(npc, state));
@@ -1634,6 +1643,15 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = _gameTimeService.GetDay();
             return LogInstantExternal(nameof(Wld_GetDay), ret);
+        }
+
+        /// <summary>
+        /// G2's NPCs complain about the weather in their greetings while it rains.
+        /// </summary>
+        public int Wld_IsRaining()
+        {
+            var ret = Convert.ToInt32(_skyService.IsRaining);
+            return LogInstantExternal(nameof(Wld_IsRaining), ret);
         }
 
         public int Wld_IsTime(int beginHour, int beginMinute, int endHour, int endMinute)
