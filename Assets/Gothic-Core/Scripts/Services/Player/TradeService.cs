@@ -78,10 +78,21 @@ namespace Gothic.Core.Services.Player
 
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} (currency {_currencyName}, " +
                        $"sell x{_sellMultiplier})", LogCat.Dialog);
-            GlobalEventDispatcher.TradeStarted.Invoke(trader);
-
-            // The counter doesn't hold the dialog: its choices come back right away.
-            ResumeDialog(trader);
+            try
+            {
+                GlobalEventDispatcher.TradeStarted.Invoke(trader);
+            }
+            catch (Exception e)
+            {
+                // No counter: the trade ends, the dialog goes on.
+                Logger.LogError($"[Trade] The trade couldn't start: {e}", LogCat.Dialog);
+                End();
+            }
+            finally
+            {
+                // The counter doesn't hold the dialog: its choices come back right away.
+                ResumeDialog(trader);
+            }
         }
 
         /// <summary>
@@ -93,11 +104,26 @@ namespace Gothic.Core.Services.Player
                 return;
 
             var trader = Trader;
-            ReturnOffers();
+            try
+            {
+                ReturnOffers();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Trade] The offers couldn't go back: {e}", LogCat.Dialog);
+            }
             Trader = null;
             Current = null;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
-            GlobalEventDispatcher.TradeEnded.Invoke(trader);
+            try
+            {
+                GlobalEventDispatcher.TradeEnded.Invoke(trader);
+            }
+            catch (Exception e)
+            {
+                // StopDialog ends the trade first - a throwing listener mustn't keep the dialog and the player locked.
+                Logger.LogError($"[Trade] A listener of the trade's end failed: {e}", LogCat.Dialog);
+            }
         }
 
         /// <summary>

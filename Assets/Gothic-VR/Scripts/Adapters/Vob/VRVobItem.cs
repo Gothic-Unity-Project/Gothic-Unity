@@ -20,6 +20,7 @@ using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
+using Gothic.VR.Adapters.Trade;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob
@@ -282,7 +283,7 @@ namespace Gothic.VR.Adapters.Vob
         private void ConsumeDocument()
         {
             // Unpaid trader goods (trade counter) can be read, but not used up.
-            if (GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+            if (GetComponentInParent<VRTradeGoods>() is { IsSettled: false })
                 return;
 
             var container = GetComponentInParent<VobLoader>()?.Container;

@@ -52,6 +52,7 @@ namespace Gothic.VR.Adapters.Trade
         // A hand this close (m) in front of/behind a button presses it.
         private const float _touchDepth = 0.04f;
         private readonly List<Button> _buttons = new();
+        private static readonly VrHandSide[] _handSides = { VrHandSide.Left, VrHandSide.Right };
         private readonly Button[] _touchedButtons = new Button[2];
 
         // Big - a backpack thrown a bit off still lands on it.
@@ -181,7 +182,7 @@ namespace Gothic.VR.Adapters.Trade
             if (rig == null)
                 return;
 
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _handSides)
             {
                 var hand = rig.GetHandVisual(side);
                 var index = side == VrHandSide.Left ? 0 : 1;

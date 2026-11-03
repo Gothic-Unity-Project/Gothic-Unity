@@ -22,6 +22,7 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Gothic.VR.Adapters.Trade;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -63,7 +64,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             // Unpaid trader goods (trade counter) can't be eaten, drunk or smoked.
-            if (go.GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+            if (go.GetComponentInParent<VRTradeGoods>() is { IsSettled: false })
                 return;
 
             // Resolve root before grace-period check so the same object is tracked and removed.

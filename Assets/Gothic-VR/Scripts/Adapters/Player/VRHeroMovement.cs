@@ -87,6 +87,9 @@ namespace Gothic.VR.Adapters.Player
         {
             this.Inject();
             _rig = GetComponentInParent<IVrRig>();
+            if (_rig == null)
+                Logger.LogWarning("[VRHeroMovement] No VR rig above - no body states, steps or speed changes.",
+                    LogCat.VR);
             GlobalEventDispatcher.ScriptHeroOverlayTimed.AddListener(OnHeroOverlayTimed);
         }
 
@@ -110,7 +113,7 @@ namespace Gothic.VR.Adapters.Player
         private bool IsHeroSneaking()
         {
             return _gameStateService.GothicVm?.GlobalHero is NpcInstance heroInstance &&
-                   heroInstance.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsSneak;
+                   heroInstance.GetUserData()?.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
         }
 
         /// <summary>
@@ -140,10 +143,11 @@ namespace Gothic.VR.Adapters.Player
             else if (!Mathf.Approximately(_rig.MoveSpeed, _appliedMoveSpeed) ||
                      !Mathf.Approximately(_rig.RunSpeed, _appliedRunSpeed))
             {
-                // Someone else set speeds while ours were on (water in, water out restoring what it found): without our
-                // factors they are the base now - water out gave back the boosted speed, boosted again it doubled.
-                _baseMoveSpeed = _rig.MoveSpeed / _appliedMoveFactor;
-                _baseRunSpeed = _rig.RunSpeed / _appliedRunFactor;
+                // Someone else set speeds while ours were on: they are the new base, our factors go on top. VRSwimDive
+                // sets its plain speeds (the ones it found at the start, half in water) - divided by our factors, a
+                // potion through knee deep water left the hero a third slower, a sneak sprint twice as fast.
+                _baseMoveSpeed = _rig.MoveSpeed;
+                _baseRunSpeed = _rig.RunSpeed;
             }
 
             var boost = _isSpeedBoosted ? _sprintSpeedFactor : 1f;

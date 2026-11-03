@@ -31,7 +31,6 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
 
         public VRContextInteractionService VRContextInteractionService =>

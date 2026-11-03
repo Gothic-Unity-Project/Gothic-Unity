@@ -72,7 +72,6 @@ namespace Gothic.Core.Adapters.Npc
             {
                 if (npc?.Go == null || !npc.Go.activeInHierarchy)
                     continue;
-                var bodyBounds = NpcBodyBounds.Get(npc);
                 // Dead/knocked out bodies lie where they fell (loot them standing on top).
                 if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                     continue;
@@ -84,6 +83,7 @@ namespace Gothic.Core.Adapters.Npc
                 if (_pickpocketService.IsAsleep(npc))
                     continue;
 
+                var bodyBounds = NpcBodyBounds.Get(npc);
                 var npcTransform = npc.Go.transform;
                 var offset = npcTransform.position - heroPosition;
                 if (Mathf.Abs(offset.y) > _maxHeightDifference)

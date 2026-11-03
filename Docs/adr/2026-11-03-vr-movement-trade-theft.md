@@ -13,7 +13,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
 1. **The hero's body state comes from his movement,** like the engine:
    - walking and running come from the speed;
    - crouching is sneaking, but only with the sneak talent (OpenGothic `Npc::canSneak`);
-   - running stays on for 1.5 s, and a teleport counts as running, so `ZS_Attack_Loop` can give up a chase;
+   - running stays on for 1.5 s, and a teleport counts as running, so `ZS_Attack_Loop` can give up a chase. The steps NPCs hear only come with real movement (like the engine's step events), not from a lingering run;
    - swimming and diving are BS_SWIM and BS_DIVE.
 
    VR decides it for now (`VRHeroMovement`, `VRSwimDive`). A Core owner, for Flat too, is a follow-up.
@@ -38,4 +38,5 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
 - `NpcBodyBounds` also shapes the combat hitbox, and it's attached by the personal space. Giving it to the NPC's own setup is a follow-up.
 - After a load, the world item list is built from the saved world: items the hero dropped can be theft once.
 - The speed potion and an open trade aren't saved.
+- Unpaid goods in the hero's hand count as his inventory while held (Daedalus `Npc_HasItems` sees them); letting go anywhere but the counter or the trader's goods gives them back.
 - `VRTradeCounter` (719 lines) and `VRPickpocket` (552 lines) build their objects in code. Prefabs are a follow-up.

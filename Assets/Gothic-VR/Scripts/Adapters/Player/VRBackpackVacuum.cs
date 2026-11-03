@@ -39,7 +39,6 @@ namespace Gothic.VR.Adapters.Player
 
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
 
         private VrInteractable _backpack;
         private IVrSocket _putIntoSocket;

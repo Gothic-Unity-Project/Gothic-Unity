@@ -660,9 +660,6 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// When putting into holster, culling is already paused (hand grab). The item is in the inventory now.
-        /// </summary>
-        /// <summary>
         /// Unpaid trader goods put into the hero's backpack/holster go back to the trader.
         /// </summary>
         private bool TryReturnTradeGoods(VrInteractable interactable)
@@ -690,6 +687,9 @@ namespace Gothic.VR.Adapters.Player
             VRTradeGoods.RemoveFromWorld(vobContainer);
         }
 
+        /// <summary>
+        /// When putting into holster, culling is already paused (hand grab). The item is in the inventory now.
+        /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
             // Restored from a save game. It's part of the inventory already.
@@ -994,9 +994,10 @@ namespace Gothic.VR.Adapters.Player
             {
                 var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
+                // Get rid of isKinematic warnings as the Grab is done "physically".
                 vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
                 if (IsTradeBackpack)
-                    vobContainer.Go.AddComponent<VRTradeGoods>().Init(_trader); // Get rid of isKinematic warnings as the Grab is done "physically".
+                    vobContainer.Go.AddComponent<VRTradeGoods>().Init(_trader);
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();
                 _refreshPlacements.Add(interactable);
                 _socketContainer.TryPlace(interactable, silent: true);

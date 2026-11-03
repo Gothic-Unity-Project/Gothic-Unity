@@ -18,6 +18,7 @@ using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using System;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
@@ -35,6 +36,8 @@ namespace Gothic.VR.Adapters.Player
     /// </summary>
     public class VRPickpocket : MonoBehaviour
     {
+        private static readonly VrHandSide[] _handSides = { VrHandSide.Left, VrHandSide.Right };
+        private static readonly int _emissionColorId = Shader.PropertyToID("_EmissionColor");
         [Inject] private readonly PickpocketService _pickpocketService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcHelperService _npcHelperService;
@@ -317,7 +320,7 @@ namespace Gothic.VR.Adapters.Player
                 purse.Go.transform.SetPositionAndRotation(position, root.rotation);
                 var isHovered = purse == _hovered;
                 purse.Go.transform.localScale = Vector3.one * (isHovered ? _hoverScale : 1f);
-                purse.Material.SetColor("_EmissionColor", _glowColor * (isHovered ? 1.2f : pulse));
+                purse.Material.SetColor(_emissionColorId, _glowColor * (isHovered ? 1.2f : pulse));
             }
         }
 
@@ -326,7 +329,7 @@ namespace Gothic.VR.Adapters.Player
             Purse hovered = null;
             var hoveredSide = VrHandSide.Right;
             var best = _hoverDistance;
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _handSides)
             {
                 if (!IsHandFree(side))
                     continue;
@@ -392,7 +395,10 @@ namespace Gothic.VR.Adapters.Player
             var hand = GetHandGrabber(side);
             var handModel = _vrPlayerService.GetHandModelGo(side);
             if (hand == null || handModel == null)
+            {
+                Logger.LogWarning($"[Pickpocket] No {side} hand to open the pockets with.", LogCat.VR);
                 return;
+            }
 
             if (hand.Held != null)
                 hand.ForceRelease();
@@ -402,7 +408,11 @@ namespace Gothic.VR.Adapters.Player
             _backpack = VRBackpack.SpawnCopy(handTransform.position + handTransform.forward * 0.1f,
                 handTransform.rotation, $"Pockets_{victimName}", out _backpackRoot);
             if (_backpack == null)
+            {
+                Logger.LogWarning($"[Pickpocket] {victimName}'s pockets couldn't be opened (no backpack prefab).",
+                    LogCat.VR);
                 return;
+            }
 
             ClearPurses();
             _victim = victim;
@@ -511,10 +521,21 @@ namespace Gothic.VR.Adapters.Player
         {
             var victim = _victim;
             _caughtUntil[victim] = Time.time + _caughtCooldown;
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _handSides)
                 _hapticsService.Vibrate(side, VrHapticPreset.Error);
-            _pickpocketService.CatchThief(victim);
-            EndRobbery();
+            try
+            {
+                _pickpocketService.CatchThief(victim);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Pickpocket] Catching the thief failed: {e}", LogCat.Npc);
+            }
+            finally
+            {
+                // A throwing script mustn't catch the hero again every frame.
+                EndRobbery();
+            }
         }
 
         private void EndRobbery()

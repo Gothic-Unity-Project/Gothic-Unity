@@ -105,10 +105,15 @@ namespace Gothic.VR.Services.Context
             // The trade counter between the hero and the trader.
             GlobalEventDispatcher.TradeStarted.AddListener(_ =>
             {
-                // Injected after this constructor - set when a trade starts.
                 _tradeService.GetHeldAmount = GetHeldAmount;
-                if (_tradeService.Current != null)
-                    Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(_tradeService.Current, _rig.Head);
+                if (_rig == null || _tradeService.Current == null)
+                {
+                    // Without a counter the trade couldn't be closed: it ends, the dialog goes on.
+                    Logger.LogWarning("[Trade] No VR rig for the trade counter - trade ended.", LogCat.VR);
+                    _tradeService.End();
+                    return;
+                }
+                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(_tradeService.Current, _rig.Head);
             });
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
@@ -441,10 +446,6 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
-        /// the world item.
-        /// </summary>
-        /// <summary>
         /// How many of an item the hands hold (TradeService: held currency doesn't pay).
         /// </summary>
         private int GetHeldAmount(string instanceName)
@@ -465,6 +466,10 @@ namespace Gothic.VR.Services.Context
             return amount;
         }
 
+        /// <summary>
+        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
+        /// the world item.
+        /// </summary>
         public void StoreHeldItemsInBackpack()
         {
             if (_rig == null)
@@ -483,6 +488,12 @@ namespace Gothic.VR.Services.Context
 
                 // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
                 interactable.ForceRelease();
+                // Unpaid trader goods aren't the hero's: let go, they go back to the trader (VRTradeGoods).
+                if (interactable.GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+                {
+                    Logger.Log($"[Teleport] {hand.HandSide}: unpaid trader goods let go", LogCat.VR);
+                    continue;
+                }
 
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);

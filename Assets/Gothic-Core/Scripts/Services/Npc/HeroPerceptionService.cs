@@ -29,11 +29,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly RoomService _roomService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly Gothic.Core.Services.Caches.MultiTypeCacheService _multiTypeCacheService;
 
         private const float _walkStepInterval = 0.55f;
         private const float _runStepInterval = 0.35f;
         private float _nextStepTime;
+        // Where the last heard step was: standing still (a run lingers 1.5 s, a teleport counts as one) makes no step.
+        private Vector3 _lastStepPosition;
+        private const float _minStepDistance = 0.3f;
 
         private const float _roomCheckInterval = 0.25f;
         // A new room counts after this many checks in a row - standing on a doorstep flipped in and out.
@@ -230,28 +232,19 @@ namespace Gothic.Core.Services.Npc
             var bodyState = hero.Props.BodyState;
             if (bodyState is not (VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun))
                 return;
-            if (Time.time < _nextStepTime)
+            if (Time.time < _nextStepTime || hero.Go == null)
                 return;
+            var position = GetFeetPosition(hero.Go);
+            var moved = new Vector2(position.x - _lastStepPosition.x, position.z - _lastStepPosition.z).magnitude;
+            if (moved < _minStepDistance)
+                return;
+            _lastStepPosition = position;
             _nextStepTime = Time.time + (bodyState == VmGothicEnums.BodyState.BsRun ? _runStepInterval : _walkStepInterval);
 
+            // No item makes this noise: NpcAiService delivers it without one (a stale 'item' made NPCs walk to it).
             SoundSourceNpc = hero;
-            var vm = _gameStateService.GothicVm;
-            var oldItem = vm.GlobalItem;
-            try
-            {
-                // No item makes this noise - a stale global item would make NPCs walk to it.
-                vm.GlobalItem = null;
-                _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessQuietSound,
-                    hero.Instance, hero.Instance);
-            }
-            catch (Exception e)
-            {
-                Logger.LogWarning($"[HeroPerc] Footstep quiet sound failed: {e.Message}", LogCat.Ai);
-            }
-            finally
-            {
-                vm.GlobalItem = oldItem;
-            }
+            _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessQuietSound,
+                hero.Instance, hero.Instance);
         }
 
         /// <summary>

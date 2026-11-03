@@ -22,6 +22,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ZenKit.Vobs;
+using Gothic.Core.Services.Npc;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -46,7 +47,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
         [Inject] private readonly StackSplitService _stackSplitService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;

@@ -23,6 +23,7 @@ using UnityEngine.InputSystem;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Gothic.VR.Adapters.Trade;
 using EventType = ZenKit.EventType;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -114,7 +115,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void Use()
         {
             // Unpaid trader goods (trade counter) can't be used or equipped.
-            if (GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+            if (GetComponentInParent<VRTradeGoods>() is { IsSettled: false })
             {
                 Logger.Log("[Trade] Unpaid goods can't be used", LogCat.VR);
                 return;

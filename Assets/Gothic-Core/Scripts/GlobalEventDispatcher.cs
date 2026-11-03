@@ -10,6 +10,7 @@ using UnityEngine.EventSystems;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Gothic.Core.Models.Trade;
 
 namespace Gothic.Core
 {
@@ -31,12 +32,6 @@ namespace Gothic.Core
         public static readonly UnityEvent LoadingSceneLoaded = new();
         public static readonly UnityEvent WorldSceneLoaded = new();
 
-        /// <summary>
-        /// The VR trade counter's offers (TradeService.Current). TradeSession - the running
-        /// trade.
-        /// </summary>
-        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeOfferChanged = new();
-        public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeCommitted = new();
         // AI_Teleport moves the hero (a teleport spell) - VR: the held items go into the backpack first.
         public static readonly UnityEvent HeroScriptTeleporting = new();
 
@@ -264,10 +259,14 @@ namespace Gothic.Core
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
 
-        // Trading (TradeService) started with this NPC: the trade window opens, the dialog's choices wait.
+        // Trading (TradeService) started with this NPC: the VR trade counter opens, the dialog goes on.
         public static readonly UnityEvent<NpcContainer> TradeStarted = new();
-        // Trading with this NPC ended (closed by the player or the dialog ended).
+        // Trading with this NPC ended (closed, the dialog ended, the world left) - the offers went back.
         public static readonly UnityEvent<NpcContainer> TradeEnded = new();
+        // The counter's offers changed (TradeService.Current).
+        public static readonly UnityEvent<TradeSession> TradeOfferChanged = new();
+        // The counter's offers changed hands (TryCommit), the offers are empty again.
+        public static readonly UnityEvent<TradeSession> TradeCommitted = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 

@@ -1053,11 +1053,11 @@ namespace Gothic.VR.Adapters.Player
             BuildSleeves(props, mdhName, bones);
 
             _animator = new VRHeroBodyAnimator(_animationService, props.MdsNameBase, props.MdsNameOverlay, bones);
-            if (_configService.Dev.EnableHeroBodySounds && _configService.Dev.EnableFootstepSounds && _animator.IsValid)
-            {
+            // Set on every build: a rebuilt body without animations (another armor) gives the stride steps back.
+            IsBodySounding = _configService.Dev.EnableHeroBodySounds && _configService.Dev.EnableFootstepSounds &&
+                             _animator.IsValid;
+            if (IsBodySounding)
                 _animator.SoundEvent += OnBodySoundEvent;
-                IsBodySounding = true;
-            }
             Logger.Log($"[VRHeroBody] Built {props.MdmName} (head height {_modelHeadHeight:F2} m, " +
                        $"animated: {_animator.IsValid}, bare forearms: {_bareForearms.Count}).", LogCat.VR);
         }

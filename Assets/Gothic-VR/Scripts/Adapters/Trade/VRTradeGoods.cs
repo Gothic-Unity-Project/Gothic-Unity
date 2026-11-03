@@ -126,7 +126,10 @@ namespace Gothic.VR.Adapters.Trade
             var container = GetComponentInParent<VobLoader>(true)?.Container;
             var item = container?.VobAs<IItem>();
             if (item == null)
+            {
+                Logger.LogWarning($"[Trade] {name}: no item to give back to the trader - lost.", LogCat.VR);
                 return;
+            }
 
             // Held items count as the hero's - releasing takes it out of his inventory again.
             if (_grabbable != null && _grabbable.IsHeld)

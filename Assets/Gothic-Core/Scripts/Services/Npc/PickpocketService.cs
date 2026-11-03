@@ -168,8 +168,18 @@ namespace Gothic.Core.Services.Npc
             if (attack == null || reason == null)
                 return;
 
-            vm.Call<NpcInstance, NpcInstance, int, int>(attack.Index, victim.Instance, hero.Instance,
-                reason.GetInt(0), 1);
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            try
+            {
+                vm.Call<NpcInstance, NpcInstance, int, int>(attack.Index, victim.Instance, hero.Instance,
+                    reason.GetInt(0), 1);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+            }
             Logger.Log($"[Pickpocket] {victim.Instance.GetName(NpcNameSlot.Slot0)} attacks the thief (B_Attack " +
                        "AR_THEFT)", LogCat.Npc);
         }
