@@ -18,5 +18,7 @@ namespace Gothic.G2.Services.Context
 
         // FIXME - Load from GothicGame.ini
         public string InitialWorld => "newworld.zen";
+
+        public bool PrefersCompiledModelScript => true;
     }
 }

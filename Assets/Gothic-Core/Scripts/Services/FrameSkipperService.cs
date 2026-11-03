@@ -21,9 +21,48 @@ namespace Gothic.Core.Services
         // We will leverage 50% (0.5f) of a frame time only.
         private const float _frameQuota = 0.5f;
 
-        private static float _targetFrameRate;
-        private static float _maxFrameUsage;
+        // While the view is hidden (black after a world load), nobody sees a long frame. Fewer, longer frames leave
+        // more of the time to the queued work instead of the per-frame work of the rest of the game.
+        private const float _hiddenViewFrameQuota = 3f;
 
+        private static float _targetFrameRate;
+        private static float _frameStart;
+
+        // Seconds per frame that queued work may use. Cached, as IsFrameBudgetUsed runs in many per-frame loops.
+        // Infinite until Init() knows the frame rate (like a division by a frame rate of 0).
+        private float _cachedBudget = float.PositiveInfinity;
+
+        // Counts open UseLoadingBudget() scopes, so nested scopes don't end the mode too early.
+        private int _loadingBudgetScopes;
+
+        /// <summary>
+        /// Whether this frame's share for queued work is used up.
+        /// </summary>
+        public bool IsFrameBudgetUsed => Time.realtimeSinceStartup - _frameStart > _cachedBudget;
+
+        /// <summary>
+        /// Lets queued work use about three frames per frame instead of half a frame, until the returned scope is
+        /// disposed. Only use it while the player can't see the world (loading screen). Scopes may be nested.
+        /// </summary>
+        public LoadingBudgetScope UseLoadingBudget()
+        {
+            _loadingBudgetScopes++;
+            UpdateCachedBudget();
+            return new LoadingBudgetScope(this);
+        }
+
+        internal void EndLoadingBudget()
+        {
+            if (_loadingBudgetScopes > 0)
+                _loadingBudgetScopes--;
+            UpdateCachedBudget();
+        }
+
+        private void UpdateCachedBudget()
+        {
+            var quota = _loadingBudgetScopes > 0 ? _hiddenViewFrameQuota : _frameQuota;
+            _cachedBudget = quota / _targetFrameRate;
+        }
 
         /// <summary>
         /// We need to set the values via Init() to ensure LogFileHandler is set before our class inside GameManager.Init().
@@ -43,6 +82,7 @@ namespace Gothic.Core.Services
                     Logger.LogError($"[{typeof(FrameSkipperService)}] No target frame rate found.", LogCat.Loading);
                 }
             }
+            UpdateCachedBudget();
             Logger.Log($"[{typeof(FrameSkipperService)}] Target frame rate set to: {_targetFrameRate}", LogCat.Loading);
         }
 
@@ -53,13 +93,13 @@ namespace Gothic.Core.Services
         public void Update()
         {
             // _debugSkippedCount = 0;
-            _maxFrameUsage = Time.realtimeSinceStartup + _frameQuota / _targetFrameRate;
+            _frameStart = Time.realtimeSinceStartup;
         }
 
         // private static int _debugSkippedCount;
         public async Task TrySkipToNextFrame()
         {
-            if (Time.realtimeSinceStartup > _maxFrameUsage)
+            if (IsFrameBudgetUsed)
             {
                 // Logger.Log($"FrameSkipper: Not skipped {_debugSkippedCount}x.");
                 await Task.Yield();
@@ -72,7 +112,7 @@ namespace Gothic.Core.Services
 
         public IEnumerator TrySkipToNextFrameCoroutine()
         {
-            if (Time.realtimeSinceStartup > _maxFrameUsage)
+            if (IsFrameBudgetUsed)
             {
                 // Logger.Log($"FrameSkipper: Not skipped {_debugSkippedCount}x.");
                 yield return null;
