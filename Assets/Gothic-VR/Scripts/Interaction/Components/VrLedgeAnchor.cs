@@ -1,5 +1,7 @@
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Movement;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Interaction.Components
 {
@@ -9,21 +11,20 @@ namespace Gothic.VR.Interaction.Components
     ///
     /// Its layer (ClimbAnchor) collides with nothing: only the hands' grab casts find it, the player's ground,
     /// teleport and room checks don't. Its box may therefore stick out of the wall.
+    /// Its Rigidbody (needed by XRI's ClimbInteractable) is kinematic: it doesn't fall, and moving it reaches the
+    /// physics scene at once, without a global Physics.SyncTransforms() (Physics.autoSyncTransforms is off).
     /// Local axes: x along the lip, y up, z into the wall.
     /// </summary>
-    [RequireComponent(typeof(VrInteractable))]
+    [RequireComponent(typeof(VrInteractable), typeof(Rigidbody))]
     public class VrLedgeAnchor : MonoBehaviour
     {
         [Tooltip("Grab box in m along the lip (x), up (y) and into the wall (z), centered on the lip.")]
         [SerializeField]
         private Vector3 _size = new(0.4f, 0.12f, 0.12f);
 
-        [Tooltip("Grab box with the hint Assist: easier to reach.")] [SerializeField]
-        private Vector3 _assistSize = new(0.4f, 0.4f, 0.4f);
-
         [SerializeField] private BoxCollider _collider;
 
-        [Tooltip("Glowing strip on the lip (hints Near and Assist). Its color is the full glow, positions are local. " +
+        [Tooltip("Glowing strip on the lip (hint Glow). Its color is the full glow, positions are local. " +
                  "On a rendered layer, as the anchor's layer may be culled.")]
         [SerializeField]
         private LineRenderer _glow;
@@ -35,6 +36,7 @@ namespace Gothic.VR.Interaction.Components
         private float _glowLength = 0.35f;
 
         private Color _glowColor = Color.white;
+        private Rigidbody _body;
 
         public VrInteractable Interactable { get; private set; }
 
@@ -49,6 +51,11 @@ namespace Gothic.VR.Interaction.Components
         private void Awake()
         {
             Interactable = GetComponent<VrInteractable>();
+            _body = GetComponent<Rigidbody>();
+            if (!_body.isKinematic)
+                Logger.LogWarning($"[Ledge] {name}: the anchor's Rigidbody isn't kinematic, it falls once placed.",
+                    LogCat.VR);
+
             if (_glow != null)
             {
                 _glowColor = _glow.startColor;
@@ -64,11 +71,16 @@ namespace Gothic.VR.Interaction.Components
         /// <summary>
         /// Puts the anchor onto the lip at point (on the lip).
         /// </summary>
-        public void Place(LedgeInfo info, Vector3 point, bool isAssist)
+        public void Place(LedgeInfo info, Vector3 point)
         {
             Info = info;
-            transform.SetPositionAndRotation(point, Quaternion.LookRotation(-info.WallNormal, Vector3.up));
-            _collider.size = isAssist ? _assistSize : _size;
+            var rotation = Quaternion.LookRotation(-info.WallNormal, Vector3.up);
+            transform.SetPositionAndRotation(point, rotation);
+
+            // The body's pose reaches the physics scene at once: the hands' grab casts see the new place this frame.
+            _body.position = point;
+            _body.rotation = rotation;
+            _collider.size = _size;
             _collider.center = Vector3.zero;
             _collider.enabled = true;
         }

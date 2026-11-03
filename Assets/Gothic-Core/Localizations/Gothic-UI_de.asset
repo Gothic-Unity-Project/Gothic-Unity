@@ -225,11 +225,12 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070275
-    m_Localized: Wie eine Hand an einer erkletterbaren Kante es zeigt
+    m_Localized: "Hand schlie\xDFt sich und vibriert an Kanten; leuchten markiert
+      die Kante"
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070276
-    m_Localized: aus|tasten|nah|hilfe
+    m_Localized: aus|leuchten
     m_Metadata:
       m_Items: []
   - m_Id: 187053241054658560

@@ -16,8 +16,8 @@ namespace Gothic.VR.Interaction.Components
     /// <summary>
     /// The reach of ledge climbing (Docs/ledge-climbing.md): a VrLedgeAnchor follows each empty hand along the
     /// climbable lip it reaches, so that the hand can grip it. What a grip does is VrLedgeClimb's part.
-    /// Hints (Gothic.ini ledgeHints): a hand near a climbable lip half closes and ticks once, a short strip glows on
-    /// the lip. Nothing is shown from afar.
+    /// Hints (Gothic.ini ledgeHints): a hand near a climbable lip half closes and ticks once, with ledgeHints Glow a
+    /// short strip glows on the lip. Nothing is shown from afar.
     /// Owns whether ledge climbing is on (Climber): VrLedgeClimb and VrLedgeLocomotion work only while the reach does.
     ///
     /// Sits on the player rig. Runs before XRI's interaction manager (-105), so that the anchors are in place when the
@@ -36,7 +36,7 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Distance in m between hand and lip from which the hand half closes and ticks.")] [SerializeField]
         private float _touchRange = 0.2f;
 
-        [Tooltip("Distance in m between hand and lip from which the lip's strip starts to glow (Near, Assist).")]
+        [Tooltip("Distance in m between hand and lip from which the lip's strip starts to glow (Glow).")]
         [SerializeField]
         private float _glowRange = 0.45f;
 
@@ -132,12 +132,8 @@ namespace Gothic.VR.Interaction.Components
             if (rig.IsGrounded && !rig.IsClimbing)
                 _baseFeetY = _climber.Feet.y;
 
-            var isMoved = UpdateHand(VrHandSide.Left);
-            isMoved |= UpdateHand(VrHandSide.Right);
-
-            // Physics.autoSyncTransforms is off: the hands' grab casts would see the anchors' old places.
-            if (isMoved)
-                Physics.SyncTransforms();
+            UpdateHand(VrHandSide.Left);
+            UpdateHand(VrHandSide.Right);
         }
 
         /// <summary>
@@ -166,9 +162,9 @@ namespace Gothic.VR.Interaction.Components
         }
 
         /// <summary>
-        /// Places or hides the hand's anchor and its hints. Returns whether the anchor moved.
+        /// Places or hides the hand's anchor and its hints.
         /// </summary>
-        private bool UpdateHand(VrHandSide side)
+        private void UpdateHand(VrHandSide side)
         {
             var index = (int)side;
             var anchor = _anchors[index];
@@ -176,20 +172,20 @@ namespace Gothic.VR.Interaction.Components
             {
                 SetTouch(side, false);
                 anchor.SetGlow(0f);
-                return false;
+                return;
             }
 
             if (!CanReach(side))
             {
                 HideHand(side);
-                return false;
+                return;
             }
 
             var hand = GetHand(side).position;
             if (anchor.Contains(hand, _anchorKeepMargin))
             {
                 UpdateHints(side, Vector3.Distance(hand, VrLedgeClimber.ClosestOnLip(anchor.Info, hand)));
-                return false;
+                return;
             }
 
             var info = _climber.ProbeAtHand(hand, _baseFeetY);
@@ -198,12 +194,11 @@ namespace Gothic.VR.Interaction.Components
             if (!info.IsClimbable || distance > GetPlaceRange())
             {
                 HideHand(side);
-                return false;
+                return;
             }
 
-            anchor.Place(info, point, _hint == VrLedgeHint.Assist);
+            anchor.Place(info, point);
             UpdateHints(side, distance);
-            return true;
         }
 
         private bool CanReach(VrHandSide side)
@@ -214,10 +209,11 @@ namespace Gothic.VR.Interaction.Components
 
         private void UpdateHints(VrHandSide side, float distance)
         {
-            SetTouch(side, _hint != VrLedgeHint.Off && distance <= _touchRange);
+            SetTouch(side, distance <= _touchRange);
 
-            var isGlowing = _hint is VrLedgeHint.Near or VrLedgeHint.Assist;
-            var glow = isGlowing ? 1f - Mathf.InverseLerp(_touchRange * 0.5f, _glowRange, distance) : 0f;
+            var glow = _hint == VrLedgeHint.Glow
+                ? 1f - Mathf.InverseLerp(_touchRange * 0.5f, _glowRange, distance)
+                : 0f;
             _anchors[(int)side].SetGlow(glow);
         }
 
@@ -246,7 +242,7 @@ namespace Gothic.VR.Interaction.Components
 
         private float GetPlaceRange()
         {
-            return _hint is VrLedgeHint.Near or VrLedgeHint.Assist ? Mathf.Max(_touchRange, _glowRange) : _touchRange;
+            return _hint == VrLedgeHint.Glow ? Mathf.Max(_touchRange, _glowRange) : _touchRange;
         }
 
         private Transform GetHand(VrHandSide side)

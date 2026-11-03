@@ -14,7 +14,7 @@ In the original game the hero pulls himself up onto ledges with the jump key. In
 2. **The rules belong to the game, not to VR.** The flat-screen version and the NPCs can use the same rules later.
 3. **Three ways up:** grab the edge and pull yourself up (default), a comfort option that fades out and puts you on top (for players who get motion sick), and teleporting onto a ledge you could climb.
 4. **The jump reaches the ledge instead of copying Gothic's jump.** In front of a high ledge, a jump lifts your hands just above the edge. All other jumps stay as they are. Not chosen: Gothic's full jump of about two metres, which is too much for VR.
-5. **Hints only close to your hands.** Near a climbable edge the hand half closes and vibrates once, and a short strip on the edge can glow. Players choose: off, touch, near or assist. Not chosen: markers you can see from far away, which break the immersion.
+5. **Hints only close to your hands.** Near a climbable edge the hand half closes and vibrates once, and a short strip on the edge can glow. Players choose: off (only the hand) or glow (the hand and the strip). Not chosen: markers you can see from far away, which break the immersion.
 6. **Only your hands notice the edge you grab.** It can't push you or get in the way of walking and teleporting.
 7. **No climbing by accident.** You only end up on top after really pulling yourself up, with your head above the edge. Grabbing the edge of a table does nothing.
 8. **Only for VR** (XR Interaction Toolkit), and always on. There is no switch: climbing is only off when the

@@ -54,7 +54,7 @@ anchor. Queries without a mask do see its box: leave the layer out (`NpcInitiali
 ## Settings
 
 Gothic.ini, in the VR menus: `ledgeClimbMode` (Accessibility: pull up / fade) and `ledgeHints` (Immersion: off /
-touch / near / assist; assist also makes the anchors bigger).
+glow). The hand always half closes and ticks near a lip; glow adds the strip on the lip.
 
 ## Pitfalls
 
@@ -67,7 +67,9 @@ touch / near / assist; assist also makes the anchors bigger).
   `JumpProvider` source and run `GothicJumpProviderTest`. `_maxJumpHeight` (8) is ours: the search's upper bound.
 - A climb grab mid-air must end the jump (`GothicJumpProvider.CancelJump`), otherwise XRI replays its rest after the
   climb. Also fixes the same pop on ladders.
-- `Physics.autoSyncTransforms` is off: `VrLedgeReach` syncs after moving an anchor, before XRI's interaction manager.
+- `Physics.autoSyncTransforms` is off: the anchor's Rigidbody is kinematic, and `VrLedgeAnchor.Place` sets its pose,
+  which the physics scene sees at once. No global `Physics.SyncTransforms()` (its cost grows with every moved collider
+  in the world, e.g. NPCs). A non-kinematic anchor would also fall once placed: `VrLedgeAnchor` warns.
 - Saving while hanging stores a mid-air position.
 
 ## Tests

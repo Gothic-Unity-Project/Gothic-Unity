@@ -22,7 +22,7 @@ namespace Gothic.VR
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
 
-            // VrLedgeHint: 0 = off, 1 = touch, 2 = near (glow), 3 = assist.
+            // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
         }
 
@@ -49,7 +49,7 @@ namespace Gothic.VR
         public const int PhysicalHandsDefaultValue = 1;
 
         public const int LedgeClimbModeDefaultValue = 0;
-        public const int LedgeHintsDefaultValue = 2;
+        public const int LedgeHintsDefaultValue = 1;
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;

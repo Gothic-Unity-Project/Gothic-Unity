@@ -243,11 +243,12 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070275
-    m_Localized: How a hand near a climbable ledge shows it
+    m_Localized: Near a ledge the hand closes and vibrates; glow also lights the
+      ledge
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070276
-    m_Localized: off|touch|near|assist
+    m_Localized: off|glow
     m_Metadata:
       m_Items: []
   - m_Id: 187053241054658560

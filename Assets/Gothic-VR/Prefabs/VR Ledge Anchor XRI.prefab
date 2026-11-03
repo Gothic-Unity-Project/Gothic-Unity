@@ -236,8 +236,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -365,7 +365,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrLedgeAnchor
   _size: {x: 0.4, y: 0.12, z: 0.12}
-  _assistSize: {x: 0.4, y: 0.4, z: 0.4}
   _collider: {fileID: 8683711350153347530}
   _glow: {fileID: 957412480366099078}
   _glowAlpha: 0.6

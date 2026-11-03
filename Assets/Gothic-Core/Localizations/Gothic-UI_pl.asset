@@ -225,12 +225,12 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070275
-    m_Localized: "Jak d\u0142o\u0144 przy kraw\u0119dzi pokazuje, \u017Ce mo\u017Cna
-      si\u0119 wspi\u0105\u0107"
+    m_Localized: "D\u0142o\u0144 zaciska si\u0119 i dr\u017Cy przy kraw\u0119dzi;
+      \u015Bwiecenie pod\u015Bwietla kraw\u0119d\u017A"
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070276
-    m_Localized: "wy\u0142\u0105czone|dotyk|blisko|pomoc"
+    m_Localized: "wy\u0142\u0105czone|\u015Bwiecenie"
     m_Metadata:
       m_Items: []
   - m_Id: 187053241054658560
