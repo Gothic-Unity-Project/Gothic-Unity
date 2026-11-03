@@ -27,7 +27,29 @@ namespace Gothic.Core.Adapters.Npc
         // NPCs this close get their animated body bounds (hitbox, personal space).
         private const float _bodyBoundsDistance = 12f;
 
+        // NPCs within _bodyBoundsDistance, rebuilt every _nearListSeconds - the whole NPC cache every frame was too much
+        // on Quest (hundreds in the Old Camp).
+        private const float _nearListSeconds = 0.25f;
+        private readonly System.Collections.Generic.List<Gothic.Core.Models.Container.NpcContainer> _nearNpcs = new();
+        private float _nextNearListTime;
+
         private void Awake() => this.Inject();
+
+        private void UpdateNearList(Vector3 heroPosition)
+        {
+            if (Time.time < _nextNearListTime)
+                return;
+            _nextNearListTime = Time.time + _nearListSeconds;
+
+            _nearNpcs.Clear();
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc?.Go == null || !npc.Go.activeInHierarchy || npc.PrefabProps == null || npc.PrefabProps.IsHero())
+                    continue;
+                if ((npc.Go.transform.position - heroPosition).sqrMagnitude < _bodyBoundsDistance * _bodyBoundsDistance)
+                    _nearNpcs.Add(npc);
+            }
+        }
 
         private static bool IsTalkableHuman(Gothic.Core.Models.Container.NpcContainer npc)
         {
@@ -45,14 +67,12 @@ namespace Gothic.Core.Adapters.Npc
                 return;
 
             var heroPosition = cam.transform.position;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
+            UpdateNearList(heroPosition);
+            foreach (var npc in _nearNpcs)
             {
-                if (npc?.Go == null || !npc.Go.activeInHierarchy || npc.PrefabProps == null || npc.PrefabProps.IsHero())
+                if (npc?.Go == null || !npc.Go.activeInHierarchy)
                     continue;
-                var bodyBounds = (npc.Go.transform.position - heroPosition).sqrMagnitude <
-                                 _bodyBoundsDistance * _bodyBoundsDistance
-                    ? NpcBodyBounds.Get(npc)
-                    : null;
+                var bodyBounds = NpcBodyBounds.Get(npc);
                 // Dead/knocked out bodies lie where they fell (loot them standing on top).
                 if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                     continue;

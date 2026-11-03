@@ -66,8 +66,7 @@ namespace Gothic.Core.Services.Npc
 
         private const string _talentSymbol = "NPC_TALENT_PICKPOCKET";
         private const string _humanSeparatorSymbol = "GIL_SEPERATOR_HUM";
-        private int _talentId = -1;
-        private int _humanSeparator = -1;
+        private static readonly string[] _sleepStates = { "ZS_SLEEP", "ZS_MAGICSLEEP", "ZS_BABE_SLEEP", "ZS_SLEEPER" };
 
         // No game picked yet (profile menu): no VM and no game version.
         public bool IsEnabled => _configService.Dev.EnableVrPickpocket && _configService.Gothic != null &&
@@ -115,8 +114,15 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool IsAsleep(NpcContainer npc)
         {
-            var state = npc?.Vob?.CurrentStateName?.ToUpperInvariant();
-            return state is "ZS_SLEEP" or "ZS_MAGICSLEEP" or "ZS_BABE_SLEEP" or "ZS_SLEEPER";
+            var state = npc?.Vob?.CurrentStateName;
+            if (state == null)
+                return false;
+            foreach (var sleepState in _sleepStates)
+            {
+                if (state.Equals(sleepState, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -168,19 +174,16 @@ namespace Gothic.Core.Services.Npc
                        "AR_THEFT)", LogCat.Npc);
         }
 
+        // Read per call: a profile switch (G1 -> G2) keeps this singleton, the talent ids differ (G1 6, G2 12).
         private int GetTalentId()
         {
-            if (_talentId < 0)
-                _talentId = _gameStateService.GothicVm.GetSymbolByName(_talentSymbol)?.GetInt(0) ?? 6;
-            return _talentId;
+            return _gameStateService.GothicVm.GetSymbolByName(_talentSymbol)?.GetInt(0) ?? 6;
         }
 
         private int GetHumanSeparator()
         {
-            if (_humanSeparator < 0)
-                _humanSeparator = _gameStateService.GothicVm.GetSymbolByName(_humanSeparatorSymbol)?.GetInt(0) ??
-                                  (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
-            return _humanSeparator;
+            return _gameStateService.GothicVm.GetSymbolByName(_humanSeparatorSymbol)?.GetInt(0) ??
+                   (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
         }
     }
 }

@@ -29,6 +29,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.Trade.TradeService _tradeService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
@@ -93,7 +94,11 @@ namespace Gothic.VR.Services.Context
             });
             // DeveloperConfig.EnableVrTrade: the trade counter between the hero and the trader.
             GlobalEventDispatcher.TradeStarted.AddListener(session =>
-                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(session, _rig.Head));
+            {
+                // Injected after this constructor - set when a trade starts.
+                _tradeService.GetHeldAmount = GetHeldAmount;
+                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(session, _rig.Head);
+            });
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -406,6 +411,27 @@ namespace Gothic.VR.Services.Context
         /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
         /// the world item.
         /// </summary>
+        /// <summary>
+        /// How many of an item the hands hold (TradeService: held currency doesn't pay).
+        /// </summary>
+        private int GetHeldAmount(string instanceName)
+        {
+            if (_rig == null)
+                return 0;
+            var amount = 0;
+            var counted = new HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers)
+            {
+                if (hand.Kind != VrGrabberKind.Hand || hand.Held == null || !counted.Add(hand.Held))
+                    continue;
+                var item = hand.Held.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container
+                    ?.VobAs<ZenKit.Vobs.IItem>();
+                if (item != null && item.GetSymbolName().EqualsIgnoreCase(instanceName))
+                    amount += Mathf.Max(1, item.Amount);
+            }
+            return amount;
+        }
+
         public void StoreHeldItemsInBackpack()
         {
             if (_rig == null)

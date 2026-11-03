@@ -560,6 +560,9 @@ namespace Gothic.Core.Manager
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
 
+            // The trade ends with the dialog - everything laid on the counter goes back.
+            _tradeService.Cancel();
+
             // WIP: unlocking movement
             _contextInteractionService.UnlockPlayer();
 

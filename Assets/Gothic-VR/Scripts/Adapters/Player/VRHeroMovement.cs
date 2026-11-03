@@ -43,8 +43,6 @@ namespace Gothic.VR.Adapters.Player
         private bool _isSpeedBoosted;
         private string _speedOverlay;
         private float _speedBoostEndTime;
-        private float _unboostedMoveSpeed;
-        private float _unboostedRunSpeed;
 
         // Horizontal speed (m/s) for BS_WALK/BS_RUN. Moving in VR equals the hero's default run in Gothic.
         private const float _bodyStateWalkSpeed = 0.2f;
@@ -57,13 +55,24 @@ namespace Gothic.VR.Adapters.Player
         // DeveloperConfig.EnableSneakSlowSprint: the run (sprint) speed while sneaking.
         private const float _sneakSprintFactor = 0.5f;
         private bool _isSneakSlowed;
-        private float _sneakSlowedRunSpeed;
-        private float _unslowedRunSpeed;
+
+        // The speeds without the potion and the sneak sprint, and what we set last - one base, the factors on top (the
+        // two undoing each other's values left the run speed wrong for good). Changed by someone else meanwhile
+        // (swimming, a transformation): that's the new base.
+        private bool _isSpeedModified;
+        private float _baseMoveSpeed;
+        private float _baseRunSpeed;
+        private float _appliedMoveSpeed;
+        private float _appliedRunSpeed;
+        private float _appliedMoveFactor = 1f;
+        private float _appliedRunFactor = 1f;
 
         // NPC_TALENT_SNEAK (G1/G2: 8) - read from the scripts.
         private const string _sneakTalentSymbol = "NPC_TALENT_SNEAK";
         private const int _defaultSneakTalent = 8;
         private bool _isNoSneakLogged;
+        private object _sneakTalentVm;
+        private int _sneakTalent;
 
         private IVrRig _rig;
 
@@ -104,26 +113,46 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// DeveloperConfig.EnableSneakSlowSprint: sprinting while sneaking (BS_SNEAK) runs at half the sprint speed -
-        /// sneaking up behind someone at full sprint looked silly. Swimming or a potion changing the run speed
-        /// meanwhile keeps its own value.
+        /// sneaking up behind someone at full sprint looked silly.
         /// </summary>
         private void UpdateSneakSprint()
         {
-            var isSlowed = _configService.Dev.EnableSneakSlowSprint && IsHeroSneaking();
-            if (isSlowed == _isSneakSlowed)
+            _isSneakSlowed = _configService.Dev.EnableSneakSlowSprint && IsHeroSneaking();
+            ApplySpeeds();
+        }
+
+        /// <summary>
+        /// The base speeds times the potion (move and run) and the sneak sprint (run).
+        /// </summary>
+        private void ApplySpeeds()
+        {
+            var isModified = _isSpeedBoosted || _isSneakSlowed;
+            if (!_isSpeedModified && !isModified)
                 return;
 
-            _isSneakSlowed = isSlowed;
-            if (isSlowed)
+            if (!_isSpeedModified)
             {
-                _unslowedRunSpeed = _rig.RunSpeed;
-                _sneakSlowedRunSpeed = _rig.RunSpeed * _sneakSprintFactor;
-                _rig.RunSpeed = _sneakSlowedRunSpeed;
+                _baseMoveSpeed = _rig.MoveSpeed;
+                _baseRunSpeed = _rig.RunSpeed;
             }
-            else if (Mathf.Approximately(_rig.RunSpeed, _sneakSlowedRunSpeed))
+            else if (!Mathf.Approximately(_rig.MoveSpeed, _appliedMoveSpeed) ||
+                     !Mathf.Approximately(_rig.RunSpeed, _appliedRunSpeed))
             {
-                _rig.RunSpeed = _unslowedRunSpeed;
+                // Someone else set speeds while ours were on (water in, water out restoring what it found): without our
+                // factors they are the base now - water out gave back the boosted speed, boosted again it doubled.
+                _baseMoveSpeed = _rig.MoveSpeed / _appliedMoveFactor;
+                _baseRunSpeed = _rig.RunSpeed / _appliedRunFactor;
             }
+
+            var boost = _isSpeedBoosted ? _sprintSpeedFactor : 1f;
+            var sneak = _isSneakSlowed ? _sneakSprintFactor : 1f;
+            _appliedMoveFactor = boost;
+            _appliedRunFactor = boost * sneak;
+            _appliedMoveSpeed = _baseMoveSpeed * _appliedMoveFactor;
+            _appliedRunSpeed = _baseRunSpeed * _appliedRunFactor;
+            _rig.MoveSpeed = _appliedMoveSpeed;
+            _rig.RunSpeed = _appliedRunSpeed;
+            _isSpeedModified = isModified;
         }
 
         private void OnHeroOverlayTimed(string overlayName, float seconds)
@@ -133,14 +162,8 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _speedOverlay = overlayName;
-            if (!_isSpeedBoosted)
-            {
-                _unboostedMoveSpeed = _rig.MoveSpeed;
-                _unboostedRunSpeed = _rig.RunSpeed;
-                _rig.MoveSpeed *= _sprintSpeedFactor;
-                _rig.RunSpeed *= _sprintSpeedFactor;
-                _isSpeedBoosted = true;
-            }
+            _isSpeedBoosted = true;
+            ApplySpeeds();
             _speedBoostEndTime = Time.time + seconds;
             SpeedOverlay = _speedOverlay;
         }
@@ -152,11 +175,7 @@ namespace Gothic.VR.Adapters.Player
 
             _isSpeedBoosted = false;
             SpeedOverlay = null;
-            // Swimming/diving set their own speeds meanwhile (VRSwimDive) - only undo our own change.
-            if (Mathf.Approximately(_rig.MoveSpeed, _unboostedMoveSpeed * _sprintSpeedFactor))
-                _rig.MoveSpeed = _unboostedMoveSpeed;
-            if (Mathf.Approximately(_rig.RunSpeed, _unboostedRunSpeed * _sprintSpeedFactor))
-                _rig.RunSpeed = _unboostedRunSpeed;
+            ApplySpeeds();
         }
 
         /// <summary>
@@ -168,6 +187,12 @@ namespace Gothic.VR.Adapters.Player
         {
             if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
                 return;
+
+            var position = _rig.Root.position;
+            var horizontalJump = new Vector2(position.x - _lastBodyStatePosition.x,
+                position.z - _lastBodyStatePosition.z).magnitude;
+            var isFirstCheck = _lastBodyStatePosition == Vector3.zero;
+            _lastBodyStatePosition = position;
 
             var props = heroInstance.GetUserData()?.Props;
             if (props == null || props.BodyState is not (VmGothicEnums.BodyState.BsStand
@@ -200,12 +225,7 @@ namespace Gothic.VR.Adapters.Player
             // turn, and a teleport has no speed at all. ZS_Attack_Loop checks BS_RUN every ~2 s and resets its pursuit
             // counter whenever the hero isn't running at that moment, so NPCs never gave up a chase. Running (or a
             // teleport jump) keeps BS_RUN for a moment.
-            var position = _rig.Root.position;
-            var horizontalJump = new Vector2(position.x - _lastBodyStatePosition.x,
-                position.z - _lastBodyStatePosition.z).magnitude;
-            _lastBodyStatePosition = position;
-
-            if (bodyState == VmGothicEnums.BodyState.BsRun || horizontalJump >= _teleportJumpDistance)
+            if (bodyState == VmGothicEnums.BodyState.BsRun || (!isFirstCheck && horizontalJump >= _teleportJumpDistance))
                 _lastRunTime = Time.time;
             else if (Time.time - _lastRunTime < _stickyRunSeconds)
                 bodyState = VmGothicEnums.BodyState.BsRun;
@@ -249,8 +269,13 @@ namespace Gothic.VR.Adapters.Player
 
         private bool CanHeroSneak(NpcInstance heroInstance)
         {
-            var sneakTalent = _gameStateService.GothicVm.GetSymbolByName(_sneakTalentSymbol)?.GetInt(0) ??
-                              _defaultSneakTalent;
+            var vm = _gameStateService.GothicVm;
+            if (!ReferenceEquals(vm, _sneakTalentVm))
+            {
+                _sneakTalentVm = vm;
+                _sneakTalent = vm?.GetSymbolByName(_sneakTalentSymbol)?.GetInt(0) ?? _defaultSneakTalent;
+            }
+            var sneakTalent = _sneakTalent;
             var vob = heroInstance.GetUserData()?.Vob;
             var canSneak = vob == null || vob.GetTalent(sneakTalent)?.Skill > 0;
             if (!canSneak && !_isNoSneakLogged)

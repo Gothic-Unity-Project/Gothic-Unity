@@ -9,6 +9,7 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Reflex.Attributes;
+using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -25,6 +26,18 @@ namespace Gothic.Core.Services.Trade
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ConfigService _configService;
+
+        /// <summary>
+        /// The currency the player holds in his hands (set by VR) - it counts in the inventory, but paying with it left
+        /// the stack in the hand (the gold was there twice after letting go).
+        /// </summary>
+        public System.Func<string, int> GetHeldAmount;
+
+        public TradeService()
+        {
+            // Leaving the world (level change, loading a save): the offers go back to their owners - the counter is gone.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(Cancel);
+        }
 
         private const string _g1Currency = "ItMiNugget";
         private const string _notEnoughCurrencyFunction = "PLAYER_TRADE_NOT_ENOUGH_GOLD";
@@ -130,9 +143,10 @@ namespace Gothic.Core.Services.Trade
             if (currencyItem == null)
                 return 0;
             var category = ((VmGothicEnums.ItemFlags)currencyItem.MainFlag).ToInventoryCategory();
-            return Current.Player.GetInventory(category)
+            var owned = Current.Player.GetInventory(category)
                 .Where(i => i.Name.EqualsIgnoreCase(Current.CurrencyInstance))
                 .Sum(i => i.Amount);
+            return Mathf.Max(0, owned - (GetHeldAmount?.Invoke(Current.CurrencyInstance) ?? 0));
         }
 
         public string GetCurrencyDisplayName()

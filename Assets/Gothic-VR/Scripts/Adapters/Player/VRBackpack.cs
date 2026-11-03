@@ -708,7 +708,9 @@ namespace Gothic.VR.Adapters.Player
             var vobContainer = vobLoader.Container;
 
             var tradeGoods = args.Interactable.GetComponentInParent<VRTradeGoods>();
-            if (!IsNpcBackpack && TryReturnTradeGoods(args.Interactable))
+            // Unpaid goods go back to the trader from any other backpack (hero, corpse, chest, pockets) - put into a
+            // corpse's loot they were free for the taking.
+            if (!IsTradeBackpack && TryReturnTradeGoods(args.Interactable))
                 return;
             if (IsTradeBackpack)
             {
@@ -953,6 +955,11 @@ namespace Gothic.VR.Adapters.Player
                 if (heldContainer != null)
                     _vobService.UntrackVobFromCache(heldContainer);
                 _refreshRemovals.Add(socket.Held);
+                // A trader's goods leaving his backpack aren't "returned" to him - they never left his inventory (the
+                // trade's close added every stack on the page to him again).
+                var tradeGoods = socket.Held.GetComponentInParent<VRTradeGoods>();
+                if (tradeGoods != null)
+                    tradeGoods.IsSettled = true;
                 socket.ForceRelease();
                 heldRoot.SetActive(false); // Disable it, as it would be with scale 1 in front of our camera for 1 second.
                 // We need to wait until next frame to ensure the socket has removed the item.

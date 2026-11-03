@@ -237,6 +237,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var piece = SpawnPiece(item, GetUnpaidTrader(source), palm.position, palm.rotation);
             if (piece == null)
                 return false;
+            // A piece off a stack lying in the world can be theft like the stack (PERC_ASSESSTHEFT).
+            piece.IsTakenWithoutTheft = source.IsTakenWithoutTheft;
             PutIntoPalm(emptyHand, piece);
 
             item.Amount--;
