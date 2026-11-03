@@ -101,6 +101,7 @@ namespace Gothic.VR.Adapters.Player
         private const float _previewEffectHoverAlpha = 0.5f;
         private static readonly int _baseColorProperty = Shader.PropertyToID("_BaseColor");
         private static readonly int _colorProperty = Shader.PropertyToID("_Color");
+        private static readonly int _cutoffProperty = Shader.PropertyToID("_Cutoff");
         // Weapons stand upright (blade up) and are longer than the runes.
         private const float _weaponSize = 0.16f;
         private const float _itemSize = 0.1f;
@@ -1130,8 +1131,14 @@ namespace Gothic.VR.Adapters.Player
                     {
                         var property = material.HasProperty(_baseColorProperty) ? _baseColorProperty
                             : material.HasProperty(_colorProperty) ? _colorProperty : -1;
-                        if (property >= 0)
-                            slot.EffectMaterials.Add((material, material.GetColor(property)));
+                        if (property < 0)
+                            continue;
+                        // The ring's own copies: no alpha test - at half alpha the particles (mostly below 50 %
+                        // already) fell under its 0.5 cutoff and the whole effect vanished while a hand was at it.
+                        material.DisableKeyword("_ALPHATEST_ON");
+                        if (material.HasProperty(_cutoffProperty))
+                            material.SetFloat(_cutoffProperty, 0f);
+                        slot.EffectMaterials.Add((material, material.GetColor(property)));
                     }
                 }
             }
