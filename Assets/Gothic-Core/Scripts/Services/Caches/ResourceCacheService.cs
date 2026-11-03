@@ -22,6 +22,7 @@ namespace Gothic.Core.Services.Caches
     public class ResourceCacheService
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         
         public readonly Vfs Vfs = new();
 
@@ -155,7 +156,14 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public IModelScript TryGetModelScript([NotNull] string key, bool printNotFoundWarning = true)
         {
-            return _modelScript.TryLoad($"{GetPreparedKey(key)}.mds", out var item, printNotFoundWarning) ? item : null;
+            var name = GetPreparedKey(key);
+
+            // Like the G2 engine (and OpenGothic), the compiled .msb comes first: mods ship their changed animations
+            // only there, while the text .mds can be the vanilla source in _work (DoM's HUMANS/ORC). G1 keeps the text.
+            if (_contextGameVersionService.IsGothic2() && _modelScript.TryLoad($"{name}.msb", out var compiled, false))
+                return compiled;
+
+            return _modelScript.TryLoad($"{name}.mds", out var item, printNotFoundWarning) ? item : null;
         }
 
         [CanBeNull]
