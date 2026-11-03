@@ -20,10 +20,30 @@ namespace Gothic.Core.Manager
         private bool _isDirty;
 
         /// <summary>
-        /// Loading screen (picture and bar) of the running loading. null if nothing is loading.
+        /// Root object of the loading screen (picture and bar) of the running loading. null if nothing is loading.
         /// </summary>
         [CanBeNull]
-        public AbstractLoadingBarHandler LoadingScreen => _isInitialized ? _loadingBarHandler : null;
+        public GameObject ScreenRoot => _isInitialized && _loadingBarHandler != null
+            ? _loadingBarHandler.gameObject
+            : null;
+
+        /// <summary>
+        /// Moves the loading screen along with the player. Does nothing if nothing is loading.
+        /// </summary>
+        public void MoveScreenAlong(Vector3 position, Quaternion rotation)
+        {
+            if (_isInitialized && _loadingBarHandler != null)
+                _loadingBarHandler.MoveAlongWithPlayer(position, rotation);
+        }
+
+        /// <summary>
+        /// Hides the loading screen. Does nothing if nothing is loading.
+        /// </summary>
+        public void HideScreen()
+        {
+            if (_isInitialized && _loadingBarHandler != null)
+                _loadingBarHandler.gameObject.SetActive(false);
+        }
 
         public void Update()
         {

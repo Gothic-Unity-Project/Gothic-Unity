@@ -159,8 +159,7 @@ namespace Gothic.Core.Adapters.Scenes
 
                 // The world stays hidden until the surroundings are built (see SurroundingsBuildService), so they don't
                 // pop in. The loading screen goes along with the player and stays visible meanwhile.
-                var loadingScreen = _loadingService.LoadingScreen;
-                _contextInteractionService.SetViewHidden(true, loadingScreen != null ? loadingScreen.gameObject : null);
+                _contextInteractionService.SetViewHidden(true, _loadingService.ScreenRoot);
                 TeleportPlayerToStart();
 
                 // There are many handlers which listen to this event. If any of these fails, we won't get notified without a try-catch.
@@ -183,8 +182,7 @@ namespace Gothic.Core.Adapters.Scenes
                 watch.LogAndRestart("Surroundings built");
 
                 // Unloading the scene takes some frames - the loading screen must not stay over the world fading in.
-                if (loadingScreen != null)
-                    loadingScreen.gameObject.SetActive(false);
+                _loadingService.HideScreen();
                 _loadingService.StopLoading();
                 SceneManager.UnloadSceneAsync(Constants.SceneLoading);
             }
@@ -272,9 +270,7 @@ namespace Gothic.Core.Adapters.Scenes
             _contextInteractionService.UnlockPlayer();
             _playerService.ResetSpawn();
 
-            var loadingScreen = _loadingService.LoadingScreen;
-            if (loadingScreen != null)
-                loadingScreen.MoveAlongWithPlayer(position, rotation);
+            _loadingService.MoveScreenAlong(position, rotation);
         }
     }
 }
