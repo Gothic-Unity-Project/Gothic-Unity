@@ -39,8 +39,7 @@ namespace Gothic.VR.Adapters.Player
     /// favorite items and the money.
     /// - Open/close: both hands empty and raised above the head, both triggers held for _gestureSeconds. Loading a game
     ///   closes it.
-    /// - A carousel in front of the player (between chest and eyes) - with EnableRingAroundPlayer around him at eye
-    ///   level, the slot looked at selected: at most _maxSpells (8) spells; with
+    /// - A carousel around the player at eye level, the slot looked at selected: at most _maxSpells (8) spells; with
     ///   DeveloperConfig.EnableRingWeaponSlots the equipped melee weapon and bow/crossbow (Gothic's one of each); with
     ///   EnableRingItemSlots up to _maxItems (3) favorite items (a torch, a key, potions, food) and the trade currency
     ///   (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE). The front spell shows its effect after _previewSeconds (like
@@ -89,9 +88,7 @@ namespace Gothic.VR.Adapters.Player
         // Meters the hands must be above the eyes for the gesture.
         private const float _gestureHeightAboveEyes = 0.1f;
         private const float _previewSeconds = 1f;
-        private const float _ringDistance = 0.55f;
         private const float _ringRadius = 0.28f;
-        private const float _ringHeightBelowEyes = 0.2f;
         private const float _spellSize = 0.09f;
         private const float _spellModelTilt = -90f;
         // The effect's radius in the slot, a share of the rune's size.
@@ -112,7 +109,6 @@ namespace Gothic.VR.Adapters.Player
         // Let go this long after the held item touched a slot still puts it in.
         private const float _putInGraceSeconds = 0.2f;
         private const float _dragStartDistance = 0.03f;
-        private const float _snapSpeed = 360f;
         private const float _spinSpeed = 30f;
         private const float _labelWorldScale = 0.013f;
         // The ring circles the player at eye level, 2.2 times the size (radius
@@ -142,7 +138,6 @@ namespace Gothic.VR.Adapters.Player
         private int _gestureHapticStep;
 
         private float _ringAngle;
-        private float _targetAngle;
         private bool _isDragging;
         private bool _isTriggerDown;
         private VrHandSide _dragHand;
@@ -404,24 +399,15 @@ namespace Gothic.VR.Adapters.Player
         {
             var forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
             forward = forward.sqrMagnitude < 0.01f ? Vector3.forward : forward.normalized;
-            if (IsAroundPlayer)
-            {
-                // The player stands in its middle, a little below the eyes (at eye level it hid the view); turned
-                // around, the first slot is in front of him.
-                transform.SetPositionAndRotation(head.position + Vector3.down * _aroundPlayerBelowEyes,
-                    Quaternion.LookRotation(-forward, Vector3.up));
-                _aroundPlayerRotation = transform.rotation;
-            }
-            else
-            {
-                transform.SetPositionAndRotation(
-                    head.position + forward * _ringDistance + Vector3.down * _ringHeightBelowEyes,
-                    Quaternion.LookRotation(forward, Vector3.up));
-            }
+            // The player stands in its middle, a little below the eyes (at eye level it hid the view); turned around,
+            // the first slot is in front of him.
+            transform.SetPositionAndRotation(head.position + Vector3.down * _aroundPlayerBelowEyes,
+                Quaternion.LookRotation(-forward, Vector3.up));
+            _aroundPlayerRotation = transform.rotation;
             transform.localScale = Vector3.one * RingScale;
 
             _isOpen = true;
-            _ringAngle = _targetAngle = 0f;
+            _ringAngle = 0f;
             LockTeleport(true);
             Rebuild();
             Logger.Log($"[FavoritesRing] Opened with {_slots.Count(s => s.Kind == SlotKind.Spell)} spell(s), " +
@@ -539,7 +525,7 @@ namespace Gothic.VR.Adapters.Player
 
             // Keep the same slot in front.
             var frontIndex = previousFront == null ? -1 : _slots.FindIndex(s => s.InstanceName == previousFront);
-            _ringAngle = _targetAngle = frontIndex < 0 ? 0f : -frontIndex * step;
+            _ringAngle = frontIndex < 0 ? 0f : -frontIndex * step;
             _front = null;
             _hovered = null;
         }
@@ -843,10 +829,9 @@ namespace Gothic.VR.Adapters.Player
             _slots.Clear();
         }
 
-        private bool IsAroundPlayer => _configService.Dev.EnableRingAroundPlayer;
         private Quaternion _aroundPlayerRotation = Quaternion.identity;
         private const float _aroundPlayerBelowEyes = 0.25f;
-        private float RingScale => IsAroundPlayer ? _aroundPlayerScale : 1f;
+        private const float RingScale = _aroundPlayerScale;
 
         // DeveloperConfig.EnableRingZoom: the ring's radius - the slots come closer or move away, keeping their size
         // (scaling the whole ring grew the slots too).
@@ -872,7 +857,6 @@ namespace Gothic.VR.Adapters.Player
         private const float _stopSpinVelocity = 20f;
         private const float _minDragAxisDistance = 0.1f;
 
-        private bool IsFreeSpin => IsAroundPlayer;
 
         /// <summary>
         /// DeveloperConfig.EnableRingZoom: the right stick up/down (mouse wheel) makes the ring bigger/smaller - it moves
@@ -914,26 +898,22 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The front slot (angle 0) is closest to the player; positive angles go to the right. Around the player
-        /// (EnableRingAroundPlayer) the selected slot is the one the head looks at - turning the head selects too.
+        /// The selected slot is the one the head looks at - turning the head selects too. Positive angles go to the
+        /// right.
         /// </summary>
         private void UpdateLayout()
         {
             // Around the player it keeps its direction in the world: it hangs at the player controller, which turns
             // with a turn (simulator: the mouse look) - the head couldn't look at another slot.
-            if (IsAroundPlayer)
-                transform.rotation = _aroundPlayerRotation;
+            transform.rotation = _aroundPlayerRotation;
 
-            if (!_isDragging && IsFreeSpin)
+            // A carousel: let go while turning it, it spins on and slows down.
+            if (!_isDragging)
             {
                 _ringAngle += _spinVelocity * Time.deltaTime;
                 _spinVelocity *= Mathf.Exp(-_spinDamping * Time.deltaTime);
                 if (Mathf.Abs(_spinVelocity) < _minSpinVelocity)
                     _spinVelocity = 0f;
-            }
-            else if (!_isDragging)
-            {
-                _ringAngle = Mathf.MoveTowardsAngle(_ringAngle, _targetAngle, _snapSpeed * Time.deltaTime);
             }
 
             var putInTarget = _putInCandidates.FirstOrDefault(c => c != null)?.Target;
@@ -951,9 +931,7 @@ namespace Gothic.VR.Adapters.Player
                 if (slot.Container != null && slot.TakenTime < 0f)
                     UpdateBodyCollisions(slot);
 
-                var distance = IsAroundPlayer
-                    ? GetHeadAngle(slot)
-                    : Mathf.Abs(Mathf.DeltaAngle(0f, slot.Angle + _ringAngle));
+                var distance = GetHeadAngle(slot);
                 if (distance < frontDistance)
                 {
                     frontDistance = distance;
@@ -1035,7 +1013,7 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// The selected (front) slot always shows its name - its effect alone doesn't tell the spell; the slot a hand
-        /// is near shows its name too. Both grow with the ring (EnableRingAroundPlayer: twice and more).
+        /// is near shows its name too. Both grow with the ring (twice and more).
         /// </summary>
         private void UpdateLabels()
         {
@@ -1198,8 +1176,6 @@ namespace Gothic.VR.Adapters.Player
                 if (_isDragging)
                 {
                     _isDragging = false;
-                    if (!IsFreeSpin)
-                        SnapToNearest();
                 }
                 else if (_pressedSlot != null && _pressedSlot == _hovered && !_isSpinStoppedByPress)
                 {
@@ -1210,45 +1186,27 @@ namespace Gothic.VR.Adapters.Player
             }
 
             var local = transform.InverseTransformPoint(dragHand.transform.position);
-            if (IsFreeSpin)
-            {
-                // Around the player the hand turns the ring around its axis - the slot under the hand goes with it,
-                // whichever way the player faces (sideways in the ring's own space was mirrored behind him).
-                var axisDistance = new Vector2(local.x, local.z).magnitude * RingScale;
-                if (axisDistance < _minDragAxisDistance)
-                    return;
-                var deltaAngle = Mathf.DeltaAngle(_dragStartHandAngle, GetHandAngle(local));
-                if (!_isDragging && Mathf.Abs(deltaAngle) * Mathf.Deg2Rad * axisDistance >= _dragStartDistance)
-                    _isDragging = true;
-                if (!_isDragging)
-                    return;
-                _ringAngle = _dragStartAngle + deltaAngle;
-                if (Time.deltaTime > 0f)
-                    _spinVelocity = Mathf.Lerp(_spinVelocity,
-                        Mathf.DeltaAngle(_lastDragAngle, _ringAngle) / Time.deltaTime, 0.5f);
-                _lastDragAngle = _ringAngle;
+            // The hand turns the ring around its axis - the slot under the hand goes with it, whichever way the player
+            // faces (sideways in the ring's own space was mirrored behind him).
+            var axisDistance = new Vector2(local.x, local.z).magnitude * RingScale;
+            if (axisDistance < _minDragAxisDistance)
                 return;
-            }
-
-            var deltaX = local.x - _dragStartLocal.x;
-            if (!_isDragging && Mathf.Abs(deltaX) >= _dragStartDistance)
+            var deltaAngle = Mathf.DeltaAngle(_dragStartHandAngle, GetHandAngle(local));
+            if (!_isDragging && Mathf.Abs(deltaAngle) * Mathf.Deg2Rad * axisDistance >= _dragStartDistance)
                 _isDragging = true;
-            if (_isDragging)
-                _ringAngle = _dragStartAngle + deltaX / RingRadius * Mathf.Rad2Deg;
+            if (!_isDragging)
+                return;
+            _ringAngle = _dragStartAngle + deltaAngle;
+            if (Time.deltaTime > 0f)
+                _spinVelocity = Mathf.Lerp(_spinVelocity,
+                    Mathf.DeltaAngle(_lastDragAngle, _ringAngle) / Time.deltaTime, 0.5f);
+            _lastDragAngle = _ringAngle;
         }
 
         private bool IsAboveHead(Vector3 position)
         {
             var head = Camera.main;
             return head != null && position.y > head.transform.position.y + _gestureHeightAboveEyes;
-        }
-
-        private void SnapToNearest()
-        {
-            if (_slots.Count == 0)
-                return;
-            var step = 360f / _slots.Count;
-            _targetAngle = Mathf.Round(_ringAngle / step) * step;
         }
 
         /// <summary>

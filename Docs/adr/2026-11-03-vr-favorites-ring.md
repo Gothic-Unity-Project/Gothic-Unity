@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRFavoritesRing, VRFavoritesRingSpell (VR); NpcInventoryService.GetConflictingEquippedItems, PlayerService.DropItem, PlayerInventoryOwner, NpcProperties.FavoriteItems (Core); DeveloperConfig EnableVrSpellRing, EnableRingAroundPlayer, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
+- Technical details: VRFavoritesRing, VRFavoritesRingSpell (VR); NpcInventoryService.GetConflictingEquippedItems, PlayerService.DropItem, PlayerInventoryOwner, NpcProperties.FavoriteItems (Core); DeveloperConfig EnableVrSpellRing, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
 
 ## Context
 
@@ -11,7 +11,7 @@ In Gothic, holding the magic key shows the equipped runes and scrolls in a circl
 ## Decisions
 
 1. **A gesture opens the ring:** both empty hands above the head and both triggers held for 1 s. A hand with a readied ring spell isn't empty. The "Favorites ring" Immersion option can switch it off.
-2. **The ring circles the player at eye level** (`EnableRingAroundPlayer`). The slot the head looks at is selected, and the hand turns the ring like a carousel. Off: a small ring in front of the chest. The playtest decides which layout stays.
+2. **The ring circles the player at eye level.** The slot the head looks at is selected, and the hand turns the ring like a carousel that spins on after you let go. Not chosen: the branch's first layout, a small ring in front of the chest that snapped to the nearest slot, which felt strange in play.
 3. **What's in it:**
    - up to 8 equipped spells;
    - the equipped melee weapon and bow/crossbow (`EnableRingWeaponSlots`);

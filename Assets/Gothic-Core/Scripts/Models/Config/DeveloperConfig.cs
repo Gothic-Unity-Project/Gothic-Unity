@@ -476,11 +476,6 @@ namespace Gothic.Core.Models.Config
                  "Immersion option (ini spellRing).")]
         public bool EnableVrSpellRing = true;
 
-        [Tooltip("VR: The favorites ring opens around the player at eye level, 2.2 times the size (radius ~0.6 m), the " +
-                 "first slot in front - the slot the head looks at is the selected one; the hand turns it like a " +
-                 "carousel. Off: a small ring in front of the chest that snaps to the nearest slot.")]
-        public bool EnableRingAroundPlayer = true;
-
         [Tooltip("VR: The favorites ring also holds the equipped melee weapon and bow/crossbow - at most 8 spells + 2 " +
                  "weapons. Grip takes the weapon into the hand, a weapon held into the empty slot (or onto the " +
                  "equipped one of its kind) is equipped, a trigger click unequips.")]
