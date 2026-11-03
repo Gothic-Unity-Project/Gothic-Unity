@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -58,7 +59,7 @@ namespace Gothic.Core.Services.Npc
         private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
 
 
-        private Queue<NpcLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
         private Queue<NpcContainer> _objectToReEnableQueue = new();
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
@@ -86,17 +87,53 @@ namespace Gothic.Core.Services.Npc
             _objectToReEnableQueue.Clear();
         }
 
+        /// <summary>
+        /// Whether an NPC within radius of center still waits for its lazy initialization.
+        /// </summary>
+        public bool HasQueuedNpcWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.HasEntryWithin(center, radius);
+        }
+
+        /// <summary>
+        /// Only NPCs within radius of center are initialized until ClearInitFocus(), e.g. while the view is black
+        /// after loading.
+        /// </summary>
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued NPCs nearest to the camera first, until this frame's share is used up.
+        /// </summary>
         private IEnumerator InitNpcCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
+                if (_objectsToInitQueue.IsFocused)
                 {
-                    yield return null;
+                    // The black wait after loading: sorted around the focus center, the camera may not be there yet.
+                    _objectsToInitQueue.UpdateOrder(_objectsToInitQueue.FocusCenter);
                 }
-                else
+                else if (_objectsToInitQueue.Count > 0)
                 {
-                    var npcElement = _objectsToInitQueue.Dequeue();
+                    var camera = Camera.main;
+                    if (camera != null)
+                        _objectsToInitQueue.UpdateOrder(camera.transform.position);
+                }
+
+                while (_objectsToInitQueue.TryDequeue(out var npcElement))
+                {
+                    // Destroyed in the meantime (e.g. world change).
+                    if (npcElement == null)
+                        continue;
+
                     var npcId = npcElement.Npc.Id;
                     var monsterId = npcElement.Npc.GetAiVar(_vmService.AIVMMRealId);
 
@@ -115,10 +152,20 @@ namespace Gothic.Core.Services.Npc
                         continue;
                     }
 
-                    _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    try
+                    {
+                        _initializerDomain.InitNpc(npcElement.Npc, npcElement.gameObject);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init NPC {npcElement.name}: {e}", LogCat.Npc);
+                    }
+
+                    if (_frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
 
-                yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                yield return null;
             }
         }
 
@@ -497,7 +544,7 @@ namespace Gothic.Core.Services.Npc
             }
             else
             {
-                _objectsToInitQueue.Enqueue(loaderComp);
+                _objectsToInitQueue.Enqueue(loaderComp, loaderComp.transform.position);
             }
 
             return true;
