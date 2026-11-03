@@ -53,9 +53,6 @@ namespace Gothic.Core.Services.Vobs
         private const float _interactableLookupDistance = 10f; // meter
         
 
-        // Mob_HasItems asks for the same chests on every dialog check - warned once per name and world.
-        private readonly HashSet<string> _missingContainerNames = new();
-
 
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
         private readonly NearestFirstQueue<VobLoader> _objectsToInitQueue = new();
@@ -116,7 +113,7 @@ namespace Gothic.Core.Services.Vobs
         {
             _gameStateService.VobsInteractable.Clear();
             _gameStateService.ClearNamedVobs();
-            _missingContainerNames.Clear();
+            Logger.ResetWarningsOnce(); // "warn once" means once per world
         }
 
         /// <summary>
@@ -456,9 +453,8 @@ namespace Gothic.Core.Services.Vobs
             if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpperInvariant(),
                     out var container))
             {
-                if (_missingContainerNames.Add(mobName ?? string.Empty))
-                    Logger.LogWarning($"Mob_HasItems: no chest named '{mobName}' in this world - answering 0.",
-                        LogCat.Vob);
+                Logger.LogWarningOnce($"MobHasItems.{mobName}",
+                    $"Mob_HasItems: no chest named '{mobName}' in this world - answering 0.", LogCat.Vob);
                 return 0;
             }
 

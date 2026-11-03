@@ -38,7 +38,6 @@ namespace Gothic.Core.Domain.Vm
         private readonly Dictionary<int, int> _instancePtrMap = new();
 
         // Stubs warn once per topic - the scripts call some of them every frame.
-        private readonly HashSet<string> _warnedOnce = new();
 
         // MEM_PrintStackTrace dumps the whole VM state (dozens of log lines). Only the first ones are worth it.
         private const int _maxStackTraces = 3;
@@ -594,8 +593,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void WarnOnce(string topic, string message)
         {
-            if (_warnedOnce.Add(topic))
-                Logger.LogWarning($"[Ikarus] {message} (logged once)", LogCat.ZenKit);
+            Logger.LogWarningOnce($"Ikarus.{topic}", $"[Ikarus] {message} (logged once)", LogCat.ZenKit);
         }
 
 
@@ -603,82 +601,34 @@ namespace Gothic.Core.Domain.Vm
         // SafeOverride helpers — skip if the symbol is not in the scripts or declared with another signature
         // ─────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Whether the scripts declare the function and the override pops and pushes exactly what they declare. With
-        /// another signature (another Ikarus/LeGo version) the override would leave values on the VM stack or take
-        /// foreign ones - then the script's own function stays.
-        /// </summary>
-        private bool CanOverride(string name, Type returnType, params Type[] paramTypes)
-        {
-            var vm = _gameStateService.GothicVm;
-            var sym = vm.GetSymbolByName(name);
-            if (sym == null)
-                return false;
-
-            var fits = sym.Type == DaedalusDataType.Function && sym.Size == paramTypes.Length &&
-                       sym.HasReturn == (returnType != null) &&
-                       (returnType == null || Fits(sym.ReturnType, returnType));
-            for (var i = 0; fits && i < paramTypes.Length; i++)
-                fits = Fits(vm.GetSymbolByIndex(sym.Index + 1 + i)?.Type, paramTypes[i]);
-
-            if (!fits)
-                Logger.LogWarning($"[Ikarus] {name}: the scripts declare another signature - not overridden.",
-                    LogCat.ZenKit);
-            return fits;
-        }
-
-        private static bool Fits(DaedalusDataType? scriptType, Type type)
-        {
-            return scriptType switch
-            {
-                DaedalusDataType.Int or DaedalusDataType.Function => type == typeof(int),
-                DaedalusDataType.Float => type == typeof(float),
-                DaedalusDataType.String => type == typeof(string),
-                DaedalusDataType.Instance => typeof(DaedalusInstance).IsAssignableFrom(type),
-                _ => false
-            };
-        }
-
         private void SafeOverride(string name, Action handler)
         {
-            if (!CanOverride(name, null))
-                return;
-            _gameStateService.GothicVm.OverrideFunction(name, () => handler());
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
         private void SafeOverride<TP0>(string name, Action<TP0> handler)
         {
-            if (!CanOverride(name, null, typeof(TP0)))
-                return;
-            _gameStateService.GothicVm.OverrideFunction<TP0>(name, p0 => handler(p0));
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
         private void SafeOverride<TP0, TP1>(string name, Action<TP0, TP1> handler)
         {
-            if (!CanOverride(name, null, typeof(TP0), typeof(TP1)))
-                return;
-            _gameStateService.GothicVm.OverrideFunction<TP0, TP1>(name, (p0, p1) => handler(p0, p1));
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
         private void SafeOverride<TP0, TP1, TP2>(string name, Action<TP0, TP1, TP2> handler)
         {
-            if (!CanOverride(name, null, typeof(TP0), typeof(TP1), typeof(TP2)))
-                return;
-            _gameStateService.GothicVm.OverrideFunction<TP0, TP1, TP2>(name, (p0, p1, p2) => handler(p0, p1, p2));
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
         private void SafeOverride<TR>(string name, Func<TR> handler)
         {
-            if (!CanOverride(name, typeof(TR)))
-                return;
-            _gameStateService.GothicVm.OverrideFunction(name, () => handler());
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
         private void SafeOverride<TR, TP0>(string name, Func<TP0, TR> handler)
         {
-            if (!CanOverride(name, typeof(TR), typeof(TP0)))
-                return;
-            _gameStateService.GothicVm.OverrideFunction(name, (TP0 p0) => handler(p0));
+            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
         }
 
 
@@ -695,7 +645,7 @@ namespace Gothic.Core.Domain.Vm
             private readonly Dictionary<int, byte[]> _heap = new();
 
             private const int _maxReportedAddresses = 256;
-            private readonly HashSet<int> _reportedAddresses = new();
+            private int _reportedAddressCount;
 
             /// <summary>Allocates <paramref name="size"/> bytes and returns the fake address.</summary>
             public int Alloc(int size)
@@ -785,9 +735,11 @@ namespace Gothic.Core.Domain.Vm
                         return (kv.Value, address - kv.Key);
                 }
                 // Engine addresses (no heap of ours) are read again and again - each one is logged once.
-                if (_reportedAddresses.Count < _maxReportedAddresses && _reportedAddresses.Add(address))
-                    Logger.LogWarning($"[Ikarus] Virtual memory access out of range: 0x{address:X} " +
-                                      $"({requiredBytes} bytes) - logged once per address.", LogCat.ZenKit);
+                if (_reportedAddressCount < _maxReportedAddresses && Logger.LogWarningOnce(
+                        $"Ikarus.VMem.0x{address:X}", $"[Ikarus] Virtual memory access out of range: 0x{address:X} " +
+                                                      $"({requiredBytes} bytes) - logged once per address.",
+                        LogCat.ZenKit))
+                    _reportedAddressCount++;
                 return (null, 0);
             }
         }

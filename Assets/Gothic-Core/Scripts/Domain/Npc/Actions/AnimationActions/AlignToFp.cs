@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using UnityEngine;
@@ -9,9 +8,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class AlignToFp : AbstractRotateAnimationAction
     {
-        // Routines align on every loop pass - warned once per NPC.
-        private static readonly HashSet<int> _npcsWarnedWithoutFp = new();
-
         public AlignToFp(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
         }
@@ -22,9 +18,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var freePoint = Props.CurrentFreePoint;
             if (freePoint == null)
             {
-                if (_npcsWarnedWithoutFp.Add(NpcInstance.Index))
-                    Logger.LogWarning($"AI_AlignToFP: {NpcInstance.GetName(NpcNameSlot.Slot0)} has no free point - " +
-                                      "keeps its direction.", LogCat.Ai);
+                // Routines align on every loop pass - warned once per NPC and world.
+                Logger.LogWarningOnce($"AlignToFp.{NpcInstance.Index}",
+                    $"AI_AlignToFP: {NpcInstance.GetName(NpcNameSlot.Slot0)} has no free point - " +
+                    "keeps its direction.", LogCat.Ai);
                 return NpcGo.transform.rotation;
             }
 
