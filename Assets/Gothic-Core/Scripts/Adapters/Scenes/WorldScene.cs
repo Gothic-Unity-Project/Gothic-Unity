@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
-using Gothic.Core.Domain.Culling;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -45,21 +44,7 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly FrameSkipperService _frameSkipperService;
-
-        // VOBs and NPCs this close to the spawn point are built before the view is shown (m). Lights reach the ground
-        // up to StationaryLightsService's 80 m, but the near ones matter most and keep the wait short.
-        private const float _surroundingsRadius = 50f;
-
-        // Longest wait for them (s). Whatever is still missing then appears while the player looks around.
-        private const float _surroundingsMaxWait = 5f;
-
-        // The camera counts as arrived at the spawn point this close (m, horizontal; VR play area offset included).
-        private const float _cameraArrivalDistance = 5f;
-        private const float _cameraArrivalMaxWait = 1f; // s
-
-        // Frames culling needs after the camera arrived to queue the objects around it.
-        private const int _cullingUpdateFrames = 2;
+        [Inject] private readonly SurroundingsBuildService _surroundingsBuildService;
 
         private Vector3? _spawnPosition;
 
@@ -172,7 +157,7 @@ namespace Gothic.Core.Adapters.Scenes
 
                 _skyService.InitWorld();
 
-                // The world stays hidden until the surroundings are built (see BuildSurroundingsAsync), so they don't
+                // The world stays hidden until the surroundings are built (see SurroundingsBuildService), so they don't
                 // pop in. The loading screen goes along with the player and stays visible meanwhile.
                 var loadingScreen = _loadingService.LoadingScreen;
                 _contextInteractionService.SetViewHidden(true, loadingScreen != null ? loadingScreen.gameObject : null);
@@ -190,7 +175,11 @@ namespace Gothic.Core.Adapters.Scenes
 
                 // Culling only _enqueues_ the VOBs and NPCs around the spawn point for lazy initialization. The near
                 // ones are built now, the rest in the background, nearest first.
-                await BuildSurroundingsAsync();
+                if (_spawnPosition != null)
+                {
+                    await _surroundingsBuildService.BuildAround(_spawnPosition.Value,
+                        nameof(WorldLoadingBarHandler.ProgressType.Surroundings));
+                }
                 watch.LogAndRestart("Surroundings built");
 
                 // Unloading the scene takes some frames - the loading screen must not stay over the world fading in.
@@ -209,79 +198,6 @@ namespace Gothic.Core.Adapters.Scenes
                 _contextInteractionService.EnableMenus();
                 fullWatch.Log("Full world loaded");
             }
-        }
-
-        /// <summary>
-        /// Waits until the queued VOBs and NPCs around the spawn point are built. Only the loading screen is visible
-        /// meanwhile, its bar shows how many of them are built. So the queues may use long frames
-        /// (FrameSkipperService.IsViewHidden). With half a frame per frame (the default), a crowded place like the Old
-        /// Camp popped in over several seconds.
-        /// </summary>
-        private async Task BuildSurroundingsAsync()
-        {
-            if (_spawnPosition == null)
-                return;
-
-            var center = _spawnPosition.Value;
-            var watch = Stopwatch.StartNew();
-            _loadingService.SetPhase(nameof(WorldLoadingBarHandler.ProgressType.Surroundings), 1);
-            _frameSkipperService.IsViewHidden = true;
-            var lazyInitQueues = new ILazyInitQueue[] { _vobService, _npcService };
-            foreach (var queue in lazyInitQueues)
-                queue.SetInitFocus(center, _surroundingsRadius);
-            try
-            {
-                // The VR rig applies a teleport in its next update, so the camera is still at the loading screen
-                // here. Culling queues the VOBs and NPCs around the spawn point once the camera is there.
-                while (!IsCameraNear(center) && watch.Elapsed.TotalSeconds < _cameraArrivalMaxWait)
-                    await Task.Yield();
-                for (var i = 0; i < _cullingUpdateFrames; i++)
-                    await Task.Yield();
-
-                // Culling still queues objects while the first ones are built - the bar never goes back.
-                var mostWaiting = 0;
-                var progress = 0f;
-                while (true)
-                {
-                    var waiting = lazyInitQueues.Sum(queue => queue.CountQueuedWithin(center, _surroundingsRadius));
-                    if (waiting == 0)
-                        break;
-
-                    mostWaiting = Math.Max(mostWaiting, waiting);
-                    progress = Math.Max(progress, 1f - (float)waiting / mostWaiting);
-                    _loadingService.SetPhaseProgress(progress);
-
-                    if (watch.Elapsed.TotalSeconds >= _surroundingsMaxWait)
-                    {
-                        Logger.LogWarning($"Surroundings not built after {_surroundingsMaxWait} s. " +
-                                          "The rest appears in the background.", LogCat.Loading);
-                        break;
-                    }
-
-                    await Task.Yield();
-                }
-            }
-            finally
-            {
-                _frameSkipperService.IsViewHidden = false;
-                foreach (var queue in lazyInitQueues)
-                    queue.ClearInitFocus();
-                _loadingService.FinalizePhase();
-            }
-
-            Logger.Log($"Surroundings within {_surroundingsRadius} m built after {watch.Elapsed.TotalSeconds:0.00} s.",
-                LogCat.Loading);
-        }
-
-        private static bool IsCameraNear(Vector3 position)
-        {
-            var camera = Camera.main;
-            if (camera == null)
-                return false;
-
-            var offset = camera.transform.position - position;
-            offset.y = 0;
-            return offset.sqrMagnitude < _cameraArrivalDistance * _cameraArrivalDistance;
         }
 
         /// <summary>
