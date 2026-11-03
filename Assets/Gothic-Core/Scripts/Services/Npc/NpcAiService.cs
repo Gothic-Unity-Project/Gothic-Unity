@@ -35,6 +35,8 @@ namespace Gothic.Core.Services.Npc
             NpcInstance Victim, NpcInstance Other)> _deliveredPassivePerceptions = new();
         private int _deliveryFrame = -1;
 
+        private const float _quickLookSeconds = 2f;
+
 
         public void Init()
         {
@@ -426,6 +428,23 @@ namespace Gothic.Core.Services.Npc
             return ExtNpcIsPlayer(npc) || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
         }
 
+        /// <summary>
+        /// G1's Externals.d: the NPC looks at the other one briefly (2 s), only the head moves. The queue goes on at
+        /// once - B_AssessTheft checks right after it whether the thief is seen.
+        /// </summary>
+        public void ExtAiQuicklook(NpcInstance npc, NpcInstance other)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null || other == null)
+            {
+                Logger.LogWarning("[AI_Quicklook] called without an NPC or one to look at - ignored.", LogCat.Ai);
+                return;
+            }
+
+            container.Props.AnimationQueue.Enqueue(new LookAtNpc(
+                new AnimationAction(instance0: other, float0: _quickLookSeconds), container));
+        }
+
         public void ExtAiStopLookAt(NpcInstance npc)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new StopLookAtNpc(
@@ -784,9 +803,18 @@ namespace Gothic.Core.Services.Npc
         /// HINT: These values are only used when checking the attitude towards the player
         /// HINT: for attitudes between NPC we directly use the guild attitude
         /// </summary>
+        /// <summary>
+        /// Npc_SetAttitude sets the temporary attitude too, like the engine (OpenGothic Npc::setAttitude) - otherwise
+        /// an earlier temporary anger outlived the attitude the scripts just set.
+        /// </summary>
         public void ExtSetAttitude(NpcInstance npc, VmGothicEnums.Attitude value)
         {
-            npc.GetUserData().Vob.Attitude = (int)value;
+            var vob = npc?.GetUserData()?.Vob;
+            if (vob == null)
+                return;
+
+            vob.Attitude = (int)value;
+            vob.AttitudeTemp = (int)value;
         }
         
         /// <summary>

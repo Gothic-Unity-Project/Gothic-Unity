@@ -124,7 +124,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_StopProcessInfos", AI_StopProcessInfos);
             vm.RegisterExternal<NpcInstance, string>("AI_LookAt", AI_LookAt);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_LookAtNPC", AI_LookAtNPC);
-            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_Quicklook", AI_Quicklook);
+            RegisterIfDeclared(vm, "AI_Quicklook",
+                () => vm.RegisterExternal<NpcInstance, NpcInstance>("AI_Quicklook", AI_Quicklook));
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
@@ -584,9 +585,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_Quicklook(NpcInstance self, NpcInstance other)
         {
-            // Brief look-at (auto-cancels on next action) — reuse persistent look-at; StopLookAt follows.
-            if (other != null)
-                _npcAiService.ExtAiLookAtNpc(self, other);
+            _npcAiService.ExtAiQuicklook(self, other);
         }
 
         public void AI_StopLookAt(NpcInstance npc)
