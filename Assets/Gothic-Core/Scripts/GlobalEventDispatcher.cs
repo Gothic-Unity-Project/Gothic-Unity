@@ -123,6 +123,12 @@ namespace Gothic.Core
         /// (lying down, camera) listens to it - added with the VR hero body PR.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (the hero himself for a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroDied = new();
         
 
         // LockPicking events

@@ -12,6 +12,8 @@ namespace Gothic.Core.Models.Context
         Loading = 1 << 0,
         Dialog = 1 << 1,
         Seat = 1 << 2,
-        Cinema = 1 << 3
+        Cinema = 1 << 3,
+        Knockout = 1 << 4,
+        Death = 1 << 5
     }
 }
