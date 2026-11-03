@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
@@ -21,6 +23,10 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly WayNetService _wayNetService;
+
+        // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
+        private readonly HashSet<int> _npcsKnowingPlayer = new();
 
 
         public void ExtNpcPerceptionEnable(NpcInstance npc, VmGothicEnums.PerceptionType perception, int function)
@@ -229,6 +235,105 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
+        public void ExtAiPointAt(NpcInstance npc, string pointName)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+            {
+                Logger.LogWarning($"AI_PointAt: NPC without container - '{pointName}' ignored.", LogCat.Ai);
+                return;
+            }
+
+            var point = _wayNetService.GetWayNetPoint(pointName);
+            if (point == null)
+            {
+                Logger.LogWarning($"AI_PointAt: {npc.GetName(NpcNameSlot.Slot0)} - no way point '{pointName}'.",
+                    LogCat.Ai);
+                return;
+            }
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container, () => point.Position));
+        }
+
+        public void ExtAiPointAtNpc(NpcInstance npc, NpcInstance other)
+        {
+            var container = npc?.GetUserData();
+            var target = other?.GetUserData();
+            if (target == null || container?.Props == null)
+            {
+                Logger.LogWarning("AI_PointAtNpc: NPC or target without container - ignored.", LogCat.Ai);
+                return;
+            }
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container,
+                () => target.Go != null ? (Vector3?)target.Go.transform.position : null));
+        }
+
+        public void ExtAiStopPointAt(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            container?.Props?.AnimationQueue.Enqueue(new StopPointAt(new AnimationAction(), container));
+        }
+
+        /// <summary>
+        /// Npc_HasBodyFlag: the body state carries the flag (BS_FLAG_INTERRUPTABLE, BS_FLAG_FREEHANDS).
+        /// </summary>
+        public bool ExtNpcHasBodyFlag(NpcInstance npc, int flag)
+        {
+            var props = npc?.GetUserData()?.Props;
+            return props != null && ((int)props.BodyState & flag) != 0;
+        }
+
+        /// <summary>
+        /// Npc_SendSinglePerc, like the engine: the target perceives it, with the sender as 'other' (G1's charm,
+        /// shrink and berserk spells).
+        /// </summary>
+        public void ExtNpcSendSinglePerc(NpcInstance npc, NpcInstance target, int perception)
+        {
+            var targetProps = target?.GetUserData()?.Props;
+            if (npc == null || targetProps == null)
+                return;
+
+            ExecutePerception((VmGothicEnums.PerceptionType)perception, targetProps, target, null, npc);
+        }
+
+        /// <summary>
+        /// Npc_PlayAni: the animation right away, not queued.
+        /// </summary>
+        public void ExtNpcPlayAni(NpcInstance npc, string animationName)
+        {
+            npc?.GetUserData()?.PrefabProps?.AnimationSystem?.PlayAnimation(animationName);
+        }
+
+        public void ExtNpcSetKnowsPlayer(NpcInstance npc)
+        {
+            if (npc != null)
+                _npcsKnowingPlayer.Add(npc.Index);
+        }
+
+        public bool ExtNpcKnowsPlayer(NpcInstance npc)
+        {
+            return npc != null && _npcsKnowingPlayer.Contains(npc.Index);
+        }
+
+        /// <returns>cm to the hero, measured like Npc_GetDistToNpc(npc, hero).</returns>
+        public int ExtNpcGetDistToPlayer(NpcInstance npc)
+        {
+            return ExtNpcGetDistToNpc(npc, _gameStateService.GothicVm.GlobalHero as NpcInstance);
+        }
+
+        /// <summary>
+        /// Npc_IsInCutscene, like the reference engine: in a dialog (there are no cutscenes) - nobody attacks then.
+        /// </summary>
+        public bool ExtNpcIsInCutscene(NpcInstance npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            if (npc == null || !dialogs.IsInDialog)
+                return false;
+
+            return ExtNpcIsPlayer(npc) || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
+        }
+
         public void ExtAiStopLookAt(NpcInstance npc)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new StopLookAtNpc(
@@ -403,7 +508,12 @@ namespace Gothic.Core.Services.Npc
                 return int.MaxValue;
             }
 
-            var npc1Pos = npc1.GetUserData().Go.transform.position;
+            // Not spawned yet (Npc_GetDistToPlayer of an NPC out of range).
+            var npc1Go = npc1.GetUserData()?.Go;
+            if (npc1Go == null)
+                return int.MaxValue;
+
+            var npc1Pos = npc1Go.transform.position;
 
             Vector3 npc2Pos;
             // If hero: use camera position (VR head position is most accurate)

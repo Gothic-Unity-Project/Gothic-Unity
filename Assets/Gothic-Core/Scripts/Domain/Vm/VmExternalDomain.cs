@@ -140,8 +140,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
-            vm.RegisterExternal<NpcInstance>("AI_StopPointAt", AI_StopPointAt);
-            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_PointAtNpc", AI_PointAtNpc);
+            RegisterSmallExternals(vm);
 
             // Apply Options
             // Doc
@@ -229,7 +228,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int>("Npc_SetToFightMode", Npc_SetToFightMode);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
-            vm.RegisterExternal<int, NpcInstance>("Npc_IsInCutscene", Npc_IsInCutscene);
             vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_OwnedByNpc", (i, n) => AsItem(i, "Npc_OwnedByNpc") is { } item && AsNpc(n, "Npc_OwnedByNpc") is { } npc ? Npc_OwnedByNpc(item, npc) : 0);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
@@ -238,7 +236,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetRefuseTalk", Npc_SetRefuseTalk);
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
-            vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetKnowsPlayer", Npc_SetKnowsPlayer);
             vm.RegisterExternal<int, NpcInstance, int, NpcInstance, NpcInstance>("Npc_HasNews", Npc_HasNews);
 
             // G2 externals only.
@@ -630,6 +627,53 @@ namespace Gothic.Core.Domain.Vm
             _dialogService.ExtAiOutputSvm(npc, target, svmname);
         }
 
+        /// <summary>
+        /// The reference engine's externals the scripts call and we lacked: remarks while busy, pointing, body flags,
+        /// single perceptions... Only the ones the game's scripts declare.
+        /// </summary>
+        private void RegisterSmallExternals(VmExternalGuard vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("AI_PointAt"))
+                vm.RegisterExternal<NpcInstance, string>("AI_PointAt", _npcAiService.ExtAiPointAt);
+            if (IsDeclared("AI_PointAtNpc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_PointAtNpc", _npcAiService.ExtAiPointAtNpc);
+            if (IsDeclared("AI_StopPointAt"))
+                vm.RegisterExternal<NpcInstance>("AI_StopPointAt", _npcAiService.ExtAiStopPointAt);
+            if (IsDeclared("Npc_HasBodyFlag"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_HasBodyFlag",
+                    (npc, flag) => Convert.ToInt32(_npcAiService.ExtNpcHasBodyFlag(npc, flag)));
+            if (IsDeclared("Npc_SendSinglePerc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance, int>("Npc_SendSinglePerc",
+                    _npcAiService.ExtNpcSendSinglePerc);
+            if (IsDeclared("Npc_PlayAni"))
+                vm.RegisterExternal<NpcInstance, string>("Npc_PlayAni", _npcAiService.ExtNpcPlayAni);
+            if (IsDeclared("Npc_HasEquippedWeapon"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedWeapon",
+                    npc => Convert.ToInt32(_npcHelperService.ExtNpcHasEquippedMeleeWeapon(npc) ||
+                                           _npcHelperService.ExtNpcHasEquippedRangedWeapon(npc)));
+            if (IsDeclared("Npc_GetDistToPlayer"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetDistToPlayer", _npcAiService.ExtNpcGetDistToPlayer);
+            if (IsDeclared("Npc_GetInvItem"))
+                vm.RegisterExternal<ItemInstance, NpcInstance, int>("Npc_GetInvItem",
+                    _npcInventoryService.ExtNpcGetInvItem);
+            if (IsDeclared("Npc_IsInCutscene"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsInCutscene",
+                    npc => Convert.ToInt32(_npcAiService.ExtNpcIsInCutscene(npc)));
+            if (IsDeclared("Npc_SetKnowsPlayer"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetKnowsPlayer",
+                    (npc, player) => _npcAiService.ExtNpcSetKnowsPlayer(npc));
+            if (IsDeclared("Npc_KnowsPlayer"))
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_KnowsPlayer",
+                    (npc, player) => Convert.ToInt32(_npcAiService.ExtNpcKnowsPlayer(npc)));
+            // G2's language switches - the strings come from the installed game.
+            if (IsDeclared("Game_InitGerman"))
+                vm.RegisterExternal("Game_InitGerman", () => { });
+            if (IsDeclared("Game_InitEnglish"))
+                vm.RegisterExternal("Game_InitEnglish", () => { });
+        }
+
         #endregion
 
         #region Apply Options
@@ -645,19 +689,6 @@ namespace Gothic.Core.Domain.Vm
         #endregion
 
         #region Helper
-
-        public void AI_StopPointAt(NpcInstance npc)
-        {
-            // Stub — NPC pointing-at behavior not yet implemented.
-        }
-
-        /// <summary>
-        /// No pointing arm yet - at least face the target (orcs giving up a chase: AI_PointAtNpc + "$RUNCOWARD").
-        /// </summary>
-        public void AI_PointAtNpc(NpcInstance npc, NpcInstance target)
-        {
-            AI_TurnToNPC(npc, target);
-        }
 
         /// <summary>
         /// Item parameters of externals arrive as whatever instance the VM holds: an item of an old VM or another class
@@ -1406,14 +1437,6 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_IsPlayer), ret, npc);
         }
 
-        /// <summary>
-        /// We don't play engine cutscenes (.CS files), so no NPC is ever in one.
-        /// </summary>
-        public int Npc_IsInCutscene(NpcInstance npc)
-        {
-            return LogInstantExternal(nameof(Npc_IsInCutscene), 0, npc);
-        }
-
         public int Npc_OwnedByNpc(ItemInstance item, NpcInstance npc)
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcOwnedByNpc(item, npc));
@@ -1466,11 +1489,6 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtRefuseTalk(npc));
             return LogInstantExternal(nameof(Npc_RefuseTalk), ret, npc);
-        }
-
-        public void Npc_SetKnowsPlayer(NpcInstance npc, NpcInstance player)
-        {
-            // FIXME - Not tracked yet (Npc_KnowsPlayer isn't registered either) - Gothic uses it for greetings.
         }
 
         /// <summary>
