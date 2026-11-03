@@ -34,6 +34,21 @@ namespace Gothic.VR.Adapters.Trade
 
         private VrInteractable _grabbable;
 
+        /// <summary>
+        /// The unpaid goods the object belongs to, null for the hero's own items.
+        /// </summary>
+        public static VRTradeGoods GetUnpaid(Component component)
+        {
+            return component != null && component.GetComponentInParent<VRTradeGoods>() is { IsSettled: false } goods
+                ? goods
+                : null;
+        }
+
+        public static bool IsUnpaid(Component component)
+        {
+            return GetUnpaid(component) != null;
+        }
+
         public void Init(NpcContainer trader)
         {
             Trader = trader;

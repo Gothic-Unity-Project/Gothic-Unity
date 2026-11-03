@@ -69,22 +69,22 @@ namespace Gothic.Core.Services.Player
             if (IsTrading)
                 End();
 
-            Trader = trader;
             _returnInformation = returnInformation;
-            ReadScriptValues();
-            Current = new TradeSession(trader, new PlayerInventoryOwner(),
-                new NpcInventoryOwner(trader, hiddenItem: _currencyName, isEquippedHidden: true), _currencyName,
-                _sellMultiplier);
-
-            Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} (currency {_currencyName}, " +
-                       $"sell x{_sellMultiplier})", LogCat.Dialog);
             try
             {
+                Trader = trader;
+                ReadScriptValues();
+                Current = new TradeSession(trader, new PlayerInventoryOwner(),
+                    new NpcInventoryOwner(trader, hiddenItem: _currencyName, isEquippedHidden: true), _currencyName,
+                    _sellMultiplier);
+
+                Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} " +
+                           $"(currency {_currencyName}, sell x{_sellMultiplier})", LogCat.Dialog);
                 GlobalEventDispatcher.TradeStarted.Invoke(trader);
             }
             catch (Exception e)
             {
-                // No counter: the trade ends, the dialog goes on.
+                // No session or no counter: the trade ends, the dialog goes on.
                 Logger.LogError($"[Trade] The trade couldn't start: {e}", LogCat.Dialog);
                 End();
             }

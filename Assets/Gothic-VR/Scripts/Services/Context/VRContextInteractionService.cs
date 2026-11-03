@@ -13,6 +13,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -113,7 +114,7 @@ namespace Gothic.VR.Services.Context
                     _tradeService.End();
                     return;
                 }
-                Gothic.VR.Adapters.Trade.VRTradeCounter.Spawn(_tradeService.Current, _rig.Head);
+                VRTradeCounter.Spawn(_tradeService.Current, _rig.Head);
             });
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
@@ -489,7 +490,7 @@ namespace Gothic.VR.Services.Context
                 // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
                 interactable.ForceRelease();
                 // Unpaid trader goods aren't the hero's: let go, they go back to the trader (VRTradeGoods).
-                if (interactable.GetComponentInParent<Gothic.VR.Adapters.Trade.VRTradeGoods>() is { IsSettled: false })
+                if (VRTradeGoods.IsUnpaid(interactable))
                 {
                     Logger.Log($"[Teleport] {hand.HandSide}: unpaid trader goods let go", LogCat.VR);
                     continue;

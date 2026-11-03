@@ -110,7 +110,15 @@ namespace Gothic.VR.Adapters.Trade
         {
             var go = new GameObject($"TradeCounter_{session.Trader.Instance.GetName(NpcNameSlot.Slot0)}");
             var counter = go.AddComponent<VRTradeCounter>();
-            counter.Init(session, head);
+            try
+            {
+                counter.Init(session, head);
+            }
+            catch
+            {
+                Destroy(go);
+                throw;
+            }
             return counter;
         }
 

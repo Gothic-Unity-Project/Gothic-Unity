@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,6 @@ using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
-using System;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player

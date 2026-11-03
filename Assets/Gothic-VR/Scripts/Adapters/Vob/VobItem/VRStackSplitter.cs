@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -22,7 +23,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ZenKit.Vobs;
-using Gothic.Core.Services.Npc;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -223,9 +223,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private static NpcContainer GetUnpaidTrader(VobContainer container)
         {
-            return container.Go.GetComponentInChildren<VRTradeGoods>() is { IsSettled: false } goods
-                ? goods.Trader
-                : null;
+            return VRTradeGoods.GetUnpaid(container.Go.transform)?.Trader;
         }
 
         private bool TryStartSplit(IVrGrabber emptyHand, VrHandSide side, VobContainer source, IItem item,

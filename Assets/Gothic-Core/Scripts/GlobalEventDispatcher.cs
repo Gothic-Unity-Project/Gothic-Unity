@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Doc;
+using Gothic.Core.Models.Trade;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,7 +11,6 @@ using UnityEngine.EventSystems;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using Gothic.Core.Models.Trade;
 
 namespace Gothic.Core
 {

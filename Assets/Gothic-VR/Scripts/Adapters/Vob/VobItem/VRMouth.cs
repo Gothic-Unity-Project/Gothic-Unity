@@ -13,6 +13,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
 using Gothic.Core.Services.World;
@@ -22,7 +23,6 @@ using UnityEngine;
 using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using Gothic.VR.Adapters.Trade;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -64,7 +64,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             // Unpaid trader goods (trade counter) can't be eaten, drunk or smoked.
-            if (go.GetComponentInParent<VRTradeGoods>() is { IsSettled: false })
+            if (VRTradeGoods.IsUnpaid(go.transform))
                 return;
 
             // Resolve root before grace-period check so the same object is tracked and removed.
