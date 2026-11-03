@@ -15,6 +15,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
     public class StatusBarAdapter : MonoBehaviour
     {
         [SerializeField] private StatusType _statusType;
+        public StatusType Type => _statusType;
+        private Coroutine _fadeCoroutine;
         [SerializeField] private bool _isPlayer;
         [SerializeField] private Image _background;
         [SerializeField] private Image _statusValue;
@@ -27,7 +29,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         private bool _isInWorld;
         private bool _isVideoPlaying;
 
-        private enum StatusType
+        public enum StatusType
         {
             Health,
             Mana,
@@ -214,6 +216,51 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         {
             _background.enabled = true;
             _statusValue.enabled = true;
+        }
+
+        /// <summary>
+        /// VRRuneCaster: the hero's mana bar shows while a spell is charged.
+        /// </summary>
+        public void FadeIn(float duration = 0.25f)
+        {
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeRoutine(0f, 1f, duration, enable: true));
+        }
+
+        public void FadeOut(float duration = 0.25f)
+        {
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));
+        }
+
+        private IEnumerator FadeRoutine(float from, float to, float duration, bool enable)
+        {
+            if (enable)
+                EnableBar();
+
+            SetAlpha(from);
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                SetAlpha(Mathf.Lerp(from, to, elapsed / duration));
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            SetAlpha(to);
+
+            if (!enable)
+                DisableBar();
+        }
+
+        private void SetAlpha(float alpha)
+        {
+            var background = _background.color;
+            background.a = alpha;
+            _background.color = background;
+
+            var value = _statusValue.color;
+            value.a = alpha;
+            _statusValue.color = value;
         }
     }
 }

@@ -144,6 +144,7 @@ namespace Gothic.VR.Adapters.Vob
             if (_vrPlayerService.IsDualGrabbed)
             {
                 TryShowDocument();
+                TryCastSpell();
                 TryPrepareItemUse();
             }
         }
@@ -203,6 +204,18 @@ namespace Gothic.VR.Adapters.Vob
 
             if (TryGetComponent<VobItem.VRItemUser>(out var itemUser))
                 Destroy(itemUser);
+
+            if (TryGetComponent<VobItem.VRRuneCaster>(out var caster))
+            {
+                // During telekinesis, aiming or a throwable spell, the caster stays while one hand still holds the
+                // rune - the freed hand grabs the distant item, throwable spells are held in one hand by design.
+                var isRuneStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject ||
+                                      _vrPlayerService.GrabbedItemRight == gameObject;
+                var isKeptAlive = isRuneStillHeld &&
+                                  (_vrPlayerService.IsTelekinesisActive || caster.IsTargetingActive || caster.IsThrowable);
+                if (!isKeptAlive)
+                    Destroy(caster);
+            }
         }
 
         private void TryShowDocument()
@@ -273,6 +286,19 @@ namespace Gothic.VR.Adapters.Vob
             _vobService.RemoveWorldItem(container);
         }
 
+
+        /// <summary>
+        /// Runes and scrolls (ITEM_KAT_RUNE) held with both hands cast (VRRuneCaster).
+        /// </summary>
+        private void TryCastSpell()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatRune)
+                return;
+
+            if (GetComponent<VobItem.VRRuneCaster>() == null)
+                gameObject.AddComponent<VobItem.VRRuneCaster>();
+        }
 
         /// <summary>
         /// DeveloperConfig.EnableVrCrossbow / EnableVrBows: ranged weapons shoot while held.

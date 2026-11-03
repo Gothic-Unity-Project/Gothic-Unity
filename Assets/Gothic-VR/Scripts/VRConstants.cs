@@ -27,6 +27,8 @@ namespace Gothic.VR
             public const string StabFinish = "stabFinish";
             // 1 = a crossbow is reloaded by pulling its string (default), 0 = by itself.
             public const string CrossbowReload = "crossbowReload";
+            // 1 = a scroll is used up by its cast like in Gothic (default), 0 = scrolls are cast forever.
+            public const string ScrollsSingleUse = "scrollsSingleUse";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";

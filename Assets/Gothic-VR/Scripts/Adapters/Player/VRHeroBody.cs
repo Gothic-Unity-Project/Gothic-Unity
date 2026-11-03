@@ -23,8 +23,8 @@ namespace Gothic.VR.Adapters.Player
     /// DeveloperConfig.EnableVrHeroBody: the hero's own body (current armor) under the VR head - torso, legs and
     /// arms. The hands stay the VR hands: the model's hands and head are hidden (bones scaled to ~0), its arms reach
     /// for the VR hands with a two-bone IK (elbows down and out), the forearms roll with the hands. Legs and torso play
-    /// the hero's Gothic animations (VRHeroBodyAnimator). Rebuilt when the armor changes. No colliders. Not saved
-    /// (rebuilt from the hero's visual).
+    /// the hero's Gothic animations (VRHeroBodyAnimator). Rebuilt when the armor changes, hidden while the hero is
+    /// transformed (VRTransformService). No colliders. Not saved (rebuilt from the hero's visual).
     /// Backpack in a hand: the sleeves are "rolled up" - the armor's forearms are cut off and the bare forearms of the
     /// hero's naked body mesh are skinned to the same skeleton instead, so the backpack's slots aren't hidden.
     /// </summary>
@@ -34,6 +34,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRTransformService _vrTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
@@ -146,6 +147,8 @@ namespace Gothic.VR.Adapters.Player
         private const float _minDownEyeHeight = 0.2f;
         private const float _deathMenuDelay = 4f;
         private DownPhase _downPhase;
+        // Down because of a sleep spell, not a knockout.
+        private bool _isSleepDown;
         // The hands' physics before the hero went down.
         private readonly Dictionary<VrPhysicsHand, bool> _physicalBeforeDown = new();
 
@@ -334,7 +337,12 @@ namespace Gothic.VR.Adapters.Player
                     _contextInteractionService.LockPlayerInPlace(_configService.Dev.EnableKnockoutTurning);
                 _wasMenuOpenWhileDead = isMenuOpen;
             }
-            var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead;
+            // Put to sleep by a spell (HeroSpellStateDomain), the body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE)
+            // and wakes up (T_VICTIM_SLE_2_STAND) like an NPC's ZS_MagicSleep - before, nothing showed it.
+            var isAsleep = hero.Vob.CurrentStateName == Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName &&
+                           bodyState != VmGothicEnums.BodyState.BsDead;
+            var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
+                         isAsleep;
             if (!_configService.Dev.EnableHeroFallCamera || _animator == null || !_animator.IsValid ||
                 _headBone == null || _standingScale <= 0f)
             {
@@ -347,6 +355,11 @@ namespace Gothic.VR.Adapters.Player
                 if (!isDown)
                     return false;
                 StartDown(head);
+                if (isAsleep)
+                {
+                    _isSleepDown = true;
+                    SetDownAnimations("T_STAND_2_VICTIM_SLE", "S_VICTIM_SLE");
+                }
             }
 
             if (bodyState == VmGothicEnums.BodyState.BsDead && _downPhase != DownPhase.Dead)
@@ -364,7 +377,8 @@ namespace Gothic.VR.Adapters.Player
             }
             else if (!isDown && _downPhase == DownPhase.Knockout)
             {
-                SetDownAnimations("T_WOUNDEDB_2_STAND");
+                SetDownAnimations(_isSleepDown ? "T_VICTIM_SLE_2_STAND" : "T_WOUNDEDB_2_STAND");
+                _isSleepDown = false;
                 _downPhase = DownPhase.Rising;
             }
 
@@ -421,7 +435,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Lying on the floor (knocked out, dead), the hands follow
+        /// Lying on the floor (knocked out, asleep, dead), the hands follow
         /// the controllers without physics - the physical hands bounced on the floor and shook the lying body.
         /// </summary>
         private void SetHandsThroughFloor(bool isDown)
@@ -514,6 +528,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _downPhase = DownPhase.None;
+            _isSleepDown = false;
             IsHeroDown = false;
             SetHandsThroughFloor(false);
             _downAnimation = null;
@@ -537,10 +552,21 @@ namespace Gothic.VR.Adapters.Player
             if (_body == null)
                 return;
 
+            var isVisible = !_vrTransformService.IsTransformed;
+            foreach (var bodyRenderer in _renderers)
+            {
+                if (bodyRenderer != null && bodyRenderer.enabled != isVisible)
+                    bodyRenderer.enabled = isVisible;
+            }
             _rig ??= _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
-            SetSleevesRolledUp(IsBackpackInHand());
-            SetHeroHandsShown(_isHeroHandsOption && _handMeshes.Count > 0);
-            SetArmsOnTop(_areHeroHandsShown && _uiOnTopService != null && _uiOnTopService.AreHandsOnTop);
+            SetSleevesRolledUp(isVisible && IsBackpackInHand());
+            SetHeroHandsShown(isVisible && _isHeroHandsOption && _handMeshes.Count > 0);
+            SetArmsOnTop(isVisible && _areHeroHandsShown && _uiOnTopService != null && _uiOnTopService.AreHandsOnTop);
+            if (!isVisible)
+            {
+                UpdateHeldItemAttachPoints(false);
+                return;
+            }
 
             // Under the head, a bit behind it - looking down shows the chest, not the inside of the neck. Scaled to the
             // player's eye height above the floor, so the feet stay on the ground (sitting/standing mode, any height).

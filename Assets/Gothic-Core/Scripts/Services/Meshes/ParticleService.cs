@@ -148,7 +148,7 @@ namespace Gothic.Core.Services.Meshes
         /// DeveloperConfig.EnableVisualFxLights: a VISUALFX's light (OpenGothic Effect::setupLight) - rangeMeters is a
         /// key's lightRange, below 0 the preset's. Null without a preset.
         /// </summary>
-        private IVisualFxLight CreateVisualFxLight(string presetName, Transform parent, Vector3 position,
+        public IVisualFxLight CreateVisualFxLight(string presetName, Transform parent, Vector3 position,
             float rangeMeters = -1f)
         {
             var preset = TryGetLightPreset(presetName);

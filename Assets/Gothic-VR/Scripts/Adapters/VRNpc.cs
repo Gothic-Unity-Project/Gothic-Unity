@@ -9,11 +9,14 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.VR.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -24,6 +27,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -69,6 +73,13 @@ namespace Gothic.VR.Adapters
 
         private void OnGrabbed(VrGrabArgs args)
         {
+            if (_vrPlayerService.IsSpellActive)
+            {
+                Logger.Log($"[VRNpc] Grab on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' ignored - a spell is active " +
+                           "(targeting or telekinesis)", LogCat.VR);
+                args.Interactable.ForceRelease();
+                return;
+            }
             var isDead = _npcData.Props.BodyState == VmGothicEnums.BodyState.BsDead;
 
             if (isDead && _configService.Dev.EnableNpcLooting && _npcLoot != null)
