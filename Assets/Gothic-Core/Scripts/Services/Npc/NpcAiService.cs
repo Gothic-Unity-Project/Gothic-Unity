@@ -430,9 +430,9 @@ namespace Gothic.Core.Services.Npc
 
         public bool ExtNpcIsDead(NpcInstance npcInstance)
         {
-            // FIXME - BodyState is runtime-only and lost on NPC reload (e.g. world reload respawns the NPC alive).
-            // A permanent death flag needs to be persisted in SaveGame state and checked here instead.
-            return npcInstance.GetUserData()?.Props.BodyState == VmGothicEnums.BodyState.BsDead;
+            // FIXME - Npc_ChangeAttribute() to HP <= 0 doesn't run the death transition yet (only FightService does),
+            // e.g. B_KillNpc() doesn't kill then. OpenGothic: Npc::checkHealth().
+            return npcInstance.GetUserData()?.Props.IsDead == true;
         }
 
         public bool ExtNpcIsInState(NpcInstance npc, int state)
@@ -586,7 +586,7 @@ namespace Gothic.Core.Services.Npc
                 return false;
 
             // Corpses aren't enemies.
-            if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (candidate.Props.IsDead)
                 return false;
 
             // Range and closest-so-far gates before the expensive attitude and senses checks

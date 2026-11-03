@@ -12,7 +12,7 @@ Marvin is the in-game debug menu (name from Gothic's own marvin mode). Before ad
 
 ## How Marvin works
 
-- Lives in `Gothic-VR/Scripts/Adapters/Marvin/` (VR only, behind `GOTHIC_HVR_INSTALLED`). Flat mode has no equivalent as of now.
+- Lives in `Gothic-VR/Scripts/Adapters/Marvin/` (VR only). Flat mode has no equivalent as of now.
 - `MarvinRootHandler` shows three tabs: **Logs** (`MarvinLogsTabHandler`, UberLogger view with severity/category
   filter), **Marvin** (`MarvinTabHandler`) and **Inspector** (`MarvinInspectorTabHandler`).
 - The whole menu is only active while `MarvinService.IsMarvinMode` is true. Every player can toggle it in game
@@ -55,5 +55,5 @@ Caveats:
 - Modding guide/tutorial: https://mondgesaenge.de/MDB/guide_tutorial.htm
 - zSpy (script debug output): https://gothic-modding-community.github.io/gmc/zengin/tools/zSpy/
 
-**There may be more settings than listed here.** Tell the user to check OpenGothic and the original Gothic 1/2
+**There may be more settings than listed here.** Check `./OpenGothic/common/marvin.cpp` (if present) and tell the user to check the original Gothic 1/2
 (marvin mode, console, Gothic.ini) for further candidates before inventing a new parameter.

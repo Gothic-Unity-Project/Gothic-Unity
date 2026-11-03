@@ -1,6 +1,5 @@
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -48,7 +47,7 @@ namespace Gothic.VR.Interaction.Components
         private float _nextTryTime;
         private bool _isFailureLogged;
 
-        private bool IsActive => _vrBackend != null && _vrBackend.Kind == VrInteractionBackend.Xri;
+        private bool IsActive => _vrBackend != null;
 
         private void Awake()
         {

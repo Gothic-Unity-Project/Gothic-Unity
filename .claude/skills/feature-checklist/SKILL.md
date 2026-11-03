@@ -43,7 +43,8 @@ fields are not what builds read.
 - Cross-service communication via `GlobalEventDispatcher` events.
 - New services registered in `ReflexProjectInstaller.InstallBindings()` (or the VR/Flat scene installer).
   Watch for DI cycles - resolve lazily via `DIContainer.Resolve<T>()` if needed.
-- VR-only code in `Gothic-VR`, guarded by `GOTHIC_HVR_INSTALLED` where it touches HurricaneVR.
+- VR-only code in `Gothic-VR`. XRI types only in `Interaction/Backends/Xri` and prefabs; everything else uses the
+  `Interaction/Ports`.
 
 ## Physics layers
 

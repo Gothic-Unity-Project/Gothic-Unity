@@ -18,7 +18,6 @@ namespace Gothic.Core.Adapters.Vob
         [Inject] private readonly VobService _vobService;
 
         private ITrigger _trigger;
-        private int _activationCount;
 
         private void Awake() => this.Inject();
 
@@ -61,20 +60,12 @@ namespace Gothic.Core.Adapters.Vob
 
         private void FireTarget()
         {
-            if (!_trigger.IsEnabled || string.IsNullOrEmpty(_trigger.Target))
+            if (!_trigger.IsEnabled || string.IsNullOrEmpty(_trigger.Target) || !_trigger.TryConsumeActivation())
                 return;
 
-            // MaxActivationCount: -1 = unlimited, 0 = never, N = fire N times.
-            var max = _trigger.MaxActivationCount;
-            if (max == 0)
-                return;
-            if (max > 0 && _activationCount >= max)
-                return;
-
-            _activationCount++;
             var target = _trigger.Target;
-            Logger.Log($"[TriggerZone] '{_trigger.Name}' -> '{target}' (activation {_activationCount}/{max})",
-                LogCat.Vob);
+            Logger.Log($"[TriggerZone] '{_trigger.Name}' -> '{target}' ({_trigger.CountCanBeActivated} of " +
+                       $"{_trigger.MaxActivationCount} activations left)", LogCat.Vob);
             _vobService.DispatchTrigger(target, _trigger.Name);
         }
     }

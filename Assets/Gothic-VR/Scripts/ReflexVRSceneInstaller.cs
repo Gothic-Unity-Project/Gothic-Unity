@@ -1,6 +1,5 @@
 using Gothic.Core;
-using Gothic.Core.Services.Config;
-using Gothic.VR.Adapters.Context;
+using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Core;
@@ -16,19 +15,20 @@ namespace Gothic.VR
         public void InstallBindings(ContainerBuilder containerBuilder)
         {
             containerBuilder.OnContainerBuilt += (container) => ReflexProjectInstaller.DIContainer = container;
+            containerBuilder.OnContainerBuilt += (container) => container.Resolve<VRCarriedItemsSaveService>().Init();
 
-            // VR ports (IVrInput, IVrHaptics, ...) come from the active backend (DeveloperConfig.VrInteractionBackend).
-            // At this point, DIContainer is still the parent (project) container.
-            var developerConfig = ReflexProjectInstaller.DIContainer?.Resolve<ConfigService>().Dev;
-            var backend = VRContextBootstrap.SelectBackend(developerConfig);
+            // VR ports (IVrInput, IVrHaptics, ...) come from the XR Interaction Toolkit backend.
+            var backend = new XriBackend();
             backend.InstallBindings(containerBuilder);
             containerBuilder.AddSingleton(backend, typeof(IVrBackend));
 
             containerBuilder.AddSingleton(typeof(VRPlayerService));
             containerBuilder.AddSingleton(typeof(VRWeaponService));
             containerBuilder.AddSingleton(typeof(VrHapticsService));
+            containerBuilder.AddSingleton(typeof(VrDropZoneService));
             containerBuilder.AddSingleton(typeof(VRCinemaService));
             containerBuilder.AddSingleton(typeof(VRUiOnTopService));
+            containerBuilder.AddSingleton(typeof(VRCarriedItemsSaveService));
         }
     }
 }

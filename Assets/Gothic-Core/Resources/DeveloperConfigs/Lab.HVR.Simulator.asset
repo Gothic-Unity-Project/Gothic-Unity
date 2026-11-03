@@ -18,7 +18,6 @@ MonoBehaviour:
   ModIni: 
   ModPath: 
   GameControls: 0
-  VrInteractionBackend: 0
   EnableVRDeviceSimulator: 1
   PreselectMarvinMode: 0
   EnableZSpyLogs: 0
@@ -35,6 +34,7 @@ MonoBehaviour:
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
   SpeedUpLoading: 0
+  SkipVideos: 0
   EnableVOBs: 0
   SpawnVOBTypes:
     Value: 

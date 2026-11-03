@@ -40,12 +40,14 @@
       "dependencies": {},
       "hash": "312131b3c5c8e9b2450b07a03f249bb3e21dcbcf"
     },
-    "com.hurricanevrextensions.simulator": {
-      "version": "https://github.com/Gothic-Unity-Project/hvr-simulator.git",
+    "com.tyroonis.xr.linuxopenxr": {
+      "version": "https://github.com/tyroonis/UnityVR-Linux.git#upm/v0.3.3",
       "depth": 0,
       "source": "git",
-      "dependencies": {},
-      "hash": "24c7f8d54a4ac9a61429fac9dc4209b89cbdf425"
+      "dependencies": {
+        "com.unity.xr.management": "4.5.0"
+      },
+      "hash": "73524addb76168f9d7768b8e114677669e7886ac"
     },
     "com.unity.addressables": {
       "version": "2.9.1",
@@ -276,6 +278,15 @@
       },
       "url": "https://packages.unity.com"
     },
+    "com.unity.sdk.linux-x86_64": {
+      "version": "1.1.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.sysroot.base": "1.1.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.searcher": {
       "version": "4.9.4",
       "depth": 2,
@@ -298,6 +309,13 @@
         "com.unity.render-pipelines.core": "17.3.0",
         "com.unity.searcher": "4.9.3"
       }
+    },
+    "com.unity.sysroot.base": {
+      "version": "1.1.0",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
     },
     "com.unity.test-framework": {
       "version": "1.6.0",
@@ -326,6 +344,15 @@
       "dependencies": {
         "com.unity.test-framework": "1.4.5",
         "com.unity.settings-manager": "2.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.toolchain.linux-x86_64-linux": {
+      "version": "1.1.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.sysroot.base": "1.1.0"
       },
       "url": "https://packages.unity.com"
     },
