@@ -77,6 +77,7 @@ namespace Gothic.Core
 
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));
+            containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
