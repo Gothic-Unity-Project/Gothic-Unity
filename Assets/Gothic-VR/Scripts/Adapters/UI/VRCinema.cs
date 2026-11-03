@@ -243,7 +243,7 @@ namespace Gothic.VR.Adapters.UI
         private void DarkenSpectatorCameras()
         {
             _savedSpectatorCameras.Clear();
-            foreach (var spectator in FindObjectsByType<Player.VRSpectatorCamera>(FindObjectsSortMode.None))
+            foreach (var spectator in FindObjectsByType<VRSpectatorCamera>(FindObjectsSortMode.None))
             {
                 if (!spectator.TryGetComponent<Camera>(out var spectatorCamera) || spectatorCamera == _camera)
                     continue;

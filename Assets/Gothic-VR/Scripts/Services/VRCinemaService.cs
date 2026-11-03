@@ -1,4 +1,5 @@
 using Gothic.Core;
+using Gothic.Core.Domain;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -30,7 +31,8 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// ExitGame/ExitSession (ending): quit once the queued videos (Extro, Credits) are over - right away if none play.
+        /// ExitGame/ExitSession (ending): quit once the queued videos (Extro, Credits) are over - right away if none
+        /// play.
         /// </summary>
         private void QuitAfterVideos()
         {
@@ -44,7 +46,8 @@ namespace Gothic.VR.Services
 
         private void OnVideoPlaybackFinished()
         {
-            if (!_isQuitAfterVideos)
+            // A queued video that couldn't be opened reports finished too - the next one still plays.
+            if (!_isQuitAfterVideos || GetCinema()?.IsRunning == true)
                 return;
             _isQuitAfterVideos = false;
             Quit();
@@ -57,16 +60,12 @@ namespace Gothic.VR.Services
             if (_configService.Dev.EnableEndingReturnsToMenu)
             {
                 Logger.Log("[VRCinema] Game ended (ExitGame/ExitSession) - back to the main menu.", LogCat.VR);
-                Gothic.Core.Domain.GameRestartDomain.Restart();
+                GameRestartDomain.Restart();
                 return;
             }
 
             Logger.Log("[VRCinema] Game ended (ExitGame/ExitSession) - quitting.", LogCat.VR);
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            UnityEngine.Application.Quit();
-#endif
+            GameRestartDomain.Quit();
         }
 
         private Adapters.UI.VRCinema GetCinema()

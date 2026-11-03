@@ -18,6 +18,8 @@ namespace Gothic.Core.Extensions
 {
     public static class ZenKitExtension
     {
+        private const int _npcFlagImmortal = 2;
+
         /// <summary>
         /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
         /// </summary>
@@ -136,6 +138,14 @@ namespace Gothic.Core.Extensions
         /// Convenient shortcut to retrieve and cast NpcData object from NpcInstance property.
         /// </summary>
         [CanBeNull]
+        /// <summary>
+        /// NPC_FLAG_IMMORTAL (bit 1): takes no damage, Marvin's kill doesn't work (e.g. Diego in G1).
+        /// </summary>
+        public static bool IsImmortal(this NpcInstance npc)
+        {
+            return ((int)npc.Flags & _npcFlagImmortal) != 0;
+        }
+
         public static NpcContainer GetUserData(this NpcInstance instance)
         {
             return instance?.UserData as NpcContainer;

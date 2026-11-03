@@ -102,7 +102,7 @@ namespace Gothic.VR.Services.Context
                 new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
                 // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
                 VRHandSkinLight.Apply(_configService);
-                // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): out of the world -> back.
+                // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): fell out -> back.
                 new UnityEngine.GameObject("_MarvinFallRescue").AddComponent<MarvinFallRescue>();
             });
             // The trade counter between the hero and the trader.
@@ -125,7 +125,7 @@ namespace Gothic.VR.Services.Context
                 ApplyComfortSettings();
                 ApplyHeightOffset();
                 ApplyPhysicalHands();
-                ApplyMarvinVisibility();
+                ResetMarvinOption();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
@@ -181,7 +181,6 @@ namespace Gothic.VR.Services.Context
             }
 
             _rig = _player.GetComponent<IVrRig>();
-            VRGrabBar.SetPorts(_rig, _vrInput, _vrHapticsService);
             var playerRoot = _player.transform.root.gameObject;
             foreach (var otherRoot in players.Select(i => i.transform.root.gameObject).Distinct())
             {
@@ -288,8 +287,20 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Our Immersion option "Marvin" (Gothic.ini, on by default) hides/shows the Marvin panel - only while Marvin
-        /// mode is on (MarvinService.IsMarvinMode). The panel can't do it itself: it is inactive then.
+        /// The Immersion option "Marvin" is off at every start: the panel (and its cheats) has to be turned on in the
+        /// options each time. DeveloperConfig.PreselectMarvinMode (a developer's shortcut) starts with it on.
+        /// </summary>
+        private void ResetMarvinOption()
+        {
+            var value = _configService.Dev.PreselectMarvinMode ? 1 : 0;
+            if (_configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 0) != value)
+                _configService.Gothic.SetInt(VRConstants.IniSectionImmersion, VRConstants.IniNames.MarvinPanel, value);
+            ApplyMarvinVisibility();
+        }
+
+        /// <summary>
+        /// Our Immersion option "Marvin" (Gothic.ini, off at every start) hides/shows the Marvin panel - only while
+        /// Marvin mode is on (MarvinService.IsMarvinMode). The panel can't do it itself: it is inactive then.
         /// </summary>
         private void ApplyMarvinVisibility()
         {
@@ -298,7 +309,7 @@ namespace Gothic.VR.Services.Context
 
             var isShown = _marvinService.IsMarvinMode &&
                           (_configService.Gothic == null ||
-                           _configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 1) == 1);
+                           _configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 0) == 1);
             if (_marvinRoot.activeSelf == isShown)
                 return;
             _marvinRoot.SetActive(isShown);

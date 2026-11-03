@@ -63,7 +63,32 @@ namespace Gothic.Core.Domain
                 return;
             }
 
-            Process.Start(exePath);
+            try
+            {
+                Process.Start(exePath);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"Restart failed: >{exePath}< didn't start: {e.Message}", LogCat.Loading);
+                return;
+            }
+            Application.Quit();
+#endif
+        }
+
+        /// <summary>
+        /// A headset app can't start itself again (Quest, Pico) - the menu hides "Restart game" there.
+        /// </summary>
+        public static bool IsRestartPossible => !Application.isMobilePlatform;
+
+        /// <summary>
+        /// Closes the game. Editor: stops Play mode.
+        /// </summary>
+        public static void Quit()
+        {
+#if UNITY_EDITOR
+            EditorApplication.isPlaying = false;
+#else
             Application.Quit();
 #endif
         }

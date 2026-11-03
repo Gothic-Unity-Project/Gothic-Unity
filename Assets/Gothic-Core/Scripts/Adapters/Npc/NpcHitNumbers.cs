@@ -20,7 +20,6 @@ namespace Gothic.Core.Adapters.Npc
     {
         [Inject] private readonly ConfigService _configService;
 
-        private const string _headBoneName = "BIP01 HEAD";
         private const float _aboveHead = 0.3f;
         private const float _fallbackHeight = 2f;
 
@@ -64,7 +63,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private Vector3 GetSpawnPosition(NpcContainer npc)
         {
-            var head = npc.Go.transform.FindChildRecursively(_headBoneName);
+            var head = npc.Go.transform.FindChildRecursively(Constants.Animations.HeadBoneName);
             if (head != null)
                 return head.position + Vector3.up * _aboveHead;
 
@@ -72,8 +71,9 @@ namespace Gothic.Core.Adapters.Npc
             if (!_isHeadMissingLogged)
             {
                 _isHeadMissingLogged = true;
-                Logger.Log($"[NpcHitNumbers] No >{_headBoneName}< on '{npc.Instance?.GetName(NpcNameSlot.Slot0)}'" +
-                           " - numbers start at a fixed height.", LogCat.Ui);
+                Logger.Log($"[NpcHitNumbers] No >{Constants.Animations.HeadBoneName}< on " +
+                           $"'{npc.Instance?.GetName(NpcNameSlot.Slot0)}' - numbers start at a fixed height.",
+                    LogCat.Ui);
             }
             return npc.Go.transform.position + Vector3.up * _fallbackHeight;
         }

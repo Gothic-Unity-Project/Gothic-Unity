@@ -7,6 +7,8 @@ using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
+using Gothic.Core.Logging;
 
 namespace Gothic.Core.Model.UI.Menu
 {
@@ -35,9 +37,12 @@ namespace Gothic.Core.Model.UI.Menu
                 {
                     itemName = _menuInstance.GetItem(i);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    break; // Past the array's end.
+                    // Past the array's end (a mod's menu with fewer items).
+                    Logger.LogWarning($"[MenuInstanceAdapter] {Name}: no item {i} - {e.Message}",
+                        LogCat.Ui);
+                    break;
                 }
 
                 if (itemName.IsNullOrEmpty())

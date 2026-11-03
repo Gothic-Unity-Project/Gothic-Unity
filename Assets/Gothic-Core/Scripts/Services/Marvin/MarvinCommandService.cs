@@ -172,8 +172,8 @@ namespace Gothic.Core.Services.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.MarvinStartCommands: commands in the recent list from the start (not run) - one click instead
-        /// of typing "cheat god", "goto forward" ... again every session.
+        /// DeveloperConfig.MarvinStartCommands: commands in the recent list from the start (not run) - one click
+        /// instead of typing "cheat god", "goto forward" ... again every session.
         /// </summary>
         private void SeedRecentCommands()
         {

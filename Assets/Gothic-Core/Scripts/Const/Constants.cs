@@ -29,6 +29,7 @@ namespace Gothic.Core.Const
         public static class Animations
         {
             public const string RootBoneName = "BIP01";
+            public const string HeadBoneName = "BIP01 HEAD";
         }
 
         // Unity shaders

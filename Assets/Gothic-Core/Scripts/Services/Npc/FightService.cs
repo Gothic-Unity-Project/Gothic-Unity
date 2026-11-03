@@ -318,8 +318,7 @@ namespace Gothic.Core.Services.Npc
             if (npc?.Vob == null || npc.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
-            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
-            npc.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
+            _npcService.SetAttribute(npc, NpcAttribute.HitPoints, 0);
             npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
             OnDyingChangeAnimation(npc);
             OnNpcDied(npc, npc);
@@ -1126,8 +1125,10 @@ namespace Gothic.Core.Services.Npc
         {
             DropReadiedWeapon(npc);
 
+            // Not through SetAttribute: the hit already showed its number, going up to 1 would show "+X HP".
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
             npc.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
+            GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, NpcAttribute.HitPoints);
 
             var vm = _gameStateService.GothicVm;
             var zsUnconscious = vm.GetSymbolByName("ZS_UNCONSCIOUS");
@@ -1231,6 +1232,7 @@ namespace Gothic.Core.Services.Npc
             SetHasDefeatedHero(attacker);
             hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
             hero.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
+            GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.HitPoints);
             _contextInteractionService.LockPlayer(PlayerLocks.Knockout, GetDownLockedControls());
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
@@ -1504,7 +1506,7 @@ namespace Gothic.Core.Services.Npc
 
             // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.
             // Marvin's god mode for the hero likewise (the script flag is left alone - AI reads it).
-            if (((int)target.Instance.Flags & 2) != 0 || IsHeroInGodMode(target))
+            if (target.Instance.IsImmortal() || IsHeroInGodMode(target))
             {
                 Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} is immortal — 0 damage", LogCat.Npc);
                 damage = 0;
@@ -1528,9 +1530,7 @@ namespace Gothic.Core.Services.Npc
             // Npc::finishingMove / C_Kill: hit points -max) - a finished off NPC kept the knockout's 1 HP.
             if (dead.Vob.GetAttribute((int)NpcAttribute.HitPoints) > 0)
             {
-                dead.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
-                dead.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
-                GlobalEventDispatcher.NpcAttributeChanged.Invoke(dead, NpcAttribute.HitPoints);
+                _npcService.SetAttribute(dead, NpcAttribute.HitPoints, 0);
             }
 
             DropReadiedWeapon(dead);

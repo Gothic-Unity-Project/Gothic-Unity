@@ -26,9 +26,10 @@ namespace Gothic.VR.Adapters.Marvin
 
         private const float _noFloorSeconds = 2f;
         private const float _floorSearchDistance = 200f;
-        private float _noFloorTime;
         private const float _standingDistance = 2f;
         private const float _safeSpotInterval = 0.5f;
+
+        private float _noFloorTime;
         private float _nextSafeSpotTime;
         private Vector3? _lastSafeSpot;
         private Quaternion _lastSafeRotation;
@@ -66,8 +67,8 @@ namespace Gothic.VR.Adapters.Marvin
             _noFloorTime = 0f;
             if (_lastSafeSpot.HasValue)
             {
-                Logger.Log($"[MarvinFallRescue] No floor below the hero for {_noFloorSeconds:F0} s at {feet} - back to " +
-                           $"the last spot stood on {_lastSafeSpot.Value}", LogCat.Ui);
+                Logger.Log($"[MarvinFallRescue] No floor below the hero for {_noFloorSeconds:F0} s at {feet} - " +
+                           $"back to the last spot stood on {_lastSafeSpot.Value}", LogCat.Ui);
                 _contextInteractionService.TeleportPlayerTo(_lastSafeSpot.Value + Vector3.up * 0.2f, _lastSafeRotation);
                 return;
             }
@@ -79,7 +80,8 @@ namespace Gothic.VR.Adapters.Marvin
                     fp.Key.StartsWith("START", System.StringComparison.OrdinalIgnoreCase));
             if (start.Value == null)
             {
-                Logger.LogWarning("[MarvinFallRescue] Fell out of the world, but the world has no START point.", LogCat.Ui);
+                Logger.LogWarning("[MarvinFallRescue] Fell out of the world, but the world has no START point.",
+                    LogCat.Ui);
                 return;
             }
 

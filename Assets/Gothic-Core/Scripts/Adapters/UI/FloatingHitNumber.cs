@@ -22,6 +22,7 @@ namespace Gothic.Core.Adapters.UI
         public const string ManaUnit = "MANA";
 
         private TextMeshPro _text;
+        private Camera _camera;
         private Vector3 _startPosition;
         private float _elapsed;
 
@@ -38,8 +39,10 @@ namespace Gothic.Core.Adapters.UI
         /// </summary>
         public static float GetSizeScale()
         {
-            var configService = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
-            var size = Mathf.Clamp01(configService.Gothic.GetFloat(Constants.IniNames.HitNumbersSize, 0f));
+            var gothicIni = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Gothic;
+            var size = gothicIni == null
+                ? 0f
+                : Mathf.Clamp01(gothicIni.GetFloat(Constants.IniNames.HitNumbersSize, 0f));
             return Mathf.Lerp(1f, Constants.IniNames.HitNumbersMaxScale, size);
         }
 
@@ -89,12 +92,13 @@ namespace Gothic.Core.Adapters.UI
 
         private void FaceCamera()
         {
-            var cam = Camera.main;
-            if (cam == null)
+            if (_camera == null)
+                _camera = Camera.main;
+            if (_camera == null)
                 return;
 
             // TMP text is read along its +Z axis, so it looks away from the camera.
-            transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position);
+            transform.rotation = Quaternion.LookRotation(transform.position - _camera.transform.position);
         }
     }
 }

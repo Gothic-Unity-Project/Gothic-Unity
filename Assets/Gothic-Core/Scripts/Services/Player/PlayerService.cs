@@ -34,8 +34,8 @@ namespace Gothic.Core.Services.Player
         public bool IsGodMode;
 
         /// <summary>
-        /// The hero's focus like Gothic's: the NPC last pointed at (VR: hovered with a hand - VRFocus), kept until another
-        /// one is. Marvin's "kill" (DeveloperConfig.EnableMarvinKill) acts on it.
+        /// Marvin's focus like Gothic's: the NPC last pointed at (VR: hovered with a hand - VRFocus), kept until
+        /// another one is or the world changes. Only set with DeveloperConfig.EnableMarvinKill, for its "kill".
         /// </summary>
         public NpcContainer FocusNpc;
         public NpcContainer HeroContainer { get; private set; }
@@ -73,6 +73,7 @@ namespace Gothic.Core.Services.Player
             
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(OnZenKitBootstrapped);
             GlobalEventDispatcher.LoadGameStart.AddListener(ResetDrowning);
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() => FocusNpc = null);
         }
 
         private void OnZenKitBootstrapped()

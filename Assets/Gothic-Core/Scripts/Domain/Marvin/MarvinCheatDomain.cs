@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Gothic.Core.Creator;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.UI;
@@ -43,7 +45,6 @@ namespace Gothic.Core.Domain.Marvin
         private const float _groupArcDegrees = 120f;
         private const float _killMaxAngle = 15f;
         private const float _killMaxDistance = 30f;
-        private const int _npcFlagImmortal = 2;
         private const string _messageFont = "FONT_OLD_20_WHITE.TGA";
         private const int _messagePos = 2;
         private const float _messageSeconds = 2f;
@@ -121,8 +122,9 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.MarvinGiveItems: the whole list into the hero's inventory ("ITRU_FIREBOLT, ITPO_MANA_03:5") -
-        /// test kits for G2, where the scripts' test heroes (PC_Rockefeller) break the story. Unknown items are skipped.
+        /// DeveloperConfig.MarvinGiveItems: the whole list into the hero's inventory ("ITRU_FIREBOLT, ITPO_MANA_03:5")
+        /// - test kits for G2, where the scripts' test heroes (PC_Rockefeller) break the story. Unknown items are
+        /// skipped.
         /// </summary>
         public bool GiveItems(string itemList)
         {
@@ -193,8 +195,8 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinGodMode: hits (melee, arrows, spells) and falls don't hurt the hero. Toggles; the
-        /// state shows as a screen message.
+        /// DeveloperConfig.EnableMarvinGodMode: hits (melee, arrows, spells) and falls don't hurt the hero. Toggles;
+        /// the state shows as a screen message.
         /// </summary>
         public bool ToggleGodMode()
         {
@@ -239,9 +241,9 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinKill - like Gothic's Marvin "kill" (OpenGothic C_Kill): the focus NPC loses all its
-        /// hit points and dies (never unconscious), unless it's immortal (NPC_FLAG_IMMORTAL, e.g. Diego). The focus is
-        /// the NPC a hand pointed at last (PlayerService.FocusNpc), without one the NPC closest to the view's center
+        /// DeveloperConfig.EnableMarvinKill - like Gothic's Marvin "kill" (OpenGothic C_Kill): the focus NPC loses all
+        /// its hit points and dies (never unconscious), unless it's immortal (NPC_FLAG_IMMORTAL, e.g. Diego). The focus
+        /// is the NPC a hand pointed at last (PlayerService.FocusNpc), without one the NPC closest to the view's center
         /// within _killMaxAngle and _killMaxDistance.
         /// </summary>
         public bool KillFocusNpc()
@@ -254,27 +256,9 @@ namespace Gothic.Core.Domain.Marvin
             // The focus first (the NPC a hand pointed at last - VRFocus), the view's center only without one: typing on
             // the Marvin panel, you look at the panel.
             var focus = _playerService.FocusNpc;
-            var target = focus?.Go != null && focus != hero && focus.Instance != null &&
-                         focus.Props.BodyState != VmGothicEnums.BodyState.BsDead
+            var target = focus?.Go != null && focus != hero && focus.Instance != null && !focus.Props.IsDead
                 ? focus
-                : null;
-            var bestAngle = _killMaxAngle;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
-            {
-                if (focus != null && target == focus)
-                    break;
-                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Instance == null ||
-                    npc.Props.BodyState == VmGothicEnums.BodyState.BsDead)
-                    continue;
-                var toNpc = npc.Go.transform.position + Vector3.up - cam.transform.position;
-                if (toNpc.magnitude > _killMaxDistance)
-                    continue;
-                var angle = Vector3.Angle(cam.transform.forward, toNpc);
-                if (angle >= bestAngle)
-                    continue;
-                bestAngle = angle;
-                target = npc;
-            }
+                : FindNpcInViewCenter(cam.transform, hero);
 
             if (target == null)
             {
@@ -285,7 +269,7 @@ namespace Gothic.Core.Domain.Marvin
             var name = target.Instance.GetName(NpcNameSlot.Slot0);
             // Like OpenGothic (Marvin C_Kill: changeAttribute(ATR_HITPOINTS, -max) on the focus NPC, which an immortal
             // one ignores) - nothing happens, no message.
-            if (((int)target.Instance.Flags & _npcFlagImmortal) != 0)
+            if (target.Instance.IsImmortal())
             {
                 Logger.Log($"[MarvinCheatDomain] Kill: {name} is immortal", LogCat.Ui);
                 return true;
@@ -294,6 +278,30 @@ namespace Gothic.Core.Domain.Marvin
             GlobalEventDispatcher.CheatKill.Invoke(target);
             Logger.Log($"[MarvinCheatDomain] Kill: {name}", LogCat.Ui);
             return true;
+        }
+
+        /// <summary>
+        /// The living NPC closest to the view's center, within _killMaxAngle and _killMaxDistance.
+        /// </summary>
+        private NpcContainer FindNpcInViewCenter(Transform cam, NpcContainer hero)
+        {
+            NpcContainer target = null;
+            var bestAngle = _killMaxAngle;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Instance == null ||
+                    npc.Props.IsDead)
+                    continue;
+                var toNpc = npc.Go.transform.position + Vector3.up - cam.position;
+                if (toNpc.magnitude > _killMaxDistance)
+                    continue;
+                var angle = Vector3.Angle(cam.forward, toNpc);
+                if (angle >= bestAngle)
+                    continue;
+                bestAngle = angle;
+                target = npc;
+            }
+            return target;
         }
 
         /// <summary>
@@ -309,7 +317,7 @@ namespace Gothic.Core.Domain.Marvin
                 return false;
             }
 
-            var names = new System.Collections.Generic.List<string>();
+            var names = new List<string>();
             foreach (var entry in npcSymbols.Split(',', ';', '\n'))
             {
                 var name = entry.Trim();

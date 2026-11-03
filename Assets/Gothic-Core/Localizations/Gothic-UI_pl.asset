@@ -263,6 +263,10 @@ MonoBehaviour:
       zachowany."
     m_Metadata:
       m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: "pomi\u0144"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

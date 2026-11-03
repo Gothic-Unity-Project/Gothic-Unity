@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
@@ -12,7 +13,6 @@ using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using Gothic.Core.Services.Player;
 
 namespace Gothic.VR.Adapters
 {

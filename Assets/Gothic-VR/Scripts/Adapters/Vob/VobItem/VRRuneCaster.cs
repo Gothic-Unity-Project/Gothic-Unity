@@ -1792,6 +1792,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var manaMax = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             if (manaMax > 0)
                 _manaBar.SetFillAmount(mana, manaMax);
+            // The bar's MANA/MAX numbers. No "-1 MANA" per invest tick: the writes here skip SetAttribute.
+            GlobalEventDispatcher.NpcAttributeChanged.Invoke(hero, NpcAttribute.Mana);
         }
 
         private StatusBarAdapter FindManaBar()

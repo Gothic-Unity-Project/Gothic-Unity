@@ -33,6 +33,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private const string _nameTextName = "NameText";
         private const float _textInFrontOfBar = -0.5f;
+        private static readonly Vector3[] _corners = new Vector3[4];
 
         private NpcContainer _owner;
         // "HP/MAX" (health bars) or "MANA/MAX" (the hero's mana bar) - option "healthNumbers".
@@ -49,8 +50,6 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             Mana,
             Misc
         }
-
-        public bool IsPlayer => _isPlayer;
 
         private bool HasNumbers => _statusType == StatusType.Health || (_statusType == StatusType.Mana && _isPlayer);
 
@@ -300,7 +299,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// </summary>
         private void ShowHeroHitNumber(int amount, string unit)
         {
-            if (_configService.Gothic.GetInt(Constants.IniNames.HitNumbers, 0) != 1 || !_background.enabled)
+            if (_configService.Gothic == null || _configService.Gothic.GetInt(Constants.IniNames.HitNumbers, 0) != 1 ||
+                !_background.enabled)
                 return;
 
             var parentCanvas = GetComponentInParent<Canvas>();
@@ -312,12 +312,11 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             }
 
             var canvasRect = (RectTransform)canvas.transform;
-            var corners = new Vector3[4];
-            _background.rectTransform.GetWorldCorners(corners);
+            _background.rectTransform.GetWorldCorners(_corners);
             var right = float.MinValue;
             var bottom = float.MaxValue;
             var top = float.MinValue;
-            foreach (var corner in corners)
+            foreach (var corner in _corners)
             {
                 var local = canvasRect.InverseTransformPoint(corner);
                 right = Mathf.Max(right, local.x);

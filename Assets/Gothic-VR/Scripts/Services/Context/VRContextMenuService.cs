@@ -12,6 +12,7 @@ using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Gothic.Core.Domain;
 
 namespace Gothic.VR.Services.Context
 {
@@ -71,7 +72,7 @@ namespace Gothic.VR.Services.Context
                 (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers", "HP/MAX on health bars"),
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
                 (CreateToggleLabel(gameMenu, "MARVIN", "Marvin", "Show the Marvin panel (needs Marvin mode)"),
-                    CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel, 1)),
+                    CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel)),
                 (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
                     "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))
             };
@@ -119,7 +120,8 @@ namespace Gothic.VR.Services.Context
                 rows.Add((CreateToggleLabel(gameMenu, "XP_FOR_ANY_KILL", "XP for every death",
                         "Cheat: any death gives you XP (Gothic: only your kills)"),
                     CreateToggleChoice(gameMenu, "XP_FOR_ANY_KILL", FightConst.XpForAnyKillIniName)));
-            rows.Add((CreateRestartButton(mainMenu), null));
+            if (GameRestartDomain.IsRestartPossible)
+                rows.Add((CreateRestartButton(mainMenu), null));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
         }
@@ -202,7 +204,8 @@ namespace Gothic.VR.Services.Context
         {
             var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
             var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
-            var restartButton = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
+            var restartButton =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
 
             restartButton.SetText(0, "Restart game");
             restartButton.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);

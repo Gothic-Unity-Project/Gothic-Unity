@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
@@ -25,7 +26,6 @@ using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Gothic.Core.Adapters.Npc;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Scenes

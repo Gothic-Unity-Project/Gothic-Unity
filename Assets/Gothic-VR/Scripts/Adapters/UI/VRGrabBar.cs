@@ -1,23 +1,27 @@
 using System;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Services.Context;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
+using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.UI;
 using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.VR.Adapters.UI
 {
     /// <summary>
-    /// DeveloperConfig.EnableUiGrabBars: a bar at a world canvas like SteamVR's windows - reach it with a hand, hold the
-    /// grip and the target moves (and turns) with that hand until the grip is released.
-    /// Created at runtime under the canvas, outside its rect and ignored by its layout group.
-    /// Optional dock: while grabbed a sphere floats above a dock anchor (the left hand) - released in it, onDock is
-    /// called (put the target back there).
-    /// Optional head follow: released outside the dock, the target floats in the air at its spot relative to the head
-    /// and lazily follows it (turns after it only once the head looked away further, then glides) - not glued to it.
-    /// Any VR backend (IVrRig, IVrInput), see SetPorts.
+    /// DeveloperConfig.EnableUiGrabBars: a bar at a world canvas like SteamVR's windows - reach it with a hand, hold
+    /// the grip and the target moves (and turns) with that hand until the grip is released. Created at runtime under
+    /// the canvas, outside its rect and ignored by its layout group. Optional dock: while grabbed a sphere floats above
+    /// a dock anchor (the left hand) - released in it, onDock is called (put the target back there). Optional head
+    /// follow: released outside the dock, the target floats in the air at its spot relative to the head and lazily
+    /// follows it (turns after it only once the head looked away further, then glides) - not glued to it. Any VR
+    /// backend (IVrRig, IVrInput), see SetPorts.
     /// </summary>
     public class VRGrabBar : MonoBehaviour
     {
@@ -40,10 +44,12 @@ namespace Gothic.VR.Adapters.UI
         private const float _followSettleAngle = 3f;
         private const float _followSharpness = 5f;
 
-        private static IVrRig _rig;
-        private static IVrInput _input;
-        private static VrHapticsService _haptics;
+        [Inject] private readonly IVrInput _input;
+        [Inject] private readonly VrHapticsService _haptics;
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
 
+        private IVrRig _rig;
+        private Material _dockMaterial;
         private RectTransform _rect;
         private Transform _target;
         private Action _onBeforeGrab;
@@ -65,14 +71,20 @@ namespace Gothic.VR.Adapters.UI
 
         public bool IsGrabbed => _grabTransform != null;
 
-        /// <summary>
-        /// The player's rig, input and haptics (VRContextInteractionService, once the player exists).
-        /// </summary>
-        public static void SetPorts(IVrRig rig, IVrInput input, VrHapticsService haptics)
+        private void Awake()
         {
-            _rig = rig;
-            _input = input;
-            _haptics = haptics;
+            this.Inject();
+        }
+
+        /// <summary>
+        /// The current player's rig - looked up again once the player was replaced (restart, a new scene).
+        /// </summary>
+        private IVrRig GetRig()
+        {
+            if (_rig is Object rigObject && rigObject != null)
+                return _rig;
+            _rig = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
+            return _rig;
         }
 
         /// <summary>
@@ -126,7 +138,8 @@ namespace Gothic.VR.Adapters.UI
         /// </summary>
         private void Update()
         {
-            if (_rig == null || _input == null)
+            var rig = GetRig();
+            if (rig == null || _input == null)
                 return;
 
             if (_grabTransform != null)
@@ -136,14 +149,15 @@ namespace Gothic.VR.Adapters.UI
                     Release();
                     return;
                 }
-                _target.SetPositionAndRotation(_grabTransform.position + _grabTransform.rotation * _grabPositionOffset,
+                _target.SetPositionAndRotation(
+                    _grabTransform.position + _grabTransform.rotation * _grabPositionOffset,
                     _grabTransform.rotation * _grabRotationOffset);
                 UpdateDockSphere();
                 return;
             }
 
             var isHovered = false;
-            foreach (var hand in _rig.HandGrabbers)
+            foreach (var hand in rig.HandGrabbers)
             {
                 // A hand holding something (sword, rune) doesn't grab the bar.
                 if (hand == null || hand.Held != null || !IsInReach(GetHandPosition(hand.HandSide)))
@@ -161,13 +175,13 @@ namespace Gothic.VR.Adapters.UI
                 UpdateHeadFollow();
         }
 
-        private static Vector3 GetHandPosition(VrHandSide side)
+        private Vector3 GetHandPosition(VrHandSide side)
         {
             var visual = _rig.GetHandVisual(side);
             return visual != null ? visual.position : GetController(side).position;
         }
 
-        private static Transform GetController(VrHandSide side)
+        private Transform GetController(VrHandSide side)
         {
             return side == VrHandSide.Left ? _rig.LeftHand : _rig.RightHand;
         }
@@ -182,11 +196,11 @@ namespace Gothic.VR.Adapters.UI
             _grabSide = side;
             _grabTransform = GetController(side);
             _grabRotationOffset = Quaternion.Inverse(_grabTransform.rotation) * _target.rotation;
-            _grabPositionOffset = Quaternion.Inverse(_grabTransform.rotation) * (_target.position - _grabTransform.position);
+            _grabPositionOffset = Quaternion.Inverse(_grabTransform.rotation) *
+                                  (_target.position - _grabTransform.position);
             _image.color = _grabbedColor;
-            if (_dockAnchor != null && _onDock != null)
+            if (_dockAnchor != null && _onDock != null && CreateDockSphere())
             {
-                CreateDockSphere();
                 _dockSphere.SetActive(true);
                 UpdateDockSphere();
             }
@@ -208,8 +222,7 @@ namespace Gothic.VR.Adapters.UI
 
         private void Release()
         {
-            var isDocked = _dockSphere != null && _dockSphere.activeSelf && _grabTransform != null &&
-                           Vector3.Distance(_grabTransform.position, _dockSphere.transform.position) <= _dockRadius * 2f;
+            var isDocked = _dockSphere != null && _dockSphere.activeSelf && _grabTransform != null && IsInDock();
             Logger.Log($"[VRGrabBar] {(_target != null ? _target.name : "target")} released" +
                        (isDocked ? " in the dock" : ""), LogCat.Ui);
             _grabTransform = null;
@@ -275,32 +288,54 @@ namespace Gothic.VR.Adapters.UI
             if (_dockSphere == null || _dockAnchor == null)
                 return;
             _dockSphere.transform.position = _dockAnchor.position + Vector3.up * _dockHeight;
-            var isInside = Vector3.Distance(_grabTransform.position, _dockSphere.transform.position) <= _dockRadius * 2f;
-            _dockSphere.transform.localScale = Vector3.one * (_dockRadius * (isInside ? 2.6f : 2f));
+            _dockSphere.transform.localScale = Vector3.one * (_dockRadius * (IsInDock() ? 2.6f : 2f));
         }
 
-        private void CreateDockSphere()
+        private bool IsInDock()
+        {
+            return Vector3.Distance(_grabTransform.position, _dockSphere.transform.position) <= _dockRadius * 2f;
+        }
+
+        /// <returns>False without the unlit shader (not in the build) - the target then can't be docked.</returns>
+        private bool CreateDockSphere()
         {
             if (_dockSphere != null)
-                return;
+                return true;
+            if (Constants.ShaderUnlit == null)
+            {
+                Logger.LogWarning("[VRGrabBar] No unlit shader for the dock sphere - docking unavailable.", LogCat.Ui);
+                return false;
+            }
+
             _dockSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             _dockSphere.name = "GrabBarDock";
             Destroy(_dockSphere.GetComponent<Collider>());
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.SetColor("_BaseColor", _dockColor);
-            _dockSphere.GetComponent<MeshRenderer>().sharedMaterial = material;
+            _dockMaterial = new Material(Constants.ShaderUnlit);
+            _dockMaterial.SetColor("_BaseColor", _dockColor);
+            _dockSphere.GetComponent<MeshRenderer>().sharedMaterial = _dockMaterial;
+            return true;
         }
 
         private void OnDestroy()
         {
             if (_dockSphere != null)
                 Destroy(_dockSphere);
+            if (_dockMaterial != null)
+                Destroy(_dockMaterial);
         }
 
+        /// <summary>
+        /// Hidden while held (e.g. the Marvin option turned off): let go without docking - reparenting an object
+        /// that is being deactivated throws.
+        /// </summary>
         private void OnDisable()
         {
-            if (_grabTransform != null)
-                Release();
+            if (_grabTransform == null)
+                return;
+            _grabTransform = null;
+            _image.color = _color;
+            if (_dockSphere != null)
+                _dockSphere.SetActive(false);
         }
     }
 }

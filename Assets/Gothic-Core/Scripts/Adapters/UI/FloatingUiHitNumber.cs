@@ -21,7 +21,7 @@ namespace Gothic.Core.Adapters.UI
         private float _riseDistance;
         private float _elapsed;
 
-        /// <param name="canvas">The bar's canvas - the text lives there unrotated, so it reads the right way round.</param>
+        /// <param name="canvas">The bar's canvas - the text lives there unrotated, reading the right way round.</param>
         /// <param name="anchorWorldPosition">Where the number starts (e.g. right of the bar), in world space.</param>
         /// <param name="barHeight">The bar's height in canvas units - sizes the text.</param>
         public static void Spawn(RectTransform canvas, Vector3 anchorWorldPosition, float barHeight, int amount,
