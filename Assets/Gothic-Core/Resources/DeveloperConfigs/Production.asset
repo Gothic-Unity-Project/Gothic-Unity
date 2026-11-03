@@ -63,7 +63,6 @@ MonoBehaviour:
     Value: 
   SpawnMonsterInstances:
     Value: 
-  EnableNpcEyeBlinking: 0
   EnableNpcLooting: 1
   EnableDialogFreeMovement: 0
   ShowNpcColliders: 0
@@ -118,7 +117,6 @@ MonoBehaviour:
   EnableRingWeaponSlots: 1
   EnableRingItemSlots: 1
   EnableRingZoom: 1
-  EnableVrTrade: 1
   EnableVrPickpocket: 1
   EnableG2VrPickpocket: 1
   EnableHeroPersonalSpace: 1
@@ -135,7 +133,6 @@ MonoBehaviour:
   EnableWindfistThrow: 1
   EnableRoutinePerceptionReset: 1
   EnableProclaimFromAfar: 1
-  EnableFaceAnimations: 1
   EnableAnimationPfx: 1
   EnableVisualFxLights: 1
   EnableVisualFxEarthquake: 1
