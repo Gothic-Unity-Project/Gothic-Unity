@@ -52,8 +52,6 @@ namespace Gothic.VR.Adapters.Trade
         // A hand this close (m) in front of/behind a button presses it.
         private const float _touchDepth = 0.04f;
         private readonly List<Button> _buttons = new();
-        // OK and X on the button canvas (1000 px per meter, the canvas is 6 cm below the counter): above the names.
-        private const float _okCloseHeightPx = 340f;
         private readonly Button[] _touchedButtons = new Button[2];
 
         // Big - a backpack thrown a bit off still lands on it.
@@ -370,12 +368,8 @@ namespace Gothic.VR.Adapters.Trade
             ((RectTransform)canvasGo.transform).sizeDelta =
                 new Vector2(_socketSpacing * 1000f * (_visibleSlotsPerSide + 3) * 2f, 80f);
 
-            // Above the names, away from the offers and the goods: a hand over them is in near interaction there, and
-            // the laser didn't reach OK and X in the middle of the counter.
-            CreateButton(canvasGo.transform, "OK", new Vector2(-60f, _okCloseHeightPx), new Color(0.2f, 0.5f, 0.2f, 0.9f),
-                OnAccept);
-            CreateButton(canvasGo.transform, "X", new Vector2(60f, _okCloseHeightPx), new Color(0.5f, 0.2f, 0.2f, 0.9f),
-                OnClose);
+            CreateButton(canvasGo.transform, "OK", new Vector2(-60f, 0f), new Color(0.2f, 0.5f, 0.2f, 0.9f), OnAccept);
+            CreateButton(canvasGo.transform, "X", new Vector2(60f, 0f), new Color(0.5f, 0.2f, 0.2f, 0.9f), OnClose);
 
             // Under each side's slots: move its offer by one (the canvas has 1000 px per meter).
             var arrowColor = new Color(0.25f, 0.25f, 0.25f, 0.9f);

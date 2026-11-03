@@ -245,7 +245,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateHeroFootsteps()
         {
-            if (!_configService.Dev.EnableFootstepSounds ||
+            // DeveloperConfig.EnableHeroBodySounds: the animated body steps itself.
+            if (!_configService.Dev.EnableFootstepSounds || VRHeroBody.IsBodySounding ||
                 _gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
                 return;
             if (!_rig.IsGrounded)

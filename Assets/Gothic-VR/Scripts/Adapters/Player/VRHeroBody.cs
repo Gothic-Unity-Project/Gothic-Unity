@@ -40,6 +40,14 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
+        [Inject] private readonly Gothic.Core.Manager.AudioService _audioService;
+        [Inject] private readonly Gothic.Core.Services.Audio.GroundSoundService _groundSoundService;
+
+        // DeveloperConfig.EnableHeroBodySounds: the body's animations sound like an NPC's - steps by the ground below
+        // (*eventSFXGrnd). VRHeroMovement's stride steps are off then, VRSwimDive sounds the swimming.
+        public static bool IsBodySounding { get; private set; }
+        private const float _bodySoundVolume = 1f;
+        private AudioSource _bodySoundSource;
 
         // The body looks at the water itself - the swim state flickered while
         // bobbing at the surface (chest -> knee deep for a moment = walking, not grounded = the fall animation).
@@ -194,6 +202,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnDestroy()
         {
+            IsBodySounding = false;
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             SetHeroHandsShown(false);
             EndDown();
@@ -1044,8 +1053,45 @@ namespace Gothic.VR.Adapters.Player
             BuildSleeves(props, mdhName, bones);
 
             _animator = new VRHeroBodyAnimator(_animationService, props.MdsNameBase, props.MdsNameOverlay, bones);
+            if (_configService.Dev.EnableHeroBodySounds && _configService.Dev.EnableFootstepSounds && _animator.IsValid)
+            {
+                _animator.SoundEvent += OnBodySoundEvent;
+                IsBodySounding = true;
+            }
             Logger.Log($"[VRHeroBody] Built {props.MdmName} (head height {_modelHeadHeight:F2} m, " +
                        $"animated: {_animator.IsValid}, bare forearms: {_bareForearms.Count}).", LogCat.VR);
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableHeroBodySounds: a sound event of the body's animation (a step: *eventSFXGrnd with the
+        /// ground's suffix, like an NPC's).
+        /// </summary>
+        private void OnBodySoundEvent(ZenKit.IEventSoundEffect sfx)
+        {
+            var name = sfx.Name;
+            if (string.IsNullOrEmpty(name))
+                return;
+            // VRSwimDive sounds the swimming - no steps of the swim animations on top.
+            var bodyState = _npcService.GetHeroContainer()?.Props?.BodyState;
+            if (bodyState is VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive)
+                return;
+
+            var feet = _rig != null ? _rig.Root.position : transform.position;
+            if (name.StartsWith(Gothic.Core.Domain.Audio.GroundSoundDomain.GroundEventPrefix))
+                name = _groundSoundService.GetSoundName(
+                    name.Substring(Gothic.Core.Domain.Audio.GroundSoundDomain.GroundEventPrefix.Length), feet);
+
+            var clip = _audioService.GetRandomSoundClip(name);
+            if (clip == null)
+                return;
+            if (_bodySoundSource == null)
+            {
+                _bodySoundSource = gameObject.AddComponent<AudioSource>();
+                _bodySoundSource.playOnAwake = false;
+                // The player's own body: right with him, no distance falloff.
+                _bodySoundSource.spatialBlend = 0f;
+            }
+            _bodySoundSource.PlayOneShot(clip, _bodySoundVolume);
         }
 
         /// <summary>

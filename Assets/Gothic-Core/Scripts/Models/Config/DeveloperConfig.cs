@@ -576,6 +576,11 @@ namespace Gothic.Core.Models.Config
                  "RUN_WATER); the material is guessed (wading, a VOB below, under a ceiling). They were skipped.")]
         public bool EnableFootstepSounds = true;
 
+        [Tooltip("VR: The VR hero body's animations sound like an NPC's - its steps (*eventSFXGrnd, by the ground " +
+                 "below) come from its walk/run animations. Off (or without the animated body): a step every stride " +
+                 "walked.")]
+        public bool EnableHeroBodySounds = true;
+
         [Tooltip("An NPC finishing off the knocked out hero kills him like in Gothic (the 'Death' option in the " +
                  "Immersion menu can turn it off - then he only stays knocked out).")]
         public bool EnableHeroDeath = true;
