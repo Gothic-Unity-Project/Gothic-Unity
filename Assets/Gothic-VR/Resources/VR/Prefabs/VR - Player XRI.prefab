@@ -4361,7 +4361,6 @@ MonoBehaviour:
   _anchorPrefab: {fileID: 7852649876368062262, guid: 9db3c69fb33eebf45887dddfcc67d8e9, type: 3}
   _touchRange: 0.2
   _glowRange: 0.45
-  _tickAmplitude: 0.3
   _anchorKeepMargin: 0.05
 --- !u!114 &3316551991688186268
 MonoBehaviour:

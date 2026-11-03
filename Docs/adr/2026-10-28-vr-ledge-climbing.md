@@ -17,7 +17,8 @@ In the original game the hero pulls himself up onto ledges with the jump key. In
 5. **Hints only close to your hands.** Near a climbable edge the hand half closes and vibrates once, and a short strip on the edge can glow. Players choose: off, touch, near or assist. Not chosen: markers you can see from far away, which break the immersion.
 6. **Only your hands notice the edge you grab.** It can't push you or get in the way of walking and teleporting.
 7. **No climbing by accident.** You only end up on top after really pulling yourself up, with your head above the edge. Grabbing the edge of a table does nothing.
-8. **Only for VR** (XR Interaction Toolkit), behind a developer switch. The switch is on in the released game, it is only there to turn climbing off.
+8. **Only for VR** (XR Interaction Toolkit), and always on. There is no switch: climbing is only off when the
+   rig has no anchor prefab, then `VrLedgeReach.Climber` stays empty.
 
 ## Consequences
 

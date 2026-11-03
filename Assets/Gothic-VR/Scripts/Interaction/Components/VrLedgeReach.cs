@@ -29,7 +29,6 @@ namespace Gothic.VR.Interaction.Components
     {
         [Inject] private readonly LedgeService _ledgeService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly IVrHaptics _vrHaptics;
 
         [Tooltip("Grab point put on a lip. One is created per hand.")] [SerializeField]
         private VrLedgeAnchor _anchorPrefab;
@@ -40,9 +39,6 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Distance in m between hand and lip from which the lip's strip starts to glow (Near, Assist).")]
         [SerializeField]
         private float _glowRange = 0.45f;
-
-        [Tooltip("Amplitude (0-1) of the tick when a hand comes within touch range of a lip.")] [SerializeField]
-        private float _tickAmplitude = 0.3f;
 
         [Tooltip("A placed anchor stays while the hand is within its grab box, grown by this margin (m).")]
         [SerializeField]
@@ -236,7 +232,7 @@ namespace Gothic.VR.Interaction.Components
 
             _isInTouchRange[index] = isTouching;
             if (isTouching)
-                _vrHaptics.Vibrate(side, VrHapticPreset.Contact, _tickAmplitude);
+                GlobalEventDispatcher.LedgeTouched.Invoke(index);
         }
 
         private void HideHand(VrHandSide side)

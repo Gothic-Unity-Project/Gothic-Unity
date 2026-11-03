@@ -61,6 +61,10 @@ touch / near / assist; assist also makes the anchors bigger).
 - XRI reads `JumpProvider.jumpHeight` on every frame of a jump and it isn't metres: `GothicJumpProvider` sets it once
   at take-off from the wanted rise (`GetJumpHeightForRise`, inverse of XRI's force curve, ~5% frame loss covered by
   the 15 cm margin).
+- `GothicJumpProvider` copies the local constants of XRI's `JumpProvider.CalculateJumpForceForFrame()` (start
+  force 7, end force 5, height clamp 4, divided by 1.5 without gravity) because XRI doesn't expose them. They are
+  taken from XRI 3.6.1, which `Packages/manifest.json` pins. On an XRI upgrade, compare them with the new
+  `JumpProvider` source and run `GothicJumpProviderTest`. `_maxJumpHeight` (8) is ours: the search's upper bound.
 - A climb grab mid-air must end the jump (`GothicJumpProvider.CancelJump`), otherwise XRI replays its rest after the
   climb. Also fixes the same pop on ladders.
 - `Physics.autoSyncTransforms` is off: `VrLedgeReach` syncs after moving an anchor, before XRI's interaction manager.

@@ -5,7 +5,6 @@ using Gothic.Core.Models.Movement;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;
-using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -23,7 +22,6 @@ namespace Gothic.VR.Interaction.Components
     public class VrLedgeClimb : MonoBehaviour
     {
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly IVrHaptics _vrHaptics;
 
         [Header("Physical")]
         [Tooltip("Height in m the player must have pulled up since gripping before stepping onto the top. " +
@@ -158,7 +156,7 @@ namespace Gothic.VR.Interaction.Components
             ReleaseAnchors();
 
             if (!TryBlinkOnto(info))
-                _vrHaptics.Vibrate(_comfortHand, VrHapticPreset.Error);
+                GlobalEventDispatcher.LedgeClimbRefused.Invoke((int)_comfortHand);
         }
 
         /// <summary>

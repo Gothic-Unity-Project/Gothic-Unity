@@ -16,10 +16,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// </summary>
     public class GothicJumpProvider : JumpProvider
     {
-        // Constants of JumpProvider.CalculateJumpForceForFrame().
+        // Constants of JumpProvider.CalculateJumpForceForFrame() in XRI 3.6.1 (Docs/ledge-climbing.md, Pitfalls).
         private const float _startJumpForce = 7f;
         private const float _endJumpForce = 5f;
         private const float _jumpHeightClamp = 4f;
+        // Ours: upper bound of the search in GetJumpHeightForRise.
         private const float _maxJumpHeight = 8f;
 
         private IVrLedgeHandler _handler;
