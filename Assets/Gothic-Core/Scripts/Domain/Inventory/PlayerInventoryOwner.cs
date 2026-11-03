@@ -57,12 +57,17 @@ namespace Gothic.Core.Domain.Inventory
         }
 
         /// <summary>
-        /// Equipped items live in the backpack. Taking the last one of them out means taking it off.
+        /// Equipped items live in the backpack. Taking the last one of them out means taking it off - not a weapon:
+        /// like Gothic it stays equipped while it's in the inventory, and a hand or holster is (it comes off when it's
+        /// dropped, PlayerService.DropItem).
         /// </summary>
         private void UnequipIfLastOneTakenOut(string itemInstanceName)
         {
             var item = _vmCacheService.TryGetItemData(itemInstanceName);
             if (item == null)
+                return;
+            if (((VmGothicEnums.ItemFlags)item.MainFlag &
+                 (VmGothicEnums.ItemFlags.ItemKatNf | VmGothicEnums.ItemFlags.ItemKatFf)) != 0)
                 return;
 
             var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();

@@ -57,7 +57,7 @@ namespace Gothic.VR.Adapters.Player
     /// Only what is in the backpack shows - an equipped weapon in a holster, in a hand or dropped doesn't.
     /// The spells are the hero's equipped runes/scrolls (ITEM_KAT_RUNE) in equip order, the weapons his equipped
     /// ITEM_KAT_NF / ITEM_KAT_FF (also from the start, a script or a save) - saved with the inventory; the favorite
-    /// items are NpcProperties.FavoriteItems, saved in UNITYSAVE.json.
+    /// items are NpcProperties.FavoriteItems - not saved yet (a save section with main's save/load).
     /// </summary>
     public class VRFavoritesRing : MonoBehaviour
     {
@@ -76,6 +76,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly VRTransformService _vrTransformService;
 
         private const int _maxSpells = 8;
         private const int _maxWeapons = 2;
@@ -214,6 +215,7 @@ namespace Gothic.VR.Adapters.Player
             public ItemInstance Replaced;
             public float Time;
             public VrHandSide Side;
+            public VrInteractable Grabbable;
         }
 
         /// <summary>
@@ -272,10 +274,20 @@ namespace Gothic.VR.Adapters.Player
 
         private bool IsEnabled()
         {
-            // No Gothic.ini before a game was picked (profile menu).
-            return _configService.Dev.EnableVrSpellRing && _configService.Gothic != null &&
-                   _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
+            if (Time.unscaledTime >= _nextOptionCheckTime)
+            {
+                _nextOptionCheckTime = Time.unscaledTime + _optionCheckSeconds;
+                // No Gothic.ini before a game was picked (profile menu).
+                _isOptionOn = _configService.Gothic != null &&
+                              _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
+            }
+            return _configService.Dev.EnableVrSpellRing && _isOptionOn;
         }
+
+        // The "spellRing" option, read once a second.
+        private const float _optionCheckSeconds = 1f;
+        private float _nextOptionCheckTime;
+        private bool _isOptionOn;
 
         private bool IsWeaponSlotsEnabled => _configService.Dev.EnableRingWeaponSlots;
         private bool IsItemSlotsEnabled => _configService.Dev.EnableRingItemSlots;
@@ -293,6 +305,12 @@ namespace Gothic.VR.Adapters.Player
             UpdateGesture();
             if (!_isOpen)
                 return;
+            // A dialog, a knockout or a transformation while it's open: it stayed open with teleport locked.
+            if (IsHeroBusy())
+            {
+                Close("the hero is busy");
+                return;
+            }
 
             if (UpdateTransfer())
                 return;
@@ -325,6 +343,8 @@ namespace Gothic.VR.Adapters.Player
 
             var isGesture = head != null && left != null && right != null && leftTrigger && rightTrigger &&
                             _vrPlayerService.GrabbedItemLeft == null && _vrPlayerService.GrabbedItemRight == null &&
+                            !VRFavoritesRingSpell.IsReadiedIn(VrHandSide.Left) &&
+                            !VRFavoritesRingSpell.IsReadiedIn(VrHandSide.Right) &&
                             left.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
                             right.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
                             !IsHeroBusy();
@@ -374,8 +394,9 @@ namespace Gothic.VR.Adapters.Player
         private bool IsHeroBusy()
         {
             var bodyState = _playerService.HeroContainer.Props.BodyState;
+            // Transformed: a monster has no spells (only VRTransformPuppet's attack).
             return bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
-                   _gameStateService.Dialogs.IsInDialog;
+                   _gameStateService.Dialogs.IsInDialog || _vrTransformService.IsTransformed;
         }
 
         private void Open(Transform head)
@@ -1052,10 +1073,9 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Like Gothic: the front spell shows its rune/scroll first, after _previewSeconds its effect too. With
-        /// the rune stays, half transparent behind its effect (some
-        /// effects are huge and hid which rune it is); a hand at it turns it around: the rune whole, the effect half.
-        /// Without the flag the effect replaces the rune. Weapons and items stay as they are.
+        /// Like Gothic: the front spell shows its rune/scroll first, after _previewSeconds its effect too. The rune
+        /// stays, half transparent behind its effect (some effects are huge and hid which rune it is); a hand at it
+        /// turns it around: the rune whole, the effect half. Weapons and items stay as they are.
         /// </summary>
         private void UpdateFrontPreview()
         {
@@ -1308,7 +1328,8 @@ namespace Gothic.VR.Adapters.Player
             var container = slot.Container;
             slot.Container = null;
             _vobMeshCullingService.AddCullingEntry(container);
-            _saveGameService.CurrentWorldData.Vobs.Add(container.Vob);
+            // Not into the world's VOB list: a held item isn't part of it (PlayerService.PickUpItem/DropItem). Added
+            // here, it depended on the backend's event order whether it was saved twice (world + inventory).
             _playerService.RemoveItem(slot.InstanceName, 1);
             slot.Amount--;
 
@@ -1482,10 +1503,9 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// A weapon taken out of the ring stays the equipped one if it
-        /// went back into the backpack (opened, or over the shoulder - then it's gone from the world) - dropped or put
-        /// into another quick slot it comes off (Gothic: an equipped weapon is in the inventory). Back into the ring,
-        /// the ring equipped it already.
+        /// A weapon taken out of the ring stays the equipped one while it's in the inventory (Gothic): in a hand, a
+        /// holster or back in the backpack. Dropped into the world it comes off (PlayerService.DropItem). Back into the
+        /// backpack it's equipped again if it wasn't any more. Back into the ring, the ring equipped it already.
         /// </summary>
         private void UpdateTakenWeapon()
         {
@@ -1510,13 +1530,8 @@ namespace Gothic.VR.Adapters.Player
                     _npcInventoryService.UnequipItemWithEffects(hero.Instance, other);
                 _npcInventoryService.EquipItemWithEffects(hero.Instance, taken.Item);
             }
-            else if (!isInBackpack && isEquipped)
-            {
-                _npcInventoryService.UnequipItemWithEffects(hero.Instance, taken.Item);
-            }
-            Logger.Log($"[FavoritesRing] {taken.Item.Name} " + (isInBackpack
-                ? "back in the backpack - stays equipped"
-                : "dropped or in another quick slot - no longer equipped"), LogCat.VR);
+            if (isInBackpack)
+                Logger.Log($"[FavoritesRing] {taken.Item.Name} back in the backpack - stays equipped", LogCat.VR);
         }
 
         /// <summary>
@@ -1537,6 +1552,7 @@ namespace Gothic.VR.Adapters.Player
             if (candidate == null || Time.time - candidate.Time > _putInGraceSeconds ||
                 grabbable.GetComponentInParent<VobLoader>()?.Container != candidate.Container)
                 return;
+            candidate.Grabbable = grabbable;
             _pendingPutIn = candidate;
         }
 
@@ -1554,6 +1570,12 @@ namespace Gothic.VR.Adapters.Player
             _pendingPutIn = null;
             if (putIn?.Container?.Go == null || !_slots.Contains(putIn.Target))
                 return;
+            if (putIn.Grabbable != null && putIn.Grabbable.IsHeld)
+            {
+                // Two hands or a holster still hold it: counted twice, and the held object destroyed.
+                Logger.Log($"[FavoritesRing] {putIn.Item.Name} still held - not put in", LogCat.VR);
+                return;
+            }
 
             var vobItem = putIn.Container.VobAs<IItem>();
             _playerService.AddItem(putIn.InstanceName, Mathf.Max(1, vobItem.Amount));
@@ -1582,6 +1604,16 @@ namespace Gothic.VR.Adapters.Player
             Rebuild();
         }
 
+        // The item whose "can't use" message was shown - TryPutIn runs every frame while it's held near the ring.
+        private ItemInstance _lastMessageItem;
+
+        private bool CheckOnce(bool isAllowed, ItemInstance item)
+        {
+            if (!isAllowed)
+                _lastMessageItem = item;
+            return isAllowed;
+        }
+
         /// <summary>
         /// What letting go of the held item at the target slot does - false (with the reason logged once) if it
         /// can't go in there.
@@ -1592,6 +1624,7 @@ namespace Gothic.VR.Adapters.Player
             action = null;
             replaced = null;
             string rejection = null;
+            var isMessageShown = !ReferenceEquals(item, _lastMessageItem);
             var hero = _playerService.HeroContainer;
             var isInRing = _slots.Any(s => IsSame(s.InstanceName, instanceName)) ||
                            hero.Props.FavoriteItems.Any(i => IsSame(i, instanceName));
@@ -1612,7 +1645,7 @@ namespace Gothic.VR.Adapters.Player
                     case SlotKind.Spell when _slots.Count(s => s.Kind == SlotKind.Spell) >= _maxSpells:
                         rejection = "8 spells already";
                         break;
-                    case SlotKind.Spell when !_fightService.CheckHeroRuneCircle(item, true):
+                    case SlotKind.Spell when !CheckOnce(_fightService.CheckHeroRuneCircle(item, isMessageShown), item):
                         rejection = "magic circle too low (EnableRuneCircleRequirement)";
                         break;
                     case SlotKind.Spell:
@@ -1621,7 +1654,8 @@ namespace Gothic.VR.Adapters.Player
                     case SlotKind.Melee or SlotKind.Ranged when !IsWeaponSlotsEnabled:
                         rejection = "weapon slots off (EnableRingWeaponSlots)";
                         break;
-                    case SlotKind.Melee or SlotKind.Ranged when !_fightService.CheckHeroWeaponRequirement(item, true):
+                    case SlotKind.Melee or SlotKind.Ranged when
+                        !CheckOnce(_fightService.CheckHeroWeaponRequirement(item, isMessageShown), item):
                         rejection = "requirements not met";
                         break;
                     case SlotKind.Melee or SlotKind.Ranged:

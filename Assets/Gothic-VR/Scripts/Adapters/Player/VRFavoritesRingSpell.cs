@@ -1,3 +1,4 @@
+using Gothic.Core;
 using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -57,12 +58,27 @@ namespace Gothic.VR.Adapters.Player
             this.Inject();
         }
 
+        // A readied ring spell per hand (left, right) - the ring's open gesture needs empty hands.
+        private static readonly bool[] _isReadied = new bool[2];
+
+        public static bool IsReadiedIn(VrHandSide side) => _isReadied[(int)side];
+
         public void Init(ItemInstance item, VrHandSide hand, VobContainer container, VRRuneCaster caster)
         {
             _item = item;
             _hand = hand;
             _container = container;
             _caster = caster;
+            _isReadied[(int)hand] = true;
+            // Loading a game or leaving the world puts it away like Gothic's readied spell - it kept the old VM item.
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLeavingWorld);
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLeavingWorld);
+        }
+
+        private void OnLeavingWorld()
+        {
+            if (!_isPutAway)
+                PutAway("leaving the world");
         }
 
         private void Update()
@@ -163,6 +179,9 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnDestroy()
         {
+            _isReadied[(int)_hand] = false;
+            GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLeavingWorld);
+            GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(OnLeavingWorld);
             if (_effect != null)
                 Destroy(_effect);
         }

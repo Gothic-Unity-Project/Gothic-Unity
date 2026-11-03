@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -124,6 +125,24 @@ namespace Gothic.Core.Services.Player
                 _vobMeshCullingService.AddCullingEntry(item);
 
             RemoveItem(item);
+            UnequipIfNoneLeft(item);
+        }
+
+        /// <summary>
+        /// Like Gothic, an equipped item comes off when the last one leaves the inventory (dropped into the world).
+        /// </summary>
+        private void UnequipIfNoneLeft(VobContainer item)
+        {
+            var instance = item.GetItemInstance();
+            var symbolName = (item.Vob as IItem)?.GetSymbolName();
+            if (instance == null || symbolName == null || HeroContainer == null ||
+                !_npcInventoryService.IsEquipped(HeroContainer.Instance, symbolName))
+                return;
+            var category = ((VmGothicEnums.ItemFlags)instance.MainFlag).ToInventoryCategory();
+            if (GetInventory(category).Any(i => i.Name.EqualsIgnoreCase(symbolName) && i.Amount > 0))
+                return;
+            _npcInventoryService.UnequipItemWithEffects(HeroContainer.Instance, instance);
+            Logger.Log($"[PlayerService] {instance.Name} dropped - no longer equipped", LogCat.Vob);
         }
 
         /// <summary>

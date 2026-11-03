@@ -324,6 +324,13 @@ namespace Gothic.Core.Services.Npc
             if (((ItemFlags)item.Flags & ItemFlags.ItemBelt) != 0)
                 return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemBelt) != 0);
 
+            // One melee weapon and one bow/crossbow (Gothic's slots) - several stayed equipped (the backpack showed [E]
+            // on each in turn).
+            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatNf) != 0);
+            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatFf) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatFf) != 0);
+
             if (((ItemFlags)item.Flags & ItemFlags.ItemRing) != 0)
             {
                 // Two ring slots: free the oldest one only when both are taken.
