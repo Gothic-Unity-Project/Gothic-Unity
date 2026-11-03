@@ -7,6 +7,7 @@ using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -27,6 +28,7 @@ namespace Gothic.Core.Services.Npc
         // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
         private readonly HashSet<int> _npcsKnowingPlayer = new();
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcService _npcService;
 
         // Reused by UpdateEnemyNpc() on every perception tick.
