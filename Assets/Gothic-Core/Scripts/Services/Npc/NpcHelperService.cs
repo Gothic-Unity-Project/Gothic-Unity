@@ -345,9 +345,14 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool CanSenseNpc(NpcInstance self, NpcInstance other, bool freeLOS, float maxRangeMeters = float.MaxValue)
         {
+            // An NPC that isn't in the world (culled, not spawned yet) senses nothing and can't be sensed.
+            var selfGo = self?.GetUserData()?.Go;
+            var otherGo = other?.GetUserData()?.Go;
+            if (selfGo == null || otherGo == null)
+                return false;
+
             var senseRangeMeters = Mathf.Min(self.SensesRange / 100f, maxRangeMeters); // daedalus values are in cm, we need them in m
-            var range = Vector3.Distance(other.GetUserData().Go.transform.position,
-                self.GetUserData().Go.transform.position);
+            var range = Vector3.Distance(otherGo.transform.position, selfGo.transform.position);
 
             if (range > senseRangeMeters)
             {
