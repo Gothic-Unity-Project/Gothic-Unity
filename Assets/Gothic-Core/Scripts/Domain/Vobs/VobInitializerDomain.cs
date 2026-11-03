@@ -874,6 +874,33 @@ namespace Gothic.Core.Domain.Vobs
 
         private GameObject CreateDefaultMesh(IVirtualObject vob, GameObject parent)
         {
+            var go = BuildDefaultMesh(vob, parent);
+            if (go != null && !vob.ShowVisual)
+                HideVisual(vob, go);
+
+            return go;
+        }
+
+        /// <summary>
+        /// showVisual=FALSE (Spacer): like in the engine (OpenGothic ObjVisual::setVisual) the mesh isn't drawn and a
+        /// plain vob doesn't collide. Mods place such vobs as interaction anchors on world geometry (DoM: ore piles,
+        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes. The
+        /// renderers stay enabled, only drawing is off, so their bounds still work (focus, dig spots).
+        /// </summary>
+        private static void HideVisual(IVirtualObject vob, GameObject go)
+        {
+            foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
+                renderer.forceRenderingOff = true;
+
+            if (vob is IInteractiveObject)
+                return;
+
+            foreach (var collider in go.GetComponentsInChildren<Collider>(true))
+                collider.enabled = false;
+        }
+
+        private GameObject BuildDefaultMesh(IVirtualObject vob, GameObject parent)
+        {
             var go = GetPrefab(vob);
             var meshName = vob.GetVisualName();
 
@@ -889,7 +916,8 @@ namespace Gothic.Core.Domain.Vobs
             if (mdl != null)
             {
                 // G2's treasure X marks (TREASURE_ADDON_01) are a color-only mesh without texture. MeshService skips
-                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs to be visible and diggable.
+                // those on purpose (G1's empty harp or WASH_SLOT), but the X needs its mesh to be diggable. Where the
+                // world hides it (showVisual=FALSE, Newworld's spots) it isn't drawn, like in the original.
                 var isDigSpot = _vmCacheService.IsDigSpot(vob);
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
                     useTextureArray: !isDigSpot, allowUntextured: isDigSpot);
