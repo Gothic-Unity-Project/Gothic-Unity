@@ -77,15 +77,19 @@ namespace Gothic.Core
 
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));
+            containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
             containerBuilder.AddSingleton(typeof(DialogService));
             containerBuilder.AddSingleton(typeof(PlayerService));
+            containerBuilder.AddSingleton(typeof(TradeService));
             
             // NPC
             containerBuilder.AddSingleton(typeof(NpcService));
+            containerBuilder.AddSingleton(typeof(NpcLookService));
+            containerBuilder.AddSingleton(typeof(NpcRandomAniService));
             containerBuilder.AddSingleton(typeof(NpcAiService));
             containerBuilder.AddSingleton(typeof(HeroPerceptionService));
             containerBuilder.AddSingleton(typeof(NpcHelperService));

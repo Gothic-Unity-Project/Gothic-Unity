@@ -1,6 +1,13 @@
+using Gothic.Core;
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Player;
+using Gothic.VR.Services;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -8,6 +15,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -20,6 +28,9 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly Gothic.Core.Services.Npc.NpcService _npcService;
+        [Inject] private readonly TradeService _tradeService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
         public MenuHandler MenuHandler;
@@ -69,6 +80,33 @@ namespace Gothic.VR.Adapters.Player
         {
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
+            GlobalEventDispatcher.TradeStarted.AddListener(OnTradeStarted);
+            GlobalEventDispatcher.TradeEnded.AddListener(OnTradeEnded);
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.TradeStarted.RemoveListener(OnTradeStarted);
+            GlobalEventDispatcher.TradeEnded.RemoveListener(OnTradeEnded);
+        }
+
+        private void OnTradeStarted(NpcContainer trader)
+        {
+            var hero = (_gameStateService.GothicVm?.GlobalHero as ZenKit.Daedalus.NpcInstance)?.GetUserData();
+            if (hero == null)
+            {
+                // Without a window the trade couldn't be closed - end it so the dialog's choices come back.
+                Logger.LogWarning("[VRPlayer] No hero to trade with - trade ended", LogCat.Dialog);
+                _tradeService.End();
+                return;
+            }
+
+            VRTradeWindow.Show(trader, hero, _tradeService, _vmCacheService, _vrPlayerService);
+        }
+
+        private void OnTradeEnded(NpcContainer trader)
+        {
+            VRTradeWindow.Hide();
         }
 
         private void Update()
