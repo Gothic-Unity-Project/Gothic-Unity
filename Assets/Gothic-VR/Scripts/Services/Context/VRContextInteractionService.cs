@@ -33,6 +33,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
+        [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
@@ -164,6 +165,9 @@ namespace Gothic.VR.Services.Context
 
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
+
+            // Editor: Game view while the headset renders nothing
+            _vrGameViewFallbackService.Init();
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
