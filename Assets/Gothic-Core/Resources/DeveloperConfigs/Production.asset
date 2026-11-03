@@ -115,7 +115,6 @@ MonoBehaviour:
   EnableVrTransformations: 1
   EnableScrollUseOption: 1
   EnableVrSpellRing: 1
-  EnableRingAroundPlayer: 1
   EnableRingWeaponSlots: 1
   EnableRingItemSlots: 1
   EnableRingZoom: 1
