@@ -193,8 +193,13 @@ namespace Gothic.Core.Services.Player
             var before = (int)(_drownTime / _drownSecondsPerHitPoint);
             _drownTime += Time.deltaTime;
             var damage = (int)(_drownTime / _drownSecondsPerHitPoint) - before;
-            if (damage > 0)
-                NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+            if (damage <= 0)
+                return;
+
+            NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+            // Drowned: the hero dies like after a script taking his last hit points (FightService decides).
+            if (hitPoints - damage <= 0)
+                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(HeroContainer);
         }
 
         /// <summary>

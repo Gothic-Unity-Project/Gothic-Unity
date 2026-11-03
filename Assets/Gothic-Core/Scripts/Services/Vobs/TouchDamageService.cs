@@ -42,6 +42,10 @@ namespace Gothic.Core.Services.Vobs
             Logger.Log($"[TouchDamage] {victim.Instance.GetName(NpcNameSlot.Slot0)} in '{zone.Name}': {damage} damage",
                 LogCat.Vob);
             _npcService.SetAttribute(victim, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+
+            // Down like after a script taking the last hit points: one owner decides (FightService), nobody gets XP.
+            if (hitPoints - damage <= 0)
+                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(victim);
         }
 
         private static void AddDamage(ref int damage, NpcContainer victim, bool hasType, int index, float zoneDamage)
