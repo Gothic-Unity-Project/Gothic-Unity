@@ -137,6 +137,7 @@ MonoBehaviour:
   EnableVisualFxLights: 1
   EnableVisualFxEarthquake: 1
   EnableFootstepSounds: 1
+  EnableHeroBodySounds: 1
   EnableHeroDeath: 1
   EnableKillerXpOnly: 1
   EnableOneHitKill: 0
