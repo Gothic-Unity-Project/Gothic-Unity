@@ -18,4 +18,3 @@ In the Old Camp the game stuttered: several times every few seconds a frame took
 
 - In the Old Camp test no frame took longer than 25 ms anymore, before several frames per 16 seconds did (up to 88 ms).
 - An NPC call-out still costs a few milliseconds, mostly for loading its sound. That's the next step.
-- The NPC code now marks its steps for Unity's profiler, so the next measurement is quicker.

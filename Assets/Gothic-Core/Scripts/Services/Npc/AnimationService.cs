@@ -11,7 +11,6 @@ using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using Unity.Collections;
-using Unity.Profiling;
 using UnityEngine;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -78,11 +77,6 @@ namespace Gothic.Core.Services.Npc
         }
 
 
-        // Profiler markers for the first use of an animation (later uses come from the track cache).
-        private static readonly ProfilerMarker _findAnimationMarker = new("AnimationService.FindAnimation");
-        private static readonly ProfilerMarker _loadAnimationMarker = new("AnimationService.LoadAnimation");
-        private static readonly ProfilerMarker _createTrackMarker = new("AnimationService.CreateTrack");
-
         /// <summary>
         /// Try to load animation based on both MDS values: overlay + base.
         /// </summary>
@@ -117,21 +111,17 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            IAnimation anim;
+            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
             IAnimationAlias animAlias = null;
-            using (_findAnimationMarker.Auto())
-            {
-                anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
 
-                // AniAlias lookup
-                // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
-                if (anim == null)
+            // AniAlias lookup
+            // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
+            if (anim == null)
+            {
+                animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                if (animAlias != null)
                 {
-                    animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
-                    if (animAlias != null)
-                    {
-                        anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
-                    }
+                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
                 }
             }
 
@@ -143,9 +133,7 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            IModelAnimation modelAnimation;
-            using (_loadAnimationMarker.Auto())
-                modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
+            var modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
             if (modelAnimation == null)
             {
                 // Caching an empty track means, we don't need to try creating this track again.
@@ -165,11 +153,8 @@ namespace Gothic.Core.Services.Npc
             var bakedKey = GetCombinedAnimationKey(mdsName, anim.Name);
             _bakedSourceTracks.TryGetValue(bakedKey, out var bakedSource);
 
-            using (_createTrackMarker.Auto())
-            {
-                track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
-                SetClipMovementSpeed(track, modelAnimation, skeleton);
-            }
+            track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
+            SetClipMovementSpeed(track, modelAnimation, skeleton);
 
             if (bakedSource == null)
             {
