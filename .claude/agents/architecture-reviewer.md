@@ -99,6 +99,13 @@ baselined violation). A rule of the doc or CLAUDE.md that itself causes friction
   seams or extracted methods, by use case, not into `*Helper`.
 - A change that needs more than ~4 files open to follow: scattered rule, missing facade, pass-through layers.
 - Grab-bag names (`*Manager`, `*Helper`, `*Util`) and names that don't use Gothic's terms.
+- Magic numbers and strings (principle 3: one rule, one place): a new literal that carries meaning - distances,
+  thresholds, timings, counts, layer/tag/bone/shader names - or a new `private const` / `static readonly` in a
+  service, domain or adapter. Check each against the constants files (`Gothic-Core/Scripts/Const/`: `Constants`,
+  `DaedalusConst`, `FightConst`, `ZenGineConst`; `Gothic-VR/Scripts/VRConstants.cs`): does a matching constant exist
+  (reuse it), or is the value used in 2+ files or a tunable rule (move it there, in the fitting file)? A const used
+  by one private method only, and obvious values (0, 1, -1, `Vector3.zero`), may stay local. Report as one grouped
+  finding per file, not one per literal.
 - A new non-trivial context without `Docs/<context>.md`; missing "why" on a Gothic/ZenKit quirk.
 - A change that decides something (feature, setting, trade-off) without a decision record in `Docs/adr/`.
 - Many new public members that could be private/internal; new public Core types used by one module only.

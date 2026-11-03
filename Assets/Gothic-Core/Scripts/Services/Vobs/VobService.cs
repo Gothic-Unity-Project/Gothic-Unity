@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -29,7 +30,7 @@ using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Services.Vobs
 {
-    public class VobService
+    public class VobService : ILazyInitQueue
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -53,10 +54,12 @@ namespace Gothic.Core.Services.Vobs
         
 
 
-        private const int VobInitBatchSize = 10;
-
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
-        private Queue<VobLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<VobLoader> _objectsToInitQueue = new();
+
+        // VOBs initialized per frame even if the frame's share is used up already. In busy places (Khorinis) the
+        // rest of the frame takes the share before the queue runs: one per frame, thousands of VOBs took minutes.
+        private const int _minVobInitsPerFrame = 10;
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
@@ -109,7 +112,8 @@ namespace Gothic.Core.Services.Vobs
         public void PreWorldCreate()
         {
             _gameStateService.VobsInteractable.Clear();
-            _gameStateService.ClearTriggerVobs();
+            _gameStateService.ClearNamedVobs();
+            Logger.ResetWarningsOnce(); // "warn once" means once per world
         }
 
         /// <summary>
@@ -120,6 +124,8 @@ namespace Gothic.Core.Services.Vobs
         {
             PreCreateWorldVobs(vobs, root, loading);
             await CreateWorldVobs(config, loading, vobs);
+            // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
+            loading.FinalizePhase();
 
             // Ensure all Vob skeletons are created.
             await Task.Yield();
@@ -165,59 +171,59 @@ namespace Gothic.Core.Services.Vobs
             }
 
             loaderComp.IsQueued = true;
-            _objectsToInitQueue.Enqueue(loaderComp);
+            _objectsToInitQueue.Enqueue(loaderComp, go.transform.position);
         }
 
-        // DEBUG - Check how many frames it took to initialize all the objects
-        // private int firstFrameQueueFilledUp;
+        public int CountQueuedWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.CountWithin(center, radius);
+        }
 
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued VOBs nearest to the camera first, at least _minVobInitsPerFrame, then until this
+        /// frame's share is used up.
+        /// </summary>
         private IEnumerator InitVobCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp != 0)
-                    // {
-                    //     Logger.LogWarning($"It took {Time.frameCount - firstFrameQueueFilledUp} frames to clear the queue.");
-                    //     firstFrameQueueFilledUp = 0;
-                    // }
-                    yield return null;
-                }
-                else
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp == 0)
-                    // {
-                    //     firstFrameQueueFilledUp = Time.frameCount;
-                    // }
+                _objectsToInitQueue.UpdateOrderAroundCamera();
 
-                    for (var i = 0; i < VobInitBatchSize && !_objectsToInitQueue.IsEmpty(); i++)
+                var initCount = 0;
+                while (_objectsToInitQueue.TryDequeue(out var item))
+                {
+                    // Destroyed in the meantime (e.g. world change).
+                    if (item == null)
+                        continue;
+
+                    item.IsLoaded = true;
+
+                    // We assume that each loaded VOB is centered at parent=0,0,0.
+                    // Should work smoothly until we start lazy loading sub-vobs ;-)
+                    try
                     {
-                        var item = _objectsToInitQueue.Dequeue();
-
-                        // Destroyed in the meantime (e.g. world change).
-                        if (item == null)
-                            continue;
-
-                        item.IsLoaded = true;
-
-                        // We assume that each loaded VOB is centered at parent=0,0,0.
-                        // Should work smoothly until we start lazy loading sub-vobs ;-)
-                        try
-                        {
-                            _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
-                        }
-
+                        _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
                     }
 
-                    yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                    if (++initCount >= _minVobInitsPerFrame && _frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
+
+                yield return null;
             }
         }
 
@@ -436,6 +442,34 @@ namespace Gothic.Core.Services.Vobs
                 .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position))
                 .FirstOrDefault();
         }
+
+        /// <summary>
+        /// Mob_HasItems: how many of the item the chest of that name holds (OpenGothic WorldObjects::hasItems), 0 if
+        /// there is no such chest. Its content string is what the chest holds: filled from the world, written back by
+        /// the chest's slots once it was opened.
+        /// </summary>
+        public int ExtMobHasItems(string mobName, int itemInstance)
+        {
+            if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpperInvariant(),
+                    out var container))
+            {
+                Logger.LogWarningOnce($"MobHasItems.{mobName}",
+                    $"Mob_HasItems: no chest named '{mobName}' in this world - answering 0.", LogCat.Vob);
+                return 0;
+            }
+
+            var itemName = _gameStateService.GothicVm.GetSymbolByIndex(itemInstance)?.Name;
+            if (itemName == null)
+            {
+                Logger.LogWarning($"Mob_HasItems: item {itemInstance} is no script symbol - answering 0.", LogCat.Vob);
+                return 0;
+            }
+
+            return container.VobAs<IContainer>().Contents.UnpackItems()
+                .Where(i => i.Name.EqualsIgnoreCase(itemName))
+                .Sum(i => i.Amount);
+        }
+
         public void ExtWldInsertItem(int itemInstance, string spawnPoint)
         {
             if (string.IsNullOrEmpty(spawnPoint) || itemInstance <= 0)
@@ -597,6 +631,9 @@ namespace Gothic.Core.Services.Vobs
             if (container.Go == null)
                 return;
 
+            // Movers, triggers and chests are asked by name (Wld_SendTrigger, Mob_HasItems); ignores other types.
+            _gameStateService.RegisterNamedVob(container);
+
             switch (container.Vob.Type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
@@ -614,16 +651,6 @@ namespace Gothic.Core.Services.Vobs
                     
                     _gameStateService.VobsInteractable.TryAdd(visualScheme, new());
                     _gameStateService.VobsInteractable[visualScheme!].Add(container);
-                    break;
-
-                case VirtualObjectType.zCMover:
-                case VirtualObjectType.oCTriggerScript:
-                case VirtualObjectType.zCTriggerList:
-                case VirtualObjectType.zCCodeMaster:
-                case VirtualObjectType.zCTrigger:
-                case VirtualObjectType.zCMoverController:
-                case VirtualObjectType.zCMessageFilter:
-                    _gameStateService.RegisterNamedVob(container);
                     break;
             }
         }
@@ -677,7 +704,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -750,7 +777,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -790,7 +817,7 @@ namespace Gothic.Core.Services.Vobs
             var start = 0;
             while (start < name.Length && !char.IsLetterOrDigit(name[start]))
                 start++;
-            var key = name.Substring(start).ToUpper();
+            var key = name.Substring(start).ToUpperInvariant();
             if (_gameStateService.VobsMover.TryGetValue(key, out containers))
                 return true;
             return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
