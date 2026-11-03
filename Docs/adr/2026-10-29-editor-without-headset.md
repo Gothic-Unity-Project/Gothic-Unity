@@ -11,7 +11,7 @@ In the editor, the game stood still around the player as soon as the headset was
 
 1. **In the editor, the camera draws to the Game view once the headset has shown nothing for a second.** Everything around the player keeps loading, and the Game view shows what the player would see. Not chosen: turning VR off in such a play session, because putting the headset back on would need a restart.
 2. **The headset's next picture switches back by itself.** Putting the headset on again continues in VR without a restart.
-3. **Only in the editor, with a developer setting to turn it off (on by default).** A built game on a headset never needs it, so it costs nothing there.
+3. **Only in the editor, always on, without a developer setting.** A built game on a headset never needs it, so it costs nothing there.
 
 ## Consequences
 

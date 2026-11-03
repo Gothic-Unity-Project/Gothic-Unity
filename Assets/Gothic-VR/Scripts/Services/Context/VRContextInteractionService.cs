@@ -159,7 +159,7 @@ namespace Gothic.VR.Services.Context
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
             // Editor: Game view while the headset renders nothing
-            _vrGameViewFallbackService.Init(developerConfig);
+            _vrGameViewFallbackService.Init();
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.

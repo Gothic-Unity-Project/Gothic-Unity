@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Config;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -12,7 +11,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// Editor only (DeveloperConfig.RenderGameViewWithoutHeadset): while the headset renders nothing (not worn,
+    /// Editor only: while the headset renders nothing (not worn,
     /// asleep, session ended), the main camera renders to the Game view. Unity culls a VR camera only for the
     /// headset's frames - without them culling stands still and no NPC or object around the player gets built.
     /// The headset's next frame switches back.
@@ -29,9 +28,9 @@ namespace Gothic.VR.Services
         private bool _isRenderingToGameView;
         private bool _isActive;
 
-        public void Init(DeveloperConfig developerConfig)
+        public void Init()
         {
-            if (!Application.isEditor || !developerConfig.RenderGameViewWithoutHeadset || _isActive)
+            if (!Application.isEditor || _isActive)
                 return;
 
             _isActive = true;
@@ -73,8 +72,7 @@ namespace Gothic.VR.Services
             _isRenderingToGameView = renderToGameView;
             cameraData.allowXRRendering = !renderToGameView;
             Logger.Log(renderToGameView
-                    ? "[VR] The headset renders nothing - the camera renders to the Game view " +
-                      "(DeveloperConfig.RenderGameViewWithoutHeadset)."
+                    ? "[VR] The headset renders nothing - the camera renders to the Game view."
                     : "[VR] The headset renders again - the camera renders to the headset.",
                 LogCat.VR);
         }
