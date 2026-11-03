@@ -16,11 +16,13 @@ between what the script expects from an external and what our implementation doe
 
 1. **Read the script before writing C#.** Find every call site of the external / state in the Gothic scripts and
    understand the expected return value and side effects. Sources (public):
-   - Gothic 1 / Gothic 2 Mod Development Kit (MDK) - `_work/data/Scripts/` (ask the developer for their local copy)
-   - Gothic 1 scripts (optional, if you don't get a local copy from the developer): https://github.com/VaanaCZ/gothic-1-classic-scripts
-   - Reference engine behaviour: OpenGothic https://github.com/Try/OpenGothic (`game/game/gamescript.cpp` lists
-   externals, `game/world/objects/npc.cpp` NPC logic)
-   - ZenKit / ZenKitCS: https://github.com/GothicKit/ZenKit, https://github.com/GothicKit/ZenKitCS (symlinked at `./ZenKitCS/`)
+   - Gothic scripts: `./Daedalus/` (symlink to the local `Scripts` folder, set up per DEVELOPMENT.md; e.g.
+   `Content/AI/AI_Intern/Externals.d`). If missing: Gothic 1 / 2 Mod Development Kit (MDK) `_work/data/Scripts/`
+   from the developer, or https://github.com/VaanaCZ/gothic-1-classic-scripts (G1)
+   - Reference engine behaviour: `./OpenGothic/` (else https://github.com/Try/OpenGothic): `common/game/gamescript.cpp`
+   lists externals, `common/world/objects/npc.cpp` NPC logic
+   - ZenKit / ZenKitCS / ZenKitCAPI: `./ZenKit/`, `./ZenKitCS/`, `./ZenKitCAPI/` (else
+   https://github.com/GothicKit/ZenKit, https://github.com/GothicKit/ZenKitCS)
 2. **Check for a `B_*` / `C_*` helper before hardcoding logic in C#.** XP, spells, weapon selection, attitude,
    item transfer usually already exist in Daedalus. Call them instead of reimplementing:
    ```csharp

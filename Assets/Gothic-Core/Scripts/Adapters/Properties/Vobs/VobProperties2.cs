@@ -25,7 +25,7 @@ namespace Gothic.Core.Adapters.Properties.Vobs
         /// </summary>
         public string GetVisualScheme()
         {
-            return Vob.Visual?.Name.Split('_').First(); // e.g. BED_1_OC.ASC => BED
+            return Vob.GetVisualScheme();
         }
         
         public virtual string GetFocusName()

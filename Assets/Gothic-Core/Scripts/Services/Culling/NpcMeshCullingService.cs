@@ -38,6 +38,14 @@ namespace Gothic.Core.Services.Culling
             _npcDomain.OnNpcRoutineChanged(npc);
         }
 
+        /// <summary>
+        /// The NPCs that are awake (in visible range) into result, which the caller keeps (no allocation).
+        /// </summary>
+        public void CollectAwakeNpcs(List<NpcContainer> result)
+        {
+            _npcDomain.CollectAwakeNpcs(result);
+        }
+
         public void Update()
         {
             _npcDomain.Update();
@@ -46,6 +54,11 @@ namespace Gothic.Core.Services.Culling
         public void UpdateVobPositionOfVisibleNpcs()
         {
             _npcDomain.UpdateVobPositionOfVisibleNpcs();
+        }
+
+        public void UpdateVobPositionOfAllNpcs()
+        {
+            _npcDomain.UpdateVobPositionOfAllNpcs();
         }
 
         public List<NpcContainer> GetVisibleNpcs()

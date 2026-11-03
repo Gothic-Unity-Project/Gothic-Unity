@@ -1,13 +1,13 @@
 using System;
-using System.Linq;
 using Gothic.Core.Extensions;
-using Gothic.Core.Logging;
-using Gothic.Core.Services.Config;
-using Reflex.Attributes;
-using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Animations.Morph
 {
+    /// <summary>
+    /// The NPC's face like the engine: the mouth moves while talking (VISEME), Mdl_StartFaceAni moods (S_FRIENDLY,
+    /// S_ANGRY, S_FRIGHTENED...), face animations of MDS events (T_HURT, T_EAT) and blinking on its own, blended on top
+    /// of each other with the MMB's blend in/out. Found on BoroBongo's branch.
+    /// </summary>
     public class HeadMorph : AbstractMorphAnimation
     {
         public enum HeadMorphType
@@ -24,36 +24,30 @@ namespace Gothic.Core.Adapters.Animations.Morph
             Viseme
         }
 
-        [Inject] private readonly ConfigService _configService;
-
+        // A face animation from an MDS event (T_HURT loops) is held this long.
+        private const float _eventFaceAnimationSeconds = 1f;
 
         public string HeadName;
 
+        protected override bool IsBlendingMorphs => true;
 
-        /// <summary>
-        /// DeveloperConfig.EnableFaceAnimations: mood, talking mouth and blinking are blended like the engine does.
-        /// </summary>
-        protected override bool IsBlendingMorphs => _configService.Dev.EnableFaceAnimations;
+        // Faces are seen up to a few meters only.
+        protected override float MaxBlendDistance => 12f;
 
-        // DeveloperConfig.EnableFaceAnimations: a face animation from an MDS event (T_HURT loops) is held this long.
-        public const float EventFaceAnimationSeconds = 1f;
 
         protected override void Start()
         {
             base.Start();
 
-            // DeveloperConfig.EnableFaceAnimations: the engine blinks on its own (the MMS's R_EYESBLINK) - the blended
-            // blink no longer wipes out the rest of the face. Mdl_ApplyRandomFaceAni may have set it already.
-            if (!_configService.Dev.EnableNpcEyeBlinking && !_configService.Dev.EnableFaceAnimations)
-                return;
+            // Mdl_ApplyRandomFaceAni may have set the blink already.
             var blinkName = GetAnimationNameByType(HeadMorphType.Eyesblink);
-            if (RandomAnimations.Any(i => i.animationName.EqualsIgnoreCase(blinkName)))
+            if (RandomAnimations.Exists(i => i.animationName.EqualsIgnoreCase(blinkName)))
                 return;
 
             RandomAnimations.Add(new()
             {
                 morphMeshName = HeadName,
-                animationName = GetAnimationNameByType(HeadMorphType.Eyesblink),
+                animationName = blinkName,
                 firstTimeAverage = 0.15f,
                 firstTimeVariable = 0.1f,
                 secondTimeAverage = 3.8f,
@@ -63,38 +57,26 @@ namespace Gothic.Core.Adapters.Animations.Morph
             RandomAnimationTimers.Add(3.8f * 2); // secondTimeAverage * 2 seconds);
         }
 
-        public void StartAnimation(string headName, HeadMorphType type)
-        {
-            StartAnimation(headName, GetAnimationNameByType(type));
-        }
-
         /// <summary>
-        /// We need to wrap StopAnimation by fetching string name of animation based on HeadMorphType
-        /// </summary>
-        public void StopAnimation(HeadMorphType type)
-        {
-            var animationName = GetAnimationNameByType(type);
-            StopAnimation(animationName);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableFaceAnimations: Mdl_StartFaceAni / an MDS morph event / talking. intensity = weight
-        /// (0..1), holdSeconds: &lt; 0 until replaced or stopped, 0 = the animation's own duration.
+        /// Mdl_StartFaceAni, an MDS morph event or talking. intensity = weight (0..1), holdSeconds: &lt; 0 until
+        /// replaced or stopped, 0 = the animation's own duration.
         /// </summary>
         public void StartFaceAnimation(string animationName, float intensity, float holdSeconds)
         {
             StartAnimation(HeadName, animationName, intensity, holdSeconds);
         }
 
-        public void StopFaceAnimation(string animationName)
+        /// <summary>
+        /// A face animation of an MDS event (T_HURT, T_EAT), held a moment.
+        /// </summary>
+        public void StartEventFaceAnimation(string animationName)
         {
-            if (IsAnimationRunning(animationName))
-                StopAnimation(animationName);
+            StartAnimation(HeadName, animationName, 1f, _eventFaceAnimationSeconds);
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableFaceAnimations: Mdl_ApplyRandomFaceAni - a face animation played again and again
-        /// (R_EYESBLINK): after timeMin±timeMinVar with probability probMin, otherwise after timeMax±timeMaxVar.
+        /// Mdl_ApplyRandomFaceAni: a face animation played again and again (R_EYESBLINK): after timeMin±timeMinVar with
+        /// probability probMin, otherwise after timeMax±timeMaxVar.
         /// </summary>
         public void ApplyRandomFaceAnimation(string animationName, float timeMin, float timeMinVar, float timeMax,
             float timeMaxVar, float probMin)
@@ -128,21 +110,6 @@ namespace Gothic.Core.Adapters.Animations.Morph
                 HeadMorphType.Eyesblink => "R_EYESBLINK",
                 _ => throw new Exception($"AnimationType >{type}< not yet handled for head morphing.")
             };
-        }
-
-        public HeadMorphType GetAnimationTypeByName(string name)
-        {
-            if (name.ContainsIgnoreCase("EAT"))
-                return HeadMorphType.Eat;
-            if (name.ContainsIgnoreCase("HURT"))
-                return HeadMorphType.Hurt;
-            if (name.ContainsIgnoreCase("VISEME"))
-                return HeadMorphType.Viseme;
-
-            Logger.LogError($"{name} as morphMeshType not yet mapped.", LogCat.Animation);
-            
-            // If nothing found, we return the hurt face. Meme potential? ;-)
-            return HeadMorphType.Hurt;
         }
     }
 }

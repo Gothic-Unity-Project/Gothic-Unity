@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -90,7 +91,7 @@ namespace Gothic.Core.Domain.Npc
             {
                 _previousStateIndex = hero.Vob.CurrentStateIndex;
                 _previousStateName = hero.Vob.CurrentStateName;
-                _contextInteractionService.LockPlayerInPlace();
+                _contextInteractionService.LockPlayer(PlayerLocks.SpellState, PlayerControls.InPlace);
             }
 
             _hero = hero;
@@ -166,7 +167,7 @@ namespace Gothic.Core.Domain.Npc
                 _hero.Vob.CurrentStateIndex = _previousStateIndex;
                 _hero.Vob.CurrentStateName = _previousStateName;
             }
-            _contextInteractionService.UnlockPlayer();
+            _contextInteractionService.UnlockPlayer(PlayerLocks.SpellState);
             Logger.Log($"[HeroSpellState] Hero out of {_stateName} ({reason})", LogCat.Fight);
         }
     }

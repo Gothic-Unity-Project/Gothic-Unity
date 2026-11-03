@@ -84,5 +84,19 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PrefabProps.AnimationSystem.PlayIdleAnimation();
             base.AnimationEnd();
         }
+
+        /// <summary>
+        /// Dropped before its end (a new state): the NPC faces the other one and leaves the startled pose.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            if (_animationName != null)
+            {
+                NpcGo.transform.rotation = _finalRotation;
+                PrefabProps.AnimationSystem.StopAnimation(_animationName);
+                PrefabProps.AnimationSystem.StopAnimation(_animationEndPose);
+            }
+            base.StopImmediately();
+        }
     }
 }

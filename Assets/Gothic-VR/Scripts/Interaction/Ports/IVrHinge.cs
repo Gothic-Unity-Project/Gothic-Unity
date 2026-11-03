@@ -35,6 +35,11 @@ namespace Gothic.VR.Interaction.Ports
         void Unlock();
 
         /// <summary>
+        /// Opens the leaf completely without sound and Opened event, e.g. a door which was open in a save game.
+        /// </summary>
+        void OpenInstantly();
+
+        /// <summary>
         /// Sounds played by the hinge when it reaches its opened or closed position.
         /// </summary>
         void SetSounds(AudioClip opened, AudioClip closed);

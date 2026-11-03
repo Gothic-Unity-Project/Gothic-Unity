@@ -61,7 +61,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _hasLoggedMissingSubtitles = true;
             }
             // FIXME - CutsceneLibrary.Blocks is uncached and will re-read all elements each time we call it! Cache and reuse!
-            var block = cutsceneLibrary?.Blocks.Find(x => x.Name == OutputName);
+            var block = cutsceneLibrary?.GetBlock(OutputName);
 
             if (audioClip == null)
                 Logger.LogWarning($"AudioClip >{OutputName}< not found. Using text-length fallback.", LogCat.Dialog);
@@ -131,7 +131,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             var bodyRadius = Gothic.Core.Domain.Npc.NpcBodySize.GetRadius(NpcContainer);
             voice.minDistance = bodyRadius;
-            voice.maxDistance = bodyRadius + Gothic.Core.Const.Constants.DialogMaxDistance * 3f;
+            voice.maxDistance = bodyRadius + Gothic.Core.Const.Constants.DialogFreeMovementRadius * 3f;
             return voice;
         }
 
@@ -199,14 +199,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.NpcSound.transform.Find("_DialogVoice")?.GetComponent<AudioSource>()?.Stop();
                 // Killed/knocked out while talking - the line stopped, so does its subtitle.
                 PrefabProps.NpcSubtitles?.HideSubtitles();
-                if (_randomDialogAnimationName != null)
-                {
-                    PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                    // DeveloperConfig.EnableFaceAnimations: the mouth stops with the line.
-                    if (_configService.Dev.EnableFaceAnimations)
-                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
-                }
+                StopGestureAndMouth();
             }
+        }
+
+        public override bool HasEnded => IsFinishedFlag || _audioPlaySeconds <= 0f;
+        /// <summary>
+        /// Both ends of an NPC's line, finished or cut off: the mouth (VISEME) moves until it is stopped.
+        /// </summary>
+        private void StopGestureAndMouth()
+        {
+            if (_randomDialogAnimationName == null)
+                return;
+
+            PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+            PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
         }
 
         public override bool IsFinished()
@@ -225,14 +232,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // NPC
                 else
                 {
-                    if (_randomDialogAnimationName != null)
-                    {
-                        PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
-                    }
+                    StopGestureAndMouth();
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
+                // Asked again every frame until the next action starts - the line ends only once.
+                IsFinishedFlag = true;
                 return true;
             }
 

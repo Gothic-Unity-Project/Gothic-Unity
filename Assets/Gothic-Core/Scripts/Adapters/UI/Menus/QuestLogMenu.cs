@@ -76,6 +76,7 @@ namespace Gothic.Core.Adapters.UI.Menus
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
 
         private class ListItemContainer
@@ -108,6 +109,26 @@ namespace Gothic.Core.Adapters.UI.Menus
             Setup();
             UpdateDayAndTime(_gameTimeService.GetCurrentDateTime());
             GlobalEventDispatcher.GameTimeMinuteChangeCallback.AddListener(UpdateDayAndTime);
+        }
+
+        /// <summary>
+        /// In VR, the log is shown next to the main menu and gets enabled with it, SetVisible() isn't called.
+        /// Refill the lists on every opening, otherwise they show the topics of the game loaded before (and miss new
+        /// entries) until a list is clicked. The selected list stays open, an opened topic goes back to its list.
+        /// </summary>
+        private void OnEnable()
+        {
+            // Lists not created yet (Awake), or no game running (main menu right after the start).
+            if (_listMenuCache.Count == 0 || _saveGameService.Save == null)
+                return;
+
+            if (MenuItemCache[_instanceContentViewer].go.activeSelf)
+                OnContentViewerBackClick();
+
+            var activeList = _activeListMenu;
+            ResetView();
+            FillLists();
+            activeList?.RootGo.SetActive(true);
         }
 
         private void UpdateDayAndTime(DateTime time)

@@ -87,6 +87,13 @@ namespace Gothic.VR.Adapters
             _npcLoader = GetComponentInParent<NpcLoader>();
         }
 
+        private void Update()
+        {
+            // A knocked out NPC that gets up takes his things back out of reach.
+            if (_isOpen && _npcContainer != null && !NpcHelperService.IsDown(_npcContainer))
+                Close();
+        }
+
         public void Toggle(NpcContainer npc)
         {
             if (_isOpen)
@@ -288,16 +295,6 @@ namespace Gothic.VR.Adapters
             if (_pendingRefresh != null)
                 StopCoroutine(_pendingRefresh);
             _pendingRefresh = StartCoroutine(RefreshAfterDelay());
-        }
-
-        private void Update()
-        {
-            if (!_isOpen || _npcContainer == null)
-                return;
-
-            var state = _npcContainer.Props.BodyState;
-            if (state != VmGothicEnums.BodyState.BsDead && state != VmGothicEnums.BodyState.BsUnconscious)
-                Close();
         }
 
         public void Close()

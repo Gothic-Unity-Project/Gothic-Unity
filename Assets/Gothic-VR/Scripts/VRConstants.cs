@@ -13,6 +13,9 @@ namespace Gothic.VR
             public const string SmoothRotationSpeed = "smoothRotationSpeed";
             public const string SmoothSpectator = "smoothSpectator";
 
+            // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
+            public const string LedgeClimbMode = "ledgeClimbMode";
+
             // Immersion
             public const string Microphone = "microphone";
 
@@ -27,6 +30,8 @@ namespace Gothic.VR
             public const string StabFinish = "stabFinish";
             // 1 = a crossbow is reloaded by pulling its string (default), 0 = by itself.
             public const string CrossbowReload = "crossbowReload";
+            // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
+            public const string LedgeHints = "ledgeHints";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
@@ -50,6 +55,9 @@ namespace Gothic.VR
         public const float HeightOffsetDefaultValue = 0.5f;
 
         public const int PhysicalHandsDefaultValue = 1;
+
+        public const int LedgeClimbModeDefaultValue = 0;
+        public const int LedgeHintsDefaultValue = 1;
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;
