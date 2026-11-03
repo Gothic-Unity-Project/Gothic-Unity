@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using UberLogger;
@@ -16,6 +17,8 @@ namespace Gothic.Core.Logging
     /// </summary>
     public static class Logger
     {
+        private static readonly HashSet<string> _warnedOnceKeys = new();
+
         [StackTraceIgnore]
         [HideInCallstack]
         public static void Log(string message, LogCat cat)
@@ -28,6 +31,27 @@ namespace Gothic.Core.Logging
         public static void LogWarning(string message, LogCat cat)
         {
             UberDebug.LogWarningChannel(cat.ToString(), message);
+        }
+
+        /// <summary>
+        /// Logs the warning only the first time <paramref name="key"/> is seen for this category. Keys are forgotten
+        /// by <see cref="ResetWarningsOnce"/> (called on world change), so "once" means once per world.
+        /// </summary>
+        /// <returns>True if the warning was logged, false if it was suppressed.</returns>
+        [StackTraceIgnore]
+        [HideInCallstack]
+        public static bool LogWarningOnce(string key, string message, LogCat cat)
+        {
+            if (!_warnedOnceKeys.Add(string.Concat(cat.ToString(), "|", key)))
+                return false;
+
+            LogWarning(message, cat);
+            return true;
+        }
+
+        public static void ResetWarningsOnce()
+        {
+            _warnedOnceKeys.Clear();
         }
 
         [StackTraceIgnore]

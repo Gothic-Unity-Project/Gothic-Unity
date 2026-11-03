@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Culling;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
@@ -29,7 +30,7 @@ using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Services.Vobs
 {
-    public class VobService
+    public class VobService : ILazyInitQueue
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
@@ -51,14 +52,14 @@ namespace Gothic.Core.Services.Vobs
         
         private const float _interactableLookupDistance = 10f; // meter
         
-        private readonly char[] _itemNameSeparators = { ';', ',' };
-        private readonly char[] _itemCountSeparators = { ':', '.' };
 
-
-        private const int VobInitBatchSize = 10;
 
         private Dictionary<VirtualObjectType, GameObject> _vobTypeParentGOs = new();
-        private Queue<VobLoader> _objectsToInitQueue = new();
+        private readonly NearestFirstQueue<VobLoader> _objectsToInitQueue = new();
+
+        // VOBs initialized per frame even if the frame's share is used up already. In busy places (Khorinis) the
+        // rest of the frame takes the share before the queue runs: one per frame, thousands of VOBs took minutes.
+        private const int _minVobInitsPerFrame = 10;
 
         private int _dispatchTriggerDepth;
         private const int _maxDispatchTriggerDepth = 8;
@@ -84,6 +85,8 @@ namespace Gothic.Core.Services.Vobs
             VirtualObjectType.zCTriggerWorldStart,
             VirtualObjectType.zCMoverController,
             VirtualObjectType.zCMessageFilter,
+            // A damage zone has no visual to be culled by - it hurts NPCs everywhere.
+            VirtualObjectType.oCTouchDamage,
             VirtualObjectType.zCVobLevelCompo
         };
 
@@ -111,7 +114,8 @@ namespace Gothic.Core.Services.Vobs
         public void PreWorldCreate()
         {
             _gameStateService.VobsInteractable.Clear();
-            _gameStateService.ClearTriggerVobs();
+            _gameStateService.ClearNamedVobs();
+            Logger.ResetWarningsOnce(); // "warn once" means once per world
         }
 
         /// <summary>
@@ -121,7 +125,10 @@ namespace Gothic.Core.Services.Vobs
         public async Task CreateWorldVobsAsync(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs, GameObject root)
         {
             PreCreateWorldVobs(vobs, root, loading);
+            _initializerDomain.ClearCreatedEarly();
             await CreateWorldVobs(config, loading, vobs);
+            // The counted total is too high (see GetTotalVobCount) - the bar's VOB part is full now.
+            loading.FinalizePhase();
 
             // Ensure all Vob skeletons are created.
             await Task.Yield();
@@ -167,59 +174,59 @@ namespace Gothic.Core.Services.Vobs
             }
 
             loaderComp.IsQueued = true;
-            _objectsToInitQueue.Enqueue(loaderComp);
+            _objectsToInitQueue.Enqueue(loaderComp, go.transform.position);
         }
 
-        // DEBUG - Check how many frames it took to initialize all the objects
-        // private int firstFrameQueueFilledUp;
+        public int CountQueuedWithin(Vector3 center, float radius)
+        {
+            return _objectsToInitQueue.CountWithin(center, radius);
+        }
 
+        public void SetInitFocus(Vector3 center, float radius)
+        {
+            _objectsToInitQueue.SetFocus(center, radius);
+        }
+
+        public void ClearInitFocus()
+        {
+            _objectsToInitQueue.ClearFocus();
+        }
+
+        /// <summary>
+        /// Initializes queued VOBs nearest to the camera first, at least _minVobInitsPerFrame, then until this
+        /// frame's share is used up.
+        /// </summary>
         private IEnumerator InitVobCoroutine()
         {
             while (true)
             {
-                if (_objectsToInitQueue.IsEmpty())
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp != 0)
-                    // {
-                    //     Logger.LogWarning($"It took {Time.frameCount - firstFrameQueueFilledUp} frames to clear the queue.");
-                    //     firstFrameQueueFilledUp = 0;
-                    // }
-                    yield return null;
-                }
-                else
-                {
-                    // DEBUG
-                    // if (firstFrameQueueFilledUp == 0)
-                    // {
-                    //     firstFrameQueueFilledUp = Time.frameCount;
-                    // }
+                _objectsToInitQueue.UpdateOrderAroundCamera();
 
-                    for (var i = 0; i < VobInitBatchSize && !_objectsToInitQueue.IsEmpty(); i++)
+                var initCount = 0;
+                while (_objectsToInitQueue.TryDequeue(out var item))
+                {
+                    // Destroyed in the meantime (e.g. world change).
+                    if (item == null)
+                        continue;
+
+                    item.IsLoaded = true;
+
+                    // We assume that each loaded VOB is centered at parent=0,0,0.
+                    // Should work smoothly until we start lazy loading sub-vobs ;-)
+                    try
                     {
-                        var item = _objectsToInitQueue.Dequeue();
-
-                        // Destroyed in the meantime (e.g. world change).
-                        if (item == null)
-                            continue;
-
-                        item.IsLoaded = true;
-
-                        // We assume that each loaded VOB is centered at parent=0,0,0.
-                        // Should work smoothly until we start lazy loading sub-vobs ;-)
-                        try
-                        {
-                            _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
-                        }
-
+                        _initializerDomain.InitVob(item.Container.Vob, item.gameObject, default, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogError($"Failed to init VOB {item.name}: {e}", LogCat.Vob);
                     }
 
-                    yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
+                    if (++initCount >= _minVobInitsPerFrame && _frameSkipperService.IsFrameBudgetUsed)
+                        break;
                 }
+
+                yield return null;
             }
         }
 
@@ -338,7 +345,8 @@ namespace Gothic.Core.Services.Vobs
             }
         }
 
-        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs)
+        private async Task CreateWorldVobs(DeveloperConfig config, LoadingService loading, List<IVirtualObject> vobs,
+            IVirtualObject parentVob = null)
         {
             foreach (var vob in vobs)
             {
@@ -364,6 +372,19 @@ namespace Gothic.Core.Services.Vobs
                 }
 
                 var container = CreateContainerWithLoader(vob);
+                container.ParentVob = parentVob;
+
+                // Cutscene cameras, fog zones, ... aren't built (no visual, never lazy loaded), nor are decal/particle
+                // VOBs while those visuals are off (both off in Production). Their children become VOBs of their own:
+                // G2 Irdorath's camera VOBs carry the trigger lists that move its pillars and gates, its trap and bridge
+                // triggers sit below particle VOBs, G2's treasure X marks below decals.
+                if (vob.Children.Count > 0 &&
+                    (VobInitializerDomain.IsUnbuiltVobType(vob.Type) || _initializerDomain.IsVisualDisabled(vob)))
+                    await CreateWorldVobs(config, loading, vob.Children, vob);
+                // Logic VOBs (triggers, trigger lists, scripts, free points, ...) below a lazily loaded VOB only existed
+                // once the player came near it - a trigger sent from far away found nothing. They're created now.
+                else if (vob.Children.Count > 0 && !_vobTypesNonLazyLoading.Contains(vob.Type))
+                    await CreateLogicDescendants(config, loading, vob);
 
                 if (_vobTypesNonLazyLoading.Contains(vob.Type))
                 {
@@ -378,6 +399,32 @@ namespace Gothic.Core.Services.Vobs
                     AddToMobInteractableList(container);
                 }
             }
+        }
+
+        private async Task CreateLogicDescendants(DeveloperConfig config, LoadingService loading, IVirtualObject parent)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child.Id != 0 && IsEagerLogicType(child.Type))
+                {
+                    // Its lazily loaded parent skips it later.
+                    _initializerDomain.MarkCreatedEarly(child);
+                    await CreateWorldVobs(config, loading, new List<IVirtualObject> { child }, parent);
+                }
+                else if (child.Children.Count > 0)
+                {
+                    await CreateLogicDescendants(config, loading, child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Logic VOBs created at once - movers (with their meshes and children) stay with their parent.
+        /// </summary>
+        private static bool IsEagerLogicType(VirtualObjectType type)
+        {
+            return _vobTypesNonLazyLoading.Contains(type) && type is not (VirtualObjectType.zCMover or
+                VirtualObjectType.zCVobLevelCompo or VirtualObjectType.zCPFXController);
         }
 
         private VobContainer CreateContainerWithLoader(IVirtualObject vob)
@@ -412,6 +459,20 @@ namespace Gothic.Core.Services.Vobs
 
             return container;
         }
+
+        /// <summary>
+        /// An item outside the world list, e.g. for inventory pages, holsters and chest slots.
+        /// </summary>
+        public VobContainer CreateItem(string itemName, int amount)
+        {
+            return CreateItem(new Item
+            {
+                Name = itemName,
+                Visual = new VisualMesh(),
+                Instance = itemName,
+                Amount = amount
+            });
+        }
         
         [CanBeNull]
         public VobContainer GetFreeInteractableWithin10M(Vector3 position, string visualScheme)
@@ -424,9 +485,41 @@ namespace Gothic.Core.Services.Vobs
                 .OrderBy(pair => Vector3.Distance(pair.Vob.Position.ToUnityVector(), position))
                 .FirstOrDefault();
         }
+
+        /// <summary>
+        /// Mob_HasItems: how many of the item the chest of that name holds (OpenGothic WorldObjects::hasItems), 0 if
+        /// there is no such chest. Its content string is what the chest holds: filled from the world, written back by
+        /// the chest's slots once it was opened.
+        /// </summary>
+        public int ExtMobHasItems(string mobName, int itemInstance)
+        {
+            if (mobName.IsNullOrEmpty() || !_gameStateService.VobsContainer.TryGetValue(mobName.ToUpperInvariant(),
+                    out var container))
+            {
+                Logger.LogWarningOnce($"MobHasItems.{mobName}",
+                    $"Mob_HasItems: no chest named '{mobName}' in this world - answering 0.", LogCat.Vob);
+                return 0;
+            }
+
+            var itemName = _gameStateService.GothicVm.GetSymbolByIndex(itemInstance)?.Name;
+            if (itemName == null)
+            {
+                Logger.LogWarning($"Mob_HasItems: item {itemInstance} is no script symbol - answering 0.", LogCat.Vob);
+                return 0;
+            }
+
+            return container.VobAs<IContainer>().Contents.UnpackItems()
+                .Where(i => i.Name.EqualsIgnoreCase(itemName))
+                .Sum(i => i.Amount);
+        }
+
         public void ExtWldInsertItem(int itemInstance, string spawnPoint)
         {
             if (string.IsNullOrEmpty(spawnPoint) || itemInstance <= 0)
+                return;
+
+            // Items of a restored world exist already (INIT_* scripts run again).
+            if (_saveGameService.IsRunningInitScriptsOfRestoredWorld)
                 return;
 
             var activeTypes = _configService.Dev.SpawnVOBTypes.Value;
@@ -434,8 +527,18 @@ namespace Gothic.Core.Services.Vobs
                 return;
 
             var item = _vmCacheService.TryGetItemData(itemInstance);
-            var instanceName = _gameStateService.GothicVm.GetSymbolByIndex(item.Index)!.Name;
-            var wp = _wayNetService.GetWayNetPoint(spawnPoint)!;
+            var instanceName = item != null ? _gameStateService.GothicVm.GetSymbolByIndex(item.Index)?.Name : null;
+            var wp = _wayNetService.GetWayNetPoint(spawnPoint);
+
+            // Like OpenGothic, an unknown item or spawn point is skipped. The exception aborted the whole world startup
+            // script: G2's STARTUP_OLDWORLD stopped half way, the Valley of Mines stayed half empty.
+            if (instanceName == null || wp == null)
+            {
+                var itemText = instanceName == null ? $"no item {itemInstance}" : $"'{instanceName}'";
+                var pointText = wp == null ? " - no such waypoint/freepoint" : "";
+                Logger.LogWarning($"Wld_InsertItem: {itemText} at '{spawnPoint}'{pointText}. Skipped.", LogCat.Vob);
+                return;
+            }
 
             var vob = new Item
             {
@@ -444,6 +547,34 @@ namespace Gothic.Core.Services.Vobs
                 Rotation = wp.Rotation.ToZkMatrix(),
                 Visual = new VisualMesh(),
                 Instance = instanceName
+            };
+
+            var container = CreateContainerWithLoader(vob);
+            _vobMeshCullingService.AddCullingEntry(container);
+            _saveGameService.AddVobToWorld(container.Vob);
+            GlobalEventDispatcher.WorldItemInserted.Invoke(container.Vob);
+        }
+
+        /// <summary>
+        /// Wld_InsertObject(visual, point): a plain mob (oCMOB) with that visual at a waypoint or free point.
+        /// </summary>
+        public void ExtWldInsertObject(string visual, string spawnPoint)
+        {
+            var wp = string.IsNullOrEmpty(spawnPoint) ? null : _wayNetService.GetWayNetPoint(spawnPoint);
+            if (string.IsNullOrEmpty(visual) || wp == null)
+            {
+                Logger.LogWarning($"[VobService] Wld_InsertObject({visual}, {spawnPoint}): no visual or no such " +
+                                  "point - nothing inserted.", LogCat.Vob);
+                return;
+            }
+
+            var vob = new MovableObject
+            {
+                Name = visual,
+                Position = wp.Position.ToZkVector(),
+                Rotation = wp.Rotation.ToZkMatrix(),
+                Visual = new VisualMesh { Name = visual },
+                ShowVisual = true
             };
 
             var container = CreateContainerWithLoader(vob);
@@ -545,6 +676,9 @@ namespace Gothic.Core.Services.Vobs
             if (container.Go == null)
                 return;
 
+            // Movers, triggers and chests are asked by name (Wld_SendTrigger, Mob_HasItems); ignores other types.
+            _gameStateService.RegisterNamedVob(container);
+
             switch (container.Vob.Type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
@@ -555,23 +689,13 @@ namespace Gothic.Core.Services.Vobs
                 case VirtualObjectType.oCMobContainer:
                 case VirtualObjectType.oCMobSwitch:
                 case VirtualObjectType.oCMobWheel:
-                    var visualScheme = container.Vob.Visual?.Name.Split('_').First().ToUpper(); // e.g. BED_1_OC.ASC => BED);
+                    var visualScheme = container.Vob.GetVisualScheme();
                     
                     if (visualScheme.IsNullOrEmpty())
                         return;
                     
                     _gameStateService.VobsInteractable.TryAdd(visualScheme, new());
                     _gameStateService.VobsInteractable[visualScheme!].Add(container);
-                    break;
-
-                case VirtualObjectType.zCMover:
-                case VirtualObjectType.oCTriggerScript:
-                case VirtualObjectType.zCTriggerList:
-                case VirtualObjectType.zCCodeMaster:
-                case VirtualObjectType.zCTrigger:
-                case VirtualObjectType.zCMoverController:
-                case VirtualObjectType.zCMessageFilter:
-                    _gameStateService.RegisterNamedVob(container);
                     break;
             }
         }
@@ -625,7 +749,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -698,7 +822,7 @@ namespace Gothic.Core.Services.Vobs
                 return;
             }
 
-            var key = name.ToUpper();
+            var key = name.ToUpperInvariant();
 
             if (TryGetTriggerVob(_gameStateService.VobsCodeMaster, key, out var codeMaster))
             {
@@ -715,6 +839,51 @@ namespace Gothic.Core.Services.Vobs
             }
 
             Logger.LogWarning($"[VobService] DispatchUntrigger: '{name}' - no handler found", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// A message filter's Enable, Disable or Toggle: like the engine (OpenGothic AbstractTrigger, T_Enable/
+        /// T_Disable/T_ToggleEnable) the named triggers, trigger lists, trigger scripts and movers are switched on or
+        /// off - a disabled one ignores triggers and untriggers. Stored in the VOB's own enabled flag, which Gothic's
+        /// save keeps. Found comparing with BoroBongo's branch.
+        /// </summary>
+        public void DispatchEnable(string name, MessageFilterAction action)
+        {
+            if (string.IsNullOrEmpty(name))
+                return;
+
+            var targets = new List<VobContainer>();
+            if (TryGetMovers(name, out var movers))
+                targets.AddRange(movers);
+
+            var key = name.ToUpper();
+            foreach (var registry in new[]
+                     {
+                         _gameStateService.VobsTrigger, _gameStateService.VobsTriggerList,
+                         _gameStateService.VobsTriggerScript
+                     })
+            {
+                if (registry.TryGetValue(key, out var container))
+                    targets.Add(container);
+            }
+
+            foreach (var target in targets)
+            {
+                if (target?.Vob is not ITrigger trigger)
+                    continue;
+
+                trigger.IsEnabled = action switch
+                {
+                    MessageFilterAction.Enable => true,
+                    MessageFilterAction.Disable => false,
+                    _ => !trigger.IsEnabled
+                };
+                Logger.Log($"[VobService] {action} '{name}' -> {(trigger.IsEnabled ? "enabled" : "disabled")}",
+                    LogCat.Vob);
+            }
+
+            if (targets.Count == 0)
+                Logger.LogWarning($"[VobService] {action} '{name}': no trigger or mover of that name", LogCat.Vob);
         }
 
         private static bool TryGetTriggerVob(Dictionary<string, VobContainer> registry, string key,
@@ -738,40 +907,11 @@ namespace Gothic.Core.Services.Vobs
             var start = 0;
             while (start < name.Length && !char.IsLetterOrDigit(name[start]))
                 start++;
-            var key = name.Substring(start).ToUpper();
+            var key = name.Substring(start).ToUpperInvariant();
             if (_gameStateService.VobsMover.TryGetValue(key, out containers))
                 return true;
             return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
         }
-        
-        public List<ContentItem> UnpackItems(string contents)
-        {
-            List<ContentItem> result = new();
-
-            if (contents.IsNullOrEmpty())
-                return new();
-            
-            var items = contents.Split(_itemNameSeparators);
-        
-            foreach (var item in items)
-            {
-                var count = 1;
-                var nameCountSplit = item.Split(_itemCountSeparators);
-        
-                if (nameCountSplit.Length != 1)
-                    count = int.Parse(nameCountSplit[1]);
-        
-                result.Add(new ContentItem(nameCountSplit[0], count));
-            }
-
-            return result;
-        }
-
-        public string PackItems(List<ContentItem> items)
-        {
-            return string.Join(';', items.Select(i => $"{i.Name}:{i.Amount}"));
-        }
-
         /// <summary>
         /// Removes a VobContainer from the world cache without destroying its GameObject.
         /// Use when the player physically takes a world item (GO stays alive in VR hands).

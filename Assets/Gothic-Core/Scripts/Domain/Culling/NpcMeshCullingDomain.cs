@@ -4,7 +4,6 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Creator;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
@@ -224,7 +223,7 @@ namespace Gothic.Core.Domain.Culling
             var props = npcData.Props;
 
             // Corpses stay where they are.
-            if (props == null || props.BodyState == VmGothicEnums.BodyState.BsDead)
+            if (props == null || props.IsDead)
                 return;
 
             if (props.RoutineCurrent == null)
@@ -241,6 +240,17 @@ namespace Gothic.Core.Domain.Culling
             // mesh to the routine waypoint mid-walk. Loaded NPCs are repositioned on re-enable via ReEnableNpc().
             if (!_loaders[index].IsLoaded)
                 _loaders[index].transform.position = wayNetPoint.Position;
+        }
+
+        /// <summary>
+        /// Fills result with the NPCs that are awake (in visible range). Allocation-free for lookups on every
+        /// perception tick: the caller keeps the list.
+        /// </summary>
+        public void CollectAwakeNpcs(List<NpcContainer> result)
+        {
+            result.Clear();
+            foreach (var index in _visibleNpcs)
+                result.Add(_loaders[index].Container);
         }
 
         /// <summary>
@@ -274,6 +284,34 @@ namespace Gothic.Core.Domain.Culling
 
                 container.Vob.Position = container.PrefabProps.Bip01.position.ToZkVector();
                 container.Vob.Rotation = container.PrefabProps.Bip01.rotation.ToZkMatrix();
+            }
+        }
+
+        /// <summary>
+        /// Sync the position of every NPC of the world into its VOB (save games, leaving a world).
+        /// The root of a visible NPC follows walking animations only after their loop is done. BIP01 is up to date,
+        /// but at hip height. We therefore combine both.
+        /// </summary>
+        public void UpdateVobPositionOfAllNpcs()
+        {
+            for (var i = 0; i < _count; i++)
+            {
+                var loader = _loaders[i];
+                var container = loader == null ? null : loader.Container;
+                if (container?.Vob == null)
+                    continue;
+
+                // A built NPC is its body ("Root" below the loader) - the loader itself goes to the world's origin once
+                // the body is built. Read from the loader, every NPC around was saved at height 0 (knocked out bodies
+                // came back floating) and the others at the origin (back at their routine's spot after loading).
+                var root = container.Go != null ? container.Go.transform : loader.transform;
+                var position = root.position;
+                var bip01 = container.PrefabProps == null ? null : container.PrefabProps.Bip01;
+                if (_visibleNpcs.Contains(i) && bip01 != null)
+                    position = new Vector3(bip01.position.x, position.y, bip01.position.z);
+
+                container.Vob.Position = position.ToZkVector();
+                container.Vob.Rotation = root.rotation.ToZkMatrix();
             }
         }
 

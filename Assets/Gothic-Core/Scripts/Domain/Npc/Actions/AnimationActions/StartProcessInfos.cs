@@ -37,21 +37,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-
-            var isInSubDialog = _gameStateService.Dialogs.CurrentOptions.Any();
-
-            if (isInSubDialog)
-            {
-                var foundItem = _gameStateService.Dialogs.CurrentOptions
-                        .FirstOrDefault(option => option.Function == _dialogId);
-
-                // If a dialog calls Info_ClearChoices(), then the current sub dialog is already gone.
-                if (foundItem != null)
-                {
-                    _gameStateService.Dialogs.CurrentOptions.Remove(foundItem);
-                }
-            }
-
+            // The chosen choice already left the list before its function ran (DialogService.CallInformation).
             _dialogService.StartDialog(NpcContainer, false);
         }
     }

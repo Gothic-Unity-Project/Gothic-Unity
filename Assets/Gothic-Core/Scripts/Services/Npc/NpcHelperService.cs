@@ -15,6 +15,7 @@ using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Rendering;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
@@ -37,6 +38,26 @@ namespace Gothic.Core.Services.Npc
 
         private const float _fpLookupDistance = 7f; // meter
         private static readonly int _raycastLayersToUse = 1 << Constants.DefaultLayer;
+        // A sight line looks through at most this many see-through polygons of one collider, a step past each.
+        private const int _maxSeeThroughSteps = 8;
+        private const float _seeThroughStep = 0.01f;
+
+        // Sight lines (CanSeeNpc): their hits, per collider the materials drawn on its mesh (null: none to look
+        // through) and per material whether sight passes it. Both caches hold one world's objects.
+        private readonly RaycastHit[] _sightHits = new RaycastHit[16];
+        private readonly Dictionary<Collider, Material[]> _sightMaterials = new();
+        private readonly Dictionary<Material, bool> _seeThroughMaterials = new();
+
+        public NpcHelperService()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
+        }
+
+        private void OnLoadingSceneLoaded()
+        {
+            _sightMaterials.Clear();
+            _seeThroughMaterials.Clear();
+        }
 
         public void Init()
         {
@@ -75,28 +96,13 @@ namespace Gothic.Core.Services.Npc
 
             var prefabProps = npcInstance.GetUserData().PrefabProps;
 
-            InteractiveProperties props;
+            var mob = prefabProps.CurrentInteractable ??
+                      _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme);
 
-            if (prefabProps.CurrentInteractable != null)
-            {
-                try
-                {
-                    // Check current gameobject and children as well
-                    props = prefabProps.CurrentInteractable.PropsAs<InteractiveProperties>();
-                }
-                catch (Exception)
-                {
-                    Logger.LogError($"Wld_GetMobState() returned an exception for {npcGo.name}", LogCat.Npc);
-                    return -1;
-                }
-            }
-            else
-                props = _vobService.GetFreeInteractableWithin10M(npcGo.transform.position, scheme)?.PropsAs<InteractiveProperties>();
-
-            if (props == null)
+            if (mob?.Props is not InteractiveProperties)
                 return -1;
 
-            return Math.Max(0, props.State);
+            return Math.Max(0, mob.MobState);
         }
 
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)
@@ -360,9 +366,14 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public bool CanSenseNpc(NpcInstance self, NpcInstance other, bool freeLOS, float maxRangeMeters = float.MaxValue)
         {
+            // An NPC that isn't in the world (culled, not spawned yet) senses nothing and can't be sensed.
+            var selfGo = self?.GetUserData()?.Go;
+            var otherGo = other?.GetUserData()?.Go;
+            if (selfGo == null || otherGo == null)
+                return false;
+
             var senseRangeMeters = Mathf.Min(self.SensesRange / 100f, maxRangeMeters); // daedalus values are in cm, we need them in m
-            var range = Vector3.Distance(other.GetUserData().Go.transform.position,
-                self.GetUserData().Go.transform.position);
+            var range = Vector3.Distance(otherGo.transform.position, selfGo.transform.position);
 
             if (range > senseRangeMeters)
             {
@@ -469,13 +480,19 @@ namespace Gothic.Core.Services.Npc
             var selfGroundPosition = selfRoot.position;
             var otherGroundPosition = otherRoot.position;
             // Unity places positions of objects at the bottom. We need to lift them up towards the head
-            var selfRealHeadPosition = new Vector3(selfRoot.position.x, selfHead.position.y, selfRoot.position.z);
-            var otherRealHeadPosition = new Vector3(otherRoot.position.x, otherHead.position.y, otherRoot.position.z);
+            // The VR hero's head is the camera: in room scale it isn't above the rig's origin.
+            var selfRealHeadPosition = selfContainer.PrefabProps?.IsHero() == true
+                ? selfHead.position
+                : new Vector3(selfRoot.position.x, selfHead.position.y, selfRoot.position.z);
+            var otherRealHeadPosition = otherContainer.PrefabProps?.IsHero() == true
+                ? otherHead.position
+                : new Vector3(otherRoot.position.x, otherHead.position.y, otherRoot.position.z);
 
             var distanceToNpc = Vector3.Distance(selfRealHeadPosition, otherRealHeadPosition);
             var inSightRange = distanceToNpc <= self.SensesRange / 100f; // SensesRange is in cm.
 
-            var hasLineOfSightCollisions = Physics.Linecast(selfRealHeadPosition, otherRealHeadPosition, _raycastLayersToUse);
+            var hasLineOfSightCollisions = inSightRange &&
+                                           IsSightBlocked(selfRealHeadPosition, otherRealHeadPosition, selfRoot, otherRoot);
 
             // Calculate horizontal direction only (ignore Y axis for FOV check), basically a Gobbo is only using x+z for FOV and hero standing in front of it will work correctly.
             var directionToTarget = new Vector3(
@@ -492,6 +509,120 @@ namespace Gothic.Core.Services.Npc
             var inFov = angleToTarget <= fov;
 
             return inSightRange && !hasLineOfSightCollisions && (freeLOS || inFov);
+        }
+
+        /// <summary>
+        /// Something solid is between the eyes and the target. Like the engine's sight rays (ZenGin
+        /// zTRACERAY_POLY_IGNORE_TRANSP), alpha tested polygons - leaves, bushes, grates - let sight through. The two
+        /// NPCs' own bodies don't count.
+        /// </summary>
+        private bool IsSightBlocked(Vector3 from, Vector3 to, Transform selfRoot, Transform otherRoot)
+        {
+            var direction = to - from;
+            var distance = direction.magnitude;
+            if (distance < 0.001f)
+                return false;
+
+            direction /= distance;
+            var count = Physics.RaycastNonAlloc(from, direction, _sightHits, distance, _raycastLayersToUse,
+                QueryTriggerInteraction.Ignore);
+
+            // The hits come in no order: with a full buffer, a wall may be among the ones left out.
+            if (count == _sightHits.Length)
+                return true;
+
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _sightHits[i];
+                var hitTransform = hit.collider.transform;
+                if (hitTransform.IsChildOf(selfRoot) || hitTransform.IsChildOf(otherRoot))
+                    continue;
+
+                if (IsSolidAlong(hit, direction, distance))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The collider blocks the line: where the line meets it, or behind see-through polygons further in, it's solid.
+        /// </summary>
+        private bool IsSolidAlong(RaycastHit hit, Vector3 direction, float lineLength)
+        {
+            var collider = hit.collider;
+            var travelled = hit.distance;
+            for (var step = 0; step < _maxSeeThroughSteps; step++)
+            {
+                if (!IsSeeThrough(collider, hit.triangleIndex))
+                    return true;
+
+                travelled += _seeThroughStep;
+                var remaining = lineLength - travelled;
+                var ray = new Ray(hit.point + direction * _seeThroughStep, direction);
+                if (remaining <= 0f || !collider.Raycast(ray, out hit, remaining))
+                    return false;
+
+                travelled += hit.distance;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The polygon hit belongs to an alpha tested material (render queue AlphaTest, Lit/AlphaToCoverage).
+        /// </summary>
+        private bool IsSeeThrough(Collider collider, int triangleIndex)
+        {
+            if (triangleIndex < 0 || collider is not MeshCollider { sharedMesh: { } mesh })
+                return false;
+
+            var materials = GetSightMaterials(collider, mesh);
+            if (materials == null)
+                return false;
+
+            var index = triangleIndex * 3;
+            for (var subMesh = 0; subMesh < mesh.subMeshCount && subMesh < materials.Length; subMesh++)
+            {
+                var descriptor = mesh.GetSubMesh(subMesh);
+                if (index >= descriptor.indexStart && index < descriptor.indexStart + descriptor.indexCount)
+                    return IsSeeThrough(materials[subMesh]);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The materials the collider's renderer draws on its mesh, null if it draws another one. Cached: looking them
+        /// up allocates, and sight lines run for many NPCs.
+        /// </summary>
+        private Material[] GetSightMaterials(Collider collider, Mesh mesh)
+        {
+            if (_sightMaterials.TryGetValue(collider, out var materials))
+                return materials;
+
+            var meshFilter = collider.GetComponent<MeshFilter>();
+            var meshRenderer = collider.GetComponent<MeshRenderer>();
+            materials = meshFilter != null && meshRenderer != null && meshFilter.sharedMesh == mesh
+                ? meshRenderer.sharedMaterials
+                : null;
+            _sightMaterials[collider] = materials;
+            return materials;
+        }
+
+        private bool IsSeeThrough(Material material)
+        {
+            if (material == null)
+                return false;
+
+            if (!_seeThroughMaterials.TryGetValue(material, out var isSeeThrough))
+            {
+                var queue = material.renderQueue;
+                isSeeThrough = queue >= (int)RenderQueue.AlphaTest && queue < (int)RenderQueue.Transparent;
+                _seeThroughMaterials[material] = isSeeThrough;
+            }
+
+            return isSeeThrough;
         }
 
         /// <summary>

@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -32,6 +33,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
+        [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
@@ -40,6 +42,9 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly IVrBackend _vrBackend;
 
         private const string _contextName = "VR";
+
+        // Alpha per second when the view is shown again (about 0.3 s).
+        private const float _viewFadeInSpeed = 3f;
 
         // Meters per second the player is pulled back when they ended up beyond KeepPlayerWithin's radius.
         private const float _keepWithinPullBackSpeed = 1f;
@@ -54,6 +59,11 @@ namespace Gothic.VR.Services.Context
         private int _keepWithinLastFrame = -1;
         private Vector3 _keepWithinLastPosition;
         private VrPhysicsHand[] _physicsHands = System.Array.Empty<VrPhysicsHand>();
+        private PlayerControls _blockedControls;
+        // Teleporting is off in water (wading, swimming, diving), whatever the locks say.
+        private bool _isTeleportAllowedHere = true;
+        // Grabbing is off while swimming and diving (as in G1), whatever the locks say.
+        private bool _isGrabbingAllowedHere = true;
 
         /// <summary>
         /// The player body of the active VR backend. null before SetupPlayerController().
@@ -156,6 +166,8 @@ namespace Gothic.VR.Services.Context
             playerRoot.SetActive(true);
             _defaultStepOffset = _rig.StepOffset;
             ApplyComfortSettings(true);
+            // A new rig starts unlocked - locks taken before (loading) apply to it too.
+            ApplyBlockedControls();
 
             _physicsHands = _player.GetComponentsInChildren<VrPhysicsHand>(true);
             if (_configService.Gothic != null)
@@ -170,6 +182,8 @@ namespace Gothic.VR.Services.Context
                 var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
                 equipToggle.transform.SetParent(_player.transform, false);
             }
+            // Editor: Game view while the headset renders nothing
+            _vrGameViewFallbackService.Init();
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
@@ -307,41 +321,57 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Disable certain actions to keep player stuck in current position.
+        /// Physics stays on while locked: a teleport only finishes once the player is grounded. Only the controls are
+        /// switched off.
         /// </summary>
-        public void LockPlayerInPlace(bool allowTurning = false)
+        public void SetBlockedControls(PlayerControls blockedControls)
         {
-            // HINT: Disable physics
-            // We can't disable physics as it would prevent the teleport from finishing (HVR checks for IsGrounded
-            // every frame). Therefore, we need to ground the player always on a plane and disable movement only.
-            _rig.MovementEnabled = false;
-            _rig.TurnEnabled = allowTurning;
-            _rig.TeleportEnabled = false;
+            _blockedControls = blockedControls;
+            ApplyBlockedControls();
         }
 
-        public void UnlockPlayer()
+        private void ApplyBlockedControls()
         {
-            _rig.MovementEnabled = true;
-            _rig.TurnEnabled = true;
-            _rig.TeleportEnabled = true;
+            // The player can be gone already, e.g. a video's cinema unlocks while the player is destroyed.
+            if (_rig == null || _player == null)
+                return;
+
+            _rig.MovementEnabled = (_blockedControls & PlayerControls.Move) == 0;
+            _rig.TurnEnabled = (_blockedControls & PlayerControls.Turn) == 0;
+            _rig.TeleportEnabled = IsTeleportAllowed();
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
+        }
+
+        private bool IsTeleportAllowed()
+        {
+            return _isTeleportAllowedHere && (_blockedControls & PlayerControls.Teleport) == 0;
+        }
+
+        private bool IsGrabbingAllowed()
+        {
+            return _isGrabbingAllowedHere && (_blockedControls & PlayerControls.Grab) == 0;
         }
 
         public void SetWalkingControls()
         {
-            _rig.SetGrabbingEnabled(true);
+            _isGrabbingAllowedHere = true;
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
 
             _rig.CanCrouch = true;
             _rig.CanJump = true;
-            _rig.TeleportEnabled = true;
+            _isTeleportAllowedHere = true;
+            _rig.TeleportEnabled = IsTeleportAllowed();
             _rig.StepOffset = _defaultStepOffset;
         }
 
         public void SetWaterWalkingControls()
         {
-            _rig.SetGrabbingEnabled(true);
+            _isGrabbingAllowedHere = true;
+            _rig.SetGrabbingEnabled(IsGrabbingAllowed());
 
             _rig.CanCrouch = false;
             _rig.CanJump = false;
+            _isTeleportAllowedHere = false;
             _rig.TeleportEnabled = false;
             _rig.StepOffset = _player.SwimDiveStepHeight;
         }
@@ -349,10 +379,12 @@ namespace Gothic.VR.Services.Context
         public void SetSwimmingControls()
         {
             // Disable grabbing of objects (as in G1)
+            _isGrabbingAllowedHere = false;
             _rig.SetGrabbingEnabled(false);
 
             _rig.CanCrouch = false;
             _rig.CanJump = false;
+            _isTeleportAllowedHere = false;
             _rig.TeleportEnabled = false;
             _rig.StepOffset = _player.SwimDiveStepHeight;
         }
@@ -368,6 +400,29 @@ namespace Gothic.VR.Services.Context
             _rig.Teleport(position, rotation);
         }
 
+        public void SetViewHidden(bool isHidden, GameObject visibleUi = null)
+        {
+            if (_rig == null)
+            {
+                var action = isHidden ? "hide" : "show";
+                Logger.LogWarning($"[VRContextInteractionService] No VR rig to {action} the view.", LogCat.Loading);
+                return;
+            }
+
+            // The fade covers everything but on-top UI. visibleUi goes on top like the game menu.
+            if (isHidden && visibleUi != null)
+            {
+                var menuOnTop = _player.MenuHandler.GetComponentInChildren<VRUiOnTop>(true);
+                if (menuOnTop != null)
+                    menuOnTop.ApplyTo(visibleUi);
+                else
+                    Logger.LogWarning($"[VRContextInteractionService] No on-top UI on the menu, {visibleUi.name} " +
+                                      "is hidden with the view.", LogCat.Loading);
+            }
+
+            _rig.Fade(isHidden ? 1f : 0f, isHidden ? float.MaxValue : _viewFadeInSpeed);
+        }
+
         public void KeepPlayerWithin(Vector3 center, float softRadius, float radius)
         {
             var controller = _rig?.CharacterController;
@@ -376,7 +431,9 @@ namespace Gothic.VR.Services.Context
 
             // The frame's movement is read from the position of the previous call. After a gap (new dialog, a frame
             // without a call) there is nothing to compare against.
-            var position = _rig.Root.position;
+            // Measured at the head: a physical step moves it, but not the root. Turning rotates the root around the
+            // head, so the root moves and the head doesn't.
+            var position = _rig.Head.position;
             var frameMovement = _keepWithinLastFrame == Time.frameCount - 1
                 ? position - _keepWithinLastPosition
                 : Vector3.zero;
@@ -418,7 +475,7 @@ namespace Gothic.VR.Services.Context
                 return;
 
             controller.Move(correction);
-            _keepWithinLastPosition = _rig.Root.position;
+            _keepWithinLastPosition = _rig.Head.position;
         }
 
         public void InitUIInteraction()

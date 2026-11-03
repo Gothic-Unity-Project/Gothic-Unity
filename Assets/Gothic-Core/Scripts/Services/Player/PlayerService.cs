@@ -13,6 +13,7 @@ using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -33,6 +34,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly Npc.HeroPerceptionService _heroPerceptionService;
 
 
         // Air in lungs isn't stored in G1 savegame, therefore setting it here temporarily at runtime.
@@ -40,6 +42,15 @@ namespace Gothic.Core.Services.Player
         [NonSerialized] public float MaxAir;
         [NonSerialized] public bool HasMaxAir; // Faster check for other components. Rather than calculating value on their own each frame.
         [NonSerialized] public float CurrentAir = float.MaxValue;
+
+        // Out of air: like the engine (OpenGothic Npc::tick), 1 hit point per NPC_DAM_DIVE_TIME ms (G1: 100).
+        private const float _defaultDrownSecondsPerHitPoint = 0.1f;
+        private float _drownSecondsPerHitPoint = _defaultDrownSecondsPerHitPoint;
+        private float _drownTime;
+
+        // NpcService leads back here - resolved on first use.
+        private NpcService _npcService;
+        private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
         
         
         public PlayerService()
@@ -48,12 +59,17 @@ namespace Gothic.Core.Services.Player
                 (lockPick, _, _) => RemoveItem(lockPick.VobAs<IItem>().Instance, 1));
             
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(OnZenKitBootstrapped);
+            GlobalEventDispatcher.LoadGameStart.AddListener(ResetDrowning);
         }
 
         private void OnZenKitBootstrapped()
         {
             MaxAir = _gameStateService.GuildValues.GetDiveTime((int)VmGothicEnums.Guild.GIL_HUMAN);
             CurrentAir = MaxAir; // Isn't stored in SaveGame, therefore setting it to full now.
+            var drownMilliseconds = _gameStateService.GothicVm.GetSymbolByName("NPC_DAM_DIVE_TIME")?.GetInt(0) ?? 0;
+            _drownSecondsPerHitPoint = drownMilliseconds > 0
+                ? drownMilliseconds / 1000f
+                : _defaultDrownSecondsPerHitPoint;
 
             _unityMonoService.StartCoroutine(HandleStatusEffects());
         }
@@ -97,8 +113,9 @@ namespace Gothic.Core.Services.Player
             if (removeCulling)
                 _vobMeshCullingService.RemoveCullingEntry(item);
 
-            _saveGameService.CurrentWorldData.Vobs.Remove(item.Vob);
+            _saveGameService.RemoveVobFromWorld(item.Vob);
             AddItem(item);
+            _heroPerceptionService.OnHeroTookItem(item.Vob);
         }
 
         /// <summary>
@@ -108,11 +125,7 @@ namespace Gothic.Core.Services.Player
         public void DropItem(VobContainer item, bool addCulling = false, bool keepOutOfWorld = false)
         {
             if (!keepOutOfWorld)
-            {
-                var worldVobs = _saveGameService.CurrentWorldData.Vobs;
-                if (!worldVobs.Contains(item.Vob))
-                    worldVobs.Add(item.Vob);
-            }
+                _saveGameService.AddVobToWorld(item.Vob);
 
             if (addCulling)
                 _vobMeshCullingService.AddCullingEntry(item);
@@ -162,6 +175,42 @@ namespace Gothic.Core.Services.Player
             IsDiving = false;
         }
 
+        /// <summary>
+        /// The hero dove longer than his DIVE_TIME: he loses hit points until he surfaces or dies.
+        /// </summary>
+        private void Drown()
+        {
+            if (HeroContainer?.Vob == null)
+                return;
+
+            var hitPoints = HeroContainer.Vob.GetAttribute((int)NpcAttribute.HitPoints);
+            if (hitPoints <= 0)
+            {
+                // Dead (drowned or killed under water): a hero brought back starts the count over.
+                ResetDrowning();
+                return;
+            }
+
+            var before = (int)(_drownTime / _drownSecondsPerHitPoint);
+            _drownTime += Time.deltaTime;
+            var damage = (int)(_drownTime / _drownSecondsPerHitPoint) - before;
+            if (damage <= 0)
+                return;
+
+            NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
+            // Drowned: the hero dies like after a script taking his last hit points (FightService decides).
+            if (hitPoints - damage <= 0)
+                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(HeroContainer);
+        }
+
+        /// <summary>
+        /// A new or loaded game, or a dead hero, starts the drowning count over.
+        /// </summary>
+        private void ResetDrowning()
+        {
+            _drownTime = 0f;
+        }
+
         private IEnumerator HandleStatusEffects()
         {
             while (true)
@@ -172,9 +221,12 @@ namespace Gothic.Core.Services.Player
                     
                     if (CurrentAir > 0)
                         CurrentAir -= Time.deltaTime;
+                    else
+                        Drown();
                 }
                 else if (!HasMaxAir)
                 {
+                    _drownTime = 0f;
                     if (CurrentAir < MaxAir)
                         CurrentAir += Time.deltaTime;
                     else
