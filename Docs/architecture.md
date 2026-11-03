@@ -83,7 +83,7 @@ document it there. Callers use the clean method.
 **Why:** A workaround repeated at every call site is forgotten at the next one.
 
 **Example:** `ZenKitNpcExtension.TrySetAiVars()` (ZenKit's setter copies bytes instead of ints), the pitfall table
-in `Docs/save-game.md`.
+in `Docs/save-game.md`, `ITexture.GetMipmapPixels()` (`CachedTexture.GetMipmapRgba()` returns raw data, not RGBA).
 
 ### 6. Speak Gothic
 

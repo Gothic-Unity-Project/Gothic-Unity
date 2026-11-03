@@ -75,6 +75,26 @@ namespace Gothic.VR.Adapters.UI
                 PatchMeshRenderer(meshRenderer);
         }
 
+        /// <summary>
+        /// Puts the pictures of another UI (no texts) on top with this UI's material, e.g. the loading screen, which
+        /// stays visible on the black view (ScreenFade) while the world around the player is built.
+        /// </summary>
+        public void ApplyTo(GameObject ui)
+        {
+            foreach (var graphic in ui.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic is TMP_Text || graphic is TMP_SubMeshUI || IsOnTop(graphic.material))
+                    continue;
+
+                var source = graphic.material;
+                var onTop = GetOnTopMaterial(source, _backgroundMaterial, _backgroundMaterial.renderQueue);
+                // The copy is shared per source material, whose picture may have changed since (loading screen per
+                // world).
+                onTop.mainTexture = source.mainTexture;
+                graphic.material = onTop;
+            }
+        }
+
         private void OnEnable()
         {
             TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);

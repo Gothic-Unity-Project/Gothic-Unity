@@ -146,8 +146,28 @@ namespace Gothic.Core.Domain.StaticCache
                     // In G1 it is only ITLSTORCHBURNING.ZEN --> RootObjects[0].Visual=ITLS_TORCHBURNED_01.3DS
                     if (item.Visual.EndsWith(".ZEN"))
                     {
-                        var world = _resourceCacheService.TryGetWorld(item.Visual, _contextGameVersionService.Version);
-                        if (world!.RootObjects.Count != 1)
+                        ZenKit.World world;
+                        try
+                        {
+                            world = _resourceCacheService.TryGetWorld(item.Visual, _contextGameVersionService.Version);
+                        }
+                        catch (Exception e)
+                        {
+                            // Mods name visuals that don't exist (Destiny of Myrtana: ITEM_TRAJECTORY.ZEN). The engine
+                            // shows nothing for them - the item gets no bounds instead of stopping the pre-caching.
+                            Logger.LogWarning($"Item {obj.Name}: its visual {item.Visual} can't be loaded " +
+                                              $"({e.Message}) - no bounds.", LogCat.PreCaching);
+                            continue;
+                        }
+
+                        if (world.RootObjects.Count == 0)
+                        {
+                            Logger.LogWarning($"Item {obj.Name}: its visual {item.Visual} is empty - no bounds.",
+                                LogCat.PreCaching);
+                            continue;
+                        }
+
+                        if (world.RootObjects.Count != 1)
                         {
                             Logger.LogError(
                                 $"Bounds for {item.Visual} couldn't be calculated correctly as focussing on 1 G1 object as of now.",
