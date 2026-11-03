@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); HeroPersonalSpace, NpcBodyBounds (Core adapters); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableVrTrade, EnableVrPickpocket, EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); HeroPersonalSpace, NpcBodyBounds (Core adapters); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableVrPickpocket, EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
 
 ## Context
 
@@ -19,14 +19,12 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
    VR decides it for now (`VRHeroMovement`, `VRSwimDive`). A Core owner, for Flat too, is a follow-up.
 2. **Footsteps are quiet sounds** (PERC_ASSESSQUIETSOUND), except while sneaking. Sleepers in G2 wake up from them, like in the engine.
 3. **Taking an item lying in the world can be theft** through main's world item list (`HeroPerceptionService.OnHeroTookItem`, called by `PlayerService.PickUpItem`). Our own theft check (`IsTakenWithoutTheft`) is gone. A piece split off a world stack counts as taking that stack (once per stack).
-4. **In VR, trade is a counter between the hero and the trader** (`EnableVrTrade`). It replaces the trade window of [2026-10-30-trading](2026-10-30-trading.md) in VR, as that record foresaw ("can replace the panel later on top of the same trading rules"):
+4. **In VR, trade is a counter between the hero and the trader.** It replaces the trade window of [2026-10-30-trading](2026-10-30-trading.md), as that record foresaw ("can replace the panel later on top of the same trading rules"), and its author agreed to drop the window:
    - one `TradeService` with that record's rules: the trade starts after the trader's lines. Unlike the window, the counter doesn't hold the dialog: its choices come back at once (talking while trading, like with a cashier), and the dialog's end ends the trade;
    - the counter's offers are a `TradeSession` in it: reserved out of their owner's inventory, swapped on OK, and the difference is paid in currency; the trader never runs out of currency;
-   - the sell price rounds `value x TRADE_VALUE_MULTIPLIER` after cutting float noise (0.15 x 100 is 15, not 16), for the window too;
+   - the sell price rounds `value x TRADE_VALUE_MULTIPLIER` after cutting float noise (0.15 x 100 is 15, not 16);
    - the offers go back when the trade ends: closed, the dialog ends, or the world is left (saving is blocked in a dialog);
    - unpaid goods stay the trader's until OK, and currency held in a hand doesn't pay.
-
-   With `EnableVrTrade` off, the trade window of 2026-10-30 is used.
 5. **Pickpocketing in VR:**
    - A purse on the hip of a human who can't see the sneaking hero opens his pockets.
    - The chance to get caught is G1's talent value, and in G2 100 - dexterity (5-90).

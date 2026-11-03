@@ -584,7 +584,7 @@ namespace Gothic.Core.Manager
 
         public void StopDialog(NpcContainer npc)
         {
-            _tradeService.End(false);
+            _tradeService.End();
             _gameStateService.Dialogs.CurrentInstance = null;
             _gameStateService.Dialogs.CurrentOptions.Clear();
             _gameStateService.Dialogs.IsInDialog = false;

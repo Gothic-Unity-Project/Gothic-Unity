@@ -102,7 +102,7 @@ namespace Gothic.VR.Services.Context
                 // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
                 VRHandSkinLight.Apply(_configService);
             });
-            // DeveloperConfig.EnableVrTrade: the trade counter between the hero and the trader.
+            // The trade counter between the hero and the trader.
             GlobalEventDispatcher.TradeStarted.AddListener(_ =>
             {
                 // Injected after this constructor - set when a trade starts.

@@ -29,7 +29,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Trade
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableVrTrade): the trade counter between the hero and the trader. Left: what the hero gives
+    /// The trade counter between the hero and the trader. Left: what the hero gives
     /// (sells), right: what he takes (buys), behind: the trader's goods (his backpack, without his currency and
     /// equipped items). The middle shows the difference in currency, OK settles it (TradeService), X closes.
     /// Offered items are reserved - TradeService gives them back on close.
@@ -166,7 +166,7 @@ namespace Gothic.VR.Adapters.Trade
             if (isOut)
             {
                 Logger.Log("[Trade] The trader can't trade any more - closed", LogCat.VR);
-                _tradeService.End(false);
+                _tradeService.End();
                 return;
             }
 

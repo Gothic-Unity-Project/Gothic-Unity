@@ -488,10 +488,6 @@ namespace Gothic.Core.Models.Config
                  "bigger or smaller (x0.5-x2) - like the menu's distance. Kept for the session.")]
         public bool EnableRingZoom = true;
 
-        [Tooltip("VR: Trading - a dialog choice with trade != 0 opens a counter between the hero and the trader: his " +
-                 "goods, your offer, his offer and the price difference in gold (G2) or ore (G1).")]
-        public bool EnableVrTrade = true;
-
         [Tooltip("VR: G1 pickpocketing - the engine's steal window. Sneak up to an NPC who can't see you, a purse on his " +
                  "hip opens his pockets; each item can get the hero caught (100 - dexterity %, 5-90).")]
         public bool EnableVrPickpocket = true;

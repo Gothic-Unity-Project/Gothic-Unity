@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Domain.Npc.Actions;
@@ -10,11 +9,8 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Trade;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
@@ -24,15 +20,12 @@ namespace Gothic.Core.Services.Player
 {
     /// <summary>
     /// Trading with an NPC, like the engine (OpenGothic Npc::buyItem/sellItem): a dialog entry with C_Info.trade opens
-    /// it after the NPC's lines, and the dialog's choices come back once it ends. The hero pays the item's value, and
-    /// gets the value times TRADE_VALUE_MULTIPLIER (G2) for what he sells. The trader's own money doesn't change, as in
-    /// the engine. Neither side trades equipped items or the currency.
-    /// Two ways to trade on the same rules:
-    /// - piece by piece (Buy/Sell): each item changes hands at once (the VR trade window, Flat later),
-    /// - DeveloperConfig.EnableVrTrade, the VR trade counter (Current): items laid into the offers are reserved (out of
-    ///   their owner's inventory) and only change hands on TryCommit(); the difference is paid in currency. Ending the
-    ///   trade gives the offers back. The dialog goes on meanwhile (its choices come back at once, like talking to a
-    ///   cashier) and its end ends the trade.
+    /// it after the NPC's lines. The hero pays the item's value, and gets the value times TRADE_VALUE_MULTIPLIER (G2) for
+    /// what he sells. The trader's own money doesn't change, as in the engine. Neither side trades equipped items or the
+    /// currency.
+    /// The VR trade counter lays items into the offers (Current): they are reserved (out of their owner's inventory) and
+    /// only change hands on TryCommit(); the difference is paid in currency. Ending the trade gives the offers back. The
+    /// dialog goes on meanwhile (its choices come back at once, like talking to a cashier) and its end ends the trade.
     /// </summary>
     public class TradeService
     {
@@ -42,9 +35,7 @@ namespace Gothic.Core.Services.Player
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
-        [Inject] private readonly ConfigService _configService;
 
         private int _returnInformation;
         private DaedalusVm _currencyVm;
@@ -60,7 +51,7 @@ namespace Gothic.Core.Services.Player
         public TradeService()
         {
             // Leaving the world (level change, loading a save): the offers go back, no dialog to return to.
-            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => End(false));
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(End);
         }
 
         public NpcContainer Trader { get; private set; }
@@ -68,63 +59,45 @@ namespace Gothic.Core.Services.Player
         public bool IsTrading => Trader != null;
 
         /// <summary>
-        /// DeveloperConfig.EnableVrTrade: the offers of the VR trade counter, null for the piece by piece trade.
+        /// The offers of the trade counter, null while nobody trades.
         /// </summary>
         public TradeSession Current { get; private set; }
-
-        /// <summary>
-        /// Instance name of the money item (G1 ore, G2 gold).
-        /// </summary>
-        public string CurrencyName
-        {
-            get
-            {
-                ReadScriptValues();
-                return _currencyName;
-            }
-        }
 
         /// <param name="returnInformation">The dialog entry that opened it - its choices come back afterwards.</param>
         public void Start(NpcContainer trader, int returnInformation)
         {
             if (IsTrading)
-                End(false);
+                End();
 
             Trader = trader;
             _returnInformation = returnInformation;
             ReadScriptValues();
-            if (_configService.Dev.EnableVrTrade)
-                Current = new TradeSession(trader, new PlayerInventoryOwner(),
-                    new NpcInventoryOwner(trader, hiddenItem: _currencyName, isEquippedHidden: true), _currencyName,
-                    _sellMultiplier);
+            Current = new TradeSession(trader, new PlayerInventoryOwner(),
+                new NpcInventoryOwner(trader, hiddenItem: _currencyName, isEquippedHidden: true), _currencyName,
+                _sellMultiplier);
 
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} (currency {_currencyName}, " +
-                       $"sell x{_sellMultiplier}{(Current != null ? ", counter" : "")})", LogCat.Dialog);
+                       $"sell x{_sellMultiplier})", LogCat.Dialog);
             GlobalEventDispatcher.TradeStarted.Invoke(trader);
 
             // The counter doesn't hold the dialog: its choices come back right away.
-            if (Current != null)
-                ResumeDialog(trader);
+            ResumeDialog(trader);
         }
 
-        /// <param name="isDialogResumed">The dialog goes on with its choices (the player closed the trade), not when
-        /// the dialog itself ended or the world is left.</param>
-        public void End(bool isDialogResumed = true)
+        /// <summary>
+        /// The trade ends (closed, the dialog ended, the world is left): the offers go back to their owners.
+        /// </summary>
+        public void End()
         {
             if (!IsTrading)
                 return;
 
             var trader = Trader;
-            // The counter's dialog went on already.
-            var isDialogWaiting = Current == null;
             ReturnOffers();
             Trader = null;
             Current = null;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
             GlobalEventDispatcher.TradeEnded.Invoke(trader);
-
-            if (isDialogResumed && isDialogWaiting)
-                ResumeDialog(trader);
         }
 
         /// <summary>
@@ -135,102 +108,6 @@ namespace Gothic.Core.Services.Player
             if (_gameStateService.Dialogs.IsInDialog && trader.Props != null)
                 trader.Props.AnimationQueue.Enqueue(new StartProcessInfos(
                     new AnimationAction(int0: _returnInformation), trader));
-        }
-
-        /// <summary>
-        /// What the NPC can trade: its inventory without equipped items and the currency.
-        /// </summary>
-        public List<ContentItem> GetGoods(NpcContainer npc)
-        {
-            if (npc.Props == null)
-            {
-                Logger.LogWarning($"[Trade] {npc.Instance.GetName(NpcNameSlot.Slot0)} has no props - no goods",
-                    LogCat.Dialog);
-                return new List<ContentItem>();
-            }
-
-            var currency = CurrencyName;
-            var equipped = npc.Props.EquippedItems.Select(i => i.Index).ToHashSet();
-            return _npcInventoryService.GetAllInventoryItems(npc.Instance)
-                .Where(i => !i.Name.EqualsIgnoreCase(currency))
-                .Where(i => _vmCacheService.TryGetItemData(i.Name) is { } data && !equipped.Contains(data.Index))
-                .ToList();
-        }
-
-        public int GetCurrencyAmount(NpcContainer npc)
-        {
-            var currency = CurrencyName;
-            return _npcInventoryService.GetAllInventoryItems(npc.Instance)
-                .Where(i => i.Name.EqualsIgnoreCase(currency))
-                .Sum(i => i.Amount);
-        }
-
-        /// <summary>
-        /// What the hero pays for one: the item's value.
-        /// </summary>
-        public int GetBuyPrice(string itemName)
-        {
-            return TradePricing.BuyPrice(GetValue(itemName));
-        }
-
-        /// <summary>
-        /// What the hero gets for one: the item's value times TRADE_VALUE_MULTIPLIER (G2), rounded up.
-        /// </summary>
-        public int GetSellPrice(string itemName)
-        {
-            ReadScriptValues();
-            return TradePricing.SellPrice(GetValue(itemName), _sellMultiplier);
-        }
-
-        public bool CanBuy(string itemName, int amount = 1)
-        {
-            var hero = GetHero();
-            return IsTrading && hero != null && GetBuyPrice(itemName) * amount <= GetCurrencyAmount(hero);
-        }
-
-        /// <summary>
-        /// The hero buys from the trader: the item and its price change hands.
-        /// </summary>
-        public bool Buy(string itemName, int amount = 1)
-        {
-            var hero = GetHero();
-            var item = _vmCacheService.TryGetItemData(itemName);
-            if (item == null || !CanBuy(itemName, amount) || !HasGoods(Trader, itemName, amount))
-                return false;
-            if (!TryGetCurrencyIndex(out var currencyIndex))
-                return false;
-
-            var price = GetBuyPrice(itemName) * amount;
-            _npcInventoryService.ExtRemoveInvItems(Trader.Instance, item.Index, amount);
-            _npcInventoryService.ExtCreateInvItems(hero.Instance, item.Index, amount);
-            if (price > 0)
-                _npcInventoryService.ExtRemoveInvItems(hero.Instance, currencyIndex, price);
-
-            Logger.Log($"[Trade] Bought {amount}x {itemName} for {price}", LogCat.Dialog);
-            return true;
-        }
-
-        /// <summary>
-        /// The hero sells to the trader: the item goes to him, the hero gets its sell price.
-        /// </summary>
-        public bool Sell(string itemName, int amount = 1)
-        {
-            var hero = GetHero();
-            var item = _vmCacheService.TryGetItemData(itemName);
-            if (!IsTrading || hero == null || item == null || itemName.EqualsIgnoreCase(CurrencyName) ||
-                !HasGoods(hero, itemName, amount))
-                return false;
-            if (!TryGetCurrencyIndex(out var currencyIndex))
-                return false;
-
-            var price = GetSellPrice(itemName) * amount;
-            _npcInventoryService.ExtRemoveInvItems(hero.Instance, item.Index, amount);
-            _npcInventoryService.ExtCreateInvItems(Trader.Instance, item.Index, amount);
-            if (price > 0)
-                _npcInventoryService.ExtCreateInvItems(hero.Instance, currencyIndex, price);
-
-            Logger.Log($"[Trade] Sold {amount}x {itemName} for {price}", LogCat.Dialog);
-            return true;
         }
 
         /// <summary>
@@ -405,29 +282,6 @@ namespace Gothic.Core.Services.Player
             {
                 vm.GlobalSelf = oldSelf;
             }
-        }
-
-        private bool HasGoods(NpcContainer npc, string itemName, int amount)
-        {
-            return GetGoods(npc).Where(i => i.Name.EqualsIgnoreCase(itemName)).Sum(i => i.Amount) >= amount;
-        }
-
-        private NpcContainer GetHero()
-        {
-            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
-        }
-
-        /// <summary>
-        /// Resolved before any item changes hands, so a missing currency item (a mod, a wrong TRADE_CURRENCY_INSTANCE)
-        /// stops the trade instead of leaving it half done.
-        /// </summary>
-        private bool TryGetCurrencyIndex(out int index)
-        {
-            var currency = _vmCacheService.TryGetItemData(CurrencyName);
-            index = currency?.Index ?? -1;
-            if (currency == null)
-                Logger.LogWarning($"[Trade] Currency item {CurrencyName} doesn't exist - no trade", LogCat.Dialog);
-            return currency != null;
         }
 
         /// <summary>

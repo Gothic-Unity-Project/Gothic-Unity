@@ -32,7 +32,7 @@ namespace Gothic.Core
         public static readonly UnityEvent WorldSceneLoaded = new();
 
         /// <summary>
-        /// The VR trade counter's offers (TradeService.Current, DeveloperConfig.EnableVrTrade). TradeSession - the running
+        /// The VR trade counter's offers (TradeService.Current). TradeSession - the running
         /// trade.
         /// </summary>
         public static readonly UnityEvent<Gothic.Core.Models.Trade.TradeSession> TradeOfferChanged = new();
