@@ -39,6 +39,11 @@ namespace Gothic.Core.Services.Npc
         // Bumped by every knockout and every load - a recovery of an older one doesn't stand the hero up.
         private int _heroKnockoutId;
 
+        /// <summary>
+        /// How long the knocked out hero lies on the ground (the VR view's veil clears over this time).
+        /// </summary>
+        public const float HeroKnockoutSeconds = 10f;
+
         public void Init()
         {
             // Scripts kill (B_KillNpc) with or without the combat system.
@@ -426,7 +431,7 @@ namespace Gothic.Core.Services.Npc
 
         private IEnumerator KnockoutRecovery(NpcContainer hero, int knockoutId)
         {
-            yield return new WaitForSeconds(10f);
+            yield return new WaitForSeconds(HeroKnockoutSeconds);
             // A game was loaded meanwhile, or he was knocked out again - that knockout's recovery stands him up.
             if (knockoutId != _heroKnockoutId)
                 yield break;
@@ -436,6 +441,7 @@ namespace Gothic.Core.Services.Npc
             hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout);
             Logger.Log("[FightService] Hero recovered from knockout", LogCat.Fight);
+            GlobalEventDispatcher.HeroRecovered.Invoke();
         }
 
         /// <summary>

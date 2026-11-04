@@ -1,6 +1,11 @@
+using System.Collections;
+using Gothic.Core;
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Npc;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -8,6 +13,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -19,7 +25,7 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly Gothic.Core.Services.Npc.NpcService _npcService;
+        [Inject] private readonly NpcService _npcService;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
         public MenuHandler MenuHandler;
@@ -32,6 +38,9 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Disabled during dialogs, videos, ...")]
         public bool IsMenuButtonEnabled = true;
+
+        [Tooltip("Seconds after the hero's death until the menu opens to load a game.")]
+        [SerializeField] private float _menuDelayAfterDeath = 4f;
 
         /// <summary>
         /// The menu button was pressed this frame (and isn't disabled).
@@ -69,6 +78,12 @@ namespace Gothic.VR.Adapters.Player
         {
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
+            GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
         }
 
         private void Update()
@@ -85,6 +100,28 @@ namespace Gothic.VR.Adapters.Player
         {
             var hero = _npcService.GetHeroContainer();
             return hero?.Props != null && hero.Props.IsDead;
+        }
+
+        /// <summary>
+        /// Game over: once the player saw the hero fall, the menu opens to load a game - with or without the VR hero
+        /// body.
+        /// </summary>
+        private void OnHeroDied(NpcContainer killer)
+        {
+            StartCoroutine(OpenMenuAfterDeath());
+        }
+
+        private IEnumerator OpenMenuAfterDeath()
+        {
+            yield return new WaitForSecondsRealtime(_menuDelayAfterDeath);
+
+            // A game got loaded meanwhile, or the player opened the menu himself.
+            if (!IsHeroDead() || MenuHandler == null || MenuHandler.gameObject.activeSelf)
+                yield break;
+
+            _gameStateService.InGameAndAlive = false;
+            MenuHandler.ToggleVisibility();
+            Logger.Log("[VRPlayer] The hero is dead - game menu opened", LogCat.VR);
         }
 
         /// <summary>

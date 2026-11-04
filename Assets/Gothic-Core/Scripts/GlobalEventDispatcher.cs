@@ -119,10 +119,16 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
 
         /// <summary>
-        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
-        /// (lying down, camera) listens to it - added with the VR hero body PR.
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). He lies for
+        /// FightService.HeroKnockoutSeconds. The VR knockout view (veil, heartbeat) listens to it.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
 
         /// <summary>
         /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
