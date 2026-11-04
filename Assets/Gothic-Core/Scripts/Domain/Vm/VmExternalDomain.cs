@@ -108,10 +108,6 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_GotoWP", AI_GotoWP);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_GotoNpc", AI_GotoNpc);
             vm.RegisterExternal<NpcInstance, string>("AI_PlayAni", AI_PlayAni);
-            // Random idle animations of a state (ZS_Unconscious' wounded twitches) - the knockout itself drops the NPC
-            // (FightService). Registered so the scripts' calls don't end in the default external.
-            vm.RegisterExternal<NpcInstance, string, string>("Mdl_ApplyRandomAni", (_, _, _) => { });
-            vm.RegisterExternal<NpcInstance, string, float>("Mdl_ApplyRandomAniFreq", (_, _, _) => { });
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
             RegisterIfDeclared(vm, "AI_UseItem", () => vm.RegisterExternal<NpcInstance, int>("AI_UseItem", AI_UseItem));

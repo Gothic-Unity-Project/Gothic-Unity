@@ -49,9 +49,6 @@ namespace Gothic.Core.Adapters.Npc
         private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
-        private const string _deadStateAnimation = "S_DeadB";
-        private const string _unconsciousState = "ZS_UNCONSCIOUS";
-        private const string _unconsciousStateAnimation = "S_Wounded";
 
         private void Start()
         {
@@ -71,7 +68,7 @@ namespace Gothic.Core.Adapters.Npc
                 return true;
 
             var state = Vob.NextStateValid ? Vob.NextStateName : Vob.CurrentStateName;
-            return string.Equals(state, _unconsciousState, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(state, DaedalusConst.ZsUnconscious, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -82,7 +79,7 @@ namespace Gothic.Core.Adapters.Npc
         {
             Properties.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             Properties.KnockedOutTime = Time.time;
-            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(_unconsciousStateAnimation), NpcData));
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(DaedalusConst.AniWounded), NpcData));
             _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
         }
 
@@ -92,9 +89,9 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void StartDead()
         {
-            var deadAnimation = _animationService.GetTrack(_deadStateAnimation, Properties.MdsNameBase,
+            var deadAnimation = _animationService.GetTrack(DaedalusConst.AniDeadB, Properties.MdsNameBase,
                 Properties.MdsNameOverlay) != null
-                ? _deadStateAnimation
+                ? DaedalusConst.AniDeadB
                 : _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, NpcData);
             Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(deadAnimation), NpcData));
             _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
@@ -637,8 +634,8 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void PlayDeadPose()
         {
-            if (!PrefabProps.AnimationSystem.PlayAnimation("S_DEADB"))
-                PrefabProps.AnimationSystem.PlayAnimation("S_DEAD");
+            if (!PrefabProps.AnimationSystem.PlayAnimation(DaedalusConst.AniDeadB))
+                PrefabProps.AnimationSystem.PlayAnimation(DaedalusConst.AniDead);
         }
 
         /// <summary>

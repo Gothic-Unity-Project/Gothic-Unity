@@ -5,7 +5,6 @@ using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Npc;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -27,7 +26,6 @@ namespace Gothic.VR.Adapters.Player
     {
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly NpcService _npcService;
         [Inject] private readonly Container _container;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
@@ -95,16 +93,8 @@ namespace Gothic.VR.Adapters.Player
         {
             if (IsMenuActivated && IsGameScene() && (Cinema == null || !Cinema.IsBlockingInput))
             {
-                // A dead hero's menu offers loading, not saving or continuing.
-                _gameStateService.InGameAndAlive = !IsHeroDead();
                 MenuHandler.ToggleVisibility();
             }
-        }
-
-        private bool IsHeroDead()
-        {
-            var hero = _npcService.GetHeroContainer();
-            return hero?.Props != null && hero.Props.IsDead;
         }
 
         /// <summary>
@@ -121,10 +111,8 @@ namespace Gothic.VR.Adapters.Player
             yield return new WaitForSecondsRealtime(_menuDelayAfterDeath);
 
             // A game got loaded meanwhile, or the player opened the menu himself.
-            if (!IsHeroDead() || MenuHandler == null || MenuHandler.gameObject.activeSelf)
+            if (_gameStateService.IsHeroAlive || MenuHandler == null || MenuHandler.gameObject.activeSelf)
                 yield break;
-
-            _gameStateService.InGameAndAlive = false;
             MenuHandler.ToggleVisibility();
             Logger.Log("[VRPlayer] The hero is dead - game menu opened", LogCat.VR);
         }

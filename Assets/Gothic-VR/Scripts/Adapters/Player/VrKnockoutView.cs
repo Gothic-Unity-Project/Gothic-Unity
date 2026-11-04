@@ -3,7 +3,6 @@ using Gothic.Core;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using UnityEngine;
@@ -116,7 +115,7 @@ namespace Gothic.VR.Adapters.Player
                 StopCoroutine(_knockout);
 
             _isRecovered = false;
-            _knockout = StartCoroutine(KnockOut(FightService.HeroKnockoutSeconds));
+            _knockout = StartCoroutine(KnockOut(FightConst.HeroKnockoutRecoverySeconds));
         }
 
         private void OnHeroRecovered()
