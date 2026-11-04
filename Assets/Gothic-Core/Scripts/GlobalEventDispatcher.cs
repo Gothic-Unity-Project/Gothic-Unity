@@ -164,8 +164,6 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
         // Marvin's "kill" (DeveloperConfig.EnableMarvinKill): the NPC dies at once, no killer (no experience).
         public static readonly UnityEvent<NpcContainer> CheatKill = new();
-        // DeveloperConfig.EnableScriptHitPointsDeath: a script (Npc_ChangeAttribute) took an NPC's last hit points.
-        public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
 
         /// <summary>
         /// Arrow/bolt hit (VR crossbow/bow projectiles).
@@ -184,9 +182,23 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcContainer> FightFinishingMove = new();
 
         /// <summary>
-        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious)
+        /// NpcContainer - lost its last hit points outside of a melee hit (NpcService.ReduceHitPoints: a script's
+        /// Npc_ChangeAttribute, drowning, a damage zone). FightService decides how it goes down.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HitPointsDepleted = new();
+
+        /// <summary>
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). He lies for
+        /// FightConst.HeroKnockoutRecoverySeconds. The VR knockout view (veil, heartbeat) listens to it.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
 
         /// <summary>
         /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.

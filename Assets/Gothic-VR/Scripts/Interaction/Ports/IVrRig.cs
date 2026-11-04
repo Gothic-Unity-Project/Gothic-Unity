@@ -160,5 +160,14 @@ namespace Gothic.VR.Interaction.Ports
         void SetLedgeHandler(IVrLedgeHandler handler)
         {
         }
+
+        /// <summary>
+        /// Holds the camera at this height in m above the floor (the hero lying on the ground without the VR hero
+        /// body), null ends it. The camera jumps there in the next frame, so it's set behind a fade. Head tracking keeps
+        /// working on top. Default: not supported, the camera stays.
+        /// </summary>
+        void SetEyeHeightOverride(float? meters)
+        {
+        }
     }
 }

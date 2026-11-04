@@ -17,6 +17,7 @@ namespace Gothic.Core.Extensions
                 PrefabType.UiTexture => "Prefabs/UI/Texture",
                 PrefabType.UiThumbnail => "Prefabs/UI/Thumbnail",
                 PrefabType.UiVirtualKeyboard => "Prefabs/UI/VirtualKeyboard",
+                PrefabType.UiTradeWindow => "Prefabs/UI/TradeWindow",
 
                 PrefabType.UiDebugText => "Prefabs/UI/Debug/Text",
                 PrefabType.UiDebugLogLine => "Prefabs/UI/Debug/LogLine",
@@ -52,6 +53,7 @@ namespace Gothic.Core.Extensions
                 PrefabType.VobTrigger => "Prefabs/Vobs/zCTrigger",
                 PrefabType.VobTriggerList => "Prefabs/Vobs/zCTriggerList",
                 PrefabType.VobTriggerUntouch => "Prefabs/Vobs/zCTriggerUntouch",
+                PrefabType.VobTouchDamage => "Prefabs/Vobs/oCTouchDamage",
                 PrefabType.VobTriggerWorldStart => "Prefabs/Vobs/zCTriggerWorldStart",
                 PrefabType.VobCodeMaster => "Prefabs/Vobs/zCCodeMaster",
                 PrefabType.VobMoverController => "Prefabs/Vobs/zCMoverController",

@@ -131,6 +131,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isSprintLatched;
         private bool _isCrouching;
         private float _crouchOffset;
+        // SetEyeHeightOverride(): the camera is held at this height, reached at once (behind a fade).
+        private float? _eyeHeightOverride;
+        private bool _isEyeHeightJumpPending;
         private float _heightOffset;
         private bool _isMovementEnabled;
         private bool _isJumpEnabled;
@@ -545,6 +548,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _teleportAimer.Init(stickAction, cancelAction, _rightController, _camera.transform, _characterController,
                 GetCollidingLayers(gameObject.layer), () => _teleportEnabled, () => IsGrounded,
                 () => StandingCameraHeight, GetMaxSlopeAngle, IsClimbableTop, Teleport);
+            _teleportAimer.SetHands(_leftController, _rightController);
         }
 
         /// <summary>
@@ -593,12 +597,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 ? 0f
                 : _origin.CameraYOffset;
             var standingCameraHeight = CameraHeight + _crouchOffset;
-            var targetOffset = _isCrouching ? Mathf.Max(0f, standingCameraHeight - _crouchHeight) : 0f;
-            _crouchOffset = Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            var targetHeight = _eyeHeightOverride ?? (_isCrouching ? _crouchHeight : (float?)null);
+            var targetOffset = targetHeight.HasValue ? Mathf.Max(0f, standingCameraHeight - targetHeight.Value) : 0f;
+            _crouchOffset = _isEyeHeightJumpPending
+                ? targetOffset
+                : Mathf.MoveTowards(_crouchOffset, targetOffset, _crouchSpeed * Time.deltaTime);
+            _isEyeHeightJumpPending = false;
 
             var position = CameraOffset.localPosition;
             position.y = baseOffset + _heightOffset - _crouchOffset + CameraYOffset;
             CameraOffset.localPosition = position;
+        }
+
+        public void SetEyeHeightOverride(float? meters)
+        {
+            _eyeHeightOverride = meters;
+            _isEyeHeightJumpPending = true;
         }
 
         public void SetHeightOffset(float meters)
