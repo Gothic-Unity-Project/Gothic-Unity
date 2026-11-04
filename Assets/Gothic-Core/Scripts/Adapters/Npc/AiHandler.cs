@@ -49,7 +49,6 @@ namespace Gothic.Core.Adapters.Npc
         private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
-        private const string _deadStateAnimation = "S_DeadB";
 
         private void Start()
         {
@@ -58,6 +57,30 @@ namespace Gothic.Core.Adapters.Npc
             // NPCs which died before a save game was written (or before we left the world) are dead from the start.
             if (Properties.IsDead)
                 StartDead();
+            // Knocked out ones lie there too until ZS_Unconscious ends (a loaded game, the NPC coming back into view).
+            else if (IsUnconsciousFromStart())
+                StartUnconscious();
+        }
+
+        private bool IsUnconsciousFromStart()
+        {
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return true;
+
+            var state = Vob.NextStateValid ? Vob.NextStateName : Vob.CurrentStateName;
+            return string.Equals(state, DaedalusConst.ZsUnconscious, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The engine drops a knocked out NPC itself (FightService) - ZS_Unconscious only waits. Without it, a loaded
+        /// one stood there (with no physics, wherever the load put him) until he got up.
+        /// </summary>
+        private void StartUnconscious()
+        {
+            Properties.BodyState = VmGothicEnums.BodyState.BsUnconscious;
+            Properties.KnockedOutTime = Time.time;
+            Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(DaedalusConst.AniWounded), NpcData));
+            _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
         }
 
         /// <summary>
@@ -66,9 +89,9 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void StartDead()
         {
-            var deadAnimation = _animationService.GetTrack(_deadStateAnimation, Properties.MdsNameBase,
+            var deadAnimation = _animationService.GetTrack(DaedalusConst.AniDeadB, Properties.MdsNameBase,
                 Properties.MdsNameOverlay) != null
-                ? _deadStateAnimation
+                ? DaedalusConst.AniDeadB
                 : _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, NpcData);
             Properties.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(deadAnimation), NpcData));
             _physicsService.DisablePhysicsForNpc(NpcData.PrefabProps);
@@ -538,6 +561,15 @@ namespace Gothic.Core.Adapters.Npc
                 }
 
                 Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+
+                // A state change doesn't stand the dead up - it set BS_STAND and stopped S_DEADB.
+                if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+                {
+                    Logger.LogWarning($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: state cleared while " +
+                                      "dead - stays dead", LogCat.Ai);
+                    return;
+                }
+
                 Properties.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PrefabProps.AnimationSystem.StopAllAnimations();
@@ -598,11 +630,32 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
+        /// Lying dead. G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
+        /// </summary>
+        private void PlayDeadPose()
+        {
+            if (!PrefabProps.AnimationSystem.PlayAnimation(DaedalusConst.AniDeadB))
+                PrefabProps.AnimationSystem.PlayAnimation(DaedalusConst.AniDead);
+        }
+
+        /// <summary>
         /// Fully reset NPC state.
         /// Called after an NPC is re-enabled in the scene.
         /// </summary>
         public void ReEnableNpc()
         {
+            // A corpse stays where it died and lies again - it was moved to its routine waypoint and started its
+            // routine: Lukis and Ghorri stood in the bind pose, legs in the ground.
+            if (Properties.BodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                Properties.AnimationQueue.Clear();
+                Properties.CurrentAction = new None(new AnimationAction(), NpcData);
+                PlayDeadPose();
+                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: re-enabled dead - lies again",
+                    LogCat.Npc);
+                return;
+            }
+
             // Spawn to initial spawn location
             var currentRoutine = Properties.RoutineCurrent;
             if (currentRoutine != null)

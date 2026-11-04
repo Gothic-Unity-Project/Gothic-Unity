@@ -1,4 +1,5 @@
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using UnityEngine;
 
 namespace Gothic.Core.Services.Context
@@ -9,14 +10,11 @@ namespace Gothic.Core.Services.Context
         float GetFrameRate();
         void SetupPlayerController(DeveloperConfig developerConfig);
         GameObject GetCurrentPlayerController();
-        void LockPlayerInPlace();
-
         /// <summary>
-        /// Walking and teleporting off, turning untouched (e.g. a dialog: the player can still face the speaker).
-        /// UnlockPlayer() ends it.
+        /// Blocks these player controls, the others are free. ContextInteractionService combines the locks of all
+        /// owners (LockPlayer(), UnlockPlayer()) and passes the result on.
         /// </summary>
-        void LockPlayerWalking();
-        void UnlockPlayer();
+        void SetBlockedControls(PlayerControls blockedControls);
         void SetWalkingControls();
         void SetSwimmingControls();
         void SetDivingControls();

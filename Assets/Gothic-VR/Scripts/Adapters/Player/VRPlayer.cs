@@ -1,6 +1,5 @@
 using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
-using Gothic.Core.Services;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -18,7 +17,6 @@ namespace Gothic.VR.Adapters.Player
     public class VRPlayer : MonoBehaviour
     {
         [Inject] private readonly IVrInput _vrInput;
-        [Inject] private readonly GameStateService _gameStateService;
 
         [Tooltip("In-game menu (skills, notepad, ...). Toggled with the menu button in game scenes.")]
         public MenuHandler MenuHandler;
@@ -74,7 +72,6 @@ namespace Gothic.VR.Adapters.Player
         {
             if (IsMenuActivated && IsGameScene() && (Cinema == null || !Cinema.IsBlockingInput))
             {
-                _gameStateService.InGameAndAlive = true;
                 MenuHandler.ToggleVisibility();
             }
         }

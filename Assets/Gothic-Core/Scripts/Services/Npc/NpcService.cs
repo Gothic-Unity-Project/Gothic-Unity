@@ -59,7 +59,6 @@ namespace Gothic.Core.Services.Npc
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
-        private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
 
 
         private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
@@ -345,6 +344,15 @@ namespace Gothic.Core.Services.Npc
             }
 
             var container = npc.GetUserData();
+
+            // Like the engine a script taking the last hit points kills (G1 B_KillNpc, summons losing 1 HP every few
+            // seconds in ZS_MM_SummonedByPC_Loop).
+            if (attributeId == (int)NpcAttribute.HitPoints && value < 0)
+            {
+                ReduceHitPoints(container, -value);
+                return;
+            }
+
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
 
@@ -363,6 +371,24 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// The one place where an NPC loses hit points outside of a melee hit (a script, drowning, a damage zone): at 0
+        /// it goes down - FightService decides how (HitPointsDepleted: death, ZS_Dead, experience).
+        /// Never below 0, never above the NPC's maximum.
+        /// </summary>
+        public void ReduceHitPoints(NpcContainer npc, int amount)
+        {
+            var hitPoints = npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) - amount;
+            var max = npc.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
+            if (max > 0)
+                hitPoints = Mathf.Min(hitPoints, max);
+            hitPoints = Mathf.Max(hitPoints, 0);
+
+            SetAttribute(npc, NpcAttribute.HitPoints, hitPoints);
+            if (hitPoints == 0)
+                GlobalEventDispatcher.HitPointsDepleted.Invoke(npc);
+        }
+
+        /// <summary>
         /// The engine keeps these values in one place (oCNpc), we have two: scripts read the instance, C# the vob.
         /// Every C# write goes through these setters, so both stay equal.
         /// </summary>
@@ -371,9 +397,6 @@ namespace Gothic.Core.Services.Npc
             npc.Vob.SetAttribute((int)attribute, value);
             npc.Instance.SetAttribute(attribute, value);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, attribute);
-
-            if (attribute == NpcAttribute.HitPoints && value <= 0 && !npc.Props.IsDead)
-                _deathDomain.Die(npc);
         }
 
         public void SetLevel(NpcContainer npc, int level)

@@ -1,11 +1,20 @@
+using System.Collections.Generic;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
+using Gothic.Core.Models.Context;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Context
 {
     public class ContextInteractionService : IContextInteractionService
     {
         private IContextInteractionService _impl;
+
+        // The controls each owner blocks right now.
+        private readonly Dictionary<PlayerLocks, PlayerControls> _playerLocks = new();
+
+        private PlayerLocks _activePlayerLocks;
 
         public void SetImpl(IContextInteractionService proxy)
         {
@@ -37,19 +46,57 @@ namespace Gothic.Core.Services.Context
             return _impl.GetCurrentPlayerController();
         }
 
-        public void LockPlayerInPlace()
+        /// <summary>
+        /// Keeps the player from using these controls until the same owner unlocks. Owners lock independently (a dialog
+        /// while seated): ending the dialog doesn't stand the player up, the player is free once every owner unlocked.
+        /// </summary>
+        public void LockPlayer(PlayerLocks owner, PlayerControls controls = PlayerControls.All)
         {
-            _impl.LockPlayerInPlace();
+            if (owner == PlayerLocks.None || ((int)owner & ((int)owner - 1)) != 0)
+            {
+                Logger.LogWarning($"LockPlayer needs exactly one owner, got {owner} - ignored.", LogCat.Misc);
+                return;
+            }
+
+            _playerLocks[owner] = controls;
+            ApplyPlayerLocks();
         }
 
-        public void LockPlayerWalking()
+        /// <summary>
+        /// Releases the locks of these owners (several at once as flags). The locks of other owners stay.
+        /// </summary>
+        public void UnlockPlayer(PlayerLocks owners)
         {
-            _impl.LockPlayerWalking();
+            // One bit per owner.
+            for (var bit = 1; bit > 0 && bit <= (int)owners; bit <<= 1)
+            {
+                if (((int)owners & bit) != 0)
+                    _playerLocks.Remove((PlayerLocks)bit);
+            }
+
+            ApplyPlayerLocks();
         }
 
-        public void UnlockPlayer()
+        private void ApplyPlayerLocks()
         {
-            _impl.UnlockPlayer();
+            var blockedControls = PlayerControls.None;
+            var activeLocks = PlayerLocks.None;
+            foreach (var playerLock in _playerLocks)
+            {
+                activeLocks |= playerLock.Key;
+                blockedControls |= playerLock.Value;
+            }
+
+            if (activeLocks != _activePlayerLocks)
+                Logger.Log($"Player locks: {activeLocks} (blocked: {blockedControls})", LogCat.Misc);
+
+            _activePlayerLocks = activeLocks;
+            _impl.SetBlockedControls(blockedControls);
+        }
+
+        void IContextInteractionService.SetBlockedControls(PlayerControls blockedControls)
+        {
+            _impl.SetBlockedControls(blockedControls);
         }
 
         public void SetWalkingControls()

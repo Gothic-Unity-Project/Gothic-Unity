@@ -10,6 +10,7 @@ using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
@@ -59,9 +60,6 @@ namespace Gothic.Core.Manager
         private const float _holdGiveUpOvershoot = 2f;
 
         private Coroutine _heroHold;
-
-        // Only a dialog that locked the player unlocks it - a rejected one mustn't free a seated hero (VRSeat).
-        private bool _isPlayerLockedByDialog;
 
         /// <summary>
         /// TextToSpeech toggle. So that the hero isn't repeating what we said already.
@@ -141,8 +139,7 @@ namespace Gothic.Core.Manager
                     _npcService.GetHeroContainer().PrefabProps.Head);
 
             // On every (re)open, as something else may have unlocked the player in between.
-            _contextInteractionService.LockPlayerWalking();
-            _isPlayerLockedByDialog = true;
+            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Walking);
 
             if (initialDialogStarting)
             {
@@ -525,11 +522,7 @@ namespace Gothic.Core.Manager
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
 
-            if (_isPlayerLockedByDialog)
-            {
-                _isPlayerLockedByDialog = false;
-                _contextInteractionService.UnlockPlayer();
-            }
+            _contextInteractionService.UnlockPlayer(PlayerLocks.Dialog);
 
             _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();
