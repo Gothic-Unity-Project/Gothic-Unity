@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Domain.Vm;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
@@ -24,9 +26,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly WayNetService _wayNetService;
-
-        // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
-        private readonly HashSet<int> _npcsKnowingPlayer = new();
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
@@ -39,8 +38,6 @@ namespace Gothic.Core.Services.Npc
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
             NpcInstance Victim, NpcInstance Other, ItemInstance Item, NpcContainer Exclude)> _deliveredPassivePerceptions = new();
         private int _deliveryFrame = -1;
-
-        private const float _quickLookSeconds = 2f;
 
 
         public void Init()
@@ -68,7 +65,8 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Call an NPC Perception (active like Assess_Player or passive like Assess_Talk are possible).
         /// </summary>
-        public void ExecutePerception(VmGothicEnums.PerceptionType type, NpcProperties properties, NpcInstance self, NpcInstance victim, NpcInstance other)
+        public void ExecutePerception(VmGothicEnums.PerceptionType type, NpcProperties properties, NpcInstance self, NpcInstance victim, NpcInstance other,
+            ItemInstance item = null)
         {
             // Perception isn't set
             if (!properties.Perceptions.TryGetValue(type, out var perceptionFunction))
@@ -83,21 +81,12 @@ namespace Gothic.Core.Services.Npc
 
             // A knocked out NPC senses nothing but magic until he stands up (ZS_Unconscious only enables
             // PERC_ASSESSMAGIC) - also in the frames before ZS_Unconscious starts.
-            if (type != VmGothicEnums.PerceptionType.AssessMagic && NpcHelperService.IsKnockedOut(self?.GetUserData()))
+            if (type != VmGothicEnums.PerceptionType.AssessMagic && self?.GetUserData()?.Props?.IsKnockedOut == true)
                 return;
 
-            var oldSelf = _gameStateService.GothicVm.GlobalSelf;
-            var oldVictim = _gameStateService.GothicVm.GlobalVictim;
-            var oldOther = _gameStateService.GothicVm.GlobalOther;
-
-            // Like the engine (OpenGothic invokeState), other and victim are this perception's, null included - a
-            // left-over victim made B_AssessWarn or B_AssessUseMob see a crime that wasn't there.
-            _gameStateService.GothicVm.GlobalSelf = self;
-            _gameStateService.GothicVm.GlobalOther = other;
-            _gameStateService.GothicVm.GlobalVictim = victim;
-
-            // The finally block ensures a throwing perception function doesn't leave the globals
-            // polluted for every subsequent script call of all NPCs.
+            // Like the engine, other and victim are this perception's, null included (VmGlobalsScope). Disposing
+            // the scope ensures a throwing perception function doesn't leave the globals polluted for every
+            // subsequent script call of all NPCs.
             //
             // We also catch here: an uncaught exception thrown from inside a Daedalus external
             // (invoked by the native VM while executing this perception function) unwinds back
@@ -109,20 +98,17 @@ namespace Gothic.Core.Services.Npc
             // won't undo damage already done to the VM by an external further down the call chain,
             // but it stops this specific call from cascading further and gives a clear, attributable
             // log instead of an anonymous NullReferenceException.
-            try
+            using (new VmGlobalsScope(_gameStateService.GothicVm, self, other, victim, item))
             {
-                _gameStateService.GothicVm.Call(perceptionFunction);
-            }
-            catch (Exception e)
-            {
-                Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: {e.Message}",
-                    LogCat.Ai);
-            }
-            finally
-            {
-                _gameStateService.GothicVm.GlobalSelf = oldSelf;
-                _gameStateService.GothicVm.GlobalVictim = oldVictim;
-                _gameStateService.GothicVm.GlobalOther = oldOther;
+                try
+                {
+                    _gameStateService.GothicVm.Call(perceptionFunction);
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: " +
+                                    $"{e.Message}", LogCat.Ai);
+                }
             }
         }
 
@@ -196,7 +182,7 @@ namespace Gothic.Core.Services.Npc
         {
             // A knocked out NPC lies on the ground: nobody notices him by sight (no enemy, no fighter).
             var otherContainer = other?.GetUserData();
-            if (otherContainer != null && NpcHelperService.IsKnockedOut(otherContainer))
+            if (otherContainer?.Props?.IsKnockedOut == true)
                 return false;
 
             // A seated NPC looks the way its body faces - NpcHelperService.CanSeeNpc.
@@ -450,13 +436,30 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcSetKnowsPlayer(NpcInstance npc)
         {
-            if (npc != null)
-                _npcsKnowingPlayer.Add(npc.Index);
+            var props = npc?.GetUserData()?.Props;
+            if (props != null)
+                props.IsKnowingHero = true;
         }
 
         public bool ExtNpcKnowsPlayer(NpcInstance npc)
         {
-            return npc != null && _npcsKnowingPlayer.Contains(npc.Index);
+            return npc?.GetUserData()?.Props?.IsKnowingHero ?? false;
+        }
+
+        /// <summary>
+        /// No news memory yet. Proxy for NEWS_DEFEAT only: the NPC knows the hero defeated him (AIV_WASDEFEATEDBYSC),
+        /// so it's news about himself as the victim.
+        /// </summary>
+        public int ExtNpcHasNews(NpcInstance npc, int newsId, NpcInstance victim)
+        {
+            var vm = _gameStateService.GothicVm;
+            var newsDefeat = vm.GetSymbolByName("NEWS_DEFEAT");
+            var wasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC");
+            if (npc == null || newsDefeat == null || wasDefeated == null || newsId != newsDefeat.GetInt(0) ||
+                (victim != null && victim.Index != npc.Index))
+                return 0;
+
+            return npc.GetAiVar(wasDefeated.GetInt(0)) == 1 ? 1 : 0;
         }
 
         /// <returns>cm to the hero, measured like Npc_GetDistToNpc(npc, hero).</returns>
@@ -491,7 +494,7 @@ namespace Gothic.Core.Services.Npc
             }
 
             container.Props.AnimationQueue.Enqueue(new LookAtNpc(
-                new AnimationAction(instance0: other, float0: _quickLookSeconds), container));
+                new AnimationAction(instance0: other, float0: AiConst.QuickLookSeconds), container));
         }
 
         public void ExtAiStopLookAt(NpcInstance npc)
@@ -1017,7 +1020,7 @@ namespace Gothic.Core.Services.Npc
                 return;
             if (receiver.PrefabProps != null && receiver.PrefabProps.IsHero())
                 return;
-            if (NpcHelperService.IsDown(receiver))
+            if (receiver.Props.IsDown)
                 return;
 
             var position = receiver.Go.transform.position;
@@ -1047,23 +1050,8 @@ namespace Gothic.Core.Services.Npc
                              IsFriendlyNonHumanWarner(receiver, perception.Victim, perception.Other)
                     ? perception.Other
                     : perception.Victim;
-                if (perception.Item == null)
-                {
-                    ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
-                    continue;
-                }
-
-                var vm = _gameStateService.GothicVm;
-                var oldItem = vm.GlobalItem;
-                vm.GlobalItem = perception.Item;
-                try
-                {
-                    ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other);
-                }
-                finally
-                {
-                    vm.GlobalItem = oldItem;
-                }
+                ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other,
+                    perception.Item);
             }
         }
 
@@ -1078,33 +1066,19 @@ namespace Gothic.Core.Services.Npc
         /// new AI state with its _Loop/_End, a B_ function is just called.
         /// </summary>
         private void ExecutePassivePerception(VmGothicEnums.PerceptionType perception, int perceptionFunction,
-            NpcContainer receiver, NpcInstance victim, NpcInstance other)
+            NpcContainer receiver, NpcInstance victim, NpcInstance other, ItemInstance item)
         {
             var vm = _gameStateService.GothicVm;
             var symbolName = vm.GetSymbolByIndex(perceptionFunction)?.Name;
             if (symbolName == null || !symbolName.StartsWith("ZS_", StringComparison.OrdinalIgnoreCase) ||
                 vm.GetSymbolByName(symbolName + "_LOOP") == null)
             {
-                ExecutePerception(perception, receiver.Props, receiver.Instance, victim, other);
+                ExecutePerception(perception, receiver.Props, receiver.Instance, victim, other, item);
                 return;
             }
 
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            var oldVictim = vm.GlobalVictim;
-            vm.GlobalSelf = receiver.Instance;
-            vm.GlobalOther = other;
-            vm.GlobalVictim = victim;
-            try
-            {
+            using (new VmGlobalsScope(vm, receiver.Instance, other, victim, item))
                 ExtAiStartState(receiver.Instance, perceptionFunction, true, "");
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
-                vm.GlobalVictim = oldVictim;
-            }
         }
 
         public void ExtSetTrueGuild(NpcInstance npc, int guild)
@@ -1139,7 +1113,7 @@ namespace Gothic.Core.Services.Npc
             foreach (var candidate in _multiTypeCacheService.NpcCache)
             {
                 if (candidate == selfNpc || candidate.Props == null || candidate.Go == null) continue;
-                if (candidate.Props.BodyState != VmGothicEnums.BodyState.BsDead) continue;
+                if (!candidate.Props.IsDead) continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
                 if (sqrDist > closestSqrDist) continue;
@@ -1165,7 +1139,7 @@ namespace Gothic.Core.Services.Npc
 
             // Only the hero and the NPCs that are awake: asleep NPCs are far away and frozen. Scanning every NPC of
             // the world on each perception made crowded places stutter (Old Camp: 52 awake of 992).
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero != null && IsCloserEnemy(self, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
                 closestEnemy = hero;
 

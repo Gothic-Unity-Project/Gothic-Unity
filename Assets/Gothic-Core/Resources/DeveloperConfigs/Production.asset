@@ -61,9 +61,7 @@ MonoBehaviour:
     Value: 
   SpawnMonsterInstances:
     Value: 
-  EnableNpcEyeBlinking: 0
   EnableNpcLooting: 1
-  EnableDialogFreeMovement: 0
   ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0

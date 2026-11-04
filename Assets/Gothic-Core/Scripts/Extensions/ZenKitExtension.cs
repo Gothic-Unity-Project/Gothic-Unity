@@ -41,6 +41,15 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// The hero's container (GlobalHero). Null in menus / during boot, before the hero exists.
+        /// </summary>
+        [CanBeNull]
+        public static NpcContainer GetHeroContainer([CanBeNull] this DaedalusVm vm)
+        {
+            return (vm?.GlobalHero as NpcInstance)?.GetUserData();
+        }
+
+        /// <summary>
         /// Pixels of one mip level: RGBA, or the data as stored by Gothic (e.g. compressed).
         /// A native ZenKit texture decodes just this level. ZenKit's CachedTexture.GetMipmapRgba() returns the raw
         /// data instead, so cached textures are read from their lists.
