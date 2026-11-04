@@ -167,6 +167,8 @@ namespace Gothic.Core.Services.Npc
             // won't undo damage already done to the VM by an external further down the call chain,
             // but it stops this specific call from cascading further and gives a clear, attributable
             // log instead of an anonymous NullReferenceException.
+            using (new VmGlobalsScope(_gameStateService.GothicVm, self, other, victim, item))
+            {
                 try
                 {
                     if (!_isIntPerception.TryGetValue(perceptionFunction, out var isInt))
@@ -186,16 +188,6 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: " +
                                     $"{e.Message}", LogCat.Ai);
                     return null;
-                }
-            {
-                try
-                {
-                    _gameStateService.GothicVm.Call(perceptionFunction);
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: " +
-                                    $"{e.Message}", LogCat.Ai);
                 }
             }
         }
