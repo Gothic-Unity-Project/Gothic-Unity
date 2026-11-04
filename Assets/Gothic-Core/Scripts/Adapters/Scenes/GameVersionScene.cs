@@ -41,8 +41,8 @@ namespace Gothic.Core.Adapters.Scenes
              * 5. More: show them in the GameProfileMenu. None: show the error message.
              */
 
-            // Onto the scene's floor first (like Logo/MainMenu) - the player falls through the Player scene, which has
-            // none, until this scene is loaded.
+            // Back onto the scene's floor (at 0, like MainMenu) - the player falls while this scene loads async, as the
+            // Player scene has no floor.
             _contextInteractionService.TeleportPlayerTo(Vector3.zero);
 
             // Whatever comes next, we don't want the player to move around right now.
