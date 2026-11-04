@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services.World;
@@ -58,15 +57,6 @@ namespace Gothic.Core.Models.Config
         [Tooltip("If Mod is outside Gothic installation, select folder used as the game root " +
                  "(contains Data/, _work/, system/), e.g. C:\\Gothic Mods\\Mroczne Tajemnice")]
         public string ModPath = string.Empty;
-
-        [Separator("Game Profiles")]
-        [Tooltip("Show a list at start to pick G1/G2/a mod (overrides PreselectGameVersion and PreSelectMod). " +
-            "Editor only - builds use GameSettings.json EnableGameProfiles/GameProfiles.")]
-        public bool EnableGameProfiles;
-        [Tooltip("GameVersion: Gothic1 or Gothic2. Empty ModPath = vanilla with GothicGame.ini. " +
-            "ModIni = INI filename inside ModPath/system/ (empty = GothicGame.ini), \"*\" = pick one of the mod's " +
-            "game inis, \"A.INI;B.INI\" = pick one of these.")]
-        public List<JsonGameProfile> GameProfiles = new();
 
         public Controls GameControls = Controls.VR;
 
@@ -221,11 +211,6 @@ namespace Gothic.Core.Models.Config
         [Separator("WIP")]
         [Tooltip("Enable looting dead NPCs/monsters: grab a dead NPC to open a loot panel with their Daedalus inventory. WIP.")]
         public bool EnableNpcLooting;
-
-        [Tooltip("On: the hero can move during dialogs (inside Constants.DialogFreeMovementRadius around the NPC), " +
-                 "walking away chooses END if offered, a dialog only starts within that radius. " +
-                 "Off: the hero is pinned where he stood when the dialog opened, until it ends.")]
-        public bool EnableDialogFreeMovement;
 
         [Separator("Debug")]
         [Tooltip("Draw wireframe boxes for all NPC bone colliders. Green = active (attack window), White = inactive. Works in all builds including release.")]

@@ -4,6 +4,18 @@ namespace Gothic.Core.Const
 {
     public static class FightConst
     {
+        // The engine's damage types (DAM_INDEX_BARRIER .. DAM_INDEX_FALL) - the index is ZenKit's DamageType.
+        public const int DamageTypeCount = 8;
+
+        // NPC_FLAG_IMMORTAL (bit 1 = 2): the NPC takes no damage, but the fight still plays out normally.
+        public const int NpcFlagImmortal = 2;
+
+        // Hits right after the knockout don't finish the NPC off: a VR weapon can enter several hitboxes in one swing.
+        public const float KnockoutGraceSeconds = 1f;
+
+        // The knocked out hero stands up again after this time.
+        public const float HeroKnockoutRecoverySeconds = 10f;
+
         // TODO - G1 only. G2 has different attack actions!
         public static class AttackActions
         {

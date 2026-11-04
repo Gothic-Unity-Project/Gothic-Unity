@@ -78,6 +78,8 @@ namespace Gothic.Core.Adapters.Properties
         public UnityEngine.Vector3 BlockForward;
         // AI_LookAtNpc target until AI_StopLookAt (Npc_GetLookAtTarget).
         public NpcInstance LookAtTarget;
+        // Talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk). Not saved: gone with the NPC on load/new game.
+        public bool IsKnowingHero;
 
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
 
@@ -96,6 +98,16 @@ namespace Gothic.Core.Adapters.Properties
         /// scripts set HP directly and prepare NPCs with HP 0.
         /// </summary>
         public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
+
+        /// <summary>
+        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
+        /// </summary>
+        public bool IsKnockedOut => BodyState == VmGothicEnums.BodyState.BsUnconscious;
+
+        /// <summary>
+        /// Dead or knocked out.
+        /// </summary>
+        public bool IsDown => IsDead || IsKnockedOut;
 
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
