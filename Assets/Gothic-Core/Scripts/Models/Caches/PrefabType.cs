@@ -49,6 +49,7 @@ namespace Gothic.Core.Models.Caches
         VobTrigger,
         VobTriggerList,
         VobTriggerUntouch,
+        VobTouchDamage,
         VobTriggerWorldStart,
         VobCodeMaster,
         VobMoverController,
