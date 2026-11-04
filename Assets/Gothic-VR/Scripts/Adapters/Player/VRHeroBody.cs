@@ -157,6 +157,7 @@ namespace Gothic.VR.Adapters.Player
         private Vector3 _downForward;
         private float _downBaseCameraOffset;
         private float _downStartEyeHeight = -1f;
+        private bool _isMenuOpen;
         private Transform[] _bodyBones;
 
 
@@ -181,11 +182,15 @@ namespace Gothic.VR.Adapters.Player
             gameObject.Inject();
             ReadHeroHandsOption();
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            GlobalEventDispatcher.MenuOpened.AddListener(OnMenuOpened);
+            GlobalEventDispatcher.MenuClosed.AddListener(OnMenuClosed);
         }
 
         private void OnDestroy()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+            GlobalEventDispatcher.MenuOpened.RemoveListener(OnMenuOpened);
+            GlobalEventDispatcher.MenuClosed.RemoveListener(OnMenuClosed);
             SetHeroHandsShown(false);
             EndDown();
             RestoreHeldItemAttachPoints();
@@ -315,6 +320,12 @@ namespace Gothic.VR.Adapters.Player
         {
             var bodyState = hero.Props.BodyState;
             var isDown = bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead;
+            // A loaded game: up at once, the loading screen covers it.
+            if (!isDown && _downPhase == DownPhase.Dead)
+            {
+                EndDown();
+                return false;
+            }
             if (!_configService.Dev.EnableHeroFallCamera || _animator == null || !_animator.IsValid ||
                 _headBone == null || _standingScale <= 0f)
             {
@@ -389,6 +400,8 @@ namespace Gothic.VR.Adapters.Player
             // Dead, the arms stay in the death pose - reaching for the controllers, the player moved his own corpse.
             if (_downPhase != DownPhase.Dead)
                 SolveArms();
+            // ...and the corpse goes while the menu is open: lying in front of the low camera, it was in the way.
+            SetBodyShown(_downPhase != DownPhase.Dead || !_isMenuOpen);
             return true;
         }
 
@@ -491,12 +504,29 @@ namespace Gothic.VR.Adapters.Player
 
             _downPhase = DownPhase.None;
             IsHeroDown = false;
+            SetBodyShown(true);
             SetHandsThroughFloor(false);
             _downAnimation = null;
             _downAnimations.Clear();
             if (_rig != null)
                 _rig.CameraYOffset = _downBaseCameraOffset;
             Logger.Log("[VRHeroBody] Hero up again - camera height restored", LogCat.VR);
+        }
+
+        private void OnMenuOpened(GameObject menu)
+        {
+            _isMenuOpen = true;
+        }
+
+        private void OnMenuClosed()
+        {
+            _isMenuOpen = false;
+        }
+
+        private void SetBodyShown(bool isShown)
+        {
+            if (_body != null && _body.activeSelf != isShown)
+                _body.SetActive(isShown);
         }
 
         private void LateUpdate()
