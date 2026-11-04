@@ -81,7 +81,7 @@ namespace Gothic.VR.Adapters
                 return;
             }
             // Like the engine (OpenGothic isDown), the dead and the knocked out can be robbed.
-            var isDown = NpcHelperService.IsDown(_npcData);
+            var isDown = _npcData?.Props?.IsDown == true;
 
             if (isDown && _configService.Dev.EnableNpcLooting && _npcLoot != null)
             {

@@ -1,6 +1,6 @@
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Npc;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
@@ -25,39 +25,33 @@ namespace Gothic.Core.Services.Vobs
             if (victim?.Instance == null || victim.Props.IsDead)
                 return;
 
-            var damage = 0;
-            // The protection index of each damage type (DAM_INDEX_*).
-            AddDamage(ref damage, victim, zone.IsBarrier, (int)DamageType.Barrier, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsBlunt, (int)DamageType.Blunt, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsEdge, (int)DamageType.Edge, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFire, (int)DamageType.Fire, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFly, (int)DamageType.Fly, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsMagic, (int)DamageType.Magic, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsPoint, (int)DamageType.Point, zone.Damage);
-            AddDamage(ref damage, victim, zone.IsFall, (int)DamageType.Fall, zone.Damage);
+            var zoneDamage = (int)zone.Damage;
+            var damage = victim.ApplyProtection(GetDamageTypeMask(zone),
+                (_, protection) => Mathf.Max(zoneDamage - protection, 0), out _);
             if (damage <= 0)
                 return;
 
-            var hitPoints = victim.Vob.GetAttribute((int)NpcAttribute.HitPoints);
             Logger.Log($"[TouchDamage] {victim.Instance.GetName(NpcNameSlot.Slot0)} in '{zone.Name}': {damage} damage",
                 LogCat.Vob);
-            _npcService.SetAttribute(victim, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
-
             // Down like after a script taking the last hit points: one owner decides (FightService), nobody gets XP.
-            if (hitPoints - damage <= 0)
-                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(victim);
+            _npcService.ReduceHitPoints(victim, damage);
         }
 
-        private static void AddDamage(ref int damage, NpcContainer victim, bool hasType, int index, float zoneDamage)
+        /// <summary>
+        /// The zone's damage types as a mask, bit index = DamageType (the protection index DAM_INDEX_*).
+        /// </summary>
+        private static int GetDamageTypeMask(ITouchDamage zone)
         {
-            if (!hasType)
-                return;
-
-            var protection = victim.Vob.GetProtection(index);
-            if (protection < 0)
-                return;
-
-            damage += Mathf.Max((int)zoneDamage - protection, 0);
+            var mask = 0;
+            if (zone.IsBarrier) mask |= 1 << (int)DamageType.Barrier;
+            if (zone.IsBlunt) mask |= 1 << (int)DamageType.Blunt;
+            if (zone.IsEdge) mask |= 1 << (int)DamageType.Edge;
+            if (zone.IsFire) mask |= 1 << (int)DamageType.Fire;
+            if (zone.IsFly) mask |= 1 << (int)DamageType.Fly;
+            if (zone.IsMagic) mask |= 1 << (int)DamageType.Magic;
+            if (zone.IsPoint) mask |= 1 << (int)DamageType.Point;
+            if (zone.IsFall) mask |= 1 << (int)DamageType.Fall;
+            return mask;
         }
     }
 }
