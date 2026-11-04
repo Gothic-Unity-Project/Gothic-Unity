@@ -67,6 +67,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextScreenshotService));
             containerBuilder.AddSingleton(typeof(ContextTradeService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
+            containerBuilder.AddSingleton(typeof(ContextMeleeDamageRuleService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));

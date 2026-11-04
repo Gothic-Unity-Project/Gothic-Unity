@@ -66,6 +66,8 @@ namespace Gothic.VR.Adapters
         private void Awake()
         {
             _npcLoader = GetComponentInParent<NpcLoader>();
+            // Update only watches for the NPC standing up while the loot is open - not every frame on every NPC.
+            enabled = false;
         }
 
         private void Update()
@@ -87,6 +89,7 @@ namespace Gothic.VR.Adapters
         {
             _npcContainer = npc;
             _isOpen = true;
+            enabled = true;
             PlayOpenSound();
             CreateSockets();
             StartCoroutine(FillSockets());
@@ -95,6 +98,7 @@ namespace Gothic.VR.Adapters
         public void Close()
         {
             _isOpen = false;
+            enabled = false;
             if (_pendingRefresh != null)
             {
                 StopCoroutine(_pendingRefresh);

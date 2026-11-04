@@ -74,7 +74,27 @@ namespace Gothic.Core.Services
         // FIXME Find a better place for the NPC routines. E.g. on the NPCs itself? But we e.g. need to have a NPCObject List to do so.
         public Dictionary<int, List<RoutineData>> NpcRoutines = new();
 
-        public bool InGameAndAlive = false;
+        /// <summary>
+        /// Single answer to "is the game still going": a game was started/loaded and the hero didn't die since.
+        /// False in the main menu before any game. Written only by HeroEntersGame() and HeroDies().
+        /// </summary>
+        public bool IsHeroAlive { get; private set; }
+
+        /// <summary>
+        /// New game or loaded game: the hero lives again.
+        /// </summary>
+        public void HeroEntersGame()
+        {
+            IsHeroAlive = true;
+        }
+
+        /// <summary>
+        /// Called by FightService on the hero's death transition.
+        /// </summary>
+        public void HeroDies()
+        {
+            IsHeroAlive = false;
+        }
 
         // FIXME - Need to be called when a new world is loaded!
         public void Reset()

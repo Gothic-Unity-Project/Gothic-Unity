@@ -1,9 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using Gothic.Core;
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -12,6 +10,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
+using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,192 +21,81 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.UI
 {
     /// <summary>
-    /// Gothic's trade screen in front of the player (TradeService): the trader's goods on the left, the hero's on the
-    /// right, each with its price, the hero's money below. Clicking a row with the UI laser buys or sells one piece at
-    /// once. Arrows page through longer lists, X ends trading and the dialog goes on. Items the hero holds in his hands
-    /// aren't offered for sale.
+    /// Gothic's trade screen in front of the player (TradeService), prefab VR/Prefabs/UI/TradeWindow: the trader's goods
+    /// on the left, the hero's on the right, each with its price, the hero's money below. Clicking a row with the UI
+    /// laser buys or sells one piece at once. Arrows page through longer lists, X ends trading and the dialog goes on.
+    /// Items the hero holds in his hands aren't offered for sale. Shown and destroyed by VRContextTradeService.
     /// </summary>
     public class VRTradeWindow : MonoBehaviour
     {
-        private const int _rowsPerPage = 8;
-        private const float _distance = 1.0f;
-        private const float _heightBelowEyes = 0.3f;
-        // One canvas unit is one millimetre.
-        private const float _canvasScale = 0.001f;
-        private const float _width = 1000f;
-        private const float _height = 720f;
-        private const float _columnWidth = 470f;
-        private const float _rowHeight = 58f;
-        private const float _fontSize = 30f;
-        private const float _disabledAlpha = 0.4f;
-        private static readonly Color _backgroundColor = new(0f, 0f, 0f, 0.75f);
-        private static readonly Color _rowColor = new(1f, 1f, 1f, 0.06f);
+        [SerializeField] private Canvas _canvas;
+        [SerializeField] private TMP_Text _traderName;
+        [SerializeField] private TMP_Text _heroName;
+        [SerializeField] private TMP_Text _currencyText;
 
-        private static VRTradeWindow _current;
+        [Tooltip("Inactive row, cloned RowsPerPage times into each column.")]
+        [SerializeField] private VRTradeRow _rowTemplate;
+        [SerializeField] private RectTransform _traderRowsRoot;
+        [SerializeField] private RectTransform _heroRowsRoot;
 
-        private TradeService _tradeService;
-        private VmCacheService _vmCacheService;
-        private VRPlayerService _vrPlayerService;
+        [SerializeField] private Button _traderPreviousButton;
+        [SerializeField] private Button _traderNextButton;
+        [SerializeField] private Button _heroPreviousButton;
+        [SerializeField] private Button _heroNextButton;
+        [SerializeField] private Button _closeButton;
+
+        [Tooltip("Rows per column and page.")]
+        [SerializeField] private int _rowsPerPage = 8;
+
+        [Inject] private readonly TradeService _tradeService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly IVrUiPointers _vrUiPointers;
+
         private NpcContainer _trader;
         private NpcContainer _hero;
-        private Canvas _canvas;
-        private TMP_Text _currencyText;
-        private readonly List<Row> _traderRows = new();
-        private readonly List<Row> _heroRows = new();
+        private readonly List<VRTradeRow> _traderRows = new();
+        private readonly List<VRTradeRow> _heroRows = new();
         private int _traderPage;
         private int _heroPage;
 
-        private class Row
-        {
-            public Button Button;
-            public TMP_Text Name;
-            public TMP_Text Price;
-            public string ItemName;
-        }
-
-        public static void Show(NpcContainer trader, NpcContainer hero, TradeService tradeService,
-            VmCacheService vmCacheService, VRPlayerService vrPlayerService)
-        {
-            Hide();
-
-            var go = new GameObject("VR Trade Window", typeof(RectTransform))
-            {
-                layer = Constants.UILayer
-            };
-            _current = go.AddComponent<VRTradeWindow>();
-            _current.Init(trader, hero, tradeService, vmCacheService, vrPlayerService);
-        }
-
-        public static void Hide()
-        {
-            if (_current == null)
-                return;
-
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().UnregisterCanvas(_current._canvas);
-            Destroy(_current.gameObject);
-            _current = null;
-        }
-
-        private void Init(NpcContainer trader, NpcContainer hero, TradeService tradeService,
-            VmCacheService vmCacheService, VRPlayerService vrPlayerService)
+        public void Show(NpcContainer trader, NpcContainer hero)
         {
             _trader = trader;
             _hero = hero;
-            _tradeService = tradeService;
-            _vmCacheService = vmCacheService;
-            _vrPlayerService = vrPlayerService;
 
-            BuildCanvas();
-            PlaceInFrontOfCamera();
+            _rowTemplate.gameObject.SetActive(false);
+            CreateRows(_traderRowsRoot, _traderRows, OnTraderRowClicked);
+            CreateRows(_heroRowsRoot, _heroRows, OnHeroRowClicked);
+
+            _traderPreviousButton.onClick.AddListener(() => TurnPage(ref _traderPage, -1));
+            _traderNextButton.onClick.AddListener(() => TurnPage(ref _traderPage, 1));
+            _heroPreviousButton.onClick.AddListener(() => TurnPage(ref _heroPage, -1));
+            _heroNextButton.onClick.AddListener(() => TurnPage(ref _heroPage, 1));
+            _closeButton.onClick.AddListener(() => _tradeService.End());
+
+            // The game's font exists only at runtime (FontService).
+            foreach (var text in GetComponentsInChildren<TMP_Text>(true))
+                GothicText.Apply(text);
+
+            _traderName.text = trader.Instance.GetName(NpcNameSlot.Slot0);
+            _heroName.text = hero.Instance.GetName(NpcNameSlot.Slot0);
             Refresh();
 
-            // A canvas created at runtime: the UI laser only hits registered canvases.
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().RegisterCanvas(_canvas);
+            // Instantiated at runtime: the UI laser only hits registered canvases.
+            _vrUiPointers.RegisterCanvas(_canvas);
             Logger.Log("[VRTradeWindow] Shown", LogCat.Ui);
         }
 
-        private void PlaceInFrontOfCamera()
+        private void CreateRows(RectTransform root, List<VRTradeRow> rows, System.Action<VRTradeRow> onClick)
         {
-            var cam = Camera.main;
-            if (cam == null)
-                return;
-
-            var forward = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized;
-            if (forward.sqrMagnitude < 0.01f)
-                forward = Vector3.forward;
-            transform.position = cam.transform.position + forward * _distance + Vector3.down * _heightBelowEyes;
-            transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position);
-        }
-
-        private void BuildCanvas()
-        {
-            _canvas = gameObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.WorldSpace;
-            var rect = (RectTransform)transform;
-            rect.sizeDelta = new Vector2(_width, _height);
-            rect.localScale = Vector3.one * _canvasScale;
-
-            var background = gameObject.AddComponent<Image>();
-            background.color = _backgroundColor;
-
-            var top = _height / 2f - _rowHeight;
-            var left = -_width / 4f;
-            var right = _width / 4f;
-            CreateText(_trader.Instance.GetName(NpcNameSlot.Slot0), new Vector2(left, top), _columnWidth);
-            CreateText(_hero.Instance.GetName(NpcNameSlot.Slot0), new Vector2(right, top), _columnWidth);
-
             for (var i = 0; i < _rowsPerPage; i++)
             {
-                var y = top - (i + 1.2f) * _rowHeight;
-                _traderRows.Add(CreateRow(new Vector2(left, y), OnTraderRowClicked));
-                _heroRows.Add(CreateRow(new Vector2(right, y), OnHeroRowClicked));
+                var row = Instantiate(_rowTemplate, root, false);
+                row.name = $"Row {i}";
+                row.Button.onClick.AddListener(() => onClick(row));
+                rows.Add(row);
             }
-
-            var bottom = -_height / 2f + _rowHeight;
-            CreateButton("<", new Vector2(left - 120f, bottom), 90f, () => TurnPage(ref _traderPage, -1));
-            CreateButton(">", new Vector2(left + 120f, bottom), 90f, () => TurnPage(ref _traderPage, 1));
-            CreateButton("<", new Vector2(right - 120f, bottom), 90f, () => TurnPage(ref _heroPage, -1));
-            CreateButton(">", new Vector2(right + 120f, bottom), 90f, () => TurnPage(ref _heroPage, 1));
-            CreateButton("X", new Vector2(_width / 2f - 50f, _height / 2f - 50f), 70f, () => _tradeService.End());
-            _currencyText = CreateText(string.Empty, new Vector2(0f, bottom), 300f);
-            _currencyText.horizontalAlignment = HorizontalAlignmentOptions.Center;
-        }
-
-        private Row CreateRow(Vector2 position, System.Action<Row> onClick)
-        {
-            var row = new Row();
-            var button = CreateButton(string.Empty, position, _columnWidth, null);
-            button.GetComponent<Image>().color = _rowColor;
-            row.Button = button;
-            row.Name = button.GetComponentInChildren<TMP_Text>();
-            row.Name.horizontalAlignment = HorizontalAlignmentOptions.Left;
-
-            row.Price = CreateText(string.Empty, Vector2.zero, _columnWidth - 20f, button.transform);
-            row.Price.horizontalAlignment = HorizontalAlignmentOptions.Right;
-            button.onClick.AddListener(() => onClick(row));
-            return row;
-        }
-
-        private Button CreateButton(string label, Vector2 position, float width, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(Button))
-            {
-                layer = gameObject.layer
-            };
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(transform, false);
-            rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(width, _rowHeight * 0.9f);
-            go.GetComponent<Image>().color = _rowColor;
-
-            CreateText(label, Vector2.zero, width - 20f, rect).horizontalAlignment =
-                HorizontalAlignmentOptions.Center;
-            var button = go.GetComponent<Button>();
-            if (onClick != null)
-                button.onClick.AddListener(onClick);
-            return button;
-        }
-
-        private TMP_Text CreateText(string content, Vector2 position, float width, Transform parent = null)
-        {
-            var go = new GameObject("Text", typeof(RectTransform))
-            {
-                layer = gameObject.layer
-            };
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent != null ? parent : transform, false);
-            rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(width, _rowHeight);
-
-            var text = go.AddComponent<TextMeshProUGUI>();
-            GothicText.Apply(text);
-            text.fontSize = _fontSize;
-            text.verticalAlignment = VerticalAlignmentOptions.Middle;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-            text.raycastTarget = false;
-            text.text = content;
-            return text;
         }
 
         private void TurnPage(ref int page, int direction)
@@ -216,13 +104,13 @@ namespace Gothic.VR.Adapters.UI
             Refresh();
         }
 
-        private void OnTraderRowClicked(Row row)
+        private void OnTraderRowClicked(VRTradeRow row)
         {
             if (row.ItemName != null && _tradeService.Buy(row.ItemName))
                 Refresh();
         }
 
-        private void OnHeroRowClicked(Row row)
+        private void OnHeroRowClicked(VRTradeRow row)
         {
             if (row.ItemName != null && _tradeService.Sell(row.ItemName))
                 Refresh();
@@ -242,38 +130,29 @@ namespace Gothic.VR.Adapters.UI
             _currencyText.text = $"{currency?.Name}: {_tradeService.GetCurrencyAmount(_hero)}";
         }
 
-        private static int ClampPage(int page, int count)
+        private int ClampPage(int page, int count)
         {
             var lastPage = Mathf.Max(0, (count - 1) / _rowsPerPage);
             return Mathf.Min(page, lastPage);
         }
 
-        private void FillRows(List<Row> rows, List<ContentItem> goods, int page, bool isBuying)
+        private void FillRows(List<VRTradeRow> rows, List<ContentItem> goods, int page, bool isBuying)
         {
             for (var i = 0; i < rows.Count; i++)
             {
-                var row = rows[i];
                 var index = page * _rowsPerPage + i;
                 if (index >= goods.Count)
                 {
-                    row.ItemName = null;
-                    row.Button.gameObject.SetActive(false);
+                    rows[i].Clear();
                     continue;
                 }
 
                 var good = goods[index];
-                var itemData = _vmCacheService.TryGetItemData(good.Name);
+                var itemName = _vmCacheService.TryGetItemData(good.Name)?.Name;
                 var price = isBuying ? _tradeService.GetBuyPrice(good.Name) : _tradeService.GetSellPrice(good.Name);
                 var isPossible = !isBuying || _tradeService.CanBuy(good.Name);
-
-                row.ItemName = good.Name;
-                row.Button.gameObject.SetActive(true);
-                row.Button.interactable = isPossible;
-                row.Name.text = good.Amount > 1 ? $"{itemData?.Name} x{good.Amount}" : itemData?.Name;
-                row.Price.text = price.ToString();
-                var alpha = isPossible ? 1f : _disabledAlpha;
-                row.Name.alpha = alpha;
-                row.Price.alpha = alpha;
+                var label = good.Amount > 1 ? $"{itemName} x{good.Amount}" : itemName;
+                rows[i].Show(good.Name, label, price, isPossible);
             }
         }
 
@@ -305,8 +184,7 @@ namespace Gothic.VR.Adapters.UI
 
         private void OnDestroy()
         {
-            if (_current == this)
-                _current = null;
+            _vrUiPointers?.UnregisterCanvas(_canvas);
         }
     }
 }
