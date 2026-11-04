@@ -213,6 +213,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return slot;
         }
 
+        /// <summary>
+        /// Only the walk to the mob stops. Once there, the NPC goes on using it, like in the engine.
+        /// </summary>
+        public override void StopImmediately()
+        {
+            if (!IsDestReached)
+                base.StopImmediately();
+        }
+
         protected override void OnDestinationReached()
         {
             base.OnDestinationReached();

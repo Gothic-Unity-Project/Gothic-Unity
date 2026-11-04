@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Models.Container;
@@ -21,6 +22,7 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly NpcService _npcService;
 
@@ -146,7 +148,21 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcClearAiQueue(NpcInstance npc)
         {
-            npc.GetUserData().Props.AnimationQueue.Clear();
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            var props = container.Props;
+            props.AnimationQueue.Clear();
+
+            // Like the engine, a running walk or wait stops too, and the scripts' look-at ends: G1's B_FullStop has to
+            // stop an escort that runs ahead (Baal Parvez waits for the hero). An animation or a dialog line plays on.
+            var isWalkOrWait = props.CurrentAction is AbstractWalkAnimationAction2 or GoToFp or GoToNpc or Wait;
+            if (isWalkOrWait && container.Go != null)
+                props.CurrentAction.StopImmediately();
+
+            props.LookAtTarget = null;
+            container.PrefabProps?.AnimationHeadHandler?.StopLookAt();
         }
 
         public void ExtAttack(NpcInstance npc)
@@ -239,11 +255,166 @@ namespace Gothic.Core.Services.Npc
                 npc.GetUserData()));
         }
 
+        public void ExtAiPointAt(NpcInstance npc, string pointName)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+            {
+                Logger.LogWarning($"AI_PointAt: NPC without container - '{pointName}' ignored.", LogCat.Ai);
+                return;
+            }
+
+            var point = _wayNetService.GetWayNetPoint(pointName);
+            if (point == null)
+            {
+                Logger.LogWarning($"AI_PointAt: {npc.GetName(NpcNameSlot.Slot0)} - no way point '{pointName}'.",
+                    LogCat.Ai);
+                return;
+            }
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container, () => point.Position));
+        }
+
+        public void ExtAiPointAtNpc(NpcInstance npc, NpcInstance other)
+        {
+            var container = npc?.GetUserData();
+            var target = other?.GetUserData();
+            if (target == null || container?.Props == null)
+            {
+                Logger.LogWarning("AI_PointAtNpc: NPC or target without container - ignored.", LogCat.Ai);
+                return;
+            }
+
+            container.Props.AnimationQueue.Enqueue(new PointAt(new AnimationAction(), container,
+                () => target.Go != null ? (Vector3?)target.Go.transform.position : null));
+        }
+
+        public void ExtAiStopPointAt(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            container?.Props?.AnimationQueue.Enqueue(new StopPointAt(new AnimationAction(), container));
+        }
+
+        /// <summary>
+        /// Npc_HasBodyFlag: the body state carries the flag (BS_FLAG_INTERRUPTABLE, BS_FLAG_FREEHANDS).
+        /// </summary>
+        public bool ExtNpcHasBodyFlag(NpcInstance npc, int flag)
+        {
+            var props = npc?.GetUserData()?.Props;
+            return props != null && ((int)props.BodyState & flag) != 0;
+        }
+
+        /// <summary>
+        /// Npc_SendSinglePerc, like the engine: the target perceives it, with the sender as 'other' (G1's charm,
+        /// shrink and berserk spells).
+        /// </summary>
+        public void ExtNpcSendSinglePerc(NpcInstance npc, NpcInstance target, int perception)
+        {
+            var targetProps = target?.GetUserData()?.Props;
+            if (npc == null || targetProps == null)
+                return;
+
+            ExecutePerception((VmGothicEnums.PerceptionType)perception, targetProps, target, null, npc);
+        }
+
+        /// <summary>
+        /// Npc_PlayAni: the animation right away, not queued.
+        /// </summary>
+        public void ExtNpcPlayAni(NpcInstance npc, string animationName)
+        {
+            npc?.GetUserData()?.PrefabProps?.AnimationSystem?.PlayAnimation(animationName);
+        }
+
+        public void ExtNpcSetKnowsPlayer(NpcInstance npc)
+        {
+            var props = npc?.GetUserData()?.Props;
+            if (props != null)
+                props.IsKnowingHero = true;
+        }
+
+        public bool ExtNpcKnowsPlayer(NpcInstance npc)
+        {
+            return npc?.GetUserData()?.Props?.IsKnowingHero ?? false;
+        }
+
+        /// <summary>
+        /// No news memory yet. Proxy for NEWS_DEFEAT only: the NPC knows the hero defeated him (AIV_WASDEFEATEDBYSC),
+        /// so it's news about himself as the victim.
+        /// </summary>
+        public int ExtNpcHasNews(NpcInstance npc, int newsId, NpcInstance victim)
+        {
+            var vm = _gameStateService.GothicVm;
+            var newsDefeat = vm.GetSymbolByName("NEWS_DEFEAT");
+            var wasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC");
+            if (npc == null || newsDefeat == null || wasDefeated == null || newsId != newsDefeat.GetInt(0) ||
+                (victim != null && victim.Index != npc.Index))
+                return 0;
+
+            return npc.GetAiVar(wasDefeated.GetInt(0)) == 1 ? 1 : 0;
+        }
+
+        /// <returns>cm to the hero, measured like Npc_GetDistToNpc(npc, hero).</returns>
+        public int ExtNpcGetDistToPlayer(NpcInstance npc)
+        {
+            return ExtNpcGetDistToNpc(npc, _gameStateService.GothicVm.GlobalHero as NpcInstance);
+        }
+
+        /// <summary>
+        /// Npc_IsInCutscene, like the reference engine: in a dialog (there are no cutscenes) - nobody attacks then.
+        /// </summary>
+        public bool ExtNpcIsInCutscene(NpcInstance npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            if (npc == null || !dialogs.IsInDialog)
+                return false;
+
+            return ExtNpcIsPlayer(npc) || dialogs.CurrentDialogNpc?.Instance?.Index == npc.Index;
+        }
+
         public void ExtAiStopLookAt(NpcInstance npc)
         {
             npc.GetUserData().Props.AnimationQueue.Enqueue(new StopLookAtNpc(
                 new AnimationAction(),
                 npc.GetUserData()));
+        }
+
+        /// <summary>
+        /// AI_Dodge: a jump back, like the engine (OpenGothic: AI_Dodge plays Anim::MoveBack) - the parade jump of the
+        /// drawn melee weapon or fists, otherwise the plain jump back. G1's orcs dodge when hit or watching a fight.
+        /// </summary>
+        public void ExtAiDodge(NpcInstance npc)
+        {
+            var npcContainer = npc.GetUserData();
+            if (npcContainer == null)
+            {
+                Logger.LogWarning($"AI_Dodge: NPC {npc?.Id} has no Unity data (not spawned?) - skipping.", LogCat.Ai);
+                return;
+            }
+
+            var weaponState = (VmGothicEnums.WeaponState)npcContainer.Vob.FightMode;
+            var animationName = weaponState is VmGothicEnums.WeaponState.Fist or VmGothicEnums.WeaponState.W1H or
+                VmGothicEnums.WeaponState.W2H
+                ? $"T_{AnimationService.GetWeaponAnimationPrefix(weaponState)}PARADEJUMPB"
+                : "T_JUMPB";
+
+            npcContainer.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(animationName), npcContainer));
+        }
+
+        /// <summary>
+        /// Npc_StopAni: stops an animation right away, not queued. A queued AI_PlayAni of it then ends (PlayAni). G2's
+        /// praying NPCs stop their random prayer with it before they stand up.
+        /// </summary>
+        public void ExtNpcStopAni(NpcInstance npc, string name)
+        {
+            var animationSystem = npc.GetUserData()?.PrefabProps?.AnimationSystem;
+            if (animationSystem == null)
+            {
+                Logger.LogWarning($"Npc_StopAni: NPC {npc?.Id} has no animations (not spawned?) - {name} not stopped.",
+                    LogCat.Ai);
+                return;
+            }
+
+            animationSystem.StopAnimation(name);
         }
 
         public void ExtAiContinueRoutine(NpcInstance npc)
@@ -293,6 +464,33 @@ namespace Gothic.Core.Services.Npc
             container.Props.AnimationQueue.Enqueue(new StandUp(new AnimationAction(), container));
         }
 
+        /// <summary>
+        /// AI_WaitTillEnd(self, other): self goes on once other has done what it was given so far (trialogues: one NPC
+        /// answers after the other finished his line).
+        /// </summary>
+        public void ExtAiWaitTillEnd(NpcInstance npc, NpcInstance other)
+        {
+            var self = npc.GetUserData();
+            var otherContainer = other.GetUserData();
+            if (self == null || otherContainer == null)
+            {
+                Logger.LogWarning($"[NpcAi] AI_WaitTillEnd: {(self == null ? "self" : "other")} is no NPC - no wait.",
+                    LogCat.Ai);
+                return;
+            }
+
+            self.Props.AnimationQueue.Enqueue(new WaitTillEnd(new AnimationAction(instance0: other), self,
+                otherContainer));
+        }
+
+        /// <summary>
+        /// AI_AimAt: the NPC turns to the target. The aiming pose of the drawn bow isn't played yet.
+        /// </summary>
+        public void ExtAiAimAt(NpcInstance npc, NpcInstance target)
+        {
+            ExtAiTurnToNpc(npc, target);
+        }
+
         public void ExtAiTurnToNpc(NpcInstance npc, NpcInstance other)
         {
             if (other == null)
@@ -335,6 +533,23 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// AI_UseItem: take the item out, use it up (UseItemEffect: on_state[0], potions heal) and put the hand down.
+        /// </summary>
+        public void ExtAiUseItem(NpcInstance npc, int itemId)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+            {
+                Logger.LogWarning($"AI_UseItem: no NPC for item {itemId} - skipped", LogCat.Ai);
+                return;
+            }
+
+            ExtAiUseItemToState(npc, itemId, 0);
+            container.Props.AnimationQueue.Enqueue(new UseItemEffect(new AnimationAction(int0: itemId), container));
+            ExtAiUseItemToState(npc, itemId, -1);
+        }
+
+        /// <summary>
         /// State means the final state where the animation shall go to.
         /// example:
         /// * itemId=xyz (ItFoBeer)
@@ -369,7 +584,12 @@ namespace Gothic.Core.Services.Npc
                 return int.MaxValue;
             }
 
-            var npc1Pos = npc1.GetUserData().Go.transform.position;
+            // Not spawned yet (Npc_GetDistToPlayer of an NPC out of range).
+            var npc1Go = npc1.GetUserData()?.Go;
+            if (npc1Go == null)
+                return int.MaxValue;
+
+            var npc1Pos = npc1Go.transform.position;
 
             Vector3 npc2Pos;
             // If hero: use camera position (VR head position is most accurate)
@@ -444,13 +664,18 @@ namespace Gothic.Core.Services.Npc
         {
             // NpcService.CacheHero() calls Vm.InitInstance(heroInstance) BEFORE assigning Vm.GlobalHero.
             // A (mod) script calling Npc_IsPlayer during that window finds no hero yet - nobody is the player then.
+            // Scripts ask it for NULL too (DoM's start) - NULL is nobody.
             var globalHero = _gameStateService.GothicVm.GlobalHero;
-            return globalHero != null && npc.Index == globalHero.Index;
+            return npc != null && globalHero != null && npc.Index == globalHero.Index;
         }
 
+        /// <summary>
+        /// Scripts ask this for NULL too (G2 ZS_Attack_Loop -> C_PlayerIsFakeBandit(self, other) once the target is
+        /// gone). Like the engine: no NPC, no armor.
+        /// </summary>
         public ItemInstance ExtGetEquippedArmor(NpcInstance npc)
         {
-            var armor = npc.GetUserData().Props.EquippedItems
+            var armor = npc.GetUserData()?.Props?.EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor);
 
             return armor;

@@ -33,6 +33,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly ConfigService _configService;
 
         private VirtualMemory _memory;
+        private VmExternalGuard _guard;
 
         // Maps symbol index → fake address; used for MEM_InstToPtr round-trips.
         private readonly Dictionary<int, int> _instancePtrMap = new();
@@ -52,6 +53,7 @@ namespace Gothic.Core.Domain.Vm
         public void Init()
         {
             _memory = new VirtualMemory();
+            _guard = new VmExternalGuard(_gameStateService.GothicVm);
 
             SetupCoreFunctions();
             SetupMemoryFunctions();
@@ -71,7 +73,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupCoreFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction("MEMINT_SetupExceptionHandler", () => { });
             vm.OverrideFunction("MEMINT_ReplaceSlowFunctions", () => { });
@@ -145,7 +147,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupMemoryFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction<int, int>("MEM_Alloc", amount =>
             {
@@ -240,7 +242,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupDirectFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // MEM_PtrToInst / _^ — convert a fake address to a transient Daedalus instance
             vm.OverrideFunction<DaedalusInstance, int>("MEM_PtrToInst", address =>
@@ -333,7 +335,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupMathFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // MKF: int → float bits (treat the int value as a float and return its bit pattern)
             vm.OverrideFunction<int, int>("MKF", v => BitConverter.SingleToInt32Bits((float)v));
@@ -376,7 +378,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupStringFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             vm.OverrideFunction<string, string, int, int>("STR_SubStr", (str, start, count) =>
             {
@@ -422,7 +424,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupConfigFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // Section is ignored since our config is a flat key→value dictionary
             vm.OverrideFunction<string, string, string>("MEM_GetGothOpt", (_, key) =>
@@ -476,7 +478,7 @@ namespace Gothic.Core.Domain.Vm
 
         private void SetupDiagnosticFunctions()
         {
-            var vm = _gameStateService.GothicVm;
+            var vm = _guard;
 
             // Ikarus prints it with every MEM_Warn/MEM_Error (whose text arrives through MEM_SendToSpy).
             vm.OverrideFunction("MEM_PrintStackTrace", PrintStackTrace);
@@ -603,32 +605,44 @@ namespace Gothic.Core.Domain.Vm
 
         private void SafeOverride(string name, Action handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, null))
+                return;
+            _guard.OverrideFunction(name, () => handler());
         }
 
         private void SafeOverride<TP0>(string name, Action<TP0> handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0)))
+                return;
+            _guard.OverrideFunction<TP0>(name, p0 => handler(p0));
         }
 
         private void SafeOverride<TP0, TP1>(string name, Action<TP0, TP1> handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0), typeof(TP1)))
+                return;
+            _guard.OverrideFunction<TP0, TP1>(name, (p0, p1) => handler(p0, p1));
         }
 
         private void SafeOverride<TP0, TP1, TP2>(string name, Action<TP0, TP1, TP2> handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, null, typeof(TP0), typeof(TP1), typeof(TP2)))
+                return;
+            _guard.OverrideFunction<TP0, TP1, TP2>(name, (p0, p1, p2) => handler(p0, p1, p2));
         }
 
         private void SafeOverride<TR>(string name, Func<TR> handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, typeof(TR)))
+                return;
+            _guard.OverrideFunction(name, () => handler());
         }
 
         private void SafeOverride<TR, TP0>(string name, Func<TP0, TR> handler)
         {
-            _gameStateService.GothicVm.TryOverrideMatching(name, handler);
+            if (!_gameStateService.GothicVm.HasSignature(name, typeof(TR), typeof(TP0)))
+                return;
+            _guard.OverrideFunction(name, (TP0 p0) => handler(p0));
         }
 
 

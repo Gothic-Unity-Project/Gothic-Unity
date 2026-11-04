@@ -22,6 +22,14 @@ namespace Gothic.Core.Services.Culling
         }
 
         /// <summary>
+        /// The NPC leaves the culling. Returns its lazy-load root (null if it had none).
+        /// </summary>
+        public UnityEngine.GameObject RemoveCullingEntry(ZenKit.Daedalus.NpcInstance npc)
+        {
+            return _npcDomain.RemoveCullingEntry(npc);
+        }
+
+        /// <summary>
         /// The time-based routine of an NPC changed. The culling domain moves spheres of culled NPCs to the new
         /// scheduled waypoint, so that off-screen NPCs progress their daily routine.
         /// </summary>

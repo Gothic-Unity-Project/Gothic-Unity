@@ -17,6 +17,7 @@ using Gothic.Core.Models.Proxy;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
@@ -50,8 +51,10 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -75,6 +78,8 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.LoadGameStart.AddListener(() =>
             {
                 ClearQueues();
+                // The new game's VM has its own dialogs (BootstrapDomain).
+                _ambientInfoByPrefix = null;
             });
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
@@ -178,9 +183,9 @@ namespace Gothic.Core.Services.Npc
             _initializerDomain.RootGo = rootGo;
         }
 
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
-            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan);
+            return _initializerDomain.GetFreeAreaAtSpawnPoint(positionToScan, ownNpc);
         }
 
         /// <summary>
@@ -285,15 +290,60 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// Wld_RemoveNpc: the NPC leaves the world (cache, culling, scene). Other NPCs' targets aren't cleared yet.
+        /// </summary>
+        public void ExtWldRemoveNpc(int instanceId)
+        {
+            if (_gameStateService.GothicVm.GlobalHero is NpcInstance hero && hero.Index == instanceId)
+            {
+                Logger.LogWarning("[Wld_RemoveNpc] The hero can't be removed - skipped", LogCat.Npc);
+                return;
+            }
+
+            var removed = _multiTypeCacheService.NpcCache.Where(i => i.Instance.Index == instanceId).ToList();
+            foreach (var npc in removed)
+            {
+                var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
+                _multiTypeCacheService.NpcCache.Remove(npc);
+                // The NPC's GameObject normally lives under its lazy-load root - destroy it too if it doesn't.
+                if (npc.Go != null && (lazyLoadRoot == null || !npc.Go.transform.IsChildOf(lazyLoadRoot.transform)))
+                    Object.Destroy(npc.Go);
+                if (lazyLoadRoot != null)
+                    Object.Destroy(lazyLoadRoot);
+            }
+
+            if (removed.Count == 0)
+                Logger.LogWarning($"[Wld_RemoveNpc] instance={instanceId} isn't in the world", LogCat.Npc);
+            else
+                Logger.Log($"[Wld_RemoveNpc] instance={instanceId} - removed {removed.Count} NPC(s)", LogCat.Npc);
+        }
+
         public NpcInstance ExtHlpGetNpc(int instanceId)
         {
-            return _multiTypeCacheService.NpcCache
+            var npc = _multiTypeCacheService.NpcCache
                 .FirstOrDefault(i => i.Instance.Index == instanceId)?
                 .Instance;
+            if (npc != null)
+                return npc;
+
+            // Like the engine, a variable (SELF, OTHER, ...) gives the NPC it points to: Hlp_GetNpc(self) in
+            // B_KillNpc(self) was null (found on BoroBongo's branch).
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(instanceId);
+            var variableNpc = symbol is { Type: DaedalusDataType.Instance } ? symbol.GetInstance() as NpcInstance : null;
+            return variableNpc?.GetUserData()?.Vob != null ? variableNpc : null;
         }
 
         public void ExtNpcChangeAttribute(NpcInstance npc, int attributeId, int value)
         {
+            // A script passing no NPC (Hlp_GetNpc found none) mustn't break the calling function.
+            if (npc?.GetUserData()?.Vob == null)
+            {
+                Logger.LogWarning($"[NpcService] Npc_ChangeAttribute({attributeId}, {value}) without an NPC - skipped",
+                    LogCat.Npc);
+                return;
+            }
+
             var container = npc.GetUserData();
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
@@ -443,14 +493,22 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtMdlSetModelScale(NpcInstance npc, System.Numerics.Vector3 scale)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelScale = scale;
+            var container = npc.GetUserData();
+            container.Vob.ModelScale = scale;
+            _initializerDomain.ApplyModelScale(container);
         }
 
         public void ExtSetModelFatness(NpcInstance npc, float fatness)
         {
-            // FIXME - Set this value on actual GameObject later.
-            npc.GetUserData().Vob.ModelFatness = fatness;
+            var container = npc.GetUserData();
+            if (container == null)
+            {
+                Logger.LogWarning($"[NpcService] Mdl_SetModelFatness: NPC {npc.Index} has no container - " +
+                    $"fatness {fatness} ignored.", LogCat.Npc);
+                return;
+            }
+
+            _npcLookService.SetFatness(container, fatness);
         }
 
         public void ExtApplyOverlayMds(NpcInstance npc, string overlayName)
@@ -706,6 +764,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     ReEnableNpc(npcContainer);
                 }
+
+                // An NPC built before keeps its body while culled, but loses a ghost's see-through look.
+                if (!initializedNow)
+                    _npcLookService.Apply(npcContainer);
             }
         }
         

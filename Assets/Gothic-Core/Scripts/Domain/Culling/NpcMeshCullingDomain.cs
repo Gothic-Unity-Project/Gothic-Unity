@@ -81,6 +81,40 @@ namespace Gothic.Core.Domain.Culling
         }
 
         /// <summary>
+        /// Wld_RemoveNpc: the NPC leaves the culling - its slot is filled with the last entry (no array reallocation).
+        /// Returns the NPC's lazy-load root (null if it had no culling entry).
+        /// </summary>
+        public UnityEngine.GameObject RemoveCullingEntry(NpcInstance npc)
+        {
+            if (npc == null || !_indexByInstance.TryGetValue(npc, out var index))
+                return null;
+
+            var loader = _loaders[index];
+
+            var last = _count - 1;
+            var wasVisible = _visibleNpcs.Remove(index);
+            if (index != last)
+            {
+                _spheres[index] = _spheres[last];
+                _loaders[index] = _loaders[last];
+                _states[index] = _states[last];
+                _indexByInstance[_loaders[index].Npc] = index;
+                if (_visibleNpcs.Remove(last))
+                    _visibleNpcs.Add(index);
+            }
+
+            _loaders[last] = null;
+            _indexByInstance.Remove(npc);
+            _count--;
+            if (CurrentState == State.WorldLoaded)
+                CullingGroup.SetBoundingSphereCount(_count);
+
+            Logger.Log($"[NpcCulling] Removed '{npc.GetName(NpcNameSlot.Slot0)}' (was visible: {wasVisible}).",
+                LogCat.Npc);
+            return loader != null ? loader.gameObject : null;
+        }
+
+        /// <summary>
         /// Set main camera once world is loaded fully. Doesn't work at loading time as we change scenes etc.
         /// </summary>
         public override void PostWorldCreate()
@@ -267,7 +301,10 @@ namespace Gothic.Core.Domain.Culling
                 if (container?.Vob == null)
                     continue;
 
-                var root = loader.transform;
+                // A built NPC is its body ("Root" below the loader) - the loader itself goes to the world's origin once
+                // the body is built. Read from the loader, every NPC around was saved at height 0 (knocked out bodies
+                // came back floating) and the others at the origin (back at their routine's spot after loading).
+                var root = container.Go != null ? container.Go.transform : loader.transform;
                 var position = root.position;
                 var bip01 = container.PrefabProps == null ? null : container.PrefabProps.Bip01;
                 if (_visibleNpcs.Contains(i) && bip01 != null)

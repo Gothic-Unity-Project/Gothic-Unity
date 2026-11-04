@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -11,7 +12,6 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -36,16 +36,24 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly NpcRandomAniService _npcRandomAniService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly SkyService _skyService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
+
+        // A missing or foreign NPC parameter is neutral, like NpcAiService.ExtGetAttitude (0 is ATT_HOSTILE).
+        private const int NeutralAttitude = (int)VmGothicEnums.Attitude.Neutral;
+        // Unknown externals are reported once each - scripts call some of them on every perception.
+        private readonly HashSet<string> _reportedDefaultExternals = new();
 
         // (optional) Some messages from Daedalus are quite spammy. Ignore them.
         private static readonly string[] _spammyMessages = new[]
@@ -84,7 +92,7 @@ namespace Gothic.Core.Domain.Vm
                 // zSpyChannel are bitwise checks. Therefore, we calculate the bit operation like (1 << PD_TA_FRAME(1) - 1)==1000
                 _zSpyChannel = _configService.Dev.ZSpyChannels.Value.Sum(i => 1 << ((int)i - 1));
 
-            var vm = _gameStateService.GothicVm;
+            var vm = new VmExternalGuard(_gameStateService.GothicVm);
             vm.RegisterExternalDefault(DefaultExternal);
 
             // AI
@@ -100,6 +108,9 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, string>("AI_PlayAni", AI_PlayAni);
             vm.RegisterExternal<NpcInstance, int, int, string>("AI_StartState", AI_StartState);
             vm.RegisterExternal<NpcInstance, int, int>("AI_UseItemToState", AI_UseItemToState);
+            RegisterIfDeclared(vm, "AI_UseItem", () => vm.RegisterExternal<NpcInstance, int>("AI_UseItem", AI_UseItem));
+            RegisterIfDeclared(vm, "AI_UnequipWeapons",
+                () => vm.RegisterExternal<NpcInstance>("AI_UnequipWeapons", AI_UnequipWeapons));
             vm.RegisterExternal<NpcInstance, float>("AI_Wait", AI_Wait);
             vm.RegisterExternal<NpcInstance, int>("AI_WaitMs", AI_WaitMs);
             vm.RegisterExternal<int, NpcInstance, string, int>("AI_UseMob", AI_UseMob);
@@ -108,6 +119,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_ReadyMeleeWeapon", AI_ReadyMeleeWeapon);
             vm.RegisterExternal<NpcInstance>("AI_ReadyRangedWeapon", AI_ReadyRangedWeapon);
             vm.RegisterExternal<NpcInstance>("AI_RemoveWeapon", AI_RemoveWeapon);
+            vm.RegisterExternal<NpcInstance>("AI_StopAim", AI_StopAim);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_Output", AI_Output);
             vm.RegisterExternal<NpcInstance>("AI_ProcessInfos", AI_ProcessInfos);
             vm.RegisterExternal<NpcInstance>("AI_StopProcessInfos", AI_StopProcessInfos);
@@ -116,17 +128,33 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
+
+            // Engine externals some scripts (mostly mods) call - only registered where the scripts declare them
+            // (G1 has no AI_StopFX).
+            if (vm.GetSymbolByName("Npc_IsWayBlocked") != null)
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsWayBlocked", Npc_IsWayBlocked);
+            if (vm.GetSymbolByName("AI_WaitTillEnd") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WaitTillEnd", AI_WaitTillEnd);
+            if (vm.GetSymbolByName("AI_AimAt") != null)
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_AimAt", AI_AimAt);
+            if (vm.GetSymbolByName("AI_StopFX") != null)
+                vm.RegisterExternal<NpcInstance, string>("AI_StopFX", AI_StopFX);
+            if (vm.GetSymbolByName("Wld_InsertObject") != null)
+                vm.RegisterExternal<string, string>("Wld_InsertObject", Wld_InsertObject);
             vm.RegisterExternal<NpcInstance, string, int>("AI_PlayAniBS", AI_PlayAniBS);
+            vm.RegisterExternal<NpcInstance>("AI_Dodge", AI_Dodge);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
+            RegisterSmallExternals(vm);
 
             // Apply Options
             // Doc
+
             // Helper
             vm.RegisterExternal<int, int>("Hlp_Random", Hlp_Random);
             vm.RegisterExternal<int, string, string>("Hlp_StrCmp", Hlp_StrCmp);
-            vm.RegisterExternal<int, ItemInstance, int>("Hlp_IsItem", Hlp_IsItem);
-            vm.RegisterExternal<int, ItemInstance>("Hlp_IsValidItem", Hlp_IsValidItem);
+            vm.RegisterExternal<int, DaedalusInstance, int>("Hlp_IsItem", (i, index) => AsItem(i, "Hlp_IsItem") is { } item ? Hlp_IsItem(item, index) : 0);
+            vm.RegisterExternal<int, DaedalusInstance>("Hlp_IsValidItem", i => AsItem(i, "Hlp_IsValidItem") is { } item ? Hlp_IsValidItem(item) : 0);
             vm.RegisterExternal<int, NpcInstance>("Hlp_IsValidNpc", Hlp_IsValidNpc);
             vm.RegisterExternal<NpcInstance, int>("Hlp_GetNpc", Hlp_GetNpc);
             vm.RegisterExternal<int, DaedalusInstance>("Hlp_GetInstanceID", Hlp_GetInstanceID);
@@ -144,10 +172,19 @@ namespace Gothic.Core.Domain.Vm
             // Model
             vm.RegisterExternal<NpcInstance, string>("Mdl_SetVisual", Mdl_SetVisual);
             vm.RegisterExternal<NpcInstance, string>("Mdl_ApplyOverlayMds", Mdl_ApplyOverlayMds);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomAni") != null)
+                vm.RegisterExternal<NpcInstance, string, string>("Mdl_ApplyRandomAni", Mdl_ApplyRandomAni);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomAniFreq") != null)
+                vm.RegisterExternal<NpcInstance, string, float>("Mdl_ApplyRandomAniFreq", Mdl_ApplyRandomAniFreq);
             vm.RegisterExternal<NpcInstance, string, int, int, string, int, int, int>("Mdl_SetVisualBody", Mdl_SetVisualBody);
             vm.RegisterExternal<NpcInstance, float, float, float>("Mdl_SetModelScale", Mdl_SetModelScale);
             vm.RegisterExternal<NpcInstance, float>("Mdl_SetModelFatness", Mdl_SetModelFatness);
             vm.RegisterExternal<NpcInstance, string>("Mdl_RemoveOverlayMDS", Mdl_RemoveOverlayMDS);
+            if (vm.GetSymbolByName("Mdl_StartFaceAni") != null)
+                vm.RegisterExternal<NpcInstance, string, float, float>("Mdl_StartFaceAni", Mdl_StartFaceAni);
+            if (vm.GetSymbolByName("Mdl_ApplyRandomFaceAni") != null)
+                vm.RegisterExternal<NpcInstance, string, float, float, float, float, float>("Mdl_ApplyRandomFaceAni",
+                    Mdl_ApplyRandomFaceAni);
 
             // Mission
 
@@ -163,8 +200,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int, int>("Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int, int>("Npc_PercEnable", Npc_PercEnable);
             vm.RegisterExternal<NpcInstance, float>("Npc_SetPercTime", Npc_SetPercTime);
-            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetPermAttitude", Npc_GetPermAttitude);
-            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetAttitude", Npc_GetAttitude);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetPermAttitude", (a, b) => AsNpc(a, "Npc_GetPermAttitude") is { } first && AsNpc(b, "Npc_GetPermAttitude") is { } second ? Npc_GetPermAttitude(first, second) : NeutralAttitude);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetAttitude", (a, b) => AsNpc(a, "Npc_GetAttitude") is { } first && AsNpc(b, "Npc_GetAttitude") is { } second ? Npc_GetAttitude(first, second) : NeutralAttitude);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetAttitude", Npc_SetAttitude);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetTempAttitude", Npc_SetTempAttitude);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetBodyState", Npc_GetBodyState);
@@ -178,7 +215,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, string>("Npc_IsOnFP", Npc_IsOnFP);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_WasInState", Npc_WasInState);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItem", Npc_GetInvItem);
-            // PxVm.pxVmRegisterExternal(vmPtr, "Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
+            vm.RegisterExternal<int, NpcInstance, int, int>("Npc_GetInvItemBySlot", Npc_GetInvItemBySlot);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItem", Npc_RemoveInvItem);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int>("EquipItem", EquipItem);
@@ -190,10 +227,13 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedRangedWeapon", Npc_HasEquippedRangedWeapon);
             vm.RegisterExternal<int, NpcInstance, string>("Npc_GetDistToWP", Npc_GetDistToWP);
             vm.RegisterExternal<NpcInstance, int>("Npc_PercDisable", Npc_PercDisable);
-            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpc", Npc_CanSeeNpc);
-            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_CanSeeNpcFreeLOS", Npc_CanSeeNpcFreeLOS);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_CanSeeNpc", (a, b) => AsNpc(a, "Npc_CanSeeNpc") is { } first && AsNpc(b, "Npc_CanSeeNpc") is { } second ? Npc_CanSeeNpc(first, second) : 0);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_CanSeeNpcFreeLOS", (a, b) => AsNpc(a, "Npc_CanSeeNpcFreeLOS") is { } first && AsNpc(b, "Npc_CanSeeNpcFreeLOS") is { } second ? Npc_CanSeeNpcFreeLOS(first, second) : 0);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_CanSeeItem", (n, i) => AsNpc(n, "Npc_CanSeeItem") is { } npc && AsItem(i, "Npc_CanSeeItem") is { } item ? Npc_CanSeeItem(npc, item) : 0);
             vm.RegisterExternal<NpcInstance>("Npc_ClearAiQueue", Npc_ClearAiQueue);
-            // vm.RegisterExternal<NpcInstance>("Npc_ClearInventory", Npc_ClearInventory);
+            // G2 only - G1's scripts don't declare it.
+            if (vm.GetSymbolByName("Npc_ClearInventory") != null)
+                vm.RegisterExternal<NpcInstance>("Npc_ClearInventory", Npc_ClearInventory);
             vm.RegisterExternal<string, NpcInstance>("Npc_GetNextWp", Npc_GetNextWp);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_GetTalentSkill", Npc_GetTalentSkill);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_GetTalentValue", Npc_GetTalentValue);
@@ -205,7 +245,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance, int>("Npc_SetToFightMode", Npc_SetToFightMode);
             vm.RegisterExternal<int, NpcInstance, int>("Npc_IsInFightMode", Npc_IsInFightMode);
             vm.RegisterExternal<int, NpcInstance>("Npc_IsPlayer", Npc_IsPlayer);
-            vm.RegisterExternal<int, ItemInstance, NpcInstance>("Npc_OwnedByNpc", Npc_OwnedByNpc);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_OwnedByNpc", (i, n) => AsItem(i, "Npc_OwnedByNpc") is { } item && AsNpc(n, "Npc_OwnedByNpc") is { } npc ? Npc_OwnedByNpc(item, npc) : 0);
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTarget", Npc_GetTarget);
             vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetTarget", Npc_SetTarget);
             vm.RegisterExternal<NpcInstance, int, NpcInstance, NpcInstance>("Npc_SendPassivePerc", Npc_SendPassivePerc);
@@ -213,12 +253,14 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance>("Npc_GetTrueGuild", Npc_GetTrueGuild);
             vm.RegisterExternal<NpcInstance, int>("Npc_SetRefuseTalk", Npc_SetRefuseTalk);
             vm.RegisterExternal<int, NpcInstance>("Npc_RefuseTalk", Npc_RefuseTalk);
+            vm.RegisterExternal<int, NpcInstance, int, NpcInstance, NpcInstance>("Npc_HasNews", Npc_HasNews);
 
-            // G2 externals only.
-            if (_contextGameVersionService.IsGothic2())
-            {
-                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetHeightToNpc", Npc_GetHeightToNpc);
-            }
+            // G2 externals only: G1's scripts (and mods) that don't declare them would make the registration throw.
+            RegisterIfDeclared(vm, "Npc_GetHeightToNpc", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetHeightToNpc", (a, b) => AsNpc(a, "Npc_GetHeightToNpc") is { } first && AsNpc(b, "Npc_GetHeightToNpc") is { } second ? Npc_GetHeightToNpc(first, second) : 0));
+            RegisterIfDeclared(vm, "Npc_StopAni", () => vm.RegisterExternal<NpcInstance, string>("Npc_StopAni", Npc_StopAni));
+            RegisterIfDeclared(vm, "Wld_IsRaining", () => vm.RegisterExternal("Wld_IsRaining", Wld_IsRaining));
+
+            RegisterIfDeclared(vm, "Wld_RemoveNpc", () => vm.RegisterExternal<int>("Wld_RemoveNpc", Wld_RemoveNpc));
 
 
             // Print
@@ -235,6 +277,10 @@ namespace Gothic.Core.Domain.Vm
 
             // Video
             RegisterPlayVideo(vm);
+
+
+            RegisterIfDeclared(vm, "Npc_GetLookAtTarget",
+                () => vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_GetLookAtTarget", Npc_GetLookAtTarget));
 
             // Day Routine
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
@@ -278,6 +324,10 @@ namespace Gothic.Core.Domain.Vm
         {
             // FIXME: Once Gothic is fully released, we can safely throw an exception as it tells us: The game will not work until you implement this missing function.
             //throw new NotImplementedException("External >" + value + "< not registered but required by DaedalusVM.");
+            // ZenKit already took the arguments and pushed the default result - here we only report it, once.
+            if (!_reportedDefaultExternals.Add(sym.Name))
+                return;
+
             try
             {
                 if (_gameStateService.GothicVm.GlobalSelf == null)
@@ -407,9 +457,49 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiStartState(npc, function, Convert.ToBoolean(stateBehaviour), wayPointName);
         }
 
+        /// <summary>
+        /// The NPC takes the item out, uses it up (on_state[0]: potions heal) and puts the hand down - like the engine.
+        /// NPCs drink a potion after a fight (ZS_HealSelf); unhandled, the queue got stuck there.
+        /// </summary>
+        public void AI_UseItem(NpcInstance npc, int itemId)
+        {
+            var resolved = ResolveItemId(itemId);
+            if (resolved < 0)
+            {
+                Logger.LogWarning($"AI_UseItem: the global item of {npc?.GetName(NpcNameSlot.Slot0)} is empty - skipped",
+                    LogCat.Ai);
+                return;
+            }
+            _npcAiService.ExtAiUseItem(npc, resolved);
+        }
+
         public void AI_UseItemToState(NpcInstance npc, int itemId, int expectedInventoryCount)
         {
-            _npcAiService.ExtAiUseItemToState(npc, itemId, expectedInventoryCount);
+            var resolved = ResolveItemId(itemId);
+            if (resolved < 0 || npc?.GetUserData()?.Props == null)
+            {
+                Logger.LogWarning($"AI_UseItemToState: no NPC or the global item of {npc?.GetName(NpcNameSlot.Slot0)} " +
+                                  "is empty - skipped", LogCat.Ai);
+                return;
+            }
+
+            _npcAiService.ExtAiUseItemToState(npc, resolved, expectedInventoryCount);
+        }
+
+        /// <summary>
+        /// `AI_UseItem(self, item)` hands over the global `item` variable
+        /// (G1 ZS_HealSelf: food found by Npc_GetInvItemBySlot) - its symbol, not an item instance. The engine uses the
+        /// item in it. The unknown "item" left Lukis frozen after a fight (the use never finished).
+        /// </summary>
+        private int ResolveItemId(int itemId)
+        {
+            var vm = _gameStateService.GothicVm;
+            var symbol = vm.GetSymbolByIndex(itemId);
+            if (symbol == null || !string.Equals(symbol.Name, "ITEM", StringComparison.OrdinalIgnoreCase))
+                return itemId;
+
+            // -1: the global item is empty - nothing to use.
+            return vm.GlobalItem is ItemInstance item ? item.Index : -1;
         }
 
         public void AI_Wait(NpcInstance npc, float seconds)
@@ -456,6 +546,11 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiUndrawWeapon(npc);
         }
 
+        public void AI_StopAim(NpcInstance npc)
+        {
+            // Stub — NPC ranged aiming not yet implemented; NPC will sheath via AI_RemoveWeapon.
+        }
+
         public void AI_Output(NpcInstance self, NpcInstance target, string outputName)
         {
             _dialogService.ExtAiOutput(self, target, outputName);
@@ -497,6 +592,11 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiStopLookAt(npc);
         }
 
+        public void AI_Dodge(NpcInstance npc)
+        {
+            _npcAiService.ExtAiDodge(npc);
+        }
+
         public void AI_ContinueRoutine(NpcInstance npc)
         {
             _npcAiService.ExtAiContinueRoutine(npc);
@@ -507,9 +607,41 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiTurnToNpc(npc, target);
         }
 
+        /// <summary>
+        /// DoM asks it on every perception (B_AssessPlayer) to let NPCs step aside. Our walking has no "blocked"
+        /// detection yet - the way is free, as before, just without a warning per call.
+        /// </summary>
+        public int Npc_IsWayBlocked(NpcInstance npc)
+        {
+            return LogInstantExternal(nameof(Npc_IsWayBlocked), 0, npc);
+        }
+
+        public void AI_WaitTillEnd(NpcInstance npc, NpcInstance other)
+        {
+            _npcAiService.ExtAiWaitTillEnd(npc, other);
+        }
+
+        public void AI_AimAt(NpcInstance npc, NpcInstance target)
+        {
+            _npcAiService.ExtAiAimAt(npc, target);
+        }
+
+        /// <summary>
+        /// There are no effects on NPCs to stop yet (AI_PlayFX isn't implemented either).
+        /// </summary>
+        public void AI_StopFX(NpcInstance npc, string effect)
+        {
+            LogInstantExternal(nameof(AI_StopFX), new object[] { npc, effect });
+        }
+
         public void AI_PlayAniBS(NpcInstance npc, string name, int bodyState)
         {
             _npcAiService.ExtAiPlayAniBs(npc, name, bodyState);
+        }
+
+        public void AI_UnequipWeapons(NpcInstance npc)
+        {
+            _npcInventoryService.ExtAiUnequipWeapons(npc);
         }
 
         public void AI_UnequipArmor(NpcInstance npc)
@@ -520,6 +652,53 @@ namespace Gothic.Core.Domain.Vm
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)
         {
             _dialogService.ExtAiOutputSvm(npc, target, svmname);
+        }
+
+        /// <summary>
+        /// The reference engine's externals the scripts call and we lacked: remarks while busy, pointing, body flags,
+        /// single perceptions... Only the ones the game's scripts declare.
+        /// </summary>
+        private void RegisterSmallExternals(VmExternalGuard vm)
+        {
+            bool IsDeclared(string name) => vm.GetSymbolByName(name) != null;
+
+            if (IsDeclared("AI_PointAt"))
+                vm.RegisterExternal<NpcInstance, string>("AI_PointAt", _npcAiService.ExtAiPointAt);
+            if (IsDeclared("AI_PointAtNpc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("AI_PointAtNpc", _npcAiService.ExtAiPointAtNpc);
+            if (IsDeclared("AI_StopPointAt"))
+                vm.RegisterExternal<NpcInstance>("AI_StopPointAt", _npcAiService.ExtAiStopPointAt);
+            if (IsDeclared("Npc_HasBodyFlag"))
+                vm.RegisterExternal<int, NpcInstance, int>("Npc_HasBodyFlag",
+                    (npc, flag) => Convert.ToInt32(_npcAiService.ExtNpcHasBodyFlag(npc, flag)));
+            if (IsDeclared("Npc_SendSinglePerc"))
+                vm.RegisterExternal<NpcInstance, NpcInstance, int>("Npc_SendSinglePerc",
+                    _npcAiService.ExtNpcSendSinglePerc);
+            if (IsDeclared("Npc_PlayAni"))
+                vm.RegisterExternal<NpcInstance, string>("Npc_PlayAni", _npcAiService.ExtNpcPlayAni);
+            if (IsDeclared("Npc_HasEquippedWeapon"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedWeapon",
+                    npc => Convert.ToInt32(_npcHelperService.ExtNpcHasEquippedMeleeWeapon(npc) ||
+                                           _npcHelperService.ExtNpcHasEquippedRangedWeapon(npc)));
+            if (IsDeclared("Npc_GetDistToPlayer"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_GetDistToPlayer", _npcAiService.ExtNpcGetDistToPlayer);
+            if (IsDeclared("Npc_GetInvItem"))
+                vm.RegisterExternal<ItemInstance, NpcInstance, int>("Npc_GetInvItem",
+                    _npcInventoryService.ExtNpcGetInvItem);
+            if (IsDeclared("Npc_IsInCutscene"))
+                vm.RegisterExternal<int, NpcInstance>("Npc_IsInCutscene",
+                    npc => Convert.ToInt32(_npcAiService.ExtNpcIsInCutscene(npc)));
+            if (IsDeclared("Npc_SetKnowsPlayer"))
+                vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_SetKnowsPlayer",
+                    (npc, player) => _npcAiService.ExtNpcSetKnowsPlayer(npc));
+            if (IsDeclared("Npc_KnowsPlayer"))
+                vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_KnowsPlayer",
+                    (npc, player) => Convert.ToInt32(_npcAiService.ExtNpcKnowsPlayer(npc)));
+            // G2's language switches - the strings come from the installed game.
+            if (IsDeclared("Game_InitGerman"))
+                vm.RegisterExternal("Game_InitGerman", () => { });
+            if (IsDeclared("Game_InitEnglish"))
+                vm.RegisterExternal("Game_InitEnglish", () => { });
         }
 
         #endregion
@@ -538,6 +717,42 @@ namespace Gothic.Core.Domain.Vm
 
         #region Helper
 
+        /// <summary>
+        /// Item parameters of externals arrive as whatever instance the VM holds: an item of an old VM or another class
+        /// failed the cast in ZenKit's Pop and the external left the VM stack broken until it crashed natively
+        /// (Mroczne Tajemnice's giant skeleton by Fellan's armor). Taken as DaedalusInstance and converted here.
+        /// </summary>
+        private ItemInstance AsItem(DaedalusInstance instance, string external)
+        {
+            if (instance == null)
+                return null;
+            if (instance is ItemInstance item)
+                return item;
+            var converted = _vmCacheService.TryGetItemData(instance.Index);
+            LogInstanceMismatch(external, instance, "C_ITEM", converted != null);
+            return converted;
+        }
+
+        private NpcInstance AsNpc(DaedalusInstance instance, string external)
+        {
+            if (instance == null)
+                return null;
+            if (instance is NpcInstance npc)
+                return npc;
+            LogInstanceMismatch(external, instance, "C_NPC", false);
+            return null;
+        }
+
+        private readonly HashSet<string> _loggedInstanceMismatches = new();
+
+        private void LogInstanceMismatch(string external, DaedalusInstance instance, string expected, bool isConverted)
+        {
+            if (!_loggedInstanceMismatches.Add($"{external}:{instance.GetType().Name}"))
+                return;
+            Logger.LogWarning($"[VM] {external}: expected {expected}, got {instance.GetType().Name} (symbol " +
+                              $"{instance.Index}) - {(isConverted ? "converted by its symbol" : "skipped")}", LogCat.ZenKit);
+        }
+
         public int Hlp_Random(int n0)
         {
             var rand = Random.Range(0, n0 - 1);
@@ -554,10 +769,7 @@ namespace Gothic.Core.Domain.Vm
         public int Hlp_IsItem(ItemInstance item, int itemIndexToCheck)
         {
             if (item == null)
-            {
-                Logger.LogError("Hlp_IsItem called with a null item", LogCat.ZenKit);
                 return 0;
-            }
             
             var ret = Convert.ToInt32(item.Index == itemIndexToCheck);
             return LogInstantExternal(nameof(Hlp_IsItem), ret);
@@ -641,6 +853,20 @@ namespace Gothic.Core.Domain.Vm
         }
 
 
+        /// <summary>
+        /// While the state animation loops, the random animation plays now and then (NpcRandomAniService).
+        /// </summary>
+        public void Mdl_ApplyRandomAni(NpcInstance npc, string stateAnimation, string randomAnimation)
+        {
+            _npcRandomAniService.AddRandomAni(npc, stateAnimation, randomAnimation);
+        }
+
+        /// <param name="seconds">Average time between the random animations.</param>
+        public void Mdl_ApplyRandomAniFreq(NpcInstance npc, string stateAnimation, float seconds)
+        {
+            _npcRandomAniService.SetRandomAniFrequency(npc, stateAnimation, seconds);
+        }
+
         public void Mdl_ApplyOverlayMds(NpcInstance npc, string overlayName)
         {
             _npcService.ExtApplyOverlayMds(npc, overlayName);
@@ -683,6 +909,17 @@ namespace Gothic.Core.Domain.Vm
             _isLoggedOnceRemoveOverlayMds = true;
         }
 
+        public void Mdl_StartFaceAni(NpcInstance npc, string name, float intensity, float holdTime)
+        {
+            _npcLookService.ExtMdlStartFaceAni(npc, name, intensity, holdTime);
+        }
+
+        public void Mdl_ApplyRandomFaceAni(NpcInstance npc, string name, float timeMin, float timeMinVar, float timeMax,
+            float timeMaxVar, float probMin)
+        {
+            _npcLookService.ExtMdlApplyRandomFaceAni(npc, name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
+        }
+
         #endregion
 
         #region Print
@@ -691,7 +928,7 @@ namespace Gothic.Core.Domain.Vm
         /// G1/G2: int PlayVideo(string), G2: int PlayVideoEx(string, int screenBlend, int exitSession).
         /// VR plays it in a "cinema" (VRCinema) and pauses the world meanwhile, like the engine blocks the game.
         /// </summary>
-        private void RegisterPlayVideo(DaedalusVm vm)
+        private void RegisterPlayVideo(VmExternalGuard vm)
         {
             try
             {
@@ -732,13 +969,19 @@ namespace Gothic.Core.Domain.Vm
             return 1;
         }
 
+        public NpcInstance Npc_GetLookAtTarget(NpcInstance npc)
+        {
+            var target = npc?.GetUserData()?.Props.LookAtTarget;
+            return LogInstantExternal(nameof(Npc_GetLookAtTarget), target, npc);
+        }
+
         /// <summary>
         /// Real signature in G1 + G2 is (msg, posX, posY, font, seconds) - the externals.d of the MDKs is outdated.
         /// Some script versions declare a return value, some don't. It has to match the DAT symbol, otherwise the
         /// VM stack breaks - so we register based on the symbol.
         /// AI_PrintScreen is shown immediately instead of being queued in the NPC's AI.
         /// </summary>
-        private void RegisterPrintScreen(DaedalusVm vm, string name)
+        private void RegisterPrintScreen(VmExternalGuard vm, string name)
         {
             var symbol = vm.GetSymbolByName(name);
             if (symbol == null)
@@ -1008,9 +1251,10 @@ namespace Gothic.Core.Domain.Vm
             // NpcCreator.ExtGetInvItem();
         }
         
-        public void Npc_GetInvItemBySlot(IntPtr vmPtr)
+        public int Npc_GetInvItemBySlot(NpcInstance npc, int invType, int slot)
         {
-            // NpcCreator.ExtGetInvItemBySlot();
+            var amount = _npcInventoryService.ExtNpcGetInvItemBySlot(npc, invType, slot);
+            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), amount, npc, invType, slot);
         }
 
         public void Npc_RemoveInvItems(IntPtr vmPtr)
@@ -1078,6 +1322,13 @@ namespace Gothic.Core.Domain.Vm
             LogInstantExternal(nameof(Npc_PercDisable), npc, perception);
         }
 
+        public int Npc_CanSeeItem(NpcInstance npc, ItemInstance item)
+        {
+            // Wld_DetectItem already confirmed the item is within range; this is a simple proximity proxy.
+            var result = item != null ? 1 : 0;
+            return LogInstantExternal(nameof(Npc_CanSeeItem), result, npc);
+        }
+
         public int Npc_CanSeeNpc(NpcInstance npc, NpcInstance target)
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcCanSeeNpc(npc, target, false));
@@ -1136,6 +1387,11 @@ namespace Gothic.Core.Domain.Vm
         {
             var ret = Convert.ToInt32(_npcAiService.ExtNpcIsDead(npc));
             return LogInstantExternal(nameof(Npc_IsDead), ret, npc);
+        }
+
+        public void Npc_StopAni(NpcInstance npc, string name)
+        {
+            _npcAiService.ExtNpcStopAni(npc, name);
         }
 
         public int Npc_IsInState(NpcInstance npc, int state)
@@ -1222,6 +1478,12 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_RefuseTalk), ret, npc);
         }
 
+        public int Npc_HasNews(NpcInstance npc, int newsId, NpcInstance offender, NpcInstance victim)
+        {
+            var ret = _npcAiService.ExtNpcHasNews(npc, newsId, victim);
+            return LogInstantExternal(nameof(Npc_HasNews), ret, npc, newsId, offender, victim);
+        }
+
         #endregion
 
         #region Day Routine
@@ -1302,6 +1564,15 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Wld_GetDay), ret);
         }
 
+        /// <summary>
+        /// G2's NPCs complain about the weather in their greetings while it rains.
+        /// </summary>
+        public int Wld_IsRaining()
+        {
+            var ret = Convert.ToInt32(_skyService.IsRaining);
+            return LogInstantExternal(nameof(Wld_IsRaining), ret);
+        }
+
         public int Wld_IsTime(int beginHour, int beginMinute, int endHour, int endMinute)
         {
             var begin = new TimeSpan(beginHour, beginMinute, 0);
@@ -1331,6 +1602,22 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_InsertItem(int itemInstance, string spawnpoint)
         {
             _vobService.ExtWldInsertItem(itemInstance, spawnpoint);
+        }
+
+        private static void RegisterIfDeclared(VmExternalGuard vm, string name, System.Action register)
+        {
+            if (vm.GetSymbolByName(name) != null)
+                register();
+        }
+
+        public void Wld_RemoveNpc(int npcInstance)
+        {
+            _npcService.ExtWldRemoveNpc(npcInstance);
+        }
+
+        public void Wld_InsertObject(string visual, string spawnpoint)
+        {
+            _vobService.ExtWldInsertObject(visual, spawnpoint);
         }
 
         public void Wld_ExchangeGuildAttitudes(string name)

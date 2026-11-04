@@ -48,6 +48,9 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
 
+        // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
+        private readonly HashSet<int> _createdEarlyVobIds = new();
+
 
         /// <summary>
         /// Generic root method to create a VOB of any type.
@@ -215,22 +218,16 @@ namespace Gothic.Core.Domain.Vobs
                     go.name = $"MessageFilter_{vob.Name}";
                     go.GetComponent<MessageFilterHandler>().Init((IMessageFilter)vob);
                     break;
-                case VirtualObjectType.zCVobScreenFX:
-                case VirtualObjectType.oCCSTrigger:
-                case VirtualObjectType.zCVobLensFlare:
-                case VirtualObjectType.zCZoneZFog:
-                case VirtualObjectType.zCZoneZFogDefault:
-                case VirtualObjectType.zCZoneVobFarPlane:
-                case VirtualObjectType.zCZoneVobFarPlaneDefault:
-                case VirtualObjectType.zCCSCamera:
-                case VirtualObjectType.zCCamTrj_KeyFrame:
-                case VirtualObjectType.oCTouchDamage:
-                case VirtualObjectType.zCEarthquake:
                 case VirtualObjectType.Ignored:
                 case VirtualObjectType.Unknown:
+                case var _ when IsUnbuiltVobType(vob.Type):
                     // For SaveGame comparison, we load our fallback Prefab and set VobProperties.
                     // Remove it from here once we properly implement and handle it.
                     CreateEmptyDefaultVob(vob, parent);
+                    // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
+                    // move its pillars and gates. Root ones: VobService made their children roots already.
+                    if (!isRootVob)
+                        InitChildren(vob, parent, worldPosition);
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -241,6 +238,16 @@ namespace Gothic.Core.Domain.Vobs
                     return;
             }
 
+            // A decal/particle VOB skipped because those visuals are off (both off in Production) still carries its
+            // children: an empty GameObject holds them. G2 Irdorath's trap and bridge triggers are children of particle
+            // VOBs, G2's treasure X marks children of decals. Root ones: VobService made their children roots already.
+            if (!go && !isRootVob && vob.Children.Count > 0 && IsVisualDisabled(vob))
+            {
+                go = new GameObject($"{vob.Name} (visual off)");
+                go.SetParent(parent);
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+            }
+
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
@@ -248,10 +255,64 @@ namespace Gothic.Core.Domain.Vobs
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
 
+            // Trigger zones and scripts are scaled to their bounding box - their children are created next to them.
+            var childParent = vob.Type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
+                VirtualObjectType.oCTriggerScript
+                ? parent
+                : go;
+            InitChildren(vob, childParent, worldPosition);
+        }
+
+        /// <summary>
+        /// The VOB's children, except the logic VOBs VobService already created with the world (MarkCreatedEarly).
+        /// </summary>
+        private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition)
+        {
             foreach (var childVob in vob.Children)
             {
-                InitVob(childVob, go, worldPosition, false, vob);
+                if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
+                    continue;
+                InitVob(childVob, childParent, worldPosition, false, vob);
             }
+        }
+
+        /// <summary>
+        /// A logic VOB below a lazily loaded VOB was created with the world (VobService) - its parent skips it.
+        /// </summary>
+        public void MarkCreatedEarly(IVirtualObject vob)
+        {
+            _createdEarlyVobIds.Add(vob.Id);
+        }
+
+        public void ClearCreatedEarly()
+        {
+            _createdEarlyVobIds.Clear();
+        }
+
+        /// <summary>
+        /// Decal and particle VOBs aren't built while those visuals are off.
+        /// </summary>
+        public bool IsVisualDisabled(IVirtualObject vob)
+        {
+            return vob.Visual?.Type switch
+            {
+                VisualType.Decal => !_configService.Dev.EnableDecalVisuals,
+                VisualType.ParticleEffect => !_configService.Dev.EnableParticleEffects,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// VOB types InitVob only creates an empty placeholder for (cutscene cameras, fog zones, ...). VobService asks it
+        /// too, so both build the same ones.
+        /// </summary>
+        public static bool IsUnbuiltVobType(VirtualObjectType type)
+        {
+            return type is VirtualObjectType.zCVobScreenFX or VirtualObjectType.oCCSTrigger or
+                VirtualObjectType.zCVobLensFlare or VirtualObjectType.zCZoneZFog or VirtualObjectType.zCZoneZFogDefault or
+                VirtualObjectType.zCZoneVobFarPlane or VirtualObjectType.zCZoneVobFarPlaneDefault or
+                VirtualObjectType.zCCSCamera or VirtualObjectType.zCCamTrj_KeyFrame or VirtualObjectType.oCTouchDamage or
+                VirtualObjectType.zCEarthquake;
         }
 
         public void SetPosAndRot(GameObject obj, System.Numerics.Vector3 position, Matrix3x3 rotation)

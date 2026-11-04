@@ -157,8 +157,21 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PrefabProps.NpcSound.Stop();
                 // The line stopped - so does its subtitle.
                 PrefabProps.NpcSubtitles?.HideSubtitles();
-                PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+                StopGestureAndMouth();
             }
+        }
+
+        public override bool HasEnded => IsFinishedFlag || _audioPlaySeconds <= 0f;
+        /// <summary>
+        /// Both ends of an NPC's line, finished or cut off: the mouth (VISEME) moves until it is stopped.
+        /// </summary>
+        private void StopGestureAndMouth()
+        {
+            if (_randomDialogAnimationName == null)
+                return;
+
+            PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
+            PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
         }
 
         public override bool IsFinished()
@@ -177,14 +190,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // NPC
                 else
                 {
-                    if (_randomDialogAnimationName != null)
-                    {
-                        PrefabProps.AnimationSystem.StopAnimation(_randomDialogAnimationName);
-                        PrefabProps.AnimationSystem.StopHeadAnimation(HeadMorph.HeadMorphType.Viseme);
-                    }
+                    StopGestureAndMouth();
                     PrefabProps.NpcSubtitles.HideSubtitles();
                 }
 
+                // Asked again every frame until the next action starts - the line ends only once.
+                IsFinishedFlag = true;
                 return true;
             }
 

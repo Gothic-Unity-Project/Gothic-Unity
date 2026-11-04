@@ -62,7 +62,11 @@ namespace Gothic.Core.Extensions
             return true;
         }
 
-        private static bool HasSignature(this DaedalusVm vm, string name, Type returnType, params Type[] paramTypes)
+        /// <summary>
+        /// Whether the scripts declare the function with exactly this return and parameter types (warns once if not).
+        /// The Ikarus/LeGo overrides check it before they install their guarded handler.
+        /// </summary>
+        public static bool HasSignature(this DaedalusVm vm, string name, Type returnType, params Type[] paramTypes)
         {
             var sym = vm.GetSymbolByName(name);
             if (sym == null)

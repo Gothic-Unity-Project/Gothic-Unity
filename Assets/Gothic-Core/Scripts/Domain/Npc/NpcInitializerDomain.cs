@@ -47,16 +47,21 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly NpcLookService _npcLookService;
 
         
         public GameObject RootGo;
         private readonly List<(NpcContainer npc, string spawnPoint)> _tmpWldInsertNpcData = new();
+        private readonly Collider[] _spawnCheckHits = new Collider[16];
 
         // Wld_InsertNpc queues into _tmpWldInsertNpcData, which is drained only once: during the world's initial NPC
         // spawn. Vanilla STARTUP scripts only call Wld_InsertNpc in that window, but some mod quest/dialog scripts
         // call it mid-game to introduce a new NPC (e.g. New Balance's Xardas dialog introducing "Dagoth"). Once this
         // is true, such calls spawn right away instead of being queued into a list nothing processes again.
         private bool _isInitialNpcLoadComplete;
+
+        // NPC instances whose scripts set an invalid model scale - warned once each.
+        private readonly HashSet<string> _invalidModelScaleLogged = new();
 
         private DaedalusVm Vm => _gameStateService.GothicVm;
 
@@ -124,6 +129,11 @@ namespace Gothic.Core.Domain.Npc
                 return;
 
             var userDataObject = AllocZkInstance(npcInstanceIndex);
+
+            // Like the engine, the instance script runs at once: the STARTUP_* script changes an NPC right after
+            // inserting it (G1 kills Nek: Npc_ChangeAttribute(nek, ATR_HITPOINTS, -nek.attribute[ATR_HITPOINTS_MAX])).
+            // Run later, the script read 0 hit points there, and Nek got his full health afterwards.
+            InitNewInstance(userDataObject);
 
             if (_isInitialNpcLoadComplete)
             {
@@ -354,6 +364,13 @@ namespace Gothic.Core.Domain.Npc
             return go;
         }
 
+        private void InitNewInstance(NpcContainer npc)
+        {
+            Vm.InitInstance(npc.Instance);
+            npc.Vob.CopyFromInstanceData(npc.Instance);
+            npc.IsInstanceInitialized = true;
+        }
+
         private void InitZkInstance(NpcContainer npc)
         {
             // As we have our back reference between NpcInstance and NpcData, we can now initialize the object on ZenKit side.
@@ -362,10 +379,9 @@ namespace Gothic.Core.Domain.Npc
             {
                 _saveGameService.InitNpcInstanceFromSave(npc, () => Vm.InitInstance(npc.Instance));
             }
-            else
+            else if (!npc.IsInstanceInitialized)
             {
-                Vm.InitInstance(npc.Instance);
-                npc.Vob.CopyFromInstanceData(npc.Instance);
+                InitNewInstance(npc);
             }
 
             // NpcInstance is the initialized Daedalus Instance which contains initial data.
@@ -376,6 +392,34 @@ namespace Gothic.Core.Domain.Npc
             }
 
             _npcRoutineService.ExchangeRoutine(npc.Instance, npc.Vob.CurrentRoutine);
+        }
+
+        /// <summary>
+        /// Mdl_SetModelScale like the engine (OpenGothic Npc::setScale): the NPC is shown and collides at the vob's model
+        /// scale - young and giant monster variants, the Shrink spell (ZS_MagicShrink scales a monster down). Not set (0)
+        /// is the normal size. Found on BoroBongo's branch.
+        /// </summary>
+        public void ApplyModelScale(NpcContainer container)
+        {
+            // The VR hero's object is the player rig - it isn't scaled.
+            if (container?.Go == null || container.PrefabProps?.IsHero() == true)
+                return;
+
+            var scale = container.Vob.ModelScale;
+            var isValidScale = scale.X > 0f && scale.Y > 0f && scale.Z > 0f;
+            // Not set (all 0) is the normal size, any other component <= 0 a script error.
+            if (!isValidScale && scale != System.Numerics.Vector3.Zero &&
+                _invalidModelScaleLogged.Add(container.Vob.Name))
+            {
+                Logger.LogWarning($"Mdl_SetModelScale: {container.Vob.Name} has the invalid scale {scale} - " +
+                                  "shown at normal size.", LogCat.Npc);
+            }
+
+            var unityScale = isValidScale ? new Vector3(scale.X, scale.Y, scale.Z) : Vector3.one;
+            if (container.Go.transform.localScale == unityScale)
+                return;
+
+            container.Go.transform.localScale = unityScale;
         }
 
         public void InitNpc(NpcInstance npcInstance, GameObject lazyLoadGo)
@@ -390,7 +434,8 @@ namespace Gothic.Core.Domain.Npc
 
             lazyLoadGo.transform.GetPositionAndRotation(out var lazyPos, out var lazyRot);
 
-            var finalSpawnPos = GetFreeAreaAtSpawnPoint(lazyPos);
+            // The NPC's new body stands at the spot already - the check must not move the NPC away from itself.
+            var finalSpawnPos = GetFreeAreaAtSpawnPoint(lazyPos, newNpc);
 
             var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay)
                 ? props.MdhNameBase
@@ -400,6 +445,9 @@ namespace Gothic.Core.Domain.Npc
 
             // We don't need specific locations of initial LazyLoading GO anymore.
             lazyLoadGo.transform.SetPositionAndRotation(default, default);
+
+            // A scaled NPC (a young or giant monster, a shrunk one after loading) keeps its size.
+            ApplyModelScale(npcData);
 
             foreach (var equippedItem in props.EquippedItems)
             {
@@ -414,6 +462,9 @@ namespace Gothic.Core.Domain.Npc
                 _meshService.CreateNpcWeapon(newNpc, weaponInHand, (VmGothicEnums.ItemFlags)weaponInHand.MainFlag,
                     (VmGothicEnums.ItemFlags)weaponInHand.Flags, true);
             }
+
+            // Fatness and ghosts need the finished body, weapons included.
+            _npcLookService.Apply(npcData);
         }
 
         [CanBeNull]
@@ -442,7 +493,9 @@ namespace Gothic.Core.Domain.Npc
         /// <summary>
         /// Check if NPC/Monster will spawn inside another and do a circulated free V3 check around the area.
         /// </summary>
-        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan)
+        /// <param name="ownNpc">The NPC's own body if it exists already - its colliders don't count as an obstacle.
+        /// </param>
+        public Vector3 GetFreeAreaAtSpawnPoint(Vector3 positionToScan, GameObject ownNpc = null)
         {
             var isPositionFound = false;
             var testRadius = 1f; // ~2x size of normal bounding box of an NPC.
@@ -453,7 +506,7 @@ namespace Gothic.Core.Domain.Npc
             var blockingLayers = Physics.DefaultRaycastLayers & ~(1 << Constants.ClimbAnchorLayer);
 
             // Check if the spawn point is free.
-            if (!Physics.CheckSphere(initialSpawnPointGroundControl, testRadius / 2, blockingLayers))
+            if (IsAreaFree(initialSpawnPointGroundControl, testRadius / 2, ownNpc, blockingLayers))
             {
                 return positionToScan;
             }
@@ -471,7 +524,7 @@ namespace Gothic.Core.Domain.Npc
                     var checkPointGroundControl = initialSpawnPointGroundControl + offsetPoint;
 
                     // Check if the point is clear (no obstacles)
-                    if (!Physics.CheckSphere(checkPointGroundControl, testRadius / 2, blockingLayers))
+                    if (IsAreaFree(checkPointGroundControl, testRadius / 2, ownNpc, blockingLayers))
                     {
                         return positionToScan + offsetPoint;
                     }
@@ -481,6 +534,21 @@ namespace Gothic.Core.Domain.Npc
             Logger.LogError(
                 $"No suitable spawn point found for NPC at >{positionToScan}<. Circle search didn't find anything!", LogCat.Npc);
             return default;
+        }
+
+        /// <summary>
+        /// Like Physics.CheckSphere on these layers, but the colliders of ownNpc don't count.
+        /// </summary>
+        private bool IsAreaFree(Vector3 position, float radius, GameObject ownNpc, int layers)
+        {
+            var count = Physics.OverlapSphereNonAlloc(position, radius, _spawnCheckHits, layers);
+            for (var i = 0; i < count; i++)
+            {
+                if (ownNpc == null || !_spawnCheckHits[i].transform.IsChildOf(ownNpc.transform))
+                    return false;
+            }
+
+            return true;
         }
     }
 }
