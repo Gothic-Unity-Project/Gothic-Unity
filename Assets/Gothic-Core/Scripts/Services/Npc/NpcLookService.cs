@@ -79,6 +79,34 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
+        /// <summary>
+        /// Mdl_StartFaceAni: a face animation on the NPC's head (MMB), e.g. S_FRIGHTENED, S_ANGRY of
+        /// B_SetFaceExpression. holdTime -1 = until another mood replaces it.
+        /// </summary>
+        public void ExtMdlStartFaceAni(NpcInstance npc, string name, float intensity, float holdTime)
+        {
+            // Not built yet (out of range) or without a head (monsters).
+            var headMorph = npc?.GetUserData()?.PrefabProps?.HeadMorph;
+            if (headMorph == null)
+                return;
+
+            headMorph.StartFaceAnimation(name, intensity, holdTime);
+        }
+
+        /// <summary>
+        /// Mdl_ApplyRandomFaceAni: a face animation played again and again (the scripts' commented R_EyesBlink
+        /// example).
+        /// </summary>
+        public void ExtMdlApplyRandomFaceAni(NpcInstance npc, string name, float timeMin, float timeMinVar,
+            float timeMax, float timeMaxVar, float probMin)
+        {
+            var headMorph = npc?.GetUserData()?.PrefabProps?.HeadMorph;
+            if (headMorph == null)
+                return;
+
+            headMorph.ApplyRandomFaceAnimation(name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
+        }
+
         private static bool IsHeldItem(Transform transform, Transform root)
         {
             for (var current = transform; current != null && current != root; current = current.parent)

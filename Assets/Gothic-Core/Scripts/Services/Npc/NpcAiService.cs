@@ -23,9 +23,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly WayNetService _wayNetService;
-
-        // NPCs that talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk).
-        private readonly HashSet<int> _npcsKnowingPlayer = new();
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly NpcService _npcService;
 
@@ -330,13 +327,30 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcSetKnowsPlayer(NpcInstance npc)
         {
-            if (npc != null)
-                _npcsKnowingPlayer.Add(npc.Index);
+            var props = npc?.GetUserData()?.Props;
+            if (props != null)
+                props.IsKnowingHero = true;
         }
 
         public bool ExtNpcKnowsPlayer(NpcInstance npc)
         {
-            return npc != null && _npcsKnowingPlayer.Contains(npc.Index);
+            return npc?.GetUserData()?.Props?.IsKnowingHero ?? false;
+        }
+
+        /// <summary>
+        /// No news memory yet. Proxy for NEWS_DEFEAT only: the NPC knows the hero defeated him (AIV_WASDEFEATEDBYSC),
+        /// so it's news about himself as the victim.
+        /// </summary>
+        public int ExtNpcHasNews(NpcInstance npc, int newsId, NpcInstance victim)
+        {
+            var vm = _gameStateService.GothicVm;
+            var newsDefeat = vm.GetSymbolByName("NEWS_DEFEAT");
+            var wasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC");
+            if (npc == null || newsDefeat == null || wasDefeated == null || newsId != newsDefeat.GetInt(0) ||
+                (victim != null && victim.Index != npc.Index))
+                return 0;
+
+            return npc.GetAiVar(wasDefeated.GetInt(0)) == 1 ? 1 : 0;
         }
 
         /// <returns>cm to the hero, measured like Npc_GetDistToNpc(npc, hero).</returns>

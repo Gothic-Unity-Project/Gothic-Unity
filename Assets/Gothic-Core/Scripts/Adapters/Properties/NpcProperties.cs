@@ -57,6 +57,8 @@ namespace Gothic.Core.Adapters.Properties
         public NpcInstance TargetNpc;
         // AI_LookAtNpc target until AI_StopLookAt (Npc_GetLookAtTarget).
         public NpcInstance LookAtTarget;
+        // Talked to the hero (Npc_SetKnowsPlayer in G1's ZS_Talk). Not saved: gone with the NPC on load/new game.
+        public bool IsKnowingHero;
 
         public enum LoopState
         {
