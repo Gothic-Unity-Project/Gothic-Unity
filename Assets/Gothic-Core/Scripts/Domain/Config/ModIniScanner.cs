@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Gothic.Core.Logging;
+using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Config
@@ -92,18 +93,12 @@ namespace Gothic.Core.Domain.Config
         }
 
         /// <summary>
-        /// Gothic's inis are Windows-1250 in Polish mods ("Poziom łatwy") - Latin-1 where that code page is missing.
+        /// Same code pages as BootstrapDomain.SetLanguage(). The scan runs before the VM detects the language,
+        /// so we take Central Europe: Polish mods ("Poziom łatwy") need it and ASCII titles read the same.
         /// </summary>
         private static Encoding GetIniEncoding()
         {
-            try
-            {
-                return Encoding.GetEncoding(1250);
-            }
-            catch (Exception)
-            {
-                return Encoding.GetEncoding("iso-8859-1");
-            }
+            return Encoding.GetEncoding((int)StringEncoding.CentralEurope);
         }
     }
 }
