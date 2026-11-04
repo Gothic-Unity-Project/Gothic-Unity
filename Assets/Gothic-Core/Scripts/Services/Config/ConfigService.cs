@@ -107,16 +107,19 @@ namespace Gothic.Core.Services.Config
                     });
                 }
 
-                AddModFolderProfiles(version, profiles);
+                AddModFolderProfiles(version, inis, profiles);
             }
 
             return profiles;
         }
 
         /// <summary>
-        /// GameSettings.json ModFolders of this game: each game ini of a mod folder's system/ folder, by title.
+        /// GameSettings.json ModFolders of this game: each game ini of a mod folder's system/ folder, by title. The
+        /// game's own inis copied along with the game (GothicGame.ini, g2_classic.ini) are left out - unless they are
+        /// all the folder has (a mod that changed GothicGame.ini).
         /// </summary>
-        private void AddModFolderProfiles(GameVersion version, List<GameProfile> profiles)
+        private void AddModFolderProfiles(GameVersion version, List<ModIniScanner.ModIni> gameInis,
+            List<GameProfile> profiles)
         {
             if (Root.ModFolders == null)
                 return;
@@ -133,6 +136,10 @@ namespace Gothic.Core.Services.Config
                     Logger.LogWarning($"ModFolders: no game ini in {folder.Path}/system - skipped.", LogCat.Loading);
                     continue;
                 }
+
+                var modInis = inis.Where(i => !gameInis.Any(g => g.FileName.EqualsIgnoreCase(i.FileName))).ToList();
+                if (modInis.Count > 0)
+                    inis = modInis;
 
                 foreach (var ini in inis.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase))
                 {
