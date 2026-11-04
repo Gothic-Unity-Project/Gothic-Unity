@@ -1,8 +1,8 @@
 ﻿using Gothic.Core.Adapters.Context;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
-using Gothic.Core;
 using Gothic.Core.Extensions;
+using Gothic.G1.Services.Fight;
 using Reflex.Attributes;
 using ZenKit;
 
@@ -14,6 +14,8 @@ namespace Gothic.G1.Adapters.Context
     public class G1ContextBootstrap : AbstractContextBootstrap
     {
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextMeleeDamageRuleService _contextMeleeDamageRuleService;
+
 
         protected override void RegisterControlModule(Controls controls)
         {
@@ -26,6 +28,7 @@ namespace Gothic.G1.Adapters.Context
                 return;
 
             _contextGameVersionService.SetImpl(new G1ContextService().Inject());
+            _contextMeleeDamageRuleService.SetImpl(new G1MeleeDamageRule().Inject());
         }
     }
 }

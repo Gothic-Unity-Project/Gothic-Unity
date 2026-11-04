@@ -1,10 +1,16 @@
+using System.Collections;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Gothic.Core.Services.Config;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Npc
@@ -17,6 +23,11 @@ namespace Gothic.Core.Domain.Npc
     {
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcAiService _npcAiService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly ConfigService _configService;
 
 
         public void Die(NpcContainer npc)
@@ -38,6 +49,115 @@ namespace Gothic.Core.Domain.Npc
 
             var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.DeadB, npc);
             prefabProps.AnimationSystem.PlayAnimation(animName);
+        }
+
+        /// <summary>
+        /// After Die(): 0 hit points, then ZS_Dead and ZS_Dead_Loop with the killer as 'other' (in the next frame),
+        /// then the witnesses learn about the murder (PERC_ASSESSMURDER).
+        /// </summary>
+        public void StartDeadState(NpcContainer dead, NpcContainer killer)
+        {
+            // Dead is 0 hit points like the engine (OpenGothic Npc::finishingMove / C_Kill: hit points -max) - a
+            // finished off NPC kept the knockout's 1 HP.
+            if (dead.Vob.GetAttribute((int)NpcAttribute.HitPoints) > 0)
+            {
+                _npcService.SetAttribute(dead, NpcAttribute.HitPoints, 0);
+            }
+
+            // Set at once so AiHandler.Start() on the corpse doesn't call ZS_Dead a second time.
+            dead.IsZsDeadCalled = true;
+
+            // ZS_Dead (B_CheckDeadMissionNPCs + B_GiveDeathInv etc.) takes ~280ms in G2 — too heavy
+            // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
+            var deadInstance = dead.Instance;
+            var heroInstance = _npcService.GetHeroContainer()?.Instance;
+            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, heroInstance, killer));
+
+            Logger.Log($"[FightService.OnNpcDied] {dead.Instance.GetName(NpcNameSlot.Slot0)} died — ZS_Dead deferred " +
+                       $"(killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
+        }
+
+        private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcInstance hero, NpcContainer killer)
+        {
+            yield return null;
+            RunZsDead(dead, hero, killer);
+            _npcAiService.BroadcastDownPerception(dead.GetUserData(), killer, VmGothicEnums.PerceptionType.AssessMurder);
+        }
+
+        /// <summary>
+        /// ZS_Dead and ZS_Dead_Loop of a dead NPC with the killer as 'other', the state bookkeeping like the engine.
+        /// Also for a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh
+        /// VM.
+        /// </summary>
+        public void RunZsDead(NpcInstance dead, NpcInstance hero, NpcContainer killer)
+        {
+            if (dead.GetUserData() is { } deadNpc)
+                deadNpc.IsZsDeadCalled = true;
+
+            var vm = _gameStateService.GothicVm;
+            var zsDeadSym = vm.GetSymbolByName(DaedalusConst.ZsDead);
+            if (zsDeadSym == null)
+            {
+                Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
+                return;
+            }
+
+            // Like the engine's state change: the state he died in is the last one - G1's B_DeathXP pays nothing for
+            // finishing off an unconscious human (Npc_WasInState(self, ZS_Unconscious)).
+            var deadContainer = dead.GetUserData();
+            if (deadContainer?.Vob != null)
+            {
+                deadContainer.Vob.LastAiState = deadContainer.Vob.CurrentStateIndex;
+                deadContainer.Vob.CurrentStateIndex = zsDeadSym.Index;
+                deadContainer.Vob.CurrentStateName = zsDeadSym.Name;
+            }
+
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            vm.GlobalSelf = dead;
+            // DeveloperConfig.EnableKillerXpOnly: like the engine (OpenGothic checkHealth: currentOther) 'other' is the
+            // killer - ZS_Dead gives XP only if he's the hero or in his party (AIV_PARTYMEMBER, AIV_MM_PARTYMEMBER: the
+            // hero's summons, Mordrag leading him), and G2 marks only the hero's victims as killed by him. The hero for
+            // everybody gave XP for every death anywhere - now the "XP for every death" immersion option (a cheat).
+            vm.GlobalOther = _configService.Dev.EnableKillerXpOnly && !IsXpForAnyKillOn() || hero == null
+                ? killer?.Instance ?? dead
+                : hero;
+            try
+            {
+                vm.Call(zsDeadSym.Index);
+
+                // The engine runs ZS_Dead_Loop too - G2 counts killed dragons there (B_DragonKillCounter): the undead
+                // dragon's EXTRO video, the teleport to UNDEAD_ENDTELEPORT and UndeadDragonIsDead never happened. The
+                // scripts guard it themselves (AIV_TAPOSITION), once is enough.
+                var zsDeadLoopSym = vm.GetSymbolByName(DaedalusConst.ZsDeadLoop);
+                if (zsDeadLoopSym != null)
+                {
+                    if (zsDeadLoopSym.HasReturn)
+                        vm.Call<int>(zsDeadLoopSym.Index);
+                    else
+                        vm.Call(zsDeadLoopSym.Index);
+                }
+
+                _npcService.SyncHeroInstanceToVob();
+                Logger.Log($"[FightService.OnNpcDied] ZS_Dead complete: {dead.GetName(NpcNameSlot.Slot0)}" +
+                           $"{(zsDeadLoopSym != null ? " (+ ZS_Dead_Loop)" : "")}", LogCat.Npc);
+            }
+            catch (System.Exception e)
+            {
+                Logger.LogError($"[FightService.OnNpcDied] ZS_Dead of {dead.GetName(NpcNameSlot.Slot0)} failed: " +
+                                e.Message, LogCat.Npc);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+            }
+        }
+
+        private bool IsXpForAnyKillOn()
+        {
+            return _configService.Gothic != null &&
+                   _configService.Gothic.GetInt(FightConst.XpForAnyKillIniName, 0) == 1;
         }
     }
 }

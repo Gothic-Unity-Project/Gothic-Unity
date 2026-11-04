@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -719,6 +721,113 @@ namespace Gothic.Core.Services.Npc
 
                 ExtRemoveInvItems(npc, itemData.Index, item.Amount);
             }
+        }
+
+        /// <summary>
+        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back
+        /// too, a drawn one the hand (found on BoroBongo's branch).
+        /// </summary>
+        public void ExtAiUnequipWeapons(NpcInstance npc)
+        {
+            var container = npc?.GetUserData();
+            if (container?.Props == null)
+                return;
+
+            container.Props.EquippedItems.RemoveAll(i =>
+                i.MainFlag is (int)ItemFlags.ItemKatNf or (int)ItemFlags.ItemKatFf);
+
+            // Like after AI_RemoveWeapon, a drawn weapon is gone and follow-up animations are weaponless. Fists stay.
+            var weaponState = (WeaponState)container.Vob.FightMode;
+            var isWeaponDrawn = weaponState is WeaponState.W1H or WeaponState.W2H or WeaponState.Bow or
+                WeaponState.CBow;
+            if (isWeaponDrawn)
+                container.Vob.FightMode = (int)WeaponState.NoWeapon;
+            if (container.Go == null)
+                return;
+
+            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
+                Constants.SlotCrossbow };
+            if (isWeaponDrawn)
+                slotNames.Add(DrawWeapon.GetHandSlotName(weaponState));
+            foreach (var slotName in slotNames)
+            {
+                var slot = container.Go.FindChildRecursively(slotName);
+                if (slot == null)
+                    continue;
+
+                for (var i = slot.transform.childCount - 1; i >= 0; i--)
+                    Object.Destroy(slot.transform.GetChild(i).gameObject);
+            }
+        }
+
+        /// <summary>
+        /// Npc_GetInvItemBySlot: the amount of the slot-th item (1 based) of the inventory category - it also becomes
+        /// the scripts' 'item'. Like the engine (OpenGothic Inventory::findByFlags): our packed inventory is stored per
+        /// the same INV_* category. B_Plunder (G1) looks for ore in INV_MISC - before, NPCs who knocked out the hero
+        /// said "not even ore" with 1000 in the backpack. Not found there: the equipped weapon/armor.
+        /// </summary>
+        public int ExtNpcGetInvItemBySlot(NpcInstance npc, int invType, int slot)
+        {
+            if (TryGetInvItemBySlot(npc, invType, slot, out var item, out var amount))
+            {
+                _gameStateService.GothicVm.GlobalItem = item;
+                return amount;
+            }
+
+            var equipped = GetEquippedItemBySlot(npc?.GetUserData()?.Props?.EquippedItems, invType, slot);
+            _gameStateService.GothicVm.GlobalItem = equipped;
+            return equipped != null ? 1 : 0;
+        }
+
+        private bool TryGetInvItemBySlot(NpcInstance npc, int invType, int slot, out ItemInstance item, out int amount)
+        {
+            item = null;
+            amount = 0;
+            if (npc?.GetUserData() == null || slot < 1 || invType < (int)InvCats.InvWeapon ||
+                invType >= (int)InvCats.InvCatMax)
+                return false;
+
+            List<ContentItem> items;
+            try
+            {
+                items = GetInventoryItems(npc, (InvCats)invType);
+            }
+            catch
+            {
+                // Category slot was never initialized for this NPC - nothing in it.
+                return false;
+            }
+
+            var found = 0;
+            foreach (var contentItem in items)
+            {
+                if (contentItem.Amount <= 0)
+                    continue;
+                if (++found < slot)
+                    continue;
+
+                item = _vmCacheService.TryGetItemData(contentItem.Name);
+                amount = contentItem.Amount;
+                return item != null;
+            }
+
+            return false;
+        }
+
+        private static ItemInstance GetEquippedItemBySlot(List<ItemInstance> equippedItems, int invType,
+            int slot)
+        {
+            if (equippedItems == null)
+                return null;
+
+            ItemFlags? mainFlag = (InvCats)invType switch
+            {
+                InvCats.InvWeapon when slot == 1 => ItemFlags.ItemKatNf,
+                InvCats.InvWeapon when slot == 2 => ItemFlags.ItemKatFf,
+                InvCats.InvArmor when slot == 1 => ItemFlags.ItemKatArmor,
+                _ => null
+            };
+            return mainFlag == null ? null : equippedItems.FirstOrDefault(i => i.MainFlag == (int)mainFlag);
         }
     }
 }

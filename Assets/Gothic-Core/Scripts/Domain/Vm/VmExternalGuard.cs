@@ -12,7 +12,8 @@ namespace Gothic.Core.Domain.Vm
     /// value is never pushed, and after enough of them the Daedalus stack overflows and the editor dies natively.
     /// Here a failing callback is logged once per external and returns the declared type's default instead
     /// (0, 0f, "" or a null instance), so the script continues with a balanced stack.
-    /// The method names match DaedalusVm, so registration code reads the same.
+    /// The method names match DaedalusVm, so registration code reads the same. Registering a symbol the scripts
+    /// don't declare logs its name and throws (EnsureDeclared).
     /// </summary>
     public class VmExternalGuard
     {
@@ -47,175 +48,207 @@ namespace Gothic.Core.Domain.Vm
 
         public void RegisterExternal<TR>(string name, DaedalusVm.ExternalFunc<TR> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0>(string name, DaedalusVm.ExternalFunc<TR, TP0> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0, TP1>(string name, DaedalusVm.ExternalFunc<TR, TP0, TP1> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0, TP1, TP2>(string name, DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0, TP1, TP2, TP3>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0, TP1, TP2, TP3, TP4>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3, TP4> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TR, TP0, TP1, TP2, TP3, TP4, TP5>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3, TP4, TP5> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal(string name, DaedalusVm.ExternalFuncV cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0>(string name, DaedalusVm.ExternalFuncV<TP0> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1>(string name, DaedalusVm.ExternalFuncV<TP0, TP1> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2>(string name, DaedalusVm.ExternalFuncV<TP0, TP1, TP2> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2, TP3>(string name, DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2, TP3, TP4>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2, TP3, TP4, TP5>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2, TP3, TP4, TP5, TP6>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5, TP6> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void RegisterExternal<TP0, TP1, TP2, TP3, TP4, TP5, TP6, TP7>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5, TP6, TP7> cb)
         {
+            EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR>(string name, DaedalusVm.ExternalFunc<TR> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0>(string name, DaedalusVm.ExternalFunc<TR, TP0> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0, TP1>(string name, DaedalusVm.ExternalFunc<TR, TP0, TP1> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0, TP1, TP2>(string name, DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0, TP1, TP2, TP3>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0, TP1, TP2, TP3, TP4>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3, TP4> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TR, TP0, TP1, TP2, TP3, TP4, TP5>(string name,
             DaedalusVm.ExternalFunc<TR, TP0, TP1, TP2, TP3, TP4, TP5> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction(string name, DaedalusVm.ExternalFuncV cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0>(string name, DaedalusVm.ExternalFuncV<TP0> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1>(string name, DaedalusVm.ExternalFuncV<TP0, TP1> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2>(string name, DaedalusVm.ExternalFuncV<TP0, TP1, TP2> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2, TP3>(string name, DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2, TP3, TP4>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2, TP3, TP4, TP5>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2, TP3, TP4, TP5, TP6>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5, TP6> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
         public void OverrideFunction<TP0, TP1, TP2, TP3, TP4, TP5, TP6, TP7>(string name,
             DaedalusVm.ExternalFuncV<TP0, TP1, TP2, TP3, TP4, TP5, TP6, TP7> cb)
         {
+            EnsureDeclared(name);
             _vm.OverrideFunction(name, Guard(name, cb));
         }
 
@@ -482,6 +515,20 @@ namespace Gothic.Core.Domain.Vm
                 return (TR)(object)string.Empty;
 
             return default;
+        }
+
+        /// <summary>
+        /// ZenKit throws a bare "Symbol not found" for an external or function the scripts don't declare (a mod
+        /// without it). The boot still stops - a mod without it isn't playable - but the log names the culprit.
+        /// </summary>
+        private void EnsureDeclared(string name)
+        {
+            if (_vm.GetSymbolByName(name) != null)
+                return;
+
+            Logger.LogError($"External >{name}< isn't declared by the scripts (a mod without it?) - VM boot stops.",
+                LogCat.ZenKit);
+            throw new InvalidOperationException($"Daedalus symbol >{name}< not found.");
         }
 
         private void Failed(string name, Exception e)
