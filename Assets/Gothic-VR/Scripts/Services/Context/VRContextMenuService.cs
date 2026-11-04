@@ -106,6 +106,9 @@ namespace Gothic.VR.Services.Context
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
                 (CreateToggleLabel(gameMenu, "MARVIN", "Marvin", "Marvin mode: test commands and their panel"),
                     CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel)),
+                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "Walk in dialogs",
+                    "Move around while talking - walking away ends the dialog"),
+                    CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
                 (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
                     "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))
             };

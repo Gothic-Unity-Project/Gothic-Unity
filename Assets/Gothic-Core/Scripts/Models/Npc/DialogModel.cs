@@ -26,6 +26,17 @@ namespace Gothic.Core.Models.Npc
         public InfoInstance CurrentInstance;
         public List<DialogOption> CurrentOptions = new();
 
+        /// <summary>
+        /// The dialog box shows the choices - nobody talks.
+        /// </summary>
+        public bool IsChoosing;
+
+        /// <summary>
+        /// The END entry (DIALOG_ENDE) of the shown main choices. Null for sub-choices (Info_AddChoice) and choices
+        /// without END - like in Gothic, those can't be left.
+        /// </summary>
+        public InfoInstance ExitInfo;
+
         public void Dispose()
         {
             IsInDialog = false;
@@ -34,6 +45,8 @@ namespace Gothic.Core.Models.Npc
             CurrentOptions.Clear();
             GestureCount = 0;
             CurrentDialogNpc = null;
+            IsChoosing = false;
+            ExitInfo = null;
         }
     }
 }
