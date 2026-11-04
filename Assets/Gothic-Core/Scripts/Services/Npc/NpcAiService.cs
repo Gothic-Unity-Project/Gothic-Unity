@@ -567,7 +567,7 @@ namespace Gothic.Core.Services.Npc
             // A seated NPC still sits during the back transition below.
             container.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             if (wasUnconscious)
-                container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "T_Wounded_2_Stand"), container));
+                container.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: DaedalusConst.AniWoundedToStand), container));
 
             // G1 docs: AI_StandUp plays the back transitions of a mob (S1 -> S0 -> Stand) - unless one is already
             // running or queued (e.g. ZS_SitAround_End: AI_UseMob(BENCH, -1)).
@@ -839,7 +839,7 @@ namespace Gothic.Core.Services.Npc
             {
                 // Hero doesn't run the Daedalus state machine — map BsUnconscious to ZS_Unconscious/ZS_MagicSleep.
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(state)?.Name;
-                var result = stateName is "ZS_UNCONSCIOUS" or "ZS_MAGICSLEEP";
+                var result = stateName is DaedalusConst.ZsUnconscious or DaedalusConst.ZsMagicSleep;
                 Logger.LogEditor($"[NpcAiService.IsInState] Hero unconscious — queried state={stateName} → {result}", LogCat.Npc);
                 return result;
             }
@@ -996,6 +996,21 @@ namespace Gothic.Core.Services.Npc
             _sentPassivePerceptions.Add((perception, sender.Go.transform.position, sender, victim, other, item,
                 exclude));
             return true;
+        }
+
+        /// <summary>
+        /// Like the engine, witnesses around the victim learn who killed (PERC_ASSESSMURDER) or knocked out
+        /// (PERC_ASSESSDEFEAT) whom: other = killer, victim = victim. The killer doesn't witness its own deed.
+        /// </summary>
+        public void BroadcastDownPerception(NpcContainer victim, NpcContainer killer,
+            VmGothicEnums.PerceptionType perception)
+        {
+            if (victim == null || killer == null || victim == killer)
+                return;
+
+            if (BroadcastPassivePerception(victim, perception, victim.Instance, killer.Instance, exclude: killer))
+                Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
+                           $"{victim.Instance.GetName(NpcNameSlot.Slot0)} sent", LogCat.Fight);
         }
 
         /// <summary>

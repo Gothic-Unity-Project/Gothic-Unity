@@ -47,7 +47,8 @@ namespace Gothic.Core.Services.Player
         private float _drownSecondsPerHitPoint = _defaultDrownSecondsPerHitPoint;
         private float _drownTime;
 
-        // NpcService leads back here - resolved on first use.
+        // NpcService injects PlayerService (hero spawn, SetHero, AddItem) - injected here, Reflex would build both
+        // forever. Resolved on first use.
         private NpcService _npcService;
         private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
         
@@ -196,10 +197,8 @@ namespace Gothic.Core.Services.Player
             if (damage <= 0)
                 return;
 
-            NpcService.SetAttribute(HeroContainer, NpcAttribute.HitPoints, Mathf.Max(0, hitPoints - damage));
-            // Drowned: the hero dies like after a script taking his last hit points (FightService decides).
-            if (hitPoints - damage <= 0)
-                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(HeroContainer);
+            // Drowned at 0: the hero dies like after a script taking his last hit points (FightService decides).
+            NpcService.ReduceHitPoints(HeroContainer, damage);
         }
 
         /// <summary>

@@ -114,9 +114,10 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
 
         /// <summary>
-        /// NpcContainer - a script (Npc_ChangeAttribute) took its last hit points. FightService decides how it dies.
+        /// NpcContainer - lost its last hit points outside of a melee hit (NpcService.ReduceHitPoints: a script's
+        /// Npc_ChangeAttribute, drowning, a damage zone). FightService decides how it goes down.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
+        public static readonly UnityEvent<NpcContainer> HitPointsDepleted = new();
 
         /// <summary>
         /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
