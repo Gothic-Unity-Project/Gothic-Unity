@@ -10,7 +10,6 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -23,12 +22,14 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         [SerializeField] private GameObject _invalidInstallationDir;
+        [SerializeField] private GameProfileMenu _gameProfileMenu;
 
 
         private void Awake()
         {
-            // Just in case we forgot to disable it in scene view. ;-)
+            // Just in case we forgot to disable them in scene view. ;-)
             _invalidInstallationDir.SetActive(false);
+            _gameProfileMenu.gameObject.SetActive(false);
         }
 
         public void Init()
@@ -86,9 +87,8 @@ namespace Gothic.Core.Adapters.Scenes
 
         private void ShowMenu(IReadOnlyList<GameProfile> profiles)
         {
-            var menuGo = new GameObject("GameProfileMenu");
-            SceneManager.MoveGameObjectToScene(menuGo, gameObject.scene);
-            menuGo.AddComponent<GameProfileMenu>().Build(profiles, StartGameProfile);
+            _gameProfileMenu.gameObject.SetActive(true);
+            _gameProfileMenu.Build(profiles, StartGameProfile);
 
             // Registers the new canvas for the VR laser pointer.
             _contextInteractionService.InitUIInteraction();
