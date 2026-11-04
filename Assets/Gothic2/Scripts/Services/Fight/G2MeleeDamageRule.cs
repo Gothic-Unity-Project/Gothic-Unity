@@ -7,26 +7,26 @@ using ZenKit.Daedalus;
 namespace Gothic.G2.Services.Fight
 {
     /// <summary>
-    /// G2 (OpenGothic DamageCalculator::swordDamage): the roll is the hit chance (C_NPC.hitchance[1H/2H]) - a miss is
-    /// a near miss doing a tenth. Monsters without a weapon always hit.
+    /// G2 (OpenGothic DamageCalculator::swordDamage): the dice roll is compared to the hit chance
+    /// (C_NPC.hitchance[1H/2H]) - a miss is a near miss doing a tenth. Monsters without a weapon always hit.
     /// </summary>
     public class G2MeleeDamageRule : IMeleeDamageRule
     {
-        public bool RollHit(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int roll)
+        public bool IsRollSuccess(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int diceRoll)
         {
             return (!attacker.IsHuman() && weapon == null) ||
-                   attacker.Instance.GetHitChance(isTwoHanded ? NpcTalent.TwoHanded : NpcTalent.OneHanded) > roll;
+                   attacker.Instance.GetHitChance(isTwoHanded ? NpcTalent.TwoHanded : NpcTalent.OneHanded) > diceRoll;
         }
 
-        public int TypeDamage(int strength, int typeDamage, int protection, bool isHit)
+        public int TypeDamage(int strength, int typeDamage, int protection, bool isRollSuccess)
         {
             var value = Mathf.Max(strength + typeDamage - protection, 0);
-            return isHit ? value : (value - 1) / 10;
+            return isRollSuccess ? value : (value - 1) / 10;
         }
 
-        public string GetRollName(bool isHit)
+        public string GetRollResultName(bool isRollSuccess)
         {
-            return isHit ? "hit" : "near miss";
+            return isRollSuccess ? "hit" : "near miss";
         }
     }
 }

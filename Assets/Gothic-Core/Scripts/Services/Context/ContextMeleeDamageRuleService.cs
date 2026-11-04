@@ -15,19 +15,19 @@ namespace Gothic.Core.Services.Context
             _impl = impl;
         }
 
-        public bool RollHit(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int roll)
+        public bool IsRollSuccess(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int diceRoll)
         {
-            return _impl.RollHit(attacker, weapon, isTwoHanded, roll);
+            return _impl.IsRollSuccess(attacker, weapon, isTwoHanded, diceRoll);
         }
 
-        public int TypeDamage(int strength, int typeDamage, int protection, bool isHit)
+        public int TypeDamage(int strength, int typeDamage, int protection, bool isRollSuccess)
         {
-            return _impl.TypeDamage(strength, typeDamage, protection, isHit);
+            return _impl.TypeDamage(strength, typeDamage, protection, isRollSuccess);
         }
 
-        public string GetRollName(bool isHit)
+        public string GetRollResultName(bool isRollSuccess)
         {
-            return _impl.GetRollName(isHit);
+            return _impl.GetRollResultName(isRollSuccess);
         }
     }
 }

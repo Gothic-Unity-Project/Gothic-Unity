@@ -75,7 +75,7 @@ namespace Gothic.Core.Domain.Npc
         /// Like the engine (OpenGothic DamageCalculator::swordDamage). Per damage type of the weapon (or the NPC's own
         /// damagetype: fists, claws - wolves bite DAM_EDGE): strength + the NPC's damage[] + the weapon's damage[] and
         /// damageTotal - the target's protection of that type; immune types (protection -1) are left out.
-        /// The roll and the formula of one type are the game version's (IMeleeDamageRule).
+        /// The dice roll's meaning and the formula of one type are the game version's (IMeleeDamageRule).
         /// </summary>
         private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, out bool isImmune)
         {
@@ -89,21 +89,22 @@ namespace Gothic.Core.Domain.Npc
 
             var isTwoHanded = weapon != null && ((VmGothicEnums.ItemFlags)weapon.Flags &
                 (VmGothicEnums.ItemFlags.Item2HdSwd | VmGothicEnums.ItemFlags.Item2HdAxe)) != 0;
-            var roll = Random.Range(0, 100);
-            var isHit = _meleeDamageRule.RollHit(attacker, weapon, isTwoHanded, roll);
+            var diceRoll = Random.Range(0, 100);
+            var isRollSuccess = _meleeDamageRule.IsRollSuccess(attacker, weapon, isTwoHanded, diceRoll);
             var strength = attacker.Vob.GetAttribute((int)NpcAttribute.Strength);
 
             var damage = target.ApplyProtection(mask, (type, protection) =>
             {
                 var typeDamage = attacker.Instance.GetDamage((DamageType)type) +
                                  (weapon != null ? weapon.GetDamage((DamageType)type) + weapon.DamageTotal : 0);
-                return _meleeDamageRule.TypeDamage(strength, typeDamage, protection, isHit);
+                return _meleeDamageRule.TypeDamage(strength, typeDamage, protection, isRollSuccess);
             }, out isImmune);
 
             Logger.Log($"[FightService.MeleeDamage] {attacker.Instance.GetName(NpcNameSlot.Slot0)} -> " +
                        $"{target.Instance.GetName(NpcNameSlot.Slot0)}: weapon '{weapon?.Name ?? "none"}' " +
                        $"mask {mask}, " +
-                       $"strength {strength}, {_meleeDamageRule.GetRollName(isHit)} (roll {roll}) = {damage}" +
+                       $"strength {strength}, {_meleeDamageRule.GetRollResultName(isRollSuccess)} " +
+                       $"(dice {diceRoll}) = {damage}" +
                        $"{(isImmune ? " (immune)" : "")}", LogCat.Fight);
             return damage;
         }

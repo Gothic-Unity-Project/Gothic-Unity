@@ -20,25 +20,27 @@ namespace Gothic.G1.Services.Fight
         private int? _criticalMultiplier;
 
 
-        public bool RollHit(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int roll)
+        public bool IsRollSuccess(NpcContainer attacker, ItemInstance weapon, bool isTwoHanded, int diceRoll)
         {
-            return weapon != null && GetCriticalChance(attacker, GetWeaponTalentId(isTwoHanded)) > roll;
+            return weapon != null && GetCriticalChance(attacker, GetWeaponTalentId(isTwoHanded)) > diceRoll;
         }
 
-        public int TypeDamage(int strength, int typeDamage, int protection, bool isHit)
+        public int TypeDamage(int strength, int typeDamage, int protection, bool isRollSuccess)
         {
-            return Mathf.Max(strength + (isHit ? GetCriticalMultiplier() * typeDamage : typeDamage) - protection, 0);
+            var damage = isRollSuccess ? GetCriticalMultiplier() * typeDamage : typeDamage;
+
+            return Mathf.Max(strength + damage - protection, 0);
         }
 
-        public string GetRollName(bool isHit)
+        public string GetRollResultName(bool isRollSuccess)
         {
-            return isHit ? "CRITICAL" : "normal";
+            return isRollSuccess ? "CRITICAL" : "normal";
         }
 
         /// <summary>
         /// The scripts' talent id of the weapon (NPC_TALENT_1H / NPC_TALENT_2H).
         /// </summary>
-        public int GetWeaponTalentId(bool isTwoHanded)
+        private int GetWeaponTalentId(bool isTwoHanded)
         {
             return _gameStateService.GothicVm.GetSymbolByName(isTwoHanded ? "NPC_TALENT_2H" : "NPC_TALENT_1H")
                 ?.GetInt(0) ?? (isTwoHanded ? 2 : 1);
@@ -47,7 +49,7 @@ namespace Gothic.G1.Services.Fight
         /// <summary>
         /// G1's critical hit chance: the weapon talent's value.
         /// </summary>
-        public int GetCriticalChance(NpcContainer attacker, int talentId)
+        private int GetCriticalChance(NpcContainer attacker, int talentId)
         {
             return _npcHelperService.ExtNpcGetTalentValue(attacker.Instance, talentId);
         }
