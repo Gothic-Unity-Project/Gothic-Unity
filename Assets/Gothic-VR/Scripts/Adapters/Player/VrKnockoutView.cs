@@ -18,8 +18,8 @@ namespace Gothic.VR.Adapters.Player
     /// comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at the normal height.
     /// The view is only lowered, never turned: tilting the world makes players sick.
     /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
-    /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be read
-    /// and pointed at.
+    /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be
+    /// read and pointed at.
     /// Sits on the camera next to ScreenFade.
     /// </summary>
     public class VrKnockoutView : MonoBehaviour
@@ -53,6 +53,10 @@ namespace Gothic.VR.Adapters.Player
         // A rig whose screen fade doesn't work never turns black: the knockout goes on without it.
         private const float _maxFadeSeconds = 2f;
 
+        // Opening the menu stutters for a few frames (building it, its on-top materials) - veil and black stay over it.
+        private const int _menuShowFrames = 3;
+        private const float _menuShowSeconds = 0.1f;
+
         private IVrRig _rig;
         private IVrHaptics _haptics;
         private VrMoveVignette _vignette;
@@ -65,6 +69,7 @@ namespace Gothic.VR.Adapters.Player
         private bool _isLying;
         private bool _isMenuOpen;
         private Color _currentVeil;
+        private Coroutine _menuShow;
         // 0..1 closed to black since the hero's death.
         private float _deathClosure;
 
@@ -132,6 +137,22 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnMenuOpened(GameObject menu)
         {
+            // Raised again for every sub menu.
+            if (_isMenuOpen || _menuShow != null)
+                return;
+
+            _menuShow = StartCoroutine(ShowMenu());
+        }
+
+        private IEnumerator ShowMenu()
+        {
+            var openedAt = Time.realtimeSinceStartup;
+            for (var frame = 0;
+                 frame < _menuShowFrames || Time.realtimeSinceStartup - openedAt < _menuShowSeconds;
+                 frame++)
+                yield return null;
+
+            _menuShow = null;
             _isMenuOpen = true;
             ApplyVeil();
             ApplyDeathClosure();
@@ -139,14 +160,20 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnMenuClosed()
         {
+            if (_menuShow != null)
+            {
+                StopCoroutine(_menuShow);
+                _menuShow = null;
+            }
+
             _isMenuOpen = false;
             ApplyVeil();
             ApplyDeathClosure();
         }
 
         /// <summary>
-        /// Loading ends a knockout (without HeroRecovered) or a death: back to normal at once, the loading screen covers
-        /// it. Also the fade, which can be stopped halfway to black.
+        /// Loading ends a knockout (without HeroRecovered) or a death: back to normal at once, the loading screen
+        /// covers it. Also the fade, which can be stopped halfway to black.
         /// </summary>
         private void OnLoadGameStart()
         {

@@ -452,9 +452,9 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB). The camera's start
-        /// height is the standing pose of the frame before: the first frame of a fall can already be low (T_DEADB), then
-        /// the camera never went down.
+        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB). The camera's
+        /// start height is the standing pose of the frame before: the first frame of a fall can already be low
+        /// (T_DEADB), then the camera never went down.
         /// </summary>
         private void StartDown(Transform head, VmGothicEnums.BodyState bodyState, float feetY)
         {
