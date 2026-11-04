@@ -262,7 +262,13 @@ namespace Gothic.VR.Services.Context
         {
             if (useDefaultValues)
             {
-                _rig.ApplyComfortSettings(VrSitStand.PlayerHeight, VrMoveDirection.Camera, VrTurnType.Snap, 45f, 90f);
+                // The device simulator's head has no height: with the player's real height (floor tracking) the camera
+                // sat on the floor and the wall fade blacked out the game version / profile menu. Seated, the rig puts
+                // the eyes at their default height. Gothic.ini's setting takes over once it's loaded.
+                var defaultSitStand = _configService.Dev.EnableVRDeviceSimulator
+                    ? VrSitStand.Sitting
+                    : VrSitStand.PlayerHeight;
+                _rig.ApplyComfortSettings(defaultSitStand, VrMoveDirection.Camera, VrTurnType.Snap, 45f, 90f);
                 return;
             }
 

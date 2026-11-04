@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using Gothic.Core.Adapters.UI.Menus;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
@@ -19,39 +22,39 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         [SerializeField] private GameObject _invalidInstallationDir;
+        [SerializeField] private GameProfileMenu _gameProfileMenu;
 
 
         private void Awake()
         {
-            // Just in case we forgot to disable it in scene view. ;-)
+            // Just in case we forgot to disable them in scene view. ;-)
             _invalidInstallationDir.SetActive(false);
+            _gameProfileMenu.gameObject.SetActive(false);
         }
 
         public void Init()
         {
             /*
-             * 1. Check for GameSettings if there are two valid game installations
-             * 2. If there's none: Show error message!
-             * 3. If there is one, skip this scene immediately
-             * 4. If there are two, show selection between these two games. Once one is selected, call Context.SetGameVersion(version)
+             * 1. DeveloperConfig PreselectGameVersion (+ PreSelectMod): start it directly.
+             * 2. Otherwise check the G1 + G2 installations of GameSettings.json.
+             * 3. Each found game offers each game ini of its system/ folder (vanilla GothicGame.ini and installed mods).
+             * 4. Exactly one of them: start it directly.
+             * 5. More: show them in the GameProfileMenu. None: show the error message.
              */
+
+            // Back onto the scene's floor (at 0, like MainMenu) - the player falls while this scene loads async, as the
+            // Player scene has no floor.
+            _contextInteractionService.TeleportPlayerTo(Vector3.zero);
 
             // Whatever comes next, we don't want the player to move around right now.
             _contextInteractionService.LockPlayer(PlayerLocks.Loading);
 
-            var isG1Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic1);
-            var isG2Installed = _configService.CheckIfGothicInstallationExists(GameVersion.Gothic2);
-
-            // Editor: DeveloperConfig. Builds: GameSettings.json "GameVersion" first (see ConfigService).
             if (_configService.TryGetPreselectedGameVersion(out var preselectedVersion))
             {
-                var isInstalled = preselectedVersion == GameVersion.Gothic1 ? isG1Installed : isG2Installed;
-
-                if (isInstalled)
+                if (_configService.CheckIfGothicInstallationExists(preselectedVersion))
                 {
                     Logger.Log($"Starting preselected {preselectedVersion}.", LogCat.Loading);
-                    _bootstrapService.InitPhase2(preselectedVersion);
-                    _bootstrapService.LoadScene(Constants.ScenePreCaching, Constants.SceneGameVersion);
+                    StartGame(preselectedVersion);
                 }
                 else
                 {
@@ -64,28 +67,44 @@ namespace Gothic.Core.Adapters.Scenes
                 return;
             }
 
-            // Neither is installed
-            if (!isG1Installed && !isG2Installed)
+            var profiles = _configService.FindGameProfiles();
+            if (profiles.Count == 0)
             {
                 Logger.LogWarning("No installation of Gothic1 nor Gothic2 found.", LogCat.Loading);
-
                 _invalidInstallationDir.SetActive(true);
             }
-            // Both are installed
-            else if (isG1Installed && isG2Installed)
+            else if (profiles.Count == 1)
             {
-                Logger.Log("Gothic1 and Gothic2 installation found.", LogCat.Loading);
+                Logger.Log($"Only >{profiles[0].Name}< found - starting it.", LogCat.Loading);
+                StartGameProfile(profiles[0]);
             }
-            // Only one is installed
             else
             {
-                var version = isG1Installed ? GameVersion.Gothic1 : GameVersion.Gothic2;
-
-                Logger.Log($"Installation for {version} found only.", LogCat.Loading);
-
-                _bootstrapService.InitPhase2(version);
-                _bootstrapService.LoadScene(Constants.SceneLogo, Constants.SceneGameVersion);
+                Logger.Log($"Showing game profile menu with {profiles.Count} profile(s).", LogCat.Loading);
+                ShowMenu(profiles);
             }
+        }
+
+        private void ShowMenu(IReadOnlyList<GameProfile> profiles)
+        {
+            _gameProfileMenu.gameObject.SetActive(true);
+            _gameProfileMenu.Build(profiles, StartGameProfile);
+
+            // Registers the new canvas for the VR laser pointer.
+            _contextInteractionService.InitUIInteraction();
+        }
+
+        private void StartGameProfile(GameProfile profile)
+        {
+            _configService.SelectGameProfile(profile);
+            StartGame(profile.Version);
+        }
+
+        private void StartGame(GameVersion version)
+        {
+            // The static cache is kept per (game, mod) and created if missing.
+            _bootstrapService.InitPhase2(version);
+            _bootstrapService.LoadScene(Constants.ScenePreCaching, Constants.SceneGameVersion);
         }
     }
 }
