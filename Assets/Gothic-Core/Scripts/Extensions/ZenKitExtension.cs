@@ -19,6 +19,37 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// The engine's scheme name of a mob's visual: "CHESTBIG_OCCHESTLARGE.MDS" -> "CHESTBIG", "CHAIR.ASC" -> "CHAIR".
+        /// </summary>
+        public static string GetVisualScheme([CanBeNull] this IVirtualObject vob)
+        {
+            var visual = vob?.Visual?.Name;
+            if (string.IsNullOrEmpty(visual))
+                return string.Empty;
+
+            var scheme = System.IO.Path.GetFileNameWithoutExtension(visual);
+            var underscore = scheme.IndexOf('_');
+            return (underscore > 0 ? scheme.Substring(0, underscore) : scheme).ToUpperInvariant();
+        }
+
+        /// <summary>
+        /// The NPC is the hero (GlobalHero) - never by Id == 0, monsters have it too.
+        /// </summary>
+        public static bool IsHero([CanBeNull] this NpcInstance npc, DaedalusVm vm)
+        {
+            return npc != null && vm?.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        /// <summary>
+        /// The hero's container (GlobalHero). Null in menus / during boot, before the hero exists.
+        /// </summary>
+        [CanBeNull]
+        public static NpcContainer GetHeroContainer([CanBeNull] this DaedalusVm vm)
+        {
+            return (vm?.GlobalHero as NpcInstance)?.GetUserData();
+        }
+
+        /// <summary>
         /// Pixels of one mip level: RGBA, or the data as stored by Gothic (e.g. compressed).
         /// A native ZenKit texture decodes just this level. ZenKit's CachedTexture.GetMipmapRgba() returns the raw
         /// data instead, so cached textures are read from their lists.

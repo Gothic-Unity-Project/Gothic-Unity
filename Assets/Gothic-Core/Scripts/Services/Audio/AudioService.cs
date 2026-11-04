@@ -77,9 +77,7 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void UpdateMusicSituation()
         {
-            // Found like NpcService.GetHeroContainer() - this service can't use NpcService: NpcService needs
-            // VobService, which needs this one.
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero?.Vob == null || hero.Props == null)
                 return;
 

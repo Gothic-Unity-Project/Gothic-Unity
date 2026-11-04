@@ -34,6 +34,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
     {
         [Inject] private readonly FrameSkipperService _frameSkipperService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
+        [Inject] private readonly RoomService _roomService;
 
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
@@ -135,8 +136,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // Heavy ZenKit data extraction incl. vertex deduplication runs on a background thread.
             // The cached world mesh is only read here, which is thread-safe.
             var lightMappedCells = new HashSet<long>();
-            var buffers = await Task.Run(() => ExtractChunks(chunks, materials, lightMappedCells));
+            var floorCells = new Dictionary<long, int>();
+            var materialSectors = _roomService.GetMaterialSectors(_mesh);
+            var buffers = await Task.Run(() =>
+                ExtractChunks(chunks, materials, lightMappedCells, floorCells, materialSectors));
             _stationaryLightsService.SetLightMappedCells(lightMappedCells);
+            _roomService.SetFloorCells(floorCells);
             try
             {
                 var meshes = await BuildChunkMeshes(chunks.Count, buffers);
@@ -230,7 +235,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials,
-            HashSet<long> lightMappedCells)
+            HashSet<long> lightMappedCells, Dictionary<long, int> floorCells, int[] materialSectors)
         {
             // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
             // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
@@ -298,6 +303,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         lightMappedCells.Add(StationaryLightsService.ToCell(
                             new Vector3(corner.X, corner.Y, corner.Z) / 100f));
                     }
+
+                    // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
+                    // material name (RoomService.GetMaterialSectors). Its floors give the room under the feet.
+                    if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
+                        RoomService.MarkRoomFloor(_mesh, materialSectors[materialIndex], positionIndices, floorCells);
 
                     void AddCorner(int fanIndex)
                     {

@@ -32,6 +32,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly Npc.HeroPerceptionService _heroPerceptionService;
 
 
         // Air in lungs isn't stored in G1 savegame, therefore setting it here temporarily at runtime.
@@ -98,6 +99,7 @@ namespace Gothic.Core.Services.Player
 
             _saveGameService.RemoveVobFromWorld(item.Vob);
             AddItem(item);
+            _heroPerceptionService.OnHeroTookItem(item.Vob);
         }
 
         /// <summary>

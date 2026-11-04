@@ -57,6 +57,12 @@ namespace Gothic.Core
         public static readonly UnityEvent<INpc> CreateNpc = new();
 
         /// <summary>
+        /// An item was put into the loaded world (Wld_InsertItem) - it lies there like the world's own items.
+        /// Raised by VobService.ExtWldInsertItem.
+        /// </summary>
+        public static readonly UnityEvent<IVirtualObject> WorldItemInserted = new();
+
+        /// <summary>
         /// Plays a Bink video in the platform's cinema (VR: VRCinema). Several calls in a row are queued.
         /// Sources: PlayVideo/PlayVideoEx from Daedalus (chapter videos, G1 ending "Extro.bik") and the logo videos.
         /// string = video file name or path.
@@ -146,6 +152,11 @@ namespace Gothic.Core
         // Game menu (MenuHandler): a (sub)menu got opened - also when switching between submenus. GameObject is the
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
+
+        // Trading (TradeService) started with this NPC: the trade window opens, the dialog's choices wait.
+        public static readonly UnityEvent<NpcContainer> TradeStarted = new();
+        // Trading with this NPC ended (closed by the player or the dialog ended).
+        public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
 

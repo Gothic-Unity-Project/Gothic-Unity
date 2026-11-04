@@ -14,6 +14,7 @@ using Gothic.Core.Models.Dialog;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -32,6 +33,7 @@ namespace Gothic.Core.Manager
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly TradeService _tradeService;
 
         /// <summary>
         /// Set while a mob dialog (MOBSI, e.g. G2 shrine: [onStateFunc]_S1 -> AI_ProcessInfos(hero)) is open.
@@ -511,6 +513,7 @@ namespace Gothic.Core.Manager
 
         public void StopDialog(NpcContainer npc)
         {
+            _tradeService.End(false);
             _gameStateService.Dialogs.CurrentInstance = null;
             _gameStateService.Dialogs.CurrentOptions.Clear();
             _gameStateService.Dialogs.IsInDialog = false;
@@ -666,10 +669,12 @@ namespace Gothic.Core.Manager
 
 
             // Delegate remaining tasks to general implementation of CallInformation
-            CallInformation(npcContainer, infoInstance.Information);
+            CallInformation(npcContainer, infoInstance.Information, infoInstance.Trade != 0);
         }
 
-        private void CallInformation(NpcContainer npcContainer, int information)
+        /// <param name="isTrade">The entry is a trade (C_Info.trade): trading starts after its lines instead of the
+        /// choices, they come back once trading ends.</param>
+        private void CallInformation(NpcContainer npcContainer, int information, bool isTrade = false)
         {
             _contextDialogService.HideDialog();
 
@@ -705,6 +710,10 @@ namespace Gothic.Core.Manager
                 return;
             }
             // Else we want to have the dialog menu back once all dialog lines are talked.
+            else if (isTrade)
+            {
+                animationQueue.Enqueue(new StartTrade(new AnimationAction(int0: information), npcContainer));
+            }
             else
             {
                 animationQueue.Enqueue(new StartProcessInfos(

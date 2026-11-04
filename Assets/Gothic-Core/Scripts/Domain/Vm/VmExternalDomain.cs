@@ -46,6 +46,8 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly RoomService _roomService;
         [Inject] private readonly SkyService _skyService;
 
         private readonly HashSet<string> _externalsCalledWithoutNpc = new();
@@ -288,6 +290,15 @@ namespace Gothic.Core.Domain.Vm
             RegisterIfDeclared(vm, "Npc_GetDistToItem", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetDistToItem", (n, i) => AsNpc(n, "Npc_GetDistToItem") is { } npc && AsItem(i, "Npc_GetDistToItem") is { } item ? Npc_GetDistToItem(npc, item) : int.MaxValue));
             RegisterIfDeclared(vm, "Npc_GetHeightToItem", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetHeightToItem", (n, i) => AsNpc(n, "Npc_GetHeightToItem") is { } npc && AsItem(i, "Npc_GetHeightToItem") is { } item ? Npc_GetHeightToItem(npc, item) : int.MaxValue));
             RegisterIfDeclared(vm, "AI_GotoItem", () => vm.RegisterExternal<DaedalusInstance, DaedalusInstance>("AI_GotoItem", (n, i) => { if (AsNpc(n, "AI_GotoItem") is { } npc && AsItem(i, "AI_GotoItem") is { } item) AI_GotoItem(npc, item); }));
+
+            // Portal rooms (RoomService) and the mob the hero uses (HeroPerceptionService) - G1 and G2.
+            RegisterIfDeclared(vm, "Wld_GetPlayerPortalGuild", () => vm.RegisterExternal<int>("Wld_GetPlayerPortalGuild", Wld_GetPlayerPortalGuild));
+            RegisterIfDeclared(vm, "Wld_GetFormerPlayerPortalGuild", () => vm.RegisterExternal<int>("Wld_GetFormerPlayerPortalGuild", Wld_GetFormerPlayerPortalGuild));
+            RegisterIfDeclared(vm, "Npc_GetPortalGuild", () => vm.RegisterExternal<int, NpcInstance>("Npc_GetPortalGuild", Npc_GetPortalGuild));
+            RegisterIfDeclared(vm, "Npc_IsInPlayersRoom", () => vm.RegisterExternal<int, NpcInstance>("Npc_IsInPlayersRoom", Npc_IsInPlayersRoom));
+            RegisterIfDeclared(vm, "Npc_GetDetectedMob", () => vm.RegisterExternal<string, NpcInstance>("Npc_GetDetectedMob", Npc_GetDetectedMob));
+            RegisterIfDeclared(vm, "Npc_IsDetectedMobOwnedByNpc", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_IsDetectedMobOwnedByNpc", (a, b) => AsNpc(a, "Npc_IsDetectedMobOwnedByNpc") is { } first && AsNpc(b, "Npc_IsDetectedMobOwnedByNpc") is { } second ? Npc_IsDetectedMobOwnedByNpc(first, second) : 0));
+            RegisterIfDeclared(vm, "Npc_IsDetectedMobOwnedByGuild", () => vm.RegisterExternal<int, NpcInstance, int>("Npc_IsDetectedMobOwnedByGuild", Npc_IsDetectedMobOwnedByGuild));
 
             // Day Routine
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
@@ -1745,14 +1756,60 @@ namespace Gothic.Core.Domain.Vm
             _npcService.MobRoutines[name].Add((hour, minute, status));
         }
 
-        private bool _debugWld_AssignRoomToGuildExecuted;
         public void Wld_AssignRoomToGuild(string room, int guild)
         {
-            if (!_debugWld_AssignRoomToGuildExecuted)
-            {
-                Logger.LogWarningEditor($"Method >Wld_AssignRoomToGuild< not yet implemented in DaedalusVM.", LogCat.ZenKit);
-                _debugWld_AssignRoomToGuildExecuted = true;
-            }
+            _roomService.AssignRoomToGuild(room, guild);
+        }
+
+        public int Wld_GetPlayerPortalGuild()
+        {
+            // GIL_NONE (0) outdoors and in rooms no script gave to a guild.
+            var ret = _roomService.GuildOfRoom(_roomService.HeroRoom);
+            return LogInstantExternal(nameof(Wld_GetPlayerPortalGuild), ret);
+        }
+
+        public int Wld_GetFormerPlayerPortalGuild()
+        {
+            var ret = _roomService.GuildOfRoom(_roomService.HeroFormerRoom);
+            return LogInstantExternal(nameof(Wld_GetFormerPlayerPortalGuild), ret);
+        }
+
+        public int Npc_GetPortalGuild(NpcInstance npc)
+        {
+            var go = npc?.GetUserData()?.Go;
+            var ret = go == null ? 0 : _roomService.GetPortalGuildAt(go.transform.position);
+            return LogInstantExternal(nameof(Npc_GetPortalGuild), ret, npc);
+        }
+
+        public int Npc_IsInPlayersRoom(NpcInstance npc)
+        {
+            var go = npc?.GetUserData()?.Go;
+            var ret = go != null && _roomService.IsInHeroRoom(go.transform.position) ? 1 : 0;
+            return LogInstantExternal(nameof(Npc_IsInPlayersRoom), ret, npc);
+        }
+
+        /// <summary>
+        /// The scheme name of the mob the NPC uses (only the hero's is known), e.g. "CHESTBIG".
+        /// </summary>
+        public string Npc_GetDetectedMob(NpcInstance npc)
+        {
+            return npc.IsHero(_gameStateService.GothicVm) ? _heroPerceptionService.GetHeroDetectedMobScheme() : string.Empty;
+        }
+
+        public int Npc_IsDetectedMobOwnedByNpc(NpcInstance user, NpcInstance npc)
+        {
+            var ret = user.IsHero(_gameStateService.GothicVm) && _heroPerceptionService.IsHeroDetectedMobOwnedBy(npc)
+                ? 1
+                : 0;
+            return LogInstantExternal(nameof(Npc_IsDetectedMobOwnedByNpc), ret, user, npc);
+        }
+
+        public int Npc_IsDetectedMobOwnedByGuild(NpcInstance user, int guild)
+        {
+            var ret = user.IsHero(_gameStateService.GothicVm) && _heroPerceptionService.IsHeroDetectedMobOwnedByGuild(guild)
+                ? 1
+                : 0;
+            return LogInstantExternal(nameof(Npc_IsDetectedMobOwnedByGuild), ret, user, guild);
         }
 
         public int Wld_GetGuildAttitude(int guild1, int guild2)
