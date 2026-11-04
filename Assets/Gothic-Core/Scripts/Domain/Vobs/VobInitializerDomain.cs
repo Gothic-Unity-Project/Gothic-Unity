@@ -47,6 +47,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly WindService _windService;
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
@@ -254,6 +255,9 @@ namespace Gothic.Core.Domain.Vobs
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
+
+            // Trees and grass with Gothic's wind mode sway - WindService decides which.
+            _windService.Register(vob, go);
 
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
