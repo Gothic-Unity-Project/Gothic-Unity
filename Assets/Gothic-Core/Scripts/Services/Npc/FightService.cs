@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc;
-using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -23,18 +22,22 @@ using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
 {
+    /// <summary>
+    /// The one owner of how an NPC goes down: a melee hit (damage: MeleeDamageDomain), the hit points gone otherwise
+    /// (HitPointsDepleted), knockout (NpcKnockoutDomain) or death (NpcDeathDomain), the hero's death ending the game.
+    /// </summary>
     public class FightService
     {
         [Inject] private AudioService _audioService;
         [Inject] private AnimationService _animationService;
         [Inject] private PhysicsService _physicsService;
         [Inject] private NpcHelperService _npcHelperService;
-        [Inject] private readonly Gothic.Core.Services.GameStateService _gameStateService;
+        [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _fightConfigService;
@@ -46,25 +49,32 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
 
         private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
+        private readonly NpcKnockoutDomain _knockoutDomain = new NpcKnockoutDomain().Inject();
+        private readonly MeleeDamageDomain _meleeDamageDomain = new MeleeDamageDomain().Inject();
 
         // DAM_FIRE in Constants.d (bit after DAM_EDGE).
         private const int _damFire = 8;
 
-        // Bumped by every knockout and every load - a recovery of an older one doesn't stand the hero up.
-        private int _heroKnockoutId;
+        // The scripts' GIL_SEPERATOR_ORC: monsters are below it, orcs above (G1 37, G2 58).
+        private int? _orcSeparatorGuild;
 
         public void Init()
         {
+            // Scripts (B_KillNpc), drowning and damage zones kill with or without the combat system.
+            GlobalEventDispatcher.HitPointsDepleted.AddListener(OnHitPointsDepleted);
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
+
+            if (!_configService.Dev.EnableCombatSystem)
+                return;
+
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.SpellHit.AddListener(OnSpellHit);
             GlobalEventDispatcher.SpellSpreadHit.AddListener((caster, pos, damage) => ApplySpreadHit(caster, pos, damage, null));
             GlobalEventDispatcher.FallDamage.AddListener(OnFallDamage);
             GlobalEventDispatcher.CheatKill.AddListener(OnCheatKill);
-            GlobalEventDispatcher.ScriptHitPointsDepleted.AddListener(OnScriptHitPointsDepleted);
             GlobalEventDispatcher.RangedHit.AddListener(OnRangedHit);
             GlobalEventDispatcher.FightFinishingMove.AddListener(OnFinishingMove);
             GlobalEventDispatcher.HeroMeleeSwing.AddListener(OnHeroMeleeSwing);
-            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
 
         /// <summary>
@@ -163,7 +173,7 @@ namespace Gothic.Core.Services.Npc
                 return false;
 
             var attackerWeapon = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            if (!IsHuman(attacker) && attackerWeapon is not (VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H))
+            if (!attacker.IsHuman() && attackerWeapon is not (VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H))
                 return false;
 
             // Only a hit that touched the held weapon is blocked - a block
@@ -305,9 +315,7 @@ namespace Gothic.Core.Services.Npc
             if (hitPoints > 0)
                 return;
 
-            npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-            OnDyingChangeAnimation(npc);
-            OnNpcDied(npc, npc);
+            Kill(npc, npc);
         }
 
         /// <summary>
@@ -321,18 +329,16 @@ namespace Gothic.Core.Services.Npc
 
             npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
             npc.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
-            npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-            OnDyingChangeAnimation(npc);
-            OnNpcDied(npc, npc);
+            Kill(npc, npc);
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableScriptHitPointsDeath: a script took the NPC's last hit points (OpenGothic
-        /// Npc::changeAttribute -> checkHealth). With the scripts' `other` as the attacker (B_MagicHurtNpc of a zapped
-        /// victim: the caster) it's handled like script damage (death, or a knockout with the Ranged knockout option);
-        /// an NPC weakening by itself (G1 summons in ZS_MM_SummonedByPC_Loop) just dies - nobody gets experience.
+        /// Like the engine (OpenGothic Npc::changeAttribute -> checkHealth), losing the last hit points outside of a
+        /// melee hit (a script, drowning, a damage zone) kills. The NPC is its own killer - nobody gets experience from
+        /// ZS_Dead: B_MagicHurtNpc pays the caster itself, B_KillNpc (B_ClearFMC) and fading summons pay nothing. The
+        /// scripts' `other` is whoever the running state had (often the hero).
         /// </summary>
-        private void OnScriptHitPointsDepleted(NpcContainer victim)
+        private void OnHitPointsDepleted(NpcContainer victim)
         {
             // The hero too: like the engine, a script taking his last hit points kills him (no knockout).
             if (victim?.Props == null || victim.Props.BodyState == VmGothicEnums.BodyState.BsDead)
@@ -359,11 +365,9 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} lost its last hit points by " +
-                       "script - dies", LogCat.Fight);
-            victim.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-            OnDyingChangeAnimation(victim);
-            OnNpcDied(victim, victim);
+            Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} lost its last hit points " +
+                       "outside of a hit - dies", LogCat.Fight);
+            Kill(victim, victim);
         }
 
         private bool IsHeroInGodMode(NpcContainer npc)
@@ -521,17 +525,17 @@ namespace Gothic.Core.Services.Npc
                 (victim.PrefabProps != null && victim.PrefabProps.IsHero()))
                 return;
 
-            if (IsHuman(victim) && IsRangedKnockoutOn() && IsKnockedOutNotKilled(attacker, victim))
+            if (IsRangedKnockoutOn() && _knockoutDomain.IsKnockout(attacker, victim))
             {
-                Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} zapped down - UNCONSCIOUS", LogCat.Fight);
-                OnNpcKnockedOut(victim, attacker);
+                Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} zapped down - UNCONSCIOUS",
+                    LogCat.Fight);
+                DropReadiedWeapon(victim);
+                _knockoutDomain.KnockOutNpc(victim, attacker);
                 return;
             }
 
             Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} zapped to death", LogCat.Fight);
-            victim.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-            OnDyingChangeAnimation(victim);
-            OnNpcDied(victim, attacker);
+            Kill(victim, attacker);
         }
 
         /// <summary>
@@ -544,10 +548,10 @@ namespace Gothic.Core.Services.Npc
                     or VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
-            if (OnHitUpdateHealth(hero, hero, damage, (int)DamageType.Magic))
+            if (_meleeDamageDomain.ApplyHit(hero, hero, damage, (int)DamageType.Magic))
             {
                 Logger.LogWarning("[FightService] The hero zapped himself down", LogCat.Fight);
-                OnHeroKnockedOut(hero, hero);
+                _knockoutDomain.KnockOutHero(hero, hero);
             }
         }
 
@@ -621,7 +625,7 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            var isHero = target.PrefabProps != null && target.PrefabProps.IsHero();
+            var isHero = target.Instance.IsHero(_gameStateService.GothicVm);
 
             // Ignore hits on already-unconscious hero — prevents stacking recovery coroutines.
             if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
@@ -648,15 +652,14 @@ namespace Gothic.Core.Services.Npc
 
             // Any attacker finishes off unconscious NPC — set dead and call ZS_Dead. Not the swing that knocked him out:
             // a VR weapon can enter several hitboxes in one swing - Bullit died instead of lying down.
-            if (NpcHelperService.IsKnockedOut(target) && !isHero)
+            if (target.Props.IsKnockedOut && !isHero)
             {
-                if (Time.time < target.Props.KnockedOutTime + 1f)
+                if (_knockoutDomain.IsInKnockoutGraceTime(target))
                     return;
 
-                Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off unconscious {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-                target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                OnDyingChangeAnimation(target);
-                OnNpcDied(target, attacker);
+                Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off unconscious " +
+                           $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+                Kill(target, attacker);
                 return;
             }
 
@@ -664,7 +667,7 @@ namespace Gothic.Core.Services.Npc
             // (AIV_WASDEFEATEDBYSC: ZS_AssessEnemy -> ZS_ProclaimAndPunish -> ZS_TurnAway, "I didn't see anything") - fine
             // as a witness, but attacked himself he drew, put away and looked away over and over (his temporary
             // HOSTILE attitude restarts ZS_AssessEnemy through PERC_ASSESSENEMY). Hit by the hero, he fights back.
-            var isHeroAttacker = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
+            var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
             // Not by resetting AIV_WASDEFEATEDBYSC: every knockout paid XP again and quests reading it changed (review
             // of PR #474). The coward fighting back needs a C# side flag - open.
 
@@ -689,50 +692,51 @@ namespace Gothic.Core.Services.Npc
             if (damageOverride == null)
                 GlobalEventDispatcher.MeleeHitLanded.Invoke(attacker, target, position);
 
-            Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            if (OnHitUpdateHealth(attacker, target, damageOverride, overrideProtectionIndex))
+            Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT " +
+                       $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
+            if (_meleeDamageDomain.ApplyHit(attacker, target, damageOverride, overrideProtectionIndex))
             {
                 // The hero goes down by the same rule as everybody (OpenGothic checkHealth): monsters and humans
-                // hostile to him kill him, the others knock him out.
-                var isHeroKnockedOut = isHero && IsHuman(target) && IsKnockedOutNotKilled(attacker, target);
-                if (!isHero && NpcHelperService.IsKnockedOut(target))
-                {
-                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} finished off while unconscious — DEAD", LogCat.Npc);
-                    target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
-                    OnDyingChangeAnimation(target);
-                    OnNpcDied(target, attacker);
-                }
-                else if (isHeroKnockedOut)
+                // hostile to him kill him, the others knock him out. A berzerk is always only stopped; arrows and
+                // spells kill unless the "Ranged knockout" option is on (IsRangedKill). What the hero's summon does
+                // counts as the hero's (GetCreditedAttacker).
+                var isKnockedOut = isHero
+                    ? _knockoutDomain.IsKnockout(attacker, target)
+                    : !IsRangedKill(damageOverride) && target.IsHuman() &&
+                      (IsBerzerk(target) || _knockoutDomain.IsKnockout(GetCreditedAttacker(attacker), target));
+                if (isHero && isKnockedOut)
                 {
                     Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
-                    OnHeroKnockedOut(target, attacker);
+                    _knockoutDomain.KnockOutHero(target, attacker);
                 }
-                else if (!isHero && IsHuman(target) && !IsRangedKill(damageOverride) &&
-                         IsKnockedOutNotKilled(GetCreditedAttacker(attacker), target))
+                else if (isKnockedOut)
                 {
-                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS", LogCat.Npc);
-                    OnNpcKnockedOut(target, GetCreditedAttacker(attacker));
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is UNCONSCIOUS",
+                        LogCat.Npc);
+                    DropReadiedWeapon(target);
+                    _knockoutDomain.KnockOutNpc(target, GetCreditedAttacker(attacker));
                 }
                 
                 else
                 {
-                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD", LogCat.Npc);
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD",
+                        LogCat.Npc);
                     Kill(target, GetCreditedAttacker(attacker));
                 }
             }
             else
             {
-                // An NPC's swing isn't cut short by another NPC's hit -
-                // two bandits taking turns kept Cavalorn from ever landing one (stumble before his hit frame).
-                // The hero's hits still interrupt like in Gothic.
-                if (!isHeroAttacker &&
-                    target.Props.CurrentAction is AttackPlayAni { IsSwingInProgress: true })
+                // An NPC's swing isn't cut short by another NPC's hit - two bandits taking turns kept Cavalorn from ever
+                // landing one (stumble before his hit frame). The hero's hits still interrupt like in Gothic.
+                if (!isHeroAttacker && target.Props.CurrentAction is AttackPlayAni { IsSwingInProgress: true })
                 {
-                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage mid-swing - keeps swinging", LogCat.Npc);
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage " +
+                               "mid-swing - keeps swinging", LogCat.Npc);
                 }
                 else
                 {
-                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, playing hurt animation", LogCat.Npc);
+                    Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} took damage, " +
+                               "playing hurt animation", LogCat.Npc);
                     OnHitChangeAnimation(target);
                 }
                 OnHitPlaySound(target);
@@ -850,20 +854,20 @@ namespace Gothic.Core.Services.Npc
             if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
             {
                 // Diagnostics (a berzerk victim didn't fight back): which damage reaction the victim has in its state.
-                if (!target.PrefabProps.IsHero())
+                if (!target.Instance.IsHero(_gameStateService.GothicVm))
                 {
                     var percFunction = target.Props.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessDamage,
                         out var percIndex) && percIndex >= 0
                         ? _gameStateService.GothicVm.GetSymbolByIndex(percIndex)?.Name ?? percIndex.ToString()
                         : "none";
                     Logger.Log($"[FightService.Perc] AssessDamage on {target.Instance.GetName(NpcNameSlot.Slot0)} " +
-                               $"(state {target.Vob.CurrentStateName}) by {attacker.Instance.GetName(NpcNameSlot.Slot0)}: {percFunction}",
-                        LogCat.Fight);
+                               $"(state {target.Vob.CurrentStateName}) by " +
+                               $"{attacker.Instance.GetName(NpcNameSlot.Slot0)}: {percFunction}", LogCat.Fight);
                 }
-                // Like the engine's stumble, a hit interrupts walking - the
-                // reaction (ZS_ReactToDamage: AI_StartState(ZS_AssessMonster)) queued behind a guide's long AI_GotoWP
-                // and never ran: Baal Parvez stood still under a wolf's bites until spoken to.
-                if (!target.PrefabProps.IsHero() &&
+                // Like the engine's stumble, a hit interrupts walking - the reaction (ZS_ReactToDamage:
+                // AI_StartState(ZS_AssessMonster)) queued behind a guide's long AI_GotoWP and never ran: Baal Parvez stood
+                // still under a wolf's bites until spoken to.
+                if (!target.Instance.IsHero(_gameStateService.GothicVm) &&
                     target.Props.CurrentAction is AbstractWalkAnimationAction or AbstractWalkAnimationAction2)
                 {
                     Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} stops walking - hit by " +
@@ -920,7 +924,7 @@ namespace Gothic.Core.Services.Npc
             {
                 if (candidate == target || candidate == attacker)
                     continue;
-                if (NpcHelperService.IsDown(candidate))
+                if (candidate.Props?.IsDown == true)
                     continue;
                 // Skip culled NPCs — Go is null or inactive (out of cull range).
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy)
@@ -1034,10 +1038,6 @@ namespace Gothic.Core.Services.Npc
             Logger.Log($"[FightService.Perc] AssessOthersDamage broadcast to {broadcasted} NPC(s)", LogCat.Fight);
         }
 
-        // GIL_SEPERATOR_HUM = 16: only true humans (guild < 16) go unconscious.
-        // Mole rats (34), orcs (16–37), monsters (>37) all die.
-        private static bool IsHuman(NpcContainer npc) => npc.Instance.Guild < 16;
-
         private bool IsPartyMember(NpcContainer npc)
         {
             var sym = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
@@ -1107,187 +1107,6 @@ namespace Gothic.Core.Services.Npc
             return _configService.Dev.EnableRangedKnockoutOption && damageOverride.HasValue && !IsRangedKnockoutOn();
         }
 
-        private bool IsKnockedOutNotKilled(NpcContainer attacker, NpcContainer target)
-        {
-            if (IsBerzerk(target))
-                return true;
-
-            var isHeroAttacker = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
-            var attackerWeapon = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            if (!isHeroAttacker && attackerWeapon is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return false;
-
-            var attitude = _npcAiService.ExtGetPermAttitude(target.Instance, attacker.Instance);
-            Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} down by " +
-                       $"{attacker.Instance.GetName(NpcNameSlot.Slot0)} - attitude {attitude}", LogCat.Fight);
-            return attitude != VmGothicEnums.Attitude.Hostile;
-        }
-
-        private void OnNpcKnockedOut(NpcContainer npc, NpcContainer attacker)
-        {
-            DropReadiedWeapon(npc);
-
-            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
-            npc.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
-
-            var vm = _gameStateService.GothicVm;
-            var zsUnconscious = vm.GetSymbolByName("ZS_UNCONSCIOUS");
-
-            if (zsUnconscious == null)
-            {
-                Logger.LogWarning("[FightService] ZS_UNCONSCIOUS symbol not found — falling back to S_Wounded anim", LogCat.Fight);
-                npc.Props.KnockedOutTime = Time.time;
-                npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
-                npc.Props.AnimationQueue.Clear();
-                npc.PrefabProps.AnimationSystem.StopAllAnimations();
-                _physicsService.DisablePhysicsForNpc(npc.PrefabProps);
-                var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.UnconsciousA, npc);
-                npc.PrefabProps.AnimationSystem.PlayAnimation(animName);
-                return;
-            }
-
-            npc.Props.KnockedOutTime = Time.time;
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = npc.Instance;
-            vm.GlobalOther = attacker.Instance;
-            try
-            {
-                // ZS_Unconscious pays the victory (B_UnconciousXP: only the first one over a human) and then sets
-                // AIV_WASDEFEATEDBYSC. StartState is queued, so both happen here at once - a perception before the next
-                // frame would see AIV=0 and take the wrong branch. Before, the AIV was set first and no XP was paid.
-                var aivWasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC")?.GetInt(0) ?? -1;
-                var isHeroVictory = attacker.PrefabProps.IsHero() || IsPartyMember(attacker);
-                // The temporary attitude goes back to the permanent one, so PERC_ASSESSENEMY doesn't restart the fight
-                // with a stale HOSTILE after he wakes up.
-                if (isHeroVictory)
-                    npc.Vob.AttitudeTemp = npc.Vob.Attitude;
-                if (aivWasDefeated >= 0 && isHeroVictory)
-                {
-                    var bUnconciousXp = vm.GetSymbolByName("B_UNCONCIOUSXP");
-                    if (bUnconciousXp != null)
-                    {
-                        vm.Call(bUnconciousXp.Index);
-                        _npcService.SyncHeroInstanceToVob();
-                        Logger.Log($"[FightService] Unconscious XP for {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-                    }
-                    npc.Instance.SetAiVar(aivWasDefeated, 1);
-                }
-
-                // ClearState(false) inside ExtAiStartState resets BodyState=BsStand — set BsUnconscious after.
-                // Not a script call: the old state's _End (e.g. ZS_ProclaimAndPunish_End) ran on the downed NPC and
-                // queued weapon draws and new states - ZS_Unconscious never started and he reacted to everything.
-                _npcAiService.ExtAiStartState(npc.Instance, zsUnconscious.Index, true, "", false);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogError($"[FightService] Knockout scripts of {npc.Instance.GetName(NpcNameSlot.Slot0)} failed: {e}",
-                    LogCat.Fight);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
-            }
-            npc.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
-
-            // The engine drops the NPC itself - ZS_Unconscious only calls
-            // Mdl_ApplyRandomAni for a third of the tough guys, everybody else stood or T-posed while unconscious
-            // (Buster) and still stood up normally afterwards.
-            if (npc.PrefabProps != null)
-            {
-                _physicsService.DisablePhysicsForNpc(npc.PrefabProps);
-                npc.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "T_Stand_2_Wounded"), npc));
-                npc.Props.AnimationQueue.Enqueue(new PlayAni(new AnimationAction(string0: "S_Wounded"), npc));
-            }
-
-            // Summons fighting the NPC stop like the scripts
-            // (ZS_MM_Attack_Loop ends on C_NpcIsDown) - their queued attacks kept hitting the downed NPC.
-            foreach (var summon in _multiTypeCacheService.NpcCache)
-            {
-                if (summon?.SummonedBy == null || summon.Props?.TargetNpc?.Index != npc.Instance.Index)
-                    continue;
-                _npcAiService.ExtNpcClearAiQueue(summon.Instance);
-                Logger.Log($"[FightService] {summon.Instance.GetName(NpcNameSlot.Slot0)} (summon) stops attacking " +
-                           $"downed {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            }
-
-            BroadcastDownPerception(npc, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
-        }
-
-        /// <summary>
-        /// What a knocked out or dead hero can't do: walk away and grab. DeveloperConfig.EnableKnockoutTurning keeps
-        /// turning on the spot free.
-        /// </summary>
-        public PlayerControls GetDownLockedControls()
-        {
-            return _configService.Dev.EnableKnockoutTurning
-                ? PlayerControls.Walking | PlayerControls.Grab
-                : PlayerControls.All;
-        }
-
-        private void OnHeroKnockedOut(NpcContainer hero, NpcContainer attacker)
-        {
-            hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
-            SetHasDefeatedHero(attacker);
-            hero.Vob.SetAttribute((int)NpcAttribute.HitPoints, 1);
-            hero.Instance.SetAttribute(NpcAttribute.HitPoints, 1);
-            _contextInteractionService.LockPlayer(PlayerLocks.Knockout, GetDownLockedControls());
-
-            // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
-            // this very knockout before its SVM warning/ZS_Attack ever ran) gets its tempAttitude reset
-            // to permanent now, the same way OnNpcKnockedOut already does for the reverse case. Without
-            // this, vanilla's ZS_ProclaimAndPunish_End silently aborts on C_NpcIsDown(hero) with no
-            // attitude reset, so the NPC stays Hostile with no memory that anything happened — once the
-            // hero wakes and is re-detected, it replays the whole warning and attacks again ("double
-            // beating" for one provocation). The intent here is for the confrontation to be considered
-            // over, not merely to skip the SVM line and fight anyway — resetting attitude means the NPC
-            // goes back to routine and won't re-engage on its own at all.
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                if (candidate.Props?.TargetNpc?.Index != hero.Instance.Index)
-                    continue;
-
-                candidate.Vob.AttitudeTemp = candidate.Vob.Attitude;
-
-                // Like the engine, the fight ends the moment the hero is down. The NPC's running chase/attack kept
-                // its queue busy for seconds, so ZS_Attack_Loop never saw C_NpcIsDown(hero) - a citizen ran in
-                // circles and attacked again once the hero stood up. Cleared, the loop ends the fight right away.
-                _npcAiService.ExtNpcClearAiQueue(candidate.Instance);
-
-                // The encounter is over, but nothing else tells this NPC to sheath whatever weapon it
-                // drew for the confrontation (B_DrawWeapon back in ZS_AssessEnemy) — without this it
-                // keeps walking/standing with the weapon out and the wrong animation set even after it
-                // gives up and returns to routine.
-                if ((VmGothicEnums.WeaponState)candidate.Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
-                    _npcAiService.ExtAiUndrawWeapon(candidate.Instance);
-            }
-
-            BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
-            GlobalEventDispatcher.HeroKnockedOut.Invoke(hero);
-
-            _unityMonoService.StartCoroutine(KnockoutRecovery(hero, ++_heroKnockoutId));
-        }
-
-        /// <summary>
-        /// G1's ZS_Unconscious ends with "if (Npc_IsPlayer(self))
-        /// other.aivar[AIV_HASDEFEATEDSC] = TRUE" - the hero runs no Daedalus states, so the NPC who knocked him out
-        /// never knew it won. Dialogs after a lost duel check it (Mroczne Tajemnice's Sheer'Ghar: Info_Sheer_After).
-        /// </summary>
-        private void SetHasDefeatedHero(NpcContainer attacker)
-        {
-            if (attacker?.Instance == null ||
-                (attacker.PrefabProps != null && attacker.PrefabProps.IsHero()))
-                return;
-
-            var aivSymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_HASDEFEATEDSC");
-            if (aivSymbol == null)
-                return;
-
-            attacker.Instance.SetAiVar(aivSymbol.GetInt(0), 1);
-            Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} defeated the hero - " +
-                       $"AIV_HASDEFEATEDSC ({aivSymbol.GetInt(0)}) = TRUE", LogCat.Fight);
-        }
 
         private void OnFinishingMove(NpcContainer attacker, NpcContainer target)
         {
@@ -1302,19 +1121,17 @@ namespace Gothic.Core.Services.Npc
                 // No respawn system yet — treat as extended knockout so the player can reload.
                 Logger.LogWarning("[FightService.FinishingMove] Hero executed — extended knockout (no respawn yet)", LogCat.Fight);
                 if (target.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
-                    OnHeroKnockedOut(target, attacker);
+                    _knockoutDomain.KnockOutHero(target, attacker);
                 return;
             }
 
             Logger.Log($"[FightService.FinishingMove] {attacker.Instance.GetName(NpcNameSlot.Slot0)} executes {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
             var wasLying = target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
-            target.Props.BodyState = VmGothicEnums.BodyState.BsDead;
             // He dies where he lies, with his death scream.
-            if (wasLying && TryPlayLyingDeath(target))
+            var isLyingDeath = wasLying && TryPlayLyingDeath(target);
+            if (isLyingDeath)
                 PlayDeathScream(target);
-            else
-                OnDyingChangeAnimation(target);
-            OnNpcDied(target, attacker);
+            Kill(target, attacker, isLyingDeath);
         }
 
         /// <summary>
@@ -1338,7 +1155,7 @@ namespace Gothic.Core.Services.Npc
 
             Logger.LogWarning($"[FightService] Hero finished off by {attacker.Instance.GetName(NpcNameSlot.Slot0)} - " +
                               "DEAD", LogCat.Fight);
-            BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessMurder);
+            _npcAiService.BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessMurder);
             // The same death as any other (EndGame: locked, the death scream, the menu offers loading only).
             Kill(hero, attacker);
         }
@@ -1406,18 +1223,11 @@ namespace Gothic.Core.Services.Npc
             return false;
         }
 
-        private IEnumerator KnockoutRecovery(NpcContainer hero, int knockoutId)
+        private int GetOrcSeparatorGuild()
         {
-            yield return new WaitForSeconds(10f);
-            // A game was loaded meanwhile, or he was knocked out again - that knockout's recovery stands him up.
-            if (knockoutId != _heroKnockoutId)
-                yield break;
-            // Finished off in the meantime - the dead don't stand up.
-            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsDead)
-                yield break;
-            hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
-            _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout);
-            Logger.Log("[FightService] Hero recovered from knockout", LogCat.Fight);
+            _orcSeparatorGuild ??= _gameStateService.GothicVm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0) ??
+                                   (int)VmGothicEnums.Guild.GIL_SEPERATOR_ORC;
+            return _orcSeparatorGuild.Value;
         }
 
         /// <summary>
@@ -1425,7 +1235,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void OnLoadGameStart()
         {
-            _heroKnockoutId++;
+            _knockoutDomain.CancelHeroRecovery();
             _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout | PlayerLocks.Death);
         }
 
@@ -1435,307 +1245,12 @@ namespace Gothic.Core.Services.Npc
             if (!dialogs.IsInDialog || npc == null)
                 return false;
 
-            return npc == dialogs.CurrentDialogNpc || (npc.PrefabProps != null && npc.PrefabProps.IsHero());
+            return npc == dialogs.CurrentDialogNpc || npc.Instance.IsHero(_gameStateService.GothicVm);
         }
 
-        /// <summary>
-        /// Handles health changes.
-        /// Returns true if Npc/Monster is dead.
-        /// </summary>
-        private int? _minimalDamage;
 
-        private int GetMinimalDamage()
-        {
-            _minimalDamage ??= _gameStateService.GothicVm.GetSymbolByName("NPC_MINIMAL_DAMAGE")?.GetInt(0) ?? 0;
-            return _minimalDamage.Value;
-        }
 
-        private bool OnHitUpdateHealth(NpcContainer attacker, NpcContainer target, int? damageOverride = null,
-            int overrideProtectionIndex = (int)DamageType.Fire)
-        {
-            // FIXME - Talent/skill level (e.g. 1H skill) is not factored in yet.
-            var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
-            var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
 
-            int damage;
-            bool isImmune;
-            if (damageOverride.HasValue)
-            {
-                // Spell/ranged damage bypasses the melee weapon formula — protection still applies.
-                // FIXME: spells use their own damage type (overrideProtectionIndex stays Fire for them).
-                var protection = target.Vob.GetProtection(overrideProtectionIndex);
-                isImmune = protection < 0;
-                damage = isImmune ? 0 : Mathf.Max(0, damageOverride.Value - protection);
-            }
-            else
-            {
-                damage = CalculateMeleeDamage(attacker, target, out isImmune);
-            }
-
-            // Like the engine, a hit never does less than NPC_MINIMAL_DAMAGE
-            // (Balancing.d, G1: 1) unless the target is immune (-1) - a meatbug (fire protection 100) took 0 from a
-            // 50 damage fire storm and burned without losing HP.
-            if (!isImmune)
-                damage = Mathf.Max(damage, GetMinimalDamage());
-
-            // 1 also against the minimal damage (Mroczne Tajemnice: 5).
-            if (_isRequirementCapped && !isImmune)
-                damage = 1;
-            _isRequirementCapped = false;
-
-            // Dev cheats: hero one-hit kill / knockout.
-            if (attacker.PrefabProps != null && attacker.PrefabProps.IsHero())
-            {
-                if (_configService.Dev.EnableOneHitKill)
-                    damage = maxHP;
-                else if (_configService.Dev.EnableOneHitKnockout)
-                    damage = Mathf.Max(0, hitPoints - 1);
-            }
-
-            // Magic and ranged never one-shot humanoids or the hero — they always survive with 1 HP,
-            // requiring a follow-up hit to trigger knockout. Monsters (guild >= 16) take full damage.
-            // DeveloperConfig.EnableRangedKnockoutOption replaces this (OnHit: kill or knock out by the option).
-            var attackerMode = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            var isMagicOrRanged = attackerMode is VmGothicEnums.WeaponState.Mage
-                or VmGothicEnums.WeaponState.Bow
-                or VmGothicEnums.WeaponState.CBow;
-            var targetIsHumanOrHero = (target.PrefabProps != null && target.PrefabProps.IsHero()) || IsHuman(target);
-            if (!_configService.Dev.EnableRangedKnockoutOption && isMagicOrRanged && targetIsHumanOrHero)
-                damage = Mathf.Min(damage, Mathf.Max(1, hitPoints - 1));
-
-            // NPC_FLAG_IMMORTAL (bit 1 = 2): take no damage, but combat still plays out normally.
-            // Marvin's god mode for the hero likewise (the script flag is left alone - AI reads it).
-            if (((int)target.Instance.Flags & 2) != 0 || IsHeroInGodMode(target))
-            {
-                Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} is immortal — 0 damage", LogCat.Npc);
-                damage = 0;
-            }
-
-            Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)}: {hitPoints} - {damage} dmg", LogCat.Npc);
-
-            hitPoints -= damage;
-
-            Logger.Log($"[FightService.OnHitUpdateHealth] {target.Instance.GetName(NpcNameSlot.Slot0)} HP after: {hitPoints}/{maxHP}", LogCat.Npc);
-
-            // Health bars follow via GlobalEventDispatcher.NpcAttributeChanged.
-            _npcService.SetAttribute(target, NpcAttribute.HitPoints, hitPoints);
-
-            return hitPoints <= 0;
-        }
-
-        private void OnNpcDied(NpcContainer dead, NpcContainer killer)
-        {
-            // Dead is 0 hit points like the engine (OpenGothic
-            // Npc::finishingMove / C_Kill: hit points -max) - a finished off NPC kept the knockout's 1 HP.
-            if (dead.Vob.GetAttribute((int)NpcAttribute.HitPoints) > 0)
-            {
-                dead.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
-                dead.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
-                GlobalEventDispatcher.NpcAttributeChanged.Invoke(dead, NpcAttribute.HitPoints);
-            }
-
-            DropReadiedWeapon(dead);
-
-            // Set flag immediately so AiHandler.Start() on the corpse doesn't double-call ZS_Dead.
-            dead.IsZsDeadCalled = true;
-
-            // ZS_Dead (B_CheckDeadMissionNPCs + B_GiveDeathInv etc.) takes ~280ms in G2 — too heavy
-            // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
-            var deadInstance = dead.Instance;
-            var heroInstance = _npcService.GetHeroContainer().Instance;
-            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, heroInstance, killer));
-
-            Logger.Log($"[FightService.OnNpcDied] {dead.Instance.GetName(NpcNameSlot.Slot0)} died — ZS_Dead deferred (killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
-        }
-
-        private bool IsXpForAnyKillOn()
-        {
-            return _configService.Gothic != null && _configService.Gothic.GetInt(FightConst.XpForAnyKillIniName, 0) == 1;
-        }
-
-        private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcInstance hero, NpcContainer killer)
-        {
-            yield return null;
-            RunZsDead(dead, hero, killer);
-            BroadcastDownPerception(dead.GetUserData(), killer, VmGothicEnums.PerceptionType.AssessMurder);
-        }
-
-        /// <summary>
-        /// ZS_Dead (and ZS_Dead_Loop) of a dead NPC with the killer as 'other', the state bookkeeping like the engine.
-        /// Also for a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh VM.
-        /// </summary>
-        public void RunZsDead(NpcInstance dead, NpcInstance hero, NpcContainer killer)
-        {
-            if (dead.GetUserData() is { } deadNpc)
-                deadNpc.IsZsDeadCalled = true;
-
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = dead;
-            // DeveloperConfig.EnableKillerXpOnly: like the engine (OpenGothic checkHealth: currentOther) 'other' is the
-            // killer - ZS_Dead gives XP only if he's the hero or in his party (AIV_PARTYMEMBER, AIV_MM_PARTYMEMBER: the
-            // hero's summons, Mordrag leading him), and G2 marks only the hero's victims as killed by him. The hero for
-            // everybody gave XP for every death anywhere - now the "XP for every death" immersion option (a cheat).
-            vm.GlobalOther = _configService.Dev.EnableKillerXpOnly && !IsXpForAnyKillOn()
-                ? killer?.Instance ?? dead
-                : hero;
-
-            var zsDeadSym = vm.GetSymbolByName("ZS_Dead");
-            // Like the engine's state change: the state he died in is the last one - G1's B_DeathXP pays nothing for
-            // finishing off an unconscious human (Npc_WasInState(self, ZS_Unconscious)).
-            var deadContainer = dead.GetUserData();
-            if (zsDeadSym != null && deadContainer?.Vob != null)
-            {
-                deadContainer.Vob.LastAiState = deadContainer.Vob.CurrentStateIndex;
-                deadContainer.Vob.CurrentStateIndex = zsDeadSym.Index;
-                deadContainer.Vob.CurrentStateName = zsDeadSym.Name;
-            }
-            if (zsDeadSym != null)
-            {
-                try
-                {
-                    vm.Call(zsDeadSym.Index);
-                }
-                catch (System.Exception e)
-                {
-                    Logger.LogError($"[FightService.OnNpcDied] ZS_Dead of {dead.GetName(NpcNameSlot.Slot0)} failed: " +
-                                    e.Message, LogCat.Npc);
-                }
-
-                // The engine runs ZS_Dead_Loop too - G2 counts killed dragons
-                // there (B_DragonKillCounter): the undead dragon's EXTRO video, the teleport to UNDEAD_ENDTELEPORT and
-                // UndeadDragonIsDead never happened. The scripts guard it themselves (AIV_TAPOSITION), once is enough.
-                var zsDeadLoopSym = vm.GetSymbolByName("ZS_Dead_Loop");
-                if (zsDeadLoopSym != null)
-                {
-                    if (zsDeadLoopSym.HasReturn)
-                        vm.Call<int>(zsDeadLoopSym.Index);
-                    else
-                        vm.Call(zsDeadLoopSym.Index);
-                }
-
-                _npcService.SyncHeroInstanceToVob();
-                Logger.Log($"[FightService.OnNpcDied] ZS_Dead complete: {dead.GetName(NpcNameSlot.Slot0)}" +
-                           $"{(zsDeadLoopSym != null ? " (+ ZS_Dead_Loop)" : "")}", LogCat.Npc);
-            }
-            else
-                Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
-
-            vm.GlobalSelf = oldSelf;
-            vm.GlobalOther = oldOther;
-        }
-
-        /// <summary>
-        /// Like the engine, witnesses around the victim learn who
-        /// killed (PERC_ASSESSMURDER) or knocked out (PERC_ASSESSDEFEAT) whom: other = killer, victim = victim.
-        /// The killer doesn't witness its own deed.
-        /// </summary>
-        private void BroadcastDownPerception(NpcContainer victim, NpcContainer killer, VmGothicEnums.PerceptionType perception)
-        {
-            if (victim == null || killer == null || victim == killer)
-                return;
-
-            if (_npcAiService.BroadcastPassivePerception(victim, perception, victim.Instance, killer.Instance,
-                    exclude: killer))
-                Logger.Log($"[FightService.Perc] {perception}: {killer.Instance.GetName(NpcNameSlot.Slot0)} -> " +
-                           $"{victim.Instance.GetName(NpcNameSlot.Slot0)} sent", LogCat.Fight);
-        }
-
-        /// <summary>
-        /// C_ITEM.damageType is a DAM_* bitmask whose bit positions match the PROT_* indices.
-        /// Weapons carry one damage type; the first set bit wins.
-        /// </summary>
-        /// <summary>
-        /// OpenGothic DamageCalculator::swordDamage. Per damage type of the
-        /// weapon (or the NPC's own damagetype: fists, claws - wolves bite DAM_EDGE): strength + the NPC's damage[] +
-        /// the weapon's damage[] and damageTotal - the target's protection of that type; immune types (protection -1)
-        /// are left out.
-        /// G1: a critical hit with the talent value's chance (1H/2H) doubles the weapon part (DAM_CRITICAL_MULTIPLIER).
-        /// G2: a miss by the hit chance (C_NPC.hitchance[1H/2H]) does a tenth; monsters without a weapon always hit.
-        /// The hero's weapon is the one in his VR hand (Props.MeleeHitWeapon) - it isn't equipped in VR, he hit with
-        /// his strength alone (Lukis in heavy armor took 30 instead of 80).
-        /// DeveloperConfig.EnableWeaponRequirementCap (opinion): the hero swings a weapon without its requirements
-        /// (cond_atr/cond_value, e.g. 50 strength) - every hit does only 1 damage.
-        /// </summary>
-        private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, out bool isImmune)
-        {
-            var isHeroAttacker = attacker.PrefabProps != null && attacker.PrefabProps.IsHero();
-            var weapon = isHeroAttacker
-                ? attacker.Props.MeleeHitWeapon
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            // In fist mode the engine hits with the fist, not the sword in the belt.
-            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
-                weapon = null;
-
-            var mask = weapon?.DamageType ?? attacker.Instance.DamageType;
-            if (mask == 0)
-                mask = 1 << (int)DamageType.Blunt;
-
-            var vm = _gameStateService.GothicVm;
-            var isTwoHanded = weapon != null && ((VmGothicEnums.ItemFlags)weapon.Flags &
-                (VmGothicEnums.ItemFlags.Item2HdSwd | VmGothicEnums.ItemFlags.Item2HdAxe)) != 0;
-            var roll = Random.Range(0, 100);
-            var isG2 = _contextGameVersionService.IsGothic2();
-            bool isCritical;
-            if (isG2)
-            {
-                // G2: the "critical" roll is the hit chance - below it the hit is a near miss.
-                isCritical = (!IsHuman(attacker) && weapon == null) ||
-                             attacker.Instance.GetHitChance(isTwoHanded ? NpcTalent.TwoHanded : NpcTalent.OneHanded) > roll;
-            }
-            else
-            {
-                var talentId = vm.GetSymbolByName(isTwoHanded ? "NPC_TALENT_2H" : "NPC_TALENT_1H")?.GetInt(0) ??
-                               (isTwoHanded ? 2 : 1);
-                isCritical = weapon != null && GetG1CriticalChance(attacker, talentId) > roll;
-            }
-            var multiplier = vm.GetSymbolByName("DAM_CRITICAL_MULTIPLIER")?.GetInt(0) ?? 2;
-            var strength = attacker.Vob.GetAttribute((int)NpcAttribute.Strength);
-
-            var damage = 0;
-            isImmune = true;
-            for (var i = 0; i < 8; i++)
-            {
-                if ((mask & (1 << i)) == 0)
-                    continue;
-
-                var protection = target.Vob.GetProtection(i);
-                if (protection < 0)
-                    continue;
-
-                var typeDamage = attacker.Instance.GetDamage((DamageType)i) +
-                                 (weapon != null ? weapon.GetDamage((DamageType)i) + weapon.DamageTotal : 0);
-                int value;
-                if (isG2)
-                {
-                    value = Mathf.Max(strength + typeDamage - protection, 0);
-                    if (!isCritical)
-                        value = (value - 1) / 10;
-                }
-                else
-                {
-                    value = Mathf.Max(strength + (isCritical ? multiplier * typeDamage : typeDamage) - protection, 0);
-                }
-                damage += value;
-                isImmune = false;
-            }
-
-            if (isHeroAttacker && weapon != null && !IsWeaponRequirementMet(attacker, weapon, out var requirement, out _, out _))
-            {
-                Logger.Log($"[FightService] The hero lacks {requirement} for '{weapon.Name}' - {damage} damage capped to 1",
-                    LogCat.Fight);
-                damage = Mathf.Min(damage, 1);
-                _isRequirementCapped = true;
-            }
-
-            var rollResult = isG2 ? (isCritical ? "hit" : "near miss") : (isCritical ? "CRITICAL" : "normal");
-            Logger.Log($"[FightService.MeleeDamage] {attacker.Instance.GetName(NpcNameSlot.Slot0)} -> " +
-                       $"{target.Instance.GetName(NpcNameSlot.Slot0)}: weapon '{weapon?.Name ?? "none"}' mask {mask}, " +
-                       $"strength {strength}, {rollResult} (roll {roll}) = {damage}{(isImmune ? " (immune)" : "")}",
-                LogCat.Fight);
-            return damage;
-        }
 
         /// <summary>
         /// G1 (OpenGothic Npc::shootBow + DamageCalculator::rangeDamage) - the
@@ -1743,41 +1258,6 @@ namespace Gothic.Core.Services.Npc
         /// the hit chance, which a VR projectile doesn't need (it physically hit). G2 has no ranged critical hits: its
         /// hitchance[bow/crossbow] is the hit chance, dexterity adds to the damage.
         /// </summary>
-        // Mroczne Tajemnice's teachers (B_GiveprocentSkill) keep a weapon's
-        // percent in another talent's value - the one its status menu shows as the critical hit chance.
-        private const string _modPercentSkillFunction = "B_GIVEPROCENTSKILL";
-        private static readonly (string Weapon, string Percent)[] _modPercentTalents =
-        {
-            ("NPC_TALENT_1H", "NPC_TALENT_SNEAK"),
-            ("NPC_TALENT_2H", "NPC_TALENT_REGENERATE"),
-            ("NPC_TALENT_BOW", "NPC_TALENT_FIREMASTER"),
-            ("NPC_TALENT_CROSSBOW", "NPC_TALENT_ACROBAT")
-        };
-
-        /// <summary>
-        /// G1's critical hit chance: the weapon talent's value. DeveloperConfig.EnableModPercentTalents: with Mroczne
-        /// Tajemnice's percent system the talent its teachers raise counts too (the higher one) - a hero trained by
-        /// Cavalorn had his bow percent in NPC_TALENT_FIREMASTER and never hit critically.
-        /// </summary>
-        private int GetG1CriticalChance(NpcContainer npc, int talentId)
-        {
-            var chance = _npcHelperService.ExtNpcGetTalentValue(npc.Instance, talentId);
-            var vm = _gameStateService.GothicVm;
-            if (vm?.GetSymbolByName(_modPercentSkillFunction) == null)
-                return chance;
-
-            foreach (var (weapon, percent) in _modPercentTalents)
-            {
-                if (vm.GetSymbolByName(weapon)?.GetInt(0) != talentId)
-                    continue;
-                var percentTalent = vm.GetSymbolByName(percent);
-                if (percentTalent != null)
-                    chance = Mathf.Max(chance,
-                        _npcHelperService.ExtNpcGetTalentValue(npc.Instance, percentTalent.GetInt(0)));
-                break;
-            }
-            return chance;
-        }
 
         private int ApplyRangedCriticalHit(NpcContainer shooter, ItemInstance weapon, int damage)
         {
@@ -1785,7 +1265,7 @@ namespace Gothic.Core.Services.Npc
             var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags & VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
             var talentId = vm.GetSymbolByName(isCrossbow ? "NPC_TALENT_CROSSBOW" : "NPC_TALENT_BOW")?.GetInt(0) ??
                            (isCrossbow ? 4 : 3);
-            var chance = GetG1CriticalChance(shooter, talentId);
+            var chance = _npcHelperService.ExtNpcGetTalentValue(shooter.Instance, talentId);
             var roll = Random.Range(0, 100);
             if (chance <= roll)
                 return damage;
@@ -1838,7 +1318,7 @@ namespace Gothic.Core.Services.Npc
                 return true;
 
             var hero = _npcService.GetHeroContainer();
-            if (hero == null || IsWeaponRequirementMet(hero, weapon, out var requirement, out var attribute, out var value))
+            if (hero == null || MeleeDamageDomain.IsWeaponRequirementMet(hero, weapon, out var requirement, out var attribute, out var value))
                 return true;
 
             if (isMessageShown && Time.time - _lastCannotUseMessageTime > _cannotUseMessageSeconds)
@@ -1914,31 +1394,6 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
-        /// <summary>
-        /// C_ITEM.cond_atr[]/cond_value[]: the attributes a weapon needs (G1/G2: strength or dexterity).
-        /// </summary>
-        private static bool IsWeaponRequirementMet(NpcContainer npc, ItemInstance weapon, out string requirement,
-            out int missingAttribute, out int requiredValue)
-        {
-            requirement = null;
-            missingAttribute = -1;
-            requiredValue = 0;
-            foreach (ItemConditionSlot slot in System.Enum.GetValues(typeof(ItemConditionSlot)))
-            {
-                var attribute = weapon.GetCondAtr(slot);
-                var value = weapon.GetCondValue(slot);
-                if (value <= 0 || attribute < 0 || attribute >= 8)
-                    continue;
-                if (npc.Vob.GetAttribute(attribute) >= value)
-                    continue;
-
-                requirement = $"{(NpcAttribute)attribute} {value} (has {npc.Vob.GetAttribute(attribute)})";
-                missingAttribute = attribute;
-                requiredValue = value;
-                return false;
-            }
-            return true;
-        }
 
         private static int GetProtectionIndex(int damageTypeMask)
         {
@@ -1991,6 +1446,15 @@ namespace Gothic.Core.Services.Npc
             npc.Props.CurrentItem = -1;
         }
 
+        /// <summary>
+        /// ZS_Dead of a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh
+        /// VM (NpcDeathDomain).
+        /// </summary>
+        public void RunZsDead(NpcInstance dead, NpcInstance hero, NpcContainer killer)
+        {
+            _deathDomain.RunZsDead(dead, hero, killer);
+        }
+
         private void OnDyingChangeAnimation(NpcContainer target)
         {
             // Dead state, AI queue dropped, animations stopped, physics off and the dying animation.
@@ -2001,10 +1465,14 @@ namespace Gothic.Core.Services.Npc
         /// The NPC dies: dead state, AI queue dropped, the dying animation (NpcDeathDomain), then ZS_Dead with the killer.
         /// The hero's death ends the game (EndGame).
         /// </summary>
-        private void Kill(NpcContainer victim, NpcContainer killer)
+        private void Kill(NpcContainer victim, NpcContainer killer, bool isDyingAnimationPlayed = false)
         {
-            _deathDomain.Die(victim);
-            OnNpcDied(victim, killer);
+            DropReadiedWeapon(victim);
+            if (isDyingAnimationPlayed)
+                victim.Props.BodyState = VmGothicEnums.BodyState.BsDead;
+            else
+                _deathDomain.Die(victim);
+            _deathDomain.StartDeadState(victim, killer);
 
             if (victim.Instance.IsHero(_gameStateService.GothicVm))
                 EndGame(victim, killer);
@@ -2012,12 +1480,12 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// The hero's death ends the game like in Gothic: he can't move, teleport or grab any more (until a game is
-        /// loaded), and the menu offers loading, but no saving or continuing (InGameAndAlive).
+        /// loaded), and the menu offers loading, but no saving or continuing (IsHeroAlive).
         /// </summary>
         private void EndGame(NpcContainer hero, NpcContainer killer)
         {
-            _gameStateService.InGameAndAlive = false;
-            _contextInteractionService.LockPlayer(PlayerLocks.Death, GetDownLockedControls());
+            _gameStateService.HeroDies();
+            _contextInteractionService.LockPlayer(PlayerLocks.Death, _knockoutDomain.GetDownLockedControls());
             PlayHeroDeathScream(hero);
 
             var killerName = killer == null || killer == hero ? "a script" : killer.Instance.GetName(NpcNameSlot.Slot0);
@@ -2058,9 +1526,8 @@ namespace Gothic.Core.Services.Npc
             if (clip == null)
                 return;
 
-            // The hero's pain sound like the NPCs' - from his own voice source (he
-            // has no NpcSound, nothing was heard).
-            if (target.PrefabProps != null && target.PrefabProps.IsHero())
+            // The hero's pain sound like the NPCs' - from his own voice source (he has no NpcSound, nothing was heard).
+            if (target.Instance.IsHero(_gameStateService.GothicVm))
             {
                 var heroGo = _npcService.GetHeroGameObject();
                 var heroSource = heroGo != null ? heroGo.GetComponent<AudioSource>() : null;

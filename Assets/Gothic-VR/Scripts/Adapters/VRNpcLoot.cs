@@ -85,12 +85,14 @@ namespace Gothic.VR.Adapters
         private void Awake()
         {
             _npcLoader = GetComponentInParent<NpcLoader>();
+            // Update only watches for the NPC standing up while the loot is open - not every frame on every NPC.
+            enabled = false;
         }
 
         private void Update()
         {
             // A knocked out NPC that gets up takes his things back out of reach.
-            if (_isOpen && _npcContainer != null && !NpcHelperService.IsDown(_npcContainer))
+            if (_isOpen && _npcContainer != null && _npcContainer.Props?.IsDown != true)
                 Close();
         }
 
@@ -108,6 +110,7 @@ namespace Gothic.VR.Adapters
             _lootOwner = new NpcInventoryOwner(npc);
             _isOpen = true;
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
+            enabled = true;
             PlayOpenSound();
 
             // DeveloperConfig.NpcLootMode: loot sockets, the NPC's backpack, or both.
@@ -302,6 +305,7 @@ namespace Gothic.VR.Adapters
             _isOpen = false;
             GlobalEventDispatcher.NpcInventoryChanged.RemoveListener(OnNpcInventoryChanged);
             DespawnLootBackpack();
+            enabled = false;
             if (_pendingRefresh != null)
             {
                 StopCoroutine(_pendingRefresh);

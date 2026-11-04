@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
@@ -10,6 +11,7 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Reflex.Attributes;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.UI
@@ -45,6 +47,8 @@ namespace Gothic.VR.Adapters.UI
         [Tooltip("Width of the screen in meters. The height follows the video's aspect ratio.")] [SerializeField]
         private float _screenWidth = 3.2f;
 
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
+
         private readonly Queue<string> _queue = new();
 
         private Camera _camera;
@@ -56,7 +60,6 @@ namespace Gothic.VR.Adapters.UI
         private VRPlayer _player;
         private IVrRig _rig;
         private IVrInput _vrInput;
-        private ContextInteractionService _contextInteractionService;
         private bool _savedCanCrouch;
         private bool _savedCanJump;
         private bool _savedMenuButtonEnabled;
@@ -126,6 +129,10 @@ namespace Gothic.VR.Adapters.UI
             Destroy(_binkPlayer);
             _binkPlayer = null;
         }
+
+        // The cinema is inactive until the first video and not part of a scene scope's injection pass, so it injects
+        // itself when it activates the first time (Open() activates it before the player lock needs the service).
+        private void Awake() => this.Inject();
 
         private bool Open()
         {
@@ -247,7 +254,6 @@ namespace Gothic.VR.Adapters.UI
             if (_player == null || _rig == null)
                 return;
 
-            _contextInteractionService ??= ReflexProjectInstaller.DIContainer.Resolve<ContextInteractionService>();
             _contextInteractionService.LockPlayer(PlayerLocks.Cinema);
 
             _savedCanCrouch = _rig.CanCrouch;

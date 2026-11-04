@@ -13,6 +13,7 @@ namespace Gothic.Core.Models.Caches
         UiTexture,
         UiThumbnail,
         UiVirtualKeyboard,
+        UiTradeWindow,
 
         UiDebugText,
         UiDebugLogLine,
@@ -48,6 +49,7 @@ namespace Gothic.Core.Models.Caches
         VobTrigger,
         VobTriggerList,
         VobTriggerUntouch,
+        VobTouchDamage,
         VobTriggerWorldStart,
         VobCodeMaster,
         VobMoverController,

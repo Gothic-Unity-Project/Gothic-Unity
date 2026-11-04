@@ -104,6 +104,7 @@ namespace Gothic.VR.Services.Context
                 ApplyComfortSettings();
                 ApplyHeightOffset();
                 ApplyPhysicalHands();
+                ApplyControlLayout();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
@@ -171,7 +172,10 @@ namespace Gothic.VR.Services.Context
 
             _physicsHands = _player.GetComponentsInChildren<VrPhysicsHand>(true);
             if (_configService.Gothic != null)
+            {
                 ApplyPhysicalHands();
+                ApplyControlLayout();
+            }
 
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
@@ -250,6 +254,12 @@ namespace Gothic.VR.Services.Context
             {
                 ApplyPhysicalHands();
             }
+            else if (key == VRConstants.IniNames.ControllerHand ||
+                     key == VRConstants.IniNames.JumpButton ||
+                     key == VRConstants.IniNames.MenuButton)
+            {
+                ApplyControlLayout();
+            }
         }
 
         /// <summary>
@@ -274,6 +284,18 @@ namespace Gothic.VR.Services.Context
 
             foreach (var hand in _physicsHands)
                 hand.IsPhysical = isPhysical;
+        }
+
+        /// <summary>
+        /// Game settings "controller hand", "jump button" and "menu button" from Gothic.ini.
+        /// </summary>
+        private void ApplyControlLayout()
+        {
+            var gothicIni = _configService.Gothic;
+            _vrInput.ApplyControlLayout(VrControlLayout.FromSettings(
+                gothicIni.GetInt(VRConstants.IniNames.ControllerHand, VRConstants.ControllerHandDefaultValue),
+                gothicIni.GetInt(VRConstants.IniNames.JumpButton, VRConstants.JumpButtonDefaultValue),
+                gothicIni.GetInt(VRConstants.IniNames.MenuButton, VRConstants.MenuButtonDefaultValue)));
         }
 
         /// <summary>

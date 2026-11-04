@@ -23,6 +23,23 @@ namespace Gothic.VR.Interaction.Ports
         VrButtonState GetButton(VrHandSide side, VrButton button);
 
         /// <summary>
+        /// The button that opens Gothic's menu (VrControlLayout). Default: the left secondary button, for backends
+        /// without remapping.
+        /// </summary>
+        VrButtonState GetMenuButton()
+        {
+            return GetButton(VrHandSide.Left, VrButton.Secondary);
+        }
+
+        /// <summary>
+        /// Which buttons and sticks do what (game menu: controller hand, jump and menu button). Default: backends
+        /// without remapping keep their layout.
+        /// </summary>
+        void ApplyControlLayout(VrControlLayout layout)
+        {
+        }
+
+        /// <summary>
         /// Analog grip value (0 = open, 1 = fully pressed). Drives the block hands' finger curl.
         /// Default: the grip button's state, for backends without an analog value.
         /// </summary>
