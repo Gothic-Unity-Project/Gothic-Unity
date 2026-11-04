@@ -276,11 +276,11 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// The hero's death ends the game like in Gothic: he can't move, teleport or grab any more (until a game is
-        /// loaded), and the menu offers loading, but no saving or continuing (InGameAndAlive).
+        /// loaded), and the menu offers loading, but no saving or continuing (IsHeroAlive).
         /// </summary>
         private void EndGame(NpcContainer hero, NpcContainer killer)
         {
-            _gameStateService.InGameAndAlive = false;
+            _gameStateService.HeroDies();
             _contextInteractionService.LockPlayer(PlayerLocks.Death, PlayerControls.Walking | PlayerControls.Grab);
             PlayHeroDeathScream(hero);
 

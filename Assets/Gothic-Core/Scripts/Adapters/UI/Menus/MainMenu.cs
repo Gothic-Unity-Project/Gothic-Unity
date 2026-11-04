@@ -65,9 +65,9 @@ namespace Gothic.Core.Adapters.UI.Menus
                 return false;
             
             return ((MenuItemCache[menuItemName].item.Flags & MenuItemFlag.OnlyInGame) == 0 &&
-                    !_gameStateService.InGameAndAlive) ||
+                    !_gameStateService.IsHeroAlive) ||
                    ((MenuItemCache[menuItemName].item.Flags & MenuItemFlag.OnlyOutGame) == 0 &&
-                    _gameStateService.InGameAndAlive);
+                    _gameStateService.IsHeroAlive);
         }
     }
 }
