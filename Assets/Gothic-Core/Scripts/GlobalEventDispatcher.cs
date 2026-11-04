@@ -112,6 +112,24 @@ namespace Gothic.Core
         /// Vector3      - at which position
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+
+        /// <summary>
+        /// NpcContainer - lost its last hit points outside of a melee hit (NpcService.ReduceHitPoints: a script's
+        /// Npc_ChangeAttribute, drowning, a damage zone). FightService decides how it goes down.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HitPointsDepleted = new();
+
+        /// <summary>
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
+        /// (lying down, camera) listens to it - added with the VR hero body PR.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
+        /// NpcContainer - who killed him (the hero himself for a script)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroDied = new();
         
 
         // LockPicking events

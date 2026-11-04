@@ -199,6 +199,10 @@ namespace Gothic.Core.Domain.Vobs
                     go = CreateTriggerZone(vob, parent, $"TriggerZone_{vob.Name}");
                     go.GetComponent<TriggerZoneHandler>().Init((ITrigger)vob);
                     break;
+                case VirtualObjectType.oCTouchDamage:
+                    go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
+                    go.GetComponent<TouchDamageHandler>().Init((ITouchDamage)vob);
+                    break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = CreateTriggerZone(vob, parent, $"TriggerUntouch_{vob.Name}");
                     go.GetComponent<TriggerUntouchHandler>().Init((ITriggerUntouch)vob);
@@ -435,6 +439,10 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTriggerUntouch, name: name,
+                        parent: parent);
+                    break;
+                case VirtualObjectType.oCTouchDamage:
+                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTouchDamage, name: name,
                         parent: parent);
                     break;
                 case VirtualObjectType.zCTriggerWorldStart:

@@ -67,6 +67,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextScreenshotService));
             containerBuilder.AddSingleton(typeof(ContextTradeService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
+            containerBuilder.AddSingleton(typeof(ContextMeleeDamageRuleService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
@@ -78,6 +79,7 @@ namespace Gothic.Core
 
             // Vob
             containerBuilder.AddSingleton(typeof(VobService));
+            containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             

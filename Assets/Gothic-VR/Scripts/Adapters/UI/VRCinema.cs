@@ -2,12 +2,16 @@ using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Context;
+using Gothic.Core.Services.Context;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Reflex.Attributes;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.UI
@@ -43,6 +47,8 @@ namespace Gothic.VR.Adapters.UI
         [Tooltip("Width of the screen in meters. The height follows the video's aspect ratio.")] [SerializeField]
         private float _screenWidth = 3.2f;
 
+        [Inject] private readonly ContextInteractionService _contextInteractionService;
+
         private readonly Queue<string> _queue = new();
 
         private Camera _camera;
@@ -54,11 +60,8 @@ namespace Gothic.VR.Adapters.UI
         private VRPlayer _player;
         private IVrRig _rig;
         private IVrInput _vrInput;
-        private bool _savedMovementEnabled;
-        private bool _savedRotationEnabled;
         private bool _savedCanCrouch;
         private bool _savedCanJump;
-        private bool _savedTeleporterEnabled;
         private bool _savedMenuButtonEnabled;
 
         private BinkPlayer _binkPlayer;
@@ -126,6 +129,10 @@ namespace Gothic.VR.Adapters.UI
             Destroy(_binkPlayer);
             _binkPlayer = null;
         }
+
+        // The cinema is inactive until the first video and not part of a scene scope's injection pass, so it injects
+        // itself when it activates the first time (Open() activates it before the player lock needs the service).
+        private void Awake() => this.Inject();
 
         private bool Open()
         {
@@ -231,8 +238,9 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// The camera only shows the screen, but HVR still moves/crouches the player and the menu button would open
-        /// the menu. The previous values are kept, as a dialog or seat might have locked the player already.
+        /// The camera only shows the screen, but the rig would still move/crouch the player and the menu button would
+        /// open the menu. Moving, turning and teleporting are the cinema's own player lock; a dialog or seat locking at
+        /// the same time keeps its lock.
         /// </summary>
         private void LockPlayer()
         {
@@ -246,35 +254,31 @@ namespace Gothic.VR.Adapters.UI
             if (_player == null || _rig == null)
                 return;
 
-            _savedMovementEnabled = _rig.MovementEnabled;
-            _savedRotationEnabled = _rig.TurnEnabled;
+            _contextInteractionService.LockPlayer(PlayerLocks.Cinema);
+
             _savedCanCrouch = _rig.CanCrouch;
             _savedCanJump = _rig.CanJump;
-            _savedTeleporterEnabled = _rig.TeleportEnabled;
             _savedMenuButtonEnabled = _player.IsMenuButtonEnabled;
 
-            _rig.MovementEnabled = false;
-            _rig.TurnEnabled = false;
             _rig.CanCrouch = false;
             _rig.CanJump = false;
-            _rig.TeleportEnabled = false;
             _player.IsMenuButtonEnabled = false;
         }
 
         /// <summary>
-        /// Values enabled by others while the video played are kept: the lock saved at start can be outdated by then
-        /// (e.g. the world load or a dialog unlocked the player meanwhile), restoring it would leave the player stuck.
+        /// Releases the cinema's player lock. Crouching, jumping and the menu button enabled by others while the video
+        /// played stay enabled: the values saved at start can be outdated by then (e.g. after a world load).
         /// </summary>
         private void UnlockPlayer()
         {
+            // Also when the player is gone (destroyed first on quit): the lock lives in the service.
+            _contextInteractionService?.UnlockPlayer(PlayerLocks.Cinema);
+
             if (_player == null || _rig == null)
                 return;
 
-            _rig.MovementEnabled |= _savedMovementEnabled;
-            _rig.TurnEnabled |= _savedRotationEnabled;
             _rig.CanCrouch |= _savedCanCrouch;
             _rig.CanJump |= _savedCanJump;
-            _rig.TeleportEnabled |= _savedTeleporterEnabled;
             _player.IsMenuButtonEnabled |= _savedMenuButtonEnabled;
         }
     }
