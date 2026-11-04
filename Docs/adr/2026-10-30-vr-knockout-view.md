@@ -13,7 +13,7 @@ When the hero is beaten in a fight, he lies on the ground for a while and can't 
 2. **A grey veil over the view clears while the knockout runs - it is the timer.** Heavy right after the fall, light just before getting up. Not chosen: a number or a bar counting down, which is a menu element inside the world; and a grey filter alone at full height, which doesn't feel like lying on the ground. Real desaturation was left out because a full-screen effect costs too much on Quest 2.
 3. **A slow heartbeat pulses in both controllers while lying.**
 4. **Getting up raises the view again**, with the body or behind a fade without it. Loading a game during a knockout ends it at once.
-5. **When the hero dies, the view falls the same way and the veil darkens, then the menu opens after four seconds.** In VR there is no outside camera, so the menu comes by itself, also without the VR body. The veil hides while the menu is open, so it can be read.
+5. **When the hero dies, the view falls with the body like a knockout and closes to black from the edges within three seconds, then the menu opens.** It's the comfort vignette closing all the way, whatever its option says. Not chosen: staying in the view of the lying body - the player's hands still move the dead body's arms, which feels like leaving the body. In VR there is no outside camera, so the menu comes by itself after four seconds, also without the VR body. The black hides while the menu is open, so it can be read and pointed at.
 
 ## Consequences
 

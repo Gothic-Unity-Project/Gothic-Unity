@@ -326,7 +326,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 if (!isDown)
                     return false;
-                StartDown(head);
+                StartDown(head, bodyState);
             }
 
             if (bodyState == VmGothicEnums.BodyState.BsDead && _downPhase != DownPhase.Dead)
@@ -436,7 +436,11 @@ namespace Gothic.VR.Adapters.Player
                 (rightUpper == null || !bone.IsChildOf(rightUpper)));
         }
 
-        private void StartDown(Transform head)
+        /// <summary>
+        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB) - from the wounded
+        /// pose (T_WOUNDEDB_2_DEADB) the body lay at once, the camera took that height as its start and never went down.
+        /// </summary>
+        private void StartDown(Transform head, VmGothicEnums.BodyState bodyState)
         {
             _downForward = Vector3.ProjectOnPlane(_body.transform.forward, Vector3.up);
             if (_downForward.sqrMagnitude < 0.0001f)
@@ -446,10 +450,18 @@ namespace Gothic.VR.Adapters.Player
             _downBaseCameraOffset = _rig != null ? _rig.CameraYOffset : 0f;
             _downStartEyeHeight = -1f;
             _bodyBones = null;
-            _downPhase = DownPhase.Knockout;
             IsHeroDown = true;
             SetHandsThroughFloor(true);
-            SetDownAnimations("T_STAND_2_WOUNDEDB", "S_WOUNDEDB");
+            if (bodyState == VmGothicEnums.BodyState.BsDead)
+            {
+                _downPhase = DownPhase.Dead;
+                SetDownAnimations("T_DEADB", "S_DEADB");
+            }
+            else
+            {
+                _downPhase = DownPhase.Knockout;
+                SetDownAnimations("T_STAND_2_WOUNDEDB", "S_WOUNDEDB");
+            }
             Logger.Log("[VRHeroBody] Hero down - body falls, camera follows its head", LogCat.VR);
         }
 

@@ -17,8 +17,9 @@ namespace Gothic.VR.Adapters.Player
     /// (VRHeroBody, EnableHeroFallCamera) lowers the camera with the falling body. Without it, the view fades out and
     /// comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at the normal height.
     /// The view is only lowered, never turned: tilting the world makes players sick.
-    /// When the hero dies (HeroDied), he falls the same way and the veil darkens; VRPlayer opens the menu. The veil
-    /// hides while the menu is open, so it can be read.
+    /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
+    /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be read
+    /// and pointed at.
     /// Sits on the camera next to ScreenFade.
     /// </summary>
     public class VrKnockoutView : MonoBehaviour
@@ -33,12 +34,8 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _veilStartAlpha = 0.85f;
         [Tooltip("Opacity of the veil just before getting up.")]
         [SerializeField] private float _veilEndAlpha = 0.15f;
-        [Tooltip("Color of the veil once the hero is dead. Its alpha is ignored.")]
-        [SerializeField] private Color _deathVeilColor = new(0.05f, 0.05f, 0.05f);
-        [Tooltip("Opacity of the veil once the hero is dead.")]
-        [SerializeField] private float _deathVeilAlpha = 0.9f;
-        [Tooltip("Seconds the veil takes to darken after the hero's death.")]
-        [SerializeField] private float _deathDarkenSeconds = 4f;
+        [Tooltip("Seconds the view takes to close to black from the edges after the hero's death.")]
+        [SerializeField] private float _deathCloseSeconds = 3f;
         [Tooltip("Camera height in m above the floor while lying - only without the VR hero body.")]
         [SerializeField] private float _lyingEyeHeight = 0.3f;
         [Tooltip("Speed of the fades to black and back, in alpha per second.")]
@@ -58,6 +55,7 @@ namespace Gothic.VR.Adapters.Player
 
         private IVrRig _rig;
         private IVrHaptics _haptics;
+        private VrMoveVignette _vignette;
         private Material _materialInstance;
         private MeshRenderer _renderer;
         // The knockout or the death, whichever runs.
@@ -67,6 +65,8 @@ namespace Gothic.VR.Adapters.Player
         private bool _isLying;
         private bool _isMenuOpen;
         private Color _currentVeil;
+        // 0..1 closed to black since the hero's death.
+        private float _deathClosure;
 
         private void Awake()
         {
@@ -80,6 +80,7 @@ namespace Gothic.VR.Adapters.Player
                 Logger.LogWarning($"[VrKnockoutView] No IVrRig above {name} - knockouts aren't shown.", LogCat.VR);
 
             _haptics = ReflexProjectInstaller.DIContainer.Resolve<IVrHaptics>();
+            _vignette = GetComponent<VrMoveVignette>();
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.AddListener(OnHeroRecovered);
@@ -133,12 +134,14 @@ namespace Gothic.VR.Adapters.Player
         {
             _isMenuOpen = true;
             ApplyVeil();
+            ApplyDeathClosure();
         }
 
         private void OnMenuClosed()
         {
             _isMenuOpen = false;
             ApplyVeil();
+            ApplyDeathClosure();
         }
 
         /// <summary>
@@ -147,6 +150,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnLoadGameStart()
         {
+            SetDeathClosure(0f);
             if (_knockout == null)
                 return;
 
@@ -160,7 +164,7 @@ namespace Gothic.VR.Adapters.Player
 
         private IEnumerator KnockOut(float seconds)
         {
-            yield return LieDown();
+            yield return LieDown(_veilStartAlpha);
 
             var lyingTime = 0f;
             var nextHeartbeat = 0f;
@@ -198,32 +202,48 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Dead: down to the ground (unless already lying from a knockout), and the veil darkens. It stays until a game
-        /// is loaded.
+        /// Dead: down to the ground (unless already lying from a knockout), the knockout's grey veil goes and the view
+        /// closes to black from the edges. It stays black until a game is loaded.
         /// </summary>
         private IEnumerator Die()
         {
+            SetVeil(0f);
             if (!_isLying)
-                yield return LieDown();
+                yield return LieDown(0f);
 
-            var from = _currentVeil;
-            var to = _deathVeilColor;
-            to.a = _deathVeilAlpha;
-            for (var time = 0f; time < _deathDarkenSeconds; time += Time.unscaledDeltaTime)
+            for (var time = 0f; time < _deathCloseSeconds; time += Time.unscaledDeltaTime)
             {
-                SetVeil(Color.Lerp(from, to, time / _deathDarkenSeconds));
+                SetDeathClosure(time / _deathCloseSeconds);
                 yield return null;
             }
-            SetVeil(to);
+            SetDeathClosure(1f);
+        }
+
+        private void SetDeathClosure(float closure)
+        {
+            _deathClosure = closure;
+            ApplyDeathClosure();
+        }
+
+        /// <summary>
+        /// The move vignette closes; a camera without one gets a black veil instead.
+        /// </summary>
+        private void ApplyDeathClosure()
+        {
+            var closure = _isMenuOpen ? 0f : _deathClosure;
+            if (_vignette != null)
+                _vignette.SetClosureOverride(closure > 0f ? closure : null);
+            else if (_deathClosure > 0f)
+                SetVeil(new Color(0f, 0f, 0f, _deathClosure));
         }
 
         /// <summary>
         /// The VR hero body lowers the camera itself (VRHeroBody.IsHeroDown, set in its LateUpdate). Without it, the
         /// view goes down behind a fade.
         /// </summary>
-        private IEnumerator LieDown()
+        private IEnumerator LieDown(float veilAlpha)
         {
-            SetVeil(_veilStartAlpha);
+            SetVeil(veilAlpha);
             yield return new WaitForEndOfFrame();
             if (VRHeroBody.IsHeroDown)
                 yield break;
