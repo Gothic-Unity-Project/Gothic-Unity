@@ -326,7 +326,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 if (!isDown)
                     return false;
-                StartDown(head, bodyState);
+                StartDown(head, bodyState, feetY);
             }
 
             if (bodyState == VmGothicEnums.BodyState.BsDead && _downPhase != DownPhase.Dead)
@@ -378,7 +378,7 @@ namespace Gothic.VR.Adapters.Player
                 lowestY < float.MaxValue ? feetY + _downFloorMargin * scale - lowestY : 0f,
                 head.position.z - headPosition.z);
 
-            // The eyes go with the animated head, relative to where they were when he fell.
+            // The eyes go with the animated head, relative to where they were when he fell (StartDown).
             var eyeHeight = _headBone.position.y + _neckBelowEyes * scale - feetY;
             if (_downStartEyeHeight < 0f)
                 _downStartEyeHeight = eyeHeight;
@@ -386,7 +386,9 @@ namespace Gothic.VR.Adapters.Player
                 _rig.CameraYOffset = _downBaseCameraOffset +
                                      Mathf.Max(eyeHeight, _minDownEyeHeight) - _downStartEyeHeight;
 
-            SolveArms();
+            // Dead, the arms stay in the death pose - reaching for the controllers, the player moved his own corpse.
+            if (_downPhase != DownPhase.Dead)
+                SolveArms();
             return true;
         }
 
@@ -437,10 +439,11 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB) - from the wounded
-        /// pose (T_WOUNDEDB_2_DEADB) the body lay at once, the camera took that height as its start and never went down.
+        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB). The camera's start
+        /// height is the standing pose of the frame before: the first frame of a fall can already be low (T_DEADB), then
+        /// the camera never went down.
         /// </summary>
-        private void StartDown(Transform head, VmGothicEnums.BodyState bodyState)
+        private void StartDown(Transform head, VmGothicEnums.BodyState bodyState, float feetY)
         {
             _downForward = Vector3.ProjectOnPlane(_body.transform.forward, Vector3.up);
             if (_downForward.sqrMagnitude < 0.0001f)
@@ -448,7 +451,7 @@ namespace Gothic.VR.Adapters.Player
             _downForward = _downForward.sqrMagnitude < 0.0001f ? Vector3.forward : _downForward.normalized;
 
             _downBaseCameraOffset = _rig != null ? _rig.CameraYOffset : 0f;
-            _downStartEyeHeight = -1f;
+            _downStartEyeHeight = _headBone.position.y + _neckBelowEyes * _standingScale - feetY;
             _bodyBones = null;
             IsHeroDown = true;
             SetHandsThroughFloor(true);
