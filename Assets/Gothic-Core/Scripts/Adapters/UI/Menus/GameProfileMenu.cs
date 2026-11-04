@@ -9,9 +9,9 @@ using UnityEngine.UI;
 namespace Gothic.Core.Adapters.UI.Menus
 {
     /// <summary>
-    /// World-space list of GameSettings.json game profiles shown at start (EnableGameProfiles). Built in code so the
-    /// GameVersion scene stays untouched; one button per profile, the VR laser / flat mouse clicks it. Also the second
-    /// list of a mod's game inis with a back button.
+    /// World-space list of the found game profiles (game + game ini) shown at start when there is more than one.
+    /// Built in code so the GameVersion scene stays untouched; one button per profile, the VR laser / flat mouse
+    /// clicks it.
     /// </summary>
     public class GameProfileMenu : MonoBehaviour
     {
@@ -22,7 +22,6 @@ namespace Gothic.Core.Adapters.UI.Menus
         private const float _buttonSpacing = 15f;
         private const string _fontPath = "Fonts & Materials/LiberationSans SDF";
 
-        private const string _backLabel = "< Back";
         // The smallest font a long title shrinks to, its side margin.
         private const float _minFontSize = 16f;
         private const float _textMargin = 10f;
@@ -32,18 +31,14 @@ namespace Gothic.Core.Adapters.UI.Menus
         private const float _followCameraSeconds = 0.5f;
         private float _followCameraUntil;
 
-        private Action<JsonGameProfile> _onSelected;
-        private Action _onBack;
+        private Action<GameProfile> _onSelected;
         private bool _isSelected;
 
-        public void Build(IReadOnlyList<JsonGameProfile> profiles, Action<JsonGameProfile> onSelected,
-            Action onBack = null)
+        public void Build(IReadOnlyList<GameProfile> profiles, Action<GameProfile> onSelected)
         {
             _onSelected = onSelected;
-            _onBack = onBack;
 
-            var buttonCount = profiles.Count + (onBack != null ? 1 : 0);
-            var height = buttonCount * (_buttonHeight + _buttonSpacing) + _buttonSpacing;
+            var height = profiles.Count * (_buttonHeight + _buttonSpacing) + _buttonSpacing;
             var rect = gameObject.AddComponent<RectTransform>();
             rect.sizeDelta = new Vector2(_width, height);
             transform.localScale = Vector3.one / _pixelsPerMeter;
@@ -63,12 +58,6 @@ namespace Gothic.Core.Adapters.UI.Menus
                 var y = height / 2f - _buttonSpacing - i * (_buttonHeight + _buttonSpacing) - _buttonHeight / 2f;
                 CreateButton(profile.Name, new Vector2(0f, y), () => Select(profile));
             }
-            if (onBack != null)
-            {
-                var backY = height / 2f - _buttonSpacing - profiles.Count * (_buttonHeight + _buttonSpacing) -
-                            _buttonHeight / 2f;
-                CreateButton(_backLabel, new Vector2(0f, backY), Back);
-            }
 
             PlaceInFrontOfCamera();
             _followCameraUntil = Time.unscaledTime + _followCameraSeconds;
@@ -80,7 +69,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 PlaceInFrontOfCamera();
         }
 
-        private void Select(JsonGameProfile profile)
+        private void Select(GameProfile profile)
         {
             // A second click while the game boots would init everything twice.
             if (_isSelected)
@@ -89,16 +78,6 @@ namespace Gothic.Core.Adapters.UI.Menus
             _isSelected = true;
             gameObject.SetActive(false);
             _onSelected?.Invoke(profile);
-        }
-
-        private void Back()
-        {
-            if (_isSelected)
-                return;
-
-            _isSelected = true;
-            gameObject.SetActive(false);
-            _onBack?.Invoke();
         }
 
         private void PlaceInFrontOfCamera()

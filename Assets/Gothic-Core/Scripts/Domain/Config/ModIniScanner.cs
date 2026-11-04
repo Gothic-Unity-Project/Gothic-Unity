@@ -10,9 +10,10 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Config
 {
     /// <summary>
-    /// The game inis of a mod folder - the ones GothicStarter offers.
-    /// A mod ships one per mode (Mroczne Tajemnice: DM_E/DM_N/DM_T for easy/normal/hard) next to Gothic.ini,
-    /// SystemPack.ini and others; a game ini has [INFO] title= and [FILES] game= or vdf=.
+    /// The game inis of a Gothic installation's system/ folder - the ones GothicStarter offers.
+    /// The game's own GothicGame.ini plus one per installed mod or mode (Mroczne Tajemnice: DM_E/DM_N/DM_T for
+    /// easy/normal/hard) next to Gothic.ini, SystemPack.ini and others; a game ini has [INFO] title= and
+    /// [FILES] game= or vdf=.
     /// </summary>
     public static class ModIniScanner
     {
@@ -22,13 +23,10 @@ namespace Gothic.Core.Domain.Config
             public string Title;
         }
 
-        // The base game's own ini - a mod folder keeps it, but the mod's modes are its other game inis.
-        private const string _baseGameIni = "GothicGame.ini";
-
-        public static List<ModIni> FindGameInis(string modPath)
+        public static List<ModIni> FindGameInis(string rootPath)
         {
             var found = new List<ModIni>();
-            var systemFolder = FindSystemFolder(modPath);
+            var systemFolder = FindSystemFolder(rootPath);
             if (systemFolder == null)
                 return found;
 
@@ -38,19 +36,16 @@ namespace Gothic.Core.Domain.Config
                     found.Add(new ModIni { FileName = Path.GetFileName(path), Title = title });
             }
 
-            if (found.Count > 1)
-                found.RemoveAll(i => i.FileName.Equals(_baseGameIni, StringComparison.OrdinalIgnoreCase));
-
             Logger.Log($"[ModIniScanner] {systemFolder}: game inis " +
                        $"[{string.Join(", ", found.Select(i => $"{i.FileName} \"{i.Title}\""))}]", LogCat.Loading);
             return found;
         }
 
-        private static string FindSystemFolder(string modPath)
+        private static string FindSystemFolder(string rootPath)
         {
-            if (string.IsNullOrEmpty(modPath) || !Directory.Exists(modPath))
+            if (string.IsNullOrEmpty(rootPath) || !Directory.Exists(rootPath))
                 return null;
-            return Directory.GetDirectories(modPath)
+            return Directory.GetDirectories(rootPath)
                 .FirstOrDefault(d => Path.GetFileName(d).Equals("system", StringComparison.OrdinalIgnoreCase));
         }
 
