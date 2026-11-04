@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
@@ -86,6 +87,16 @@ namespace Gothic.Core.Adapters.Properties
         /// </summary>
         public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
+        /// <summary>
+        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
+        /// </summary>
+        public bool IsKnockedOut => BodyState == VmGothicEnums.BodyState.BsUnconscious;
+
+        /// <summary>
+        /// Dead or knocked out.
+        /// </summary>
+        public bool IsDown => IsDead || IsKnockedOut;
+
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
         public int StateEnd;
@@ -96,6 +107,18 @@ namespace Gothic.Core.Adapters.Properties
         public float StateTime;
         public LoopState CurrentLoopState = LoopState.None;
         public AbstractAnimationAction CurrentAction;
+
+        // "other" and "victim" saved when a state is started via AI_StartState with a specific enemy.
+        // Used by AiHandler.Update() so state functions (ZS_*_Start/Loop) receive the correct NPC,
+        // not the hero default. Cleared when returning to daily routine.
+        public NpcInstance StateOther;
+        public NpcInstance StateVictim;
+
+        // Wld_DetectItem's world item - the script's 'item' is only the instance data (AI_GotoItem, Npc_GetDistToItem).
+        public VobContainer DetectedItem;
+
+        // The current state's _End function is running (AI_StartState from inside it must not run it again).
+        public bool IsInStateEnd;
         
         public VmGothicEnums.Guild TrueGuild;
         public float RefuseTalkTimer;

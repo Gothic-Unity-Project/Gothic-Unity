@@ -125,6 +125,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_StopProcessInfos", AI_StopProcessInfos);
             vm.RegisterExternal<NpcInstance, string>("AI_LookAt", AI_LookAt);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_LookAtNPC", AI_LookAtNPC);
+            RegisterIfDeclared(vm, "AI_Quicklook",
+                () => vm.RegisterExternal<NpcInstance, NpcInstance>("AI_Quicklook", AI_Quicklook));
             vm.RegisterExternal<NpcInstance>("AI_StopLookAt", AI_StopLookAt);
             vm.RegisterExternal<NpcInstance>("AI_ContinueRoutine", AI_ContinueRoutine);
             vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnToNPC", AI_TurnToNPC);
@@ -145,6 +147,8 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<NpcInstance>("AI_Dodge", AI_Dodge);
             vm.RegisterExternal<NpcInstance>("AI_UnequipArmor", AI_UnequipArmor);
             vm.RegisterExternal<NpcInstance, NpcInstance, string>("AI_OutputSVM", AI_OutputSVM);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_WhirlAround", AI_WhirlAround);
+            vm.RegisterExternal<NpcInstance, NpcInstance>("AI_TurnAway", AI_TurnAway);
             RegisterSmallExternals(vm);
 
             // Apply Options
@@ -219,7 +223,7 @@ namespace Gothic.Core.Domain.Vm
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItem", Npc_RemoveInvItem);
             // PxVm.pxVmRegisterExternal(vmPtr, "Npc_RemoveInvItems", Npc_RemoveInvItems);
             vm.RegisterExternal<NpcInstance, int>("EquipItem", EquipItem);
-            vm.RegisterExternal<int, NpcInstance, NpcInstance>("Npc_GetDistToNpc", Npc_GetDistToNpc);
+            vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetDistToNpc", (a, b) => Npc_GetDistToNpcOrItem(a, b));
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedArmor", Npc_HasEquippedArmor);
             vm.RegisterExternal<ItemInstance, NpcInstance>("Npc_GetEquippedMeleeWeapon", Npc_GetEquippedMeleeWeapon);
             vm.RegisterExternal<int, NpcInstance>("Npc_HasEquippedMeleeWeapon", Npc_HasEquippedMeleeWeapon);
@@ -281,6 +285,9 @@ namespace Gothic.Core.Domain.Vm
 
             RegisterIfDeclared(vm, "Npc_GetLookAtTarget",
                 () => vm.RegisterExternal<NpcInstance, NpcInstance>("Npc_GetLookAtTarget", Npc_GetLookAtTarget));
+            RegisterIfDeclared(vm, "Npc_GetDistToItem", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetDistToItem", (n, i) => AsNpc(n, "Npc_GetDistToItem") is { } npc && AsItem(i, "Npc_GetDistToItem") is { } item ? Npc_GetDistToItem(npc, item) : int.MaxValue));
+            RegisterIfDeclared(vm, "Npc_GetHeightToItem", () => vm.RegisterExternal<int, DaedalusInstance, DaedalusInstance>("Npc_GetHeightToItem", (n, i) => AsNpc(n, "Npc_GetHeightToItem") is { } npc && AsItem(i, "Npc_GetHeightToItem") is { } item ? Npc_GetHeightToItem(npc, item) : int.MaxValue));
+            RegisterIfDeclared(vm, "AI_GotoItem", () => vm.RegisterExternal<DaedalusInstance, DaedalusInstance>("AI_GotoItem", (n, i) => { if (AsNpc(n, "AI_GotoItem") is { } npc && AsItem(i, "AI_GotoItem") is { } item) AI_GotoItem(npc, item); }));
 
             // Day Routine
             vm.RegisterExternal<NpcInstance, int, int, int, int, int, string>("TA_MIN", TA_MIN);
@@ -294,6 +301,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsMobAvailable", Wld_IsMobAvailable);
             vm.RegisterExternal<int, NpcInstance, int, int, int>("Wld_DetectNpc", Wld_DetectNpc);
             vm.RegisterExternal<int, NpcInstance, int, int, int, int>("Wld_DetectNpcEx", Wld_DetectNpcEx);
+            vm.RegisterExternal<int, NpcInstance, int>("Wld_DetectItem", Wld_DetectItem);
             vm.RegisterExternal<int, NpcInstance, string>("Wld_IsNextFPAvailable", Wld_IsNextFPAvailable);
             vm.RegisterExternal<int, int>("Wld_SetTime", Wld_SetTime);
             vm.RegisterExternal("Wld_GetDay", Wld_GetDay);
@@ -587,6 +595,11 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiLookAtNpc(npc, target);
         }
 
+        public void AI_Quicklook(NpcInstance self, NpcInstance other)
+        {
+            _npcAiService.ExtAiQuicklook(self, other);
+        }
+
         public void AI_StopLookAt(NpcInstance npc)
         {
             _npcAiService.ExtAiStopLookAt(npc);
@@ -652,6 +665,17 @@ namespace Gothic.Core.Domain.Vm
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)
         {
             _dialogService.ExtAiOutputSvm(npc, target, svmname);
+        }
+
+        public void AI_WhirlAround(NpcInstance npc, NpcInstance target)
+        {
+            // The startled jump around (t_surprise_CW/CCW), not a plain turn.
+            _npcAiService.ExtAiWhirlAround(npc, target);
+        }
+
+        public void AI_TurnAway(NpcInstance npc, NpcInstance target)
+        {
+            _npcAiService.ExtAiTurnAway(npc, target);
         }
 
         /// <summary>
@@ -1163,7 +1187,7 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_GetPermAttitude(NpcInstance self, NpcInstance other)
         {
-            var ret = (int)_npcAiService.ExtGetAttitude(self, other);
+            var ret = (int)_npcAiService.ExtGetPermAttitude(self, other);
             return LogInstantExternal(nameof(Npc_GetPermAttitude), ret, self, other);
         }
 
@@ -1267,6 +1291,20 @@ namespace Gothic.Core.Domain.Vm
             _npcInventoryService.ExtEquipItem(npc, itemId);
         }
 
+
+        /// <summary>
+        /// The scripts pass items too: G1's B_FetchWeapon checks Npc_GetDistToNpc(self, item) after Wld_DetectItem (the
+        /// engine measures between any two VOBs). Taken as NpcInstance, the item failed the cast and broke the VM stack
+        /// until it crashed natively (Mroczne Tajemnice's giant skeleton fetching a weapon by Fellan's armor).
+        /// </summary>
+        private int Npc_GetDistToNpcOrItem(DaedalusInstance first, DaedalusInstance second)
+        {
+            if (AsNpc(first, nameof(Npc_GetDistToNpc)) is not { } npc)
+                return int.MaxValue;
+            if (second is ItemInstance item)
+                return Npc_GetDistToItem(npc, item);
+            return AsNpc(second, nameof(Npc_GetDistToNpc)) is { } other ? Npc_GetDistToNpc(npc, other) : int.MaxValue;
+        }
 
         public int Npc_GetDistToNpc(NpcInstance npc1, NpcInstance npc2)
         {
@@ -1547,6 +1585,12 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Wld_DetectNpcEx), ret, npc, npcInstance, aiState, guild, detectPlayer);
         }
 
+        public int Wld_DetectItem(NpcInstance npc, int flags)
+        {
+            var result = _npcHelperService.ExtWldDetectItem(npc, flags);
+            return LogInstantExternal(nameof(Wld_DetectItem), Convert.ToInt32(result), npc, flags);
+        }
+
         public int Wld_IsNextFPAvailable(NpcInstance npc, string fpNamePart)
         {
             var result = _npcService.ExtIsNextFpAvailable(npc, fpNamePart);
@@ -1608,6 +1652,41 @@ namespace Gothic.Core.Domain.Vm
         {
             if (vm.GetSymbolByName(name) != null)
                 register();
+        }
+
+        /// <summary>
+        /// Like OpenGothic: no item (e.g. a footstep's noise) - or one we can't place - is infinitely far away.
+        /// </summary>
+        public int Npc_GetDistToItem(NpcInstance npc, ItemInstance item)
+        {
+            var npcGo = npc?.GetUserData()?.Go;
+            // After Wld_DetectItem 'item' is only the instance data - the detected world item gives the position.
+            var itemGo = item == null ? null : _npcHelperService.GetWorldItemContainer(npc, item)?.Go;
+            var dist = npcGo == null || itemGo == null
+                ? int.MaxValue
+                : (int)(UnityEngine.Vector3.Distance(npcGo.transform.position, itemGo.transform.position) * 100f);
+            return LogInstantExternal(nameof(Npc_GetDistToItem), dist, npc, item);
+        }
+
+        /// <summary>
+        /// Height difference (cm) between the NPC and a world item - G2's wisp ignores items more than 5 m above/below.
+        /// </summary>
+        public int Npc_GetHeightToItem(NpcInstance npc, ItemInstance item)
+        {
+            var npcGo = npc?.GetUserData()?.Go;
+            var itemGo = _npcHelperService.GetWorldItemContainer(npc, item)?.Go;
+            var height = npcGo == null || itemGo == null
+                ? int.MaxValue
+                : (int)(UnityEngine.Mathf.Abs(npcGo.transform.position.y - itemGo.transform.position.y) * 100f);
+            return LogInstantExternal(nameof(Npc_GetHeightToItem), height, npc, item);
+        }
+
+        /// <summary>
+        /// Walks to a world item (G2's wisp shows the hero where items are).
+        /// </summary>
+        public void AI_GotoItem(NpcInstance npc, ItemInstance item)
+        {
+            _npcAiService.ExtAiGotoItem(npc, item);
         }
 
         public void Wld_RemoveNpc(int npcInstance)
