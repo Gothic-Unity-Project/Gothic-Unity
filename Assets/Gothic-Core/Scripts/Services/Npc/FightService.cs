@@ -98,7 +98,7 @@ namespace Gothic.Core.Services.Npc
 
             // Any attacker finishes off unconscious NPC — set dead and call ZS_Dead. Not the swing that knocked him out:
             // a VR weapon can enter several hitboxes in one swing - Bullit died instead of lying down.
-            if (NpcHelperService.IsKnockedOut(target) && !isHero)
+            if (target.Props.IsKnockedOut && !isHero)
             {
                 if (Time.time < target.Props.KnockedOutTime + _knockoutGraceSeconds)
                     return;
@@ -177,7 +177,7 @@ namespace Gothic.Core.Services.Npc
             {
                 if (candidate == target || candidate == attacker)
                     continue;
-                if (NpcHelperService.IsDown(candidate))
+                if (candidate.Props?.IsDown == true)
                     continue;
                 // Skip culled NPCs — Go is null or inactive (out of cull range).
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy)

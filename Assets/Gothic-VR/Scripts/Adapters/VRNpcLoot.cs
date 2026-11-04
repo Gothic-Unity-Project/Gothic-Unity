@@ -71,7 +71,7 @@ namespace Gothic.VR.Adapters
         private void Update()
         {
             // A knocked out NPC that gets up takes his things back out of reach.
-            if (_isOpen && _npcContainer != null && !NpcHelperService.IsDown(_npcContainer))
+            if (_isOpen && _npcContainer != null && _npcContainer.Props?.IsDown != true)
                 Close();
         }
 
