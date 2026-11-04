@@ -241,23 +241,31 @@ namespace Gothic.VR.Interaction.Backends.Xri
             _interactors[_left] = _interactors[_right] = null;
         }
 
-        private void QueueInteractorInput(int side, bool isGripping, bool isTrigger)
+        private void SetInteractorInput(int side, bool isGripping, bool isTrigger)
         {
             var interactor = _interactors[side];
             if (interactor == null)
                 return;
 
-            // Only a change is queued: a queued state takes effect the frame after it was queued, and this runs every
-            // frame before the interaction manager reads it (k_InteractionSimulator) - queued again each frame, its
-            // target frame moved on forever and the grip never took effect (no grab, no talk).
-            QueueIfChanged(interactor.selectInput, isGripping);
-            QueueIfChanged(interactor.activateInput, isTrigger);
+            // Set directly, not via QueueManualState: this runs before the interaction manager reads it
+            // (k_InteractionSimulator), so the state is effective this frame. Re-queued every frame, the queue's target
+            // frame moved on forever and the grip never took effect (no grab, no talk).
+            SetManualState(interactor.selectInput, isGripping);
+            SetManualState(interactor.activateInput, isTrigger);
         }
 
-        private static void QueueIfChanged(XRInputButtonReader reader, bool isPressed)
+        private static void SetManualState(XRInputButtonReader reader, bool isPressed)
         {
-            if (reader.ReadIsPerformed() != isPressed)
-                reader.QueueManualState(isPressed, isPressed ? 1f : 0f);
+            if (reader.manualPerformed != isPressed)
+            {
+                if (isPressed)
+                    reader.manualFramePerformed = Time.frameCount;
+                else
+                    reader.manualFrameCompleted = Time.frameCount;
+            }
+
+            reader.manualPerformed = isPressed;
+            reader.manualValue = isPressed ? 1f : 0f;
         }
 
         private void Look(Vector2 mouseDelta)
@@ -419,7 +427,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             if (keyboard == null || mouse == null)
             {
-                QueueInteractorInput(side, isGripping, false);
+                SetInteractorInput(side, isGripping, false);
                 return state;
             }
 
@@ -431,7 +439,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             var isSecondary = isTarget && keyboard.digit2Key.isPressed;
             var isStickClick = isTarget && keyboard.digit3Key.isPressed;
 
-            QueueInteractorInput(side, isGripping, isTrigger);
+            SetInteractorInput(side, isGripping, isTrigger);
             state.trigger = isTrigger ? 1f : 0f;
             state.WithButton(ControllerButton.TriggerButton, isTrigger);
             state.WithButton(ControllerButton.PrimaryButton, isPrimary);

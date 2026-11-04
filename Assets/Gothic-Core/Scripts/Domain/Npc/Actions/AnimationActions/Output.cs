@@ -18,6 +18,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class Output : AbstractAnimationAction
     {
+        // Meters a line carries beyond the speaker's body (3 x the former 5 m dialog radius).
+        private const float _voiceRange = 15f;
+
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly NpcService _npcService;
@@ -131,7 +134,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             var bodyRadius = Gothic.Core.Domain.Npc.NpcBodySize.GetRadius(NpcContainer);
             voice.minDistance = bodyRadius;
-            voice.maxDistance = bodyRadius + Gothic.Core.Const.Constants.DialogFreeMovementRadius * 3f;
+            voice.maxDistance = bodyRadius + _voiceRange;
             return voice;
         }
 

@@ -11,8 +11,8 @@ namespace Gothic.Core.Adapters.Audio
 
         [Inject] private readonly AudioService _audioService;
 
-        [Tooltip("Seconds between two checks of time of day and danger, which choose the music theme.")]
-        [SerializeField] private float _situationCheckInterval = 2f;
+        // Seconds between two checks of time of day and danger, which choose the music theme.
+        private const float _situationCheckInterval = 2f;
 
         private float _nextSituationCheck;
 

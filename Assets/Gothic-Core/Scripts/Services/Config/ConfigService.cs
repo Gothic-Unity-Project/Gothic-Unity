@@ -25,192 +25,101 @@ namespace Gothic.Core.Services.Config
         public GothicIniConfig Gothic { get; private set; }
         public GothicModIniConfig GothicMod { get; private set; }
 
+        // The vanilla game's own ini; every other game ini in system/ is a mod installed into the game.
+        private const string _vanillaGameIni = "GothicGame.ini";
+
         /// <summary>
-        /// The profile picked in the game profile menu (GameVersionScene) - its game, mod and ini win over everything else.
+        /// The profile picked or auto-selected in GameVersionScene - its game ini wins over DeveloperConfig's mod.
         /// </summary>
-        public JsonGameProfile SelectedGameProfile { get; private set; }
-
-        public bool IsGameProfileSelectionEnabled => GetConfiguredGameProfiles().Length > 0;
+        public GameProfile SelectedGameProfile { get; private set; }
 
         /// <summary>
-        /// Editor: DeveloperConfig EnableGameProfiles/GameProfiles when switched on, otherwise GameSettings.json.
-        /// Builds: GameSettings.json only. Empty when the feature is off.
+        /// DeveloperConfig PreSelectMod + ModPath. A selected profile is always inside the game folder (no ModPath).
         /// </summary>
-        private JsonGameProfile[] GetConfiguredGameProfiles()
-        {
-#if UNITY_EDITOR
-            if (Dev.EnableGameProfiles)
-                return JsonRootLoader.SanitizeGameProfiles(Dev.GameProfiles);
-#endif
-            return Root.EnableGameProfiles && Root.GameProfiles != null
-                ? Root.GameProfiles
-                : Array.Empty<JsonGameProfile>();
-        }
-
-        public string EffectiveModPath
-        {
-            get
-            {
-                if (SelectedGameProfile != null)
-                    return SelectedGameProfile.ModPath;
-#if UNITY_EDITOR
-                return Dev.PreSelectMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
-#else
-                return Root.ModPath;
-#endif
-            }
-        }
+        public string EffectiveModPath =>
+            SelectedGameProfile == null && Dev.PreSelectMod && !Dev.ModPath.IsNullOrEmpty() ? Dev.ModPath : null;
 
         /// <summary>
-        /// The game to start without the game selection. Editor: DeveloperConfig PreselectGameVersion + GameVersion.
-        /// Builds: GameSettings.json "GameVersion" (Gothic1/Gothic2) when set, so one build runs G1, G2 and their
-        /// mods by editing the JSON (like ModPath/ModIni); otherwise the build's DeveloperConfig decides.
+        /// The game to start without the game selection (DeveloperConfig PreselectGameVersion + GameVersion).
         /// </summary>
         public bool TryGetPreselectedGameVersion(out GameVersion version)
         {
-#if !UNITY_EDITOR
-            if (TryParseGameVersion(Root.GameVersion, out version))
-                return true;
-#endif
             version = Dev.GameVersion;
             return Dev.PreselectGameVersion;
         }
 
-        public bool TryGetGameProfileVersion(JsonGameProfile profile, out GameVersion version)
-        {
-            return TryParseGameVersion(profile?.GameVersion, out version);
-        }
-
         /// <summary>
-        /// Profiles that can be started: known GameVersion, that game is installed, and the mod folder (if any) exists.
+        /// Selected profile's ini (null for the vanilla GothicGame.ini), otherwise DeveloperConfig PreSelectMod + ModIni.
         /// </summary>
-        public List<JsonGameProfile> GetAvailableGameProfiles()
-        {
-            var available = new List<JsonGameProfile>();
-            foreach (var profile in GetConfiguredGameProfiles())
-            {
-                if (!TryGetGameProfileVersion(profile, out var version))
-                {
-                    Logger.LogWarning($"Game profile >{profile.Name}< skipped: GameVersion >{profile.GameVersion}< " +
-                        "is not Gothic1/Gothic2.", LogCat.Loading);
-                    continue;
-                }
-                if (!CheckIfGothicInstallationExists(version))
-                {
-                    Logger.LogWarning($"Game profile >{profile.Name}< skipped: no {version} installation found.",
-                        LogCat.Loading);
-                    continue;
-                }
-                if (profile.ModPath != null && !Directory.Exists(profile.ModPath))
-                {
-                    Logger.LogWarning($"Game profile >{profile.Name}< skipped: ModPath >{profile.ModPath}< not found.",
-                        LogCat.Loading);
-                    continue;
-                }
-
-                available.Add(profile);
-            }
-
-            return available;
-        }
-
-        /// <summary>
-        /// A profile's ModIni "*" lists the mod's game inis found in its System
-        /// folder (ModIniScanner), "A.INI;B.INI" lists those - one profile per ini to pick from (Mroczne Tajemnice's
-        /// easy/normal/hard). Empty when there's nothing to choose (one fixed ini, or none = GothicGame.ini as before).
-        /// </summary>
-        public List<JsonGameProfile> GetGameProfileIniChoices(JsonGameProfile profile)
-        {
-            var choices = new List<JsonGameProfile>();
-            if (profile?.ModPath == null)
-                return choices;
-
-            var modIni = profile.ModIni?.Trim();
-            if (string.IsNullOrEmpty(modIni))
-                return choices;
-            var isScan = modIni == "*";
-            if (!isScan && modIni.IndexOfAny(new[] { ';', ',' }) < 0)
-                return choices;
-
-            var found = ModIniScanner.FindGameInis(profile.ModPath);
-            IEnumerable<ModIniScanner.ModIni> inis = found;
-            if (!isScan)
-            {
-                // A fixed list keeps its order; its titles come from the inis found.
-                // Inis missing on disk are left out (picking one stopped the boot).
-                inis = modIni.Split(';', ',')
-                    .Select(i => i.Trim())
-                    .Where(i => i.Length > 0)
-                    .Select(i =>
-                    {
-                        var ini = found.FirstOrDefault(f => f.FileName.Equals(i, StringComparison.OrdinalIgnoreCase));
-                        if (ini == null)
-                            Logger.LogWarning($"Game profile >{profile.Name}<: ini >{i}< not found in the mod - left out.",
-                                LogCat.Loading);
-                        return ini;
-                    })
-                    .Where(i => i != null);
-            }
-
-            foreach (var ini in inis)
-            {
-                choices.Add(new JsonGameProfile
-                {
-                    Name = $"{ini.Title} ({ini.FileName})",
-                    GameVersion = profile.GameVersion,
-                    ModPath = profile.ModPath,
-                    ModIni = ini.FileName
-                });
-            }
-            return choices;
-        }
-
-        public void SelectGameProfile(JsonGameProfile profile)
-        {
-            SelectedGameProfile = profile;
-            Logger.Log($"Game profile selected: >{profile.Name}< ({profile.GameVersion}, " +
-                $"mod: {profile.ModPath ?? "none"}, ini: {profile.ModIni ?? "GothicGame.ini"})", LogCat.Loading);
-        }
-
-        private static bool TryParseGameVersion(string value, out GameVersion version)
-        {
-            switch (value?.Trim().ToUpperInvariant())
-            {
-                case "GOTHIC1":
-                case "G1":
-                case "1":
-                    version = GameVersion.Gothic1;
-                    return true;
-                case "GOTHIC2":
-                case "G2":
-                case "2":
-                    version = GameVersion.Gothic2;
-                    return true;
-                default:
-                    version = GameVersion.Gothic1;
-                    return false;
-            }
-        }
-
         public string EffectiveModIni
         {
             get
             {
                 if (SelectedGameProfile != null)
-                    return SelectedGameProfile.ModIni;
-#if UNITY_EDITOR
+                    return SelectedGameProfile.IniFileName.EqualsIgnoreCase(_vanillaGameIni)
+                        ? null
+                        : SelectedGameProfile.IniFileName;
+
                 return Dev.PreSelectMod && !Dev.ModIni.IsNullOrEmpty() ? Dev.ModIni : null;
-#else
-                return Root.ModIni;
-#endif
             }
+        }
+
+        /// <summary>
+        /// Everything startable: each installed game (GameSettings.json Gothic1Path/Gothic2Path) with each game ini
+        /// of its system/ folder (ModIniScanner) - vanilla GothicGame.ini and the mods installed into the game.
+        /// </summary>
+        public List<GameProfile> FindGameProfiles()
+        {
+            var profiles = new List<GameProfile>();
+            foreach (var version in new[] { GameVersion.Gothic1, GameVersion.Gothic2 })
+            {
+                if (!CheckIfGothicInstallationExists(version))
+                    continue;
+
+                var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+                var inis = ModIniScanner.FindGameInis(rootPath);
+
+                // No readable game ini (e.g. a GothicGame.ini without [INFO] title=) - the game still starts as before.
+                if (inis.Count == 0)
+                {
+                    Logger.LogWarning($"No game ini found in {rootPath}/system - offering {version} with " +
+                                      $"{_vanillaGameIni}.", LogCat.Loading);
+                    inis.Add(new ModIniScanner.ModIni { FileName = _vanillaGameIni, Title = version.ToString() });
+                }
+
+                // Vanilla game on top, then its mods by title (the scanner returns them in file system order).
+                var sortedInis = inis
+                    .OrderByDescending(i => i.FileName.EqualsIgnoreCase(_vanillaGameIni))
+                    .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(i => i.FileName, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var ini in sortedInis)
+                {
+                    var isVanilla = ini.FileName.EqualsIgnoreCase(_vanillaGameIni);
+                    profiles.Add(new GameProfile
+                    {
+                        Name = isVanilla ? ini.Title : $"{ini.Title} ({ini.FileName})",
+                        Version = version,
+                        IniFileName = ini.FileName
+                    });
+                }
+            }
+
+            return profiles;
+        }
+
+        public void SelectGameProfile(GameProfile profile)
+        {
+            SelectedGameProfile = profile;
+            Logger.Log($"Game profile selected: >{profile.Name}< ({profile.Version}, ini: {profile.IniFileName})",
+                LogCat.Loading);
         }
 
         /// <summary>
         /// EffectiveModIni with the same "GothicGame.ini" fallback LoadGothicInis applies — a mod
         /// (e.g. New Balance) can be active with no ModIni set at all, relying purely on the default.
         /// </summary>
-        public string EffectiveModIniFileName => EffectiveModIni.IsNullOrEmpty() ? "GothicGame.ini" : EffectiveModIni;
+        public string EffectiveModIniFileName => EffectiveModIni.IsNullOrEmpty() ? _vanillaGameIni : EffectiveModIni;
 
         /// <summary>
         /// Whether a mod is active right now, i.e. ModPath (mod in its own game root) or ModIni (mod installed

@@ -32,6 +32,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextTradeService _contextTradeService;
 
         private int _returnInformation;
         private DaedalusVm _currencyVm;
@@ -64,6 +65,15 @@ namespace Gothic.Core.Services.Player
             _returnInformation = returnInformation;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Dialog);
             GlobalEventDispatcher.TradeStarted.Invoke(trader);
+
+            var hero = GetHero();
+            if (hero == null || !_contextTradeService.ShowTrade(trader, hero))
+            {
+                // Without a window the trade couldn't be closed - end it so the dialog's choices come back.
+                Logger.LogWarning($"[Trade] No trade window (hero found: {hero != null}) - trade ended",
+                    LogCat.Dialog);
+                End();
+            }
         }
 
         /// <param name="isDialogResumed">The dialog goes on with its choices (the player closed the trade), not when
@@ -76,6 +86,7 @@ namespace Gothic.Core.Services.Player
             var trader = Trader;
             Trader = null;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
+            _contextTradeService.HideTrade();
             GlobalEventDispatcher.TradeEnded.Invoke(trader);
 
             if (isDialogResumed && _gameStateService.Dialogs.IsInDialog && trader.Props != null)
@@ -186,7 +197,7 @@ namespace Gothic.Core.Services.Player
 
         private NpcContainer GetHero()
         {
-            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return _gameStateService.GothicVm.GetHeroContainer();
         }
 
         /// <summary>

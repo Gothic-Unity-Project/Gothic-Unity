@@ -30,11 +30,32 @@ namespace Gothic.VR
             public const string StabFinish = "stabFinish";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
+
+            // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.
+            public const string MoveVignette = "moveVignette";
+
+            // 0 = normal, 1 = large, 2 = larger: size of subtitles and dialog choices.
+            public const string TextSize = "textSize";
+
+            // ColorVisionMode: 0 = normal, 1 = red-weak, 2 = green-weak, 3 = blue-weak.
+            public const string ColorVision = "colorVision";
+
+            // Controls (VrControlLayout)
+            // 0 = right-handed, 1 = left-handed (the controllers' tasks swapped).
+            public const string ControllerHand = "controllerHand";
+
+            // 0 = lower button, 1 = upper button, 2 = stick click. Crouching takes the other button.
+            public const string JumpButton = "jumpButton";
+
+            // 0 = upper button, 1 = lower button, 2 = menu button.
+            public const string MenuButton = "menuButton";
         }
 
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
 
         public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
+
+        public const string IniSectionControls = "GOTHIC_VR_CONTROLS";
 
         // 0...10 Ini values
         public const int SmoothRotationSettingAmount = 10;
@@ -56,6 +77,24 @@ namespace Gothic.VR
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
+
+        public const int MoveVignetteDefaultValue = 0;
+
+        public const int TextSizeDefaultValue = 0;
+
+        public const int ColorVisionDefaultValue = 0;
+
+        public const int ControllerHandDefaultValue = 0;
+        public const int JumpButtonDefaultValue = 0;
+        public const int MenuButtonDefaultValue = 0;
+
+        // Scale of subtitles and dialog choices per textSize value.
+        private static readonly float[] _textSizeScales = { 1f, 1.25f, 1.5f };
+
+        public static float GetTextScale(int textSize)
+        {
+            return _textSizeScales[System.Math.Clamp(textSize, 0, _textSizeScales.Length - 1)];
+        }
 
         public static float SpectatorSmoothingNone = 0.0f;
         public static float SpectatorSmoothingLow = 0.02f;

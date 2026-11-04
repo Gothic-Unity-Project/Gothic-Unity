@@ -4,14 +4,17 @@ using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.World;
 using Gothic.Services.UI;
 using Gothic.Core;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
 {
@@ -30,6 +33,13 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         public void UpdateMainMenu(AbstractMenuInstance mainMenu)
         {
+            // G2's focus box/highlight and Gothic 1 key controls: VR uses neither, their rows hold the controller
+            // options (AddControlOptions). Flat keeps them. The menus are built after this call.
+            _vmService.DisableGothicMenuSettings(
+                "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
+                "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
+                "MENUITEM_GAME_OLDCONTROLS", "MENUITEM_GAME_OLDCONTROLS_CHOICE");
+
             var vrAccessibilityMenu = CreateAccessibilityMenu(mainMenu);
 
             // Will be used to clone render settings from its items.
@@ -50,6 +60,25 @@ namespace Gothic.VR.Services.Context
                         VRConstants.LedgeClimbModeDefaultValue)));
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
 
+            // VR hides all of the game menu but its subtitles option: the subtitles' text size and the color vision go
+            // below it.
+            var menuStartY = _vmService.MenuStartY;
+            var menuDY = _vmService.MenuDY;
+            gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
+            if (gameBackIndex < 0)
+                gameBackIndex = gameMenu.Items.Count;
+            AddControlOptions(gameMenu, gameBackIndex, menuStartY, menuDY);
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionChoice(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION", "colorVision", VRConstants.IniNames.ColorVision,
+                VRConstants.IniSectionImmersion, VRConstants.ColorVisionDefaultValue), menuStartY + menuDY * 2));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionLabel(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION", "colorVision"), menuStartY + menuDY * 2));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionChoice(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE", "textSize", VRConstants.IniNames.TextSize,
+                VRConstants.IniSectionImmersion, VRConstants.TextSizeDefaultValue), menuStartY + menuDY * 1));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionLabel(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE", "textSize"), menuStartY + menuDY * 1));
+
             // FIXME - Add - Setting: ItemCollisionWhileDragged
             var vrImmersionMenu = CreateImmersionMenu(mainMenu);
             vrImmersionMenu.Items.Add(CreateImmersionHeadline(gameMenu));
@@ -63,7 +92,11 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints",
                         VRConstants.IniNames.LedgeHints, VRConstants.IniSectionImmersion,
-                        VRConstants.LedgeHintsDefaultValue))
+                        VRConstants.LedgeHintsDefaultValue)),
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
+                        VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
+                        VRConstants.MoveVignetteDefaultValue))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -76,6 +109,49 @@ namespace Gothic.VR.Services.Context
                     CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish, 1)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
+
+            AddWindOption(mainMenu, menuDY);
+        }
+
+        /// <summary>
+        /// Trees and grass swaying (WindService) as the last row of Gothic's graphics menu - G1 has four rows there, G2
+        /// five, both one free. Gothic's own zWindEnabled in [ENGINE]. Off on the Quest by default, for performance.
+        /// </summary>
+        private void AddWindOption(AbstractMenuInstance mainMenu, int menuDY)
+        {
+            var graphicsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
+            if (graphicsMenu == null)
+            {
+                Logger.LogWarning("[Menu] No MENU_OPT_GRAPHICS - the wind option is left out.", LogCat.Ui);
+                return;
+            }
+
+            var skyLabel = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS", out _);
+            var skyChoice = graphicsMenu.FindMenuItem("MENUITEM_GRA_SKY_EFFECTS_CHOICE", out _);
+            graphicsMenu.FindMenuItem("MENUITEM_GRA_BACK", out var backIndex);
+            if (skyLabel == null || skyChoice == null || backIndex < 0)
+            {
+                Logger.LogWarning("[Menu] MENU_OPT_GRAPHICS lacks the sky effects or back row - the wind option is " +
+                    "left out.", LogCat.Ui);
+                return;
+            }
+
+            var windLabel = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_GRA_WIND", skyLabel);
+            windLabel.PosY = skyLabel.PosY + menuDY;
+            windLabel.SetText(0, _localizationService.GetText("menuitem.wind.label"));
+            windLabel.SetText(1, _localizationService.GetText("menuitem.wind.description"));
+
+            var windChoice = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_GRA_WIND_CHOICE", skyChoice);
+            windChoice.PosY = skyChoice.PosY + menuDY;
+            // Default value if no INI value exists.
+            windChoice.SetUserFloat(3, WindService.DefaultEnabled);
+            // off|on, like the physical hands.
+            windChoice.SetText(0, _localizationService.GetText("menuitem.physicalHands.value"));
+            windChoice.OnChgSetOption = WindService.IniKeyEnabled;
+            windChoice.OnChgSetOptionSection = WindService.IniSection;
+
+            graphicsMenu.Items.Insert(backIndex, windChoice);
+            graphicsMenu.Items.Insert(backIndex, windLabel);
         }
 
         /// <summary>
@@ -122,6 +198,39 @@ namespace Gothic.VR.Services.Context
             item.OnChgSetOption = iniName;
             item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
+            return item;
+        }
+
+        /// <summary>
+        /// The controller layout (VrControlLayout) in rows 3 to 5 of the game menu, where Gothic has its mouse
+        /// settings - the VR counterpart of its key bindings. Inserted before the rows above, which go to the same
+        /// index.
+        /// </summary>
+        private void AddControlOptions(AbstractMenuInstance gameMenu, int index, int menuStartY, int menuDY)
+        {
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton", VRConstants.IniNames.MenuButton, VRConstants.IniSectionControls,
+                VRConstants.MenuButtonDefaultValue), menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton"), menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton", VRConstants.IniNames.JumpButton, VRConstants.IniSectionControls,
+                VRConstants.JumpButtonDefaultValue), menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton"), menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand", VRConstants.IniNames.ControllerHand, VRConstants.IniSectionControls,
+                VRConstants.ControllerHandDefaultValue), menuStartY + menuDY * 3));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand"), menuStartY + menuDY * 3));
+        }
+
+        /// <summary>
+        /// An option row at a fixed height, for Gothic's own menus (no pages).
+        /// </summary>
+        private static MutableMenuItemInstance AtPosY(MutableMenuItemInstance item, int posY)
+        {
+            item.PosY = posY;
             return item;
         }
 
