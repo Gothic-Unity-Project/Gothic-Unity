@@ -392,7 +392,7 @@ namespace Gothic.Core.Services.Npc
         public NpcContainer GetHeroContainer()
         {
             // Hero doesn't exist yet in menus / during boot (e.g. the player's health bar asks for it there).
-            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return _gameStateService.GothicVm.GetHeroContainer();
         }
 
         /// <summary>
