@@ -104,7 +104,7 @@ namespace Gothic.VR.Services.Context
                     "Size of the -X HP / +X MANA numbers"), CreateHitNumbersSizeSlider(gameMenu)),
                 (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers", "HP/MAX on health bars"),
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
-                (CreateToggleLabel(gameMenu, "MARVIN", "Marvin", "Show the Marvin panel (needs Marvin mode)"),
+                (CreateToggleLabel(gameMenu, "MARVIN", "Marvin", "Marvin mode: test commands and their panel"),
                     CreateToggleChoice(gameMenu, "MARVIN", VRConstants.IniNames.MarvinPanel)),
                 (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
                     "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))

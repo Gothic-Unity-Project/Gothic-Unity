@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.IO;
 using Gothic.Core.Logging;
@@ -43,7 +44,7 @@ namespace Gothic.Core.Domain
             SessionState.SetBool(_replayKey, true);
             EditorApplication.isPlaying = false;
 #else
-            if (Application.isMobilePlatform)
+            if (!IsRestartPossible)
             {
                 // A headset app can't start itself again - quitting is the closest we get.
                 Logger.LogWarning("Restart isn't possible on this platform - quitting instead.", LogCat.Loading);
@@ -67,7 +68,7 @@ namespace Gothic.Core.Domain
             {
                 Process.Start(exePath);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Logger.LogError($"Restart failed: >{exePath}< didn't start: {e.Message}", LogCat.Loading);
                 return;

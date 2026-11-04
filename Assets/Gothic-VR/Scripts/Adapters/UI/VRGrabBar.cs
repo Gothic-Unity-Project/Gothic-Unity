@@ -83,7 +83,9 @@ namespace Gothic.VR.Adapters.UI
         {
             if (_rig is Object rigObject && rigObject != null)
                 return _rig;
-            _rig = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
+            // The player can be gone already (a bar outliving its player) - no rig then, not an exception.
+            var player = _contextInteractionService.GetCurrentPlayerController();
+            _rig = player != null ? player.GetComponent<IVrRig>() : null;
             return _rig;
         }
 

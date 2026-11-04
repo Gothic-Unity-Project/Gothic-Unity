@@ -1,14 +1,14 @@
 using System;
 using System.Linq;
+using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services;
-using Gothic.Core.Const;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
-using Gothic.Core.Logging;
 
 namespace Gothic.Core.Model.UI.Menu
 {
@@ -39,9 +39,8 @@ namespace Gothic.Core.Model.UI.Menu
                 }
                 catch (Exception e)
                 {
-                    // Past the array's end (a mod's menu with fewer items).
-                    Logger.LogWarning($"[MenuInstanceAdapter] {Name}: no item {i} - {e.Message}",
-                        LogCat.Ui);
+                    // Past the array's end - the usual end of a menu with fewer items.
+                    Logger.LogEditor($"[MenuInstanceAdapter] {Name}: no item {i} - {e.Message}", LogCat.Ui);
                     break;
                 }
 
