@@ -382,7 +382,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public bool SaveCurrentGame(SlotId saveGameId, string title)
         {
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero == null || CurrentWorldName == null || Save == null || !_worlds.ContainsKey(CurrentWorldName))
             {
                 Logger.LogError("[SaveGame] No world loaded. Can't save.", LogCat.Loading);
@@ -484,7 +484,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public bool CanSave(out string blockReason)
         {
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero == null || Save == null || CurrentWorldName == null ||
                 SceneManager.GetSceneByName(Constants.SceneLoading).isLoaded)
                 blockReason = "menuitem.save.blocked.noWorld";
