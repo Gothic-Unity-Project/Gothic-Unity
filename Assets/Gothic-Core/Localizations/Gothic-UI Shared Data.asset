@@ -203,6 +203,78 @@ MonoBehaviour:
     m_Key: menuitem.physicalHands.value
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Key: menuitem.moveVignette.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Key: menuitem.moveVignette.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Key: menuitem.moveVignette.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Key: menuitem.textSize.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Key: menuitem.textSize.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Key: menuitem.textSize.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Key: menuitem.colorVision.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Key: menuitem.colorVision.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Key: menuitem.colorVision.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Key: menuitem.controllerHand.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Key: menuitem.controllerHand.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Key: menuitem.controllerHand.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Key: menuitem.jumpButton.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Key: menuitem.jumpButton.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Key: menuitem.jumpButton.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Key: menuitem.menuButton.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Key: menuitem.menuButton.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Key: menuitem.menuButton.value
+    m_Metadata:
+      m_Items: []
   - m_Id: 187174279474184192
     m_Key: menuitem.ledgeClimbMode.label
     m_Metadata:

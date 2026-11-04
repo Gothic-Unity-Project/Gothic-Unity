@@ -1045,6 +1045,7 @@ GameObject:
   - component: {fileID: 5460697659480693705}
   - component: {fileID: 7497269210671564284}
   - component: {fileID: 859851073591128817}
+  - component: {fileID: 1749955324209777333}
   - component: {fileID: 7916225700807591552}
   m_Layer: 8
   m_Name: Main Camera
@@ -1281,6 +1282,29 @@ MonoBehaviour:
   _fadeSpeed: 6
   _teleportDistance: 1
   _distanceIterations: 5
+--- !u!114 &1749955324209777333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4282864642912822117}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5ef47b3917f09b6c6b75b1e4c9216c47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrMoveVignette
+  _material: {fileID: 2100000, guid: e76299c43df729ed4ad16eb988169c66, type: 2}
+  _distance: 1.5
+  _coverAngle: 75
+  _layer: 5
+  _fullMoveSpeed: 3
+  _fullTurnSpeed: 90
+  _fadeSpeed: 4
+  _closedClearAngles:
+  - 35
+  - 25
+  _featherAngle: 15
 --- !u!114 &7916225700807591552
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4725,10 +4749,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 5863888200715872623}
+    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}, insertIndex: -1, addedObject: {fileID: 5863888200715872623}}]
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!1 &6953280141841309769 stripped
 GameObject:
@@ -5056,10 +5077,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 7112015170776039814}
+    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}, insertIndex: -1, addedObject: {fileID: 7112015170776039814}}]
   m_SourcePrefab: {fileID: 100100000, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
 --- !u!4 &5023614060711596418 stripped
 Transform:
@@ -5511,15 +5529,15 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6293920417158707105, guid: 502c456ce7835214b992f508816806c7, type: 3}
-      propertyPath: '_holsterSockets.Array.data[0]'
+      propertyPath: _holsterSockets.Array.data[0]
       value: 
       objectReference: {fileID: 6953280141841309769}
     - target: {fileID: 6293920417158707105, guid: 502c456ce7835214b992f508816806c7, type: 3}
-      propertyPath: '_holsterSockets.Array.data[1]'
+      propertyPath: _holsterSockets.Array.data[1]
       value: 
       objectReference: {fileID: 5141402831213468995}
     - target: {fileID: 6293920417158707105, guid: 502c456ce7835214b992f508816806c7, type: 3}
-      propertyPath: '_holsterSockets.Array.data[2]'
+      propertyPath: _holsterSockets.Array.data[2]
       value: 
       objectReference: {fileID: 417483402604974489}
     - target: {fileID: 7887678068695633875, guid: 502c456ce7835214b992f508816806c7, type: 3}

@@ -30,6 +30,13 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         public void UpdateMainMenu(AbstractMenuInstance mainMenu)
         {
+            // G2's focus box/highlight and Gothic 1 key controls: VR uses neither, their rows hold the controller
+            // options (AddControlOptions). Flat keeps them. The menus are built after this call.
+            _vmService.DisableGothicMenuSettings(
+                "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
+                "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
+                "MENUITEM_GAME_OLDCONTROLS", "MENUITEM_GAME_OLDCONTROLS_CHOICE");
+
             var vrAccessibilityMenu = CreateAccessibilityMenu(mainMenu);
 
             // Will be used to clone render settings from its items.
@@ -50,6 +57,25 @@ namespace Gothic.VR.Services.Context
                         VRConstants.LedgeClimbModeDefaultValue)));
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
 
+            // VR hides all of the game menu but its subtitles option: the subtitles' text size and the color vision go
+            // below it.
+            var menuStartY = _vmService.MenuStartY;
+            var menuDY = _vmService.MenuDY;
+            gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
+            if (gameBackIndex < 0)
+                gameBackIndex = gameMenu.Items.Count;
+            AddControlOptions(gameMenu, gameBackIndex, menuStartY, menuDY);
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionChoice(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION", "colorVision", VRConstants.IniNames.ColorVision,
+                VRConstants.IniSectionImmersion, VRConstants.ColorVisionDefaultValue), menuStartY + menuDY * 2));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionLabel(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION", "colorVision"), menuStartY + menuDY * 2));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionChoice(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE", "textSize", VRConstants.IniNames.TextSize,
+                VRConstants.IniSectionImmersion, VRConstants.TextSizeDefaultValue), menuStartY + menuDY * 1));
+            gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionLabel(gameMenu,
+                "MENUITEM_GOTHIC_OPT_GAME_TEXT_SIZE", "textSize"), menuStartY + menuDY * 1));
+
             // FIXME - Add - Setting: ItemCollisionWhileDragged
             var vrImmersionMenu = CreateImmersionMenu(mainMenu);
             vrImmersionMenu.Items.Add(CreateImmersionHeadline(gameMenu));
@@ -63,7 +89,11 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_LEDGE_HINTS", "ledgeHints",
                         VRConstants.IniNames.LedgeHints, VRConstants.IniSectionImmersion,
-                        VRConstants.LedgeHintsDefaultValue))
+                        VRConstants.LedgeHintsDefaultValue)),
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
+                        VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
+                        VRConstants.MoveVignetteDefaultValue))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -117,6 +147,39 @@ namespace Gothic.VR.Services.Context
             item.OnChgSetOption = iniName;
             item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
+            return item;
+        }
+
+        /// <summary>
+        /// The controller layout (VrControlLayout) in rows 3 to 5 of the game menu, where Gothic has its mouse
+        /// settings - the VR counterpart of its key bindings. Inserted before the rows above, which go to the same
+        /// index.
+        /// </summary>
+        private void AddControlOptions(AbstractMenuInstance gameMenu, int index, int menuStartY, int menuDY)
+        {
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton", VRConstants.IniNames.MenuButton, VRConstants.IniSectionControls,
+                VRConstants.MenuButtonDefaultValue), menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
+                "menuButton"), menuStartY + menuDY * 5));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton", VRConstants.IniNames.JumpButton, VRConstants.IniSectionControls,
+                VRConstants.JumpButtonDefaultValue), menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
+                "jumpButton"), menuStartY + menuDY * 4));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand", VRConstants.IniNames.ControllerHand, VRConstants.IniSectionControls,
+                VRConstants.ControllerHandDefaultValue), menuStartY + menuDY * 3));
+            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
+                "controllerHand"), menuStartY + menuDY * 3));
+        }
+
+        /// <summary>
+        /// An option row at a fixed height, for Gothic's own menus (no pages).
+        /// </summary>
+        private static MutableMenuItemInstance AtPosY(MutableMenuItemInstance item, int posY)
+        {
+            item.PosY = posY;
             return item;
         }
 

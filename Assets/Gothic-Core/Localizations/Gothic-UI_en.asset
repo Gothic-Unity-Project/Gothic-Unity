@@ -226,6 +226,79 @@ MonoBehaviour:
     m_Localized: off|on
     m_Metadata:
       m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignette
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Darkens the edges of the view while the stick moves or turns you
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: off|light|strong
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Text size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Size of subtitles and dialog choices
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: normal|large|larger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: Color vision
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adjusts the colors for color blindness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: normal|red-weak|green-weak|blue-weak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: Handedness
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: 'Left-handed: move and menu on the right controller, turn, teleport
+      and jump on the left'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: right-handed|left-handed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Jump button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: The button that jumps - crouching takes the other of the two buttons
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: lower button|upper button|stick click
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Menu button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: The button that opens the menu, on the hand that moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: upper button|lower button|menu button
+    m_Metadata:
+      m_Items: []
   - m_Id: 187174279474184192
     m_Localized: Climbing
     m_Metadata:
@@ -243,8 +316,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070275
-    m_Localized: Near a ledge the hand closes and vibrates; glow also lights the
-      ledge
+    m_Localized: Near a ledge the hand closes and vibrates; glow also lights the ledge
     m_Metadata:
       m_Items: []
   - m_Id: 187174279558070276
