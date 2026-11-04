@@ -87,7 +87,9 @@ namespace Gothic.Core.Services.Vm
         // Menu
         // 
         
-        public readonly string[] DisabledGothicMenuSettings =
+        // Gothic's menu settings the game doesn't support: hidden in every context. A context hides the ones only it
+        // doesn't use with DisableGothicMenuSettings().
+        private readonly HashSet<string> _disabledGothicMenuSettings = new()
         {
             // Whole submenus
             "MENUITEM_OPT_VIDEO", "MENUITEM_OPT_CONTROLS",
@@ -110,6 +112,17 @@ namespace Gothic.Core.Services.Vm
             "MENUITEM_AUDIO_REVERB", "MENUITEM_AUDIO_REVERB_CHOICE",
             "MENUITEM_AUDIO_SAMPLERATE", "MENUITEM_AUDIO_SAMPLERATE_CHOICE"
         };
+
+        public IReadOnlyCollection<string> DisabledGothicMenuSettings => _disabledGothicMenuSettings;
+
+        /// <summary>
+        /// Hides Gothic menu settings a context doesn't use, on top of the ones no context supports. Called before the
+        /// menus are built (IContextMenuService.UpdateMainMenu()).
+        /// </summary>
+        public void DisableGothicMenuSettings(params string[] menuItemNames)
+        {
+            _disabledGothicMenuSettings.UnionWith(menuItemNames);
+        }
         
         public int MaxUserStrings => _gameStateService.MenuVm.GetSymbolInt("MAX_USERSTRINGS");
         public int MaxItems => _gameStateService.MenuVm.GetSymbolInt("MAX_ITEMS");

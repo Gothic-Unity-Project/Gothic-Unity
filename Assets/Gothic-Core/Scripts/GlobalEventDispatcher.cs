@@ -114,13 +114,14 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
 
         /// <summary>
-        /// NpcContainer - a script (Npc_ChangeAttribute) took its last hit points. FightService decides how it dies.
+        /// NpcContainer - lost its last hit points outside of a melee hit (NpcService.ReduceHitPoints: a script's
+        /// Npc_ChangeAttribute, drowning, a damage zone). FightService decides how it goes down.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer> ScriptHitPointsDepleted = new();
+        public static readonly UnityEvent<NpcContainer> HitPointsDepleted = new();
 
         /// <summary>
-        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
-        /// (lying down, camera) listens to it - added with the VR hero body PR.
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). He lies for
+        /// FightConst.HeroKnockoutRecoverySeconds. The VR knockout view (veil, heartbeat) listens to it.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
@@ -133,6 +134,14 @@ namespace Gothic.Core
 
         // DocModel - document to show; GameObject - item GO to attach the viewer to (may be null in flat mode).
         public static readonly UnityEvent<Gothic.Core.Models.Doc.DocModel, GameObject> DocShow = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
+
+        /// <summary>
         /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>

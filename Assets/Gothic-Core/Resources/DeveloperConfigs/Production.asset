@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 355b4ad0092f448a80ea647207f12648, type: 3}
   m_Name: Production
   m_EditorClassIdentifier: 
-  PreselectGameVersion: 1
+  PreselectGameVersion: 0
   GameVersion: 0
   PreSelectMod: 0
   ModIni: 
@@ -61,9 +61,7 @@ MonoBehaviour:
     Value: 
   SpawnMonsterInstances:
     Value: 
-  EnableNpcEyeBlinking: 0
   EnableNpcLooting: 1
-  EnableDialogFreeMovement: 0
   ShowNpcColliders: 0
   ShowFreePoints: 0
   ShowWayPoints: 0

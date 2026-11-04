@@ -344,6 +344,15 @@ namespace Gothic.Core.Services.Npc
             }
 
             var container = npc.GetUserData();
+
+            // Like the engine a script taking the last hit points kills (G1 B_KillNpc, summons losing 1 HP every few
+            // seconds in ZS_MM_SummonedByPC_Loop).
+            if (attributeId == (int)NpcAttribute.HitPoints && value < 0)
+            {
+                ReduceHitPoints(container, -value);
+                return;
+            }
+
             var vob = container.Vob;
             var newValue = vob.GetAttribute(attributeId) + value;
 
@@ -359,11 +368,24 @@ namespace Gothic.Core.Services.Npc
             }
 
             SetAttribute(container, (NpcAttribute)attributeId, newValue);
+        }
 
-            // Like the engine a script taking the last hit points kills (G1 B_KillNpc, summons losing 1 HP every few
-            // seconds in ZS_MM_SummonedByPC_Loop). FightService decides how (death, ZS_Dead, experience).
-            if (attributeId == (int)NpcAttribute.HitPoints && value < 0 && newValue <= 0)
-                GlobalEventDispatcher.ScriptHitPointsDepleted.Invoke(container);
+        /// <summary>
+        /// The one place where an NPC loses hit points outside of a melee hit (a script, drowning, a damage zone): at 0
+        /// it goes down - FightService decides how (HitPointsDepleted: death, ZS_Dead, experience).
+        /// Never below 0, never above the NPC's maximum.
+        /// </summary>
+        public void ReduceHitPoints(NpcContainer npc, int amount)
+        {
+            var hitPoints = npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) - amount;
+            var max = npc.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
+            if (max > 0)
+                hitPoints = Mathf.Min(hitPoints, max);
+            hitPoints = Mathf.Max(hitPoints, 0);
+
+            SetAttribute(npc, NpcAttribute.HitPoints, hitPoints);
+            if (hitPoints == 0)
+                GlobalEventDispatcher.HitPointsDepleted.Invoke(npc);
         }
 
         /// <summary>
@@ -392,7 +414,7 @@ namespace Gothic.Core.Services.Npc
         public NpcContainer GetHeroContainer()
         {
             // Hero doesn't exist yet in menus / during boot (e.g. the player's health bar asks for it there).
-            return (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return _gameStateService.GothicVm.GetHeroContainer();
         }
 
         /// <summary>

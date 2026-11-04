@@ -47,6 +47,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly WindService _windService;
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
@@ -200,7 +201,8 @@ namespace Gothic.Core.Domain.Vobs
                     go.GetComponent<TriggerZoneHandler>().Init((ITrigger)vob);
                     break;
                 case VirtualObjectType.oCTouchDamage:
-                    go = CreateTouchDamage((ITouchDamage)vob, parent);
+                    go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
+                    go.GetComponent<TouchDamageHandler>().Init((ITouchDamage)vob);
                     break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = CreateTriggerZone(vob, parent, $"TriggerUntouch_{vob.Name}");
@@ -254,6 +256,9 @@ namespace Gothic.Core.Domain.Vobs
             // Do not check children if the current VOB can't be created.
             if (!go)
                 return;
+
+            // Trees and grass with Gothic's wind mode sway - WindService decides which.
+            _windService.Register(vob, go);
 
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
@@ -438,6 +443,10 @@ namespace Gothic.Core.Domain.Vobs
                     break;
                 case VirtualObjectType.zCTriggerUntouch:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTriggerUntouch, name: name,
+                        parent: parent);
+                    break;
+                case VirtualObjectType.oCTouchDamage:
+                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobTouchDamage, name: name,
                         parent: parent);
                     break;
                 case VirtualObjectType.zCTriggerWorldStart:
@@ -838,21 +847,6 @@ namespace Gothic.Core.Domain.Vobs
             triggerHandler.LevelName = vob.LevelName;
             triggerHandler.StartVob = vob.StartVob;
             return vobObj;
-        }
-
-        /// <summary>
-        /// A damage zone: a trigger box over its bounding box, on the layer of the other trigger VOBs.
-        /// </summary>
-        private GameObject CreateTouchDamage(ITouchDamage vob, GameObject parent)
-        {
-            var go = CreateTriggerZone(vob, parent, $"TouchDamage_{vob.Name}");
-            go.layer = Constants.IgnoreRaycastLayer;
-            var box = go.GetComponent<BoxCollider>();
-            if (box == null)
-                box = go.AddComponent<BoxCollider>();
-            box.isTrigger = true;
-            go.AddComponent<TouchDamageHandler>().Init(vob);
-            return go;
         }
 
         /// <summary>

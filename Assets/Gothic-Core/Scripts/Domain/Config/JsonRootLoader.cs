@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
@@ -72,62 +71,8 @@ namespace Gothic.Core.Domain.Config
             // We need to do a final check for Gothic installation path and which one to ultimately use.
             loadedSettings.Gothic1Path = AlterGothicInstallationPath(loadedSettings.Gothic1Path, GameVersion.Gothic1);
             loadedSettings.Gothic2Path = AlterGothicInstallationPath(loadedSettings.Gothic2Path, GameVersion.Gothic2);
-
-            // Sanitize optional mod fields — placeholder strings from the template start with "---" and must be ignored.
-            if (string.IsNullOrEmpty(loadedSettings.ModPath) || loadedSettings.ModPath.StartsWith("---"))
-                loadedSettings.ModPath = null;
-            else if (!Directory.Exists(loadedSettings.ModPath))
-            {
-                // Not silently vanilla - a mistyped path looked like a broken mod.
-                Gothic.Core.Logging.Logger.LogWarning($"GameSettings.json ModPath >{loadedSettings.ModPath}< doesn't " +
-                                                      "exist - starting without the mod.", Gothic.Core.Logging.LogCat.Loading);
-                loadedSettings.ModPath = null;
-            }
-            if (string.IsNullOrEmpty(loadedSettings.ModIni) || loadedSettings.ModIni.StartsWith("---"))
-                loadedSettings.ModIni = null;
-            if (string.IsNullOrEmpty(loadedSettings.GameVersion) || loadedSettings.GameVersion.StartsWith("---"))
-                loadedSettings.GameVersion = null;
-
-            loadedSettings.GameProfiles = SanitizeGameProfiles(loadedSettings.GameProfiles);
-
+            
             return loadedSettings;
-        }
-
-        /// <summary>
-        /// Returns cleaned copies (the DeveloperConfig asset must not be changed at runtime): drops empty entries and
-        /// turns empty values / "---" placeholders into null. Whether a profile's game/mod folder exists is checked
-        /// later (ConfigService.GetAvailableGameProfiles), so a missing folder is logged instead of silently lost.
-        /// </summary>
-        public static JsonGameProfile[] SanitizeGameProfiles(IEnumerable<JsonGameProfile> profiles)
-        {
-            if (profiles == null)
-                return Array.Empty<JsonGameProfile>();
-
-            var sanitized = new List<JsonGameProfile>();
-            foreach (var profile in profiles)
-            {
-                if (profile == null)
-                    continue;
-
-                var copy = new JsonGameProfile
-                {
-                    ModPath = SanitizeOptional(profile.ModPath),
-                    ModIni = SanitizeOptional(profile.ModIni),
-                    GameVersion = SanitizeOptional(profile.GameVersion)
-                };
-                copy.Name = SanitizeOptional(profile.Name)
-                    ?? (copy.ModPath == null
-                        ? copy.GameVersion
-                        : $"{copy.GameVersion} - {Path.GetFileName(copy.ModPath.TrimEnd('/', '\\'))}");
-                sanitized.Add(copy);
-            }
-
-            return sanitized.ToArray();
-        }
-
-        private static string SanitizeOptional(string value)
-        {
-            return string.IsNullOrWhiteSpace(value) || value.StartsWith("---") ? null : value.Trim();
         }
 
         /// <summary>

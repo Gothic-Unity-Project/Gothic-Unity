@@ -166,7 +166,7 @@ namespace Gothic.Core.Services.Npc
                 .Where(i => i.Go != null) // ignore empty (safe check)
                 .Where(i => i.Instance.Index != npcInstance.Index) // ignore self
                 // Engine (OpenGothic wld_detectnpcex): never the dead - a berzerk guard picked a corpse every frame.
-                .Where(i => i.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+                .Where(i => !i.Props.IsDead)
                 .Where(i => detectPlayer ||
                             globalHeroIndex == null ||
                             i.Instance.Index != globalHeroIndex) // if we don't detect player, then skip it
@@ -235,7 +235,6 @@ namespace Gothic.Core.Services.Npc
             if (npcGo == null) return false;
 
             var npcPos = npcGo.transform.position;
-            const float searchRadius = 20f;
 
             ItemInstance nearestData = null;
             VobContainer nearestContainer = null;
@@ -252,7 +251,7 @@ namespace Gothic.Core.Services.Npc
 
                 // Use actual GO position (physics may have moved it)
                 var dist = Vector3.Distance(container.Go.transform.position, npcPos);
-                if (dist > searchRadius || dist >= nearestDist) continue;
+                if (dist > AiConst.DetectItemRadiusMeters || dist >= nearestDist) continue;
 
                 if (string.IsNullOrEmpty(vobItem.Instance) && string.IsNullOrEmpty(vobItem.Name)) continue;
                 var itemData = container.GetItemInstance();
@@ -408,29 +407,20 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
-        /// </summary>
-        public static bool IsKnockedOut(NpcContainer npc)
-        {
-            return npc?.Props != null && npc.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious;
-        }
-
-        /// <summary>
-        /// Dead or knocked out.
-        /// </summary>
-        public static bool IsDown(NpcContainer npc)
-        {
-            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
-        }
-
-        /// <summary>
         /// Guide/follow states (G1 ZS_GuidePC/ZS_FollowPC, G2 ZS_Guide_Player/ZS_Follow_Player).
         /// </summary>
         public static bool IsInEscortState(NpcInstance npc)
         {
             var state = npc?.GetUserData()?.Vob?.CurrentStateName;
-            return state != null && (state.StartsWith("ZS_GUIDE", StringComparison.OrdinalIgnoreCase) ||
-                                     state.StartsWith("ZS_FOLLOW", StringComparison.OrdinalIgnoreCase));
+            if (state == null)
+                return false;
+
+            foreach (var prefix in DaedalusConst.EscortStatePrefixes)
+            {
+                if (state.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         private bool CanSenseNpcQuietly(NpcInstance self, NpcInstance other, VmGothicEnums.NpcSenses senses,
@@ -439,9 +429,9 @@ namespace Gothic.Core.Services.Npc
             if ((senses & VmGothicEnums.NpcSenses.See) != 0 && CanSeeNpc(self, other, freeLOS))
                 return true;
 
-            var isAround = (senses & VmGothicEnums.NpcSenses.Smell) != 0 && range <= _smellRangeMeters;
+            var isAround = (senses & VmGothicEnums.NpcSenses.Smell) != 0 && range <= AiConst.SmellRangeMeters;
             if (!isAround && (senses & VmGothicEnums.NpcSenses.Hear) != 0 &&
-                range <= senseRangeMeters * _hearRangeFactor)
+                range <= senseRangeMeters * AiConst.HearRangeFactor)
             {
                 var bodyState = other.GetUserData()?.Props.BodyState;
                 isAround = bodyState is VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun
@@ -451,9 +441,6 @@ namespace Gothic.Core.Services.Npc
             // Sound and scent don't go through walls either - the sight raycast without FOV.
             return isAround && CanSeeNpc(self, other, true);
         }
-
-        private const float _hearRangeFactor = 0.5f;
-        private const float _smellRangeMeters = 3f;
 
         /// <summary>
         /// freeLOS - Free Line Of Sight == ignoreFOV

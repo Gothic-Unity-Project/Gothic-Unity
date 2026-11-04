@@ -175,6 +175,7 @@ namespace Gothic.Core.Services.World
 
             GlobalEventDispatcher.UnloadGameStart.Invoke();
             GlobalEventDispatcher.LoadGameStart.Invoke();
+            _gameStateService.HeroEntersGame();
 
             SaveGameId = 0;
             Save = new SaveGame(_contextGameVersionService.Version);
@@ -218,6 +219,7 @@ namespace Gothic.Core.Services.World
 
             GlobalEventDispatcher.UnloadGameStart.Invoke();
             GlobalEventDispatcher.LoadGameStart.Invoke();
+            _gameStateService.HeroEntersGame();
 
             SaveGameId = saveGameId;
             Save = save;
@@ -382,7 +384,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public bool SaveCurrentGame(SlotId saveGameId, string title)
         {
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero == null || CurrentWorldName == null || Save == null || !_worlds.ContainsKey(CurrentWorldName))
             {
                 Logger.LogError("[SaveGame] No world loaded. Can't save.", LogCat.Loading);
@@ -484,12 +486,12 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public bool CanSave(out string blockReason)
         {
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero == null || Save == null || CurrentWorldName == null ||
                 SceneManager.GetSceneByName(Constants.SceneLoading).isLoaded)
                 blockReason = "menuitem.save.blocked.noWorld";
-            // HP <= 0 too: a script can take the hero's HP without the death transition (see ExtNpcIsDead()).
-            else if (hero.Props.IsDead || hero.Instance.GetAttribute(NpcAttribute.HitPoints) <= 0)
+            // All HP loss goes through NpcService.ReduceHitPoints/FightService, so death always runs the transition.
+            else if (!_gameStateService.IsHeroAlive)
                 blockReason = "menuitem.save.blocked.dead";
             else if (_gameStateService.Dialogs.IsInDialog)
                 blockReason = "menuitem.save.blocked.dialog";
