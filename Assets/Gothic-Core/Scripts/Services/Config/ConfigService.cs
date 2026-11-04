@@ -87,7 +87,13 @@ namespace Gothic.Core.Services.Config
                     inis.Add(new ModIniScanner.ModIni { FileName = _vanillaGameIni, Title = version.ToString() });
                 }
 
-                foreach (var ini in inis)
+                // Vanilla game on top, then its mods by title (the scanner returns them in file system order).
+                var sortedInis = inis
+                    .OrderByDescending(i => i.FileName.EqualsIgnoreCase(_vanillaGameIni))
+                    .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(i => i.FileName, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var ini in sortedInis)
                 {
                     var isVanilla = ini.FileName.EqualsIgnoreCase(_vanillaGameIni);
                     profiles.Add(new GameProfile
