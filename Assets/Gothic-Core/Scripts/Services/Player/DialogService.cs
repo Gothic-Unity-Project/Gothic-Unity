@@ -6,6 +6,7 @@ using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Const;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -171,14 +172,7 @@ namespace Gothic.Core.Manager
                         continue;
                     }
 
-                    // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
-                    var oldSelf = _gameStateService.GothicVm.GlobalSelf;
-                    var oldOther = _gameStateService.GothicVm.GlobalOther;
-                    _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
-                    _gameStateService.GothicVm.GlobalOther = _gameStateService.GothicVm.GlobalHero;
-                    var conditionResult = _gameStateService.GothicVm.Call<int>(dialog.Condition);
-                    _gameStateService.GothicVm.GlobalSelf = oldSelf;
-                    _gameStateService.GothicVm.GlobalOther = oldOther;
+                    var conditionResult = CallDialogCondition(npcContainer, dialog.Condition);
 
                     // Dialog condition is false
                     if (conditionResult == 0)
@@ -201,6 +195,16 @@ namespace Gothic.Core.Manager
                 _contextDialogService.FillDialog(npcContainer.Instance, selectableDialogs);
                 _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
             }
+        }
+
+        /// <summary>
+        /// A dialog's condition function with self = the NPC, other = the hero.
+        /// </summary>
+        private int CallDialogCondition(NpcContainer npcContainer, int condition)
+        {
+            var vm = _gameStateService.GothicVm;
+            using (new VmGlobalsScope(vm, npcContainer.Instance, vm.GlobalHero, null))
+                return vm.Call<int>(condition);
         }
 
         /// <summary>
@@ -237,15 +241,8 @@ namespace Gothic.Core.Manager
                 {
                     continue;
                 }
-                
-                // TODO - Should be outsourced to some VmManager.Call<int> function which sets and resets values.
-                var oldSelf = _gameStateService.GothicVm.GlobalSelf;
-                var oldOther = _gameStateService.GothicVm.GlobalOther;
-                _gameStateService.GothicVm.GlobalSelf = npcContainer.Instance;
-                _gameStateService.GothicVm.GlobalOther = _gameStateService.GothicVm.GlobalHero;
-                var conditionResult = _gameStateService.GothicVm.Call<int>(dialog.Condition);
-                _gameStateService.GothicVm.GlobalSelf = oldSelf;
-                _gameStateService.GothicVm.GlobalOther = oldOther;
+
+                var conditionResult = CallDialogCondition(npcContainer, dialog.Condition);
 
                 if (conditionResult == 0)
                 {
