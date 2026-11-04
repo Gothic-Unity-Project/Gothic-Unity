@@ -78,9 +78,7 @@ namespace Gothic.Core.Services.Npc
                 return;
             _nextRoomCheckTime = Time.time + _roomCheckInterval;
 
-            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
-                return;
-            var hero = heroInstance.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (hero?.Go == null || hero.Props == null)
                 return;
 
@@ -139,12 +137,12 @@ namespace Gothic.Core.Services.Npc
             _lastUseMob = mob;
             _lastUseMobTime = Time.time;
 
-            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
+            if (hero == null)
                 return;
-            var hero = heroInstance.GetUserData();
 
             if (_npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessUseMob,
-                    heroInstance, heroInstance))
+                    hero.Instance, hero.Instance))
                 Logger.Log($"[HeroPerc] AssessUseMob '{mob.Name}' {mob.Visual?.Name} " +
                            $"(owner '{(mob as IMovableObject)?.Owner}', guild '{(mob as IMovableObject)?.OwnerGuild}') " +
                            "sent", LogCat.Ai);
@@ -162,7 +160,7 @@ namespace Gothic.Core.Services.Npc
 
             var instanceName = !string.IsNullOrEmpty(itemVobData.Instance) ? itemVobData.Instance : itemVob.Name;
             var item = _vmCacheService.TryGetItemData(instanceName);
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            var hero = _gameStateService.GothicVm.GetHeroContainer();
             if (item == null || hero == null)
             {
                 Logger.LogWarning($"[HeroPerc] The hero takes {instanceName} - no theft perception: " +

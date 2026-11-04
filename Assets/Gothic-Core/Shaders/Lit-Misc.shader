@@ -159,7 +159,10 @@ Shader "Gothic/Lit/Misc"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "GothicIncludes.hlsl"
-            #define MixFog(color, fogFactor) ApplyUnderWaterEffect(lerp(unity_FogColor.rgb, color, fogFactor))
+            // MixFogColor() only blends while a fog keyword is on. A plain lerp painted everything in the fog color
+            // where fog is off (menus: the VR hands were grey).
+            #define MixFog(color, fogFactor) ApplyUnderWaterEffect(MixFogColor((half3)(color), \
+                (half3)unity_FogColor.rgb, (half)(fogFactor)))
             // Gothic END
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"

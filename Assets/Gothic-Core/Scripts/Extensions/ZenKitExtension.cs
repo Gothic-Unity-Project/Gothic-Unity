@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -18,7 +19,6 @@ namespace Gothic.Core.Extensions
 {
     public static class ZenKitExtension
     {
-        private const int _npcFlagImmortal = 2;
 
         /// <summary>
         /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
@@ -69,6 +69,15 @@ namespace Gothic.Core.Extensions
         public static bool IsHero([CanBeNull] this NpcInstance npc, DaedalusVm vm)
         {
             return npc != null && vm?.GlobalHero is NpcInstance hero && hero.Index == npc.Index;
+        }
+
+        /// <summary>
+        /// The hero's container (GlobalHero). Null in menus / during boot, before the hero exists.
+        /// </summary>
+        [CanBeNull]
+        public static NpcContainer GetHeroContainer([CanBeNull] this DaedalusVm vm)
+        {
+            return (vm?.GlobalHero as NpcInstance)?.GetUserData();
         }
 
         /// <summary>
@@ -135,17 +144,17 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
-        /// Convenient shortcut to retrieve and cast NpcData object from NpcInstance property.
-        /// </summary>
-        [CanBeNull]
-        /// <summary>
-        /// NPC_FLAG_IMMORTAL (bit 1): takes no damage, Marvin's kill doesn't work (e.g. Diego in G1).
+        /// NPC_FLAG_IMMORTAL: takes no damage, Marvin's kill doesn't work (e.g. Diego in G1).
         /// </summary>
         public static bool IsImmortal(this NpcInstance npc)
         {
-            return ((int)npc.Flags & _npcFlagImmortal) != 0;
+            return ((int)npc.Flags & FightConst.NpcFlagImmortal) != 0;
         }
 
+        /// <summary>
+        /// Convenient shortcut to retrieve and cast NpcData object from NpcInstance property.
+        /// </summary>
+        [CanBeNull]
         public static NpcContainer GetUserData(this NpcInstance instance)
         {
             return instance?.UserData as NpcContainer;

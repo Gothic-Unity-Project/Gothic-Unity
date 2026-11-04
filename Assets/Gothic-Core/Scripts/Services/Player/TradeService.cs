@@ -36,6 +36,7 @@ namespace Gothic.Core.Services.Player
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextTradeService _contextTradeService;
 
         private int _returnInformation;
         private DaedalusVm _currencyVm;
@@ -81,6 +82,15 @@ namespace Gothic.Core.Services.Player
                 Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} " +
                            $"(currency {_currencyName}, sell x{_sellMultiplier})", LogCat.Dialog);
                 GlobalEventDispatcher.TradeStarted.Invoke(trader);
+
+                var hero = GetHero();
+                if (hero == null || !_contextTradeService.ShowTrade(trader, hero))
+                {
+                    // Without a counter the trade couldn't be closed - it ends, the dialog goes on.
+                    Logger.LogWarning($"[Trade] No trade counter (hero found: {hero != null}) - trade ended",
+                        LogCat.Dialog);
+                    End();
+                }
             }
             catch (Exception e)
             {
@@ -115,6 +125,7 @@ namespace Gothic.Core.Services.Player
             Trader = null;
             Current = null;
             Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
+            _contextTradeService.HideTrade();
             try
             {
                 GlobalEventDispatcher.TradeEnded.Invoke(trader);
@@ -284,6 +295,11 @@ namespace Gothic.Core.Services.Player
                 Current.TraderGoods.Add(item.Name, item.Amount);
             Current.PlayerOffer.Clear();
             Current.TraderOffer.Clear();
+        }
+
+        private NpcContainer GetHero()
+        {
+            return _gameStateService.GothicVm.GetHeroContainer();
         }
 
         /// <summary>
