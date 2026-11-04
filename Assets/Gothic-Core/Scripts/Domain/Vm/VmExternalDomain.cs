@@ -39,6 +39,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcRandomAniService _npcRandomAniService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly NpcLookService _npcLookService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly StoryService _storyService;
@@ -662,41 +663,9 @@ namespace Gothic.Core.Domain.Vm
             _npcAiService.ExtAiPlayAniBs(npc, name, bodyState);
         }
 
-        /// <summary>
-        /// The NPC takes off its melee and ranged weapons (into the inventory) - their meshes leave the belt and back
-        /// too, a drawn one the hand (found on BoroBongo's branch).
-        /// </summary>
         public void AI_UnequipWeapons(NpcInstance npc)
         {
-            var container = npc?.GetUserData();
-            if (container?.Props == null)
-                return;
-
-            container.Props.EquippedItems.RemoveAll(i =>
-                i.MainFlag is (int)VmGothicEnums.ItemFlags.ItemKatNf or (int)VmGothicEnums.ItemFlags.ItemKatFf);
-
-            // Like after AI_RemoveWeapon, a drawn weapon is gone and follow-up animations are weaponless. Fists stay.
-            var weaponState = (VmGothicEnums.WeaponState)container.Vob.FightMode;
-            var isWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H or
-                VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow;
-            if (isWeaponDrawn)
-                container.Vob.FightMode = (int)VmGothicEnums.WeaponState.NoWeapon;
-            if (container.Go == null)
-                return;
-
-            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
-                Constants.SlotCrossbow };
-            if (isWeaponDrawn)
-                slotNames.Add(Npc.Actions.AnimationActions.DrawWeapon.GetHandSlotName(weaponState));
-            foreach (var slotName in slotNames)
-            {
-                var slot = container.Go.FindChildRecursively(slotName);
-                if (slot == null)
-                    continue;
-
-                for (var i = slot.transform.childCount - 1; i >= 0; i--)
-                    UnityEngine.Object.Destroy(slot.transform.GetChild(i).gameObject);
-            }
+            _npcInventoryService.ExtAiUnequipWeapons(npc);
         }
 
         public void AI_UnequipArmor(NpcInstance npc)
@@ -975,31 +944,15 @@ namespace Gothic.Core.Domain.Vm
             _isLoggedOnceRemoveOverlayMds = true;
         }
 
-        /// <summary>
-        /// A face animation on the NPC's head (MMB), e.g. S_FRIGHTENED, S_ANGRY of B_SetFaceExpression. holdTime -1 =
-        /// until another mood replaces it.
-        /// </summary>
         public void Mdl_StartFaceAni(NpcInstance npc, string name, float intensity, float holdTime)
         {
-            // Not built yet (out of range) or without a head (monsters).
-            var prefabProps = npc.GetUserData()?.PrefabProps;
-            if (prefabProps == null || prefabProps.HeadMorph == null)
-                return;
-
-            prefabProps.HeadMorph.StartFaceAnimation(name, intensity, holdTime);
+            _npcLookService.ExtMdlStartFaceAni(npc, name, intensity, holdTime);
         }
 
-        /// <summary>
-        /// A face animation played again and again (the scripts' commented R_EyesBlink example).
-        /// </summary>
         public void Mdl_ApplyRandomFaceAni(NpcInstance npc, string name, float timeMin, float timeMinVar, float timeMax,
             float timeMaxVar, float probMin)
         {
-            var prefabProps = npc.GetUserData()?.PrefabProps;
-            if (prefabProps == null || prefabProps.HeadMorph == null)
-                return;
-
-            prefabProps.HeadMorph.ApplyRandomFaceAnimation(name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
+            _npcLookService.ExtMdlApplyRandomFaceAni(npc, name, timeMin, timeMinVar, timeMax, timeMaxVar, probMin);
         }
 
         #endregion
@@ -1335,82 +1288,8 @@ namespace Gothic.Core.Domain.Vm
         
         public int Npc_GetInvItemBySlot(NpcInstance npc, int invType, int slot)
         {
-            const int invWeapon = 1;
-            const int invArmor = 2;
-
-            if (TryGetInvItemBySlot(npc, invType, slot, out var item, out var amount))
-            {
-                _gameStateService.GothicVm.GlobalItem = item;
-                return LogInstantExternal(nameof(Npc_GetInvItemBySlot), amount, npc, invType, slot);
-            }
-
-            var props = npc?.GetUserData()?.Props;
-            if (props == null)
-            {
-                _gameStateService.GothicVm.GlobalItem = null;
-                return LogInstantExternal(nameof(Npc_GetInvItemBySlot), 0, npc, invType, slot);
-            }
-            ItemInstance found = null;
-
-            if (invType == invWeapon)
-            {
-                found = slot switch
-                {
-                    1 => props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatNf),
-                    2 => props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf),
-                    _ => null
-                };
-            }
-            else if (invType == invArmor)
-            {
-                if (slot == 1)
-                    found = props.EquippedItems.FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatArmor);
-            }
-
-            _gameStateService.GothicVm.GlobalItem = found;
-            var count = found != null ? 1 : 0;
-            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), count, npc, invType, slot);
-        }
-
-        /// <summary>
-        /// Like the engine (OpenGothic Inventory::findByFlags), the slot-th item
-        /// (1 based) of the inventory category - our packed inventory is stored per the same INV_* category. Before,
-        /// only the equipped weapon/armor was found: B_Plunder (G1) looks for ore in INV_MISC and NPCs who knocked out
-        /// the hero said "not even ore" with 1000 in the backpack.
-        /// </summary>
-        private bool TryGetInvItemBySlot(NpcInstance npc, int invType, int slot, out ItemInstance item, out int amount)
-        {
-            item = null;
-            amount = 0;
-            if (npc?.GetUserData() == null || slot < 1 || invType < (int)VmGothicEnums.InvCats.InvWeapon ||
-                invType >= (int)VmGothicEnums.InvCats.InvCatMax)
-                return false;
-
-            List<Gothic.Core.Models.Vob.ContentItem> items;
-            try
-            {
-                items = _npcInventoryService.GetInventoryItems(npc, (VmGothicEnums.InvCats)invType);
-            }
-            catch
-            {
-                // Category slot was never initialized for this NPC - nothing in it.
-                return false;
-            }
-
-            var found = 0;
-            foreach (var contentItem in items)
-            {
-                if (contentItem.Amount <= 0)
-                    continue;
-                if (++found < slot)
-                    continue;
-
-                item = _vmCacheService.TryGetItemData(contentItem.Name);
-                amount = contentItem.Amount;
-                return item != null;
-            }
-
-            return false;
+            var amount = _npcInventoryService.ExtNpcGetInvItemBySlot(npc, invType, slot);
+            return LogInstantExternal(nameof(Npc_GetInvItemBySlot), amount, npc, invType, slot);
         }
 
         public void Npc_RemoveInvItems(IntPtr vmPtr)
@@ -1648,20 +1527,9 @@ namespace Gothic.Core.Domain.Vm
             return LogInstantExternal(nameof(Npc_RefuseTalk), ret, npc);
         }
 
-        /// <summary>
-        /// No news memory yet. Proxy for NEWS_DEFEAT only: the NPC knows the hero defeated him (AIV_WASDEFEATEDBYSC),
-        /// so it's news about himself as the victim.
-        /// </summary>
         public int Npc_HasNews(NpcInstance npc, int newsId, NpcInstance offender, NpcInstance victim)
         {
-            var vm = _gameStateService.GothicVm;
-            var newsDefeat = vm.GetSymbolByName("NEWS_DEFEAT");
-            var wasDefeated = vm.GetSymbolByName("AIV_WASDEFEATEDBYSC");
-            if (npc == null || newsDefeat == null || wasDefeated == null || newsId != newsDefeat.GetInt(0) ||
-                (victim != null && victim.Index != npc.Index))
-                return LogInstantExternal(nameof(Npc_HasNews), 0, npc, newsId, offender, victim);
-
-            var ret = npc.GetAiVar(wasDefeated.GetInt(0)) == 1 ? 1 : 0;
+            var ret = _npcAiService.ExtNpcHasNews(npc, newsId, victim);
             return LogInstantExternal(nameof(Npc_HasNews), ret, npc, newsId, offender, victim);
         }
 

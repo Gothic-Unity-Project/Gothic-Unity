@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties;
+using Gothic.Core.Const;
 using Gothic.Core.Creator;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
+using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -240,30 +242,19 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         public void CallStateEnd(int endFunction, NpcInstance other, NpcInstance victim)
         {
-            var oldSelf = Vm.GlobalSelf;
-            var oldOther = Vm.GlobalOther;
-            var oldVictim = Vm.GlobalVictim;
-            Vm.GlobalSelf = NpcInstance;
             // The daily routine's other is the hero (as in Update) - not whatever the last NPC left.
-            Vm.GlobalOther = other ?? Vm.GlobalHero;
-            if (victim != null)
-                Vm.GlobalVictim = victim;
-
-            try
+            using (new VmGlobalsScope(Vm, NpcInstance, other ?? Vm.GlobalHero, victim))
             {
-                Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: " +
-                           $"{Vm.GetSymbolByIndex(endFunction)?.Name} (state ended by AI_StartState)", LogCat.Ai);
-                CallAiFunction(endFunction);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogError($"[AiHandler] State end {endFunction} failed: {e.Message}", LogCat.Ai);
-            }
-            finally
-            {
-                Vm.GlobalSelf = oldSelf;
-                Vm.GlobalOther = oldOther;
-                Vm.GlobalVictim = oldVictim;
+                try
+                {
+                    Logger.Log($"[AiHandler] {NpcInstance.GetName(NpcNameSlot.Slot0)}: " +
+                               $"{Vm.GetSymbolByIndex(endFunction)?.Name} (state ended by AI_StartState)", LogCat.Ai);
+                    CallAiFunction(endFunction);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogError($"[AiHandler] State end {endFunction} failed: {e.Message}", LogCat.Ai);
+                }
             }
         }
 
@@ -343,8 +334,8 @@ namespace Gothic.Core.Adapters.Npc
                 Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.MoveNpc, out var moveNpcPerception) &&
                 moveNpcPerception >= 0)
             {
-                const float moveNpcMaxRange = 1f;
-                var moveNpcRange = Mathf.Min(_npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.MoveNpc), moveNpcMaxRange);
+                var moveNpcRange = Mathf.Min(_npcHelperService.GetPerceptionRange(VmGothicEnums.PerceptionType.MoveNpc),
+                    AiConst.MoveNpcMaxRangeMeters);
                 var distToHero = Vector3.Distance(gameObject.transform.position, heroGo.transform.position);
                 if (distToHero <= moveNpcRange)
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.MoveNpc, Properties, NpcInstance, null, hero);
@@ -465,16 +456,13 @@ namespace Gothic.Core.Adapters.Npc
         private bool IsInLookingAwayState()
         {
             var state = Vob.CurrentStateName;
-            foreach (var lookingAwayState in _lookingAwayStates)
+            foreach (var lookingAwayState in DaedalusConst.LookingAwayStates)
             {
                 if (string.Equals(state, lookingAwayState, System.StringComparison.OrdinalIgnoreCase))
                     return true;
             }
             return false;
         }
-
-        // States in which the NPC looks away from the hero on purpose.
-        private static readonly string[] _lookingAwayStates = { "ZS_TURNAWAY" };
 
         /// <param name="isRoutineState">Like Gothic's isRtnState (saved): true if the daily routine (or a monster's
         /// StartAiState) runs the state, false for states started by AI_StartState. A loaded NPC continues the latter
