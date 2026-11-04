@@ -149,11 +149,6 @@ namespace Gothic.Core.Const
         public const float NpcDestinationReachedThreshold = 0.6f;
         public const float NpcRotationSpeed = 500f;
 
-        // DeveloperConfig.EnableDialogFreeMovement: meters between hero and NPC for starting and keeping a dialog.
-        public const float DialogFreeMovementRadius = 5f;
-        // DeveloperConfig.EnableDialogFreeMovement: meters between hero and NPC from which walking away slows down
-        // until it stops at DialogFreeMovementRadius.
-        public const float DialogSlowDownDistance = 3f;
         // Max height difference (floor, cliff, ladder) to where the hero is held during a dialog.
         public const float DialogMaxHeightDifference = 3f;
         
