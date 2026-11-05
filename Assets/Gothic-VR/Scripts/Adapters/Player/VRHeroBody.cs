@@ -124,6 +124,8 @@ namespace Gothic.VR.Adapters.Player
 
         // The eye height of the sneak pose at scale 1 (S_SNEAK, measured once per built body), -1 = not yet.
         private float _sneakEyeHeight = -1f;
+        // Feet and toes - the floor under the sneak pose (the arms can reach lower).
+        private readonly List<Transform> _footBones = new();
         private const string _sneakAnimation = "S_SNEAK";
 
         private SkinnedMeshRenderer _bodyRenderer;
@@ -234,10 +236,15 @@ namespace Gothic.VR.Adapters.Player
             var feetY = rig.Root.position.y;
             if (_downPose.UpdateDown(head, feetY, _standingScale, rig))
                 return;
-            // Crouching (sneaking) lowers the head, not the body size - keep the standing scale then.
+            // Crouching (sneaking) lowers the head, not the body size - keep the standing scale then. The crouch
+            // button's camera offset doesn't count: standing up the camera rises slowly, the body shrank and grew
+            // with it.
             var isCrouching = rig.IsCrouching;
             if (!isCrouching || _standingScale <= _minScale)
-                _standingScale = Mathf.Clamp((head.position.y - feetY) / _modelHeadHeight, _minScale, _maxScale);
+            {
+                var headHeight = head.position.y - feetY + Mathf.Max(0f, rig.StandingCameraHeight - rig.CameraHeight);
+                _standingScale = Mathf.Clamp(headHeight / _modelHeadHeight, _minScale, _maxScale);
+            }
             var scale = _standingScale;
             _body.transform.localScale = Vector3.one * scale;
             _body.transform.SetPositionAndRotation(
@@ -268,9 +275,15 @@ namespace Gothic.VR.Adapters.Player
             if (_headBone == null || _animator == null || !_animator.IsValid)
                 return;
 
-            if (_sneakEyeHeight < 0f && _animator.IsPlaying(_sneakAnimation))
+            if (_sneakEyeHeight < 0f && _animator.IsPlaying(_sneakAnimation) && _footBones.Count > 0)
             {
-                var headHeight = _body.transform.InverseTransformPoint(_headBone.position).y;
+                // Like _modelHeadHeight: the head above the lowest foot bone, in the body's own units (scale 1) - the
+                // body's origin isn't at its feet.
+                var bodyTransform = _body.transform;
+                var lowestFoot = float.MaxValue;
+                foreach (var foot in _footBones)
+                    lowestFoot = Mathf.Min(lowestFoot, bodyTransform.InverseTransformPoint(foot.position).y);
+                var headHeight = bodyTransform.InverseTransformPoint(_headBone.position).y - lowestFoot;
                 _sneakEyeHeight = headHeight + _neckBelowEyes;
                 Logger.Log($"[VRHeroBody] Sneak pose: eyes {_sneakEyeHeight:F2} m above the feet (scale 1) - the " +
                            "crouch button's camera height.", LogCat.VR);
@@ -557,6 +570,7 @@ namespace Gothic.VR.Adapters.Player
             _renderers.Clear();
             _bodyRenderer = null;
             _sneakEyeHeight = -1f;
+            _footBones.Clear();
             _sleeveMeshes.Clear();
             _bareForearms.Clear();
             _bareForearmMeshes.Clear();
@@ -608,6 +622,12 @@ namespace Gothic.VR.Adapters.Player
                 // DeveloperConfig.EnableHeroHands: the full mesh shows the model's hands as the VR hands.
                 if (withoutHands.triangles.Length != withHands.triangles.Length)
                     _handMeshes.Add((skinned, withHands, withoutHands));
+            }
+
+            foreach (var (boneName, bone) in bones)
+            {
+                if (boneName.Contains(" FOOT") || boneName.Contains(" TOE"))
+                    _footBones.Add(bone);
             }
 
             // Height of the model in its rest pose: head bone above its lowest foot bone.
