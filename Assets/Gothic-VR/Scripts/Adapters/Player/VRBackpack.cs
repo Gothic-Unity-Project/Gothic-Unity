@@ -59,6 +59,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<Collider, Vector3> _grabVolumeSizes = new();
 
         private bool _isZenKitBootstrapped;
+        // The hands holding the backpack (GlobalEventDispatcher.BackpackInHandChanged: the hero body's sleeves).
+        private readonly HashSet<VrHandSide> _holdingHands = new();
         private int _currentPage = 1;
         private int _totalPages;
         private VmGothicEnums.InvCats _selectedCategory =  VmGothicEnums.InvCats.InvWeapon;
@@ -451,6 +453,8 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.ZenKitBootstrapped.RemoveListener(Init);
             if (IsNpcBackpack)
                 UnregisterUiCanvases();
+            if (_holdingHands.Count > 0)
+                GlobalEventDispatcher.BackpackInHandChanged.Invoke(false);
 
             if (_interactable != null)
             {
@@ -503,6 +507,8 @@ namespace Gothic.VR.Adapters.Player
             // The held backpack follows the physical hand. Colliding with it, it would push the hand away and spin.
             _vrPlayerService.UpdatePlayerCollision(args, true);
             SetHoldingHandCollisions(args, true);
+            if (args.Kind == VrGrabberKind.Hand && _holdingHands.Add(args.HandSide) && _holdingHands.Count == 1)
+                GlobalEventDispatcher.BackpackInHandChanged.Invoke(true);
 
             // We could potentially remove the meshes inside Backpack or simply hide it from rendering later.
             if (!IsShoulderSocket(args))
@@ -516,6 +522,8 @@ namespace Gothic.VR.Adapters.Player
         {
             _vrPlayerService.UpdatePlayerCollision(args, false);
             SetHoldingHandCollisions(args, false);
+            if (args.Kind == VrGrabberKind.Hand && _holdingHands.Remove(args.HandSide) && _holdingHands.Count == 0)
+                GlobalEventDispatcher.BackpackInHandChanged.Invoke(false);
 
             if (!IsShoulderSocket(args))
                 return;

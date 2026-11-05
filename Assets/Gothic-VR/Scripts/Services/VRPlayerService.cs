@@ -42,6 +42,13 @@ namespace Gothic.VR.Services
             return hand != null ? hand.gameObject : null;
         }
 
+        /// <summary>
+        /// The one owner of the camera height while the hero is down (knocked out, dead): true while a VR hero body
+        /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
+        /// view itself only without it.
+        /// </summary>
+        public bool IsFallCameraOnHeroBody { get; set; }
+
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
 

@@ -101,7 +101,14 @@ namespace Gothic.VR.Services.Context
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
                 rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
-                    CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands)));
+                    CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
+                        VRConstants.HeroHandsDefaultValue)));
+            // The camera falls with the VR hero body when he's knocked out or dies - off: the view fades instead.
+            if (_configService.Dev.EnableVrHeroBody)
+                rows.Add((CreateToggleLabel(gameMenu, "HERO_FALL_CAMERA", "Fall with the body",
+                        "Knocked out, the view goes down with the hero"),
+                    CreateToggleChoice(gameMenu, "HERO_FALL_CAMERA", VRConstants.IniNames.HeroFallCamera,
+                        VRConstants.HeroFallCameraDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

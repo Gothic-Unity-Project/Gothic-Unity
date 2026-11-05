@@ -10,7 +10,8 @@ namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
     /// Applies the Gothic.ini option colorVision (normal, red-, green-, blue-weak) to the headset's camera
-    /// (ColorVisionService), at start and whenever the option changes in the menu.
+    /// (ColorVisionService), once Gothic.ini is loaded and whenever the option changes in the menu.
+    /// Sits on the VR player prefab next to VRPlayer.
     /// </summary>
     public class VRColorVision : MonoBehaviour
     {
@@ -18,24 +19,26 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ColorVisionService _colorVisionService;
 
         private IVrRig _rig;
-        private bool _isSettingRead;
 
         private void Start()
         {
             _rig = GetComponent<IVrRig>();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(OnGothicInisInitialized);
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+
+            // The rig exists before Gothic.ini is loaded (game version selection): then the event applies it later.
+            TryApplySetting();
         }
 
         private void OnDestroy()
         {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(OnGothicInisInitialized);
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
         }
 
-        private void Update()
+        private void OnGothicInisInitialized()
         {
-            // The rig exists before Gothic.ini is loaded (game version selection).
-            if (!_isSettingRead)
-                _isSettingRead = TryApplySetting();
+            TryApplySetting();
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
@@ -44,16 +47,15 @@ namespace Gothic.VR.Adapters.Player
                 TryApplySetting();
         }
 
-        private bool TryApplySetting()
+        private void TryApplySetting()
         {
             var gothicIni = _configService?.Gothic;
             if (gothicIni == null || _rig?.Camera == null)
-                return false;
+                return;
 
             var mode = (ColorVisionMode)Mathf.Clamp(gothicIni.GetInt(VRConstants.IniNames.ColorVision,
                 VRConstants.ColorVisionDefaultValue), 0, (int)ColorVisionMode.Tritanopia);
             _colorVisionService.SetMode(mode, _rig.Camera);
-            return true;
         }
     }
 }
