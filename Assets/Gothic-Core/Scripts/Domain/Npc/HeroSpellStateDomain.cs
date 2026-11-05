@@ -25,7 +25,7 @@ namespace Gothic.Core.Domain.Npc
     /// the hero to sleep again and again. The hero can't move until the spell's time (SPL_TIME_SLEEP/FREEZE) is over;
     /// damage wakes a sleeping hero (B_StopMagicSleep).
     /// DeveloperConfig.EnableHeroSleepBody: asleep, the spell's effect on its target (emFXCollDyn of spellFX_Sleep, the
-    /// "z"s) floats over the hero's head; VRHeroBody lets the body fall asleep.
+    /// "z"s) floats over the hero's head; the VR hero body falls asleep (HeroSpellStateChanged, VrHeroDownPose).
     /// Owned by NpcAiService.
     /// </summary>
     public class HeroSpellStateDomain
@@ -106,6 +106,7 @@ namespace Gothic.Core.Domain.Npc
             if (!wasActive)
                 _unityMonoService.StartCoroutine(WatchState());
             Logger.Log($"[HeroSpellState] Hero in {stateName} for {seconds} s", LogCat.Fight);
+            GlobalEventDispatcher.HeroSpellStateChanged.Invoke(hero, stateName);
         }
 
         private IEnumerator WatchState()
@@ -169,6 +170,7 @@ namespace Gothic.Core.Domain.Npc
             }
             _contextInteractionService.UnlockPlayer(PlayerLocks.SpellState);
             Logger.Log($"[HeroSpellState] Hero out of {_stateName} ({reason})", LogCat.Fight);
+            GlobalEventDispatcher.HeroSpellStateChanged.Invoke(_hero, null);
         }
     }
 }

@@ -19,6 +19,19 @@ namespace Gothic.Core.Const
             public const string HeroDeath = "heroDeath";
         }
 
+        public static class Items
+        {
+            /// <summary>
+            /// The engine knows the lock pick by its instance name - G1 ItKeLockpick, G2 ItKe_Lockpick (mods keep it).
+            /// Keys are named by the lock itself (its Key).
+            /// </summary>
+            public static bool IsLockPick(string instanceName)
+            {
+                return string.Equals(instanceName, "ItKeLockpick", System.StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(instanceName, "ItKe_Lockpick", System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         public static class Animations
         {
             public const string RootBoneName = "BIP01";

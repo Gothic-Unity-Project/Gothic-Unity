@@ -17,8 +17,6 @@ MonoBehaviour:
   PreSelectMod: 0
   ModIni: 
   ModPath: 
-  EnableGameProfiles: 0
-  GameProfiles: []
   GameControls: 0
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
@@ -78,12 +76,6 @@ MonoBehaviour:
   TimeSpeedMultiplier: 1
   EnableVrHeroBody: 1
   EnableHeroHands: 1
-  HeroHandsRollDegrees: 0
-  HeroHandsHoldShift: 0.3
-  EnableHeroFallCamera: 1
-  EnableKnockoutTurning: 1
-  HandLightInfluence: 0.3
-  HandSkinTint: {r: 0.78, g: 0.58, b: 0.48, a: 1}
   EnableEquipItems: 1
   EnableBackpackEquipToggle: 1
   EnableItemDetailsPopup: 1
@@ -124,7 +116,6 @@ MonoBehaviour:
   EnableWindfistThrow: 1
   EnableRoutinePerceptionReset: 1
   EnableProclaimFromAfar: 1
-  EnableFaceAnimations: 1
   EnableAnimationPfx: 1
   EnableVisualFxLights: 1
   EnableVisualFxEarthquake: 1
