@@ -288,36 +288,11 @@ namespace Gothic.Core.Models.Config
                  "animations, the arms reach for the VR hands (simple IK). The model's hands and head are hidden.")]
         public bool EnableVrHeroBody = true;
 
-        [Tooltip("Immersion option \"Hero's hands\" (ini heroHands, off by default): with the VR hero body, the hero's " +
+        [Tooltip("Immersion option \"Hero's hands\" (ini heroHands, on by default): with the VR hero body, the hero's " +
                  "own fists (gloves of his armor) are the VR hands - turned like the controllers, the VR hand models " +
                  "hidden. Before a world is loaded (menus) the VR hands stay.")]
         public bool EnableHeroHands = true;
 
-        [Tooltip("Turn of the hero fists' thumbs around their fingers, outwards (degrees, EnableHeroHands). 0 = thumb up " +
-                 "like the VR hand's. Read every frame - tune it while playing.")]
-        [Range(-180f, 180f)]
-        public float HeroHandsRollDegrees;
-
-        [Tooltip("Share of the way from the hand's attach point to the fist's palm slot (ZS_RIGHTHAND/ZS_LEFTHAND) held " +
-                 "items are moved, at most 4 cm. 0 = the attach point itself, 1 = the palm slot (too far).")]
-        [Range(0f, 1f)]
-        public float HeroHandsHoldShift = 0.3f;
-
-        [Tooltip("Knocked out / dead, the VR hero body falls (T_Stand_2_WoundedB, T_DeadB) and the camera goes down " +
-                 "with its head and up again when he stands up - where you look is never taken from you.")]
-        public bool EnableHeroFallCamera = true;
-
-        [Tooltip("A knocked out hero can't walk but can still turn with the stick (snap/smooth turn) - seated players " +
-                 "couldn't look around.")]
-        public bool EnableKnockoutTurning = true;
-
-        [Tooltip("How much the world's lights color the VR hands (0..1, 1 = fully lit like before). The rest is their own " +
-                 "skin color - fully lit they turned purple, white or orange.")]
-        [Range(0f, 1f)]
-        public float HandLightInfluence = 0.3f;
-
-        [Tooltip("Skin color of the VR hands (multiplies the hand texture) - like the hero body's arm.")]
-        public Color HandSkinTint = new(0.78f, 0.58f, 0.48f, 1f);
 
 
         /**
@@ -488,7 +463,8 @@ namespace Gothic.Core.Models.Config
         public float SpellThrowFullSwingSpeed = 6f;
 
         [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
-                 "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
+                 "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head - with the Immersion option 'Fall with " +
+                 "the body') and the sleep effect floats over his head.")]
         public bool EnableHeroSleepBody = true;
 
         [Tooltip("Chasing NPCs run along a NavMesh (built at runtime around the hero from world + vob colliders, " +

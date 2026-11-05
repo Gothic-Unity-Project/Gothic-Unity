@@ -32,7 +32,8 @@ namespace Gothic.VR.Adapters.Player
         public bool IsValid => _nodeBones != null;
 
         // The sound events (*eventSFX, *eventSFXGrnd) the body's animations pass -
-        // its steps on the ground, the swim strokes. Only of the animation that leads (weight >= half).
+        // its steps on the ground, the swim strokes. Only of the animation that leads (weight >= half): while two
+        // animations crossfade (walk -> run) both passed their steps - double footsteps.
         public event Action<IEventSoundEffect> SoundEvent;
         private const float _soundEventMinWeight = 0.5f;
         public string MdsBase => _mdsBase;
@@ -95,6 +96,15 @@ namespace Gothic.VR.Adapters.Player
             var track = GetTrack(animationName);
             return track != null && _layers.Count > 0 && _layers[^1].Track == track && !track.IsLooping &&
                    _layers[^1].Time >= track.Duration;
+        }
+
+        /// <summary>
+        /// The animation is the current one and fully blended in.
+        /// </summary>
+        public bool IsPlaying(string animationName)
+        {
+            var track = GetTrack(animationName);
+            return track != null && _layers.Count > 0 && _layers[^1].Track == track && _layers[^1].Weight >= 1f;
         }
 
         private AnimationTrack GetTrack(string animationName) =>

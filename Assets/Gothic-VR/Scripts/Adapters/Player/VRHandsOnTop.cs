@@ -70,7 +70,7 @@ namespace Gothic.VR.Adapters.Player
         {
             for (var i = 0; i < _handRenderers.Length; i++)
             {
-                // The current material, not the one at Start: VRHandSkinLight tints copies of it per world.
+                // The current material, not the one at Start: it can be swapped meanwhile (e.g. the ghost hands).
                 if (onTop && _handRenderers[i].sharedMaterial != _onTopMaterialCopy)
                     _originalMaterials[i] = _handRenderers[i].sharedMaterial;
                 _handRenderers[i].sharedMaterial = onTop ? _onTopMaterialCopy : _originalMaterials[i];

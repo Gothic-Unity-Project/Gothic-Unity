@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 221434347929742982}
   - component: {fileID: 786056569404290700}
   - component: {fileID: 7188846223050807764}
+  - component: {fileID: 5934216188582627016}
   m_Layer: 6
   m_Name: BIP01 DOORANGLE
   m_TagString: Untagged
@@ -257,6 +258,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d53defac19fbb474d81910e60e275fd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.XriInteractableBridge
+  _grabTriggers: []
 --- !u!114 &7188846223050807764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -282,6 +284,18 @@ MonoBehaviour:
   _maxSwingSpeed: 180
   _unlockPushSpeed: 60
   _breakDistance: 1
+--- !u!114 &5934216188582627016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 980716176992391296}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69b05f042c74f9741baa68dc163f7e56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.GothicTwoHandGrabTransformer
 --- !u!1 &1222579370199367537
 GameObject:
   m_ObjectHideFlags: 0
