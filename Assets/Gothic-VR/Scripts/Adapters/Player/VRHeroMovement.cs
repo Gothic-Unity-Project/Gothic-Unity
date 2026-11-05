@@ -7,6 +7,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Audio;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -25,6 +26,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly GroundSoundService _groundSoundService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         // DeveloperConfig.EnableFootstepSounds: the hero's own steps - Gothic's RUN_<ground> every stride of the way
         // walked (the VR body plays no step events; a timer stepped on while the run state lingered after a tap).
@@ -207,11 +209,11 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // Crouched = sneaking.
-            // Lying or standing up (VRHeroBody's fall camera lowers the head) isn't sneaking - an NPC asked "why are you
+            // Lying or standing up (the VR hero body's fall camera lowers the head) isn't sneaking - an NPC asked "why are you
             // sneaking around" while the hero got up.
             // Like the engine (OpenGothic Npc::canSneak) only with the sneak
             // talent - without it a crouching hero just walks: guards turn to him, Lukis hears him coming.
-            if (_rig.IsCrouching && !VRHeroBody.IsHeroDown &&
+            if (_rig.IsCrouching && !_vrPlayerService.IsHeroBodyDown &&
                 CanHeroSneak(heroInstance))
             {
                 props.BodyState = VmGothicEnums.BodyState.BsSneak;
