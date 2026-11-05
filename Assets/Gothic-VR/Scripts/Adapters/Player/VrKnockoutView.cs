@@ -14,8 +14,9 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// What the VR player sees while the hero is knocked out (GlobalEventDispatcher.HeroKnockedOut): a heavy grey veil
     /// that clears while the time runs - it's the timer - and a slow heartbeat in both controllers. The VR hero body
-    /// (VRHeroBody, EnableHeroFallCamera) lowers the camera with the falling body. Without it, the view fades out and
-    /// comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at the normal height.
+    /// (VRHeroBody, Immersion option "Fall with the body") lowers the camera with the falling body. Without it, the
+    /// view fades out and comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at
+    /// the normal height.
     /// The view is only lowered, never turned: tilting the world makes players sick.
     /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
     /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be
@@ -28,22 +29,19 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Material with the Gothic/VR Screen Fade shader. A copy is used, drawn just below the screen fade.")]
         [SerializeField] private Material _material;
-        [Tooltip("Color of the veil. Its alpha is ignored.")]
-        [SerializeField] private Color _veilColor = new(0.3f, 0.3f, 0.3f);
-        [Tooltip("Opacity of the veil right after falling down.")]
-        [SerializeField] private float _veilStartAlpha = 0.85f;
-        [Tooltip("Opacity of the veil just before getting up.")]
-        [SerializeField] private float _veilEndAlpha = 0.15f;
-        [Tooltip("Seconds the view takes to close to black from the edges after the hero's death.")]
-        [SerializeField] private float _deathCloseSeconds = 3f;
-        [Tooltip("Camera height in m above the floor while lying - only without the VR hero body.")]
-        [SerializeField] private float _lyingEyeHeight = 0.3f;
-        [Tooltip("Speed of the fades to black and back, in alpha per second.")]
-        [SerializeField] private float _fadeSpeed = 3f;
-        [Tooltip("Seconds between two heartbeats.")]
-        [SerializeField] private float _heartbeatInterval = 1.2f;
-        [Tooltip("Strength of a heartbeat, 0..1 of the Contact vibration.")]
-        [SerializeField] private float _heartbeatAmplitude = 0.4f;
+        // Color of the veil (its alpha is ignored) and its opacity right after falling down / just before getting up.
+        private static readonly Color _veilColor = new(0.3f, 0.3f, 0.3f);
+        private const float _veilStartAlpha = 0.85f;
+        private const float _veilEndAlpha = 0.15f;
+        // Seconds the view takes to close to black from the edges after the hero's death.
+        private const float _deathCloseSeconds = 3f;
+        // Camera height in m above the floor while lying - only without the VR hero body.
+        private const float _lyingEyeHeight = 0.3f;
+        // Speed of the fades to black and back, in alpha per second.
+        private const float _fadeSpeed = 3f;
+        // Seconds between two heartbeats and their strength (0..1 of the Contact vibration).
+        private const float _heartbeatInterval = 1.2f;
+        private const float _heartbeatAmplitude = 0.4f;
         [Tooltip("Veil cube around the head (child with the builtin cube mesh, UI layer, no shadows/probes). Its " +
                  "scale is the edge length in m: both eyes and their near clip plane fit in.")]
         [SerializeField] private MeshRenderer _veilRenderer;

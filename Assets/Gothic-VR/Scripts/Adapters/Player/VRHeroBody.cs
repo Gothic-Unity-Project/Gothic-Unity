@@ -30,7 +30,8 @@ namespace Gothic.VR.Adapters.Player
     /// (VrHeroBodyMeshCutter) and the bare forearms of the hero's naked body mesh are skinned to the same skeleton
     /// instead, so the backpack's slots aren't hidden.
     /// Workers: VrHeroHands (the hero's fists as the VR hands, held items, arms on top), VrHeroDownPose (knocked out /
-    /// dead body and camera, EnableHeroFallCamera), VrHeroBodyMeshCutter (mesh cuts), VrHeroArmIk (arms).
+    /// dead body and camera, Immersion option "Fall with the body"), VrHeroBodyMeshCutter (mesh cuts), VrHeroArmIk
+    /// (arms). The crouch button lowers the camera to the eyes of its sneak pose (IVrRig.CrouchHeightOverride).
     /// </summary>
     public class VRHeroBody : MonoBehaviour
     {
@@ -117,25 +118,22 @@ namespace Gothic.VR.Adapters.Player
         private const string _walkBackAnimation = "S_WALKBL";
         private const string _fallAnimation = "S_FALLDN";
 
-        // DeveloperConfig.EnableHeroFallCamera: knocked out / dead body and camera.
+        // Knocked out / dead body and camera (Immersion option "Fall with the body").
         private VrHeroDownPose _downPose;
 
 
+        // The eye height of the sneak pose at scale 1 (S_SNEAK, measured once per built body), -1 = not yet.
+        private float _sneakEyeHeight = -1f;
+        private const string _sneakAnimation = "S_SNEAK";
+
+        private SkinnedMeshRenderer _bodyRenderer;
+
         /// <summary>
-        /// The body's skinned mesh - spell effects with shpType MESH emit from it (teleport silhouette).
+        /// The body's skinned mesh while it's shown - spell effects with shpType MESH emit from it (teleport
+        /// silhouette). Found once when the body is built.
         /// </summary>
-        public SkinnedMeshRenderer BodyRenderer
-        {
-            get
-            {
-                foreach (var r in _renderers)
-                {
-                    if (r is SkinnedMeshRenderer skinned && r.enabled)
-                        return skinned;
-                }
-                return null;
-            }
-        }
+        public SkinnedMeshRenderer BodyRenderer =>
+            _bodyRenderer != null && _bodyRenderer.enabled ? _bodyRenderer : null;
 
         private void Awake()
         {
@@ -162,6 +160,8 @@ namespace Gothic.VR.Adapters.Player
             _hands.RestoreHeldItemAttachPoints();
             _meshCutter.DestroyCreatedMeshes();
             _hands.Dispose();
+            if (_rig != null)
+                _rig.CrouchHeightOverride = null;
         }
 
         private void OnDisable()
@@ -245,6 +245,7 @@ namespace Gothic.VR.Adapters.Player
                 Quaternion.LookRotation(forward));
 
             UpdateAnimation(hero, scale, isCrouching);
+            UpdateCrouchHeight(rig, scale);
 
             // The neck right under the goggles (and a bit behind them), whatever the model's root/bone layout or
             // animation pose is - sneaking leans the torso forward, it must not come into the view.
@@ -257,10 +258,33 @@ namespace Gothic.VR.Adapters.Player
             SolveArms();
         }
 
+        /// <summary>
+        /// The crouch button takes the camera to the eyes of the sneak pose (S_SNEAK): lower, the neck under the
+        /// goggles pushed the body's feet into the floor. Measured from the body's own root once the pose is fully
+        /// blended in - whatever the camera does meanwhile. The first crouch of a body starts at the rig's own height.
+        /// </summary>
+        private void UpdateCrouchHeight(IVrRig rig, float scale)
+        {
+            if (_headBone == null || _animator == null || !_animator.IsValid)
+                return;
+
+            if (_sneakEyeHeight < 0f && _animator.IsPlaying(_sneakAnimation))
+            {
+                var headHeight = _body.transform.InverseTransformPoint(_headBone.position).y;
+                _sneakEyeHeight = headHeight + _neckBelowEyes;
+                Logger.Log($"[VRHeroBody] Sneak pose: eyes {_sneakEyeHeight:F2} m above the feet (scale 1) - the " +
+                           "crouch button's camera height.", LogCat.VR);
+            }
+            if (_sneakEyeHeight < 0f)
+                return;
+
+            var height = _sneakEyeHeight * scale;
+            if (!rig.CrouchHeightOverride.HasValue || Mathf.Abs(rig.CrouchHeightOverride.Value - height) > 0.01f)
+                rig.CrouchHeightOverride = height;
+        }
+
         private void SolveArms()
         {
-            _leftArm.FistRoll = _configService.Dev.HeroHandsRollDegrees;
-            _rightArm.FistRoll = _configService.Dev.HeroHandsRollDegrees;
             GetSecondHandGripPoses(out var leftGrip, out var rightGrip);
             _leftArm.Solve(_vrPlayerService.GetHandModelGo(VrHandSide.Left), _body.transform, _rig?.LeftHand,
                 leftGrip);
@@ -531,6 +555,8 @@ namespace Gothic.VR.Adapters.Player
             _handMeshes.Clear();
             _armRenderers.Clear();
             _renderers.Clear();
+            _bodyRenderer = null;
+            _sneakEyeHeight = -1f;
             _sleeveMeshes.Clear();
             _bareForearms.Clear();
             _bareForearmMeshes.Clear();
@@ -560,7 +586,11 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(collider);
             _renderers.AddRange(_body.GetComponentsInChildren<Renderer>(true));
             foreach (var r in _renderers)
+            {
                 r.shadowCastingMode = ShadowCastingMode.Off;
+                if (_bodyRenderer == null && r is SkinnedMeshRenderer skinnedRenderer)
+                    _bodyRenderer = skinnedRenderer;
+            }
 
             var bones = new Dictionary<string, Transform>();
             foreach (var bone in _body.GetComponentsInChildren<Transform>(true))

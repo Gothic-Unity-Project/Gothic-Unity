@@ -106,7 +106,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [SerializeField]
         private float _eyeHeight = 1.66f;
 
-        [Tooltip("Camera height in m while crouching.")] [SerializeField]
+        [Tooltip("Camera height in m while crouching - without CrouchHeightOverride (the VR hero body's sneak pose).")]
+        [SerializeField]
         private float _crouchHeight = 0.7f;
 
         [Tooltip("Speed in m/s of the camera moving down/up when crouching starts/ends.")] [SerializeField]
@@ -190,6 +191,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// The crouch button, or the camera this low (head held low in reality, the toggle's _crouchHeight).
         /// </summary>
         public bool IsCrouching => _isCrouching || CameraHeight <= _crouchHeight + _crouchDetectionMargin;
+
+        public float? CrouchHeightOverride { get; set; }
 
         /// <summary>
         /// Added to the camera offset on top of crouching (UpdateCrouch).
@@ -591,13 +594,14 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             // The camera offset's height is owned by XROrigin (CameraYOffset in Device mode, 0 in Floor mode).
             // The player's height offset moves it up/down, crouching moves it down on top, so that the camera ends
-            // at _crouchHeight. The CharacterController follows the camera height on its next move
-            // (XriBodyManipulator).
+            // at _crouchHeight (or CrouchHeightOverride). The CharacterController follows the camera height on its next
+            // move (XriBodyManipulator).
             var baseOffset = GetTrackingOriginMode() == TrackingOriginModeFlags.Floor
                 ? 0f
                 : _origin.CameraYOffset;
             var standingCameraHeight = CameraHeight + _crouchOffset;
-            var targetHeight = _eyeHeightOverride ?? (_isCrouching ? _crouchHeight : (float?)null);
+            var targetHeight = _eyeHeightOverride ??
+                               (_isCrouching ? CrouchHeightOverride ?? _crouchHeight : (float?)null);
             var targetOffset = targetHeight.HasValue ? Mathf.Max(0f, standingCameraHeight - targetHeight.Value) : 0f;
             _crouchOffset = _isEyeHeightJumpPending
                 ? targetOffset

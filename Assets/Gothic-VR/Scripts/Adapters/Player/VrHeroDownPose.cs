@@ -17,7 +17,8 @@ using Object = UnityEngine.Object;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableHeroFallCamera: knocked out (HeroKnockedOut) or dead (HeroDied) the body falls on its
+    /// Immersion option "Fall with the body" (ini heroFallCamera, on by default): knocked out (HeroKnockedOut) or dead
+    /// (HeroDied) the body falls on its
     /// back (T_STAND_2_WOUNDEDB, S_WOUNDEDB / T_DEADB, S_DEADB) and stands up again (HeroRecovered:
     /// T_WOUNDEDB_2_STAND). The camera follows the animated head down and up - only its height (IVrRig.CameraYOffset,
     /// like a transformation); the body lies out from under it, so the view never moves sideways and where you look
@@ -65,6 +66,7 @@ namespace Gothic.VR.Adapters.Player
         private float _downStartEyeHeight = -1f;
         private bool _isMenuOpen;
         private bool _isEnabled = true;
+        private bool _isOptionOn = true;
         private Transform[] _bodyBones;
 
         private GameObject _body;
@@ -95,6 +97,8 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.AddListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.AddListener(OnMenuClosed);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            ReadOption();
         }
 
         public void Dispose()
@@ -105,6 +109,7 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.RemoveListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.RemoveListener(OnMenuClosed);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             EndDown();
             _body = null;
             _vrPlayerService.IsFallCameraOnHeroBody = false;
@@ -136,10 +141,23 @@ namespace Gothic.VR.Adapters.Player
             UpdateFallCameraOwner();
         }
 
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.HeroFallCamera)
+                ReadOption();
+        }
+
+        private void ReadOption()
+        {
+            _isOptionOn = _configService.Gothic == null ||
+                          _configService.Gothic.GetInt(VRConstants.IniNames.HeroFallCamera,
+                              VRConstants.HeroFallCameraDefaultValue) == 1;
+            UpdateFallCameraOwner();
+        }
+
         private void UpdateFallCameraOwner()
         {
-            _vrPlayerService.IsFallCameraOnHeroBody = _isEnabled && _body != null &&
-                                                      _configService.Dev.EnableHeroFallCamera &&
+            _vrPlayerService.IsFallCameraOnHeroBody = _isEnabled && _isOptionOn && _body != null &&
                                                       _animator != null && _animator.IsValid && _headBone != null;
         }
 
@@ -188,7 +206,7 @@ namespace Gothic.VR.Adapters.Player
                 EndDown();
                 return false;
             }
-            if (!_configService.Dev.EnableHeroFallCamera || _body == null || _animator == null ||
+            if (!_isOptionOn || _body == null || _animator == null ||
                 !_animator.IsValid || _headBone == null || standingScale <= 0f)
             {
                 EndDown();

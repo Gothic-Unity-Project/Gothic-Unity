@@ -125,9 +125,6 @@ namespace Gothic.VR.Services.Context
                     Logger.LogError($"[VRContextInteractionService] Hero body prefab >{_heroBodyPrefabPath}< not " +
                                     "found. No VR hero body.", LogCat.VR);
             }
-
-            // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
-            VRHandSkinLight.Apply(_configService);
         }
 
         private void OnLoadingSceneLoaded()

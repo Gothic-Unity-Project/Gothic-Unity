@@ -40,6 +40,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<Transform, Vector3> _attachDefaultPositions = new();
         private readonly Dictionary<Transform, Vector3> _attachShiftedPositions = new();
         private const float _maxHoldShift = 0.04f;
+        // Share of the way from the hand's attach point to the fist's palm slot - 1 (the slot itself) is too far.
+        private const float _holdShift = 0.3f;
 
         /// <summary>
         /// The option is on (DeveloperConfig.EnableHeroHands and the Immersion option "Hero's hands").
@@ -164,7 +166,7 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// With the hero's fists, held items sit a bit more towards the fingers
-        /// (HeroHandsHoldShift of the way to the fist's palm slot ZS_RIGHTHAND/ZS_LEFTHAND, at most _maxHoldShift) - at
+        /// (_holdShift of the way to the fist's palm slot ZS_RIGHTHAND/ZS_LEFTHAND, at most _maxHoldShift) - at
         /// the block hand's attach point a coin lay on the knuckles. The shift is taken once when the fists show and
         /// stays fixed (moving the attach point every frame broke grabbing); back to its own spot without the fists.
         /// </summary>
@@ -199,7 +201,7 @@ namespace Gothic.VR.Adapters.Player
                 {
                     var defaultWorld = attach.parent.TransformPoint(defaultPosition);
                     var shift = Vector3.ClampMagnitude((slot.position - defaultWorld) *
-                                                       _configService.Dev.HeroHandsHoldShift, _maxHoldShift);
+                                                       _holdShift, _maxHoldShift);
                     shiftedPosition = attach.parent.InverseTransformPoint(defaultWorld + shift);
                     _attachShiftedPositions[attach] = shiftedPosition;
                     Logger.Log($"[VRHeroBody] {hand.Side} hand holds {shift.magnitude * 100f:F1} cm towards the " +

@@ -293,31 +293,6 @@ namespace Gothic.Core.Models.Config
                  "hidden. Before a world is loaded (menus) the VR hands stay.")]
         public bool EnableHeroHands = true;
 
-        [Tooltip("Turn of the hero fists' thumbs around their fingers, outwards (degrees, EnableHeroHands). 0 = thumb up " +
-                 "like the VR hand's. Read every frame - tune it while playing.")]
-        [Range(-180f, 180f)]
-        public float HeroHandsRollDegrees;
-
-        [Tooltip("Share of the way from the hand's attach point to the fist's palm slot (ZS_RIGHTHAND/ZS_LEFTHAND) held " +
-                 "items are moved, at most 4 cm. 0 = the attach point itself, 1 = the palm slot (too far).")]
-        [Range(0f, 1f)]
-        public float HeroHandsHoldShift = 0.3f;
-
-        [Tooltip("Knocked out / dead, the VR hero body falls (T_Stand_2_WoundedB, T_DeadB) and the camera goes down " +
-                 "with its head and up again when he stands up - where you look is never taken from you.")]
-        public bool EnableHeroFallCamera = true;
-
-        [Tooltip("A knocked out hero can't walk but can still turn with the stick (snap/smooth turn) - seated players " +
-                 "couldn't look around.")]
-        public bool EnableKnockoutTurning = true;
-
-        [Tooltip("How much the world's lights color the VR hands (0..1, 1 = fully lit like before). The rest is their own " +
-                 "skin color - fully lit they turned purple, white or orange.")]
-        [Range(0f, 1f)]
-        public float HandLightInfluence = 0.3f;
-
-        [Tooltip("Skin color of the VR hands (multiplies the hand texture) - like the hero body's arm.")]
-        public Color HandSkinTint = new(0.78f, 0.58f, 0.48f, 1f);
 
 
         /**

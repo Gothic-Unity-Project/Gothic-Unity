@@ -59,11 +59,6 @@ namespace Gothic.VR.Adapters.Player
         /// the hand kept its size) - moving the bones apart stretched only the skin between them, the wrist.
         /// </summary>
 
-        /// <summary>
-        /// DeveloperConfig.HeroHandsRollDegrees: turn of the fist's thumb around its fingers, outwards (0 = up).
-        /// </summary>
-        public float FistRoll { get; set; }
-
         public VrHeroArmIk(string side)
         {
             _side = side;
@@ -273,15 +268,14 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         /// <summary>
         /// The fist where the VR hand is (its middle at the hand's position), turned like the controller: fingers
-        /// along the controller's forward, the thumb along its up (DeveloperConfig.HeroHandsRollDegrees turns it).
+        /// along the controller's forward, the thumb along its up.
         /// </summary>
         private void SolveFist(Vector3 handPosition, Transform body, Quaternion handRotation)
         {
             ResetStretch();
 
             var fingers = handRotation * Vector3.forward;
-            var thumb = Quaternion.AngleAxis(_side == "L" ? FistRoll : -FistRoll, fingers) *
-                        (handRotation * Vector3.up);
+            var thumb = handRotation * Vector3.up;
             var rotation = Quaternion.LookRotation(fingers, thumb) * Quaternion.Inverse(_handAxesLocal);
             var scale = _hand.lossyScale.x;
             var wrist = handPosition - fingers * (_fistLength * scale * 0.5f);

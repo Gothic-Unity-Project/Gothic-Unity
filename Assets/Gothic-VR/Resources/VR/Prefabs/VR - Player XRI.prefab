@@ -1321,14 +1321,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VrKnockoutView
   _material: {fileID: 2100000, guid: a1f4f8da7cd546f4b93f709efaea8dc1, type: 2}
-  _veilColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
-  _veilStartAlpha: 0.85
-  _veilEndAlpha: 0.15
-  _deathCloseSeconds: 3
-  _lyingEyeHeight: 0.3
-  _fadeSpeed: 3
-  _heartbeatInterval: 1.2
-  _heartbeatAmplitude: 0.4
   _veilRenderer: {fileID: 2506502799574332186}
 --- !u!1 &4284475928212711861
 GameObject:
