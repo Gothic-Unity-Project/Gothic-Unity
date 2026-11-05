@@ -529,6 +529,10 @@ namespace Gothic.Core.Models.Config
                  "stairs and planks shone like the day next to the dark walls.")]
         public bool EnableVobWorldLight = true;
 
+        [Tooltip("Light mapped world polygons (caves, mines, houses) show Gothic's lightmaps like the engine - " +
+                 "without, they have only their dim/black vertex light. One more texture array (Quest memory).")]
+        public bool EnableWorldLightmaps = true;
+
         [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;

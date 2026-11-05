@@ -127,6 +127,7 @@ MonoBehaviour:
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
   EnableVobWorldLight: 1
+  EnableWorldLightmaps: 1
   WorldLightmapBrightness: 1
   EnableHeroSpellStates: 1
   EnableVrChainLightning: 1

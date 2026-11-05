@@ -26,6 +26,8 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly SaveGameService _saveGameService;
 
+        // The light of indoor worlds (no sun, no fog) - like the night.
+        private static readonly Color _indoorLight = new(0.25f, 0.25f, 0.3f);
 
         private Vector3 _sunDirection;
         private bool _isRaining;
@@ -124,7 +126,18 @@ namespace Gothic.Core.Services.World
             RenderSettings.skybox = Object.Instantiate(_textureService.SkyMaterial);
             InitRainGo();
             InitSky();
+            if (IsIndoorDarkness)
+            {
+                RenderSettings.fog = false;
+                Logger.Log("[Sky] Indoor world - no sun, no fog", LogCat.Vob);
+            }
         }
+
+        /// <summary>
+        /// An indoor BSP world (Old Mine, Free Mine, Orc Temple, mod caves).
+        /// The engine's indoor sky controller has no sun and no fog there - our sun lit the mines like the day.
+        /// </summary>
+        private bool IsIndoorDarkness => _isIndoorWorld;
 
         /// <summary>
         /// We need to initialize sky with its colors to show mesh textures.
@@ -159,7 +172,7 @@ namespace Gothic.Core.Services.World
             });
 
 
-            RenderSettings.fog = true;
+            RenderSettings.fog = !IsIndoorDarkness;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.ambientMode = AmbientMode.Flat;
             InitRainState();
@@ -343,10 +356,12 @@ namespace Gothic.Core.Services.World
         {
             _polyColor = polyColor;
             // Indoor worlds (e.g. G1's Old Mine, Orc Temple) have no day/night - like in Gothic.
-            var dayLight = _isIndoorWorld ? Color.white : polyColor;
+            // Indoors no sun - the engine's indoor sky lit the mines like the night.
+            var dayLight = _isIndoorWorld ? (IsIndoorDarkness ? _indoorLight : Color.white) : polyColor;
 
             Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
-            Shader.SetGlobalColor(_sunColorShaderId, _configService.Dev.SunLightColor * dayLight);
+            Shader.SetGlobalColor(_sunColorShaderId,
+                IsIndoorDarkness ? Color.black : _configService.Dev.SunLightColor * dayLight);
             Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor * dayLight);
         }
 
@@ -367,6 +382,7 @@ namespace Gothic.Core.Services.World
         private void InitRainGo()
         {
             // by default rainPFX is disabled so we need to find the parent and activate it
+            // Rain.prefab follows the player's head (RainFollower).
             var rainParticlesGameObject = GameObject.Find("Rain").FindChildRecursively("RainParticles");
             rainParticlesGameObject.SetActive(true);
             _rainParticleSystem = rainParticlesGameObject.GetComponent<ParticleSystem>();
