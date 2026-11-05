@@ -436,7 +436,7 @@ namespace Gothic.VR.Interaction.Components
         {
             // A held lock pick or key passes through the door/chest into
             // its lock until it's out again - the body of the door or chest stopped it before the lock.
-            if (isHeldItem && IsLockTool(_heldBody) && IsLockable(collision.collider))
+            if (isHeldItem && IsLockToolOf(_heldBody, collision.collider))
             {
                 foreach (var heldCollider in _heldColliders)
                     _heldPassThrough.Add(heldCollider, collision.collider);
@@ -468,24 +468,39 @@ namespace Gothic.VR.Interaction.Components
             GlobalEventDispatcher.PhysicalHandContact.Invoke((int)_side, speed);
         }
 
-        private static bool IsLockable(Collider other)
-        {
-            var vob = other != null
-                ? other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob
-                : null;
-            return vob is ZenKit.Vobs.IContainer or ZenKit.Vobs.IDoor;
-        }
-
         /// <summary>
-        /// Lock picks and keys - G1 and G2 name them all ITKE_* (ItKe_Lockpick, ItKe_Orlan_HotelZimmer, ...).
+        /// The held item opens the touched door/chest like in the engine: it's the key the lock names (Key - any
+        /// name, G1's ItKey_RB_01 too), or the lock pick and the lock has a combination (PickString).
         /// </summary>
-        private static bool IsLockTool(Rigidbody body)
+        private static bool IsLockToolOf(Rigidbody body, Collider other)
         {
-            var vob = body != null
-                ? body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as ZenKit.Vobs.IItem
-                : null;
-            var instance = vob?.GetSymbolName();
-            return instance != null && instance.StartsWith("ITKE_", StringComparison.OrdinalIgnoreCase);
+            if (body == null || other == null)
+                return false;
+
+            string key;
+            string pickString;
+            switch (other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob)
+            {
+                case ZenKit.Vobs.IContainer container:
+                    key = container.Key;
+                    pickString = container.PickString;
+                    break;
+                case ZenKit.Vobs.IDoor door:
+                    key = door.Key;
+                    pickString = door.PickString;
+                    break;
+                default:
+                    return false;
+            }
+
+            var item = body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as
+                ZenKit.Vobs.IItem;
+            var instance = item?.GetSymbolName();
+            if (string.IsNullOrEmpty(instance))
+                return false;
+
+            return (!string.IsNullOrEmpty(key) && instance.Equals(key, StringComparison.OrdinalIgnoreCase)) ||
+                   (!string.IsNullOrEmpty(pickString) && Gothic.Core.Const.Constants.Items.IsLockPick(instance));
         }
 
         private bool IsBlocking(Rigidbody other)

@@ -162,6 +162,17 @@ namespace Gothic.VR.Interaction.Ports
         }
 
         /// <summary>
+        /// Camera height in m above the floor while the crouch button is on, null = the rig's own. The VR hero body
+        /// sets the eye height of its sneak pose - lower, its neck under the goggles pushed its feet into the floor.
+        /// Default: not supported.
+        /// </summary>
+        float? CrouchHeightOverride
+        {
+            get => null;
+            set { }
+        }
+
+        /// <summary>
         /// Holds the camera at this height in m above the floor (the hero lying on the ground without the VR hero
         /// body), null ends it. The camera jumps there in the next frame, so it's set behind a fade. Head tracking keeps
         /// working on top. Default: not supported, the camera stays.

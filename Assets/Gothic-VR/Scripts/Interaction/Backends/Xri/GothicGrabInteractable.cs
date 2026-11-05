@@ -1,3 +1,4 @@
+using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -5,6 +6,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 using UnityEngine.XR.Interaction.Toolkit.Transformers;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Interaction.Backends.Xri
 {
@@ -37,6 +39,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private RigidbodyInterpolation _interpolationBeforeGrab;
         private bool _isInterpolationOverridden;
         private bool _isSocketDetach;
+        private bool _isTwoHandTransformerMissingLogged;
 
         // A hand this close (m) to the item's colliders grabs it when distance grabs are off.
         private const float _nearGrabDistance = 0.25f;
@@ -66,8 +69,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             base.Awake();
             _bridge = GetComponent<XriInteractableBridge>();
-
-            gameObject.AddComponent<GothicTwoHandGrabTransformer>();
         }
 
         /// <summary>
@@ -200,7 +201,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private void UseTwoHandTransformer()
         {
             if (!TryGetComponent<GothicTwoHandGrabTransformer>(out _))
+            {
+                // Its prefab has none (tests build theirs in code): XRI's general transformer holds it with two hands.
+                if (!_isTwoHandTransformerMissingLogged)
+                {
+                    _isTwoHandTransformerMissingLogged = true;
+                    Logger.LogWarning($"[XRI] {name}: no {nameof(GothicTwoHandGrabTransformer)} - two hands use " +
+                                      "XRI's general transformer.", LogCat.VR);
+                }
                 return;
+            }
 
             foreach (var transformer in GetComponents<XRGeneralGrabTransformer>())
                 RemoveMultipleGrabTransformer(transformer);

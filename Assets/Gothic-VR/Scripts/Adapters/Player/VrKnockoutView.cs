@@ -5,6 +5,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Services;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -13,8 +14,9 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// What the VR player sees while the hero is knocked out (GlobalEventDispatcher.HeroKnockedOut): a heavy grey veil
     /// that clears while the time runs - it's the timer - and a slow heartbeat in both controllers. The VR hero body
-    /// (VRHeroBody, EnableHeroFallCamera) lowers the camera with the falling body. Without it, the view fades out and
-    /// comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at the normal height.
+    /// (VRHeroBody, Immersion option "Fall with the body") lowers the camera with the falling body. Without it, the
+    /// view fades out and comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at
+    /// the normal height.
     /// The view is only lowered, never turned: tilting the world makes players sick.
     /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
     /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be
@@ -27,24 +29,22 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Material with the Gothic/VR Screen Fade shader. A copy is used, drawn just below the screen fade.")]
         [SerializeField] private Material _material;
-        [Tooltip("Color of the veil. Its alpha is ignored.")]
-        [SerializeField] private Color _veilColor = new(0.3f, 0.3f, 0.3f);
-        [Tooltip("Opacity of the veil right after falling down.")]
-        [SerializeField] private float _veilStartAlpha = 0.85f;
-        [Tooltip("Opacity of the veil just before getting up.")]
-        [SerializeField] private float _veilEndAlpha = 0.15f;
-        [Tooltip("Seconds the view takes to close to black from the edges after the hero's death.")]
-        [SerializeField] private float _deathCloseSeconds = 3f;
-        [Tooltip("Camera height in m above the floor while lying - only without the VR hero body.")]
-        [SerializeField] private float _lyingEyeHeight = 0.3f;
-        [Tooltip("Speed of the fades to black and back, in alpha per second.")]
-        [SerializeField] private float _fadeSpeed = 3f;
-        [Tooltip("Seconds between two heartbeats.")]
-        [SerializeField] private float _heartbeatInterval = 1.2f;
-        [Tooltip("Strength of a heartbeat, 0..1 of the Contact vibration.")]
-        [SerializeField] private float _heartbeatAmplitude = 0.4f;
-        [Tooltip("Edge length in m of the veil cube around the head. Both eyes and their near clip plane fit in.")]
-        [SerializeField] private float _size = 0.3f;
+        // Color of the veil (its alpha is ignored) and its opacity right after falling down / just before getting up.
+        private static readonly Color _veilColor = new(0.3f, 0.3f, 0.3f);
+        private const float _veilStartAlpha = 0.85f;
+        private const float _veilEndAlpha = 0.15f;
+        // Seconds the view takes to close to black from the edges after the hero's death.
+        private const float _deathCloseSeconds = 3f;
+        // Camera height in m above the floor while lying - only without the VR hero body.
+        private const float _lyingEyeHeight = 0.3f;
+        // Speed of the fades to black and back, in alpha per second.
+        private const float _fadeSpeed = 3f;
+        // Seconds between two heartbeats and their strength (0..1 of the Contact vibration).
+        private const float _heartbeatInterval = 1.2f;
+        private const float _heartbeatAmplitude = 0.4f;
+        [Tooltip("Veil cube around the head (child with the builtin cube mesh, UI layer, no shadows/probes). Its " +
+                 "scale is the edge length in m: both eyes and their near clip plane fit in.")]
+        [SerializeField] private MeshRenderer _veilRenderer;
 
         // If the hero's recovery never comes (his state changed by a script), the view gets up on its own.
         private const float _recoveryGraceSeconds = 5f;
@@ -58,6 +58,7 @@ namespace Gothic.VR.Adapters.Player
 
         private IVrRig _rig;
         private IVrHaptics _haptics;
+        private VRPlayerService _vrPlayerService;
         private VrMoveVignette _vignette;
         private Material _materialInstance;
         private MeshRenderer _renderer;
@@ -74,7 +75,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void Awake()
         {
-            CreateCube();
+            SetupCube();
         }
 
         private void Start()
@@ -84,6 +85,7 @@ namespace Gothic.VR.Adapters.Player
                 Logger.LogWarning($"[VrKnockoutView] No IVrRig above {name} - knockouts aren't shown.", LogCat.VR);
 
             _haptics = ReflexProjectInstaller.DIContainer.Resolve<IVrHaptics>();
+            _vrPlayerService = ReflexProjectInstaller.DIContainer.Resolve<VRPlayerService>();
             _vignette = GetComponent<VrMoveVignette>();
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
@@ -264,14 +266,13 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The VR hero body lowers the camera itself (VRHeroBody.IsHeroDown, set in its LateUpdate). Without it, the
-        /// view goes down behind a fade.
+        /// The VR hero body lowers the camera itself (VRPlayerService.IsFallCameraOnHeroBody). Without it, the view
+        /// goes down behind a fade.
         /// </summary>
         private IEnumerator LieDown(float veilAlpha)
         {
             SetVeil(veilAlpha);
-            yield return new WaitForEndOfFrame();
-            if (VRHeroBody.IsHeroDown)
+            if (_vrPlayerService.IsFallCameraOnHeroBody)
                 yield break;
 
             yield return FadeToBlack();
@@ -316,35 +317,22 @@ namespace Gothic.VR.Adapters.Player
             _materialInstance.SetColor(_colorId, _currentVeil);
         }
 
-        private void CreateCube()
+        private void SetupCube()
         {
-            if (_material == null)
+            if (_material == null || _veilRenderer == null)
             {
-                Logger.LogError($"[VrKnockoutView] No material assigned on {name}. Knockouts aren't shown.", LogCat.VR);
+                Logger.LogError($"[VrKnockoutView] Material or veil renderer not assigned on {name}. Knockouts " +
+                                "aren't shown.", LogCat.VR);
                 return;
             }
-
-            var cube = new GameObject("KnockoutVeilCube")
-            {
-                layer = Constants.UILayer
-            };
-            cube.transform.SetParent(transform, false);
-            cube.transform.localScale = Vector3.one * _size;
-
-            cube.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
 
             _materialInstance = new Material(_material)
             {
                 // Below the screen fade, so its fades to black cover the veil.
                 renderQueue = _material.renderQueue - 1
             };
-            _renderer = cube.AddComponent<MeshRenderer>();
+            _renderer = _veilRenderer;
             _renderer.sharedMaterial = _materialInstance;
-            _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _renderer.receiveShadows = false;
-            _renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            _renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-            _renderer.allowOcclusionWhenDynamic = false;
             _renderer.enabled = false;
         }
     }
