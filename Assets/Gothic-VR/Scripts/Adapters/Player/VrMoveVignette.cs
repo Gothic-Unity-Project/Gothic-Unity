@@ -12,7 +12,8 @@ namespace Gothic.VR.Adapters.Player
     /// movement, smooth turning, climbing. Head movement, teleports and snap turns don't count. The Gothic.ini option
     /// moveVignette picks the strength (0 = off). The hero's death closes it to black (SetClosureOverride), whatever
     /// the option says.
-    /// Sits on the camera like ScreenFade and draws a disc in front of the eyes with an on-top material.
+    /// Sits on the camera like ScreenFade and draws a disc (child in the prefab) in front of the eyes with an on-top
+    /// material.
     /// </summary>
     public class VrMoveVignette : MonoBehaviour
     {
@@ -26,8 +27,11 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _distance = 1.5f;
         [Tooltip("Degrees from the view's center the disc covers. Beyond the widest headset's field of view.")]
         [SerializeField] private float _coverAngle = 75f;
-        [Tooltip("Layer of the disc. Has to be rendered by the camera.")]
-        [SerializeField] private int _layer = 5;
+        [Tooltip("Disc in front of the eyes (child, on a layer the camera renders, no shadows/probes). Its mesh is " +
+                 "built at runtime from distance and cover angle.")]
+        [SerializeField] private MeshFilter _discFilter;
+        [Tooltip("Renderer of the disc. Gets a copy of the material at runtime.")]
+        [SerializeField] private MeshRenderer _discRenderer;
         [Tooltip("Body speed in m/s at which the vignette is closed completely.")]
         [SerializeField] private float _fullMoveSpeed = 3f;
         [Tooltip("Turn speed in degrees per second at which the vignette is closed completely.")]
@@ -60,7 +64,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void Awake()
         {
-            CreateDisc();
+            SetupDisc();
         }
 
         private void Start()
@@ -78,6 +82,8 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             if (_materialInstance != null)
                 Destroy(_materialInstance);
+            if (_discFilter != null && _discFilter.sharedMesh != null)
+                Destroy(_discFilter.sharedMesh);
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
@@ -159,32 +165,23 @@ namespace Gothic.VR.Adapters.Player
             _materialInstance.SetFloat(_apertureId, Mathf.Lerp(1f, closedAperture, _strength));
         }
 
-        private void CreateDisc()
+        private void SetupDisc()
         {
-            if (_material == null)
+            if (_material == null || _discFilter == null || _discRenderer == null)
             {
-                Logger.LogError($"[VrMoveVignette] No material assigned on {name}. No vignette.", LogCat.VR);
+                Logger.LogError($"[VrMoveVignette] Material, disc filter or disc renderer not assigned on {name}. " +
+                                "No vignette.", LogCat.VR);
                 return;
             }
 
-            var disc = new GameObject("MoveVignetteDisc")
-            {
-                layer = _layer
-            };
-            disc.transform.SetParent(transform, false);
-            disc.transform.localPosition = new Vector3(0f, 0f, _distance);
-
-            disc.AddComponent<MeshFilter>().sharedMesh = CreateDiscMesh();
+            // The mesh's radius is built for this distance.
+            _discFilter.transform.localPosition = new Vector3(0f, 0f, _distance);
+            _discFilter.sharedMesh = CreateDiscMesh();
 
             _materialInstance = new Material(_material);
             _materialInstance.SetFloat(_featherId, _featherAngle / _coverAngle);
-            _renderer = disc.AddComponent<MeshRenderer>();
+            _renderer = _discRenderer;
             _renderer.sharedMaterial = _materialInstance;
-            _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _renderer.receiveShadows = false;
-            _renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            _renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-            _renderer.allowOcclusionWhenDynamic = false;
             _renderer.enabled = false;
         }
 

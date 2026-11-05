@@ -329,11 +329,11 @@ namespace Gothic.Core.Domain.Vobs
         }
 
         /// <summary>
-        /// G1 calls it ItKeLockpick, G2 ItKe_Lockpick. World items carry it as name or only as instance.
+        /// World items carry it as name or only as instance.
         /// </summary>
         private static bool IsLockPick(string itemName)
         {
-            return itemName.EqualsIgnoreCase("ItKeLockpick") || itemName.EqualsIgnoreCase("ItKe_Lockpick");
+            return Constants.Items.IsLockPick(itemName);
         }
 
         private GameObject GetPrefab(IVirtualObject vob, GameObject parent = null)

@@ -146,6 +146,17 @@ namespace Gothic.VR.Services
             if (args.Kind == VrGrabberKind.Distance)
                 DeactivateTelekinesis();
         }
+        /// <summary>
+        /// The one owner of the camera height while the hero is down (knocked out, dead): true while a VR hero body
+        /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
+        /// view itself only without it.
+        /// </summary>
+        public bool IsFallCameraOnHeroBody { get; set; }
+
+        /// <summary>
+        /// The VR hero body lies or stands up (VrHeroDownPose) - crouching isn't sneaking meanwhile (VRHeroMovement).
+        /// </summary>
+        public bool IsHeroBodyDown { get; set; }
 
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;

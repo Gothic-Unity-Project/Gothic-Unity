@@ -196,6 +196,13 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
         /// <summary>
+        /// A spell put the hero into its state (ZS_MAGICSLEEP, ZS_MAGICFREEZE) or the state ended (null) -
+        /// HeroSpellStateDomain. The VR hero body falls asleep and wakes up on it.
+        /// NpcContainer - the hero
+        /// string - the state, null when it ended
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, string> HeroSpellStateChanged = new();
+
         /// <summary>
         /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
         /// (LoadGameStart ends the knockout).
@@ -227,6 +234,12 @@ namespace Gothic.Core
         public static readonly UnityEvent ScriptExitGame = new();
         // Mdl_ApplyOverlayMDSTimed on the hero (overlay name, seconds) - e.g. speed potions (HUMANS_SPRINT.MDS).
         public static readonly UnityEvent<string, float> ScriptHeroOverlayTimed = new();
+
+        /// <summary>
+        /// The NPC's body visual (Mdl_SetVisualBody: body, textures, armor) was set (NpcService.ExtSetVisualBody).
+        /// The VR hero body rebuilds itself on it.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcVisualBodyChanged = new();
 
 
         // LockPicking events
@@ -262,6 +275,9 @@ namespace Gothic.Core
         // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
+        // Backpack (VR): the backpack is in a hand now (true) or in none any more (false). Raised by VRBackpack.
+        public static readonly UnityEvent<bool> BackpackInHandChanged = new();
 
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").
