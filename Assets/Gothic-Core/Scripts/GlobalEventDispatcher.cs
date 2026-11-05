@@ -136,7 +136,13 @@ namespace Gothic.Core
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
-        
+
+        /// <summary>
+        /// The NPC's body visual (Mdl_SetVisualBody: body, textures, armor) was set (NpcService.ExtSetVisualBody).
+        /// The VR hero body rebuilds itself on it.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcVisualBodyChanged = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick
@@ -168,6 +174,9 @@ namespace Gothic.Core
         // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
+        // Backpack (VR): the backpack is in a hand now (true) or in none any more (false). Raised by VRBackpack.
+        public static readonly UnityEvent<bool> BackpackInHandChanged = new();
 
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").

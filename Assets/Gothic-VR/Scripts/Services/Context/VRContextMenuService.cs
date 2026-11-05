@@ -101,7 +101,8 @@ namespace Gothic.VR.Services.Context
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
                 rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
-                    CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands)));
+                    CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
+                        VRConstants.HeroHandsDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

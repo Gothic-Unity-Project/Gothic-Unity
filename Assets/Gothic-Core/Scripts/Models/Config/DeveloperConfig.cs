@@ -288,7 +288,7 @@ namespace Gothic.Core.Models.Config
                  "animations, the arms reach for the VR hands (simple IK). The model's hands and head are hidden.")]
         public bool EnableVrHeroBody = true;
 
-        [Tooltip("Immersion option \"Hero's hands\" (ini heroHands, off by default): with the VR hero body, the hero's " +
+        [Tooltip("Immersion option \"Hero's hands\" (ini heroHands, on by default): with the VR hero body, the hero's " +
                  "own fists (gloves of his armor) are the VR hands - turned like the controllers, the VR hand models " +
                  "hidden. Before a world is loaded (menus) the VR hands stay.")]
         public bool EnableHeroHands = true;
