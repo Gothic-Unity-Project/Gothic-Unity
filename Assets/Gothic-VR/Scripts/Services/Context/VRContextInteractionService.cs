@@ -43,6 +43,10 @@ namespace Gothic.VR.Services.Context
 
         private const string _contextName = "VR";
 
+        // Loaded as VR/Prefabs/... (ResourceCacheService looks into the context's folder first).
+        private const string _heroBodyPrefabPath = "Prefabs/Player-Elements/VRHeroBody";
+        private const string _heroBodyName = "_VRHeroBodyController";
+
         // Alpha per second when the view is shown again (about 0.3 s).
         private const float _viewFadeInSpeed = 3f;
 
@@ -87,16 +91,7 @@ namespace Gothic.VR.Services.Context
             _vrWeaponService.Init();
             _vrCinemaService.Init();
 
-            // DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head (one per world scene).
-            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
-            {
-                if (_configService.Dev.EnableVrHeroBody)
-                    new UnityEngine.GameObject("_VRHeroBodyController").AddComponent<VRHeroBody>();
-                // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
-                new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
-                // DeveloperConfig.HandLightInfluence: skin colored hands, lights tint them only a little.
-                VRHandSkinLight.Apply(_configService);
-            });
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -114,6 +109,25 @@ namespace Gothic.VR.Services.Context
         public string GetContextName()
         {
             return _contextName;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head. One per world scene: it's
+        /// instantiated into the active (world) scene and goes with it.
+        /// </summary>
+        private void OnWorldSceneLoaded()
+        {
+            if (_configService.Dev.EnableVrHeroBody)
+            {
+                var heroBody = _resourceCacheService.TryGetPrefabObject(_heroBodyPrefabPath, _heroBodyName,
+                    worldPositionStays: false);
+                if (heroBody == null)
+                    Logger.LogError($"[VRContextInteractionService] Hero body prefab >{_heroBodyPrefabPath}< not " +
+                                    "found. No VR hero body.", LogCat.VR);
+            }
+
+            // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+            new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
         }
 
         private void OnLoadingSceneLoaded()
