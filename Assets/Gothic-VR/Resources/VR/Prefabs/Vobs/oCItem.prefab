@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 5746501746354695612}
   - component: {fileID: 5604778400711577802}
   - component: {fileID: 1949468816389965935}
+  - component: {fileID: 2647692996289178850}
   m_Layer: 6
   m_Name: oCItem
   m_TagString: GothicVob
@@ -276,6 +277,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d53defac19fbb474d81910e60e275fd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.XriInteractableBridge
+  _grabTriggers: []
+--- !u!114 &2647692996289178850
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6503575194566409312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69b05f042c74f9741baa68dc163f7e56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.GothicTwoHandGrabTransformer
 --- !u!1001 &2283517946604736509
 PrefabInstance:
   m_ObjectHideFlags: 0

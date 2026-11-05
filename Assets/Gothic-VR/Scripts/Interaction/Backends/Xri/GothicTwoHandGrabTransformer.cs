@@ -13,7 +13,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// their grips (VrPhysicsHand.ShowOnGrip).
     /// Uses the tracked controllers, not the interactors' attach transforms: those are on the physical hands, which
     /// VrPhysicsHand holds at the item (the second hand's movement came out as ~0).
-    /// Added at runtime by GothicGrabInteractable, used for two or more hands only (the single grab stays XRI's).
+    /// On the prefabs next to GothicGrabInteractable, used for two or more hands only (the single grab stays XRI's).
     /// </summary>
     public class GothicTwoHandGrabTransformer : XRBaseGrabTransformer
     {

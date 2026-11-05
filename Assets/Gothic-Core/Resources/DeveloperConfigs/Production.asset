@@ -74,6 +74,8 @@ MonoBehaviour:
   StartTimeHour: 8
   StartTimeMinute: 0
   TimeSpeedMultiplier: 1
+  EnableVrHeroBody: 1
+  EnableHeroHands: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1

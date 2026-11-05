@@ -22,8 +22,11 @@ namespace Gothic.VR
             // 1 = hands stop at walls and push objects (VrPhysicsHand), 0 = hands follow the controllers directly.
             public const string PhysicalHands = "physicalHands";
 
-            // 1 = the hero's own fists are the VR hands (with the VR hero body), 0 = the VR hand models (default).
+            // 1 = the hero's own fists are the VR hands (with the VR hero body, default), 0 = the VR hand models.
             public const string HeroHands = "heroHands";
+            // 1 = knocked out / dead, the camera goes down with the VR hero body (default), 0 = the view fades out and
+            // comes back at ground level (VrKnockoutView) - a comfort choice.
+            public const string HeroFallCamera = "heroFallCamera";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -70,6 +73,10 @@ namespace Gothic.VR
         public const float HeightOffsetDefaultValue = 0.5f;
 
         public const int PhysicalHandsDefaultValue = 1;
+
+        public const int HeroHandsDefaultValue = 1;
+
+        public const int HeroFallCameraDefaultValue = 1;
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;

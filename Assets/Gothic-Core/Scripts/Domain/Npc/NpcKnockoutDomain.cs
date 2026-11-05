@@ -153,14 +153,12 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// What a knocked out or dead hero can't do: walk away and grab. DeveloperConfig.EnableKnockoutTurning keeps
-        /// turning on the spot free.
+        /// What a knocked out or dead hero can't do: walk away and grab. Turning on the spot stays free - seated
+        /// players couldn't look around otherwise.
         /// </summary>
         public PlayerControls GetDownLockedControls()
         {
-            return _configService.Dev.EnableKnockoutTurning
-                ? PlayerControls.Walking | PlayerControls.Grab
-                : PlayerControls.All;
+            return PlayerControls.Walking | PlayerControls.Grab;
         }
 
         public void KnockOutHero(NpcContainer hero, NpcContainer attacker)
