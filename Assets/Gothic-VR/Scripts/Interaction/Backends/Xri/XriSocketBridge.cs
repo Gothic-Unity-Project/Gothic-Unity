@@ -29,6 +29,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [Inject] private readonly IVrBackend _vrBackend;
 
         private VrSocketSlot _slot;
+
+        /// <summary>
+        /// The hand's line can pull the item out of this slot (VrSocketSlot.IsLineGrabbable).
+        /// </summary>
+        public bool IsLineGrabbable => _slot != null && _slot.IsLineGrabbable;
         private XRGrabInteractable _pending;
         private bool _isDetectionEnabled = true;
 
