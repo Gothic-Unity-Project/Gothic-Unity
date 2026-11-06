@@ -80,6 +80,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// Name + amount over the stacks being split/merged/fed - the hover label (VRFocus) isn't shown while held.
         /// </summary>
         private readonly Dictionary<VobContainer, TextMeshPro> _labels = new();
+        private readonly List<KeyValuePair<VobContainer, TextMeshPro>> _labelBuffer = new();
+        private Camera _camera;
 
         /// <summary>
         /// Pieces lying in a hand without grip: not grabbed, so not counted as inventory (a world item).
@@ -243,6 +245,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hand.Held != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
                 return false;
 
+            // IsSplitPressed is true on the press frame only, so the search runs once per button press.
             foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsSortMode.None))
             {
                 var stackGrabbable = backpack.FindStackNear(GetPalm(hand).position, _maxBackpackStackDistance);
@@ -307,11 +310,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             IVrSocket nearest = null;
             var nearestDistance = _maxSocketDistance;
-            foreach (var behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            foreach (var slot in VrSocketSlot.Instances)
             {
-                if (behaviour is not IVrSocket socket || socket.IsOccupied || socket.IsShoulder ||
-                    !behaviour.isActiveAndEnabled ||
-                    (behaviour is VrSocketSlot slot && (!slot.HasActiveBackend || !slot.Accepts(stackGrabbable))))
+                IVrSocket socket = slot;
+                if (socket.IsOccupied || socket.IsShoulder || !slot.HasActiveBackend || !slot.Accepts(stackGrabbable))
                     continue;
                 var distance = Vector3.Distance(socket.Transform.position, stackGrabbable.transform.position);
                 if (distance > nearestDistance)
@@ -489,8 +491,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_labels.Count == 0)
                 return;
 
-            var camera = Camera.main;
-            foreach (var (container, label) in new List<KeyValuePair<VobContainer, TextMeshPro>>(_labels))
+            if (_camera == null)
+                _camera = Camera.main;
+            var camera = _camera;
+            _labelBuffer.Clear();
+            _labelBuffer.AddRange(_labels);
+            foreach (var (container, label) in _labelBuffer)
             {
                 if (container?.Go == null || label == null)
                 {

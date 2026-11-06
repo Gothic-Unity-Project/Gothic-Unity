@@ -38,6 +38,12 @@ namespace Gothic.VR.Interaction.Components
 
         private static readonly ConditionalWeakTable<Transform, StrongBox<Bounds>> _boundsCache = new();
         private static readonly List<Renderer> _rendererBuffer = new();
+        private static readonly List<VrSocketSlot> _instances = new();
+
+        /// <summary>
+        /// All enabled slots - for lookups without scanning the scene.
+        /// </summary>
+        public static IReadOnlyList<VrSocketSlot> Instances => _instances;
 
         [Tooltip("Where the item is put. Empty: this transform.")]
         [SerializeField] private Transform _attachPoint;
@@ -217,6 +223,7 @@ namespace Gothic.VR.Interaction.Components
 
         private void OnEnable()
         {
+            _instances.Add(this);
             if (!_isReselectNeeded)
                 return;
 
@@ -230,6 +237,7 @@ namespace Gothic.VR.Interaction.Components
 
         private void OnDisable()
         {
+            _instances.Remove(this);
             // Hover exits of a disabled backend may not arrive anymore.
             _hovered.Clear();
         }

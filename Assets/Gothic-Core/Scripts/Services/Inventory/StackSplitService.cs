@@ -10,6 +10,8 @@ namespace Gothic.Core.Services.Inventory
     /// </summary>
     public class StackSplitService
     {
+        private const float _minRepeatDelay = 0.1f;
+
         [Inject] private readonly ConfigService _configService;
 
         public bool IsEnabled => _configService.Dev.EnableStackSplit;
@@ -32,7 +34,5 @@ namespace Gothic.Core.Services.Inventory
             var acceleration = Mathf.Sqrt(Mathf.Clamp(_configService.Dev.StackSplitAcceleration, 0.1f, 1f));
             return Mathf.Max(_minRepeatDelay, firstDelay * Mathf.Pow(acceleration, Mathf.Max(0, piecesSplit - 1)));
         }
-
-        private const float _minRepeatDelay = 0.1f;
     }
 }

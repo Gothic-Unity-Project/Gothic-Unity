@@ -244,9 +244,13 @@ namespace Gothic.VR.Adapters.Player
         /// Placed above the item's rendered bounds (not its pivot) - big items like armor would cover it otherwise -
         /// and pulled a bit towards the camera so it doesn't end up inside the item.
         /// </summary>
+        private Camera _camera;
+
         private void FollowItem()
         {
-            var cam = Camera.main;
+            if (_camera == null)
+                _camera = Camera.main;
+            var cam = _camera;
             var anchor = _shownItem.transform.position;
 
             if (_shownItemRenderers is { Length: > 0 })

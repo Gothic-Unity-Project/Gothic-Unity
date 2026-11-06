@@ -127,9 +127,18 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _markerPage = page;
             UpdatePlayerMarker();
             // Calibration aid (G1 maps have no coords): where the hero is in Gothic cm when the map opens.
-            var heroPosition = Camera.main != null ? Camera.main.transform.position * 100f : Vector3.zero;
+            var heroPosition = GetCamera() != null ? _camera.transform.position * 100f : Vector3.zero;
             Logger.Log($"[VRDocViewer] Map {doc.Level}: hero marker, bounds L{_mapLeft} T{_mapTop} R{_mapRight} " +
                        $"B{_mapBottom}, hero x={heroPosition.x:F0} z={heroPosition.z:F0}", LogCat.VR);
+        }
+
+        private Camera _camera;
+
+        private Camera GetCamera()
+        {
+            if (_camera == null)
+                _camera = Camera.main;
+            return _camera;
         }
 
         private void LateUpdate()
@@ -140,7 +149,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void UpdatePlayerMarker()
         {
-            var head = Camera.main != null ? Camera.main.transform : null;
+            var head = GetCamera() != null ? _camera.transform : null;
             if (head == null || _markerPage == null)
                 return;
 

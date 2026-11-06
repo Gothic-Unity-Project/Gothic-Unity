@@ -1868,7 +1868,18 @@ namespace Gothic.Core.Domain.Vm
 
         public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
 
-        public void Doc_Show(int id) => _docService.ShowDoc(id);
+        public void Doc_Show(int id)
+        {
+            // ShowDoc raises the platform listeners (VR viewer) - their exceptions must not escape into the VM.
+            try
+            {
+                _docService.ShowDoc(id);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Doc_Show({id}) failed: {e}", LogCat.Dialog);
+            }
+        }
 
         public void Doc_SetLevel(int id, string level) => _docService.SetLevel(id, level);
 

@@ -45,6 +45,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly Collider[] _overlapResults = new Collider[32];
         private readonly Dictionary<VrInteractable, float> _dwellTimes = new();
         private readonly HashSet<VrInteractable> _seenThisScan = new();
+        private readonly List<VrInteractable> _goneBuffer = new();
+        private readonly Dictionary<VrInteractable, Rigidbody> _rigidbodies = new();
         private float _scanTimer;
         private int _itemLayerMask;
 
@@ -139,7 +141,11 @@ namespace Gothic.VR.Adapters.Player
                 var speed = Mathf.Min(_pullSpeed, toTarget.magnitude / Time.fixedDeltaTime * 0.1f);
                 var step = toTarget.normalized * speed;
 
-                var rb = item.GetComponent<Rigidbody>();
+                if (!_rigidbodies.TryGetValue(item, out var rb))
+                {
+                    rb = item.GetComponent<Rigidbody>();
+                    _rigidbodies[item] = rb;
+                }
 
                 // Magnet, not a bulldozer: if the next step would hit the backpack, the item waits instead of pushing it.
                 if (rb != null && speed > 0f &&
@@ -200,8 +206,17 @@ namespace Gothic.VR.Adapters.Player
             }
 
             // Forget items that left the pull radius (or got grabbed/stored meanwhile).
-            foreach (var gone in _dwellTimes.Keys.Where(i => !_seenThisScan.Contains(i)).ToList())
+            _goneBuffer.Clear();
+            foreach (var tracked in _dwellTimes.Keys)
+            {
+                if (!_seenThisScan.Contains(tracked))
+                    _goneBuffer.Add(tracked);
+            }
+            foreach (var gone in _goneBuffer)
+            {
                 _dwellTimes.Remove(gone);
+                _rigidbodies.Remove(gone);
+            }
         }
 
         private bool IsPullable(VrInteractable item)
@@ -221,11 +236,13 @@ namespace Gothic.VR.Adapters.Player
         private void UntrackAll()
         {
             _dwellTimes.Clear();
+            _rigidbodies.Clear();
         }
 
         private void TryStore(VrInteractable item)
         {
             _dwellTimes.Remove(item);
+            _rigidbodies.Remove(item);
 
             if (_putIntoSocket.IsOccupied || !_putIntoSocket.TryPlace(item, false))
             {
