@@ -6,6 +6,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Player;
@@ -50,11 +51,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly Gothic.Core.Services.Meshes.DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private const float _maxHandDistance = 0.3f;
         private const float _maxSocketDistance = 0.3f;
         private const float _maxBackpackStackDistance = 0.15f;
         private const float _mergeLabelSeconds = 1.5f;
+        // Resources path (VR context first) of the name + amount label over split stacks.
+        private const string _labelPrefabPath = "Prefabs/UI/StackLabel";
 
         private IVrRig _rig;
         private IVrGrabber _leftHand;
@@ -465,15 +469,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _dynamicMaterialService.SetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
                 Constants.ShaderPropertyFocusBrightnessValue);
 
-            var labelGo = new GameObject("StackLabel");
-            // About the size of the hover name (VRFocus).
-            labelGo.transform.localScale = Vector3.one * 0.06f;
-            var label = labelGo.AddComponent<TextMeshPro>();
+            // White, centered, about the size of the hover name (VRFocus) - Gothic's font sprites come at runtime.
+            var labelGo = _resourceCacheService.TryGetPrefabObject(_labelPrefabPath, "StackLabel");
+            if (labelGo == null)
+                return;
+            var label = labelGo.GetComponent<TextMeshPro>();
             GothicText.Apply(label);
-            label.fontSize = 12;
-            label.alignment = TextAlignmentOptions.Center;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            label.color = Color.white;
             _labels[container] = label;
             RefreshLabel(container);
         }
