@@ -30,6 +30,8 @@ namespace Gothic.Core
         public static readonly UnityEvent MainMenuSceneLoaded = new();
         public static readonly UnityEvent LoadingSceneLoaded = new();
         public static readonly UnityEvent WorldSceneLoaded = new();
+        // AI_Teleport moves the hero (a teleport spell) - VR: the held items go into the backpack first.
+        public static readonly UnityEvent HeroScriptTeleporting = new();
 
         public static readonly UnityEvent<DateTime> GameTimeSecondChangeCallback = new();
         public static readonly UnityEvent<DateTime> GameTimeMinuteChangeCallback = new();
@@ -192,6 +194,13 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
         /// <summary>
+        /// A spell put the hero into its state (ZS_MAGICSLEEP, ZS_MAGICFREEZE) or the state ended (null) -
+        /// HeroSpellStateDomain. The VR hero body falls asleep and wakes up on it.
+        /// NpcContainer - the hero
+        /// string - the state, null when it ended
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, string> HeroSpellStateChanged = new();
+
         /// <summary>
         /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
         /// (LoadGameStart ends the knockout).

@@ -202,7 +202,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var otherContainer = GetHeld(otherHand, out var isOtherGrabbed);
             var otherItem = otherContainer?.VobAs<IItem>();
-            if (otherItem == null)
+            if (otherItem == null || otherContainer.Go.GetComponentInChildren<VRRuneCaster>() != null)
                 return false;
             // The grabbed item moves, not its VobLoader root.
             if (Vector3.Distance(GetPalm(hand).position, GetItemPosition(otherContainer)) > _maxHandDistance)
@@ -274,7 +274,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool TryStartFeed(IVrGrabber hand, VrHandSide side)
         {
             var stackGrabbable = hand.Held;
-            if (stackGrabbable == null || !IsSplitPressed(side))
+            if (stackGrabbable == null || !IsSplitPressed(side) ||
+                stackGrabbable.GetComponentInParent<VRRuneCaster>() != null)
                 return false;
 
             var source = stackGrabbable.GetComponentInParent<VobLoader>()?.Container;
@@ -412,7 +413,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             IItem targetItem, bool isTargetGrabbed)
         {
             var sourceItem = source?.VobAs<IItem>();
-            if (sourceItem == null || source == target)
+            if (sourceItem == null || source == target || source.Go.GetComponentInChildren<VRRuneCaster>() != null)
                 return false;
 
             var instanceName = GetInstanceName(sourceItem);

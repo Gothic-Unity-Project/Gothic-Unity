@@ -30,6 +30,8 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
@@ -102,6 +104,9 @@ namespace Gothic.VR.Services.Context
                 ApplyControlLayout();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
+            // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
+            // place (or vanished) and the hero stayed in magic mode. Not on scene teleports (loads).
+            GlobalEventDispatcher.HeroScriptTeleporting.AddListener(StoreHeldItemsInBackpack);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.MarvinLogoPoked.AddListener(OnMarvinLogoPoked);
         }
@@ -441,6 +446,37 @@ namespace Gothic.VR.Services.Context
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
             _rig.Teleport(position, rotation);
+        }
+
+        /// <summary>
+        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
+        /// the world item.
+        /// </summary>
+        public void StoreHeldItemsInBackpack()
+        {
+            if (_rig == null)
+                return;
+            // A rune held with both hands is one item - stored once.
+            var stored = new HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand).ToList())
+            {
+                var interactable = hand.Held;
+                if (interactable == null || !stored.Add(interactable))
+                    continue;
+                var container = interactable.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
+                var item = container?.VobAs<ZenKit.Vobs.IItem>();
+                if (item == null)
+                    continue;
+
+                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
+                interactable.ForceRelease();
+
+                var instanceName = item.GetSymbolName();
+                var amount = Mathf.Max(1, item.Amount);
+                _playerService.AddItem(instanceName, amount);
+                _vobService.RemoveWorldItem(container);
+                Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack", LogCat.VR);
+            }
         }
 
         public void SetViewHidden(bool isHidden, GameObject visibleUi = null)

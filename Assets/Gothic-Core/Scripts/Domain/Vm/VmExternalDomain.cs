@@ -632,6 +632,7 @@ namespace Gothic.Core.Domain.Vm
 
             if (container.PrefabProps.IsHero())
             {
+                GlobalEventDispatcher.HeroScriptTeleporting.Invoke();
                 _contextInteractionService.TeleportPlayerTo(waypoint.Position);
                 Logger.Log($"[AI_Teleport] Hero → {waypointName}", LogCat.Npc);
             }
