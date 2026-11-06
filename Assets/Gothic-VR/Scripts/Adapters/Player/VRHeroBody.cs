@@ -1,11 +1,9 @@
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
@@ -30,8 +28,9 @@ namespace Gothic.VR.Adapters.Player
     /// (VrHeroBodyMeshCutter) and the bare forearms of the hero's naked body mesh are skinned to the same skeleton
     /// instead, so the backpack's slots aren't hidden.
     /// Workers: VrHeroHands (the hero's fists as the VR hands, held items, arms on top), VrHeroDownPose (knocked out /
-    /// dead body and camera, Immersion option "Fall with the body"), VrHeroBodyMeshCutter (mesh cuts), VrHeroArmIk
-    /// (arms). The crouch button lowers the camera to the eyes of its sneak pose (IVrRig.CrouchHeightOverride).
+    /// dead body and camera, Immersion option "Fall with the body"), VrHeroSwimPose (water check and swim/dive
+    /// animations), VrHeroBodyMeshCutter (mesh cuts), VrHeroArmIk (arms). The crouch button lowers the camera to
+    /// the eyes of its sneak pose (IVrRig.CrouchHeightOverride).
     /// </summary>
     public class VRHeroBody : MonoBehaviour
     {
@@ -42,19 +41,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
-
-        // The body looks at the water itself - the swim state flickered while
-        // bobbing at the surface (chest -> knee deep for a moment = walking, not grounded = the fall animation).
-        private const float _swimWaterDepth = 1.1f;
-        private const float _waterSurfaceRayLength = 3f;
-        private const float _bottomRayStart = 0.1f;
-        private const float _floatAboveBottom = 0.15f;
-
-        // The body's own speed from how far the player moved (teleport jumps ignored).
-        private Vector3 _lastPlayerPosition;
-        private Vector3 _movedVelocity;
-        private const float _movedSmoothing = 0.2f;
-        private const float _maxMovedSpeed = 15f;
 
         private const float _torsoBackOffset = 0.15f;
         private const float _hiddenBoneScale = 0.001f;
@@ -106,8 +92,6 @@ namespace Gothic.VR.Adapters.Player
         private float _lastBodyYaw;
         private float _bodyYawSpeed;
         private float _standingScale;
-        private const float _swimCrawlFullSpeed = 0.8f;
-        private const float _swimCrawlMaxWeight = 0.8f;
         private const float _idleSpeed = 0.15f;
         private const float _runSpeed = 1.6f;
         private const float _turnAnimationSpeed = 60f; // degrees per second
@@ -120,7 +104,8 @@ namespace Gothic.VR.Adapters.Player
 
         // Knocked out / dead body and camera (Immersion option "Fall with the body").
         private VrHeroDownPose _downPose;
-
+        // Water check, speed and animations while swimming/diving.
+        private readonly VrHeroSwimPose _swimPose = new();
 
         // The eye height of the sneak pose at scale 1 (S_SNEAK, measured once per built body), -1 = not yet.
         private float _sneakEyeHeight = -1f;
@@ -349,90 +334,19 @@ namespace Gothic.VR.Adapters.Player
                 _bodyYawSpeed = Mathf.Lerp(_bodyYawSpeed, Mathf.DeltaAngle(_lastBodyYaw, yaw) / Time.deltaTime, 0.3f);
             _lastBodyYaw = yaw;
 
-            var velocity = _rig != null ? _rig.CharacterController.velocity : Vector3.zero;
-            // Swimming moves the player without a controller velocity (~0) - the
-            // movement between frames counts too (no crawl, no strokes while swimming with the stick/WASD).
-            if (_rig != null && Time.deltaTime > 0f)
-            {
-                var position = _rig.Root.position;
-                var moved = (position - _lastPlayerPosition) / Time.deltaTime;
-                _lastPlayerPosition = position;
-                // A teleport isn't a speed.
-                if (moved.magnitude < _maxMovedSpeed)
-                    _movedVelocity = Vector3.Lerp(_movedVelocity, moved, _movedSmoothing);
-                if (new Vector2(_movedVelocity.x, _movedVelocity.z).sqrMagnitude >
-                    new Vector2(velocity.x, velocity.z).sqrMagnitude)
-                    velocity = _movedVelocity;
-            }
+            var velocity = _swimPose.GetVelocity(_rig);
             var horizontal = new Vector3(velocity.x, 0f, velocity.z);
             var speed = horizontal.magnitude;
             var local = _body.transform.InverseTransformDirection(horizontal);
 
-            var bodyState = hero.Props.BodyState;
+            var bodyState = _swimPose.GetBodyState(_rig, hero.Props.BodyState);
             var isMoving = speed >= _idleSpeed;
             var isBackwards = local.z < -_backwardsShare * speed;
+            var isTurning = Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed;
 
-            // Deep water is swimming even while the state flickers, any water
-            // below is no fall.
-            var isInWater = false;
-            if (_rig != null)
-            {
-                // Own rays from the feet: the water service's ray from the bottom up hit the player's own capsule while
-                // floating above the bottom (no water found - the body stood upright in deep water).
-                var feet = _rig.Root.position;
-                if (Physics.Raycast(feet, Vector3.up, out var surfaceHit, _waterSurfaceRayLength,
-                        1 << Constants.WaterLayer, QueryTriggerInteraction.Collide))
-                {
-                    isInWater = true;
-                    var bottom = Physics.Raycast(feet + Vector3.up * _bottomRayStart, Vector3.down, out var bottomHit,
-                        _swimWaterDepth, 1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore)
-                        ? bottomHit.distance - _bottomRayStart
-                        : _swimWaterDepth;
-                    var isFloating = bottom > _floatAboveBottom;
-                    if (isFloating && surfaceHit.distance + bottom >= _swimWaterDepth &&
-                        bodyState != VmGothicEnums.BodyState.BsDive)
-                        bodyState = VmGothicEnums.BodyState.BsSwim;
-                }
-            }
-
-            string animation;
-            // Swimming: floating upright (s_Swim), the crawl (s_SwimF) only blended in with the speed - slowly, so the
-            // legs come up towards the surface instead of jumping behind the camera.
-            var swimCrawl = bodyState == VmGothicEnums.BodyState.BsSwim && isMoving && !isBackwards
-                ? Mathf.Clamp01(speed / _swimCrawlFullSpeed) * _swimCrawlMaxWeight
-                : 0f;
-            _animator.SetOverlay("S_SWIMF", swimCrawl);
-
-            // Drifting (not moving) while turning plays the swim/dive turn.
-            var isDriftTurning = !isMoving &&
-                                 Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed;
-            var turnSide = _bodyYawSpeed < 0f ? "L" : "R";
-
-            if (bodyState == VmGothicEnums.BodyState.BsSwim)
-                animation = isDriftTurning && _animator.HasAnimation("T_SWIMTURN" + turnSide) ? "T_SWIMTURN" + turnSide
-                    : isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
-            else if (bodyState == VmGothicEnums.BodyState.BsDive)
-                animation = isDriftTurning && _animator.HasAnimation("T_DIVETURN" + turnSide) ? "T_DIVETURN" + turnSide
-                    : isMoving ? "S_DIVEF" : "S_DIVE";
-            else if (_rig != null && !_rig.IsGrounded && velocity.y < -1f && !isInWater &&
-                _animator.HasAnimation(_fallAnimation))
-                animation = _fallAnimation;
-            else if (isCrouching)
-                animation = !isMoving ? "S_SNEAK" : isBackwards ? "S_SNEAKBL" : "S_SNEAKL";
-            else if (speed < _idleSpeed)
-                animation = Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed
-                    ? (_bodyYawSpeed < 0f ? "T_RUNTURNL" : "T_RUNTURNR")
-                    : _idleAnimation;
-            else if (isBackwards)
-                animation = _animator.HasAnimation(_walkBackAnimation)
-                    ? _walkBackAnimation
-                    : GetReversedAnimationName(_walkAnimation);
-            else if (Mathf.Abs(local.x) > Mathf.Abs(local.z))
-                animation = speed >= _runSpeed
-                    ? (local.x < 0f ? "T_RUNSTRAFEL" : "T_RUNSTRAFER")
-                    : (local.x < 0f ? "T_WALKSTRAFEL" : "T_WALKSTRAFER");
-            else
-                animation = speed >= _runSpeed ? _runAnimation : _walkAnimation;
+            var animation = _swimPose.GetAnimation(_animator, bodyState, speed, isMoving, isBackwards, isTurning,
+                    _bodyYawSpeed < 0f)
+                ?? GetWalkAnimation(velocity, speed, local, isMoving, isBackwards, isTurning, isCrouching);
 
             if (!_animator.HasAnimation(animation))
             {
@@ -455,6 +369,30 @@ namespace Gothic.VR.Adapters.Player
             var isStep = animation.StartsWith("T_", System.StringComparison.OrdinalIgnoreCase);
             _animator.Play(animation, playbackSpeed, isStep);
             _animator.Update(Time.deltaTime);
+        }
+
+        /// <summary>
+        /// On land: falling, sneaking, idle/turning on the spot, walking backwards, strafing, walking/running.
+        /// </summary>
+        private string GetWalkAnimation(Vector3 velocity, float speed, Vector3 local, bool isMoving, bool isBackwards,
+            bool isTurning, bool isCrouching)
+        {
+            if (_rig != null && !_rig.IsGrounded && velocity.y < -1f && !_swimPose.IsInWater &&
+                _animator.HasAnimation(_fallAnimation))
+                return _fallAnimation;
+            if (isCrouching)
+                return !isMoving ? "S_SNEAK" : isBackwards ? "S_SNEAKBL" : "S_SNEAKL";
+            if (!isMoving)
+                return isTurning ? (_bodyYawSpeed < 0f ? "T_RUNTURNL" : "T_RUNTURNR") : _idleAnimation;
+            if (isBackwards)
+                return _animator.HasAnimation(_walkBackAnimation)
+                    ? _walkBackAnimation
+                    : GetReversedAnimationName(_walkAnimation);
+            if (Mathf.Abs(local.x) > Mathf.Abs(local.z))
+                return speed >= _runSpeed
+                    ? (local.x < 0f ? "T_RUNSTRAFEL" : "T_RUNSTRAFER")
+                    : (local.x < 0f ? "T_WALKSTRAFEL" : "T_WALKSTRAFER");
+            return speed >= _runSpeed ? _runAnimation : _walkAnimation;
         }
 
         /// <summary>

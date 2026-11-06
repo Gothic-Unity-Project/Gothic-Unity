@@ -108,8 +108,8 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// The box keeps its size in the world when it moves to another NPC (worldPositionStays): the text size option
-        /// scales it from the size it had at start.
+        /// Sizes the box by the text size option. Computed from the size it had at start, so it doesn't grow with every
+        /// dialog, and divided by the NPC's scale, so a big or small NPC doesn't make the box bigger or smaller.
         /// </summary>
         private void ApplyTextSize()
         {
