@@ -32,11 +32,6 @@ namespace Gothic.Core.Const
         public static class Fonts
         {
             /// <summary>
-            /// TMP's own font - plain texts like the [E] badge.
-            /// </summary>
-            public const string TmpDefaultPath = "Fonts & Materials/LiberationSans SDF";
-
-            /// <summary>
             /// An empty font: every character falls back to the sprite asset made from Gothic's font (GothicText).
             /// </summary>
             public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";

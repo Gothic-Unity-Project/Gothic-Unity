@@ -2427,6 +2427,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8f25a9169b98b8429925e606d0b5def, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRItemDetailsPopup
+  _popupPrefab: {fileID: 2310055902529128722, guid: c1e63a89dd03c06ab8a6ec09ef5dd3d5, type: 3}
 --- !u!114 &2902527411964500236
 MonoBehaviour:
   m_ObjectHideFlags: 0
