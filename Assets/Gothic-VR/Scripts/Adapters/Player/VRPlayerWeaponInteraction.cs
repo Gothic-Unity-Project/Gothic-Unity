@@ -19,6 +19,10 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRWeaponService _weaponService;
         [Inject] private readonly GameStateService _gameStateService;
 
+        // The melee weapon equipped before one was grabbed.
+        private ZenKit.Daedalus.ItemInstance _equippedBeforeGrab;
+        private bool _isEquippedBeforeGrabKept;
+
 
         // FIXME - All of these values will be dynamic in the future. Based on skill level and weapon type.
         [Header("Weapon weight")]
@@ -77,6 +81,8 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
+            vobContainer.IsHeldByPlayer = true;
+
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
@@ -96,6 +102,9 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
+            // The releasing hand might still hold it at this point - only count the other hand.
+            vobContainer.IsHeldByPlayer = IsHeldByOtherHand(args);
+
             var itemInstance = vobContainer.GetItemInstance();
 
             // Currently we handle melee weapons only.
@@ -103,7 +112,41 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _weaponService.OnReleased(args.HandSide, GetWeaponPhysicsConfig());
+
+            // The other hand still holds a melee weapon (the same sword in two hands, or one weapon per hand): that one
+            // stays equipped, and the one from before the grab is kept for when it's let go too. Restored at the first
+            // release, the hero ended with nothing equipped after letting go of the second hand.
+            var otherHandWeapon = GetMeleeWeaponInOtherHand(args);
+            if (otherHandWeapon != null)
+            {
+                SyncEquippedWeaponToHero(otherHandWeapon, equip: true);
+                return;
+            }
+
             SyncEquippedWeaponToHero(itemInstance, equip: false);
+        }
+
+        private ZenKit.Daedalus.ItemInstance GetMeleeWeaponInOtherHand(VrGrabArgs args)
+        {
+            foreach (var grabber in _rig.HandGrabbers)
+            {
+                if (grabber.HandSide == args.HandSide || grabber.Held == null)
+                    continue;
+                var container = grabber.Held.GetComponentInParent<VobLoader>()?.Container;
+                if (container != null && container.Vob.Type == VirtualObjectType.oCItem && container.IsMeleeWeapon())
+                    return container.GetItemInstance();
+            }
+            return null;
+        }
+
+        private bool IsHeldByOtherHand(VrGrabArgs args)
+        {
+            foreach (var grabber in _rig.HandGrabbers)
+            {
+                if (grabber.HandSide != args.HandSide && grabber.Held == args.Interactable)
+                    return true;
+            }
+            return false;
         }
 
         private void SyncEquippedWeaponToHero(ZenKit.Daedalus.ItemInstance itemInstance, bool equip)
@@ -117,6 +160,28 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var equippedItems = heroContainer.Props.EquippedItems;
+
+            // The held weapon counts as equipped only while held - letting go
+            // gives the equipped one back. Before, any weapon grabbed and let go left
+            // the hero with no equipped melee weapon at all (Rockefeller's orc hammer was gone after the first grab).
+            if (equip)
+            {
+                if (!_isEquippedBeforeGrabKept)
+                {
+                    _equippedBeforeGrab = equippedItems.Find(i => i.MainFlag == itemInstance.MainFlag);
+                    _isEquippedBeforeGrabKept = true;
+                }
+            }
+            else
+            {
+                equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
+                if (_equippedBeforeGrab != null)
+                    equippedItems.Add(_equippedBeforeGrab);
+                _equippedBeforeGrab = null;
+                _isEquippedBeforeGrabKept = false;
+                return;
+            }
+
             equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
             if (equip)
                 equippedItems.Add(itemInstance);

@@ -38,6 +38,7 @@ namespace Gothic.VR.Adapters.Vob
         // not while it's still in front of the player.
         private bool _isConsumedOnDocClose;
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
@@ -134,6 +135,9 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
+
+            // The engine's "missing ... points" (G_CanNotUse) for a melee weapon the hero can't use - it hits for 1.
+            TryShowWeaponRequirement();
 
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
@@ -481,6 +485,13 @@ namespace Gothic.VR.Adapters.Vob
         private void OnDisable()
         {
             _dynamicMaterialService.ResetAllDynamicValues(gameObject);
+        }
+
+        private void TryShowWeaponRequirement()
+        {
+            var container = GetComponentInParent<VobLoader>()?.Container;
+            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem && container.IsMeleeWeapon())
+                _fightService.CheckHeroWeaponRequirement(container.GetItemInstance(), isMessageShown: true);
         }
     }
 }

@@ -101,6 +101,7 @@ namespace Gothic.VR.Domain.Player
                 _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
 
                 WeaponVobContainer = vobContainer;
+                ClearVelocityHistory();
                 var attackAnimation = GetAttackAnimation();
                 var windowTimes = _fallbackWindowTimes;
 
@@ -209,6 +210,16 @@ namespace Gothic.VR.Domain.Player
             _handlesLeftHand = false;
             _handlesRightHand = false;
             _stateMachine = null;
+            ClearVelocityHistory();
+        }
+
+        /// <summary>
+        /// Samples of an earlier hold (a throw, the weapon flying into the hand on a grab) started the next swing at once.
+        /// </summary>
+        private void ClearVelocityHistory()
+        {
+            _velocityHistory.Clear();
+            _velocityCheckTimer = 0f;
         }
 
         /// <summary>
@@ -248,6 +259,14 @@ namespace Gothic.VR.Domain.Player
             // FIXME - Combo settings for hero with more skills are in overlay mds (e.g., HUMANS_1HST2.mds) Use for improved weapon handling.
             var mds = _resourceCacheService.TryGetModelScript("Humans");
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(attackAnimationName));
+        }
+
+        public VmGothicEnums.WeaponState GetWeaponState()
+        {
+            if (WeaponVobContainer == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            return Is2HD() ? VmGothicEnums.WeaponState.W2H : VmGothicEnums.WeaponState.W1H;
         }
 
         private bool Is2HD()
@@ -428,7 +447,12 @@ namespace Gothic.VR.Domain.Player
 
         private void HandleInitialWindow()
         {
-            if (_currentWeaponVelocity >= _attackVelocityThreshold)
+            // An unconscious hero can still swing a weapon picked up again - but it's no attack.
+            if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+                return;
+
+            // A full set of samples: right after a grab one fast sample was the whole "average".
+            if (_velocityHistory.Count >= _velocitySampleCount && _currentWeaponVelocity >= _attackVelocityThreshold)
                 StartAttack();
         }
 
@@ -437,10 +461,23 @@ namespace Gothic.VR.Domain.Player
             _hasDroppedBelowThreshold = false;
             _hasReturnedToThreshold = false;
 
+            // Which speeds made this a swing - a trembling hand played the swing sound and effect (to be tuned from it).
+            Logger.Log($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s >= {_attackVelocityThreshold:0.00} " +
+                       $"(samples {string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; weapon body " +
+                       $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, player {_characterController.velocity.magnitude:0.00})",
+                LogCat.VR);
+
             // If no sound is set, ignore playing it and mark it as "played".
             _soundPlayed = _swingSwordSound == null;
 
             _stateMachine.StartAttack();
+
+            // The swing is the hero's "prehit" - NPCs can parry or jump back.
+            if (GetOwner()?.PrefabProps?.IsHero() == true)
+            {
+                var isMeleeWeapon = WeaponVobContainer?.IsMeleeWeapon() == true;
+                GlobalEventDispatcher.HeroMeleeSwing.Invoke(isMeleeWeapon ? WeaponVobContainer.GetItemInstance()!.Material : -1);
+            }
         }
 
         private bool CheckIfComboWindowFailed()

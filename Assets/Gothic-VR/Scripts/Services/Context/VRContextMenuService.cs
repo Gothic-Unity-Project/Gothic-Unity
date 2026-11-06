@@ -121,6 +121,11 @@ namespace Gothic.VR.Services.Context
                         "Knocked out, the view goes down with the hero"),
                     CreateToggleChoice(gameMenu, "HERO_FALL_CAMERA", VRConstants.IniNames.HeroFallCamera,
                         VRConstants.HeroFallCameraDefaultValue)));
+            // DeveloperConfig.EnableVrStabFinish: off = any hit finishes an unconscious NPC off.
+            if (_configService.Dev.EnableVrStabFinish)
+                rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
+                        "Stab and hold the blade in to finish off (off: any hit)"),
+                    CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish, 1)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

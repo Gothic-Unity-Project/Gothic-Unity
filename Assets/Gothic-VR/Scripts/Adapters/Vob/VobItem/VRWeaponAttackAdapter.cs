@@ -2,9 +2,12 @@ using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Npc;
 using Gothic.VR.Services;
+using Gothic.VR.Interaction.Components;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -21,7 +24,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRWeaponAttackAdapter : MonoBehaviour
     {
         [Inject] private readonly VRWeaponService _vrWeaponService; 
-        
+
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
 
@@ -44,11 +47,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            // Hands, grabbables, the world - touching them is normal. A warning per touch flooded the log (lag).
             if (other.gameObject.layer != Constants.VobHitbox)
-            {
-                Logger.LogWarning($"[WeaponAttackAdapter] Wrong layer: {LayerMask.LayerToName(other.gameObject.layer)}", LogCat.Fight);
                 return;
-            }
 
             Logger.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
 
@@ -69,6 +70,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
+            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab kept in the body only.
+            if (IsStabFinishOn() && NpcHelperService.IsKnockedOut(targetNpcContainer))
+            {
+                TryStabFinish(targetNpcContainer);
+                return;
+            }
+
             // Try to fire the hit through VR weapon service if available
             if (TryFireHitViaVRWeaponService(targetNpcContainer))
             {
@@ -78,6 +86,29 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.LogWarning("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)", LogCat.Fight);
             // TODO - Add support for flat-screen weapon hits and NPC-to-NPC hits here
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrStabFinish: the blade can already be inside the padded hitbox when the thrust comes.
+        /// </summary>
+        private void OnTriggerStay(Collider other)
+        {
+            if (other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
+                return;
+
+            var target = other.GetComponentInParent<NpcLoader>()?.Container;
+            if (target != null && NpcHelperService.IsKnockedOut(target))
+                TryStabFinish(target);
+        }
+
+        private bool IsStabFinishOn()
+        {
+            return _vrWeaponService != null && _vrWeaponService.IsStabFinishOn();
+        }
+
+        private void TryStabFinish(NpcContainer target)
+        {
+            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, GetComponent<VrInteractable>());
         }
 
         private void OnTriggerExit(Collider other)
@@ -110,7 +141,18 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
+
+            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the
+            // hit). By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
+            attacker.Props.MeleeHitWeapon = _weaponVobContainer?.GetItemInstance();
+            try
+            {
+                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
+            }
+            finally
+            {
+                attacker.Props.MeleeHitWeapon = null;
+            }
             return true;
         }
     }
