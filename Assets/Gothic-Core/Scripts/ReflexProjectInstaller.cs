@@ -115,6 +115,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(SaveGameService));
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
+            containerBuilder.AddSingleton(typeof(WindService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
             containerBuilder.AddSingleton(typeof(RoomService));
             containerBuilder.AddSingleton(typeof(LedgeService));
@@ -131,6 +132,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(FontService));
             containerBuilder.AddSingleton(typeof(UIEventsService));
             containerBuilder.AddSingleton(typeof(LocalizationService));
+            containerBuilder.AddSingleton(typeof(ColorVisionService));
 
             // Marvin
             containerBuilder.AddSingleton(typeof(MarvinService));

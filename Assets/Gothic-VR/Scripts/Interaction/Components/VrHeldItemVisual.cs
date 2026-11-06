@@ -84,6 +84,23 @@ namespace Gothic.VR.Interaction.Components
             _hasPose = true;
         }
 
+        /// <summary>
+        /// The pose the item is shown at (before rendering), false without one. For bodies posed before that
+        /// (VRHeroBody's fists on the grips).
+        /// </summary>
+        public bool TryGetShownPose(out Vector3 position, out Quaternion rotation)
+        {
+            position = default;
+            rotation = default;
+            if (!_hasPose || _anchor == null)
+                return false;
+
+            var anchorRotation = _anchor.rotation;
+            position = _anchor.position + anchorRotation * _localPosition;
+            rotation = anchorRotation * _localRotation;
+            return true;
+        }
+
         public void ClearPose()
         {
             _hasPose = false;

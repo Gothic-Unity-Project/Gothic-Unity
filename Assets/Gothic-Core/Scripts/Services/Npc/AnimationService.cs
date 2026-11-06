@@ -30,6 +30,10 @@ namespace Gothic.Core.Services.Npc
         // s_FistWalkL moves only 0.45m per loop) must count, while slow pose drifts (t_Warn) must not.
         private const float _minMovementSpeed = 0.1f; // m/s
 
+        // GetReversedAnimationName: "{animName}_REVERSED", built once per animation name.
+        private const string _reversedSuffix = "_REVERSED";
+        private readonly Dictionary<string, string> _reversedNames = new(StringComparer.OrdinalIgnoreCase);
+
         // Track cache, two levels: MDS name (as passed by callers, any casing/extension) -> animation name -> track.
         // Both levels ignore case, so the per-PlayAnimation hot path runs without any string normalization
         // allocations (ToLower/extension stripping) - important on mobile chipsets (GC pressure).
@@ -164,6 +168,68 @@ namespace Gothic.Core.Services.Npc
             mdsTracks.Add(animName, track);
 
             return track;
+        }
+
+        /// <summary>
+        /// The animation played back to front (e.g. a walk loop as walking backwards for models without a backwards
+        /// walk). Registered next to the real tracks under "{animName}_REVERSED" - share the baked samples, root motion
+        /// runs the other way. Returns the name to play, or null if the animation doesn't exist.
+        /// </summary>
+        public string GetReversedAnimationName(string animName, string mdsBase, string mdsOverlay)
+        {
+            // The overlay's track wins over the base's, like in GetTrack. No array/name allocation for a cached one.
+            return GetReversedAnimationName(animName, mdsOverlay) ?? GetReversedAnimationName(animName, mdsBase);
+        }
+
+        private string GetReversedAnimationName(string animName, string mdsName)
+        {
+            if (mdsName == null)
+                return null;
+
+            var mdsTracks = GetMdsTrackCache(mdsName);
+            if (!_reversedNames.TryGetValue(animName, out var reversedName))
+            {
+                reversedName = animName + _reversedSuffix;
+                _reversedNames[animName] = reversedName;
+            }
+            if (mdsTracks.TryGetValue(reversedName, out var cached) && cached != null)
+                return reversedName;
+
+            var source = GetTrack(animName, mdsName);
+            if (source == null)
+                return null;
+
+            var reversed = new AnimationTrack
+            {
+                TrackType = AnimationTrack.Type.Alias,
+                Name = source.Name,
+                AliasName = reversedName,
+                Layer = source.Layer,
+                NextAni = source.IsLooping ? reversedName : source.NextAni,
+                BlendIn = source.BlendIn,
+                BlendOut = source.BlendOut,
+                Flags = source.Flags,
+                Direction = source.Direction == AnimationDirection.Backward
+                    ? AnimationDirection.Forward
+                    : AnimationDirection.Backward,
+                IsLooping = source.IsLooping,
+                FirstFrame = source.FirstFrame,
+                FrameCount = source.FrameCount,
+                Fps = source.Fps,
+                FpsSource = source.FpsSource,
+                Duration = source.Duration,
+                FrameTime = source.FrameTime,
+                EventTags = source.EventTags,
+                SoundEffects = source.SoundEffects,
+                ParticleEffects = source.ParticleEffects,
+                MorphAnimations = source.MorphAnimations,
+                HasEvents = source.HasEvents,
+                IsMoving = source.IsMoving,
+                MovementSpeed = -source.MovementSpeed
+            };
+            reversed.ShareBakedSamples(source);
+            mdsTracks[reversedName] = reversed;
+            return reversedName;
         }
 
         /// <summary>

@@ -287,6 +287,8 @@ namespace Gothic.Core.Services.Npc
             {
                 props.MdmName = data.Body;
             }
+
+            GlobalEventDispatcher.NpcVisualBodyChanged.Invoke(data.Npc.GetUserData());
         }
 
         /// <summary>

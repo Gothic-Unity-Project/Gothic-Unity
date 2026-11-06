@@ -120,17 +120,29 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HitPointsDepleted = new();
 
         /// <summary>
-        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). The VR hero body
-        /// (lying down, camera) listens to it - added with the VR hero body PR.
+        /// NpcContainer - the hero, who just got knocked out (BodyState is already BsUnconscious). He lies for
+        /// FightConst.HeroKnockoutRecoverySeconds. The VR knockout view (veil, heartbeat) listens to it.
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
+
+        /// <summary>
+        /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
+        /// (LoadGameStart ends the knockout).
+        /// </summary>
+        public static readonly UnityEvent HeroRecovered = new();
 
         /// <summary>
         /// The hero died (FightService), after his death state started. He stays dead until a game is loaded.
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
-        
+
+        /// <summary>
+        /// The NPC's body visual (Mdl_SetVisualBody: body, textures, armor) was set (NpcService.ExtSetVisualBody).
+        /// The VR hero body rebuilds itself on it.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcVisualBodyChanged = new();
+
 
         // LockPicking events
         // 1. VobContainer -> LockPick
@@ -162,6 +174,9 @@ namespace Gothic.Core
         // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
+        // Backpack (VR): the backpack is in a hand now (true) or in none any more (false). Raised by VRBackpack.
+        public static readonly UnityEvent<bool> BackpackInHandChanged = new();
 
         // Text on screen for some seconds (Daedalus PrintScreen()/AI_PrintScreen()/Print() or engine messages like
         // Marvin's "testmode on").

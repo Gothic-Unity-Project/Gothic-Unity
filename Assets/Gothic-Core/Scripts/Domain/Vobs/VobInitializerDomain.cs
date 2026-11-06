@@ -47,6 +47,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly WindService _windService;
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
@@ -256,6 +257,9 @@ namespace Gothic.Core.Domain.Vobs
             if (!go)
                 return;
 
+            // Trees and grass with Gothic's wind mode sway - WindService decides which.
+            _windService.Register(vob, go);
+
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
 
@@ -325,11 +329,11 @@ namespace Gothic.Core.Domain.Vobs
         }
 
         /// <summary>
-        /// G1 calls it ItKeLockpick, G2 ItKe_Lockpick. World items carry it as name or only as instance.
+        /// World items carry it as name or only as instance.
         /// </summary>
         private static bool IsLockPick(string itemName)
         {
-            return itemName.EqualsIgnoreCase("ItKeLockpick") || itemName.EqualsIgnoreCase("ItKe_Lockpick");
+            return Constants.Items.IsLockPick(itemName);
         }
 
         private GameObject GetPrefab(IVirtualObject vob, GameObject parent = null)

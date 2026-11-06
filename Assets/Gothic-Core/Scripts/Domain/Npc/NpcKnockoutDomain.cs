@@ -10,6 +10,7 @@ using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
@@ -35,6 +36,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly ConfigService _configService;
 
         // Bumped by every knockout and every load - a recovery of an older one doesn't stand the hero up.
         private int _heroKnockoutId;
@@ -150,12 +152,21 @@ namespace Gothic.Core.Domain.Npc
             _npcAiService.BroadcastDownPerception(npc, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
         }
 
+        /// <summary>
+        /// What a knocked out or dead hero can't do: walk away and grab. Turning on the spot stays free - seated
+        /// players couldn't look around otherwise.
+        /// </summary>
+        public PlayerControls GetDownLockedControls()
+        {
+            return PlayerControls.Walking | PlayerControls.Grab;
+        }
+
         public void KnockOutHero(NpcContainer hero, NpcContainer attacker)
         {
             hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             SetHasDefeatedHero(attacker);
             _npcService.SetAttribute(hero, NpcAttribute.HitPoints, 1);
-            _contextInteractionService.LockPlayer(PlayerLocks.Knockout, PlayerControls.Walking | PlayerControls.Grab);
+            _contextInteractionService.LockPlayer(PlayerLocks.Knockout, GetDownLockedControls());
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
             // this very knockout before its SVM warning/ZS_Attack ever ran) gets its tempAttitude reset
@@ -239,6 +250,7 @@ namespace Gothic.Core.Domain.Npc
             hero.Props.BodyState = VmGothicEnums.BodyState.BsStand;
             _contextInteractionService.UnlockPlayer(PlayerLocks.Knockout);
             Logger.Log("[FightService] Hero recovered from knockout", LogCat.Fight);
+            GlobalEventDispatcher.HeroRecovered.Invoke();
         }
     }
 }

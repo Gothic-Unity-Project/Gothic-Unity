@@ -44,6 +44,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly InputAction[] _gripValues = new InputAction[2];
         private readonly InputAction[] _thumbTouches = new InputAction[2];
         private readonly InputAction[] _gothicActions = new InputAction[_gothicActionNames.Length];
+        private const string _leftThumbstickActionPath = "XRI Left/Thumbstick";
+        private const string _rightThumbstickActionPath = "XRI Right/Thumbstick";
+        private readonly InputAction[] _thumbsticks = new InputAction[2];
 
         // Simulator only: velocity from the controller's position change, as simulated devices have no velocity.
         private readonly Vector3[] _simulatedVelocities = new Vector3[2];
@@ -99,6 +102,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return ToState(_buttons[(int)side, (int)button]);
         }
 
+        public VrButtonState GetMenuButton()
+        {
+            return GetGothicAction(XriGothicAction.Menu);
+        }
+
+        public void ApplyControlLayout(VrControlLayout layout)
+        {
+            if (Actions == null)
+                return;
+
+            XriControlLayout.Apply(Actions, layout);
+            var hand = layout.IsLeftHanded ? "left" : "right";
+            Logger.Log($"[XRI] Controls: {hand}-handed, jump {layout.JumpButton}, crouch {layout.CrouchButton}, " +
+                       $"menu {layout.MenuButton}.", LogCat.VR);
+        }
+
         public float GetGripValue(VrHandSide side)
         {
             var action = _gripValues[(int)side];
@@ -120,6 +139,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public VrButtonState GetGothicAction(XriGothicAction action)
         {
             return ToState(_gothicActions[(int)action]);
+        }
+
+        public Vector2 GetThumbstick(VrHandSide side)
+        {
+            var action = _thumbsticks[(int)side] ??= Actions?.FindAction(
+                side == VrHandSide.Left ? _leftThumbstickActionPath : _rightThumbstickActionPath);
+            return action == null ? Vector2.zero : action.ReadValue<Vector2>();
         }
 
         public Vector3 GetControllerVelocity(VrHandSide side)

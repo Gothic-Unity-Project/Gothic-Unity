@@ -59,6 +59,10 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("Over-the-shoulder slot (backpack, right shoulder holster). See IVrSocket.IsShoulder.")]
         [SerializeField] private bool _isShoulder;
 
+        [Tooltip("The hand's line can pull the item out (backpack, chest, loot and trade slots). Off for the player's " +
+                 "own holsters; shoulder slots never - the backpack and the shoulder holster come by hand only.")]
+        [SerializeField] private bool _isLineGrabbable = true;
+
         [Tooltip("Only this interactable goes into the slot (e.g. the backpack on the shoulder). It needs no " +
                  "VobLoader. Empty: Gothic items only.")]
         [SerializeField] private VrInteractable _linkedInteractable;
@@ -114,6 +118,11 @@ namespace Gothic.VR.Interaction.Components
         /// True if a backend part of the active VR backend sits next to this slot (it detects items).
         /// </summary>
         public bool HasActiveBackend => Backend != null;
+
+        /// <summary>
+        /// The hand's line can pull the item out of this slot (see the serialized field). Shoulder slots never.
+        /// </summary>
+        public bool IsLineGrabbable => _isLineGrabbable && !_isShoulder;
 
         public float Size
         {

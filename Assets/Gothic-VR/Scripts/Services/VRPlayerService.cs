@@ -33,6 +33,22 @@ namespace Gothic.VR.Services
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
 
+        /// <summary>
+        /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
+        /// </summary>
+        public GameObject GetHandModelGo(VrHandSide side)
+        {
+            var hand = VRContextInteractionService?.Rig?.GetHandVisual(side);
+            return hand != null ? hand.gameObject : null;
+        }
+
+        /// <summary>
+        /// The one owner of the camera height while the hero is down (knocked out, dead): true while a VR hero body
+        /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
+        /// view itself only without it.
+        /// </summary>
+        public bool IsFallCameraOnHeroBody { get; set; }
+
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
 

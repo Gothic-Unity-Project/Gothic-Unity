@@ -43,6 +43,10 @@ namespace Gothic.VR.Services.Context
 
         private const string _contextName = "VR";
 
+        // Loaded as VR/Prefabs/... (ResourceCacheService looks into the context's folder first).
+        private const string _heroBodyPrefabPath = "Prefabs/Player-Elements/VRHeroBody";
+        private const string _heroBodyName = "_VRHeroBodyController";
+
         // Alpha per second when the view is shown again (about 0.3 s).
         private const float _viewFadeInSpeed = 3f;
 
@@ -87,6 +91,7 @@ namespace Gothic.VR.Services.Context
             _vrWeaponService.Init();
             _vrCinemaService.Init();
 
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -94,6 +99,7 @@ namespace Gothic.VR.Services.Context
                 ApplyComfortSettings();
                 ApplyHeightOffset();
                 ApplyPhysicalHands();
+                ApplyControlLayout();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
@@ -103,6 +109,22 @@ namespace Gothic.VR.Services.Context
         public string GetContextName()
         {
             return _contextName;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrHeroBody: the hero's own body + arms under the VR head. One per world scene: it's
+        /// instantiated into the active (world) scene and goes with it.
+        /// </summary>
+        private void OnWorldSceneLoaded()
+        {
+            if (_configService.Dev.EnableVrHeroBody)
+            {
+                var heroBody = _resourceCacheService.TryGetPrefabObject(_heroBodyPrefabPath, _heroBodyName,
+                    worldPositionStays: false);
+                if (heroBody == null)
+                    Logger.LogError($"[VRContextInteractionService] Hero body prefab >{_heroBodyPrefabPath}< not " +
+                                    "found. No VR hero body.", LogCat.VR);
+            }
         }
 
         private void OnLoadingSceneLoaded()
@@ -161,7 +183,10 @@ namespace Gothic.VR.Services.Context
 
             _physicsHands = _player.GetComponentsInChildren<VrPhysicsHand>(true);
             if (_configService.Gothic != null)
+            {
                 ApplyPhysicalHands();
+                ApplyControlLayout();
+            }
 
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
@@ -227,6 +252,12 @@ namespace Gothic.VR.Services.Context
             {
                 ApplyPhysicalHands();
             }
+            else if (key == VRConstants.IniNames.ControllerHand ||
+                     key == VRConstants.IniNames.JumpButton ||
+                     key == VRConstants.IniNames.MenuButton)
+            {
+                ApplyControlLayout();
+            }
         }
 
         /// <summary>
@@ -251,6 +282,18 @@ namespace Gothic.VR.Services.Context
 
             foreach (var hand in _physicsHands)
                 hand.IsPhysical = isPhysical;
+        }
+
+        /// <summary>
+        /// Game settings "controller hand", "jump button" and "menu button" from Gothic.ini.
+        /// </summary>
+        private void ApplyControlLayout()
+        {
+            var gothicIni = _configService.Gothic;
+            _vrInput.ApplyControlLayout(VrControlLayout.FromSettings(
+                gothicIni.GetInt(VRConstants.IniNames.ControllerHand, VRConstants.ControllerHandDefaultValue),
+                gothicIni.GetInt(VRConstants.IniNames.JumpButton, VRConstants.JumpButtonDefaultValue),
+                gothicIni.GetInt(VRConstants.IniNames.MenuButton, VRConstants.MenuButtonDefaultValue)));
         }
 
         /// <summary>

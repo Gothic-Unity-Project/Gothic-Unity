@@ -281,7 +281,7 @@ namespace Gothic.Core.Services.Npc
         private void EndGame(NpcContainer hero, NpcContainer killer)
         {
             _gameStateService.HeroDies();
-            _contextInteractionService.LockPlayer(PlayerLocks.Death, PlayerControls.Walking | PlayerControls.Grab);
+            _contextInteractionService.LockPlayer(PlayerLocks.Death, _knockoutDomain.GetDownLockedControls());
             PlayHeroDeathScream(hero);
 
             var killerName = killer == null || killer == hero ? "a script" : killer.Instance.GetName(NpcNameSlot.Slot0);
