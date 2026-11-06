@@ -208,7 +208,8 @@ namespace Gothic.VR.Adapters.Player
         {
             // Held, socketed (holster, backpack slot, loot panel, chest), part of the backpack itself or shown in the
             // favorites ring (still in the inventory).
-            if (item.IsHeld || item.transform.IsChildOf(transform))
+            if (item.IsHeld || item.transform.IsChildOf(transform) ||
+                item.GetComponentInParent<VRFavoritesRing>() != null)
                 return false;
 
             var container = item.GetComponentInParent<VobLoader>()?.Container;

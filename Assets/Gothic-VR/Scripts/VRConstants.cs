@@ -32,6 +32,8 @@ namespace Gothic.VR
             public const string CrossbowReload = "crossbowReload";
             // 1 = a scroll is used up by its cast like in Gothic (default), 0 = scrolls are cast forever.
             public const string ScrollsSingleUse = "scrollsSingleUse";
+            // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
+            public const string SpellRing = "spellRing";
             // 1 = knocked out / dead, the camera goes down with the VR hero body (default), 0 = the view fades out and
             // comes back at ground level (VrKnockoutView) - a comfort choice.
             public const string HeroFallCamera = "heroFallCamera";

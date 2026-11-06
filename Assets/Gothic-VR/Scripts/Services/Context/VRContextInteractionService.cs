@@ -208,6 +208,13 @@ namespace Gothic.VR.Services.Context
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
+            // DeveloperConfig.EnableVrSpellRing: the favorites ring, in the player's space - it moves with him.
+            if (developerConfig.EnableVrSpellRing)
+            {
+                var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
+                favoritesRing.transform.SetParent(_player.transform, false);
+            }
+
             // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
             if (developerConfig.EnableVrHeroBlock)
             {

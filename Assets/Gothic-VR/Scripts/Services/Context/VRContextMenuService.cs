@@ -124,6 +124,14 @@ namespace Gothic.VR.Services.Context
                 rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
                         "A cast uses the scroll up (Gothic)"),
                     CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
+            // DeveloperConfig.EnableVrSpellRing: Gesture (both hands up, both triggers) or Off.
+            if (_configService.Dev.EnableVrSpellRing)
+            {
+                var spellRingChoice = CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing, 1);
+                spellRingChoice.SetText(0, "Off|Gesture");
+                rows.Add((CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
+                    "Both hands up + both triggers: equipped spells and weapons"), spellRingChoice));
+            }
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 
