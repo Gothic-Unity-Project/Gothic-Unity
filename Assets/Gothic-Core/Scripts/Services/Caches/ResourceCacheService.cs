@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DirectMusic;
+using Gothic.Core.Domain.Meshes;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
+using ZenKit.Vobs;
 using Font = ZenKit.Font;
 using Logger = Gothic.Core.Logging.Logger;
 using Mesh = ZenKit.Mesh;
@@ -23,6 +26,7 @@ namespace Gothic.Core.Services.Caches
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ConfigService _configService;
         
         public readonly Vfs Vfs = new();
 
@@ -93,7 +97,16 @@ namespace Gothic.Core.Services.Caches
                 (s, version) =>
                 {
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
-                    var fireWorld = new ZenKit.World(Vfs, s, version);
+                    var fireWorld = LoadWorld(s, version);
+
+                    // The roots' children (smoke under a fire's light) carry the fire world's absolute positions
+                    // too - zeroing only the roots put every FIRETREE_MEDIUM
+                    // smoke of the world at its absolute (-36, -5, 24) m: a smoke column at the Old Camp's gate.
+                    foreach (var root in fireWorld.RootObjects)
+                    {
+                        if (root.Position != System.Numerics.Vector3.Zero)
+                            ShiftFireTreeChildren(root.Children, root.Position);
+                    }
 
                     // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
                     fireWorld.RootObjects.ForEach(i => i.Position = default);
@@ -353,7 +366,83 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public ZenKit.World TryGetWorld([NotNull] string key)
         {
-            return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen");
+            return LoadWorld($"{GetPreparedKey(key)}.zen", null);
+        }
+
+        /// <summary>
+        /// Every world goes through ZenKit's two mod world bugs' workarounds (ZenWorldArchiveFixDomain): chunk lengths
+        /// are checked before loading a mod's world (a wrong one makes ZenKit hang, there's no exception to retry on -
+        /// Renovation 2026's DRAGONISLAND.ZEN froze PreCaching), a world that fails to load is retried with its
+        /// materials archive header fixed (266 materials: Mroczne Tajemnice's ANCIENTTEMPLE.ZEN, std::bad_alloc).
+        /// </summary>
+        private ZenKit.World LoadWorld(string name, GameVersion? version)
+        {
+            var chunkFixedData = TryFixChunkLengths(name);
+            try
+            {
+                return chunkFixedData != null
+                    ? new ZenKit.World(new Read(chunkFixedData), version)
+                    : new ZenKit.World(Vfs, name, version);
+            }
+            catch (Exception e)
+            {
+                var data = chunkFixedData ?? Vfs.Find(name)?.Buffer.Bytes;
+                if (data == null)
+                    throw;
+
+                var fixedData = ZenWorldArchiveFixDomain.TryFixMaterialCountHeader(data, out var reason);
+                if (fixedData == null)
+                {
+                    Logger.LogError($"[ResourceCacheService] World '{name}' failed to load ({e.Message}), header " +
+                                    $"fix not applicable: {reason}", LogCat.ZenKit);
+                    throw;
+                }
+
+                Logger.LogWarning($"[ResourceCacheService] World '{name}' failed to load ({e.Message}) - " +
+                                  $"retrying with its materials archive header fixed ({reason})", LogCat.ZenKit);
+                try
+                {
+                    return new ZenKit.World(new Read(fixedData), version);
+                }
+                catch (Exception retryException)
+                {
+                    Logger.LogError($"[ResourceCacheService] World '{name}' failed again with the fixed header: " +
+                                    retryException.Message, LogCat.ZenKit);
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Only for mods: it copies the whole world file, vanilla worlds are fine.
+        /// </summary>
+        [CanBeNull]
+        private byte[] TryFixChunkLengths(string name)
+        {
+            if (!_configService.IsModActive)
+                return null;
+
+            var node = Vfs.Find(name);
+            if (node == null)
+                return null;
+
+            var fixedData = ZenWorldArchiveFixDomain.TryFixMeshChunkLengths(node.Buffer.Bytes, out var reason);
+            if (fixedData != null)
+                Logger.LogWarning($"[ResourceCacheService] World '{name}' has wrong chunk lengths - fixed: {reason}",
+                    LogCat.ZenKit);
+            return fixedData;
+        }
+
+        /// <summary>
+        /// A fire tree's VOBs relative to its root (the root is zeroed by the cache loader).
+        /// </summary>
+        private static void ShiftFireTreeChildren(List<IVirtualObject> children, System.Numerics.Vector3 offset)
+        {
+            foreach (var child in children)
+            {
+                child.Position -= offset;
+                ShiftFireTreeChildren(child.Children, offset);
+            }
         }
 
         /// <summary>
@@ -373,7 +462,7 @@ namespace Gothic.Core.Services.Caches
             }
             else
             {
-                return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen", version);
+                return LoadWorld($"{GetPreparedKey(key)}.zen", version);
             }
         }
 

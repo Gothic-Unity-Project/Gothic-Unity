@@ -175,14 +175,20 @@ namespace Gothic.Core.Services.Caches
 
             var mipCount = zkTexture.MipmapCount;
             var levelCount = Mathf.Min(mipCount - skippedMips, MaxMipCount);
-            if (levelCount <= 0)
+            var format = zkTexture.Format.AsUnityTextureFormat();
+
+            // Larger than MaxTextureSize without a smaller mip level, or without any mips: downscaled from its first
+            // level with a generated mip chain - Mroczne Tajemnice's 1024x1024 single mip textures (Siekacz's tavern,
+            // KLODA1) left their slices empty/black, single mip ones flickered in the distance.
+            if (levelCount <= 0 || mipCount == 1)
             {
-                Logger.LogWarning($"Texture {key} is larger than {MaxTextureSize} px and has no smaller mip level. " +
-                                  "Its texture array slice stays empty.", LogCat.PreCaching);
-                return null;
+                var rebuilt = CreateRebuiltArraySourceTexture(zkTexture, key, format, width, height);
+                // A single mip texture that couldn't be rebuilt still has its one level (only the slice's smaller
+                // mips stay empty).
+                if (rebuilt != null || levelCount <= 0)
+                    return rebuilt;
             }
 
-            var format = zkTexture.Format.AsUnityTextureFormat();
             var texture = new Texture2D(width, height, format, levelCount, false);
             for (var level = 0; level < levelCount; level++)
             {
@@ -236,9 +242,14 @@ namespace Gothic.Core.Services.Caches
             var texture = _resourceCacheService.TryGetTexture(textureName);
 
             arrayIndex = entry.Index;
-            maxMipLevel = texture!.MipmapCount - 1;
-            textureScale = new Vector2((float)texture.Width / ReferenceTextureSize, (float)texture.Height / ReferenceTextureSize);
             animFrameCount = entry.Data.AnimFrameC;
+
+            // What the slice really holds: textures above MaxTextureSize are halved, ones without (enough) mips get a
+            // generated chain (CreateArraySourceTexture).
+            GetArrayLayout(texture!.Width, texture.Height, texture.MipmapCount, out var width, out var height,
+                out var mipCount, out _, out _);
+            maxMipLevel = mipCount - 1;
+            textureScale = new Vector2((float)width / ReferenceTextureSize, (float)height / ReferenceTextureSize);
         }
 
         public async Task BuildTextureArray()
@@ -325,7 +336,9 @@ namespace Gothic.Core.Services.Caches
                 var tilesX = texArray.width / effectiveWidth;
                 var tilesY = texArray.height / effectiveHeight;
 
-                for (var mip = 0; mip < sourceTex.mipmapCount; mip++)
+                // A rebuilt texture has its whole chain - the array has MaxMipCount levels.
+                var copiedMips = Mathf.Min(sourceTex.mipmapCount, texArray.mipmapCount);
+                for (var mip = 0; mip < copiedMips; mip++)
                 {
                     var mipWidth = effectiveWidth >> mip;
                     var mipHeight = effectiveHeight >> mip;
@@ -364,6 +377,105 @@ namespace Gothic.Core.Services.Caches
 
             // Store TextureArray in the appropriate TextureArray Cache object to assign it to objects later.
             TextureArrays.Add(texArrType, texArray);
+        }
+
+        /// <summary>
+        /// The texture's first level, downscaled to the slice's size with a full mip chain (RebuildWithMips).
+        /// </summary>
+        [CanBeNull]
+        private static Texture2D CreateRebuiltArraySourceTexture(ITexture zkTexture, string key, TextureFormat format,
+            int width, int height)
+        {
+            var full = new Texture2D(zkTexture.Width, zkTexture.Height, format, 1, false);
+            try
+            {
+                full.SetPixelData(zkTexture.GetMipmapPixels(0, format == TextureFormat.RGBA32), 0);
+                full.Apply(false, false);
+                var rebuilt = RebuildWithMips(full, key, width, height, format);
+                if (rebuilt == null)
+                    Logger.LogWarning($"Texture {key}: its mips couldn't be rebuilt ({zkTexture.Width}x" +
+                                      $"{zkTexture.Height}, {zkTexture.MipmapCount} mips).", LogCat.PreCaching);
+                return rebuilt;
+            }
+            finally
+            {
+                Object.Destroy(full);
+            }
+        }
+
+        /// <summary>
+        /// How a texture lands in a texture array slice: halved until it fits MaxTextureSize; without the mips that
+        /// takes (or without any mips) it is rebuilt with a full chain (CreateRebuiltArraySourceTexture).
+        /// </summary>
+        public static void GetArrayLayout(int width, int height, int mipmapCount, out int arrayWidth,
+            out int arrayHeight, out int arrayMipCount, out int skippedMips, out bool isRebuilt)
+        {
+            skippedMips = 0;
+            var maxDim = Mathf.Max(width, height);
+            while (maxDim > MaxTextureSize)
+            {
+                skippedMips++;
+                maxDim /= 2;
+            }
+
+            arrayWidth = Mathf.Max(1, width >> skippedMips);
+            arrayHeight = Mathf.Max(1, height >> skippedMips);
+            isRebuilt = mipmapCount <= skippedMips || mipmapCount == 1;
+            var availableMips = isRebuilt
+                ? Mathf.FloorToInt(Mathf.Log(Mathf.Max(arrayWidth, arrayHeight), 2)) + 1
+                : mipmapCount - skippedMips;
+            arrayMipCount = Mathf.Clamp(availableMips, 1, MaxMipCount);
+        }
+
+        /// <summary>
+        /// The texture at the given size with a full mip chain, in the array's format (DXT1 compressed again).
+        /// </summary>
+        [CanBeNull]
+        private static Texture2D RebuildWithMips(Texture2D source, string name, int width, int height,
+            TextureFormat arrayFormat)
+        {
+            RenderTexture renderTexture = null;
+            var previous = RenderTexture.active;
+            try
+            {
+                renderTexture = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32,
+                    RenderTextureReadWrite.Default);
+                Graphics.Blit(source, renderTexture);
+                RenderTexture.active = renderTexture;
+
+                var isCompressed = arrayFormat == TextureFormat.DXT1;
+                var rebuilt = new Texture2D(width, height, isCompressed ? TextureFormat.RGB24 : TextureFormat.RGBA32,
+                    true);
+                rebuilt.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                rebuilt.Apply(true);
+                if (isCompressed)
+                    rebuilt.Compress(false);
+                rebuilt.Apply(false, true);
+                rebuilt.name = name;
+
+                if (rebuilt.format != arrayFormat)
+                {
+                    Logger.LogWarning($"[TextureArray] {name}: rebuilt as {rebuilt.format}, array is {arrayFormat}",
+                        LogCat.PreCaching);
+                    Object.Destroy(rebuilt);
+                    return null;
+                }
+
+                Logger.Log($"[TextureArray] {name}: {source.width}x{source.height} ({source.mipmapCount} mips) " +
+                           $"rebuilt as {width}x{height} with {rebuilt.mipmapCount} mips", LogCat.PreCaching);
+                return rebuilt;
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"[TextureArray] {name}: mips couldn't be rebuilt ({e.Message})", LogCat.PreCaching);
+                return null;
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (renderTexture != null)
+                    RenderTexture.ReleaseTemporary(renderTexture);
+            }
         }
 
         public void GetTextureArrayEntry(string textureName, out Texture texture, out TextureArrayTypes textureType)

@@ -216,7 +216,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 }
                 else
                 {
-                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh, Mrm.Materials);
+                    PrepareMeshCollider(RootGo, meshFilter.sharedMesh, Mrm);
                 }
             }
 
@@ -329,7 +329,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
                 PrepareMeshFilter(meshFilter, subMesh.Value, meshRenderer, meshCounter);
                 PrepareMeshRenderer(meshRenderer, subMesh.Value);
-                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value.Materials);
+                PrepareMeshCollider(meshObj, meshFilter.sharedMesh, subMesh.Value);
 
                 // As Attachments are also just meshes, we need to increase the mesh counter for Filter's meshCache index.
                 meshCounter++;
@@ -395,6 +395,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 return;
             }
 
+            if (UseTextureArray)
+            {
+                PrepareTextureArrayMaterials(rend, mrmData);
+                return;
+            }
+
             var finalMaterials = new List<Material>(mrmData.SubMeshes.Count);
             var submeshCount = rend is MeshRenderer
                 ? rend.GetComponent<MeshFilter>().sharedMesh.subMeshCount
@@ -447,6 +453,42 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
+        /// With texture arrays the mesh has one sub mesh per texture
+        /// array (PrepareMeshFilter: opaque, alpha cutout, water - in the order they first appear), not one per Gothic
+        /// sub mesh. Its materials follow the same grouping. Before, sub mesh i got the material of Gothic's sub mesh
+        /// i:
+        /// a palm (bark, trunk, leaves) had its leaves sampling the opaque array with alpha array indices - stone
+        /// textures without alpha on G2 addon palms, fishing nets and mod meshes.
+        /// </summary>
+        private void PrepareTextureArrayMaterials(Renderer rend, IMultiResolutionMesh mrmData)
+        {
+            var groups = new List<(TextureCacheService.TextureArrayTypes Type, IMaterial Material)>();
+            foreach (var subMesh in mrmData.SubMeshes)
+            {
+                TextureCacheService.GetTextureArrayIndex(subMesh.Material, out var type, out _, out _, out _, out _);
+                if (groups.All(g => g.Type != type))
+                    groups.Add((type, subMesh.Material));
+            }
+
+            var finalMaterials = new List<Material>(groups.Count);
+            foreach (var (type, _) in groups)
+            {
+                if (type == TextureCacheService.TextureArrayTypes.Unknown)
+                {
+                    // Untextured (or not cached) - keep the slot so the following sub meshes keep their materials.
+                    finalMaterials.Add(new Material(Constants.ShaderWorldLit));
+                    continue;
+                }
+
+                var material = GetDefaultMaterial(type);
+                material.mainTexture = TextureCacheService.GetTextureArrayEntry(type);
+                finalMaterials.Add(material);
+            }
+
+            rend.SetMaterials(finalMaterials);
+        }
+
+        /// <summary>
         /// Ok, brace yourself:
         /// There are three parameters of interest when it comes to creating meshes for items (etc.).
         /// 1. positions - Unity: vertices (=Vector3)
@@ -476,7 +518,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var subMeshPerTextureFormat = new Dictionary<TextureCacheService.TextureArrayTypes, int>();
 
             // Elements like NPC armors might have multiple meshes. We therefore need to store each mesh with it's associated index.
-            if (_multiTypeCacheService.Meshes.TryGetValue($"{MeshName}_{meshIndex}", out Mesh mesh))
+            // A texture array mesh (slice in uv.z, one sub mesh per array) and a single texture mesh (one sub mesh per
+            // Gothic material) of the same model aren't interchangeable. Mroczne Tajemnice has items with world object
+            // visuals (planks, palisade): the item's mesh was cached first and the world VOBs got it - stone textures
+            // (slice 0) and black parts on their wood.
+            var meshCacheKey = $"{MeshName}_{meshIndex}_{(UseTextureArray ? "array" : "single")}";
+            if (_multiTypeCacheService.Meshes.TryGetValue(meshCacheKey, out Mesh mesh))
             {
                 meshFilter.sharedMesh = mesh;
                 return;
@@ -599,7 +646,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             if (weldVertices)
                 mesh.Optimize();
 
-            _multiTypeCacheService.Meshes.Add($"{MeshName}_{meshIndex}", mesh);
+            _multiTypeCacheService.Meshes.Add(meshCacheKey, mesh);
         }
 
         protected void PrepareMeshFilter(MeshFilter meshFilter, ISoftSkinMesh soft, Renderer renderer, int meshIndex)
@@ -692,15 +739,74 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// <summary>
         /// Check if Collider needs to be added.
         /// </summary>
-        protected void PrepareMeshCollider(GameObject obj, Mesh mesh, List<IMaterial> materialDatas)
+        protected void PrepareMeshCollider(GameObject obj, Mesh mesh, IMultiResolutionMesh mrm)
         {
+            var materialDatas = mrm.Materials;
             var anythingDisableCollission = materialDatas.Any(i => i.DisableCollision);
             var anythingWater = materialDatas.Any(i => i.Group == MaterialGroup.Water);
 
             if (!anythingDisableCollission && !anythingWater)
             {
                 PrepareMeshCollider(obj, mesh);
+                return;
             }
+
+            // Like the engine, only polygons of materials without noCollDet (and not water) collide - a tree's trunk
+            // blocks, its leaves don't. Before, one leaf material left the whole tree without a collider.
+            var collisionMesh = GetCollisionMesh(mrm);
+            if (collisionMesh != null)
+                PrepareMeshCollider(obj, collisionMesh);
+        }
+
+        /// <summary>
+        /// The triangles of the sub meshes whose material collides (no noCollDet, not water), cached per mesh name.
+        /// </summary>
+        [CanBeNull]
+        private Mesh GetCollisionMesh(IMultiResolutionMesh mrm)
+        {
+            var cacheKey = $"{MeshName}_collision";
+            if (_multiTypeCacheService.Meshes.TryGetValue(cacheKey, out var cached))
+                return cached;
+
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            var positions = mrm.Positions;
+            var vertexByPosition = new Dictionary<int, int>();
+            foreach (var subMesh in mrm.SubMeshes)
+            {
+                if (subMesh.Material.DisableCollision || subMesh.Material.Group == MaterialGroup.Water)
+                    continue;
+
+                var wedges = subMesh.Wedges;
+                foreach (var triangle in subMesh.Triangles)
+                {
+                    // Reversed like the render mesh (Gothic -> Unity winding).
+                    foreach (var wedgeIndex in new[] { triangle.Wedge2, triangle.Wedge1, triangle.Wedge0 })
+                    {
+                        var positionIndex = wedges[wedgeIndex].Index;
+                        if (!vertexByPosition.TryGetValue(positionIndex, out var vertex))
+                        {
+                            var position = positions[positionIndex];
+                            vertex = vertices.Count;
+                            vertices.Add(new Vector3(position.X / 100f, position.Y / 100f, position.Z / 100f));
+                            vertexByPosition[positionIndex] = vertex;
+                        }
+                        triangles.Add(vertex);
+                    }
+                }
+            }
+
+            Mesh collisionMesh = null;
+            if (triangles.Count > 0)
+            {
+                collisionMesh = new Mesh { name = cacheKey };
+                if (vertices.Count > ushort.MaxValue)
+                    collisionMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                collisionMesh.SetVertices(vertices);
+                collisionMesh.SetTriangles(triangles, 0);
+            }
+            _multiTypeCacheService.Meshes[cacheKey] = collisionMesh;
+            return collisionMesh;
         }
 
         /// <summary>

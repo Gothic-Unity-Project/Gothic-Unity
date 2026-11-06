@@ -17,6 +17,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
@@ -48,9 +49,12 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly WindService _windService;
+        [Inject] private readonly FireService _fireService;
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
+        // > 0 while a fire tree's VOBs are created (CreateFireVobs).
+        private int _fireTreeDepth;
 
 
         /// <summary>
@@ -169,6 +173,21 @@ namespace Gothic.Core.Domain.Vobs
                     go = CreateMover((IMover)vob, parent);
                     break;
                 case VirtualObjectType.zCPFXController:
+                    // DeveloperConfig.EnableParticleEffects: a running controller shows its effect (sparks over the
+                    // pentagram, Xardas's tower). Controllers started by a trigger aren't handled yet.
+                    if (_configService.Dev.EnableParticleEffects && vob is IParticleEffectController pfxController &&
+                        pfxController.InitiallyRunning && !string.IsNullOrEmpty(GetPfxControllerEffect(pfxController)))
+                    {
+                        go = _meshService.CreateVobPfx(GetPfxControllerEffect(pfxController),
+                            GetPfxPosition(vob, parent), vob.Rotation.ToUnityQuaternion(), parent);
+                        break;
+                    }
+
+                    // Diagnostics: controllers started later by a trigger (not handled yet) - which effect, where.
+                    if (vob is IParticleEffectController waitingController)
+                        Logger.Log($"[PFX] Controller '{vob.Name}' ({GetPfxControllerEffect(waitingController)}) at " +
+                                   $"{vob.Position.ToUnityVector()} waits for a trigger - not shown", LogCat.Vob);
+
                     // A Particle controller makes no sense without a visual to show.
                     // Therefore, removing it now (as it's also not included in official G1 saves, and not visible within Spacer)
                     if (!vob.ShowVisual)
@@ -257,11 +276,29 @@ namespace Gothic.Core.Domain.Vobs
             if (!go)
                 return;
 
+            // A child VOB's position is in world space like a root's (Gothic stores it so) - it stayed at its parent's
+            // origin: Mroczne Tajemnice's sacks on a cart lay 17 m away next to their parent sack, The Chronicles Of
+            // Myrtana's intro ship had all its crates in one pile. A fire tree's VOBs are relative to its slot.
+            if (!isRootVob && _fireTreeDepth == 0)
+            {
+                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+                // Its lights (a fire tree's, a child light) took their position and nearby renderers when they were
+                // built - at the parent: a child fireplace lit its parent's surroundings.
+                foreach (var light in go.GetComponentsInChildren<StationaryLight>(true))
+                    light.Refresh();
+            }
+
             // Trees and grass with Gothic's wind mode sway - WindService decides which.
             _windService.Register(vob, go);
 
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
+
+            // Static VOBs in caves/houses take the light of the floor below (StationaryLightsService,
+            // EnableVobWorldLight).
+            if (vob.Type is not (VirtualObjectType.oCItem or VirtualObjectType.zCVobLight or
+                VirtualObjectType.zCMover or VirtualObjectType.zCPFXController))
+                _stationaryLightsService.ApplyWorldLight(go);
 
             // Trigger zones and scripts are scaled to their bounding box - their children are created next to them.
             var childParent = vob.Type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
@@ -498,9 +535,11 @@ namespace Gothic.Core.Domain.Vobs
         {
             var go = CreateDefaultMesh(vob, parent);
 
+            // A fireplace without a fire tree is still a mesh - returning null dropped its child VOBs. Mroczne
+            // Tajemnice's smithy on the smugglers' beach (a high fireplace below another one) was missing.
             if (vob.VobTree == "")
             {
-                return null;
+                return go;
             }
 
             var fireWorld = _resourceCacheService.TryGetWorld(vob.VobTree, _contextGameVersionService.Version, true);
@@ -508,10 +547,20 @@ namespace Gothic.Core.Domain.Vobs
             if (fireWorld == null)
             {
                 Logger.LogWarning($"Fire world {vob.VobTree} not found. Skipping usage...", LogCat.Loading);
-                return null;
+                return go;
             }
+            var slot = go.FindChildRecursively(vob.Slot) ?? go;
+            var childCountBefore = slot.transform.childCount;
+            CreateFireVobs(fireWorld.RootObjects, slot, worldPosition);
 
-            CreateFireVobs(fireWorld.RootObjects, go.FindChildRecursively(vob.Slot) ?? go, worldPosition);
+            // The fire tree burns by the scheme's mob routine (lit at night), always indoors (light mapped: houses,
+            // mines), can be toggled and is off when far away (FireService).
+            var fireObjects = new List<GameObject>();
+            for (var i = childCountBefore; i < slot.transform.childCount; i++)
+                fireObjects.Add(slot.transform.GetChild(i).gameObject);
+            var scheme = vob.Visual?.Name?.Split('_')[0];
+            var isIndoor = _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, _fireIndoorRadius);
+            _fireService.Register(go, scheme, isIndoor, fireObjects);
 
             return go;
         }
@@ -521,15 +570,28 @@ namespace Gothic.Core.Domain.Vobs
         /// </summary>
         private void CreateFireVobs(List<IVirtualObject> vobs, GameObject parent, Vector3 worldPosition)
         {
-            foreach (var vob in vobs)
+            // A fire tree's VOB positions are relative to the fire's slot (GetPfxPosition).
+            _fireTreeDepth++;
+            try
             {
-                // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
-                vob.Position = default;
+                foreach (var vob in vobs)
+                {
+                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
+                    // positioning.
+                    vob.Position = default;
 
-                // Call normal mesh and Prefab loading logic
-                InitVob(vob, parent, worldPosition, false);
+                    // Call normal mesh and Prefab loading logic
+                    InitVob(vob, parent, worldPosition, false);
+                }
+            }
+            finally
+            {
+                _fireTreeDepth--;
             }
         }
+
+        // A fire this close to light mapped polygons (houses, caves, mines) is indoors - it always burns.
+        private const float _fireIndoorRadius = 3f;
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
         {
@@ -552,6 +614,9 @@ namespace Gothic.Core.Domain.Vobs
             lightComp.Range = vob.Range * .01f;
             lightComp.SpotAngle = vob.ConeAngle;
             lightComp.Intensity = 1;
+
+            // A static light is in the world's lightmaps (EnableWorldLightmaps) - it lights VOBs and NPCs only.
+            lightComp.IsBakedIntoWorld = vob.LightStatic && _stationaryLightsService.HasWorldLightmaps;
 
             // All world lights share the shader slots - the ones closest to the camera get them.
             lightComp.RuntimeLinearColor = lightComp.Color.linear;
@@ -1055,10 +1120,36 @@ namespace Gothic.Core.Domain.Vobs
                 vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(), parent);
         }
 
+        /// <summary>
+        /// The controller's effect is its particle visual like the engine
+        /// (zCPFXControler, OpenGothic PfxController) - pfxName is mostly a Spacer leftover ".PFX". Before, G2's active
+        /// teleport platforms (RESURRECTION.pfx) and cauldrons showed nothing ("PFX '.PFX' not found in VM").
+        /// </summary>
+        private string GetPfxControllerEffect(IParticleEffectController controller)
+        {
+            if (controller.Visual?.Type == VisualType.ParticleEffect &&
+                controller.Visual.Name.NotNullOrEmpty())
+                return controller.Visual.Name;
+            return controller.EffectName;
+        }
+
         private GameObject CreatePfx(IVirtualObject vob, GameObject parent)
         {
-            return _meshService.CreateVobPfx(vob, vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion(),
-                parent);
+            return _meshService.CreateVobPfx(vob, GetPfxPosition(vob, parent),
+                vob.Rotation.ToUnityQuaternion(), parent);
+        }
+
+        /// <summary>
+        /// Particle effects are placed in world space. In a fire tree (oCMobFire vobTree) the VOB position is relative
+        /// to the fire's slot - taken as world position, every fire, torch flame and smoke of the world burned at the
+        /// world's origin (torches showed no fire at all).
+        /// </summary>
+        private Vector3 GetPfxPosition(IVirtualObject vob, GameObject parent)
+        {
+            var position = vob.Position.ToUnityVector();
+            if (_fireTreeDepth > 0 && parent != null)
+                position += parent.transform.position;
+            return position;
         }
 
         /// <summary>

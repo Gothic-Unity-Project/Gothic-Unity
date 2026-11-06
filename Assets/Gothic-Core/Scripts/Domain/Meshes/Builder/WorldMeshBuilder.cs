@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
@@ -18,6 +19,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using ZenKit;
+using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
 using Material = UnityEngine.Material;
 
@@ -35,6 +37,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] private readonly FrameSkipperService _frameSkipperService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly RoomService _roomService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _worldConfigService;
 
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
@@ -44,7 +47,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new(VertexAttribute.Normal, VertexAttributeFormat.SNorm16, 4),
             new(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
-            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4)
+            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
+            new(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4)
         };
 
         private static readonly VertexAttributeDescriptor[] _waterVertexLayout =
@@ -73,7 +77,36 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // Expanded (pre-deduplication, worst-case) vertex count, cached during the GetPolygon sweep in
             // GatherMaterialEntries so ExtractChunks can size its buffers without a second native sweep.
             public int ExpandedVertexCount;
+
+            // Has polygons of noCollDet materials (bushes, leaves) - its collider is built without them.
+            public bool HasNoCollisionPolygons;
         }
+
+        // Per material index: noCollDet - those polygons don't collide, like in the engine.
+        private bool[] _noCollisionMaterials;
+
+        /// <summary>
+        /// DeveloperConfig.EnableWorldLightmaps: per lightmap of the world mesh, how a vertex position (Gothic cm)
+        /// becomes its lightmap uv (ZenGin zCLightMap: uv = dot(position - origin, U/V), the vectors are scaled to the
+        /// page) and which slice of the lightmap array holds its page.
+        /// </summary>
+        private sealed class LightmapData
+        {
+            public float3[] Origin;
+            public float3[] U;
+            public float3[] V;
+            public float2[] Scale;
+            public int[] Slice;
+            public List<byte[]> Pages;
+        }
+
+        private const int _lightmapPageSize = 256;
+        private int _extractedPolygonCount;
+        private int _lightmappedPolygonCount;
+        private static readonly int _worldLightmapsShaderId = Shader.PropertyToID("_WorldLightmaps");
+        private static readonly int _worldLightmapBrightnessShaderId = Shader.PropertyToID("_WorldLightmapBrightness");
+        private static Texture2DArray _emptyLightmaps;
+        private static Texture2DArray _worldLightmaps;
 
         private struct ExtractionBuffers : IDisposable
         {
@@ -117,6 +150,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public async Task BuildAsync([CanBeNull] LoadingService loading)
         {
             RootGo.isStatic = true;
+            _stationaryLightsService.ClearWorldChunks();
 
             var chunks = CollectChunks(out var emptyChunkCount);
 
@@ -138,8 +172,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var lightMappedCells = new HashSet<long>();
             var floorCells = new Dictionary<long, int>();
             var materialSectors = _roomService.GetMaterialSectors(_mesh);
+            var lightmaps = PrepareLightmaps();
+            var lightmapCells = new Dictionary<long, float4>();
             var buffers = await Task.Run(() =>
-                ExtractChunks(chunks, materials, lightMappedCells, floorCells, materialSectors));
+                ExtractChunks(chunks, materials, lightMappedCells, floorCells, materialSectors, lightmaps,
+                    lightmapCells));
+            // Mostly light mapped (the Old Mine: 92%): VOBs far from any lightmap get the world's average light.
+            _stationaryLightsService.SetLightmapCells(lightmapCells,
+                _lightmappedPolygonCount > _extractedPolygonCount / 2);
             _stationaryLightsService.SetLightMappedCells(lightMappedCells);
             _roomService.SetFloorCells(floorCells);
             try
@@ -181,10 +221,58 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return chunks;
         }
 
+        /// <summary>
+        /// The chunk's polygons without noCollDet materials, fan triangulated like the render mesh.
+        /// </summary>
+        [CanBeNull]
+        private Mesh BuildChunkCollisionMesh(ChunkBuildData data)
+        {
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            var vertexByPosition = new Dictionary<int, int>();
+            foreach (var polygonId in data.Chunk.PolygonIds)
+            {
+                var polygon = _mesh.GetPolygon(polygonId);
+                if (_noCollisionMaterials[polygon.MaterialIndex])
+                    continue;
+
+                var positionIndices = polygon.PositionIndices;
+                int Corner(int fanIndex)
+                {
+                    var positionIndex = positionIndices[fanIndex];
+                    if (vertexByPosition.TryGetValue(positionIndex, out var vertex))
+                        return vertex;
+                    var position = _mesh.GetPosition(positionIndex);
+                    vertex = vertices.Count;
+                    vertices.Add(new Vector3(position.X, position.Y, position.Z) / 100f);
+                    vertexByPosition[positionIndex] = vertex;
+                    return vertex;
+                }
+
+                for (var p = 1; p < positionIndices.Count - 1; p++)
+                {
+                    triangles.Add(Corner(0));
+                    triangles.Add(Corner(p + 1));
+                    triangles.Add(Corner(p));
+                }
+            }
+
+            if (triangles.Count == 0)
+                return null;
+
+            var collisionMesh = new Mesh { name = "Collision" };
+            if (vertices.Count > ushort.MaxValue)
+                collisionMesh.indexFormat = IndexFormat.UInt32;
+            collisionMesh.SetVertices(vertices);
+            collisionMesh.SetTriangles(triangles, 0);
+            return collisionMesh;
+        }
+
         private MaterialEntry[] GatherMaterialEntries(List<ChunkBuildData> chunks)
         {
             var entries = new MaterialEntry[_mesh.MaterialCount];
             var gathered = new bool[_mesh.MaterialCount];
+            _noCollisionMaterials = new bool[_mesh.MaterialCount];
 
             foreach (var data in chunks)
             {
@@ -202,6 +290,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     gathered[materialIndex] = true;
 
                     var material = _mesh.GetMaterial(materialIndex);
+                    _noCollisionMaterials[materialIndex] = material.DisableCollision;
 
                     var textureArrayIndex = -1;
                     var textureScale = Vector2.one;
@@ -234,8 +323,182 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return entries;
         }
 
+        /// <summary>
+        /// DeveloperConfig.EnableWorldLightmaps: Gothic lit the light mapped polygons (caves, mines, houses - 92% of
+        /// the Old Mine) with lightmaps compiled from the static lights; their vertex light is dim or black. The
+        /// world's lightmap pages (34 unique 256x256 R5G6B5 in the Old Mine, 42 in G1's world) go into one texture
+        /// array (smaller pages sit in its corner, their uv scaled), Lit-World samples it for those polygons.
+        /// Returns null without lightmaps - the shader keeps a 1x1 white array then.
+        /// </summary>
+        [CanBeNull]
+        private LightmapData PrepareLightmaps()
+        {
+            if (_emptyLightmaps == null)
+            {
+                _emptyLightmaps = new Texture2DArray(1, 1, 1, UnityEngine.TextureFormat.RGBA32, false)
+                {
+                    name = "EmptyLightmaps"
+                };
+                _emptyLightmaps.SetPixelData(new byte[] { 255, 255, 255, 255 }, 0, 0);
+                _emptyLightmaps.Apply(false, true);
+            }
+            if (_worldLightmaps != null)
+            {
+                UnityEngine.Object.Destroy(_worldLightmaps);
+                _worldLightmaps = null;
+            }
+            Shader.SetGlobalTexture(_worldLightmapsShaderId, _emptyLightmaps);
+            Shader.SetGlobalFloat(_worldLightmapBrightnessShaderId, _worldConfigService.Dev.WorldLightmapBrightness);
+            _stationaryLightsService.HasWorldLightmaps = false;
+
+            var count = _mesh.LightMapCount;
+            if (!_worldConfigService.Dev.EnableWorldLightmaps || count == 0)
+                return null;
+
+            var data = new LightmapData
+            {
+                Origin = new float3[count],
+                U = new float3[count],
+                V = new float3[count],
+                Scale = new float2[count],
+                Slice = new int[count]
+            };
+
+            // Lightmap entries share pages (the Old Mine: 790 entries on 34 pages) - one slice per unique page.
+            var pages = new List<byte[]>();
+            var pageByHash = new Dictionary<string, int>();
+            using var sha = System.Security.Cryptography.SHA1.Create();
+            for (var i = 0; i < count; i++)
+            {
+                var lightmap = _mesh.GetLightMap(i);
+                var image = lightmap.Image;
+                var width = Mathf.Min(image.Width, _lightmapPageSize);
+                var height = Mathf.Min(image.Height, _lightmapPageSize);
+                var rgba = GetLightmapRgba(image);
+
+                var hash = rgba == null ? string.Empty : Convert.ToBase64String(sha.ComputeHash(rgba));
+                if (rgba != null && !pageByHash.TryGetValue(hash, out data.Slice[i]))
+                {
+                    data.Slice[i] = pages.Count;
+                    pageByHash[hash] = pages.Count;
+                    pages.Add(ToPage(rgba, image.Width, width, height));
+                }
+
+                data.Origin[i] = new float3(lightmap.Origin.X, lightmap.Origin.Y, lightmap.Origin.Z);
+                // ZenGin stores the lightmap's up vector first, then its right vector: u = right, v = up. Checked
+                // against G1's world and Old Mine - the other way round sampled mostly black atlas gaps.
+                data.U[i] = new float3(lightmap.Normals.Item2.X, lightmap.Normals.Item2.Y, lightmap.Normals.Item2.Z);
+                data.V[i] = new float3(lightmap.Normals.Item1.X, lightmap.Normals.Item1.Y, lightmap.Normals.Item1.Z);
+                data.Scale[i] = new float2((float)width / _lightmapPageSize, (float)height / _lightmapPageSize);
+            }
+
+            if (pages.Count == 0)
+                return null;
+
+            _worldLightmaps = new Texture2DArray(_lightmapPageSize, _lightmapPageSize, pages.Count,
+                UnityEngine.TextureFormat.RGBA32, true, false)
+            {
+                name = "WorldLightmaps",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            for (var slice = 0; slice < pages.Count; slice++)
+                _worldLightmaps.SetPixelData(pages[slice], 0, slice);
+            _worldLightmaps.Apply(true, true);
+
+            Shader.SetGlobalTexture(_worldLightmapsShaderId, _worldLightmaps);
+            _stationaryLightsService.HasWorldLightmaps = true;
+            data.Pages = pages;
+            Logger.Log($"[Lightmaps] {count} lightmaps on {pages.Count} pages", LogCat.Mesh);
+            return data;
+        }
+
+        /// <summary>
+        /// The page as RGBA bytes. ZenKit's CachedTexture.GetMipmapRgba returns the raw data - lightmaps are R5G6B5,
+        /// decoded here when there are no RGBA mipmaps.
+        /// </summary>
+        [CanBeNull]
+        private static byte[] GetLightmapRgba(ITexture image)
+        {
+            var rgbaMips = image.AllMipmapsRgba;
+            if (rgbaMips != null && rgbaMips.Count > 0 && rgbaMips[0].Length == image.Width * image.Height * 4)
+                return rgbaMips[0];
+
+            if (image.Format != ZenKit.TextureFormat.R5G6B5)
+            {
+                Logger.LogWarning($"[Lightmaps] Unsupported lightmap format {image.Format}", LogCat.Mesh);
+                return null;
+            }
+
+            var raw = image.GetMipmapRaw(0);
+            var pixels = image.Width * image.Height;
+            if (raw == null || raw.Length < pixels * 2)
+                return null;
+            var rgba = new byte[pixels * 4];
+            for (var p = 0; p < pixels; p++)
+            {
+                var value = raw[p * 2] | (raw[p * 2 + 1] << 8);
+                rgba[p * 4] = (byte)(((value >> 11) & 0x1F) * 255 / 31);
+                rgba[p * 4 + 1] = (byte)(((value >> 5) & 0x3F) * 255 / 63);
+                rgba[p * 4 + 2] = (byte)((value & 0x1F) * 255 / 31);
+                rgba[p * 4 + 3] = 255;
+            }
+            return rgba;
+        }
+
+        /// <summary>
+        /// A 256x256 page with the lightmap in its corner (rows kept like every other texture: the world's uvs and
+        /// the texture data follow the same convention).
+        /// </summary>
+        private static byte[] ToPage(byte[] rgba, int sourceWidth, int width, int height)
+        {
+            if (width == _lightmapPageSize && height == _lightmapPageSize && sourceWidth == _lightmapPageSize)
+                return rgba;
+
+            var page = new byte[_lightmapPageSize * _lightmapPageSize * 4];
+            for (var y = 0; y < height; y++)
+                Buffer.BlockCopy(rgba, y * sourceWidth * 4, page, y * _lightmapPageSize * 4, width * 4);
+            return page;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.EnableVobWorldLight: the polygon's lightmap light at its center, summed into its cell - VOBs
+        /// in light mapped areas take it (StationaryLightsService.ApplyWorldLight).
+        /// </summary>
+        private void AddLightmapCell(IPolygon polygon, IReadOnlyList<int> positionIndices,
+            [CanBeNull] LightmapData lightmaps, Dictionary<long, float4> lightmapCells)
+        {
+            var index = polygon.LightMapIndex;
+            if (lightmaps?.Pages == null || index >= lightmaps.Slice.Length)
+                return;
+            var slice = lightmaps.Slice[index];
+            if (slice < 0 || slice >= lightmaps.Pages.Count)
+                return;
+
+            var center = float3.zero;
+            foreach (var positionIndex in positionIndices)
+            {
+                var position = _mesh.GetPosition(positionIndex);
+                center += new float3(position.X, position.Y, position.Z);
+            }
+            center /= positionIndices.Count;
+
+            var offset = center - lightmaps.Origin[index];
+            var u = math.dot(offset, lightmaps.U[index]) * lightmaps.Scale[index].x;
+            var v = math.dot(offset, lightmaps.V[index]) * lightmaps.Scale[index].y;
+            var x = math.clamp((int)(u * _lightmapPageSize), 0, _lightmapPageSize - 1);
+            var y = math.clamp((int)(v * _lightmapPageSize), 0, _lightmapPageSize - 1);
+            var page = lightmaps.Pages[slice];
+            var p = (y * _lightmapPageSize + x) * 4;
+            var light = new float4(page[p] / 255f, page[p + 1] / 255f, page[p + 2] / 255f, 1f);
+
+            var cell = StationaryLightsService.ToCell(new Vector3(center.x, center.y, center.z) / 100f);
+            lightmapCells[cell] = lightmapCells.TryGetValue(cell, out var sum) ? sum + light : light;
+        }
+
         private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials,
-            HashSet<long> lightMappedCells, Dictionary<long, int> floorCells, int[] materialSectors)
+            HashSet<long> lightMappedCells, Dictionary<long, int> floorCells, int[] materialSectors,
+            [CanBeNull] LightmapData lightmaps, Dictionary<long, float4> lightmapCells)
         {
             // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
             // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
@@ -274,7 +537,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var worldVertexCursor = 0;
             var waterVertexCursor = 0;
             var indexCursor = 0;
-            var deduplication = new Dictionary<(int Position, int Feature, int Material), int>();
+            var deduplication = new Dictionary<(int Position, int Feature, int Material, int LightMap), int>();
 
             for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
             {
@@ -291,17 +554,23 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 {
                     var polygon = _mesh.GetPolygon(polygonId);
                     var positionIndices = polygon.PositionIndices;
+                    _extractedPolygonCount++;
+                    if (polygon.LightMapIndex >= 0)
+                        _lightmappedPolygonCount++;
                     var featureIndices = polygon.FeatureIndices;
                     var materialIndex = polygon.MaterialIndex;
                     var material = materials[materialIndex];
+                    if (_noCollisionMaterials[materialIndex])
+                        data.HasNoCollisionPolygons = true;
 
-                    // Gothic lit these (caves, houses) with lightmaps from static lights, which we don't render.
-                    // Their static lights are shown as runtime stationary lights instead (StationaryLightsService).
+                    // Gothic lit these (caves, houses) with lightmaps from its static lights: their cells get the
+                    // static lights as runtime lights (VOBs, NPCs) and the lightmap light (StationaryLightsService).
                     if (polygon.LightMapIndex >= 0 && positionIndices.Count > 0)
                     {
                         var corner = _mesh.GetPosition(positionIndices[0]);
                         lightMappedCells.Add(StationaryLightsService.ToCell(
                             new Vector3(corner.X, corner.Y, corner.Z) / 100f));
+                        AddLightmapCell(polygon, positionIndices, lightmaps, lightmapCells);
                     }
 
                     // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
@@ -309,9 +578,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
                         RoomService.MarkRoomFloor(_mesh, materialSectors[materialIndex], positionIndices, floorCells);
 
+                    var lightMapIndex = lightmaps != null && polygon.LightMapIndex >= 0 &&
+                                        polygon.LightMapIndex < lightmaps.Slice.Length
+                        ? polygon.LightMapIndex
+                        : -1;
+
                     void AddCorner(int fanIndex)
                     {
-                        var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex);
+                        var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex, lightMapIndex);
                         if (!deduplication.TryGetValue(key, out var localIndex))
                         {
                             localIndex = vertexCount++;
@@ -340,6 +614,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
                             }
                             else
                             {
+                                var lightmapUv = float4.zero;
+                                if (lightMapIndex >= 0)
+                                {
+                                    var offset = new float3(position.X, position.Y, position.Z) -
+                                                 lightmaps.Origin[lightMapIndex];
+                                    lightmapUv = new float4(
+                                        math.dot(offset, lightmaps.U[lightMapIndex]) * lightmaps.Scale[lightMapIndex].x,
+                                        math.dot(offset, lightmaps.V[lightMapIndex]) * lightmaps.Scale[lightMapIndex].y,
+                                        lightmaps.Slice[lightMapIndex],
+                                        -1f);
+                                }
+
                                 var light = (uint)feature.Light;
                                 buffers.Vertices[vertexStart + localIndex] = new WorldChunkVertex
                                 {
@@ -355,7 +641,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                                     // Gothic's baked vertex light, kept untouched: ARGB int -> RGBA byte order.
                                     Color = ((light >> 16) & 0xFF) | (((light >> 8) & 0xFF) << 8) |
                                             ((light & 0xFF) << 16) | (((light >> 24) & 0xFF) << 24),
-                                    Uv = uv
+                                    Uv = uv,
+                                    LightmapUv = lightmapUv
                                 };
                             }
                         }
@@ -499,9 +786,22 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var meshFilter = chunkGo.AddComponent<MeshFilter>();
                 var meshRenderer = chunkGo.AddComponent<MeshRenderer>();
                 meshFilter.sharedMesh = mesh;
+                _stationaryLightsService.RegisterWorldChunk(meshRenderer);
 
                 PrepareMeshRenderer(meshRenderer, data.Type);
-                PrepareMeshCollider(chunkGo, mesh);
+                // Like the engine, noCollDet polygons (bushes, leaves on the level mesh) don't collide - they blocked
+                // the player before.
+                if (data.HasNoCollisionPolygons &&
+                    data.Type != TextureCacheService.TextureArrayTypes.Water)
+                {
+                    var collisionMesh = BuildChunkCollisionMesh(data);
+                    if (collisionMesh != null)
+                        PrepareMeshCollider(chunkGo, collisionMesh);
+                }
+                else
+                {
+                    PrepareMeshCollider(chunkGo, mesh);
+                }
 
 #if UNITY_EDITOR
                 if (data.Type != TextureCacheService.TextureArrayTypes.Opaque)
