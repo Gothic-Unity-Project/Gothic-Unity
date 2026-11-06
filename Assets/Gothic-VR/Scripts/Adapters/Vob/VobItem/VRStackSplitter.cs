@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -233,7 +234,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             TakeFromSource(item, isSourceGrabbed);
 
             Begin(side, source, isSourceGrabbed, piece, null);
-            Logger.Log($"[StackSplit] {GetInstanceName(item)}: 1 piece taken, {item.Amount} left", LogCat.VR);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken, {item.Amount} left", LogCat.VR);
             return true;
         }
 
@@ -263,9 +264,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 item.Amount--;
                 _sourceBackpack = backpack;
                 _piecesFromBackpack = 1;
-                _backpackItemName = GetInstanceName(item);
+                _backpackItemName = item.GetSymbolName();
                 Begin(side, source, false, piece, null);
-                Logger.Log($"[StackSplit] {GetInstanceName(item)}: 1 piece taken out of {backpack.name}", LogCat.VR);
+                Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken out of {backpack.name}", LogCat.VR);
                 return true;
             }
             return false;
@@ -299,7 +300,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             TakeFromSource(item, true);
 
             Begin(side, source, true, piece, socket);
-            Logger.Log($"[StackSplit] {GetInstanceName(item)}: feeding {socket.Transform.name}", LogCat.VR);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: feeding {socket.Transform.name}", LogCat.VR);
             return true;
         }
 
@@ -331,7 +332,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void TakeFromSource(IItem sourceItem, bool isSourceGrabbed)
         {
             if (isSourceGrabbed)
-                _playerService.RemoveItem(GetInstanceName(sourceItem), 1);
+                _playerService.RemoveItem(sourceItem.GetSymbolName(), 1);
         }
 
         private void Begin(VrHandSide side, VobContainer source, bool isSourceGrabbed, VobContainer piece,
@@ -417,8 +418,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (sourceItem == null || source == target)
                 return false;
 
-            var instanceName = GetInstanceName(sourceItem);
-            if (!instanceName.EqualsIgnoreCase(GetInstanceName(targetItem)))
+            var instanceName = sourceItem.GetSymbolName();
+            if (!instanceName.EqualsIgnoreCase(targetItem.GetSymbolName()))
                 return false;
 
             // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again.
@@ -468,7 +469,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // About the size of the hover name (VRFocus).
             labelGo.transform.localScale = Vector3.one * 0.06f;
             var label = labelGo.AddComponent<TextMeshPro>();
-            Gothic.VR.Adapters.UI.VRGothicText.Apply(label);
+            GothicText.Apply(label);
             label.fontSize = 12;
             label.alignment = TextAlignmentOptions.Center;
             label.textWrappingMode = TextWrappingModes.NoWrap;
@@ -557,7 +558,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private VobContainer SpawnPiece(IItem item, Vector3 position, Quaternion rotation)
         {
-            var instanceName = GetInstanceName(item);
+            var instanceName = item.GetSymbolName();
             var piece = _vobService.CreateItem(new Item
             {
                 Name = instanceName,
@@ -674,11 +675,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _palmPieces.Remove(hand);
                 LetGoOfPalm(entry.Piece, isCollisionRestored: true);
             }
-        }
-
-        private static string GetInstanceName(IItem item)
-        {
-            return item.GetSymbolName();
         }
     }
 }

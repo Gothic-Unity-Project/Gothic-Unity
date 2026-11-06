@@ -11,6 +11,7 @@ using Gothic.Core.Models.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Inventory;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
@@ -92,6 +93,8 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
+        [Inject] private readonly IVrUiPointers _vrUiPointers;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
         private const string _takeAllButtonName = "TakeAllButton";
@@ -124,8 +127,7 @@ namespace Gothic.VR.Adapters.Player
             var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
-                Gothic.Core.Logging.Logger.LogWarning($"[VRBackpack] Prefab {PrefabPath} not found.",
-                    Gothic.Core.Logging.LogCat.VR);
+                Logger.LogWarning($"[VRBackpack] Prefab {PrefabPath} not found.", LogCat.VR);
                 return null;
             }
 
@@ -277,20 +279,18 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void RegisterUiCanvases()
         {
-            var uiPointers = ReflexProjectInstaller.DIContainer?.Resolve<IVrUiPointers>();
-            if (uiPointers == null)
+            if (_vrUiPointers == null)
                 return;
             foreach (var canvas in GetComponentsInChildren<Canvas>(true))
-                uiPointers.RegisterCanvas(canvas);
+                _vrUiPointers.RegisterCanvas(canvas);
         }
 
         private void UnregisterUiCanvases()
         {
-            var uiPointers = ReflexProjectInstaller.DIContainer?.Resolve<IVrUiPointers>();
-            if (uiPointers == null)
+            if (_vrUiPointers == null)
                 return;
             foreach (var canvas in GetComponentsInChildren<Canvas>(true))
-                uiPointers.UnregisterCanvas(canvas);
+                _vrUiPointers.UnregisterCanvas(canvas);
         }
 
 
@@ -433,15 +433,6 @@ namespace Gothic.VR.Adapters.Player
             // Items held near the backpack pass through it.
             if (GetComponent<VRBackpackItemPassThrough>() == null)
                 gameObject.AddComponent<VRBackpackItemPassThrough>();
-        }
-
-        /// <summary>
-        /// The item's instance symbol - the vob name isn't always the symbol (PlayerService.TryGetItemSymbol).
-        /// </summary>
-        private static string GetInstanceName(VobContainer vobContainer)
-        {
-            var item = vobContainer.VobAs<IItem>();
-            return item?.GetSymbolName() ?? vobContainer.Vob.Name;
         }
 
         private void OnDestroy()
@@ -663,7 +654,8 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _vobService.UntrackVobFromCache(vobContainer);
 
-            Owner.Add(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            var item = vobContainer.VobAs<IItem>();
+            Owner.Add(item.GetSymbolName(), Mathf.Max(1, item.Amount));
 
             // An NPC owner fires NpcInventoryChanged, which refreshes us.
             if (!IsRefreshedByNpcEvent)
@@ -734,7 +726,8 @@ namespace Gothic.VR.Adapters.Player
                 worldVobs.Add(vobContainer.Vob);
 
             // Taking the last one of an equipped item out takes it off (IInventoryOwner.Remove).
-            Owner.Remove(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            var item = vobContainer.VobAs<IItem>();
+            Owner.Remove(item.GetSymbolName(), Mathf.Max(1, item.Amount));
 
             if (!IsRefreshedByNpcEvent)
                 UpdateInventoryView();
@@ -950,7 +943,7 @@ namespace Gothic.VR.Adapters.Player
             labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
 
             var tmp = labelGo.AddComponent<TextMeshPro>();
-            var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.TmpDefaultPath);
             if (font != null)
                 tmp.font = font;
             tmp.text = "[E]";

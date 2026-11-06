@@ -9,6 +9,7 @@ using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Context;
 using JetBrains.Annotations;
 using Reflex.Attributes;
+using TMPro;
 using UnityEngine;
 using ZenKit;
 using Font = ZenKit.Font;
@@ -35,6 +36,8 @@ namespace Gothic.Core.Services.Caches
         // Segments loaded and downloaded once - music zones switch themes back and forth, no need to parse and download
         // a theme again on the main thread while the audio thread renders (found on BoroBongo's branch).
         private readonly Dictionary<string, Segment> _downloadedSegments = new(StringComparer.OrdinalIgnoreCase);
+        // Unity fonts from Resources (Constants.Fonts) for texts built at runtime - loaded once per path.
+        private readonly Dictionary<string, TMP_FontAsset> _fontAssets = new();
 
         private ResourceCacheType<ZenKit.World> _world;
         private ResourceCacheType<IModelScript> _modelScript;
@@ -394,6 +397,22 @@ namespace Gothic.Core.Services.Caches
             }
 
             return go;
+        }
+
+        /// <summary>
+        /// A TMP font from Resources (Constants.Fonts), loaded once and cached. Null if it doesn't exist.
+        /// </summary>
+        [CanBeNull]
+        public TMP_FontAsset TryGetFontAsset([NotNull] string resourcesPath)
+        {
+            if (_fontAssets.TryGetValue(resourcesPath, out var font))
+                return font;
+
+            font = Resources.Load<TMP_FontAsset>(resourcesPath);
+            if (font == null)
+                Logger.LogWarning($"Font at >{resourcesPath}< not found.", LogCat.Loading);
+            _fontAssets[resourcesPath] = font;
+            return font;
         }
 
         [CanBeNull]

@@ -5,6 +5,7 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
@@ -56,9 +57,8 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
-        // The active backend's backpack prefab (VRBackpack.PrefabPath).
-        private static string _backpackPrefabPath => VRBackpack.PrefabPath;
         private IInventoryOwner _lootOwner;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
@@ -132,25 +132,12 @@ namespace Gothic.VR.Adapters
         /// </summary>
         private void SpawnLootBackpack(NpcContainer npc)
         {
-            var prefab = Resources.Load<GameObject>(_backpackPrefabPath);
-            if (prefab == null)
-            {
-                Logger.LogWarning($"[VRNpcLoot] Backpack prefab {_backpackPrefabPath} not found.", LogCat.VR);
-                return;
-            }
-
             var npcTransform = npc.Go.transform;
             var position = npcTransform.position + npcTransform.right * 0.7f + Vector3.up * 0.4f;
-            var backpackGo = Instantiate(prefab, position, Quaternion.LookRotation(-npcTransform.right));
-            backpackGo.name = $"LootBackpack_{npc.Instance.GetName(NpcNameSlot.Slot0)}";
-            backpackGo.Inject();
-
-            _lootBackpack = backpackGo.GetComponentInChildren<VRBackpack>(true);
+            _lootBackpack = VRBackpack.SpawnCopy(position, Quaternion.LookRotation(-npcTransform.right),
+                $"LootBackpack_{npc.Instance.GetName(NpcNameSlot.Slot0)}", out var backpackGo);
             if (_lootBackpack == null)
-            {
-                Destroy(backpackGo);
                 return;
-            }
             _lootBackpackRoot = backpackGo;
             _lootBackpack.SetNpcOwner(npc);
 
@@ -520,7 +507,7 @@ namespace Gothic.VR.Adapters
             return idx >= 0 && idx < _socketRoots.Count ? _socketRoots[idx] : null;
         }
 
-        private static void AddEquippedLabel(GameObject socketRoot)
+        private void AddEquippedLabel(GameObject socketRoot)
         {
             if (socketRoot == null)
                 return;
@@ -532,7 +519,7 @@ namespace Gothic.VR.Adapters
 
             var tmp = labelGo.AddComponent<TextMeshPro>();
             // Assign font immediately after AddComponent to suppress repeated OnPreRenderObject warnings.
-            var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.TmpDefaultPath);
             if (font != null)
                 tmp.font = font;
             tmp.text = "[E]";

@@ -26,6 +26,22 @@ namespace Gothic.Core.Const
             public const string RootBoneName = "BIP01";
         }
 
+        /// <summary>
+        /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
+        /// </summary>
+        public static class Fonts
+        {
+            /// <summary>
+            /// TMP's own font - plain texts like the [E] badge.
+            /// </summary>
+            public const string TmpDefaultPath = "Fonts & Materials/LiberationSans SDF";
+
+            /// <summary>
+            /// An empty font: every character falls back to the sprite asset made from Gothic's font (GothicText).
+            /// </summary>
+            public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";
+        }
+
         // Unity shaders
         public static readonly Shader ShaderUnlit = Shader.Find("Universal Render Pipeline/Unlit");
         public static readonly Shader ShaderUnlitParticles = Shader.Find("Universal Render Pipeline/Particles/Unlit");

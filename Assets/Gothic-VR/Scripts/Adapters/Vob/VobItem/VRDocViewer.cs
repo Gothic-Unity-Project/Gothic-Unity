@@ -1,4 +1,5 @@
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Doc;
@@ -14,6 +15,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRDocViewer : MonoBehaviour
     {
         [Inject] private readonly TextureCacheService _textureCacheService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly Gothic.Core.Services.DocService _docService;
 
         // The hero's position on a map of the current world (U.TGA arrow, like the engine/OpenGothic).
@@ -193,7 +195,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             textGo.transform.SetParent(pageGo.transform, false);
             var tmp = textGo.AddComponent<TextMeshProUGUI>();
 
-            var font = Resources.Load<TMP_FontAsset>("FontAsset/LiberationSans SDF empty");
+            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.GothicEmptyPath);
             if (font != null)
                 tmp.font = font;
 

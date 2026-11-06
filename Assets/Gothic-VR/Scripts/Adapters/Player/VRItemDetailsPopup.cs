@@ -1,7 +1,9 @@
 using System.Text;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
@@ -35,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
 
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private VrInteractable _backpack;
         private bool _isCounter;
@@ -300,7 +303,7 @@ namespace Gothic.VR.Adapters.Player
             textGo.transform.SetParent(_canvasGo.transform, false);
             var tmp = textGo.AddComponent<TextMeshProUGUI>();
 
-            var font = Resources.Load<TMP_FontAsset>("FontAsset/LiberationSans SDF empty");
+            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.GothicEmptyPath);
             if (font != null)
                 tmp.font = font;
 
