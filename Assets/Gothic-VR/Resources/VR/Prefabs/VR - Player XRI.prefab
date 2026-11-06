@@ -2283,7 +2283,7 @@ MonoBehaviour:
   m_AimTargetObject: {fileID: 1096273261276596531}
   m_RaycastMask:
     serializedVersion: 2
-    m_Bits: 1051873
+    m_Bits: 1068257
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
   m_RaycastUIDocumentTriggerInteraction: 1
@@ -3401,7 +3401,7 @@ MonoBehaviour:
   m_AimTargetObject: {fileID: 9092921936286841604}
   m_RaycastMask:
     serializedVersion: 2
-    m_Bits: 1051873
+    m_Bits: 1068257
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
   m_RaycastUIDocumentTriggerInteraction: 1
