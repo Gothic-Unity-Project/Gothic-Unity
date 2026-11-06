@@ -6,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vm;
+using Gothic.Core.Services.Vobs;
 using Gothic.VR.Services;
 using Gothic.VR.Adapters.Vob.VobItem;
 using Gothic.VR.Interaction.Components;
@@ -28,19 +29,13 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
-        [Inject] private readonly DialogService _dialogService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Npc.NpcInventoryService _npcInventoryService;
-        [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
+        [Inject] private readonly MobLockService _mobLockService;
+        [Inject] private readonly VrLockTouchService _lockTouchService;
 
-        private const float _lockedTouchRadius = 0.1f;
         private const float _lockedCommentCooldown = 8f;
-        private readonly Collider[] _touchHits = new Collider[16];
-        private readonly bool[] _isHandTouching = new bool[2];
-        // A door or chest farther than this from the head can't be touched (its pivot may be at one edge).
-        private const float _touchCheckDistance = 4f;
         private float _nextLockedCommentTime;
 
+        private bool _isInitialized;
         private bool _isLocked;
         private string _combination;
         private string _keyInstance;
@@ -67,23 +62,9 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
             _lockable = vobLoader.Container;
             // Every door and chest has one hinge (the door wing or the chest lid) per backend which supports it.
             _hinge = VrHinges.FindActive(vobLoader);
-            switch (_lockable.Vob)
-            {
-                case IDoor door:
-                    _isLocked = door.IsLocked;
-                    _combination = door.PickString;
-                    _keyInstance = door.Key;
-                    break;
-                case IContainer container:
-                    _isLocked = container.IsLocked;
-                    _combination = container.PickString;
-                    _keyInstance = container.Key;
-                    break;
-                default:
-                    Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.",
-                        LogCat.VR);
-                    break;
-            }
+            if (!_lockable.Vob.TryGetLock(out _isLocked, out _keyInstance, out _combination))
+                Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.",
+                    LogCat.VR);
 
             // Stop this handler if the object is already unlocked.
             if (!_isLocked)
@@ -92,7 +73,28 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
+            _isInitialized = true;
+            RegisterTouch();
             StartCoroutine(StartDelayed());
+        }
+
+        private void OnEnable()
+        {
+            // The first OnEnable runs before Start, which registers then.
+            if (_isInitialized)
+                RegisterTouch();
+        }
+
+        private void OnDisable()
+        {
+            if (_isInitialized && _lockable?.Go != null)
+                _lockTouchService.Unregister(_lockable.Go.transform);
+        }
+
+        private void RegisterTouch()
+        {
+            if (_lockable?.Go != null)
+                _lockTouchService.Register(_lockable.Go.transform, this);
         }
 
         private IEnumerator StartDelayed()
@@ -104,99 +106,25 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         }
 
         /// <summary>
-        /// Like the engine trying a locked door/chest without key or lock
-        /// pick - an empty hand touching it makes the hero say why it doesn't open ($KEYMISSING, $NEVEROPEN...).
+        /// An empty hand touched the locked door/chest (VrLockTouchService), like the engine trying it without key or
+        /// lock pick: the key in the inventory opens it, else the hero says why it doesn't open ($KEYMISSING, ...).
         /// </summary>
-        private void Update()
+        public void OnEmptyHandTouched(VrHandSide side)
         {
-            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (rig == null || _lockable.Go == null)
-                return;
-
-            // Far away (most locked doors/chests of a world): no physics query, nothing touched.
-            var head = Camera.main;
-            if (head == null || (head.transform.position - _lockable.Go.transform.position).sqrMagnitude >
-                _touchCheckDistance * _touchCheckDistance)
+            if (_mobLockService.CanHeroOpenWithKey(_lockable.Vob))
             {
-                _isHandTouching[0] = _isHandTouching[1] = false;
+                PlaySound(_vmService.PickLockSuccessSoundName, _vmService.DoorLockSoundName);
+                GlobalEventDispatcher.LockPickComboFinished.Invoke(null, _lockable, (int)side);
+                UnlockAndPushOpen();
                 return;
             }
 
-            foreach (var hand in rig.HandGrabbers)
-            {
-                if (hand == null)
-                    continue;
+            if (Time.time < _nextLockedCommentTime)
+                return;
 
-                var index = hand.HandSide == VrHandSide.Left ? 0 : 1;
-                var wasTouching = _isHandTouching[index];
-                _isHandTouching[index] = hand.Held == null && IsHandTouchingLockable(rig, hand.HandSide);
-
-                if (!_isHandTouching[index] || wasTouching)
-                    continue;
-
-                if (TryUnlockWithKeyInInventory(hand.HandSide))
-                    return;
-                if (Time.time < _nextLockedCommentTime)
-                    continue;
-
-                _nextLockedCommentTime = Time.time + _lockedCommentCooldown;
-                _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
-                _dialogService.HeroSaySvm(GetLockedSvms());
-            }
-        }
-
-        /// <summary>
-        /// Like the engine, the key in the inventory opens it - touching
-        /// the door/chest with the empty hand is enough, the key doesn't have to be taken out of the backpack.
-        /// </summary>
-        private bool TryUnlockWithKeyInInventory(VrHandSide side)
-        {
-            if (string.IsNullOrEmpty(_keyInstance))
-                return false;
-
-            var hero = _playerService.HeroContainer;
-            var key = _vmCacheService.TryGetItemData(_keyInstance);
-            if (hero?.Instance == null || key == null || _npcInventoryService.ExtNpcHasItems(hero.Instance, key.Index) <= 0)
-                return false;
-
-            Logger.Log($"[Lock] Key '{_keyInstance}' in the inventory - '{_lockable.Vob.Name}' unlocked by touch.",
-                LogCat.VR);
-            PlaySound(_vmService.PickLockSuccessSoundName, _vmService.DoorLockSoundName);
-            GlobalEventDispatcher.LockPickComboFinished.Invoke(null, _lockable, (int)side);
-            UnlockAndPushOpen();
-            return true;
-        }
-
-        private bool IsHandTouchingLockable(IVrRig rig, VrHandSide side)
-        {
-            var handVisual = rig.GetHandVisual(side);
-            var handPosition = handVisual != null ? handVisual.position
-                : _vrPlayerService.GetHandModelGo(side)?.transform.position;
-            if (!handPosition.HasValue || _lockable.Go == null)
-                return false;
-
-            var count = Physics.OverlapSphereNonAlloc(handPosition.Value, _lockedTouchRadius, _touchHits,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            for (var i = 0; i < count; i++)
-            {
-                if (_touchHits[i].transform.IsChildOf(_lockable.Go.transform))
-                    return true;
-            }
-            return false;
-        }
-
-        // Like oCMobLockable::CanOpen: what the hero misses to open it, with fallbacks for G1's smaller SVM set.
-        private string[] GetLockedSvms()
-        {
-            var hasKey = !string.IsNullOrEmpty(_keyInstance);
-            var hasPick = !string.IsNullOrEmpty(_combination);
-            if (hasKey && hasPick)
-                return new[] { "$PICKLOCKORKEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
-            if (hasKey)
-                return new[] { "$KEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
-            if (hasPick)
-                return new[] { "$PICKLOCKMISSING", "$NOMOREPICKS", "$DOESNTWORK" };
-            return new[] { "$NEVEROPEN", "$DOESNTWORK" };
+            _nextLockedCommentTime = Time.time + _lockedCommentCooldown;
+            _hapticsService.Vibrate(side, VrHapticPreset.Info);
+            _mobLockService.HeroSayLocked(_lockable.Vob);
         }
 
         private void OnTriggerEnter(Collider other)

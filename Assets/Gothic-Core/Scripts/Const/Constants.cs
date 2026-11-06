@@ -142,6 +142,11 @@ namespace Gothic.Core.Const
         // the hands' near grab finds it.
         public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
 
+        // Layer mask (not an index) of the solid colliders of doors and chests: body (Default), door wing (VobItem),
+        // chest lid (VobMovable), handles (Grabbable).
+        public static readonly int MobLockableMask = (1 << DefaultLayer) | (1 << VobItemLayer) |
+                                                     (1 << VobMovableLayer) | (1 << GrabbableLayer);
+
         
         /*
          * ### Tags
