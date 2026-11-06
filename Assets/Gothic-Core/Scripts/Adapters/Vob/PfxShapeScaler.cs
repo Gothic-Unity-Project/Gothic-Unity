@@ -41,7 +41,9 @@ namespace Gothic.Core.Adapters.Vob
                 position %= _keys.Length;
             var index = Mathf.Min(Mathf.FloorToInt(position), _keys.Length - 1);
             var next = _isLooping ? (index + 1) % _keys.Length : Mathf.Min(index + 1, _keys.Length - 1);
-            var scale = _isSmooth ? Mathf.Lerp(_keys[index], _keys[next], position - Mathf.Floor(position)) : _keys[index];
+            var scale = _isSmooth
+                ? Mathf.Lerp(_keys[index], _keys[next], position - Mathf.Floor(position))
+                : _keys[index];
             Apply(scale);
 
             if (!_isLooping && index >= _keys.Length - 1)

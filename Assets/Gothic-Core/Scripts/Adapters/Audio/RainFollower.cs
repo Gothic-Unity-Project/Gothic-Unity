@@ -8,11 +8,15 @@ namespace Gothic.Core.Adapters.Audio
     /// </summary>
     public class RainFollower : MonoBehaviour
     {
+        private Transform _head;
+
         private void LateUpdate()
         {
-            var head = Camera.main != null ? Camera.main.transform : null;
-            if (head != null)
-                transform.position = head.position;
+            // A new player rig (world change) has a new camera.
+            if (_head == null)
+                _head = Camera.main != null ? Camera.main.transform : null;
+            if (_head != null)
+                transform.position = _head.position;
         }
     }
 }

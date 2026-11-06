@@ -455,7 +455,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// <summary>
         /// With texture arrays the mesh has one sub mesh per texture
         /// array (PrepareMeshFilter: opaque, alpha cutout, water - in the order they first appear), not one per Gothic
-        /// sub mesh. Its materials follow the same grouping. Before, sub mesh i got the material of Gothic's sub mesh i:
+        /// sub mesh. Its materials follow the same grouping. Before, sub mesh i got the material of Gothic's sub mesh
+        /// i:
         /// a palm (bark, trunk, leaves) had its leaves sampling the opaque array with alpha array indices - stone
         /// textures without alpha on G2 addon palms, fishing nets and mod meshes.
         /// </summary>

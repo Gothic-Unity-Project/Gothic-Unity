@@ -92,7 +92,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             var childName = pfx.PpsCreateEmS;
             if (string.IsNullOrEmpty(childName) || childName == "=" ||
-                string.Equals(childName, _visualName, StringComparison.OrdinalIgnoreCase) || _subEmitterDepth >= _maxSubEmitterDepth)
+                string.Equals(childName, _visualName, StringComparison.OrdinalIgnoreCase) ||
+                _subEmitterDepth >= _maxSubEmitterDepth)
                 return;
 
             _subEmitterDepth++;
@@ -110,9 +111,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         [Reflex.Attributes.Inject] private readonly Gothic.Core.Services.Meshes.MeshService _pfxMeshService;
-        private const float _maxBurstEmissionRate = 2000f;
+        // Quest: transparent particles are overdraw on a fill-rate bound GPU - lower caps until a Quest build is
+        // measured (follow-up).
+        private static readonly float _maxBurstEmissionRate = Application.isMobilePlatform ? 600f : 2000f;
         private const float _minBurstSeconds = 0.5f;
-        private const float _maxLoopEmissionRate = 500f;
+        private static readonly float _maxLoopEmissionRate = Application.isMobilePlatform ? 150f : 500f;
         private const float _gothicGravityScale = 10000f; // cm/ms^2 -> m/s^2
         private bool _isFullRate;
         // Share of the particle's lifetime its trail lasts (trlFadeSpeed fades them fast in Gothic).
@@ -469,20 +472,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         break;
                 }
 
-                // Apply direction mode and angle variations
+                // Apply direction mode and angle variations. RAND only randomizes the direction, the emitter keeps
+                // its Gothic shape (ApplyGothicShapeAndDirection) - the old point-like sphere for RAND was already
+                // unreachable on the author's branch (its flag's default).
                 if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
                 {
-                    shapeModule.randomDirectionAmount = 1f;
-                }
-                else if (pfx.DirModeS.EqualsIgnoreCase("RAND"))
-                {
-                    // For random direction with angle spread, use Sphere shape to emit in all directions
-                    // The velocity variations will be handled by start speed and velocity over lifetime
-                    shapeModule.shapeType = ParticleSystemShapeType.Sphere;
-                    shapeModule.radius = 0.01f; // Very small radius for point-like emission
-                    shapeModule.radiusThickness = 0f; // Emit from surface only
-                    
-                    // Enable randomized direction
                     shapeModule.randomDirectionAmount = 1f;
                 }
                 else if (pfx.DirModeS.EqualsIgnoreCase("DIR"))
@@ -608,7 +602,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 var main = particleSystem.main;
                 Logger.Log($"[PFX] {_visualName}: at {pfxGo.transform.position}, loop={main.loop}, " +
-                           $"rate={particleSystem.emission.rateOverTimeMultiplier:F1}/s, duration={main.duration:F2}s, " +
+                           $"rate={particleSystem.emission.rateOverTimeMultiplier:F1}/s, " +
+                           $"duration={main.duration:F2}s, " +
                            $"life={main.startLifetime.constantMax:F2}s, size={main.startSize.constantMax:F2}, " +
                            $"shape={pfx.ShpTypeS} dir={pfx.DirModeS} vel={pfx.VelAvg}", LogCat.Mesh);
             }

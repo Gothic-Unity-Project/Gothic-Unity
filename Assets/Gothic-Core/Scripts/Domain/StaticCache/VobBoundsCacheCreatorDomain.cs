@@ -104,7 +104,8 @@ namespace Gothic.Core.Domain.StaticCache
                         break;
                     case VisualType.Unknown:
                         // Only a placeholder with no data - but its children are real VOBs: skipping them left them
-                        // without bounds, and VOBs without bounds never show (The Chronicles Of Myrtana: the intro ship).
+                        // without bounds, and VOBs without bounds never show (The Chronicles Of Myrtana: the intro
+                        // ship).
                         await CalculateVobBounds(vob.Children);
                         continue;
                     default:

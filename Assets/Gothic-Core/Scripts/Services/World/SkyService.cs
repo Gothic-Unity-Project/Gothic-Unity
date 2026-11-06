@@ -126,18 +126,12 @@ namespace Gothic.Core.Services.World
             RenderSettings.skybox = Object.Instantiate(_textureService.SkyMaterial);
             InitRainGo();
             InitSky();
-            if (IsIndoorDarkness)
+            if (_isIndoorWorld)
             {
                 RenderSettings.fog = false;
                 Logger.Log("[Sky] Indoor world - no sun, no fog", LogCat.Vob);
             }
         }
-
-        /// <summary>
-        /// An indoor BSP world (Old Mine, Free Mine, Orc Temple, mod caves).
-        /// The engine's indoor sky controller has no sun and no fog there - our sun lit the mines like the day.
-        /// </summary>
-        private bool IsIndoorDarkness => _isIndoorWorld;
 
         /// <summary>
         /// We need to initialize sky with its colors to show mesh textures.
@@ -172,7 +166,9 @@ namespace Gothic.Core.Services.World
             });
 
 
-            RenderSettings.fog = !IsIndoorDarkness;
+            // Indoor BSP worlds (Old Mine, Free Mine, Orc Temple, mod caves): the engine's indoor sky controller has no
+            // sun and no fog there - our sun lit the mines like the day.
+            RenderSettings.fog = !_isIndoorWorld;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.ambientMode = AmbientMode.Flat;
             InitRainState();
@@ -357,11 +353,11 @@ namespace Gothic.Core.Services.World
             _polyColor = polyColor;
             // Indoor worlds (e.g. G1's Old Mine, Orc Temple) have no day/night - like in Gothic.
             // Indoors no sun - the engine's indoor sky lit the mines like the night.
-            var dayLight = _isIndoorWorld ? (IsIndoorDarkness ? _indoorLight : Color.white) : polyColor;
+            var dayLight = _isIndoorWorld ? _indoorLight : polyColor;
 
             Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
             Shader.SetGlobalColor(_sunColorShaderId,
-                IsIndoorDarkness ? Color.black : _configService.Dev.SunLightColor * dayLight);
+                _isIndoorWorld ? Color.black : _configService.Dev.SunLightColor * dayLight);
             Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor * dayLight);
         }
 

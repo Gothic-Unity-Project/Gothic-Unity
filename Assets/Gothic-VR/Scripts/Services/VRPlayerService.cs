@@ -322,14 +322,6 @@ namespace Gothic.VR.Services
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
-            // Touching a fireplace/torch lights it or puts it out (VobFireHandler) until its mob routine switches.
-            if (loader.Container?.Vob is ZenKit.Vobs.IFire &&
-                loader.GetComponentInChildren<VobFireHandler>(true) is { } fire)
-            {
-                fire.Toggle();
-                return;
-            }
-
             _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
         }
 

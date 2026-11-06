@@ -17,6 +17,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using JetBrains.Annotations;
 using MyBox;
@@ -48,6 +49,7 @@ namespace Gothic.Core.Domain.Vobs
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly WindService _windService;
+        [Inject] private readonly FireService _fireService;
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
@@ -278,7 +280,13 @@ namespace Gothic.Core.Domain.Vobs
             // origin: Mroczne Tajemnice's sacks on a cart lay 17 m away next to their parent sack, The Chronicles Of
             // Myrtana's intro ship had all its crates in one pile. A fire tree's VOBs are relative to its slot.
             if (!isRootVob && _fireTreeDepth == 0)
+            {
                 go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+                // Its lights (a fire tree's, a child light) took their position and nearby renderers when they were
+                // built - at the parent: a child fireplace lit its parent's surroundings.
+                foreach (var light in go.GetComponentsInChildren<StationaryLight>(true))
+                    light.Refresh();
+            }
 
             // Trees and grass with Gothic's wind mode sway - WindService decides which.
             _windService.Register(vob, go);
@@ -546,13 +554,13 @@ namespace Gothic.Core.Domain.Vobs
             CreateFireVobs(fireWorld.RootObjects, slot, worldPosition);
 
             // The fire tree burns by the scheme's mob routine (lit at night), always indoors (light mapped: houses,
-            // mines), can be toggled and is off when far away (VobFireHandler).
+            // mines), can be toggled and is off when far away (FireService).
             var fireObjects = new List<GameObject>();
             for (var i = childCountBefore; i < slot.transform.childCount; i++)
                 fireObjects.Add(slot.transform.GetChild(i).gameObject);
             var scheme = vob.Visual?.Name?.Split('_')[0];
             var isIndoor = _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, _fireIndoorRadius);
-            go.AddComponent<VobFireHandler>().Init(scheme, isIndoor, fireObjects);
+            _fireService.Register(go, scheme, isIndoor, fireObjects);
 
             return go;
         }

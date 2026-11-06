@@ -5,12 +5,16 @@ using System.Text;
 namespace Gothic.Core.Domain.Meshes
 {
     /// <summary>
-    /// Workarounds for two ZenKit bugs with mod worlds, always on (ResourceCacheService). FOLLOW-UP: raise both
-    /// upstream (issue + PR at GothicKit/ZenKit) and remove this class once a ZenKit release has the fixes.
-    /// Material count: a world mesh's materials are a small BINARY archive inside the MeshAndBsp chunk. ZenKit reads its header's second "END" with read_line_then_ignore("\n"), which skips every
-    /// '\n' after it - also the first byte of the material count when it's 0x0A (10, 266, 522, ... materials). The
-    /// count and everything after is read one byte off and the native loader dies with std::bad_alloc (Mroczne
-    /// Tajemnice's ANCIENTTEMPLE.ZEN has exactly 266). "END\0" ends the line without skipping anything.
+    /// Workarounds for two ZenKit bugs with mod worlds, always on (ResourceCacheService.LoadWorld).
+    /// FOLLOW-UP: raise both upstream (issue + PR at GothicKit/ZenKit), remove this class once a ZenKit release has
+    /// the fixes.
+    /// 1. Material count (TryFixMaterialCountHeader): a world mesh's materials are a small BINARY archive inside the
+    ///    MeshAndBsp chunk. ZenKit reads its header's second "END" with read_line_then_ignore("\n"), which skips
+    ///    every '\n' after it - also the first byte of the material count when it's 0x0A (10, 266, 522, ...
+    ///    materials). The count and everything after is read one byte off and the loader dies with
+    ///    std::bad_alloc (Mroczne Tajemnice's ANCIENTTEMPLE.ZEN has exactly 266). "END\0" ends the line without
+    ///    skipping anything.
+    /// 2. Chunk length (TryFixMeshChunkLengths): see there.
     /// </summary>
     public static class ZenWorldArchiveFixDomain
     {
@@ -69,7 +73,8 @@ namespace Gothic.Core.Domain.Meshes
 
                 var length = BitConverter.ToInt32(source, chunk + 2);
                 var next = chunk + 6L + length;
-                if (length >= 0 && next + 6 <= end && _meshAndBspChunks.Contains(BitConverter.ToUInt16(source, (int)next)))
+                if (length >= 0 && next + 6 <= end &&
+                    _meshAndBspChunks.Contains(BitConverter.ToUInt16(source, (int)next)))
                 {
                     chunk = (int)next;
                     continue;
@@ -78,7 +83,8 @@ namespace Gothic.Core.Domain.Meshes
                 var realNext = FindChunkChain(source, (int)Math.Min(end, chunk + 6L + Math.Max(0, length)), end);
                 if (realNext < 0)
                 {
-                    reason = $"chunk 0x{id:X4} at {chunk}: stored length {length} leads nowhere, no chunk found behind it";
+                    reason = $"chunk 0x{id:X4} at {chunk}: stored length {length} leads nowhere, no chunk found " +
+                             "behind it";
                     return null;
                 }
 
@@ -98,7 +104,8 @@ namespace Gothic.Core.Domain.Meshes
         /// </summary>
         private static bool IsChunkChain(byte[] data, int position, int end)
         {
-            if (position < 0 || position + 6 > end || !_meshAndBspChunks.Contains(BitConverter.ToUInt16(data, position)))
+            if (position < 0 || position + 6 > end ||
+                !_meshAndBspChunks.Contains(BitConverter.ToUInt16(data, position)))
                 return false;
             if (BitConverter.ToUInt16(data, position) == _bspEndChunk)
                 return true;

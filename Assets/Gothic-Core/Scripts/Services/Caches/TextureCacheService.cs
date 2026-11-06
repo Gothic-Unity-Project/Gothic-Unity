@@ -181,7 +181,13 @@ namespace Gothic.Core.Services.Caches
             // level with a generated mip chain - Mroczne Tajemnice's 1024x1024 single mip textures (Siekacz's tavern,
             // KLODA1) left their slices empty/black, single mip ones flickered in the distance.
             if (levelCount <= 0 || mipCount == 1)
-                return CreateRebuiltArraySourceTexture(zkTexture, key, format, width, height);
+            {
+                var rebuilt = CreateRebuiltArraySourceTexture(zkTexture, key, format, width, height);
+                // A single mip texture that couldn't be rebuilt still has its one level (only the slice's smaller
+                // mips stay empty).
+                if (rebuilt != null || levelCount <= 0)
+                    return rebuilt;
+            }
 
             var texture = new Texture2D(width, height, format, levelCount, false);
             for (var level = 0; level < levelCount; level++)
@@ -387,8 +393,8 @@ namespace Gothic.Core.Services.Caches
                 full.Apply(false, false);
                 var rebuilt = RebuildWithMips(full, key, width, height, format);
                 if (rebuilt == null)
-                    Logger.LogWarning($"Texture {key}: no array slice ({zkTexture.Width}x{zkTexture.Height}, " +
-                                      $"{zkTexture.MipmapCount} mips) - it stays empty.", LogCat.PreCaching);
+                    Logger.LogWarning($"Texture {key}: its mips couldn't be rebuilt ({zkTexture.Width}x" +
+                                      $"{zkTexture.Height}, {zkTexture.MipmapCount} mips).", LogCat.PreCaching);
                 return rebuilt;
             }
             finally
@@ -401,8 +407,8 @@ namespace Gothic.Core.Services.Caches
         /// How a texture lands in a texture array slice: halved until it fits MaxTextureSize; without the mips that
         /// takes (or without any mips) it is rebuilt with a full chain (CreateRebuiltArraySourceTexture).
         /// </summary>
-        public static void GetArrayLayout(int width, int height, int mipmapCount, out int arrayWidth, out int arrayHeight,
-            out int arrayMipCount, out int skippedMips, out bool isRebuilt)
+        public static void GetArrayLayout(int width, int height, int mipmapCount, out int arrayWidth,
+            out int arrayHeight, out int arrayMipCount, out int skippedMips, out bool isRebuilt)
         {
             skippedMips = 0;
             var maxDim = Mathf.Max(width, height);

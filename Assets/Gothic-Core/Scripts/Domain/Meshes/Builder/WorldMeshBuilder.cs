@@ -42,8 +42,6 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private StaticCacheService.WorldChunkContainer _worldChunks;
         private IMesh _mesh;
 
-        // A room floor polygon: its normal at most ~45 degrees from up/down.
-
         private static readonly VertexAttributeDescriptor[] _worldVertexLayout =
         {
             new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
@@ -337,7 +335,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             if (_emptyLightmaps == null)
             {
-                _emptyLightmaps = new Texture2DArray(1, 1, 1, UnityEngine.TextureFormat.RGBA32, false) { name = "EmptyLightmaps" };
+                _emptyLightmaps = new Texture2DArray(1, 1, 1, UnityEngine.TextureFormat.RGBA32, false)
+                {
+                    name = "EmptyLightmaps"
+                };
                 _emptyLightmaps.SetPixelData(new byte[] { 255, 255, 255, 255 }, 0, 0);
                 _emptyLightmaps.Apply(false, true);
             }
@@ -394,8 +395,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             if (pages.Count == 0)
                 return null;
 
-            _worldLightmaps = new Texture2DArray(_lightmapPageSize, _lightmapPageSize, pages.Count, UnityEngine.TextureFormat.RGBA32,
-                true, false)
+            _worldLightmaps = new Texture2DArray(_lightmapPageSize, _lightmapPageSize, pages.Count,
+                UnityEngine.TextureFormat.RGBA32, true, false)
             {
                 name = "WorldLightmaps",
                 filterMode = FilterMode.Bilinear,
@@ -464,8 +465,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// DeveloperConfig.EnableVobWorldLight: the polygon's lightmap light at its center, summed into its cell - VOBs
         /// in light mapped areas take it (StationaryLightsService.ApplyWorldLight).
         /// </summary>
-        private void AddLightmapCell(IPolygon polygon, IReadOnlyList<int> positionIndices, [CanBeNull] LightmapData lightmaps,
-            Dictionary<long, float4> lightmapCells)
+        private void AddLightmapCell(IPolygon polygon, IReadOnlyList<int> positionIndices,
+            [CanBeNull] LightmapData lightmaps, Dictionary<long, float4> lightmapCells)
         {
             var index = polygon.LightMapIndex;
             if (lightmaps?.Pages == null || index >= lightmaps.Slice.Length)
@@ -562,8 +563,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     if (_noCollisionMaterials[materialIndex])
                         data.HasNoCollisionPolygons = true;
 
-                    // Gothic lit these (caves, houses) with lightmaps from static lights, which we don't render.
-                    // Their static lights are shown as runtime stationary lights instead (StationaryLightsService).
+                    // Gothic lit these (caves, houses) with lightmaps from its static lights: their cells get the
+                    // static lights as runtime lights (VOBs, NPCs) and the lightmap light (StationaryLightsService).
                     if (polygon.LightMapIndex >= 0 && positionIndices.Count > 0)
                     {
                         var corner = _mesh.GetPosition(positionIndices[0]);
@@ -573,7 +574,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     }
 
                     // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
-                    // material name (RoomService.GetMaterialSectors).
+                    // material name (RoomService.GetMaterialSectors). Its floors give the room under the feet.
                     if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
                         RoomService.MarkRoomFloor(_mesh, materialSectors[materialIndex], positionIndices, floorCells);
 
@@ -581,20 +582,6 @@ namespace Gothic.Core.Domain.Meshes.Builder
                                         polygon.LightMapIndex < lightmaps.Slice.Length
                         ? polygon.LightMapIndex
                         : -1;
-
-                    // Gothic lit these (caves, houses) with lightmaps from static lights, which we don't render.
-                    // Their static lights are shown as runtime stationary lights instead (StationaryLightsService).
-                    if (polygon.LightMapIndex >= 0 && positionIndices.Count > 0)
-                    {
-                        var corner = _mesh.GetPosition(positionIndices[0]);
-                        lightMappedCells.Add(StationaryLightsService.ToCell(
-                            new Vector3(corner.X, corner.Y, corner.Z) / 100f));
-                    }
-
-                    // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
-                    // material name (RoomService.GetMaterialSectors). Its floors give the room under the feet.
-                    if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
-                        RoomService.MarkRoomFloor(_mesh, materialSectors[materialIndex], positionIndices, floorCells);
 
                     void AddCorner(int fanIndex)
                     {

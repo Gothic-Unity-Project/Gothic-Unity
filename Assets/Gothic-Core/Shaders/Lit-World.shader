@@ -39,7 +39,8 @@ Shader "Lit/World"
                 half3 color : COLOR;
                 half4 normal : NORMAL; // w = 1 on outdoor polygons (WorldMeshBuilder) - they follow the time of day
                 float4 uv : TEXCOORD0; // uv, array slice, max mip level
-                // Lightmap uv, lightmap array slice, w = -1 on light mapped polygons. A mesh without this channel (VOBs) gets its
+                // Lightmap uv, lightmap array slice, w = -1 on light mapped polygons. A mesh without this channel
+                // (VOBs) gets its
                 // TEXCOORD0 here (w = max mip level >= 0) - a positive marker made every VOB sample the lightmaps.
                 float4 lightmapUv : TEXCOORD1;
 

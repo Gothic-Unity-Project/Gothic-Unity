@@ -99,7 +99,8 @@ namespace Gothic.Core.Services.Caches
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
                     var fireWorld = LoadWorld(s, version);
 
-                    // The roots' children (smoke under a fire's light) carry the fire world's absolute positions too - zeroing only the roots put every FIRETREE_MEDIUM
+                    // The roots' children (smoke under a fire's light) carry the fire world's absolute positions
+                    // too - zeroing only the roots put every FIRETREE_MEDIUM
                     // smoke of the world at its absolute (-36, -5, 24) m: a smoke column at the Old Camp's gate.
                     foreach (var root in fireWorld.RootObjects)
                     {
@@ -399,7 +400,16 @@ namespace Gothic.Core.Services.Caches
 
                 Logger.LogWarning($"[ResourceCacheService] World '{name}' failed to load ({e.Message}) - " +
                                   $"retrying with its materials archive header fixed ({reason})", LogCat.ZenKit);
-                return new ZenKit.World(new Read(fixedData), version);
+                try
+                {
+                    return new ZenKit.World(new Read(fixedData), version);
+                }
+                catch (Exception retryException)
+                {
+                    Logger.LogError($"[ResourceCacheService] World '{name}' failed again with the fixed header: " +
+                                    retryException.Message, LogCat.ZenKit);
+                    throw;
+                }
             }
         }
 
@@ -424,13 +434,8 @@ namespace Gothic.Core.Services.Caches
         }
 
         /// <summary>
-        /// We need to be careful to cache only Fire.zen files as they're small and used multiple times on a world.
-        /// Therefore by default, we load uncached.
+        /// A fire tree's VOBs relative to its root (the root is zeroed by the cache loader).
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="version"></param>
-        /// <param name="cache"></param>
-        /// <returns></returns>
         private static void ShiftFireTreeChildren(List<IVirtualObject> children, System.Numerics.Vector3 offset)
         {
             foreach (var child in children)
@@ -440,6 +445,14 @@ namespace Gothic.Core.Services.Caches
             }
         }
 
+        /// <summary>
+        /// We need to be careful to cache only Fire.zen files as they're small and used multiple times on a world.
+        /// Therefore by default, we load uncached.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="version"></param>
+        /// <param name="cache"></param>
+        /// <returns></returns>
         [CanBeNull]
         public ZenKit.World TryGetWorld([NotNull] string key, GameVersion version, bool cache = false)
         {
