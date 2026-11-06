@@ -13,6 +13,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
@@ -113,6 +114,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Use()
         {
+            // Unpaid trader goods (trade counter) can't be used or equipped.
+            if (VRTradeGoods.IsUnpaid(this))
+            {
+                Logger.Log("[Trade] Unpaid goods can't be used", LogCat.VR);
+                return;
+            }
+
             if (_configService.Dev.EnableEquipItems && NpcInventoryService.IsWearable(_item))
             {
                 Equip();

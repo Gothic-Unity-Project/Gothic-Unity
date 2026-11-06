@@ -1625,6 +1625,25 @@ namespace Gothic.Core.Services.Npc
                              IsFriendlyNonHumanWarner(receiver, perception.Victim, perception.Other)
                     ? perception.Other
                     : perception.Victim;
+                // A quiet sound (the hero's steps) has no item: a stale global 'item' near the receiver made G1's
+                // B_AssessQuietSound react to it. VmGlobalsScope keeps the global item when none is given.
+                if (perception.Type == VmGothicEnums.PerceptionType.AssessQuietSound)
+                {
+                    var vm = _gameStateService.GothicVm;
+                    var oldItem = vm.GlobalItem;
+                    vm.GlobalItem = null;
+                    try
+                    {
+                        ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim,
+                            perception.Other, null);
+                    }
+                    finally
+                    {
+                        vm.GlobalItem = oldItem;
+                    }
+                    continue;
+                }
+
                 ExecutePassivePerception(perception.Type, perceptionFunction, receiver, victim, perception.Other,
                     perception.Item);
             }

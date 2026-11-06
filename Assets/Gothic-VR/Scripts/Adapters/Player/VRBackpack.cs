@@ -20,6 +20,7 @@ using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.Core.Models.Context;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -38,7 +39,7 @@ namespace Gothic.VR.Adapters.Player
     /// IVrSocketContainer for its slots. Items put into holsters or slots are added to the hero's inventory.
     /// While the backpack is on the shoulder, its slots detect nothing (VrSocketSlot; HVR does it itself).
     /// The same prefab is spawned as an NPC's loot backpack (SetNpcOwner) - tinted, showing and changing the NPC's
-    /// items.
+    /// items - and as a trader's goods (SetTradeOwner).
     /// Like held items (VRVobItem), the backpack ignores the hand holding it and, on the shoulder, both hands.
     /// </summary>
     public class VRBackpack : MonoBehaviour
@@ -68,6 +69,7 @@ namespace Gothic.VR.Adapters.Player
         // Quitting: the slots let go of their items while the DI containers are gone already - nothing to count.
         private static bool _isQuitting;
         private IInventoryOwner _owner;
+        private NpcContainer _trader;
         private Coroutine _refresh;
         private bool _isRefreshDirty;
         private static readonly Color _npcBackpackTint = new(0.55f, 0.75f, 1f);
@@ -103,6 +105,16 @@ namespace Gothic.VR.Adapters.Player
 
         // An NPC owner fires NpcInventoryChanged on every change; a container (mummy) has no NPC - refresh ourselves.
         private bool IsRefreshedByNpcEvent => IsNpcBackpack && _owner.Npc != null;
+
+        /// <summary>
+        /// A trader's goods during a trade (VRTradeCounter): items taken out are VRTradeGoods until paid.
+        /// </summary>
+        public bool IsTradeBackpack => _trader != null;
+
+        /// <summary>
+        /// The trader whose goods this backpack shows (trade counter), null otherwise.
+        /// </summary>
+        public NpcContainer Trader => _trader;
 
 
         /// <summary>
@@ -142,6 +154,24 @@ namespace Gothic.VR.Adapters.Player
             SetOwner(new NpcInventoryOwner(npc));
         }
 
+        /// <summary>
+        /// Turns this backpack into the contents of something without an NPC to refresh it - a pickpocket purse
+        /// (VRPickpocket).
+        /// </summary>
+        public void SetContainerOwner(IInventoryOwner containerItems)
+        {
+            SetOwner(containerItems);
+        }
+
+        /// <summary>
+        /// Turns this backpack into a trader's goods (without his currency and equipped items).
+        /// </summary>
+        public void SetTradeOwner(NpcContainer trader, IInventoryOwner traderGoods)
+        {
+            _trader = trader;
+            SetOwner(traderGoods);
+        }
+
         private void SetOwner(IInventoryOwner owner)
         {
             _owner = owner;
@@ -169,7 +199,7 @@ namespace Gothic.VR.Adapters.Player
         private void CreateTakeAllButton()
         {
             if (_configService == null || !_configService.Dev.EnableLootTakeAll || _takeAllButton != null ||
-                _owner == null || _owner.IsHero)
+                IsTradeBackpack || _owner == null || _owner.IsHero)
                 return;
             if (_owner.Npc != null && _owner.Npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 return;
@@ -223,7 +253,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void OnTakeAllClick()
         {
-            if (_owner == null || _owner.IsHero)
+            if (_owner == null || _owner.IsHero || IsTradeBackpack)
                 return;
 
             var itemCount = TakeAll(_owner);
@@ -258,7 +288,7 @@ namespace Gothic.VR.Adapters.Player
 
             foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (!backpack.IsNpcBackpack)
+                if (!backpack.IsNpcBackpack && !backpack.IsTradeBackpack)
                     backpack.UpdateInventoryView();
             }
             return itemCount;
@@ -638,12 +668,44 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
+        /// Unpaid trader goods put into the hero's backpack/holster go back to the trader.
+        /// </summary>
+        private bool TryReturnTradeGoods(VrInteractable interactable)
+        {
+            var tradeGoods = interactable.GetComponentInParent<VRTradeGoods>();
+            if (tradeGoods == null || tradeGoods.IsSettled)
+                return false;
+
+            Logger.Log("[Trade] Unpaid goods put into the hero's backpack - back to the trader", LogCat.VR);
+            // Releasing it from our socket mustn't count as taken out of the hero's inventory (it never got in).
+            _tempIgnoreSocketing = true;
+            tradeGoods.ReturnToTrader();
+            _tempIgnoreSocketing = false;
+            return true;
+        }
+
+        private void ReturnToHero(VrInteractable interactable, VobContainer vobContainer)
+        {
+            _tempIgnoreSocketing = true;
+            interactable.ForceRelease();
+            _tempIgnoreSocketing = false;
+
+            var item = vobContainer.VobAs<IItem>();
+            _playerService.AddItem(GetInstanceName(vobContainer), Mathf.Max(1, item?.Amount ?? 1));
+            VRTradeGoods.RemoveFromWorld(vobContainer);
+        }
+
+        /// <summary>
         /// When putting into holster, culling is already paused (hand grab). The item is in the inventory now.
         /// </summary>
         private void OnItemPutIntoHolster(VrGrabArgs args)
         {
             // Restored from a save game. It's part of the inventory already.
             if (_carriedItemsSaveService.ConsumeSilentPlacement(args.Interactable))
+                return;
+
+            // Unpaid trader goods don't become the hero's.
+            if (TryReturnTradeGoods(args.Interactable))
                 return;
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>();
@@ -660,6 +722,23 @@ namespace Gothic.VR.Adapters.Player
 
             var vobLoader = args.Interactable.GetComponentInParent<VobLoader>(true);
             var vobContainer = vobLoader.Container;
+
+            var tradeGoods = args.Interactable.GetComponentInParent<VRTradeGoods>();
+            // Unpaid goods go back to the trader from any other backpack (hero, corpse, chest, pockets) - put into a
+            // corpse's loot they were free for the taking.
+            if (!IsTradeBackpack && TryReturnTradeGoods(args.Interactable))
+                return;
+            if (IsTradeBackpack)
+            {
+                // The hero's own item doesn't go into the trader's goods - back into the hero's inventory.
+                if (tradeGoods == null)
+                {
+                    ReturnToHero(args.Interactable, vobContainer);
+                    return;
+                }
+                // Laid back into the goods: counted below, nothing left to return.
+                tradeGoods.IsSettled = true;
+            }
 
             // In a backpack slot, the item isn't part of the world's VOB list (PlayerService.PickUpItem's rule) - the
             // owner may be the hero, an NPC or a chest.
@@ -896,6 +975,11 @@ namespace Gothic.VR.Adapters.Player
                 if (heldContainer != null)
                     _vobService.UntrackVobFromCache(heldContainer);
                 _refreshRemovals.Add(socket.Held);
+                // A trader's goods leaving his backpack aren't "returned" to him - they never left his inventory (the
+                // trade's close added every stack on the page to him again).
+                var tradeGoods = socket.Held.GetComponentInParent<VRTradeGoods>();
+                if (tradeGoods != null)
+                    tradeGoods.IsSettled = true;
                 socket.ForceRelease();
                 heldRoot.SetActive(false); // Disable it, as it would be with scale 1 in front of our camera for 1 second.
                 // We need to wait until next frame to ensure the socket has removed the item.
@@ -918,7 +1002,10 @@ namespace Gothic.VR.Adapters.Player
             {
                 var vobContainer = _vobService.CreateItem(item.Name, item.Amount);
 
-                vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false; // Get rid of isKinematic warnings as the Grab is done "physically".
+                // Get rid of isKinematic warnings as the Grab is done "physically".
+                vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
+                if (IsTradeBackpack)
+                    vobContainer.Go.AddComponent<VRTradeGoods>().Init(_trader);
                 var interactable = vobContainer.Go.GetComponentInChildren<VrInteractable>();
                 _refreshPlacements.Add(interactable);
                 _socketContainer.TryPlace(interactable, silent: true);

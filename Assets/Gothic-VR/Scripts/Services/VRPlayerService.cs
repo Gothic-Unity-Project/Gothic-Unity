@@ -153,6 +153,11 @@ namespace Gothic.VR.Services
         /// </summary>
         public bool IsFallCameraOnHeroBody { get; set; }
 
+        /// <summary>
+        /// The VR hero body lies or stands up (VrHeroDownPose) - crouching isn't sneaking meanwhile (VRHeroMovement).
+        /// </summary>
+        public bool IsHeroBodyDown { get; set; }
+
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
 
@@ -212,7 +217,8 @@ namespace Gothic.VR.Services
                 return;
 
             // Otherwise alter inventory count
-            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            _playerService.PickUpItem(container);
         }
 
         /// <summary>

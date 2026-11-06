@@ -13,6 +13,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -30,6 +31,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly Gothic.Core.Services.Player.TradeService _tradeService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
@@ -94,6 +96,8 @@ namespace Gothic.VR.Services.Context
             _vrCinemaService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
+            // Items held in a hand don't pay (VRContextTradeService opens the counter).
+            GlobalEventDispatcher.TradeStarted.AddListener(_ => _tradeService.GetHeldAmount = GetHeldAmount);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -133,6 +137,8 @@ namespace Gothic.VR.Services.Context
 
             // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
+            // DeveloperConfig.EnableHeroPersonalSpace (checked at runtime): NPC bodies stay out of the camera.
+            new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
         }
 
         private void OnLoadingSceneLoaded()
@@ -214,6 +220,16 @@ namespace Gothic.VR.Services.Context
                 var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
                 favoritesRing.transform.SetParent(_player.transform, false);
             }
+
+            // DeveloperConfig.EnableVrPickpocket: purses on the hips of NPCs who can't see the sneaking hero (G1).
+            if (developerConfig.EnableVrPickpocket)
+            {
+                var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+                pickpocket.transform.SetParent(_player.transform, false);
+            }
+
+            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
+            _player.gameObject.AddComponent<VRHeroMovement>();
 
             // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
             if (developerConfig.EnableVrHeroBlock)
@@ -456,6 +472,27 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
+        /// How many of an item the hands hold (TradeService: held currency doesn't pay).
+        /// </summary>
+        private int GetHeldAmount(string instanceName)
+        {
+            if (_rig == null)
+                return 0;
+            var amount = 0;
+            var counted = new HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers)
+            {
+                if (hand.Kind != VrGrabberKind.Hand || hand.Held == null || !counted.Add(hand.Held))
+                    continue;
+                var item = hand.Held.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container
+                    ?.VobAs<ZenKit.Vobs.IItem>();
+                if (item != null && item.GetSymbolName().EqualsIgnoreCase(instanceName))
+                    amount += Mathf.Max(1, item.Amount);
+            }
+            return amount;
+        }
+
+        /// <summary>
         /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
         /// the world item.
         /// </summary>
@@ -477,6 +514,12 @@ namespace Gothic.VR.Services.Context
 
                 // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
                 interactable.ForceRelease();
+                // Unpaid trader goods aren't the hero's: let go, they go back to the trader (VRTradeGoods).
+                if (VRTradeGoods.IsUnpaid(interactable))
+                {
+                    Logger.Log($"[Teleport] {hand.HandSide}: unpaid trader goods let go", LogCat.VR);
+                    continue;
+                }
 
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);

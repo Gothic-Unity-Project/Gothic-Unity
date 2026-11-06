@@ -108,6 +108,10 @@ MonoBehaviour:
   EnableRingWeaponSlots: 1
   EnableRingItemSlots: 1
   EnableRingZoom: 1
+  EnableVrPickpocket: 1
+  EnableG2VrPickpocket: 1
+  EnableHeroPersonalSpace: 1
+  EnableSneakSlowSprint: 1
   MinSpellCastSeconds: 2
   SpellThrowSpeedMultiplier: 1.25
   SpellThrowFullSwingSpeed: 6
@@ -124,6 +128,7 @@ MonoBehaviour:
   EnableVisualFxLights: 1
   EnableVisualFxEarthquake: 1
   EnableFootstepSounds: 1
+  EnableHeroBodySounds: 1
   EnableHeroDeath: 1
   EnableKillerXpOnly: 1
   EnableOneHitKill: 0
