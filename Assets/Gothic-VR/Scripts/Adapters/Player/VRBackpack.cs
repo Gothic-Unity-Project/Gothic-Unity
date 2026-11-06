@@ -26,7 +26,6 @@ using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -54,6 +53,10 @@ namespace Gothic.VR.Adapters.Player
         [Tooltip("The [E] badge above an equipped item's slot - the billboard variant, readable however the " +
                  "backpack is held.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
+
+        [Tooltip("DeveloperConfig.EnableLootTakeAll: the green \"X\" above the right page arrow (inactive child, " +
+                 "shown on a loot backpack only).")]
+        [SerializeField] private GameObject _takeAllButton;
 
         private VrInteractable _interactable;
         private IVrSocketContainer _socketContainer;
@@ -96,11 +99,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
-
-        // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
-        private const string _takeAllButtonName = "TakeAllButton";
-        private static readonly Color _takeAllColor = new(0.2f, 0.85f, 0.25f);
-        private GameObject _takeAllButton;
 
         private const string _equippedLabelName = "EquippedLabel";
 
@@ -168,64 +166,26 @@ namespace Gothic.VR.Adapters.Player
             RegisterUiCanvases();
             Init();
             UpdateInventoryView();
-            CreateTakeAllButton();
+            ShowTakeAllButton();
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableLootTakeAll: loot of a dead NPC or of a container without a lid (mummy) gets a green "X"
-        /// above the right page arrow - a copy of that arrow, same font and look. Not for knocked out NPCs (they're
-        /// robbed item by item).
+        /// DeveloperConfig.EnableLootTakeAll: loot of a dead NPC or of a container without a lid (mummy) shows the green
+        /// "X" above the right page arrow (OnTakeAllClick). Not for knocked out NPCs (they're robbed item by item).
         /// </summary>
-        private void CreateTakeAllButton()
+        private void ShowTakeAllButton()
         {
-            if (_configService == null || !_configService.Dev.EnableLootTakeAll || _takeAllButton != null ||
-                _owner == null || _owner.IsHero)
+            if (_configService == null || !_configService.Dev.EnableLootTakeAll || _owner == null || _owner.IsHero)
                 return;
             if (_owner.Npc != null && _owner.Npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 return;
 
-            var arrow = FindButton(nameof(OnNextPageClick)) ?? FindButton(nameof(OnNextCategoryClick));
-            if (arrow == null)
+            if (_takeAllButton == null)
             {
-                Logger.LogWarning("[VRBackpack] No arrow button found - loot backpack without the take all button.",
-                    LogCat.VR);
+                Logger.LogWarning("[VRBackpack] No take all button set - loot backpack without it.", LogCat.VR);
                 return;
             }
-
-            _takeAllButton = Instantiate(arrow.gameObject, arrow.transform.parent);
-            _takeAllButton.name = _takeAllButtonName;
-            if (_takeAllButton.transform is RectTransform rect && arrow.transform is RectTransform arrowRect)
-                rect.anchoredPosition = arrowRect.anchoredPosition + new Vector2(0f, arrowRect.rect.height * 1.2f);
-            else
-                _takeAllButton.transform.localPosition = arrow.transform.localPosition + Vector3.up * 0.06f;
-
-            var button = _takeAllButton.GetComponent<Button>();
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(OnTakeAllClick);
-
-            var texts = _takeAllButton.GetComponentsInChildren<TMP_Text>(true);
-            foreach (var text in texts)
-            {
-                text.text = "X";
-                text.color = _takeAllColor;
-            }
-            if (texts.Length == 0)
-                Logger.LogWarning("[VRBackpack] The arrow button has no text - take all button without its X.", LogCat.VR);
-        }
-
-        private Button FindButton(string methodName)
-        {
-            foreach (var button in GetComponentsInChildren<Button>(true))
-            {
-                if (button.name == _takeAllButtonName)
-                    continue;
-                for (var i = 0; i < button.onClick.GetPersistentEventCount(); i++)
-                {
-                    if (button.onClick.GetPersistentMethodName(i) == methodName)
-                        return button;
-                }
-            }
-            return null;
+            _takeAllButton.SetActive(true);
         }
 
         /// <summary>
