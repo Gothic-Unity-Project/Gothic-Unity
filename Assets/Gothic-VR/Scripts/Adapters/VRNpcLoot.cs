@@ -5,16 +5,17 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Inventory;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.Player;
@@ -54,10 +55,11 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
 
         // The active backend's backpack prefab (VRBackpack.PrefabPath).
         private static string _backpackPrefabPath => VRBackpack.PrefabPath;
-        private NpcInventoryOwner _lootOwner;
+        private IInventoryOwner _lootOwner;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
         private Coroutine _lootBackpackTimeout;
@@ -107,7 +109,7 @@ namespace Gothic.VR.Adapters
         public void Open(NpcContainer npc)
         {
             _npcContainer = npc;
-            _lootOwner = new NpcInventoryOwner(npc);
+            _lootOwner = _inventoryTransferService.GetOwner(npc);
             _isOpen = true;
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             enabled = true;
@@ -278,7 +280,7 @@ namespace Gothic.VR.Adapters
         /// </summary>
         public int TakeAll(NpcContainer npc)
         {
-            var itemCount = VRBackpack.TakeAll(new NpcInventoryOwner(npc));
+            var itemCount = _inventoryTransferService.TakeAll(_inventoryTransferService.GetOwner(npc));
             PlayOpenSound();
             Logger.Log($"[VRNpcLoot] Took all from {npc.Instance.GetName(NpcNameSlot.Slot0)}: {itemCount} item(s)",
                 LogCat.VR);

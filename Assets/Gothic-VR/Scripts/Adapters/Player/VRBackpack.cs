@@ -4,7 +4,6 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
-using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -14,6 +13,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
@@ -77,6 +77,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly HashSet<VrInteractable> _refreshRemovals = new();
         private readonly HashSet<VrInteractable> _refreshPlacements = new();
         private int _runningRefreshes;
+        // RemoveTakenPieces: the view shows the new amount already - no refresh from the hero's change event.
+        private bool _isIgnoringHeroChange;
         
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly PlayerService _playerService;
@@ -89,6 +91,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
 
         // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
         private const string _takeAllButtonName = "TakeAllButton";
@@ -97,12 +100,13 @@ namespace Gothic.VR.Adapters.Player
 
         private const string _equippedLabelName = "EquippedLabel";
 
-        private IInventoryOwner Owner => _owner ??= new PlayerInventoryOwner();
+        private IInventoryOwner Owner => _owner ??= _inventoryTransferService.GetHeroOwner();
 
         public bool IsNpcBackpack => _owner != null && !_owner.IsHero;
 
-        // An NPC owner fires NpcInventoryChanged on every change; a container (mummy) has no NPC - refresh ourselves.
-        private bool IsRefreshedByNpcEvent => IsNpcBackpack && _owner.Npc != null;
+        // The hero and NPC owners fire NpcInventoryChanged on every change; a container (mummy) has no NPC - refresh
+        // ourselves.
+        private bool IsRefreshedByNpcEvent => Owner.Npc != null;
 
 
         /// <summary>
@@ -139,7 +143,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void SetNpcOwner(NpcContainer npc)
         {
-            SetOwner(new NpcInventoryOwner(npc));
+            SetOwner(_inventoryTransferService.GetOwner(npc));
         }
 
         private void SetOwner(IInventoryOwner owner)
@@ -226,42 +230,16 @@ namespace Gothic.VR.Adapters.Player
             if (_owner == null || _owner.IsHero)
                 return;
 
-            var itemCount = TakeAll(_owner);
+            // The NPC's and the hero's NpcInventoryChanged refresh both backpacks.
+            var itemCount = _inventoryTransferService.TakeAll(_owner);
             var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
             if (clip != null)
                 AudioSource.PlayClipAtPoint(clip, transform.position);
-            // Taking everything may have closed the loot (empty corpse) and despawned this backpack.
-            if (this != null && gameObject.activeInHierarchy)
+            // A container (mummy) has no NPC and no event. Taking everything may have closed the loot (empty corpse)
+            // and despawned this backpack.
+            if (this != null && gameObject.activeInHierarchy && !IsRefreshedByNpcEvent)
                 UpdateInventoryView();
             Logger.Log($"[VRBackpack] Took all from the loot: {itemCount} item(s)", LogCat.VR);
-        }
-
-        /// <summary>
-        /// Everything the owner (NPC, chest) gives away goes into the hero's inventory - the loot's green X and
-        /// DeveloperConfig.EnableCorpseHoldTakesAll. Returns the number of items taken.
-        /// </summary>
-        public static int TakeAll(IInventoryOwner from)
-        {
-            var hero = new PlayerInventoryOwner();
-            var itemCount = 0;
-            for (var category = VmGothicEnums.InvCats.InvWeapon; category < VmGothicEnums.InvCats.InvCatMax; category++)
-            {
-                foreach (var item in from.GetInventory(category).ToList())
-                {
-                    if (item.Amount <= 0 || !from.CanTake(item.Name))
-                        continue;
-                    from.Remove(item.Name, item.Amount);
-                    hero.Add(item.Name, item.Amount);
-                    itemCount += item.Amount;
-                }
-            }
-
-            foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                if (!backpack.IsNpcBackpack)
-                    backpack.UpdateInventoryView();
-            }
-            return itemCount;
         }
 
         /// <summary>
@@ -349,7 +327,17 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void RemoveTakenPieces(string itemInstanceName, int amount)
         {
-            Owner.Remove(itemInstanceName, amount);
+            // The hero's change event would re-stack the page under the split stack - only an NPC's view refreshed
+            // here before (its other views, e.g. the loot sockets, need it).
+            _isIgnoringHeroChange = Owner.IsHero;
+            try
+            {
+                Owner.Remove(itemInstanceName, amount);
+            }
+            finally
+            {
+                _isIgnoringHeroChange = false;
+            }
         }
 
         /// <summary>
@@ -368,10 +356,16 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
+        /// <summary>
+        /// The owner (NPC or hero) changed through an IInventoryOwner - slots, take all, stack splitter. Several changes
+        /// in a row run one more refresh at most (UpdateInventoryView's dirty flag).
+        /// </summary>
         private void OnNpcInventoryChanged(NpcContainer npc)
         {
-            if (_owner != null && npc == _owner.Npc)
-                UpdateInventoryView();
+            // Inactive: no coroutine can run the refresh.
+            if (_isIgnoringHeroChange || npc == null || npc != Owner.Npc || !gameObject.activeInHierarchy)
+                return;
+            UpdateInventoryView();
         }
 
         private void Tint(Color tint)
@@ -421,6 +415,9 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            // The hero's inventory changes (PlayerInventoryOwner) - a loot copy listens since SetOwner already.
+            if (!IsNpcBackpack)
+                GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             // Main's carried items save: only the hero's own backpack (a loot copy got its NPC owner before Start).
             if (!IsNpcBackpack)
                 _carriedItemsSaveService.RegisterHolsters(_holsters);

@@ -18,7 +18,7 @@ namespace Gothic.Core.Domain.Inventory
 {
     /// <summary>
     /// An NPC's inventory (loot backpack, trader goods). Every change fires GlobalEventDispatcher.NpcInventoryChanged
-    /// so the other views of the same NPC refresh.
+    /// so the other views of the same NPC refresh. Handed out by InventoryTransferService.
     /// </summary>
     public class NpcInventoryOwner : IInventoryOwner
     {
@@ -28,6 +28,8 @@ namespace Gothic.Core.Domain.Inventory
 
         private readonly string _hiddenItem;
         private readonly bool _isEquippedHidden;
+        // Each empty category is reported once per owner - views ask for all of them on every refresh.
+        private readonly HashSet<VmGothicEnums.InvCats> _uninitializedCategories = new();
 
         /// <summary>
         /// hiddenItem/isEquippedHidden: a trader's goods - without his currency and anything he wears or wields
@@ -52,9 +54,12 @@ namespace Gothic.Core.Domain.Inventory
             {
                 items = _npcInventoryService.GetInventoryItems(Npc.Instance, category);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // The category slot was never initialized for this NPC - nothing in it.
+                // The category slot was never initialized for this NPC (ZenKit throws natively) - nothing in it.
+                if (_uninitializedCategories.Add(category))
+                    Logger.LogWarning($"[NpcInventoryOwner] {Npc.Instance?.GetName(NpcNameSlot.Slot0)}: inventory " +
+                                      $"category {category} not readable, treated as empty ({e.Message})", LogCat.Npc);
                 items = new List<ContentItem>();
             }
 
