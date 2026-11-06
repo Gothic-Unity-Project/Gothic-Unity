@@ -44,6 +44,13 @@ direct collaborators - never grep the repo root or all of `Assets/`.
 - `Physics.OverlapSphere`/`RaycastAll`/... instead of the `NonAlloc` variant with a buffer, or without a layer mask
 - `Logger.Log` on a per-frame path instead of `LogEditor` or a one-shot guard
 
+**Wiki gaps** (low severity - the wiki is a separate repo, so the fix is a follow-up wiki change)
+- Player-visible settings added in the diff but missing from the wiki: a new key in `VRConstants.IniNames` or a
+  `GothicIniConfig` property / `GetInt`/`GetValueOrDefault` ini key, a new `GameSettings.json` field, a new menu
+  option. Grep the key in `Gothic-Unity.wiki/Player/Player-Guide.md` ("Supported ini settings", "Configuration").
+  The wiki is at `./Gothic-Unity.wiki` (symlink) or `../Gothic-Unity.wiki`; if neither exists, skip this check and
+  say so once. Report the missing key with its section and default; don't check anything fuzzier than that.
+
 **Save/load**
 - New runtime state: saved? restored once? lost? double-applied on load?
 
