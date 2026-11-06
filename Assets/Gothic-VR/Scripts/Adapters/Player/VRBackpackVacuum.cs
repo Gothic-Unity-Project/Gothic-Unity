@@ -24,7 +24,8 @@ namespace Gothic.VR.Adapters.Player
     ///   instead of pushing it.
     /// - An item inside the opening gets stored after BackpackVacuumStoreSeconds - via the regular socket, same logic
     ///   as storing by hand (HVR also shows the socket's hover feedback meanwhile; XRI's slot shows its own).
-    /// Added at runtime by VRBackpack. Any VR backend (IVrSocket, VrInteractable).
+    /// On the backpack prefab; disabled on an NPC loot backpack (VRBackpack.SetOwner).
+    /// Any VR backend (IVrSocket, VrInteractable).
     /// </summary>
     public class VRBackpackVacuum : MonoBehaviour
     {

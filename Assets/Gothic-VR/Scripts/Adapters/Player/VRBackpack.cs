@@ -151,6 +151,9 @@ namespace Gothic.VR.Adapters.Player
         private void SetOwner(IInventoryOwner owner)
         {
             _owner = owner;
+            // The vacuum (prefab component) is the hero's only - disabled before its Start runs.
+            if (TryGetComponent(out VRBackpackVacuum vacuum))
+                vacuum.enabled = false;
             SelectFirstFilledCategory();
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
 
@@ -421,18 +424,6 @@ namespace Gothic.VR.Adapters.Player
             // Main's carried items save: only the hero's own backpack (a loot copy got its NPC owner before Start).
             if (!IsNpcBackpack)
                 _carriedItemsSaveService.RegisterHolsters(_holsters);
-
-            // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum. Not for an NPC's loot backpack.
-            if (!IsNpcBackpack && GetComponent<VRBackpackVacuum>() == null)
-                gameObject.AddComponent<VRBackpackVacuum>();
-
-            // V1, toggled at runtime via DeveloperConfig.EnableItemDetailsPopup.
-            if (GetComponent<VRItemDetailsPopup>() == null)
-                gameObject.AddComponent<VRItemDetailsPopup>();
-
-            // Items held near the backpack pass through it.
-            if (GetComponent<VRBackpackItemPassThrough>() == null)
-                gameObject.AddComponent<VRBackpackItemPassThrough>();
         }
 
         private void OnDestroy()

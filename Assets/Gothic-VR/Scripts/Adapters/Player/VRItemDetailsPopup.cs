@@ -20,8 +20,8 @@ namespace Gothic.VR.Adapters.Player
     /// V2 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and the other
     /// hand holds an item (or is near one inside the backpack), a popup above the item shows what Gothic's inventory
     /// shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
-    /// Added at runtime by VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items near the hand in
-    /// its slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
+    /// On the backpack prefab next to VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items
+    /// near the hand in its slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
     /// Any VR backend (IVrRig hands, VrInteractable).
     /// </summary>
     public class VRItemDetailsPopup : MonoBehaviour

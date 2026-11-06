@@ -279,6 +279,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Components.VrSocketedGrabArea
   _size: 0.25
+  _isSizedBySlot: 0
 --- !u!1 &3193800756167983344
 GameObject:
   m_ObjectHideFlags: 0
@@ -2104,6 +2105,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2247373322545867774}
+    - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4935020266057835589}
+    - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6847288572151395398}
+    - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2902527411964500236}
   m_SourcePrefab: {fileID: 100100000, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
 --- !u!4 &4387924365575356808 stripped
 Transform:
@@ -2392,6 +2402,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69b05f042c74f9741baa68dc163f7e56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.GothicTwoHandGrabTransformer
+--- !u!114 &4935020266057835589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7305099796477467853}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1156d4e900b83a4b8595f56d62214c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRBackpackVacuum
+--- !u!114 &6847288572151395398
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7305099796477467853}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8f25a9169b98b8429925e606d0b5def, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRItemDetailsPopup
+--- !u!114 &2902527411964500236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7305099796477467853}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d462d0f1ebf9ac7499677997360805c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRBackpackItemPassThrough
 --- !u!1001 &5580634568419482640
 PrefabInstance:
   m_ObjectHideFlags: 0
