@@ -77,10 +77,26 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool IsLockedInSocket => IsSocketed && interactorsSelecting[0] is XriSocketBridge socket &&
                                          !socket.IsDetectionEnabled;
 
+        /// <summary>
+        /// In a slot the hand's line may not take from (the player's holsters, the backpack on the shoulder) and the
+        /// hand isn't right at it: only the near grab takes it out.
+        /// </summary>
+        private bool IsOutOfLineReach(IXRInteractor interactor)
+        {
+            if (!IsSocketed || interactorsSelecting[0] is not XriSocketBridge { IsLineGrabbable: false })
+                return false;
+
+            var shownHand = interactor is Component component && component.TryGetComponent(out XriGrabberBridge bridge)
+                ? bridge.PhysicsHand
+                : null;
+            return !IsNear(interactor.transform.position) && (shownHand == null || !IsNear(shownHand.position));
+        }
+
         public override bool IsHoverableBy(IXRHoverInteractor interactor)
         {
             if (interactor is not XriSocketBridge &&
-                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor)))
+                (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor) ||
+                 IsOutOfLineReach(interactor)))
                 return false;
 
             return base.IsHoverableBy(interactor);
@@ -90,7 +106,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             if (interactor is not XriSocketBridge &&
                 (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor) ||
-                 IsDistanceGrabOfHeldItem(interactor)))
+                 IsDistanceGrabOfHeldItem(interactor) || IsOutOfLineReach(interactor)))
                 return false;
 
             return base.IsSelectableBy(interactor);
