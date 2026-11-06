@@ -217,12 +217,9 @@ namespace Gothic.VR.Adapters.Vob
             if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
                 gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
 
-            _docService.PendingItemGo = gameObject;
-            if (!_itemUseService.UseItem(_gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance, item))
-            {
-                _docService.PendingItemGo = null;
+            var hero = _gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance;
+            if (!_docService.ShowItemDocument(hero, item, gameObject))
                 return;
-            }
 
             // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
             if (_itemUseService.IsConsumedOnUse(item))
