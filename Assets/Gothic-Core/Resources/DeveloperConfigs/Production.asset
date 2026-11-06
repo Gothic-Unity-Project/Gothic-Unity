@@ -92,7 +92,7 @@ MonoBehaviour:
   BackpackVacuumRadius: 1.2
   BackpackVacuumStoreSeconds: 3
   BackpackShoulderGrabScale: 4
-  NpcLootMode: 2
+  NpcLootMode: 1
   NpcLootBackpackTimeout: 20
   EnableLootTakeAll: 1
   EnableStackSplit: 1

@@ -369,10 +369,11 @@ namespace Gothic.Core.Models.Config
                  "had to be grabbed very precisely. 1 = off.")]
         public float BackpackShoulderGrabScale = 4f;
 
-        [Tooltip("How an NPC's loot is shown: Sockets - the row of loot sockets at the NPC, Backpack - the NPC's backpack " +
-                 "lying next to it (a tinted copy of the hero's, categories and pages), Both - in sync. Gone when the " +
-                 "loot closes.")]
-        public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Both;
+        [Tooltip("How an NPC's loot is shown: Backpack (default) - the NPC's backpack lying next to it (a tinted copy " +
+                 "of the hero's, categories and pages), Sockets - the old row of loot sockets at the NPC, Both - in sync " +
+                 "(the sockets stand where the backpack lies: the hand takes their items, not the backpack). Gone when " +
+                 "the loot closes.")]
+        public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
 
         [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking the " +
                  "body again).")]
