@@ -394,6 +394,22 @@ namespace Gothic.Core.Models.Config
                  "swing (hand speed), the damage is the engine's fist damage (strength, blunt).")]
         public bool EnableVrFists = true;
 
+        [Tooltip("VR: Bows (ITEM_BOW) - the Gothic string is replaced by our own. Hold the bow in one hand, put the " +
+                 "other empty hand to the string and hold its GRIP to draw (an arrow from the inventory is nocked), " +
+                 "release to shoot - speed/damage grow with the draw. Missed arrows/bolts lie in the world to pick up.")]
+        public bool EnableVrBows = true;
+
+        [Tooltip("VR: Crossbows (ITEM_CROSSBOW) - aim with the crossbow, a holding hand's trigger fires a bolt (munition " +
+                 "from the inventory, 1 per shot, 30 m/s + gravity). Both hands on it, from 60 % crossbow (G1: also " +
+                 "the master talent) one is enough.")]
+        public bool EnableVrCrossbow = true;
+
+        [Tooltip("VR: After a shot the crossbow's string sits at the prod (Gothic's own S_RELAX shape). Hold it with " +
+                 "the free hand (trigger), pull it back along the stock until it locks - then it's cocked and shows a " +
+                 "bolt. Out of a holster/backpack it's cocked. The 'Crossbow' Immersion option turns it off (automatic " +
+                 "reload).")]
+        public bool EnableVrCrossbowManualReload = true;
+
         [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
                  "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
         public bool EnableHeroSleepBody = true;

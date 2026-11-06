@@ -412,15 +412,44 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > fist > nothing (bows and runes join with their PRs).
-        /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
+        /// A bow/crossbow in any hand (VRBow/VRCrossbow shoot with it). Read from the hands, not pushed by the
+        /// components: two held crossbows, one let go, still leave the hero armed.
         /// </summary>
-        public void UpdateHeroWeaponState()
+        private VmGothicEnums.WeaponState GetHeldRangedState(GameObject releasedItem)
+        {
+            foreach (var hand in GetHands())
+            {
+                var held = hand.Held;
+                if (held == null || held.gameObject == releasedItem)
+                    continue;
+
+                var item = held.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
+                if (!item.IsRangedWeapon())
+                    continue;
+                if (item.IsCrossbow())
+                {
+                    if (_configService.Dev.EnableVrCrossbow)
+                        return VmGothicEnums.WeaponState.CBow;
+                }
+                else if (_configService.Dev.EnableVrBows)
+                    return VmGothicEnums.WeaponState.Bow;
+            }
+            return VmGothicEnums.WeaponState.NoWeapon;
+        }
+
+        /// <summary>
+        /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
+        /// melee weapon in any hand > held crossbow/bow > fist > nothing (runes join with the magic PR).
+        /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
+        /// releasedItem: a bow/crossbow being let go (VRBow/VRCrossbow.OnDestroy) - no longer counted.
+        /// </summary>
+        public void UpdateHeroWeaponState(GameObject releasedItem = null)
         {
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = GetHeldRangedState(releasedItem);
             if (state == VmGothicEnums.WeaponState.NoWeapon && _isFistReadied)
                 state = VmGothicEnums.WeaponState.Fist;
 

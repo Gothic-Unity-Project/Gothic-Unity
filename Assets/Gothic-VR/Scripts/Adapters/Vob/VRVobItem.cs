@@ -119,6 +119,9 @@ namespace Gothic.VR.Adapters.Vob
             if (args.Kind == VrGrabberKind.Socket)
             {
                 SetSocketedLayer();
+                // Out of a holster/backpack a crossbow is cocked.
+                if (TryGetComponent<VobItem.VRCrossbowString>(out var crossbowString))
+                    crossbowString.SetProgress(1f);
                 return;
             }
 
@@ -136,8 +139,12 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
 
-            // The engine's "missing ... points" (G_CanNotUse) for a melee weapon the hero can't use - it hits for 1.
+            // The engine's "missing ... points" (G_CanNotUse) for a weapon the hero can't use - a melee weapon hits
+            // for 1, a bow/crossbow doesn't shoot.
             TryShowWeaponRequirement();
+
+            // One hand is enough for ranged weapons.
+            TryPrepareRangedWeapon();
 
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
@@ -179,6 +186,16 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
+
+            // Bows/crossbows shoot as long as any hand holds them. Removed immediately: a release + grab in the same
+            // frame (holster -> hand, hand -> hand) found the component still pending destruction and added no new
+            // one - the bow ended up without its string.
+            var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject ||
+                              _vrPlayerService.GrabbedItemRight == gameObject;
+            if (!isStillHeld && TryGetComponent<VobItem.VRCrossbow>(out var crossbow))
+                DestroyImmediate(crossbow);
+            if (!isStillHeld && TryGetComponent<VobItem.VRBow>(out var bow))
+                DestroyImmediate(bow);
 
             if (_vrPlayerService.IsDualGrabbed)
                 return;
@@ -271,6 +288,27 @@ namespace Gothic.VR.Adapters.Vob
             _vobService.RemoveWorldItem(container);
         }
 
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrCrossbow / EnableVrBows: ranged weapons shoot while held.
+        /// </summary>
+        private void TryPrepareRangedWeapon()
+        {
+            if (GetComponent<VobItem.VRCrossbow>() != null || GetComponent<VobItem.VRBow>() != null)
+                return;
+
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (!item.IsRangedWeapon())
+                return;
+
+            if (item.IsCrossbow())
+            {
+                if (_configService.Dev.EnableVrCrossbow)
+                    gameObject.AddComponent<VobItem.VRCrossbow>();
+            }
+            else if (_configService.Dev.EnableVrBows)
+                gameObject.AddComponent<VobItem.VRBow>();
+        }
 
         /// <summary>
         /// Items with a "use" function (on_state[0]) like pouches, potions and food, and wearables (armor, amulets,
@@ -490,7 +528,8 @@ namespace Gothic.VR.Adapters.Vob
         private void TryShowWeaponRequirement()
         {
             var container = GetComponentInParent<VobLoader>()?.Container;
-            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem && container.IsMeleeWeapon())
+            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem &&
+                (container.IsMeleeWeapon() || container.IsRangedWeapon()))
                 _fightService.CheckHeroWeaponRequirement(container.GetItemInstance(), isMessageShown: true);
         }
     }

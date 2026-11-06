@@ -5,8 +5,9 @@ namespace Gothic.Core.Domain.Meshes
 {
     /// <summary>
     /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned boxes
-    /// left gaps and air): a sword's slanted cross guard, an axe head; bows and crossbows with the ranged PR.
-    /// 1. The mesh is split into its separate parts (sword: blade, guard, grip, pommel; crossbow: stock, prod, string).
+    /// left gaps and air): a sword's slanted cross guard, an axe head, a curved bow, a diagonal crossbow prod.
+    /// 1. The mesh is split into its separate parts (sword: blade, guard, grip, pommel; crossbow: stock, prod, trigger,
+    ///    string; bow: limbs, string).
     /// 2. Each part is sampled densely (its triangles, not only the few low-poly vertices) and gets a box along its
     ///    principal axes (PCA). Curved parts are halved along their long axis as long as that removes a lot of air.
     /// 3. Line-thin boxes (bow and crossbow strings) are left out - the string is drawn, not grabbed.

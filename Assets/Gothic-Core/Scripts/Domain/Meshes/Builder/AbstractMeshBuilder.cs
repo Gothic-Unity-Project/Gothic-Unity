@@ -355,6 +355,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
             PrepareMeshFilter(meshFilter, Mmb.Mesh, meshRenderer, 0);
             PrepareMeshRenderer(meshRenderer, Mmb.Mesh);
 
+            // Morph mesh items (bows, crossbows) never got a collider: the hand grabbed "nothing" next to them and they
+            // fell through the world (crossbows from NPC loot too). Items only (the collider cache): world VOBs with a
+            // morph visual (flags, plants) stay without one, as before.
+            if (HasMeshCollider && UseColliderCache)
+                PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
+
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
             return RootGo;
@@ -698,18 +704,27 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
-        /// Melee weapons (ItMw_*) get boxes fitted to their parts (blade, guard, grip, pommel, axe and hammer heads)
-        /// instead of the cached colliders - boxes along the mesh axes: the slanted cross guard of
-        /// ItMw_2H_Sword_Light_03 had a 28 x 20 cm box, axe heads boxes full of air. Thin parts stay (rods and shafts
-        /// are held there). They are the hitboxes of the hero's swings.
+        /// Weapons get boxes fitted to their parts instead of the cached colliders:
+        /// - Melee weapons (ItMw_*): blade, guard, grip, pommel, axe and hammer heads. The cached boxes lie along the
+        ///   mesh axes: the slanted cross guard of ItMw_2H_Sword_Light_03 had a 28 x 20 cm box, axe heads boxes full of
+        ///   air. Thin parts stay (rods and shafts are held there). They are the hitboxes of the hero's swings.
+        /// - Bows and crossbows (ItRw_*): stock, prod, limbs, no string. The cached capsules follow the bounds of a
+        ///   straight weapon - a curved bow got three fat capsules, 13 cm radius, full of air; axis aligned slices missed
+        ///   the diagonal crossbow prods.
         /// </summary>
-        private bool TryAddMeleeFittedColliders(GameObject rootGo, Mesh mesh)
+        private bool TryAddFittedWeaponColliders(GameObject rootGo, Mesh mesh)
         {
-            if (mesh == null || MeshName == null ||
-                !MeshName.StartsWith("ITMW", System.StringComparison.OrdinalIgnoreCase))
+            if (mesh == null || MeshName == null)
                 return false;
 
-            return AddFittedColliders(rootGo, mesh, keepThinParts: true);
+            if (MeshName.StartsWith("ITMW", System.StringComparison.OrdinalIgnoreCase))
+                return AddFittedColliders(rootGo, mesh, keepThinParts: true);
+
+            // Bows and crossbows only: arrows and bolts (ITRW_ARROW, ITRW_BOLT, ...) are thin shafts the fitting drops
+            // as "strings" - they keep their cached colliders.
+            return MeshName.StartsWith("ITRW", System.StringComparison.OrdinalIgnoreCase) &&
+                   MeshName.ContainsIgnoreCase("BOW") &&
+                   (AddFittedColliders(rootGo, mesh) || AddSlicedBoxColliders(rootGo, mesh));
         }
 
         // Box meshes per item mesh, computed once.
@@ -767,13 +782,39 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return boxMesh;
         }
 
+        // One warning per mesh without cached colliders.
+        private static readonly HashSet<string> _meshesWithoutCachedColliders = new();
+
         protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
-            if (TryAddMeleeFittedColliders(rootGo, mesh))
+            if (TryAddFittedWeaponColliders(rootGo, mesh))
                 return;
 
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders))
+            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders) ||
+                colliders.Count == 0)
             {
+                if (_meshesWithoutCachedColliders.Add(MeshName))
+                    Logger.LogWarning($"No cached colliders for {MeshName} - boxes from its mesh.", LogCat.Mesh);
+
+                // The pre-cached colliders are calculated from MRMs only - morph mesh items (bows, crossbows) got none:
+                // they fell through the ground, couldn't be force-grabbed and flew away when rotated in a hand.
+                // Thin boxes along the mesh itself. A box around the whole bow enclosed the holding hand - physics
+                // pushed hand and bow away.
+                if (mesh != null)
+                {
+                    if (AddSlicedBoxColliders(rootGo, mesh))
+                        return;
+
+                    var size = mesh.bounds.size;
+                    var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+                    var fallback = rootGo.AddComponent<CapsuleCollider>();
+                    fallback.center = mesh.bounds.center;
+                    fallback.direction = axis;
+                    fallback.height = Mathf.Max(size[axis], 0.1f);
+                    fallback.radius = 0.025f;
+                    return;
+                }
+
                 Logger.LogError($"Can't find Collider data for {MeshName}. Skipping...", LogCat.Mesh);
                 return;
             }
@@ -799,6 +840,129 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     Logger.LogError($"Capsule cache type {coll.T} not yet handled", LogCat.Mesh);
                 }
             }
+        }
+
+        private const int _colliderSlices = 8;
+        private const int _bowColliderSlices = 14;
+        private const float _colliderClusterGap = 0.03f;
+        private const float _bowColliderClusterGap = 0.02f;
+        private const float _colliderMinThickness = 0.012f;
+        private const float _colliderMinSize = 0.02f;
+
+        /// <summary>
+        /// Morph mesh items (bows, crossbows) without cached colliders: the mesh is cut into slices along its long axis,
+        /// the vertices of a slice are split into clusters (gaps > 3 cm) and each cluster gets a box. So the hand can
+        /// grab every part (crossbow stock and prod, bow grip and limbs) and nothing encloses empty space.
+        /// Hair-thin clusters (a bow's string) get no box - the string is drawn, not grabbed.
+        /// </summary>
+        private bool AddSlicedBoxColliders(GameObject rootGo, Mesh mesh)
+        {
+            if (!mesh.isReadable)
+                return false;
+
+            var vertices = mesh.vertices;
+            var bounds = mesh.bounds;
+            var size = bounds.size;
+            var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+            var length = size[axis];
+            if (vertices.Length == 0 || length < 0.05f)
+                return false;
+
+            // Bows: the string runs from tip to tip (ends of the long axis) - it's drawn, never grabbed. Without its
+            // vertices the boxes follow the limbs only (with them they became one flat plate).
+            var isBow = MeshName != null && MeshName.ContainsIgnoreCase("BOW") &&
+                        !MeshName.ContainsIgnoreCase("CROSSBOW");
+            var sliceCount = isBow ? _bowColliderSlices : _colliderSlices;
+            var clusterGap = isBow ? _bowColliderClusterGap : _colliderClusterGap;
+            if (isBow)
+                vertices = RemoveBowString(vertices, axis, length);
+
+            var slices = new List<Vector3>[sliceCount];
+            var sliceLength = length / sliceCount;
+            foreach (var vertex in vertices)
+            {
+                var index = Mathf.Clamp((int)((vertex[axis] - bounds.min[axis]) / sliceLength), 0, sliceCount - 1);
+                (slices[index] ??= new List<Vector3>()).Add(vertex);
+            }
+
+            var axis2 = (axis + 1) % 3;
+            var axis3 = (axis + 2) % 3;
+            var added = 0;
+            for (var i = 0; i < sliceCount; i++)
+            {
+                if (slices[i] == null)
+                    continue;
+
+                foreach (var cluster2 in SplitByGap(slices[i], axis2, clusterGap))
+                {
+                    foreach (var cluster in SplitByGap(cluster2, axis3, clusterGap))
+                    {
+                        var min = cluster[0];
+                        var max = cluster[0];
+                        foreach (var vertex in cluster)
+                        {
+                            min = Vector3.Min(min, vertex);
+                            max = Vector3.Max(max, vertex);
+                        }
+
+                        var clusterSize = max - min;
+                        if (clusterSize[axis2] < _colliderMinThickness && clusterSize[axis3] < _colliderMinThickness)
+                            continue;
+
+                        // Boxes of neighbouring slices touch - no gaps along the item.
+                        min[axis] = Mathf.Min(min[axis], bounds.min[axis] + i * sliceLength);
+                        max[axis] = Mathf.Max(max[axis], bounds.min[axis] + (i + 1) * sliceLength);
+
+                        var box = rootGo.AddComponent<BoxCollider>();
+                        box.center = (min + max) * 0.5f;
+                        box.size = Vector3.Max(max - min, Vector3.one * _colliderMinSize);
+                        added++;
+                    }
+                }
+            }
+
+            return added > 0;
+        }
+
+        /// <summary>
+        /// Drops the vertices on the line between the two limb tips (the string), except at the tips themselves.
+        /// </summary>
+        private static Vector3[] RemoveBowString(Vector3[] vertices, int axis, float length)
+        {
+            var tipA = vertices[0];
+            var tipB = vertices[0];
+            foreach (var vertex in vertices)
+            {
+                if (vertex[axis] > tipA[axis])
+                    tipA = vertex;
+                if (vertex[axis] < tipB[axis])
+                    tipB = vertex;
+            }
+
+            var maxDistance = Mathf.Max(0.01f, length * 0.02f);
+            var line = tipB - tipA;
+            var kept = new List<Vector3>(vertices.Length);
+            foreach (var vertex in vertices)
+            {
+                var t = Mathf.Clamp01(Vector3.Dot(vertex - tipA, line) / line.sqrMagnitude);
+                var isString = t > 0.08f && t < 0.92f && Vector3.Distance(vertex, tipA + line * t) < maxDistance;
+                if (!isString)
+                    kept.Add(vertex);
+            }
+            return kept.Count > 0 ? kept.ToArray() : vertices;
+        }
+
+        private static List<List<Vector3>> SplitByGap(List<Vector3> points, int axis, float gap)
+        {
+            points.Sort((a, b) => a[axis].CompareTo(b[axis]));
+            var clusters = new List<List<Vector3>> { new() { points[0] } };
+            for (var i = 1; i < points.Count; i++)
+            {
+                if (points[i][axis] - points[i - 1][axis] > gap)
+                    clusters.Add(new List<Vector3>());
+                clusters[^1].Add(points[i]);
+            }
+            return clusters;
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)
