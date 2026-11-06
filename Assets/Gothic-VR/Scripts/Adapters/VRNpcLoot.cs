@@ -5,7 +5,6 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
@@ -25,7 +24,6 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
-using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
@@ -40,9 +38,13 @@ namespace Gothic.VR.Adapters
         private const float RefreshDelay = 0.6f;
         private const float SocketHeight = 0.8f;
         private const float SocketSpacing = 0.22f;
+        private const string _equippedLabelName = "EquippedLabel";
 
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
+
+        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\").")]
+        [SerializeField] private GameObject _equippedLabelPrefab;
 
         /// <summary>
         /// The loot socket - also used for the trade counter's offer zones.
@@ -57,7 +59,6 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
-        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private IInventoryOwner _lootOwner;
         private VRBackpack _lootBackpack;
@@ -441,7 +442,7 @@ namespace Gothic.VR.Adapters
             // Remove equipped labels before clearing items
             foreach (var root in _socketRoots)
             {
-                var label = root.transform.Find("EquippedLabel");
+                var label = root.transform.Find(_equippedLabelName);
                 if (label != null)
                     Destroy(label.gameObject);
             }
@@ -512,22 +513,10 @@ namespace Gothic.VR.Adapters
             if (socketRoot == null)
                 return;
 
-            var labelGo = new GameObject("EquippedLabel");
-            labelGo.transform.SetParent(socketRoot.transform, false);
+            var labelGo = Instantiate(_equippedLabelPrefab, socketRoot.transform, false);
+            labelGo.name = _equippedLabelName;
             labelGo.transform.localPosition = new Vector3(0f, 0.09f, 0f);
             labelGo.transform.localScale = Vector3.one * 0.013f;
-
-            var tmp = labelGo.AddComponent<TextMeshPro>();
-            // Assign font immediately after AddComponent to suppress repeated OnPreRenderObject warnings.
-            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.TmpDefaultPath);
-            if (font != null)
-                tmp.font = font;
-            tmp.text = "[E]";
-            tmp.fontSize = 12;
-            tmp.color = new Color(1f, 0.65f, 0f, 1f);
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.fontStyle = FontStyles.Bold;
         }
     }
 }

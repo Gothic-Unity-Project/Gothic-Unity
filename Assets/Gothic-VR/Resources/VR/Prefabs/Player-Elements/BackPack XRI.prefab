@@ -2206,6 +2206,7 @@ MonoBehaviour:
   - {fileID: 7401336062048036547}
   - {fileID: 5690367176338909822}
   - {fileID: 20846681383763424}
+  _equippedLabelPrefab: {fileID: 7287385748860620739, guid: 5c070705acbf35a4c80e712ff99cc44b, type: 3}
 --- !u!114 &1225520967283189248
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -11,7 +10,6 @@ using Gothic.Core.Models.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Inventory;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
@@ -52,6 +50,10 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Backpack slots (IVrSocket) which add/remove items to/from the inventory when used.")]
         [SerializeField] private GameObject[] _inventorySockets;
+
+        [Tooltip("The [E] badge above an equipped item's slot - the billboard variant, readable however the " +
+                 "backpack is held.")]
+        [SerializeField] private GameObject _equippedLabelPrefab;
 
         private VrInteractable _interactable;
         private IVrSocketContainer _socketContainer;
@@ -94,7 +96,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
-        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
         private const string _takeAllButtonName = "TakeAllButton";
@@ -928,24 +929,10 @@ namespace Gothic.VR.Adapters.Player
             const float worldScale = 0.013f;
             const float worldOffsetUp = 0.06f;
 
-            var labelGo = new GameObject(_equippedLabelName);
-            labelGo.transform.SetParent(socket, false);
+            var labelGo = Instantiate(_equippedLabelPrefab, socket, false);
+            labelGo.name = _equippedLabelName;
             labelGo.transform.position = socket.position + socket.up * worldOffsetUp;
             labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
-
-            var tmp = labelGo.AddComponent<TextMeshPro>();
-            var font = _resourceCacheService.TryGetFontAsset(Constants.Fonts.TmpDefaultPath);
-            if (font != null)
-                tmp.font = font;
-            tmp.text = "[E]";
-            tmp.fontSize = 12;
-            tmp.color = new Color(1f, 0.65f, 0f, 1f);
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.fontStyle = FontStyles.Bold;
-
-            // Always readable, however the backpack is held.
-            labelGo.AddComponent<Gothic.VR.Adapters.UI.VRBillboard>();
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)
