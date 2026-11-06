@@ -596,11 +596,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // taking it here too left too little for Spell_Logic's check (SPL_SENDSTOP, nothing fired, mana gone).
             if (!IsScriptPaidSpell())
             {
-                hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
-                // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
-                // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
-                // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
-                hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
+                // Vob and instance - SyncHeroInstanceToVob() copies the instance into the vob, a vob-only write was
+                // reverted ("mana snaps back"). No "-1 MANA" per tick.
+                _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1, isAmountShown: false);
                 RefreshManaFill();
             }
 
@@ -641,7 +639,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
                 return;
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, isAmountShown: false);
             RefreshManaFill();
         }
 
@@ -655,8 +653,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
-            hero.Instance.SetAttribute(NpcAttribute.Mana, mana);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, isAmountShown: false);
             RefreshManaFill();
             Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
             _manaInvested = 0;
@@ -710,7 +707,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             // The script changed the instance's mana - the vob (mana bar, saves) follows.
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, hero.Instance.GetAttribute(NpcAttribute.Mana));
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, hero.Instance.GetAttribute(NpcAttribute.Mana),
+                isAmountShown: false);
             RefreshManaFill();
         }
 

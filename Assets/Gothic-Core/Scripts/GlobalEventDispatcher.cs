@@ -112,6 +112,11 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcAttribute> NpcAttributeChanged = new();
 
         /// <summary>
+        /// The same write via NpcService.SetAttribute, with the amount it changed by (not 0) - hit numbers.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcAttribute, int> NpcAttributeAmountChanged = new();
+
+        /// <summary>
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
         /// Vector3      - at which position

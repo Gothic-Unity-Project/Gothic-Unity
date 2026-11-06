@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -18,6 +19,7 @@ namespace Gothic.Core.Extensions
 {
     public static class ZenKitExtension
     {
+
         /// <summary>
         /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
         /// </summary>
@@ -139,6 +141,14 @@ namespace Gothic.Core.Extensions
                 // Fallback
                 return vob.Name;
             }
+        }
+
+        /// <summary>
+        /// NPC_FLAG_IMMORTAL: takes no damage, Marvin's kill doesn't work (e.g. Diego in G1).
+        /// </summary>
+        public static bool IsImmortal(this NpcInstance npc)
+        {
+            return ((int)npc.Flags & FightConst.NpcFlagImmortal) != 0;
         }
 
         /// <summary>

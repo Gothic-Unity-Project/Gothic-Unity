@@ -41,7 +41,7 @@ namespace Gothic.Core.Manager
         private bool _isMenuOpenedInGame;
 
         /// <summary>
-        /// Toggled in game by every player. DeveloperConfig.ActivateMarvinMode is only a shortcut to start with it on.
+        /// Toggled in game by every player. DeveloperConfig.PreselectMarvinMode is only a shortcut to start with it on.
         /// </summary>
         public bool IsMarvinMode => _isMarvinMode ??= _configService.Dev.PreselectMarvinMode;
 
@@ -116,7 +116,11 @@ namespace Gothic.Core.Manager
                 SetMarvinMode(false);
         }
 
-        private void SetMarvinMode(bool isActive)
+        /// <summary>
+        /// VR: the Immersion option "Marvin" switches it (VRContextInteractionService), like the typed code and the
+        /// logo pokes.
+        /// </summary>
+        public void SetMarvinMode(bool isActive)
         {
             _isMarvinMode = isActive;
             Logger.Log($"[MarvinService] Marvin mode {(isActive ? "activated" : "deactivated")}", LogCat.Ui);

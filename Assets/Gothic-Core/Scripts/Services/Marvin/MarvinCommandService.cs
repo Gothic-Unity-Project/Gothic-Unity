@@ -4,6 +4,7 @@ using Gothic.Core.Domain.Marvin;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Marvin;
 using Gothic.Core.Extensions;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Reflex.Attributes;
 using ZenKit;
@@ -19,21 +20,31 @@ namespace Gothic.Core.Services.Marvin
     {
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly ConfigService _configService;
 
         private const int _maxRecentCommands = 5;
         private const int _maxAmount = 999;
 
         private readonly MarvinCheatDomain _cheatDomain = new MarvinCheatDomain().Inject();
         private readonly List<string> _recentCommands = new();
+        private bool _isRecentCommandsSeeded;
 
         private MarvinCommandParserDomain _parser;
         private MarvinClosedSetValue _waypointValue;
         private MarvinClosedSetValue _guildValue;
-        private MarvinClosedSetValue _instanceValue;
-        private HashSet<string> _itemNames = new(StringComparer.Ordinal);
+        // Items with an optional amount, NPCs without (an NPC name asked for an amount on the keyboard).
+        private MarvinClosedSetValue _itemValue;
+        private MarvinClosedSetValue _npcValue;
 
         /// <summary>Normalized, most recent first. Session only.</summary>
-        public IReadOnlyList<string> RecentCommands => _recentCommands;
+        public IReadOnlyList<string> RecentCommands
+        {
+            get
+            {
+                SeedRecentCommands();
+                return _recentCommands;
+            }
+        }
 
         public MarvinCommandService()
         {
@@ -96,6 +107,11 @@ namespace Gothic.Core.Services.Marvin
 
         public bool Execute(string line)
         {
+            return Execute(line, true);
+        }
+
+        private bool Execute(string line, bool isRecent)
+        {
             if (!GetParser().TryResolve(line, out var result))
             {
                 Logger.LogWarning($"[MarvinCommandService] '{line}' isn't a runnable command.", LogCat.Ui);
@@ -117,13 +133,73 @@ namespace Gothic.Core.Services.Marvin
             if (!success)
                 return false;
 
-            AddRecentCommand(normalized);
+            if (isRecent)
+                AddRecentCommand(normalized);
             return true;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.MarvinBinds: "name = command; command" per line, names in upper case (like parsed values).
+        /// </summary>
+        private Dictionary<string, string> ParseBinds()
+        {
+            var binds = new Dictionary<string, string>();
+            foreach (var line in _configService.Dev.MarvinBinds.Split('\n'))
+            {
+                var separator = line.IndexOf('=');
+                if (separator <= 0)
+                    continue;
+                var name = line[..separator].Trim().ToUpperInvariant();
+                if (name.Length > 0)
+                    binds[name] = line[(separator + 1)..].Trim();
+            }
+            return binds;
+        }
+
+        private bool RunBind(string name)
+        {
+            if (!ParseBinds().TryGetValue(name, out var commands))
+                return false;
+
+            var ran = 0;
+            foreach (var command in commands.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (Execute(command.Trim(), false))
+                    ran++;
+            }
+            Logger.Log($"[MarvinCommandService] Bind {name}: {ran} command(s) run", LogCat.Ui);
+            return ran > 0;
+        }
+
+        /// <summary>
+        /// DeveloperConfig.MarvinStartCommands: commands in the recent list from the start (not run) - one click
+        /// instead of typing "cheat god", "goto forward" ... again every session.
+        /// </summary>
+        private void SeedRecentCommands()
+        {
+            if (_isRecentCommandsSeeded || _configService == null)
+                return;
+            _isRecentCommandsSeeded = true;
+
+            var commands = _configService.Dev.MarvinStartCommands;
+            if (string.IsNullOrWhiteSpace(commands))
+                return;
+
+            foreach (var command in commands.Split(';'))
+            {
+                var normalized = string.Join(" ",
+                    command.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                if (normalized.Length > 0 && !_recentCommands.Exists(c => c.EqualsIgnoreCase(normalized)) &&
+                    _recentCommands.Count < _maxRecentCommands)
+                    _recentCommands.Add(normalized);
+            }
         }
 
         private void AddRecentCommand(string command)
         {
-            _recentCommands.Remove(command);
+            SeedRecentCommands();
+            // Seeded commands (MarvinStartCommands) may differ in case from the parsed ones.
+            _recentCommands.RemoveAll(c => c.EqualsIgnoreCase(command));
             _recentCommands.Insert(0, command);
             if (_recentCommands.Count > _maxRecentCommands)
                 _recentCommands.RemoveAt(_recentCommands.Count - 1);
@@ -144,7 +220,8 @@ namespace Gothic.Core.Services.Marvin
             _waypointValue = new MarvinClosedSetValue("<WAYPOINT>",
                 () => new MarvinPrefixIndex(_gameStateService.WayPoints.Keys));
             _guildValue = new MarvinClosedSetValue("<GUILD>", CreateGuildIndex);
-            _instanceValue = new MarvinClosedSetValue("<INSTANCE>", CreateInstanceIndex);
+            _itemValue = new MarvinClosedSetValue("<ITEM>", () => CreateInstanceIndex("C_Item"));
+            _npcValue = new MarvinClosedSetValue("<NPC>", () => CreateInstanceIndex("C_NPC"));
 
             var root = new MarvinCommandNode();
 
@@ -153,14 +230,43 @@ namespace Gothic.Core.Services.Marvin
             cheat.Add("level").Describe("Hero gains 5 levels").Runs(_ => _cheatDomain.AddLevels());
             cheat.Add("guild").Describe("Change the hero's guild")
                 .Add(_guildValue).Runs(values => _cheatDomain.SetGuild(values[0]));
+            if (_configService.Dev.EnableMarvinGodMode)
+                cheat.Add("god").Describe("Hits and falls don't hurt the hero (toggle)")
+                    .Runs(_ => _cheatDomain.ToggleGodMode());
+            if (_configService.Dev.EnableMarvinBlink)
+                root.Add("goto").Add("forward").Describe("4 m forward where you look, through walls")
+                    .Runs(_ => _cheatDomain.BlinkForward());
+
+            if (_configService.Dev.EnableMarvinKill)
+                root.Add("kill").Describe("The NPC you look at dies (not immortal ones)")
+                    .Runs(_ => _cheatDomain.KillFocusNpc());
 
             root.Add("goto").Add("waypoint").Describe("Teleport to a waypoint")
                 .Add(_waypointValue).Runs(values => _cheatDomain.TeleportToWaypoint(values[0]));
 
-            var insert = root.Add("insert").Describe("Item into the inventory or NPC in front of the hero")
-                .Add(_instanceValue).Runs(values => Insert(values[0], 1));
-            insert.Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
-                .Runs(values => Insert(values[0], int.Parse(values[1])));
+            var insert = root.Add("insert").Describe("Item into the inventory or NPC in front of the hero");
+            insert.Add(_itemValue).Runs(values => _cheatDomain.Insert(values[0], 1, true))
+                .Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
+                .Runs(values => _cheatDomain.Insert(values[0], int.Parse(values[1]), true));
+            insert.Add(_npcValue).Runs(values => _cheatDomain.Insert(values[0], 1, false));
+
+            if (!string.IsNullOrWhiteSpace(_configService.Dev.MarvinGiveItems))
+                root.Add("give").Add("items").Describe("The DeveloperConfig's item list (MarvinGiveItems) into the " +
+                                                       "inventory").Runs(_ => _cheatDomain.GiveItems(
+                    _configService.Dev.MarvinGiveItems));
+
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinFriendsNpcSymbols))
+                root.Add("team").Add("irdorath").Describe("The Irdorath crew in front of the hero")
+                    .Runs(_ => _cheatDomain.SpawnGroup("Irdorath crew", _configService.Dev.MarvinFriendsNpcSymbols));
+            if (!string.IsNullOrEmpty(_configService.Dev.MarvinCheatFriendsNpcSymbols))
+                root.Add("team").Add("helpers").Describe("The scripts' test helpers (SH/CH) in front of the hero")
+                    .Runs(_ => _cheatDomain.SpawnGroup("Test helpers",
+                        _configService.Dev.MarvinCheatFriendsNpcSymbols));
+
+            if (!string.IsNullOrWhiteSpace(_configService.Dev.MarvinBinds))
+                root.Add("bind").Describe("Runs a command list of the DeveloperConfig (MarvinBinds)")
+                    .Add(new MarvinClosedSetValue("<BIND>", () => new MarvinPrefixIndex(ParseBinds().Keys)))
+                    .Runs(values => RunBind(values[0]));
 
             root.Add("set").Add("time").Describe("Set the game time")
                 .Add(new MarvinNumberValue("<HOUR>", 0, 23))
@@ -170,28 +276,11 @@ namespace Gothic.Core.Services.Marvin
             return root;
         }
 
-        private bool Insert(string instanceName, int amount)
+        private MarvinPrefixIndex CreateInstanceIndex(string className)
         {
-            // Resolve the candidates first, as _itemNames is filled while creating them.
-            _instanceValue.GetCandidates();
-            return _cheatDomain.Insert(instanceName, amount, _itemNames.Contains(instanceName));
-        }
-
-        private MarvinPrefixIndex CreateInstanceIndex()
-        {
-            var vm = _gameStateService.GothicVm;
             var names = new List<string>();
-            _itemNames = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (var symbol in vm.GetInstanceSymbols("C_Item"))
-            {
-                _itemNames.Add(symbol.Name.ToUpperInvariant());
+            foreach (var symbol in _gameStateService.GothicVm.GetInstanceSymbols(className))
                 names.Add(symbol.Name);
-            }
-
-            foreach (var symbol in vm.GetInstanceSymbols("C_NPC"))
-                names.Add(symbol.Name);
-
             return new MarvinPrefixIndex(names);
         }
 
@@ -225,7 +314,8 @@ namespace Gothic.Core.Services.Marvin
         private void InvalidateVmCandidates()
         {
             _guildValue?.Invalidate();
-            _instanceValue?.Invalidate();
+            _itemValue?.Invalidate();
+            _npcValue?.Invalidate();
         }
     }
 }

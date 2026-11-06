@@ -1,6 +1,7 @@
 ﻿{
     "Gothic1Path": "---Defaults to Steam installation path (PCVR) or files/Gothic1 (Mobile VR)---",
     "Gothic2Path": "---Defaults to Steam installation path (PCVR) or files/Gothic2 (Mobile VR)---",
+    "ModFolders": [],
     "LogLevel": "---Set log level to one of these values: Message/Warning/Error. Default: Warning---",
     "LogCategories": "--Filter categories as list via colon/semicolon. Default: ALL--"
 }

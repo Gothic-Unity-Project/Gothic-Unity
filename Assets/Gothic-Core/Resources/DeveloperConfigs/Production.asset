@@ -20,6 +20,15 @@ MonoBehaviour:
   GameControls: 0
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
+  EnableMarvinGodMode: 1
+  EnableMarvinBlink: 1
+  EnableMarvinKill: 1
+  EnableMarvinFallRescue: 1
+  MarvinFriendsNpcSymbols: 
+  MarvinCheatFriendsNpcSymbols: 
+  MarvinStartCommands: 
+  MarvinGiveItems: 
+  MarvinBinds: 
   EnableZSpyLogs: 0
   AllDebugChannels: 0
   ZSpyChannels:
@@ -129,6 +138,8 @@ MonoBehaviour:
   EnableVisualFxEarthquake: 1
   EnableFootstepSounds: 1
   EnableHeroBodySounds: 1
+  EnableUiGrabBars: 1
+  EnableEndingReturnsToMenu: 1
   EnableHeroDeath: 1
   EnableKillerXpOnly: 1
   EnableOneHitKill: 0
