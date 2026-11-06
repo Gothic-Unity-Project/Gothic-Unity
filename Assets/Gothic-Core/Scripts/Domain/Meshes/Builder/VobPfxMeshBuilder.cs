@@ -38,6 +38,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             _destroyAfterPlay = destroyAfterPlay;
         }
         
+        // Spell/visual effects: looping ones emit their full ppsValue (the /100 was tuned for world fires).
+        private bool _isFullRate;
+
+        public void SetFullRate(bool isFullRate)
+        {
+            _isFullRate = isFullRate;
+        }
+
         public override GameObject Build()
         {
             var pfxGo = _resourceCacheService.TryGetPrefabObject(PrefabType.VobPfx, parent: RootGo)!;

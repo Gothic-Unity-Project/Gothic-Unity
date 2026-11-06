@@ -2,9 +2,11 @@ using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using MyBox;
+using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
 
@@ -12,6 +14,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class UseMob : AbstractWalkAnimationAction2
     {
+        [Inject] private readonly NpcHelperService _npcHelperService;
+
         private const string _mobTransitionAnimationString = "T_{0}{1}{2}_2_{3}";
         private const string _mobLoopAnimationString = "S_{0}{1}S{2}";
         private VobContainer _mobContainer;
@@ -48,6 +52,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _destination = _slotGo.transform.position;
                 IsDestReached = true;
 
+                // Something (ClearState, AI_StandUp) may have reset it - B_AssessTalk checks BS_SIT to talk seated.
+                if (TargetState >= 0)
+                    SetBodyState();
+
                 StartMobUseAnimation();
                 return;
             }
@@ -63,6 +71,10 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 IsFinishedFlag = true;
                 return;
             }
+
+            // Taken right away - the walk (StartNow) can start frames later and
+            // another NPC must not pick the same mob meanwhile.
+            PrefabProps.CurrentInteractable = container;
             
             if (container.Go.GetComponent<VobLoader>().IsLoaded)
                 StartNow();
@@ -90,6 +102,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             if (slot == null)
             {
+                // The reservation from Start goes - no free slot.
+                if (Props.CurrentInteractableStateId == -1 && PrefabProps.CurrentInteractable == _mobContainer)
+                    PrefabProps.CurrentInteractable = null;
                 IsFinishedFlag = true;
                 return;
             }
@@ -187,7 +202,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             else
             {
                 // Loop animations carry the slot position as well (e.g. s_Bed_Front_S1 vs. s_Cauldron_S1).
-                var animName = string.Format(_mobLoopAnimationString, _mobsiScheme, GetSlotPositionTag(_slotGo.name), TargetState);
+                var animName = GetMobAnimationName(tag => string.Format(_mobLoopAnimationString, _mobsiScheme, tag, TargetState));
                 PrefabProps.AnimationSystem.PlayAnimation(animName);
             }
 
@@ -198,7 +213,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private VobContainer GetNearestMob()
         {
             var pos = NpcGo.transform.position;
-            return VobService.GetFreeInteractableWithin10M(pos, Action.String0);
+            return VobService.GetFreeInteractableWithin10M(pos, Action.String0, NpcContainer);
         }
 
         [CanBeNull]
@@ -208,7 +223,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return null;
 
             var pos = NpcGo.transform.position;
-            var slot = VobService.GetNearestSlot(_mobContainer.Go, pos);
+            var slot = VobService.GetNearestFreeSlot(_mobContainer, pos, NpcContainer);
 
             return slot;
         }
@@ -257,6 +272,23 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 PlayTransitionAnimation();
         }
 
+        /// <summary>
+        /// Like OpenGothic, the slot position (FRONT/BACK) is only part
+        /// of the name when the model has such an animation - beds have t_Bed_Back_S0_2_S1, the saw, repair spot and roast
+        /// spit only t_BaumSaege_S0_2_S1. A pirate at the saw stood next to it (S_BAUMSAEGE_BACK_S1 not found).
+        /// </summary>
+        private string GetMobAnimationName(System.Func<string, string> format)
+        {
+            var positionTag = GetSlotPositionTag(_slotGo.name);
+            var animName = format(positionTag);
+            if (positionTag == "_" ||
+                PrefabProps.AnimationSystem.HasAnimation(animName))
+                return animName;
+
+            var withoutPosition = format("_");
+            return PrefabProps.AnimationSystem.HasAnimation(withoutPosition) ? withoutPosition : animName;
+        }
+
         private string GetSlotPositionTag(string name)
         {
             if (name.EndsWithIgnoreCase("_FRONT"))
@@ -286,6 +318,27 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Wld_GetMobState() and save games. -1 means the NPC isn't using it anymore.
             if (Props.CurrentInteractableStateId >= 0 && _mobContainer != null)
                 _mobContainer.MobState = Props.CurrentInteractableStateId;
+
+            if (_mobContainer == null)
+                return;
+
+            // If this mob is linked to a mover (e.g. VWHEEL -> gate), activate it.
+            var target = _mobContainer.VobAs<IInteractiveObject>()?.Target;
+            if (!string.IsNullOrEmpty(target))
+                TriggerLinkedMover(target, step > 0);
+        }
+
+        private void TriggerLinkedMover(string targetName, bool opening)
+        {
+            if (!VobService.TryGetMover(targetName, out var moverContainer) || moverContainer?.Go == null)
+                return;
+
+            var moverAdapter = moverContainer.Go.GetComponentInChildren<MoverAdapter>();
+            if (moverAdapter == null)
+                return;
+
+            if (opening) moverAdapter.Open();
+            else moverAdapter.Close();
         }
 
         private void PlayTransitionAnimation()
@@ -298,8 +351,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var from = current == -1 ? "Stand" : $"S{current}";
             var to = next == -1 ? "Stand" : $"S{next}";
 
-            var slotPositionName = GetSlotPositionTag(_slotGo.name);
-            var animName = string.Format(_mobTransitionAnimationString, _mobsiScheme, slotPositionName, from, to);
+            var animName = GetMobAnimationName(tag => string.Format(_mobTransitionAnimationString, _mobsiScheme, tag, from, to));
 
             _currentMobAnimation = animName;
             PrefabProps.AnimationSystem.PlayAnimation(animName);

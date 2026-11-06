@@ -5,6 +5,7 @@ using System.Linq;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
@@ -173,6 +174,7 @@ namespace Gothic.Core.Domain
             _gameStateService.MenuVm = _resourceCacheService.TryGetDaedalusVm("MENU");
             _gameStateService.SfxVm = _resourceCacheService.TryGetDaedalusVm("SFX");
             _gameStateService.PfxVm = _resourceCacheService.TryGetDaedalusVm("PARTICLEFX");
+            _gameStateService.VfxVm = _resourceCacheService.TryGetDaedalusVm("VISUALFX");
         }
 
         /// <summary>
@@ -234,6 +236,35 @@ namespace Gothic.Core.Domain
             _fontService.Create();
         }
 
+        /// <summary>
+        /// Only the human block of the guild table comes from the scripts (GIL_ATTITUDES) - everything else stayed 0 =
+        /// ATT_HOSTILE: an orc warrior and an orc scout were enemies, and when one drew its weapon against the hero the
+        /// others attacked it. Orcs of all castes are friends, and every monster guild is friendly to itself.
+        /// Scripts can still change it (Wld_SetGuildAttitude).
+        /// </summary>
+        private void InitMonsterGuildAttitudes()
+        {
+            var count = _gameStateService.GuildCount;
+            var friendly = (int)VmGothicEnums.Attitude.Friendly;
+            // From the scripts - G1 and G2 number their guilds differently.
+            var vm = _gameStateService.GothicVm;
+            var humanSeparator = vm.GetSymbolByName("GIL_SEPERATOR_HUM")?.GetInt(0) ?? -1;
+            var orcSeparator = vm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0) ?? -1;
+            if (humanSeparator < 0 || orcSeparator < 0)
+            {
+                Logger.LogWarning("GIL_SEPERATOR_HUM/ORC not found - monster guild attitudes stay hostile.", LogCat.Npc);
+                return;
+            }
+            var firstOrcGuild = orcSeparator + 1;
+
+            for (var guild = humanSeparator + 1; guild < count; guild++)
+                _gameStateService.GuildAttitudes[guild * count + guild] = friendly;
+
+            for (var guild1 = firstOrcGuild; guild1 < count; guild1++)
+                for (var guild2 = firstOrcGuild; guild2 < count; guild2++)
+                    _gameStateService.GuildAttitudes[guild1 * count + guild2] = friendly;
+        }
+
         private void LoadGuildData()
         {
             var guildMax = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.GuildMaxValue);
@@ -244,6 +275,7 @@ namespace Gothic.Core.Domain
             _gameStateService.GuildHumanCount = (int)(tablesize != null ? Math.Sqrt(tablesize.GetInt(0)) : 0);
 
             _gameStateService.GuildAttitudes = new int[_gameStateService.GuildCount * _gameStateService.GuildCount];
+            InitMonsterGuildAttitudes();
 
             var id = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.GuildValuesInstance);
             if (id == null)

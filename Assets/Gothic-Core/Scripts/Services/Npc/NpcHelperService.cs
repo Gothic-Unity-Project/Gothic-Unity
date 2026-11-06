@@ -32,8 +32,10 @@ namespace Gothic.Core.Services.Npc
         
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         private const float _fpLookupDistance = 7f; // meter
@@ -90,6 +92,9 @@ namespace Gothic.Core.Services.Npc
             return _vobService.IsMobUsableFrom(container, npc.transform.position);
         }
 
+        /// <summary>
+        /// The mob's state as Wld_GetMobState reads it (set while an NPC uses the mob).
+        /// </summary>
         public int ExtWldGetMobState(NpcInstance npcInstance, string scheme)
         {
             var npcGo = GetNpc(npcInstance);
@@ -105,8 +110,35 @@ namespace Gothic.Core.Services.Npc
             return Math.Max(0, mob.MobState);
         }
 
+        /// <summary>
+        /// The melee weapon the VR hero holds in a hand right now (set by VRWeaponService) - his "readied" weapon for
+        /// Npc_GetReadiedWeapon (e.g. orcs tolerate a hero holding the Ulu-Mulu, C_OtherIsToleratedEnemy).
+        /// </summary>
+        public ItemInstance HeroReadiedMeleeWeapon { get; set; }
+
+        /// <summary>
+        /// Melee weapons in the VR hero's holsters/quick slots - his "equipped" weapon for Npc_GetEquippedMeleeWeapon
+        /// (orcs also tolerate the Ulu-Mulu at the belt).
+        /// </summary>
+        public readonly List<ItemInstance> HeroHolsteredMeleeWeapons = new();
+
+        /// <summary>
+        /// The hero's equipped melee weapon for scripts that ask which one (Npc_GetEquippedMeleeWeapon): in a hand, else
+        /// at the belt. Npc_HasEquippedMeleeWeapon stays false for him (G2 guards would react to every belt weapon).
+        /// </summary>
+        public ItemInstance GetHeroEquippedMeleeWeapon()
+        {
+            return HeroReadiedMeleeWeapon ?? HeroHolsteredMeleeWeapons.FirstOrDefault();
+        }
+
         public ItemInstance ExtNpcGetEquippedMeleeWeapon(NpcInstance npc)
         {
+            // VR hero never "draws" a melee weapon in the Gothic sense — physical VR hands handle combat.
+            // EquippedItems is populated by the startup script but does not reflect drawn state.
+            // Returning null prevents G2 guards from triggering ZS_REACTTOWEAPON via this check.
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var meleeWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatNf);
 
@@ -120,6 +152,9 @@ namespace Gothic.Core.Services.Npc
 
         public ItemInstance ExtNpcGetEquippedRangedWeapon(NpcInstance npc)
         {
+            if (npc.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+                return null;
+
             var rangedWeapon = GetProperties(npc).EquippedItems
                 .FirstOrDefault(i => i.MainFlag == (int)VmGothicEnums.ItemFlags.ItemKatFf);
 
@@ -203,10 +238,20 @@ namespace Gothic.Core.Services.Npc
         public int ExtNpcGetDistToWp(NpcInstance npc, string waypointName)
         {
             var npcGo = GetNpc(npc);
+
+            if (npcGo == null)
+            {
+                Logger.LogWarning($"ExtNpcGetDistToWp: npcGo is null for npc={npc?.GetName(NpcNameSlot.Slot0)} waypoint={waypointName}", LogCat.Npc);
+                return int.MaxValue;
+            }
+
             var waypoint = _wayNetService.GetWayNetPoint(waypointName);
 
-            if (!npcGo || waypoint == null)
+            if (waypoint == null)
+            {
+                Logger.LogWarning($"ExtNpcGetDistToWp: waypoint '{waypointName}' not found for npc={npc?.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
                 return int.MaxValue;
+            }
 
             // *100 as Gothic metrics are in cm, not m.
             return (int)(Vector3.Distance(npcGo.transform.position, waypoint.Position) * 100);
@@ -240,14 +285,16 @@ namespace Gothic.Core.Services.Npc
             VobContainer nearestContainer = null;
             var nearestDist = float.MaxValue;
 
-            // Items in the hero's hands are left out with the VR inventory PR (held items are marked there). Not by a
-            // kinematic rigidbody: in VR every item lying still is kinematic.
+            // Not by a kinematic rigidbody: in VR every item lying still is kinematic.
             foreach (var container in _multiTypeCacheService.VobCache)
             {
                 if (container.Vob is not IItem vobItem) continue;
                 // Skip items whose GO was destroyed (player already picked them up via loot menu) or that are hidden
                 // (inside a closed VR chest or backpack).
                 if (container.Go == null || !container.Go.activeInHierarchy) continue;
+
+                // The player's item - NPCs must not detect (and later AI_TakeItem) it out of their hand.
+                if (container.IsHeldByPlayer) continue;
 
                 // Use actual GO position (physics may have moved it)
                 var dist = Vector3.Distance(container.Go.transform.position, npcPos);
@@ -279,12 +326,19 @@ namespace Gothic.Core.Services.Npc
         {
             // Same storage as Npc_SetTalentSkill.
             // FIXME - skill levels should also drive the fight overlays (like OpenGothic does).
-            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Skill ?? 0;
+            return GetTalentInRange(npc, skillId)?.Skill ?? 0;
         }
 
         public int ExtNpcGetTalentValue(NpcInstance npc, int skillId)
         {
-            return GetContainer(npc)?.Vob?.GetTalent(skillId)?.Value ?? 0;
+            return GetTalentInRange(npc, skillId)?.Value ?? 0;
+        }
+
+        // A talent the vob doesn't have (yet) is 0 - ZenKit errors out of range.
+        private ITalent GetTalentInRange(NpcInstance npc, int skillId)
+        {
+            var vob = GetContainer(npc)?.Vob;
+            return vob != null && skillId >= 0 && skillId < vob.TalentCount ? vob.GetTalent(skillId) : null;
         }
 
         /// <summary>
@@ -299,27 +353,50 @@ namespace Gothic.Core.Services.Npc
             return npc.Vob.GetTalent(talentIndex).Value;
         }
 
-        /// <summary>
-        /// The temporary attitude (Npc_SetTempAttitude) when set, else the permanent one (GetPermanentAttitude).
-        /// </summary>
         public VmGothicEnums.Attitude GetPersonAttitude(NpcContainer self, NpcContainer other)
         {
-            if (IsHero(self) || IsHero(other))
-            {
-                var npc = IsHero(self) ? other : self;
-                if (npc.Vob.AttitudeTemp != (int)VmGothicEnums.Attitude.Null)
-                    return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
-            }
+            // A summon and its master are always friendly to each other — in BOTH directions and above
+            // every other rule: the summon's ZS_MM_Summoned sets Npc_SetAttitude(HOSTILE) (it fights
+            // everyone on its master's behalf), and the guild attitude table only covers human guilds,
+            // so monster-vs-monster falls back to hostile — a SkeletonMage (GIL_DEMON) would otherwise
+            // pick its own fresh GIL_SKELETON summons (spawned 2-5m away, closer than any real enemy)
+            // as targets, and the summons would then retaliate via the hit-response path. Vanilla gets
+            // this peace from engine-internal target filtering we don't replicate; SummonedBy is our
+            // equivalent, and every targeting path (GetNextTarget, UpdateEnemyNpc, armed-threat scan,
+            // hit-response switch) already respects Friendly.
+            if (self.SummonedBy != null && other.Instance != null && self.SummonedBy.Index == other.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
+            if (other.SummonedBy != null && self.Instance != null && other.SummonedBy.Index == self.Instance.Index)
+                return VmGothicEnums.Attitude.Friendly;
 
+            // The hero's summon and an NPC see each other the way that
+            // NPC sees the hero - bandits and wolves fight it, Cavalorn or Xardas leave it alone. A deviation: the G2
+            // scripts make humans hostile to the GIL_SUMMONED_* guilds (B_InitMonsterAttitudes), so in vanilla
+            // guards attack the hero's summons too.
+            if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
+                return GetAttitudeTowardsHero(self);
+            if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
+                return GetAttitudeTowardsHero(other);
+
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+
+            // Like the engine (OpenGothic personAttitude), an NPC's own
+            // attitude (Npc_SetAttitude/Npc_SetTempAttitude) is its attitude towards the hero - between two NPCs only
+            // the guild table counts. Baal Parvez (friendly to the hero as a guide) was friendly to every lurker and
+            // scavenger too and never attacked them.
+            if (!IsHero(self) && !IsHero(other))
+                return GetGuildAttitude(self.Vob.Guild, other.Vob.Guild);
+
+            var npc = IsHero(self) ? other : self;
+            if (npc.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
             return GetPermanentAttitude(self, other);
         }
 
         /// <summary>
-        /// Like the engine (OpenGothic personAttitude), an NPC's own attitude (Npc_SetAttitude/Npc_SetTempAttitude) is
-        /// its attitude towards the hero - between two NPCs only the guild table counts. Baal Parvez (friendly to the
-        /// hero as a guide) was friendly to every lurker and scavenger too and never attacked them.
-        /// Npc_GetPermAttitude: the permanent attitude only, never the temporary one (ZS_Attack_End's hostile check);
-        /// none set (Null, most G1 NPCs): the guild table.
+        /// Npc_GetPermAttitude: the permanent attitude only, never the temporary one (ZS_Attack_End's hostile check).
+        /// Like the engine it is the NPC's attitude towards the hero; none set (Null, most G1 NPCs) or between two NPCs:
+        /// the guild table.
         /// </summary>
         public VmGothicEnums.Attitude GetPermanentAttitude(NpcContainer self, NpcContainer other)
         {
@@ -340,6 +417,26 @@ namespace Gothic.Core.Services.Npc
         private static bool IsHero(NpcContainer npc)
         {
             return npc.PrefabProps != null && npc.PrefabProps.IsHero();
+        }
+
+        private bool IsHeroSummon(NpcContainer npc)
+        {
+            return npc.SummonedBy != null && _gameStateService.GothicVm?.GlobalHero is NpcInstance hero &&
+                   npc.SummonedBy.Index == hero.Index;
+        }
+
+        /// <summary>
+        /// The NPC's attitude towards the hero, like GetPersonAttitude(npc, hero): temp, else permanent, else guild.
+        /// </summary>
+        private VmGothicEnums.Attitude GetAttitudeTowardsHero(NpcContainer npc)
+        {
+            const int attNull = (int)VmGothicEnums.Attitude.Null;
+            if (npc.Vob.AttitudeTemp != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
+            if (npc.Vob.Attitude != attNull)
+                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
+            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
+            return hero?.Vob != null ? GetGuildAttitude(npc.Vob.Guild, hero.Vob.Guild) : VmGothicEnums.Attitude.Neutral;
         }
 
         [CanBeNull]
@@ -387,13 +484,13 @@ namespace Gothic.Core.Services.Npc
                 return true;
             }
 
-            // Like the engine: sight in the full senses range (in front, or freeLOS), hearing only noise (walking,
-            // running) within half the range, smell only close by. Hearing/smell sensed the hero all around in the full
-            // range before (orcs: 20 m), also standing still behind them.
-            // Guides/followers keep smelling all around the senses range - ZS_GuidePC sets SENSE_SMELL with
-            // HAI_DIST_ASSESS_MONSTER so B_AssessEnemy spots monsters on the way ("another one of these beasts"); with the
-            // quiet senses Baal Parvez only reacted once bitten.
-            if (!IsInEscortState(self))
+            // Hearing/smell sensed the hero all around within the full senses range
+            // (orcs: 20 m) - also standing still behind them. Sight keeps the full range (in front, or freeLOS);
+            // hearing needs noise (walking/running) within half the range; smell only works close by.
+            // Guides/followers keep the engine's senses (smell all around the senses
+            // range) - ZS_GuidePC sets SENSE_SMELL with HAI_DIST_ASSESS_MONSTER so B_AssessEnemy spots monsters on the way
+            // ("another one of these beasts"); with the quiet senses Baal Parvez only reacted once bitten.
+            if (!(IsInEscortState(self)))
                 return CanSenseNpcQuietly(self, other, senses, freeLOS, range, senseRangeMeters);
 
             if ((senses & (VmGothicEnums.NpcSenses.Hear | VmGothicEnums.NpcSenses.Smell)) != 0)
@@ -404,6 +501,36 @@ namespace Gothic.Core.Services.Npc
             }
 
             return CanSeeNpc(self, other, freeLOS);
+        }
+
+        private static Gothic.Core.Services.Config.ConfigService _downConfigService;
+
+        /// <summary>
+        /// Knocked out (BS_UNCONSCIOUS) - DeveloperConfig.EnableFrozenIsNotDown: not a magically frozen NPC. Like the
+        /// scripts (C_NpcIsDown: ZS_Unconscious, ZS_MagicSleep, dead), ZS_MagicFreeze sets BS_UNCONSCIOUS via
+        /// AI_PlayAniBS but the victim isn't down: Mroczne Tajemnice's crawlers freeze with their web and then bite.
+        /// Before the frozen NPC was invisible to monsters, dropped as a target and killed by the next hit.
+        /// </summary>
+        public static bool IsKnockedOut(NpcContainer npc)
+        {
+            if (npc?.Props == null || npc.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
+                return false;
+            _downConfigService ??= ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>();
+            return !IsMagicFrozen(npc);
+        }
+
+        /// <summary>
+        /// Dead or knocked out (a frozen NPC isn't, see IsKnockedOut).
+        /// </summary>
+        public static bool IsDown(NpcContainer npc)
+        {
+            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
+        }
+
+        public static bool IsMagicFrozen(NpcContainer npc)
+        {
+            var state = npc?.Vob?.CurrentStateName;
+            return state != null && state.StartsWith("ZS_MAGICFREEZE", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

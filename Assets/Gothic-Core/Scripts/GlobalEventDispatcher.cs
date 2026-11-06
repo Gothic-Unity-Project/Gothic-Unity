@@ -2,6 +2,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Doc;
 using Gothic.Core.Models.UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -114,6 +115,71 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
 
         /// <summary>
+        /// The hero starts a melee swing (VR: the held weapon got faster than its attack threshold) - the engine's
+        /// "prehit" of an attack animation. NPCs fighting him can parry or jump back (FightService).
+        /// int - the swung weapon's material (ItemMaterial), -1 without a weapon (fists).
+        /// </summary>
+        public static readonly UnityEvent<int> HeroMeleeSwing = new();
+
+        /// <summary>
+        /// DeveloperConfig.EnableVrHeroBlock: the blocking hero parried a hit.
+        /// NpcContainer - the attacker
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroBlockedHit = new();
+
+        /// <summary>
+        /// A melee hit that landed (not parried, blocked, in a dialog, ...) - blood.
+        /// NpcContainer - who attacks
+        /// NpcContainer - who got hit
+        /// Vector3      - at which position
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> MeleeHitLanded = new();
+
+        /// <summary>
+        /// NpcContainer - caster
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// int          - total spell damage (SPL_DAMAGE_* * level, already calculated)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, int> SpellHit = new();
+
+        /// <summary>
+        /// A spread spell (SpellConst.SpreadEffectNames, fire storm) landed on the ground/a wall - its burning area
+        /// damages the NPCs around.
+        /// NpcContainer - caster
+        /// Vector3      - impact position
+        /// int          - total spell damage
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, Vector3, int> SpellSpreadHit = new();
+
+        /// <summary>
+        /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
+        /// </summary>
+        public static readonly UnityEvent GameTimeSkipped = new();
+        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnEffect plays it.
+        public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
+        // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
+        public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
+        // Marvin's "kill" (DeveloperConfig.EnableMarvinKill): the NPC dies at once, no killer (no experience).
+        public static readonly UnityEvent<NpcContainer> CheatKill = new();
+
+        /// <summary>
+        /// Arrow/bolt hit (VR crossbow/bow projectiles).
+        /// NpcContainer - shooter
+        /// NpcContainer - target
+        /// Vector3      - hit position
+        /// (weapon, damageScale) - the ranged weapon (damage, damage type) + scale (VR bow: partly drawn string),
+        ///                         1 = engine damage. A tuple: UnityEvent takes at most 4 arguments.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, (ZenKit.Daedalus.ItemInstance weapon, float damageScale)> RangedHit = new();
+
+        /// <summary>
+        /// NpcContainer - who performs the finishing move (attacker)
+        /// NpcContainer - who is executed (unconscious target)
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> FightFinishingMove = new();
+
+        /// <summary>
         /// NpcContainer - lost its last hit points outside of a melee hit (NpcService.ReduceHitPoints: a script's
         /// Npc_ChangeAttribute, drowning, a damage zone). FightService decides how it goes down.
         /// </summary>
@@ -126,15 +192,6 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
         /// <summary>
-        /// An inventory view (NPC loot sockets, NPC backpack) changed an NPC's items - the other views showing the same
-        /// NPC refresh.
-        /// NpcContainer - whose inventory changed
-        /// </summary>
-        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
-
-        // DocModel - document to show; GameObject - item GO to attach the viewer to (may be null in flat mode).
-        public static readonly UnityEvent<Gothic.Core.Models.Doc.DocModel, GameObject> DocShow = new();
-
         /// <summary>
         /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
         /// (LoadGameStart ends the knockout).
@@ -146,6 +203,26 @@ namespace Gothic.Core
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
+        /// NpcContainer - whose inventory lost the item
+        /// int - item instance index
+        /// int - amount
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, int, int> ScriptRemovedInvItems = new();
+
+        /// <summary>
+        /// An inventory view (NPC loot sockets, NPC backpack, trade counter) changed an NPC's items - the other views
+        /// showing the same NPC refresh.
+        /// NpcContainer - whose inventory changed
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
+
+        // ExitGame (G1 ending) / ExitSession (G2 ending): the game ends after the queued videos (credits).
+        public static readonly UnityEvent ScriptExitGame = new();
+        // Mdl_ApplyOverlayMDSTimed on the hero (overlay name, seconds) - e.g. speed potions (HUMANS_SPRINT.MDS).
+        public static readonly UnityEvent<string, float> ScriptHeroOverlayTimed = new();
 
         /// <summary>
         /// The NPC's body visual (Mdl_SetVisualBody: body, textures, armor) was set (NpcService.ExtSetVisualBody).
@@ -165,6 +242,9 @@ namespace Gothic.Core
 
         // FIXME - If LockPick in hand is Amount=0, then destroy as Mesh.
         public static readonly UnityEvent<VobContainer, VobContainer, int> LockPickComboBroken = new();
+
+        // DocModel — document to show; GameObject — item GO to attach the viewer to (may be null in flat mode).
+        public static readonly UnityEvent<DocModel, GameObject> DocShow = new();
 
         // Physical hands (VR): a hand or the item it holds hit something. Once per impact (cooldown and sliding are
         // filtered by VrPhysicsHand).
@@ -202,6 +282,10 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
+
+        // DeveloperConfig.EnableVisualFxEarthquake: FX_EarthQuake played (summoning, fire rain) - position, radius in
+        // meters, seconds. VR rumbles the controllers instead of shaking the camera.
+        public static readonly UnityEvent<Vector3, float, float> VisualFxEarthquake = new();
 
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();

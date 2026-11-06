@@ -8,6 +8,17 @@ namespace Gothic.Core.Const
 {
     public static class Constants
     {
+        /// <summary>
+        /// Gothic.ini keys of our own menu options (written by the settings menu).
+        /// </summary>
+        public static class IniNames
+        {
+            // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
+            public const string LightRefresh = "lightRefresh";
+            // 1 (default) = an NPC finishing off the knocked out hero kills him like in Gothic, 0 = only knocked out.
+            public const string HeroDeath = "heroDeath";
+        }
+
         public static class Items
         {
             /// <summary>

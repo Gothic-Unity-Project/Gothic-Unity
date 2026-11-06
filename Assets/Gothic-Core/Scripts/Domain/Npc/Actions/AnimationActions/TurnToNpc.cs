@@ -14,6 +14,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             PlayAnimation = true;
         }
 
+        // A fight turn (Float0 = tolerance, NpcAiService.ExtAiTurnToNpcInFight): done once the target is in focus, and
+        // never longer than _fightTurnMaxSeconds - a scavenger circling Ratford kept him turning forever, he never hit.
+        private const float _fightTurnMaxSeconds = 2f;
+
+        protected override float FinishAngle => Action.Float0 > 0f ? Action.Float0 : base.FinishAngle;
+
+        protected override float MaxSeconds => Action.Float0 > 0f ? _fightTurnMaxSeconds : base.MaxSeconds;
+
         protected override Quaternion GetRotationDirection()
         {
             var destinationTransform = Action.Instance0.GetUserData().Go.transform;

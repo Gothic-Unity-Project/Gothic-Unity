@@ -375,6 +375,126 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
+         * NPC AI and Fight
+         * ##########
+         */
+
+        [Foldout("NPC AI and Fight", true)]
+        [Tooltip("Enable NPC ranged combat (bow/crossbow). OFF = NPCs fall back to their best melee weapon regardless of range.")]
+        public bool EnableNpcRangedCombat;
+
+        [Tooltip("The \"Ranged knockout\" option's value when Gothic.ini has none yet.")]
+        public bool RangedKnockoutByDefault;
+
+        [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
+                 "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
+        public bool EnableHeroSleepBody = true;
+
+        [Tooltip("Chasing NPCs run along a NavMesh (built at runtime around the hero from world + vob colliders, " +
+                 "Gothic STEP_HEIGHT/SLIDE_ANGLE): around obstacles, and they stop at ledges/drops instead of running " +
+                 "off the world. Routines still walk the waynet.")]
+        public bool EnableNpcNavMesh = true;
+
+        [Tooltip("VOBs in light mapped areas (caves, mines, houses) take the lightmap light of the floor below them - " +
+                 "stairs and planks shone like the day next to the dark walls.")]
+        public bool EnableVobWorldLight = true;
+
+        [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
+        [Range(0.25f, 4f)]
+        public float WorldLightmapBrightness = 1f;
+
+        [Tooltip("Sleep and freeze spells (also Mroczne Tajemnice's crawler web) work on the hero - can't move for " +
+                 "SPL_TIME_SLEEP/FREEZE, damage wakes up, and the caster's scripts see the state (no endless re-casting).")]
+        public bool EnableHeroSpellStates = true;
+
+        [Tooltip("G1 chain lightning like the engine - the NPC in front of the eyes is zapped (ZS_Zapped hurts him " +
+                 "every second), every invest level it jumps on to the nearest NPC, with nobody left it zaps the hero. " +
+                 "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
+        public bool EnableVrChainLightning = true;
+
+        [Tooltip("Windfist and Stormfist throw their victims away (DAM_FLY, OpenGothic accessDamFly) - they fly back, " +
+                 "land lying and get up; thrown off a ledge, the fall hurts. Not the hero.")]
+        public bool EnableWindfistThrow = true;
+
+        [Tooltip("Clear an NPC's perceptions when its routine/state changes, like the engine (changes AI of all NPCs). " +
+                 "Fixes NPCs keeping ZS_AssessFighter perceptions after AI_ContinueRoutine ($WISEMOVE on every " +
+                 "weapon/rune removal). The new state's ZS_ init re-enables its own perceptions.")]
+        public bool EnableRoutinePerceptionReset = true;
+
+        [Tooltip("An NPC chasing the hero to proclaim (ZS_ProclaimAndPunish: \"Now wait...\") stops within " +
+                 "12 m and proclaims, and gives the chase up after HAI_TIME_PURSUIT - its loop only looked again once " +
+                 "it caught the hero, who ran away right after his attack (Lukis chased forever).")]
+        public bool EnableProclaimFromAfar = true;
+
+        [Tooltip("Particle effects of animations (*eventPFX/*eventPFXStop in the MDS): joint smoke of smoking NPCs, " +
+                 "bubbles, teleport rings of scrolls, ... attached to their bone. Before they were only logged.")]
+        public bool EnableAnimationPfx = true;
+
+        [Tooltip("Spell effects light up like in Gothic (OpenGothic Effect::setupLight): a VISUALFX lightPresetName " +
+                 "from LIGHTPRESETS.ZEN with its color/range animation - summoning glows red around the caster while " +
+                 "charging (the key's lightRange, growing per level) and flashes when cast, fire rain's glow and rain " +
+                 "light the area. Lights the world too (pooled stationary lights).")]
+        public bool EnableVisualFxLights = true;
+
+        [Tooltip("FX_EarthQuake (summoning's 3rd charge level, fire rain while charging) plays its sound and rumbles " +
+                 "both VR controllers for its seconds within its radius - it was skipped (no camera shake in VR).")]
+        public bool EnableVisualFxEarthquake = true;
+
+        [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +
+                 "hero's body) play with the ground's suffix like the engine (RUN_EARTH, RUN_STONE, RUN_WOOD, " +
+                 "RUN_WATER); the material is guessed (wading, a VOB below, under a ceiling). They were skipped.")]
+        public bool EnableFootstepSounds = true;
+
+        [Tooltip("An NPC finishing off the knocked out hero kills him like in Gothic (the 'Death' option in the " +
+                 "Immersion menu can turn it off - then he only stays knocked out).")]
+        public bool EnableHeroDeath = true;
+
+        [Tooltip("ZS_Dead gets the real killer as other like the engine - XP only for the hero's, his summons' and " +
+                 "his party's kills (Mordrag leading him); every death anywhere gave XP. Immersion option \"XP for every " +
+                 "death\" (ini xpForAnyKill, off by default) brings that back as a cheat.")]
+        public bool EnableKillerXpOnly = true;
+
+        [Tooltip("Hero attacks deal max HP damage — one hit kills any non-immortal NPC.")]
+        public bool EnableOneHitKill;
+
+        [Tooltip("Hero attacks deal currentHP-1 damage — one hit knocks out any NPC without killing them.")]
+        public bool EnableOneHitKnockout;
+
+        [Tooltip("Immersion option \"Ranged knockout\": off (like OpenGothic) a lethal arrow, bolt or spell kills a " +
+                 "human, on it knocks him out and the next one (or a sword) finishes him off. Area spells (fire rain) hit " +
+                 "the knocked out too. Before: ranged and magic always left humans and the hero at 1 HP.")]
+        public bool EnableRangedKnockoutOption = true;
+
+        [Tooltip("Blocking in VR like Gothic's parry: both hands on a melee weapon (one- or two-handed) and both " +
+                 "triggers held. Hits of humans (fists too) and of monsters with a drawn weapon (orcs, skeletons) from " +
+                 "the front (45 degrees around the head's direction) do no damage, the weapons clash. Animals, spells, " +
+                 "projectiles and hits from the side or back go through; while blocking the hero's own hits don't count.")]
+        public bool EnableVrHeroBlock = true;
+
+        [Tooltip("Attack approach: how close an attacker must get to the offset target before stopping the chase. Default 0.2m.")]
+        [Range(0.05f, 2f)]
+        public float NpcAttackArrivalThreshold = 0.2f;
+
+        [Tooltip("How close an NPC stops when walking toward the player for dialog (GoToNpc). Default 1.3m.")]
+        [Range(0.1f, 5f)]
+        public float NpcDialogStopDistance = 1.3f;
+
+        [Tooltip("How much an NPC's flying spell follows its target (0 = flies to where the target was at the cast, 1 = " +
+                 "always hits). At 0.2 a step aside dodges it - fully homing nobody could dodge a crawler's web.")]
+        [Range(0f, 1f)]
+        public float NpcSpellHoming = 0.2f;
+
+        [Tooltip("Scales NPC ranged/magic engagement distances — how far a mage/archer will attack and connect from (vanilla HAI_DIST_RANGED = 30m). Gothic's ranges feel too far against our Unity units; 0.8 = 24m.")]
+        [Range(0.1f, 2f)]
+        public float RangedCombatRangeMultiplier = 0.8f;
+
+        [Tooltip("Scales Wld_SpawnNpcRange's spawn radius (summon spells). Gothic's cm ranges feel too spread out against our Unity units — 0.8 keeps summons visibly near their caster.")]
+        [Range(0.1f, 2f)]
+        public float SummonSpawnRangeMultiplier = 0.8f;
+
+
+        /**
+         * ##########
          * Misc
          * ##########
          */

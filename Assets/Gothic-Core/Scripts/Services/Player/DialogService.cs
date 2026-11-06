@@ -295,6 +295,36 @@ namespace Gothic.Core.Manager
             Logger.LogWarning($"[Dialog] Hero has no line for {string.Join(", ", svmNames)}.", LogCat.Dialog);
         }
 
+        /// <summary>
+        /// The hero by instance, not by C_NPC.id == 0 - monsters don't set an id either (0). Speaker id 0 marks the hero
+        /// in Output/OutputSvm, others get a non-zero one.
+        /// </summary>
+        public void ExtAiOutputSvmOverlay(NpcInstance npc, NpcInstance target, string svmName)
+        {
+            var npcContainer = GetNpcContainer(npc);
+            var queue = npcContainer.Props.AnimationQueue;
+            var svmAction = new OutputSvm(
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, IsHero(npc)), string0: svmName,
+                    bool0: true),
+                npcContainer);
+
+            // Daedalus queues GoToNpc before AI_OutputSVM_Overlay in the same script execution.
+            // Reorder so the SVM fires first (fire-and-forget), then the NPC runs.
+            if (queue.Count > 0 && queue.Last() is GoToNpc)
+            {
+                var items = queue.ToArray();
+                queue.Clear();
+                for (var i = 0; i < items.Length - 1; i++)
+                    queue.Enqueue(items[i]);
+                queue.Enqueue(svmAction);
+                queue.Enqueue(items[items.Length - 1]);
+            }
+            else
+            {
+                queue.Enqueue(svmAction);
+            }
+        }
+
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)
         {
             var isHero = IsHero(npc);
