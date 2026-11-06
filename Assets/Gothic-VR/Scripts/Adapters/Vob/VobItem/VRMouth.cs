@@ -49,6 +49,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly Gothic.Core.Services.World.SaveGameService _saveGameService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly Gothic.Core.Services.Inventory.ItemUseService _itemUseService;
 
         
         // Do not eat them twice during destroy time.
@@ -299,22 +300,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (onStateIndex == 0)
                 return;
 
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            vm.GlobalSelf = vm.GlobalHero;
-            try
-            {
-                vm.Call(onStateIndex);
-                Logger.Log($"[VRMouth] Called on_state[0] (idx={onStateIndex}) for {item.Name}", LogCat.VR);
-            }
-            catch (Exception e)
-            {
-                Logger.LogError($"[VRMouth] on_state[0] call failed: {e.Message}", LogCat.VR);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-            }
+            _itemUseService.UseItem(_gameStateService.GothicVm.GlobalHero as NpcInstance, item);
         }
     }
 }

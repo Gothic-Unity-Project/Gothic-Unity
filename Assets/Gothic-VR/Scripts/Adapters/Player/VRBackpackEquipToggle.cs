@@ -102,7 +102,7 @@ namespace Gothic.VR.Adapters.Player
 
                 var instanceName = item.GetSymbolName();
                 var itemData = _vmCacheService.TryGetItemData(instanceName);
-                if (itemData == null || !NpcInventoryService.IsWearable(itemData))
+                if (itemData == null || !itemData.IsWearable())
                     continue;
 
                 var hero = _playerService.HeroContainer.Instance;
