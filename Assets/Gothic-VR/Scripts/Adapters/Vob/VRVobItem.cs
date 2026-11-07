@@ -8,9 +8,11 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
-using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -30,9 +32,9 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DocService _docService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Inventory.ItemUseService _itemUseService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (one hand lets go),
         // not while it's still in front of the player.

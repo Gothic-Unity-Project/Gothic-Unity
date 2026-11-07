@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
@@ -21,7 +22,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextMenuService : IContextMenuService
     {
         [Inject] private readonly LocalizationService _localizationService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmService _vmService;
 
         private const int _rowsPerPage = 6;

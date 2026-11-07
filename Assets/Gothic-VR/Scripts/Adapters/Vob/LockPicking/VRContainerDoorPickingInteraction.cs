@@ -5,6 +5,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Services;
@@ -28,7 +29,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly MobLockService _mobLockService;
         [Inject] private readonly VrLockTouchService _lockTouchService;
 

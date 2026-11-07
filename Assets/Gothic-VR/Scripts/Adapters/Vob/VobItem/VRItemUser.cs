@@ -10,6 +10,7 @@ using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -26,7 +27,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// </summary>
     public class VRItemUser : MonoBehaviour
     {
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
+        [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly PlayerService _playerService;
