@@ -33,6 +33,28 @@ namespace Gothic.Core.Const
         // G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
         public const string AniDead = "S_DEAD";
 
+        // Daedalus symbols the C# side reads (constants, instances, script functions), by their script name.
+        public const string SpellFxInstanceNames = "spellFXInstanceNames";
+        public const string SpellBad = "SPELL_BAD";
+        public const string AivEnemyOverride = "AIV_ENEMYOVERRIDE";
+        public const string AivLastHitByRangedWeapon = "AIV_LASTHITBYRANGEDWEAPON";
+        public const string AivMmPartyMember = "AIV_MM_PARTYMEMBER";
+        public const string NpcTalentMage = "NPC_TALENT_MAGE";
+        public const string NpcAttackFinishDistance = "NPC_ATTACK_FINISH_DISTANCE";
+        public const string DamCriticalMultiplier = "DAM_CRITICAL_MULTIPLIER";
+        public const string HaiTimePursuit = "HAI_TIME_PURSUIT";
+        public const string GuildMinecrawler = "GIL_MINECRAWLER";
+        public const string FaiMinecrawler = "FAI_MINECRAWLER";
+        public const string GuildSeparatorHuman = "GIL_SEPERATOR_HUM";
+        public const string GuildSeparatorOrc = "GIL_SEPERATOR_ORC";
+        public const string ZsAttack = "ZS_Attack";
+        public const string ZsAttackLoop = "ZS_ATTACK_LOOP";
+        public const string ZsMmAttack = "ZS_MM_ATTACK";
+        public const string ZsAssessFighter = "ZS_AssessFighter";
+        public const string CNpcIsGuard = "C_NpcIsGuard";
+        public const string GCanNotCast = "G_CanNotCast";
+        public const string GCanNotUse = "G_CanNotUse";
+
         public static class Svm
         {
             // SVM keys the engine's oCMobLockable::CanOpen uses (output via DialogService.HeroSaySvm / OutputSvm).

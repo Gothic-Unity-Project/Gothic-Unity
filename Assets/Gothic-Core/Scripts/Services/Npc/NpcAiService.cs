@@ -369,7 +369,8 @@ namespace Gothic.Core.Services.Npc
             if (container?.Go == null || target?.Go == null)
                 return;
 
-            var finishDistance = (_gameStateService.GothicVm.GetSymbolByName("NPC_ATTACK_FINISH_DISTANCE")?.GetInt(0) ??
+            var finishDistance = (_gameStateService.GothicVm
+                .GetSymbolByName(DaedalusConst.NpcAttackFinishDistance)?.GetInt(0) ??
                                   _defaultFinishDistanceCm) / 100f;
             if (Vector3.Distance(container.Go.transform.position, target.Go.transform.position) > finishDistance)
                 ExtAiGoToNpc(self, other);
@@ -930,7 +931,8 @@ namespace Gothic.Core.Services.Npc
         private bool IsChasingRunningHero(NpcProperties props)
         {
             if (_zsAttackLoopIndex == -2)
-                _zsAttackLoopIndex = _gameStateService.GothicVm.GetSymbolByName("ZS_ATTACK_LOOP")?.Index ?? -1;
+                _zsAttackLoopIndex = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.ZsAttackLoop)?.Index
+                                     ?? -1;
             if (_zsAttackLoopIndex < 0 || props.StateLoop != _zsAttackLoopIndex)
                 return false;
 
@@ -1292,7 +1294,7 @@ namespace Gothic.Core.Services.Npc
         // flow (ActivatePartyMemberAttack) that mirrors the hero's own target.
         private bool IsPartyMember(NpcInstance npc)
         {
-            var partySymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            var partySymbol = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivMmPartyMember);
             if (partySymbol == null) return false;
             return npc.GetAiVar(partySymbol.GetInt(0)) == 1;
         }
@@ -1384,7 +1386,8 @@ namespace Gothic.Core.Services.Npc
             var sensesRangeMeters = npc.SensesRange / 100f;
             var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
 
-            var enemyOverrideAivar = _gameStateService.GothicVm.GetSymbolByName("AIV_ENEMYOVERRIDE")?.GetInt(0) ?? -1;
+            var enemyOverrideAivar = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivEnemyOverride)
+                ?.GetInt(0) ?? -1;
 
             var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
             var awakeHero = _gameStateService.GothicVm.GetHeroContainer();
@@ -1891,7 +1894,7 @@ namespace Gothic.Core.Services.Npc
 
                 if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
 
-                var zsAssessFighterSym = _gameStateService.GothicVm.GetSymbolByName("ZS_AssessFighter");
+                var zsAssessFighterSym = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.ZsAssessFighter);
                 if (zsAssessFighterSym == null) return;
                 // Already sizing someone up - restarting the state would reset its warnings.
                 if (selfNpc.Vob.CurrentStateName?.StartsWithIgnoreCase("ZS_ASSESSFIGHTER") == true) return;

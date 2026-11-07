@@ -397,8 +397,8 @@ namespace Gothic.Core.Models.Config
                  "light the area. Lights the world too (pooled stationary lights).")]
         public bool EnableVisualFxLights = true;
 
-        [Tooltip("FX_EarthQuake (summoning's 3rd charge level, fire rain while charging) plays its sound and rumbles " +
-                 "both VR controllers for its seconds within its radius - it was skipped (no camera shake in VR).")]
+        [Tooltip("FX_EarthQuake (summoning's 3rd charge level, fire rain while charging) plays its sound - it was " +
+                 "skipped (no camera shake in VR).")]
         public bool EnableVisualFxEarthquake = true;
 
         [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +

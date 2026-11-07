@@ -1754,7 +1754,8 @@ namespace Gothic.Core.Domain.Vm
             if (_npcHelperService.ExtNpcGetEquippedRangedWeapon(npc) == null)
                 return;
 
-            var aivar = _gameStateService.GothicVm.GetSymbolByName("AIV_LASTHITBYRANGEDWEAPON")?.GetInt(0) ?? -1;
+            var aivar = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivLastHitByRangedWeapon)
+                ?.GetInt(0) ?? -1;
             if (aivar < 0 || npc.GetAiVar(aivar) != 0)
                 return;
 
@@ -2097,8 +2098,6 @@ namespace Gothic.Core.Domain.Vm
         public void Wld_SetTime(int hour, int minute)
         {
             _gameTimeService.SetTime(hour, minute);
-            // Only the hero's sleep calls it (PC_Sleep) - NPCs in beds just play the animation.
-            GlobalEventDispatcher.GameTimeSkipped.Invoke();
         }
 
         public int Wld_GetDay()

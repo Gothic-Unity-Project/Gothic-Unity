@@ -933,25 +933,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private int GetNpcSpellDamage(string mfxName)
         {
-            if (string.IsNullOrEmpty(mfxName))
-                return 0;
-            // Like for the hero (VRRuneCaster), only SPELL_BAD spells hurt -
-            // G2 Xardas' sleep inherits damage_per_level = 1 from C_Spell_Proto and hurt instead of putting to sleep.
-            var spell = VmCacheService.TryGetSpellData(NpcContainer.ActiveSpell);
-            var spellBad = GameStateService.GothicVm.GetSymbolByName("SPELL_BAD")?.GetInt(0) ?? 2;
-            if (spell != null && spell.SpellType != spellBad)
-                return 0;
-            var dmgSym = GameStateService.GothicVm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}");
-            // Fallback: the engine's SPELL_<effect>.damage_per_level (G2 fire storm: effect "Pyrokinesis").
-            var baseDamage = dmgSym?.GetInt(0) ??
-                             VmCacheService.TryGetSpellData(NpcContainer.ActiveSpell)?.DamagePerLevel ?? 0;
+            var baseDamage = VmCacheService.GetSpellDamagePerLevel(NpcContainer.ActiveSpell, mfxName);
             return baseDamage * NpcContainer.ActiveSpellLevel;
         }
 
         private string GetSpellMfxName()
         {
-            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            return mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
+            return VmCacheService.TryGetSpellMfxName(NpcContainer.ActiveSpell, out var mfxName) ? mfxName : null;
         }
 
         private float GetWeaponReach()

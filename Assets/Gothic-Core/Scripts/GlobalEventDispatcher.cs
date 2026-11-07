@@ -152,10 +152,6 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer, Vector3, int> SpellSpreadHit = new();
 
-        /// <summary>
-        /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
-        /// </summary>
-        public static readonly UnityEvent GameTimeSkipped = new();
         // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnService plays it.
         public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
         // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
@@ -282,10 +278,6 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
-
-        // DeveloperConfig.EnableVisualFxEarthquake: FX_EarthQuake played (summoning, fire rain) - position, radius in
-        // meters, seconds. VR rumbles the controllers instead of shaking the camera.
-        public static readonly UnityEvent<Vector3, float, float> VisualFxEarthquake = new();
 
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();

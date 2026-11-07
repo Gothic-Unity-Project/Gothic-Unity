@@ -55,7 +55,7 @@ namespace Gothic.Core.Services.Meshes
         /// Plays a VISUALFX instance (spellFX_*, VOB_*): its PFX upright at the position (following `follow` if set),
         /// its sound and its emFXCreate_S chain. One-shot effects end on their own; looping ones (isLooping) stay
         /// until the caller destroys the returned roots. Its light preset glows with it (EnableVisualFxLights), camera
-        /// effects only rumble (FX_EarthQuake, EnableVisualFxEarthquake).
+        /// effects only play their sound (FX_EarthQuake, EnableVisualFxEarthquake).
         /// </summary>
         public List<GameObject> PlayVisualFx(string fxName, Vector3 position, Transform follow = null,
             bool isLooping = false, string skippedSfx = null, SkinnedMeshRenderer ownerMesh = null)
@@ -167,8 +167,7 @@ namespace Gothic.Core.Services.Meshes
 
         /// <summary>
         /// Camera effects (FX_*): DeveloperConfig.EnableVisualFxEarthquake - FX_EarthQuake (earthquake.eqk) plays its
-        /// sound and tells VR to rumble the controllers (no camera shake in VR) within its radius (userString[0],
-        /// cm) for its seconds (userString[1]). Time and screen effects (time.slw, screenblend.scx) are skipped.
+        /// sound (no camera shake in VR). Time and screen effects (time.slw, screenblend.scx) are skipped.
         /// </summary>
         private void PlayGlobalFx(string fxName, Vector3 position)
         {
@@ -177,18 +176,12 @@ namespace Gothic.Core.Services.Meshes
                 !_earthquakeVisual.Equals(fx.VisNameS, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            var radius = float.TryParse(fx.GetUserString(0), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var radiusCm) ? radiusCm / 100f : 10f;
-            var seconds = float.TryParse(fx.GetUserString(1), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 3f;
-            if (!string.IsNullOrEmpty(fx.SfxId))
-            {
-                var clip = _audioService.GetRandomSoundClip(fx.SfxId);
-                if (clip != null)
-                    AudioSource.PlayClipAtPoint(clip, position);
-            }
-            Logger.Log($"[VisualFx] {fxName}: earthquake {radius:F0} m, {seconds:F1} s", LogCat.Mesh);
-            GlobalEventDispatcher.VisualFxEarthquake.Invoke(position, radius, seconds);
+            if (string.IsNullOrEmpty(fx.SfxId))
+                return;
+            var clip = _audioService.GetRandomSoundClip(fx.SfxId);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, position);
+            Logger.Log($"[VisualFx] {fxName}: earthquake sound", LogCat.Mesh);
         }
 
         private static float GetPlaySeconds(GameObject root)

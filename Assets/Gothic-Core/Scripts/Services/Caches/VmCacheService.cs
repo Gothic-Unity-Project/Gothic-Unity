@@ -213,6 +213,41 @@ namespace Gothic.Core.Services.Caches
         }
 
         /// <summary>
+        /// Effect name of a spell ID (spellFXInstanceNames[spellId], e.g. 0 -> "Light"). False if unknown.
+        /// </summary>
+        public bool TryGetSpellMfxName(int spellId, out string mfxName)
+        {
+            mfxName = null;
+            if (spellId < 0)
+                return false;
+            var name = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.SpellFxInstanceNames)
+                ?.GetString((ushort)spellId);
+            if (string.IsNullOrEmpty(name))
+                return false;
+            mfxName = name;
+            return true;
+        }
+
+        /// <summary>
+        /// A spell's damage per level - the hero's (VRRuneCaster) and the NPCs' (AttackPlayAni) spells.
+        /// Like the engine, only SPELL_BAD spells hurt: G1/G2 sleep inherits damage_per_level = 1 from C_Spell_Proto
+        /// and hurt instead of putting to sleep. SPL_DAMAGE_<EFFECT> first, then SPELL_<effect>.damage_per_level
+        /// (G2's fire storm rune has the effect "Pyrokinesis": SPL_Damage_Firestorm, no SPL_DAMAGE_PYROKINESIS - it
+        /// did 0 damage).
+        /// </summary>
+        public int GetSpellDamagePerLevel(int spellId, string mfxName)
+        {
+            if (string.IsNullOrEmpty(mfxName))
+                return 0;
+            var vm = _gameStateService.GothicVm;
+            var spell = TryGetSpellData(spellId);
+            var spellBad = vm.GetSymbolByName(DaedalusConst.SpellBad)?.GetInt(0) ?? 2;
+            if (spell != null && spell.SpellType != spellBad)
+                return 0;
+            return vm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}")?.GetInt(0) ?? spell?.DamagePerLevel ?? 0;
+        }
+
+        /// <summary>
         /// C_Spell data of a spell ID. Like the engine, the instance name is "SPELL_" + spellFXInstanceNames[spellId]
         /// (e.g. 0 -> "Light" -> Spell_Light). Works for G1, G2 and mods as long as they follow this convention.
         /// </summary>
@@ -225,8 +260,7 @@ namespace Gothic.Core.Services.Caches
             SpellInstance newData = null;
             try
             {
-                var spellName = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames")?.GetString((ushort)spellId);
-                if (!string.IsNullOrEmpty(spellName))
+                if (TryGetSpellMfxName(spellId, out var spellName))
                     newData = _gameStateService.GothicVm.InitInstance<SpellInstance>($"SPELL_{spellName}");
             }
             catch (Exception)

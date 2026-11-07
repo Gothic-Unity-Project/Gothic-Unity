@@ -268,8 +268,8 @@ namespace Gothic.Core.Domain
             _gameStateService.GuildHumanCount = (int)(tablesize != null ? Math.Sqrt(tablesize.GetInt(0)) : 0);
 
             var vm = _gameStateService.GothicVm;
-            var humanSeparator = vm.GetSymbolByName("GIL_SEPERATOR_HUM")?.GetInt(0);
-            var orcSeparator = vm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0);
+            var humanSeparator = vm.GetSymbolByName(DaedalusConst.GuildSeparatorHuman)?.GetInt(0);
+            var orcSeparator = vm.GetSymbolByName(DaedalusConst.GuildSeparatorOrc)?.GetInt(0);
             if (humanSeparator.HasValue && orcSeparator.HasValue)
             {
                 _gameStateService.GuildSeparatorHuman = humanSeparator.Value;

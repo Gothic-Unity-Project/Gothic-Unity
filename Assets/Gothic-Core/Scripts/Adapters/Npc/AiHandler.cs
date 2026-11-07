@@ -321,7 +321,7 @@ namespace Gothic.Core.Adapters.Npc
                 return;
 
             var distance = Vector3.Distance(transform.position, heroGo.transform.position);
-            var pursuitSeconds = Vm.GetSymbolByName("HAI_TIME_PURSUIT")?.GetInt(0) ?? _defaultPursuitSeconds;
+            var pursuitSeconds = Vm.GetSymbolByName(DaedalusConst.HaiTimePursuit)?.GetInt(0) ?? _defaultPursuitSeconds;
             var isClose = distance <= _proclaimDistance;
             if (!isClose && Properties.StateTime <= pursuitSeconds)
                 return;

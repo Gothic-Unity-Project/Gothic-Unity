@@ -595,10 +595,7 @@ namespace Gothic.Core.Services.Npc
 
         private string GetSpellMfxName(int spellId)
         {
-            if (spellId < 0) return null;
-            var sym = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            var name = sym?.GetString((ushort)spellId);
-            return string.IsNullOrEmpty(name) ? null : name;
+            return _vmCacheService.TryGetSpellMfxName(spellId, out var name) ? name : null;
         }
 
         /// <summary>
@@ -794,8 +791,8 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             var vm = _gameStateService.GothicVm;
-            var attackState = vm.GetSymbolByName("ZS_Attack");
-            if (attackState == null || vm.GetSymbolByName("C_NpcIsGuard") == null)
+            var attackState = vm.GetSymbolByName(DaedalusConst.ZsAttack);
+            if (attackState == null || vm.GetSymbolByName(DaedalusConst.CNpcIsGuard) == null)
                 return;
 
             var berzerkerPosition = berzerker.Go.transform.position;
@@ -1051,7 +1048,7 @@ namespace Gothic.Core.Services.Npc
 
         private bool IsPartyMember(NpcContainer npc)
         {
-            var sym = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            var sym = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivMmPartyMember);
             if (sym == null) return false;
             var aivIndex = sym.GetInt(0);
             return npc.Instance.GetAiVar(aivIndex) == 1;
@@ -1091,7 +1088,7 @@ namespace Gothic.Core.Services.Npc
 
         private void ActivatePartyMemberAttack(NpcContainer partyMember, NpcContainer enemy)
         {
-            var zsAttack = _gameStateService.GothicVm.GetSymbolByName("ZS_MM_ATTACK");
+            var zsAttack = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.ZsMmAttack);
             if (zsAttack == null) return;
 
             partyMember.Props.EnemyNpc = enemy.Instance;
@@ -1329,7 +1326,7 @@ namespace Gothic.Core.Services.Npc
             var vm = _gameStateService.GothicVm;
             if (hero == null || vm == null)
                 return true;
-            var mageTalent = vm.GetSymbolByName("NPC_TALENT_MAGE")?.GetInt(0) ?? _defaultMageTalent;
+            var mageTalent = vm.GetSymbolByName(DaedalusConst.NpcTalentMage)?.GetInt(0) ?? _defaultMageTalent;
             var circle = _npcHelperService.ExtNpcGetTalentSkill(hero.Instance, mageTalent);
             if (circle >= rune.MagCircle)
                 return true;
@@ -1339,7 +1336,7 @@ namespace Gothic.Core.Services.Npc
                 _lastCannotUseMessageTime = Time.time;
                 Logger.Log($"[FightService] The hero knows circle {circle}, '{rune.Description}' needs {rune.MagCircle}",
                     LogCat.Fight);
-                var function = vm.GetSymbolByName("G_CanNotCast");
+                var function = vm.GetSymbolByName(DaedalusConst.GCanNotCast);
                 if (function != null)
                 {
                     var oldSelf = vm.GlobalSelf;
@@ -1360,7 +1357,7 @@ namespace Gothic.Core.Services.Npc
         private void PrintCannotUse(NpcContainer hero, int attribute, int value)
         {
             var vm = _gameStateService.GothicVm;
-            var function = vm.GetSymbolByName("G_CanNotUse");
+            var function = vm.GetSymbolByName(DaedalusConst.GCanNotUse);
             if (function == null)
                 return;
 

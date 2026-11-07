@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -36,7 +37,7 @@ namespace Gothic.G1.Services.Fight
             if (chance <= roll)
                 return damage;
 
-            var multiplier = vm.GetSymbolByName("DAM_CRITICAL_MULTIPLIER")?.GetInt(0) ?? 2;
+            var multiplier = vm.GetSymbolByName(DaedalusConst.DamCriticalMultiplier)?.GetInt(0) ?? 2;
             Logger.Log($"[FightService.RangedHit] {shooter.Instance.GetName(NpcNameSlot.Slot0)}: CRITICAL " +
                        $"({chance} % > roll {roll}) - {damage} x {multiplier}", LogCat.Fight);
             return damage * multiplier;

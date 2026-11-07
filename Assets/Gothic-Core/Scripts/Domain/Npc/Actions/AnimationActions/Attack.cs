@@ -228,8 +228,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return false;
 
             var vm = GameStateService.GothicVm;
-            var crawlerGuild = vm.GetSymbolByName("GIL_MINECRAWLER");
-            var crawlerTactic = vm.GetSymbolByName("FAI_MINECRAWLER");
+            var crawlerGuild = vm.GetSymbolByName(DaedalusConst.GuildMinecrawler);
+            var crawlerTactic = vm.GetSymbolByName(DaedalusConst.FaiMinecrawler);
             if (crawlerGuild == null || crawlerTactic == null || NpcInstance.Guild != crawlerGuild.GetInt(0))
                 return false;
 
