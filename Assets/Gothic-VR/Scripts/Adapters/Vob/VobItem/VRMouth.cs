@@ -11,7 +11,10 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
 using Gothic.Core.Services.World;
@@ -51,12 +54,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MeshService _meshService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
-        [Inject] private readonly Gothic.Core.Services.World.SaveGameService _saveGameService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly Gothic.Core.Services.Inventory.ItemUseService _itemUseService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         
         // Do not eat them twice during destroy time.

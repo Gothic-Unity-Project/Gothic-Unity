@@ -9,6 +9,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -44,13 +45,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRStackSplitter : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
+        [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly StackSplitService _stackSplitService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
-        [Inject] private readonly Gothic.Core.Services.Meshes.DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private const float _maxHandDistance = 0.3f;

@@ -8,6 +8,7 @@ using Gothic.Core.Services.Player;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -27,7 +28,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
+        [Inject] private readonly IVrInput _vrInput;
 
         private const float _itemDistance = 0.1f;
         private const float _clickSeconds = 0.5f;
