@@ -80,6 +80,14 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// An NPC fires its active spell at its target (AttackPlayAni's hit frame) - see SpellHitDomain.CastNpcSpell.
+        /// </summary>
+        public void CastNpcSpell(NpcContainer caster, NpcContainer target, Vector3 targetPos)
+        {
+            _spellHitDomain.CastNpcSpell(caster, target, targetPos);
+        }
+
+        /// <summary>
         /// The hero's swing is his "prehit" for a moment. NPCs fighting him
         /// stop a wait or strafe (the safe moves to cut short), so their next AI_Attack can parry or jump back - they
         /// pick a move only once per AI_Attack, and a VR swing is over before a waiting NPC would look again.

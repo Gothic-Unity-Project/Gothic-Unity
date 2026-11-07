@@ -2,6 +2,7 @@ using System;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
@@ -18,7 +19,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
-    /// A spell reaching NPCs: the victim's PERC_ASSESSMAGIC, the hit with the spell's damage type, area spells (AOE
+    /// An NPC casting its spell at its target (CastNpcSpell: Spell_ProcessMana, cast sound, the flying effect) and a
+    /// spell reaching NPCs: the victim's PERC_ASSESSMAGIC, the hit with the spell's damage type, area spells (AOE
     /// around the caster, a fire storm's burning spread), fire setting the victim on fire, Windfist throwing it away.
     /// The hit itself goes through FightService (applyHit: attacker, target, position, damage, protection index).
     /// </summary>
@@ -32,6 +34,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
+        [Inject] private readonly AudioService _audioService;
 
         // DAM_FIRE in Constants.d (bit after DAM_EDGE).
         private const int _damFire = 8;
@@ -40,6 +43,8 @@ namespace Gothic.Core.Domain.Npc
         private const float _throwMaxSpeed = 8f;
         private const float _throwDamagePerSpeed = 25f;
         private const float _throwUpSpeed = 3.5f;
+        // For spells with no dedicated cast sound.
+        private const string _fallbackCastSoundName = "MFX_Thunderbolt_Cast";
 
         private readonly Action<NpcContainer, NpcContainer, Vector3, int, int> _applyHit;
 
@@ -47,6 +52,65 @@ namespace Gothic.Core.Domain.Npc
         public SpellHitDomain(Action<NpcContainer, NpcContainer, Vector3, int, int> applyHit)
         {
             _applyHit = applyHit;
+        }
+
+        /// <summary>
+        /// An NPC's spell at its hit frame (AttackPlayAni): its active spell at its level, like for the hero
+        /// (VRRuneCaster). Spell_ProcessMana runs so content-side effects (e.g. Spell_Logic_SummonSkeleton ->
+        /// Wld_SpawnNpcRange) fire for NPC casters too. A spell that flies hits (SpellHit) when it arrives.
+        /// </summary>
+        public void CastNpcSpell(NpcContainer caster, NpcContainer target, Vector3 targetPos)
+        {
+            var mfxName = GetSpellMfxName(caster.ActiveSpell);
+            var spellDamage = _vmCacheService.GetSpellDamagePerLevel(caster.ActiveSpell, mfxName) *
+                              caster.ActiveSpellLevel;
+            PlaySpellCastSound(caster, mfxName);
+            CallSpellProcessMana(caster, target);
+
+            // SpellHit both applies direct damage (if any) and fires PERC_ASSESSMAGIC on the
+            // target (always the enemy here, since AttackPlayAni only casts for active fight moves),
+            // so Daedalus content (ZS_MagicFreeze, ZS_MagicSleep, ZS_Zapped, Fear/Charm/Berzerk...)
+            // drives the actual reaction — nothing per-spell to hardcode here.
+            Logger.Log($"[SpellHitDomain] NPC spell hit: ActiveSpell={caster.ActiveSpell} " +
+                       $"level={caster.ActiveSpellLevel} damage={spellDamage}", LogCat.Fight);
+            void Hit() => GlobalEventDispatcher.SpellHit.Invoke(caster, target,
+                target.Go != null ? target.Go.transform.position : targetPos, spellDamage);
+            if (!_particleService.PlayNpcSpell(mfxName, caster, target, Hit))
+            {
+                Hit();
+                if (!SpellConst.AoeEffectNames.Contains(mfxName ?? ""))
+                    _particleService.PlaySpellHitFx(mfxName, target);
+            }
+        }
+
+        private void CallSpellProcessMana(NpcContainer caster, NpcContainer target)
+        {
+            var vm = _gameStateService.GothicVm;
+            var oldSelf = vm.GlobalSelf;
+            var oldOther = vm.GlobalOther;
+            vm.GlobalSelf = caster.Instance;
+            vm.GlobalOther = target.Instance;
+            try
+            {
+                vm.Call<int, int>("Spell_ProcessMana", caster.ActiveSpellLevel);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+                vm.GlobalOther = oldOther;
+            }
+        }
+
+        private void PlaySpellCastSound(NpcContainer caster, string mfxName)
+        {
+            if (string.IsNullOrEmpty(mfxName))
+                return;
+            var clip = _audioService.GetRandomSoundClip($"MFX_{mfxName}_Cast");
+            if (clip == null)
+                clip = _audioService.GetRandomSoundClip(_fallbackCastSoundName);
+            if (clip == null || caster.PrefabProps.NpcSound == null)
+                return;
+            caster.PrefabProps.NpcSound.PlayOneShot(clip);
         }
 
         /// <summary>
