@@ -38,9 +38,6 @@ namespace Gothic.Core.Services.Npc
 
         private readonly HeroSpellStateDomain _heroSpellStateDomain = new HeroSpellStateDomain().Inject();
 
-        // Reused by UpdateEnemyNpc() on every perception tick.
-        private readonly List<NpcContainer> _awakeNpcs = new();
-
         // Passive perceptions of this frame, delivered to the NPCs around the sender in their next AI update.
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
             NpcInstance Victim, NpcInstance Other, ItemInstance Item, NpcContainer Exclude)> _sentPassivePerceptions = new();
@@ -1387,8 +1384,12 @@ namespace Gothic.Core.Services.Npc
 
             var enemyOverrideAivar = _gameStateService.GothicVm.GetSymbolByName("AIV_ENEMYOVERRIDE")?.GetInt(0) ?? -1;
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            var awakeHero = _gameStateService.GothicVm.GetHeroContainer();
+            for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
             {
+                var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                if (candidate == null) continue;
                 if (candidate.Props == null || candidate.Go == null)
                     continue;
                 if (candidate.Instance.Index == npc.Index)
@@ -1635,8 +1636,12 @@ namespace Gothic.Core.Services.Npc
             var closestSqrDist = sensesRangeMeters * sensesRangeMeters;
             NpcContainer closest = null;
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            var awakeHero = _gameStateService.GothicVm.GetHeroContainer();
+            for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
             {
+                var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                if (candidate == null) continue;
                 if (candidate == selfNpc || candidate.Props == null || candidate.Go == null) continue;
                 if (!candidate.Props.IsDead) continue;
 
@@ -1698,8 +1703,7 @@ namespace Gothic.Core.Services.Npc
             if (hero != null && IsCloserEnemy(selfNpc, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
                 closestEnemy = hero;
 
-            _npcMeshCullingService.CollectAwakeNpcs(_awakeNpcs);
-            foreach (var candidate in _awakeNpcs)
+            foreach (var candidate in _npcMeshCullingService.AwakeNpcs)
             {
                 if (IsCloserEnemy(selfNpc, selfPosition, candidate, sensesRangeSqr, ref closestSqrDist))
                     closestEnemy = candidate;
@@ -1796,8 +1800,12 @@ namespace Gothic.Core.Services.Npc
             NpcContainer attacker = null;
             var closestSqrDist = float.MaxValue;
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            var awakeHero = _gameStateService.GothicVm.GetHeroContainer();
+            for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
             {
+                var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                if (candidate == null) continue;
                 if (candidate.Props == null || candidate.Go == null) continue;
                 if (candidate.Instance.Index == self.Index) continue;
                 if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
@@ -1849,7 +1857,8 @@ namespace Gothic.Core.Services.Npc
             const float threatRangeMeters = 4f; // slightly beyond HAI_DIST_MELEE (~3m)
             var selfPos = selfNpc.Go.transform.position;
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var candidate in awakeNpcs)
             {
                 if (candidate.Props == null || candidate.Go == null) continue;
                 if (candidate.Instance.Index == self.Index) continue;
@@ -1953,7 +1962,8 @@ namespace Gothic.Core.Services.Npc
             var notified = 0;
             notifiedNpcs = new List<string>();
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var candidate in awakeNpcs)
             {
                 if (candidate == hero || candidate.Props == null) continue;
                 if (NpcHelperService.IsDown(candidate)) continue;

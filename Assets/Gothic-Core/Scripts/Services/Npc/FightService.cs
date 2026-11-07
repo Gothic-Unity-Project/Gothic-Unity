@@ -10,6 +10,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -34,6 +35,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private NpcHelperService _npcHelperService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
@@ -89,7 +91,8 @@ namespace Gothic.Core.Services.Npc
 
             hero.Props.MeleePrehitUntil = Time.time + FightConst.HeroPrehitSeconds;
 
-            foreach (var npc in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var npc in awakeNpcs)
             {
                 if (npc == hero || npc?.Go == null || npc.Props == null || NpcHelperService.IsDown(npc))
                     continue;
@@ -387,8 +390,12 @@ namespace Gothic.Core.Services.Npc
                 var casterPos = caster.Go.transform.position;
                 Logger.Log($"[FightService.SpellHit] {caster.Instance.GetName(NpcNameSlot.Slot0)} casts AOE '{mfxName}' (range={rangeM:F1}m) dmg={damage}", LogCat.Fight);
 
-                foreach (var candidate in _multiTypeCacheService.NpcCache)
+                var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+                var awakeHero = _npcService.GetHeroContainer();
+                for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
                 {
+                    var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                    if (candidate == null) continue;
                     if (candidate == caster || candidate.Go == null || !candidate.Go.activeInHierarchy)
                         continue;
                     if (IsSparedByAreaSpell(candidate))
@@ -423,8 +430,12 @@ namespace Gothic.Core.Services.Npc
 
             var mfxName = GetSpellMfxName(caster.ActiveSpell);
             var hitCount = 0;
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            var awakeHero = _npcService.GetHeroContainer();
+            for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
             {
+                var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                if (candidate == null) continue;
                 if (candidate == caster || candidate == directTarget || candidate.Go == null ||
                     !candidate.Go.activeInHierarchy)
                     continue;
@@ -792,7 +803,8 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             var berzerkerPosition = berzerker.Go.transform.position;
-            foreach (var guard in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var guard in awakeNpcs)
             {
                 if (guard == berzerker || guard.Props == null || guard.Go == null || guard.Vob == null ||
                     guard.PrefabProps == null || guard.PrefabProps.IsHero())
@@ -918,8 +930,12 @@ namespace Gothic.Core.Services.Npc
 
             var creditedAttacker = GetCreditedAttacker(attacker);
             var broadcasted = 0;
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            var awakeHero = _npcService.GetHeroContainer();
+            for (var awakeIdx = -1; awakeIdx < awakeNpcs.Count; awakeIdx++)
             {
+                var candidate = awakeIdx < 0 ? awakeHero : awakeNpcs[awakeIdx];
+                if (candidate == null) continue;
                 if (candidate == target || candidate == attacker)
                     continue;
                 if (candidate.Props?.IsDown == true)
@@ -1060,7 +1076,8 @@ namespace Gothic.Core.Services.Npc
 
         private void AlertPartyMembersToDefendHero(NpcContainer attacker)
         {
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var candidate in awakeNpcs)
             {
                 if (!IsPartyMember(candidate)) continue;
                 if (NpcHelperService.IsDown(candidate)) continue;
