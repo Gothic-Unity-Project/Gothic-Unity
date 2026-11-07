@@ -51,12 +51,6 @@ namespace Gothic.Core.Adapters.Vob
         Action<Vector3, Vector3> IProjectile.OnWorldHit { get => OnWorldHit; set => OnWorldHit = value; }
         Action IProjectile.OnExpired { get => OnExpired; set => OnExpired = value; }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            ProjectileFactory.Create = go => go.AddComponent<Projectile>();
-        }
-
         private const float _homingTargetHeight = 0.4f;
         private static readonly RaycastHit[] _hits = new RaycastHit[16];
 

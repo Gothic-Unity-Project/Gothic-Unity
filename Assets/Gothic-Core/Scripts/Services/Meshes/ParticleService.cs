@@ -23,6 +23,7 @@ namespace Gothic.Core.Services.Meshes
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _npcSpellConfigService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly IVisualFxLightFactory _visualFxLightFactory;
 
         private const string _lightPresetsFile = "LIGHTPRESETS.ZEN";
         private const string _earthquakeVisual = "earthquake.eqk";
@@ -152,7 +153,7 @@ namespace Gothic.Core.Services.Meshes
             float rangeMeters = -1f)
         {
             var preset = TryGetLightPreset(presetName);
-            return preset == null ? null : VisualFxLightFactory.Create?.Invoke(parent, position, preset, rangeMeters);
+            return preset == null ? null : _visualFxLightFactory.Create(parent, position, preset, rangeMeters);
         }
 
         private void AddLight(string presetName, GameObject anchor, Vector3 position, bool isLooping)

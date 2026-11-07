@@ -105,12 +105,6 @@ namespace Gothic.Core.Adapters.Npc
 
         public bool IsBusy => _state != State.None;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            NpcJumpFallExtension.Factory = Get;
-        }
-
         public static NpcJumpFall Get(NpcContainer npc)
         {
             if (npc?.Go == null)

@@ -47,6 +47,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
         [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
+        [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
 
         private readonly NpcDeathDomain _deathDomain = new NpcDeathDomain().Inject();
         private readonly NpcKnockoutDomain _knockoutDomain = new NpcKnockoutDomain().Inject();
@@ -508,7 +509,7 @@ namespace Gothic.Core.Services.Npc
             if (away.sqrMagnitude < 0.0001f)
                 away = caster.Go.transform.forward;
             var speed = Mathf.Clamp(_throwBaseSpeed + damage / _throwDamagePerSpeed, _throwBaseSpeed, _throwMaxSpeed);
-            target.GetJumpFall()?.TryThrow(away.normalized * speed, _throwUpSpeed);
+            _npcJumpFallFactory.Get(target)?.TryThrow(away.normalized * speed, _throwUpSpeed);
         }
 
         /// <summary>

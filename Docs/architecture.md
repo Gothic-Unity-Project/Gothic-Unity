@@ -139,7 +139,9 @@ Dependency rules. Domain and Services share a rank and may use each other: a Dom
 Service (`new XDomain().Inject()`).
 
 1. Nothing outside `Adapters/` uses the `Adapters` namespace. Plain data classes there (`NpcProperties`,
-   `InteractiveProperties`) belong in `Models/`.
+   `InteractiveProperties`) belong in `Models/`. When a service must create an adapter, it injects a factory
+   interface that lives in Core's `Services/` or `Domain/` (`IProjectileFactory`, `INpcJumpFallFactory`); the class
+   in `Adapters/` implements it and `ReflexProjectInstaller` binds the two. No static delegates set at startup.
 2. Models don't use Domain or Services.
 3. A file's namespace starts with `Gothic.Core.<Layer>` of the folder it lives in.
 4. MonoBehaviours live in `Adapters/` only.
@@ -159,6 +161,7 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |
 | react to Unity (Update, collisions, input) | an adapter in `Adapters/<Area>/` that calls a service |
+| create an adapter from a service or domain class | a factory interface next to the caller (`IProjectileFactory`), its implementation in `Adapters/`, bound in `ReflexProjectInstaller`; the caller injects the interface |
 | behave differently in G1/G2/VR/Flat | an interface in `Services/Context/`, the implementation in the module, registered in its `*ContextBootstrap` |
 | save state Gothic doesn't store | an `ISaveStateSection` (`Docs/save-game.md`) |
 | work around a ZenKit bug | `Extensions/ZenKit*.cs`, plus a line in the pitfalls of the area's doc |

@@ -15,7 +15,7 @@ On main, NPCs fought only the hero and only with melee. Archers chased forever, 
 3. **NPC chase paths use a NavMesh** (`NpcNavMeshService`), built per world, with ladders as links. The Gothic waynet still drives routines.
 4. **Monster and orc guilds are friendly to their own.** Only the human block of the guild table comes from the scripts. The rest was all hostile, so wolves fought wolves.
 5. **The hero gets the Daedalus spell states** (sleep, freeze) in `HeroSpellStateDomain`. The hero runs no states of its own, so casters kept recasting.
-6. **Core code reaches adapters only through interfaces.** `IProjectile`, `IVisualFxLight` and `INpcJumpFall` live in Core. Each adapter registers its factory at startup (`RuntimeInitializeOnLoadMethod`). Burning goes through the `NpcIgnited` event, and the NPC spell flight is a `ParticleService` coroutine. Not chosen: prefabs per adapter, which would mean new assets for components that are created on demand.
+6. **Core code reaches adapters only through interfaces.** `IProjectile`, `IVisualFxLight`, `INpcJumpFall` and `INpcBurnEffect` live in Core, each with a factory interface (`IProjectileFactory`, ...). The factory classes live in `Adapters/` and `ReflexProjectInstaller` binds them; services and actions inject the interface. Burning goes through the `NpcIgnited` event: `NpcBurnService` plays the victim animation and lights the `NpcBurnEffect` adapter. The NPC spell flight is a `ParticleService` coroutine. Not chosen: static delegates set in `RuntimeInitializeOnLoadMethod` (an invisible, startup-order dependent second DI), and prefabs per adapter, which would mean new assets for components that are created on demand.
 
 ## Consequences
 

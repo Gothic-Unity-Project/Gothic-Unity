@@ -156,7 +156,7 @@ namespace Gothic.Core
         /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
         /// </summary>
         public static readonly UnityEvent GameTimeSkipped = new();
-        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnEffect plays it.
+        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnService plays it.
         public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
         // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
         public static readonly UnityEvent<NpcContainer, int> FallDamage = new();

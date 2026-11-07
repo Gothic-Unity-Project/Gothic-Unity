@@ -28,12 +28,6 @@ namespace Gothic.Core.Adapters.Vob
         private float _nextUpdate;
         private Vector3 _gatheredAt;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            VisualFxLightFactory.Create = Create;
-        }
-
         public static VisualFxLight Create(Transform parent, Vector3 position, LightPresetLoader.LightPreset preset,
             float rangeMeters)
         {

@@ -24,6 +24,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         [Inject] private readonly Gothic.Core.Services.Meshes.ParticleService _particleService;
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly ProjectileService _projectileService;
+        [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
 
         private FightAiMove _move => (FightAiMove)Action.Int0;
         public FightAiMove Move => _move;
@@ -102,7 +103,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             // Falling/climbing (NpcJumpFall): no fight move in the air - the next AI_Attack loop continues afterwards.
-            if (NpcContainer.GetJumpFall()?.IsBusy == true)
+            if (_npcJumpFallFactory.Get(NpcContainer)?.IsBusy == true)
             {
                 IsFinishedFlag = true;
                 return;
@@ -476,7 +477,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // The enemy stands higher (and the NavMesh has no way up): climb the ledge in front like the engine does.
             if ((!hasSteerDirection || !_isTargetReachable) && IsTargetAbove(myPosition, targetPosition) &&
-                NpcContainer.GetJumpFall()?.TryStartClimb(toTarget) == true)
+                _npcJumpFallFactory.Get(NpcContainer)?.TryStartClimb(toTarget) == true)
             {
                 IsFinishedFlag = true;
                 return;
@@ -484,7 +485,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // The path goes over a ladder (NavMesh link) - climb it.
             if (hasSteerDirection && _npcNavMeshService.TryGetLadder(myPosition, _steerPoint, out var ladderStart,
-                    out var ladderEnd) && NpcContainer.GetJumpFall()?.TryStartLadder(ladderStart, ladderEnd) == true)
+                    out var ladderEnd) && _npcJumpFallFactory.Get(NpcContainer)?.TryStartLadder(ladderStart, ladderEnd) == true)
             {
                 IsFinishedFlag = true;
                 return;
@@ -492,7 +493,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             // The enemy is below and can't be reached on the NavMesh: jump down if the drop is survivable (engine).
             var isDroppingDown = hasSteerDirection && !_isTargetReachable && IsTargetBelow(myPosition, targetPosition) &&
-                                 NpcContainer.GetJumpFall()?.IsSafeDropAhead(toTarget) == true;
+                                 _npcJumpFallFactory.Get(NpcContainer)?.IsSafeDropAhead(toTarget) == true;
 
             if (hasSteerDirection && !isDroppingDown)
             {

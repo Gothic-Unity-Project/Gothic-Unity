@@ -31,6 +31,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly IProjectileFactory _projectileFactory;
 
         // OpenGothic DynamicWorld::bulletSpeed (3 cm/ms).
         public const float ProjectileSpeed = 30f;
@@ -115,7 +116,7 @@ namespace Gothic.Core.Services.Npc
                 visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             }
 
-            var projectile = ProjectileFactory.Create(projectileGo);
+            var projectile = _projectileFactory.Create(projectileGo);
             projectile.Owner = shooter;
             projectile.Velocity = direction * speed;
             projectile.UseGravity = true;

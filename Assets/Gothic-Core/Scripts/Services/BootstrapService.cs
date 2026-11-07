@@ -55,6 +55,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcBurnService _npcBurnService;
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly ParticleService _particleService;
         [Inject] private readonly DialogService _dialogService;
@@ -108,6 +109,7 @@ namespace Gothic.Core.Services
             _npcRoutineService.Init();
             _npcAiService.Init();
             _fightService.Init();
+            _npcBurnService.Init();
             _npcNavMeshService.Init();
             _particleService.Init();
             _dialogService.Init();
