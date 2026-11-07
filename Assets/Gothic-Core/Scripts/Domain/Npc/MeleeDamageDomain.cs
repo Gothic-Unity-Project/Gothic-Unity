@@ -112,6 +112,21 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
+        /// The protection (PROT_*) index of a damage type mask (DAM_*): its lowest bit, blunt without one. Spells and
+        /// projectiles pass it to ApplyHit.
+        /// </summary>
+        public static int GetProtectionIndex(int damageTypeMask)
+        {
+            for (var i = 0; i < 8; i++)
+            {
+                if ((damageTypeMask & (1 << i)) != 0)
+                    return i;
+            }
+
+            return (int)DamageType.Blunt;
+        }
+
+        /// <summary>
         /// C_ITEM.cond_atr[]/cond_value[]: the attributes a weapon needs (G1/G2: strength or dexterity).
         /// </summary>
         public static bool IsWeaponRequirementMet(NpcContainer npc, ItemInstance weapon, out string requirement,

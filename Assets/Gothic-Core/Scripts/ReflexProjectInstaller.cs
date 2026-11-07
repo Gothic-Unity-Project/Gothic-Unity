@@ -72,6 +72,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
             containerBuilder.AddSingleton(typeof(ContextMeleeDamageRuleService));
             containerBuilder.AddSingleton(typeof(ContextRangedCombatService));
+            containerBuilder.AddSingleton(typeof(ContextHeroBlockService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
