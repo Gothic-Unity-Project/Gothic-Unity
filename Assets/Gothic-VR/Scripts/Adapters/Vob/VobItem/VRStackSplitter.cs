@@ -84,9 +84,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// Name + amount over the stacks being split/merged/fed - the hover label (VRFocus) isn't shown while held.
+        /// The stack's VRFocus and Renderer are looked up once, not every frame (looked up again while missing).
         /// </summary>
-        private readonly Dictionary<VobContainer, TextMeshPro> _labels = new();
-        private readonly List<KeyValuePair<VobContainer, TextMeshPro>> _labelBuffer = new();
+        private readonly Dictionary<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)> _labels =
+            new();
+        private readonly List<KeyValuePair<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)>>
+            _labelBuffer = new();
         private Camera _camera;
 
         /// <summary>
@@ -453,8 +456,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (!isPinned)
             {
-                if (_labels.Remove(container, out var oldLabel) && oldLabel != null)
-                    Destroy(oldLabel.gameObject);
+                if (_labels.Remove(container, out var oldEntry) && oldEntry.Label != null)
+                    Destroy(oldEntry.Label.gameObject);
                 _dynamicMaterialService.ResetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
                     Constants.ShaderPropertyFocusBrightnessDefault);
                 return;
@@ -473,14 +476,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             var label = labelGo.GetComponent<TextMeshPro>();
             GothicText.Apply(label);
-            _labels[container] = label;
+            _labels[container] = (label, container.Go.GetComponentInChildren<VRFocus>(),
+                container.Go.GetComponentInChildren<Renderer>());
             RefreshLabel(container);
         }
 
         private void RefreshLabel(VobContainer container)
         {
-            if (container?.Go != null && _labels.TryGetValue(container, out var label) && label != null)
-                label.text = container.Props.GetFocusName();
+            if (container?.Go != null && _labels.TryGetValue(container, out var entry) && entry.Label != null)
+                entry.Label.text = container.Props.GetFocusName();
         }
 
         /// <summary>
@@ -496,8 +500,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var camera = _camera;
             _labelBuffer.Clear();
             _labelBuffer.AddRange(_labels);
-            foreach (var (container, label) in _labelBuffer)
+            foreach (var (container, entry) in _labelBuffer)
             {
+                var label = entry.Label;
                 if (container?.Go == null || label == null)
                 {
                     if (label != null)
@@ -506,11 +511,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     continue;
                 }
 
+                // Destroyed or not there yet (e.g. a mesh loaded later): looked up again.
+                var focus = entry.Focus;
+                var renderer = entry.Renderer;
+                if (focus == null || renderer == null)
+                {
+                    if (focus == null)
+                        focus = container.Go.GetComponentInChildren<VRFocus>();
+                    if (renderer == null)
+                        renderer = container.Go.GetComponentInChildren<Renderer>();
+                    _labels[container] = (label, focus, renderer);
+                }
+
                 // The hover name shows the amount already (VRFocus refreshes it) - no second label.
-                var focus = container.Go.GetComponentInChildren<VRFocus>();
                 label.gameObject.SetActive(focus == null || !focus.IsNameShown);
 
-                var renderer = container.Go.GetComponentInChildren<Renderer>();
                 var top = renderer != null
                     ? new Vector3(renderer.bounds.center.x, renderer.bounds.max.y, renderer.bounds.center.z)
                     : container.Go.transform.position;
@@ -522,10 +537,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void OnDestroy()
         {
-            foreach (var label in _labels.Values)
+            foreach (var entry in _labels.Values)
             {
-                if (label != null)
-                    Destroy(label.gameObject);
+                if (entry.Label != null)
+                    Destroy(entry.Label.gameObject);
             }
             _labels.Clear();
         }
