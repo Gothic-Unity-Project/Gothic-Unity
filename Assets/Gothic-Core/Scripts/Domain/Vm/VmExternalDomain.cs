@@ -685,7 +685,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void AI_UnequipArmor(NpcInstance npc)
         {
-            _npcAiService.ExtAiUnequipArmor(npc);
+            _npcInventoryService.UnequipArmor(npc);
         }
 
         public void AI_OutputSVM(NpcInstance npc, NpcInstance target, string svmname)

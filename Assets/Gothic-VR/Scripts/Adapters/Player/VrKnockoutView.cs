@@ -6,6 +6,7 @@ using Gothic.Core.Models.Container;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -56,9 +57,10 @@ namespace Gothic.VR.Adapters.Player
         private const int _menuShowFrames = 3;
         private const float _menuShowSeconds = 0.1f;
 
+        [Inject] private readonly IVrHaptics _haptics;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+
         private IVrRig _rig;
-        private IVrHaptics _haptics;
-        private VRPlayerService _vrPlayerService;
         private VrMoveVignette _vignette;
         private Material _materialInstance;
         private MeshRenderer _renderer;
@@ -84,8 +86,6 @@ namespace Gothic.VR.Adapters.Player
             if (_rig == null)
                 Logger.LogWarning($"[VrKnockoutView] No IVrRig above {name} - knockouts aren't shown.", LogCat.VR);
 
-            _haptics = ReflexProjectInstaller.DIContainer.Resolve<IVrHaptics>();
-            _vrPlayerService = ReflexProjectInstaller.DIContainer.Resolve<VRPlayerService>();
             _vignette = GetComponent<VrMoveVignette>();
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);

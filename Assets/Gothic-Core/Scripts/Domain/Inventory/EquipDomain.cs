@@ -136,6 +136,9 @@ namespace Gothic.Core.Domain.Inventory
                 return;
 
             props.MdmName = newMdm;
+            // Besides Mdl_SetVisualBody (NpcService) the only place changing an NPC's visual: tell the listeners
+            // (VR hero body). It can't go through NpcService - that one owns this domain's service.
+            GlobalEventDispatcher.NpcVisualBodyChanged.Invoke(container);
 
             // The VR hero body rebuilds itself from MdmName. An NPC's built mesh is swapped with a later PR (meshes).
             Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} now wears '{newMdm}'", LogCat.Npc);
