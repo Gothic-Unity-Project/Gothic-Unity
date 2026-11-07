@@ -3,7 +3,6 @@ using System.Linq;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using ZenKit;
 using ZenKit.Daedalus;
@@ -20,8 +19,7 @@ namespace Gothic.Core.Services.Inventory
     {
         private const string _useEndAnimationScheme = "t_{0}_S0_2_Stand";
 
-        // Used in their own ways: weapons, runes/scrolls, documents, food and potions. Wearables are equipped
-        // (DeveloperConfig.EnableEquipItems).
+        // Used in their own ways: weapons, runes/scrolls, documents, food and potions. Wearables are equipped.
         private const int _notUsableCategories = (int)(ItemFlags.ItemKatNf | ItemFlags.ItemKatFf |
                                                        ItemFlags.ItemKatMun | ItemFlags.ItemKatArmor |
                                                        ItemFlags.ItemKatFood | ItemFlags.ItemKatDocs |
@@ -30,15 +28,14 @@ namespace Gothic.Core.Services.Inventory
 
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-        [Inject] private readonly ConfigService _configService;
 
 
         /// <summary>
-        /// DeveloperConfig.EnableEquipItems: using a wearable (armor, amulet, ring, belt) means equipping it.
+        /// Using a wearable (armor, amulet, ring, belt) means equipping it.
         /// </summary>
         public bool IsEquippedOnUse(ItemInstance item)
         {
-            return _configService.Dev.EnableEquipItems && item.IsWearable();
+            return item.IsWearable();
         }
 
         /// <summary>

@@ -28,7 +28,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableStackSplit), the split button is the trigger (T in the simulator):
+    /// V1, the split button is the trigger (T in the simulator):
     /// - empty hand near a stack held by the other hand, its button held: pieces jump into it, faster and faster.
     ///   They lie in the hand without holding grip (kinematic at the palm, not grabbed - a forced HVR grab flung the
     ///   physics hand away): grip grabs them normally, letting go drops them.
@@ -100,9 +100,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
-            if (!_stackSplitService.IsEnabled)
-                return;
-
             if (_leftHand == null || _rightHand == null)
                 FindHands();
             if (_leftHand == null || _rightHand == null)
