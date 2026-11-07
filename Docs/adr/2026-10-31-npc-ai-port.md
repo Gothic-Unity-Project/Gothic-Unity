@@ -23,7 +23,7 @@ On main, NPCs fought only the hero and only with melee. Archers chased forever, 
    - `EnableHeroChaseCooldown`: after giving up the chase, an NPC ignores the hero for 5 seconds. The scripts restart the fight at once and the NPC came back endlessly.
    - `EnableGuardsAgainstBerzerk`: guards (G1) knock out a berzerk NPC. Vanilla lets it rage.
    - `EnableHeroSummonAttitude`: NPCs see the hero's summons the way they see the hero. In G2 the scripts make guards attack them.
-   Checked against OpenGothic: none of these exist there. The engine behaviours we copied (combo continue, hero block, finishing move, ...) are not listed, they have their own feature flags already. The "same guild is never a target" checks stay unconditional safety nets inside these rules.
+   Not found in the OpenGothic damage and targeting code (takeDamage, target selection); not checked file by file. The engine behaviours we copied (combo continue, hero block, finishing move, ...) are not listed, they have their own feature flags already. The "same guild is never a target" checks stay unconditional safety nets inside these rules.
 
 ## Consequences
 
