@@ -30,7 +30,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextRangedCombatService _contextRangedCombatService;
         [Inject] private readonly IProjectileFactory _projectileFactory;
 
         // OpenGothic DynamicWorld::bulletSpeed (3 cm/ms).
@@ -175,8 +175,6 @@ namespace Gothic.Core.Services.Npc
 
         // OpenGothic constants.h: hit chance falls from 100% at the shooter to the NPC's chance at the reference
         // range, then to 0 at the max range (DamageCalculator::rangeDamageValue).
-        private const float _referenceRangeG1 = 20f;
-        private const float _referenceRangeG2 = 15f;
         private const float _maxRange = 45f;
         // A miss passes the target this far from its center (m) - visibly, not through the body.
         private const float _missMinOffset = 0.7f;
@@ -352,22 +350,10 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private float GetHitChance(NpcContainer shooter, ItemInstance weapon, float distance)
         {
-            float chance;
-            if (_contextGameVersionService.IsGothic2())
-            {
-                var isCrossbow = weapon != null &&
-                                 ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
-                var talentName = isCrossbow ? "NPC_TALENT_CROSSBOW" : "NPC_TALENT_BOW";
-                var talent = _gameStateService.GothicVm.GetSymbolByName(talentName)?.GetInt(0) ?? (isCrossbow ? 4 : 3);
-                chance = shooter.Vob.GetHitChance(talent) / 100f;
-            }
-            else
-            {
-                chance = shooter.Vob.GetAttribute((int)NpcAttribute.Dexterity) / 100f;
-            }
+            var chance = _contextRangedCombatService.GetHitChance(shooter, weapon);
             chance = Mathf.Clamp01(chance);
 
-            var referenceRange = _contextGameVersionService.IsGothic2() ? _referenceRangeG2 : _referenceRangeG1;
+            var referenceRange = _contextRangedCombatService.HitChanceReferenceRange;
             if (distance < referenceRange)
                 return Mathf.Lerp(1f, chance, distance / referenceRange);
             if (distance < _maxRange)
