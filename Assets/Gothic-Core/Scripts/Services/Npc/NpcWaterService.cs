@@ -40,6 +40,28 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<NpcContainer> _loggedBarriers = new();
         private readonly HashSet<NpcContainer> _loggedSwimHeights = new();
 
+        public void Init()
+        {
+            GlobalEventDispatcher.StoreWorldStateStart.AddListener(OnStoreWorldState);
+            GlobalEventDispatcher.UnloadGameStart.AddListener(ClearNpcState);
+        }
+
+        /// <summary>
+        /// The NPCs of a world are destroyed when we leave it (isSaving == false) or unload the game. Their entries
+        /// would stay in the sets for the whole session otherwise.
+        /// </summary>
+        private void OnStoreWorldState(bool isSaving)
+        {
+            if (!isSaving)
+                ClearNpcState();
+        }
+
+        private void ClearNpcState()
+        {
+            _hoveringOverWater.Clear();
+            _loggedBarriers.Clear();
+            _loggedSwimHeights.Clear();
+        }
 
         /// <summary>
         /// Called by AnimationSystem with this frame's root motion. Returns the corrected movement: no horizontal
