@@ -297,6 +297,20 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
+         * Backpack and Items
+         * ##########
+         */
+
+        [Foldout("Backpack and Items", true)]
+        [Tooltip("How an NPC's loot is shown: Backpack (default) - the NPC's backpack lying next to it (a tinted copy " +
+                 "of the hero's, categories and pages), Sockets - the old row of loot sockets at the NPC, Both - in sync " +
+                 "(the sockets stand where the backpack lies: the hand takes their items, not the backpack). Gone when " +
+                 "the loot closes.")]
+        public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
+
+
+        /**
+         * ##########
          * Misc
          * ##########
          */

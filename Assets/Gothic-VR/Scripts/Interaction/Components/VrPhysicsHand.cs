@@ -4,6 +4,7 @@ using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;
@@ -476,25 +477,13 @@ namespace Gothic.VR.Interaction.Components
             if (body == null || other == null)
                 return false;
 
-            string key;
-            string pickString;
-            switch (other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob)
-            {
-                case ZenKit.Vobs.IContainer container:
-                    key = container.Key;
-                    pickString = container.PickString;
-                    break;
-                case ZenKit.Vobs.IDoor door:
-                    key = door.Key;
-                    pickString = door.PickString;
-                    break;
-                default:
-                    return false;
-            }
+            var lockable = other.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob;
+            if (!lockable.TryGetLock(out _, out var key, out var pickString))
+                return false;
 
             var item = body.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container?.Vob as
                 ZenKit.Vobs.IItem;
-            var instance = item == null ? null : !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
+            var instance = item?.GetSymbolName();
             if (string.IsNullOrEmpty(instance))
                 return false;
 

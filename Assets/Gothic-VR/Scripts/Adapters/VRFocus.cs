@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
@@ -29,7 +30,7 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
 
@@ -37,6 +38,11 @@ namespace Gothic.VR.Adapters
         private static bool _featureShowName;
 
         [SerializeField] private GameObject _nameCanvas;
+
+        /// <summary>
+        /// The hover name (with the amount) is shown right now.
+        /// </summary>
+        public bool IsNameShown => _isHovered && _nameCanvas != null && _nameCanvas.activeSelf;
 
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;

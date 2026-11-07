@@ -38,6 +38,12 @@ namespace Gothic.VR.Interaction.Components
 
         private static readonly ConditionalWeakTable<Transform, StrongBox<Bounds>> _boundsCache = new();
         private static readonly List<Renderer> _rendererBuffer = new();
+        private static readonly List<VrSocketSlot> _instances = new();
+
+        /// <summary>
+        /// All enabled slots - for lookups without scanning the scene.
+        /// </summary>
+        public static IReadOnlyList<VrSocketSlot> Instances => _instances;
 
         [Tooltip("Where the item is put. Empty: this transform.")]
         [SerializeField] private Transform _attachPoint;
@@ -74,6 +80,13 @@ namespace Gothic.VR.Interaction.Components
         [SerializeField] private AudioClip _removedSoundFallback;
 
         [Inject] private readonly IVrSfxPlayer _sfxPlayer;
+
+        // The linked interactable counts as lost this far away (m) or this far below the slot.
+        private const float _lostLinkedDistance = 30f;
+        private const float _lostLinkedDrop = 10f;
+        private const float _lostLinkedDelay = 1f;
+        private float _linkedLostSince = -1f;
+        private bool _hasHeldLinked;
 
         public event Action<VrGrabArgs> BeforeGrabbed;
         public event Action<VrGrabArgs> Grabbed;
@@ -210,6 +223,7 @@ namespace Gothic.VR.Interaction.Components
 
         private void OnEnable()
         {
+            _instances.Add(this);
             if (!_isReselectNeeded)
                 return;
 
@@ -223,8 +237,65 @@ namespace Gothic.VR.Interaction.Components
 
         private void OnDisable()
         {
+            _instances.Remove(this);
             // Hover exits of a disabled backend may not arrive anymore.
             _hovered.Clear();
+        }
+
+        /// <summary>
+        /// The backpack fell through the world (or got deactivated) and no hand
+        /// holds it - it comes back to its shoulder instead of being gone for good.
+        /// </summary>
+        private void Update()
+        {
+            if (_linkedInteractable == null)
+                return;
+
+            // Only once it was on the shoulder (not in the menu scenes before the game put it there).
+            if (IsOccupied)
+            {
+                _hasHeldLinked |= _held == _linkedInteractable;
+                return;
+            }
+            if (!_hasHeldLinked)
+                return;
+
+            if (!IsLinkedLost())
+            {
+                _linkedLostSince = -1f;
+                return;
+            }
+
+            if (_linkedLostSince < 0f)
+                _linkedLostSince = Time.time;
+            if (Time.time - _linkedLostSince < _lostLinkedDelay)
+                return;
+
+            _linkedLostSince = -1f;
+            var linkedGo = _linkedInteractable.gameObject;
+            Logger.Log($"[Socket] {linkedGo.name} lost (active={linkedGo.activeSelf}, " +
+                       $"pos={linkedGo.transform.position}) - back to {name}.", LogCat.VR);
+            linkedGo.SetActive(true);
+            if (linkedGo.TryGetComponent<Rigidbody>(out var body) && !body.isKinematic)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+
+            TryPlace(_linkedInteractable, false);
+        }
+
+        private bool IsLinkedLost()
+        {
+            var linked = _linkedInteractable.transform;
+            if (!linked.gameObject.activeSelf)
+                return true;
+            if (_linkedInteractable.IsHeld)
+                return false;
+
+            var attach = AttachPoint.position;
+            return Vector3.Distance(linked.position, attach) > _lostLinkedDistance ||
+                   linked.position.y < attach.y - _lostLinkedDrop;
         }
 
         /// <summary>

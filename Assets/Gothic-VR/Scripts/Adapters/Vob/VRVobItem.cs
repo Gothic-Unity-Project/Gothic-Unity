@@ -1,19 +1,28 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
+using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
-using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Animations;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob
 {
@@ -21,6 +30,15 @@ namespace Gothic.VR.Adapters.Vob
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly DocService _docService;
+        [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly ItemUseService _itemUseService;
+
+        // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (one hand lets go),
+        // not while it's still in front of the player.
+        private bool _isConsumedOnDocClose;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
@@ -119,6 +137,12 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
 
+            // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
+            if (_vrPlayerService.IsDualGrabbed)
+            {
+                TryShowDocument();
+                TryPrepareItemUse();
+            }
             // An item lying on another VOB (e.g. a mover) is no longer part of it.
             var vobContainer = GetComponentInParent<VobLoader>()?.Container;
             if (vobContainer != null)
@@ -153,6 +177,97 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
+
+            if (_vrPlayerService.IsDualGrabbed)
+                return;
+
+            // The document viewer closes when the item is no longer dual-grabbed.
+            if (TryGetComponent<VobItem.VRDocViewer>(out var viewer))
+                Destroy(viewer);
+            foreach (Transform child in transform)
+            {
+                if (child.name == "_DocCanvas")
+                    Destroy(child.gameObject);
+            }
+
+            if (_isConsumedOnDocClose)
+            {
+                _isConsumedOnDocClose = false;
+                ConsumeDocument();
+                return;
+            }
+
+            if (TryGetComponent<VobItem.VRItemUser>(out var itemUser))
+                Destroy(itemUser);
+        }
+
+        private void TryShowDocument()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatDocs)
+                return;
+
+            var onStateIndex = item.GetOnState(0);
+            if (onStateIndex == 0)
+                return;
+
+            // Ensure VRDocViewer is present on this GO before Daedalus fires Doc_Show.
+            if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
+                gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
+
+            var hero = _gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance;
+            if (!_docService.ShowItemDocument(hero, item, gameObject))
+                return;
+
+            // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
+            if (_itemUseService.IsConsumedOnUse(item))
+                _isConsumedOnDocClose = true;
+        }
+
+        /// <summary>
+        /// The read sealed document is used up: one of a stack, or the whole item (released from the other hand first,
+        /// which also takes it out of the inventory like a dropped item).
+        /// </summary>
+        private void ConsumeDocument()
+        {
+            var container = GetComponentInParent<VobLoader>()?.Container;
+            if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
+                return;
+
+            var instanceName = vobItem.GetSymbolName();
+            if (vobItem.Amount > 1)
+            {
+                vobItem.Amount--;
+                if (_interactable != null && _interactable.IsHeld)
+                    _playerService.RemoveItem(instanceName, 1);
+                Logger.Log($"[VRVobItem] {instanceName} read - one used up, remaining={vobItem.Amount}", LogCat.VR);
+                return;
+            }
+
+            Logger.Log($"[VRVobItem] {instanceName} read - used up", LogCat.VR);
+            if (_interactable != null && _interactable.IsHeld)
+                _interactable.ForceRelease();
+            _vobService.RemoveWorldItem(container);
+        }
+
+
+        /// <summary>
+        /// Items with a "use" function (on_state[0]) like pouches, potions and food, and wearables (armor, amulets,
+        /// rings, belts). VRItemUser waits for the trigger while dual-grabbed.
+        /// </summary>
+        private void TryPrepareItemUse()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container
+                .PropsAs<VobItemProperties2>()?.Instance;
+            if (!_itemUseService.IsUsable(item))
+                return;
+
+            if (GetComponent<VobItem.VRItemUser>() == null)
+                gameObject.AddComponent<VobItem.VRItemUser>();
         }
 
         /// <summary>

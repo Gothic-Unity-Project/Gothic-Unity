@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -14,6 +15,25 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private VmGothicEnums.ItemFlags _mainFlag;
         private VmGothicEnums.ItemFlags _flags;
         private bool _isEquipped;
+
+        /// <summary>
+        /// Where the NPC carries a weapon it hasn't drawn: 2H on the back, 1H on the belt, bow or crossbow on the back.
+        /// Null for an item that is no melee or ranged weapon.
+        /// </summary>
+        public static string GetHolsterSlotName(ItemInstance item)
+        {
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            var flags = (VmGothicEnums.ItemFlags)item.Flags;
+            var isTwoHanded = flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
+                              flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd);
+            return mainFlag switch
+            {
+                VmGothicEnums.ItemFlags.ItemKatNf => isTwoHanded ? Constants.SlotLongsword : Constants.SlotSword,
+                VmGothicEnums.ItemFlags.ItemKatFf =>
+                    flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow) ? Constants.SlotCrossbow : Constants.SlotBow,
+                _ => null
+            };
+        }
 
         public void SetWeaponData(GameObject npcGo, ItemInstance itemData, VmGothicEnums.ItemFlags mainFlag,
             VmGothicEnums.ItemFlags flags, bool isEquipped)
@@ -41,26 +61,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private GameObject EquipMeleeWeapon()
         {
-            string slotName;
+            var slotName = _isEquipped ? Constants.SlotRightHand : GetHolsterSlotName(_itemData);
 
-            if (_isEquipped)
-            {
-                slotName = "ZS_RIGHTHAND";
-            }
-            else
-            {
-                switch ((VmGothicEnums.ItemFlags)_itemData.Flags)
-                {
-                    case VmGothicEnums.ItemFlags.Item2HdAxe:
-                    case VmGothicEnums.ItemFlags.Item2HdSwd:
-                        slotName = "ZS_LONGSWORD";
-                        break;
-                    default:
-                        slotName = "ZS_SWORD";
-                        break;
-                }
-            }
-            
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
             if (weaponSlotGo == null)
             {
@@ -98,16 +100,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private GameObject EquipRangeWeapon()
         {
-            string slotName;
-            switch ((VmGothicEnums.ItemFlags)_itemData.Flags)
-            {
-                case VmGothicEnums.ItemFlags.ItemCrossbow:
-                    slotName = "ZS_CROSSBOW";
-                    break;
-                default:
-                    slotName = "ZS_BOW";
-                    break;
-            }
+            var slotName = GetHolsterSlotName(_itemData);
 
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
             if (weaponSlotGo == null)

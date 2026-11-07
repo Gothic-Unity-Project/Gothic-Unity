@@ -19,6 +19,15 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
+        /// The item's instance symbol (e.g. ITMW_1H_SWORD) - a world item's vob name isn't always its symbol (mods, items
+        /// placed in the world file). Inventory calls (CreateInvItems, Npc_RemoveInvItems) need the symbol.
+        /// </summary>
+        public static string GetSymbolName(this IItem item)
+        {
+            return !string.IsNullOrEmpty(item?.Instance) ? item.Instance : item?.Name;
+        }
+
+        /// <summary>
         /// The engine's scheme name of a mob's visual: "CHESTBIG_OCCHESTLARGE.MDS" -> "CHESTBIG", "CHAIR.ASC" -> "CHAIR".
         /// </summary>
         public static string GetVisualScheme([CanBeNull] this IVirtualObject vob)
@@ -72,6 +81,33 @@ namespace Gothic.Core.Extensions
             var visualName = vob?.Visual?.Name;
             return !string.IsNullOrEmpty(visualName) &&
                    visualName.StartsWith("BED", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// oCMobLockable's fields: doors and chests are both lockable, but ZenKit has no common interface for them.
+        /// Returns false if the vob is neither.
+        /// </summary>
+        public static bool TryGetLock([CanBeNull] this IVirtualObject vob, out bool isLocked, out string key,
+            out string pickString)
+        {
+            switch (vob)
+            {
+                case IDoor door:
+                    isLocked = door.IsLocked;
+                    key = door.Key;
+                    pickString = door.PickString;
+                    return true;
+                case IContainer container:
+                    isLocked = container.IsLocked;
+                    key = container.Key;
+                    pickString = container.PickString;
+                    return true;
+                default:
+                    isLocked = false;
+                    key = null;
+                    pickString = null;
+                    return false;
+            }
         }
 
         /// <summary>

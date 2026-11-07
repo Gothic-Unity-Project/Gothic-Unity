@@ -1,0 +1,694 @@
+using System.Collections;
+using System.Collections.Generic;
+using Gothic.Core.Adapters.UI;
+using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
+using Gothic.VR.Adapters.Player;
+using Gothic.VR.Services;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
+using Reflex.Attributes;
+using TMPro;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
+
+namespace Gothic.VR.Adapters.Vob.VobItem
+{
+    /// <summary>
+    /// V1, the split button is the trigger (T in the simulator):
+    /// - empty hand near a stack held by the other hand, its button held: pieces jump into it, faster and faster.
+    ///   They lie in the hand without holding grip (kinematic at the palm, not grabbed - a forced HVR grab flung the
+    ///   physics hand away): grip grabs them normally, letting go drops them.
+    /// - empty hand near a stack in a backpack slot (the hero's, loot, trader goods), its button held: pieces jump from
+    ///   the slot into the hand the same way.
+    /// - both hands hold the same item: this hand's stack joins the other hand's stack (this hand lets go).
+    /// - a hand holds a stack near an empty socket (backpack, trade counter, loot), its button held: pieces gather at
+    ///   the socket and go into it when the button is let go (letting go of the whole stack still socket it all).
+    /// The stacks show their name with the amount meanwhile. The hero's inventory count stays right: held items count
+    /// as inventory (VRPlayerService.SetGrab/UnsetGrab).
+    /// Any VR backend (IVrRig hands, VrInteractable, IVrSocket).
+    /// </summary>
+    public class VRStackSplitter : MonoBehaviour
+    {
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly IVrInput _vrInput;
+        [Inject] private readonly StackSplitService _stackSplitService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
+        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+
+        private const float _maxHandDistance = 0.3f;
+        private const float _maxSocketDistance = 0.3f;
+        private const float _maxBackpackStackDistance = 0.15f;
+        private const float _mergeLabelSeconds = 1.5f;
+        // Resources path (VR context first) of the name + amount label over split stacks.
+        private const string _labelPrefabPath = "Prefabs/UI/StackLabel";
+
+        private IVrRig _rig;
+        private IVrGrabber _leftHand;
+        private IVrGrabber _rightHand;
+
+        // The running split/feed (button held).
+        private VrHandSide _buttonSide;
+        private VobContainer _source;
+        private VobContainer _piece;
+        private IVrSocket _feedSocket;
+        private bool _isSourceGrabbed;
+
+        // Taking pieces off a stack in a backpack slot: removed from its owner when the button is let go (removing
+        // piece by piece refreshed an NPC's backpack and destroyed the stack being split).
+        private VRBackpack _sourceBackpack;
+        private int _piecesFromBackpack;
+        private string _backpackItemName;
+        private int _piecesSplit;
+        private float _nextPieceTime;
+
+        private bool IsRunning => _source != null;
+
+        /// <summary>
+        /// Name + amount over the stacks being split/merged/fed - the hover label (VRFocus) isn't shown while held.
+        /// The stack's VRFocus and Renderer are looked up once, not every frame (looked up again while missing).
+        /// </summary>
+        private readonly Dictionary<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)> _labels =
+            new();
+        private readonly List<KeyValuePair<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)>>
+            _labelBuffer = new();
+        private Camera _camera;
+
+        /// <summary>
+        /// Pieces lying in a hand without grip: not grabbed, so not counted as inventory (a world item).
+        /// </summary>
+        private readonly Dictionary<IVrGrabber, (VobContainer Piece, bool IsGripPressed)> _palmPieces = new();
+
+        private void Awake()
+        {
+            gameObject.Inject();
+        }
+
+        private void Update()
+        {
+            if (_leftHand == null || _rightHand == null)
+                FindHands();
+            if (_leftHand == null || _rightHand == null)
+                return;
+
+            UpdatePalmPiece(_leftHand, VrHandSide.Left);
+            UpdatePalmPiece(_rightHand, VrHandSide.Right);
+
+            if (IsRunning)
+            {
+                Continue();
+                return;
+            }
+
+            // The simulator's T: the left hand takes first. Hands near each other before a socket near a stack.
+            if (TryStart(_leftHand, VrHandSide.Left, _rightHand) || TryStart(_rightHand, VrHandSide.Right, _leftHand))
+                return;
+            if (TryStartFromBackpack(_leftHand, VrHandSide.Left) || TryStartFromBackpack(_rightHand, VrHandSide.Right))
+                return;
+            if (!TryStartFeed(_leftHand, VrHandSide.Left))
+                TryStartFeed(_rightHand, VrHandSide.Right);
+        }
+
+        private void FindHands()
+        {
+            _rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            if (_rig == null)
+                return;
+
+            foreach (var hand in _rig.HandGrabbers)
+            {
+                if (hand == null)
+                    continue;
+                if (hand.HandSide == VrHandSide.Left)
+                    _leftHand = hand;
+                else
+                    _rightHand = hand;
+            }
+        }
+
+        /// <summary>
+        /// The hand as the player sees it - pieces lie in it (HVR: the physics hand's model, XRI: the block hand).
+        /// </summary>
+        private Transform GetPalm(IVrGrabber hand)
+        {
+            var visual = _rig?.GetHandVisual(hand.HandSide);
+            if (visual != null)
+                return visual;
+            return hand.HandSide == VrHandSide.Left ? _rig?.LeftHand : _rig?.RightHand;
+        }
+
+        private bool IsSplitPressed(VrHandSide side)
+        {
+            if (_vrInput.IsSimulator)
+                return Keyboard.current[Key.T].wasPressedThisFrame;
+            return _vrInput.GetButton(side, VrButton.Trigger).IsJustActivated;
+        }
+
+        private bool IsSplitHeld(VrHandSide side)
+        {
+            if (_vrInput.IsSimulator)
+                return Keyboard.current[Key.T].isPressed;
+            return _vrInput.GetButton(side, VrButton.Trigger).IsActive;
+        }
+
+        /// <summary>
+        /// What the hand holds: grabbed (counted as inventory) or a piece lying in it (not counted).
+        /// </summary>
+        private VobContainer GetHeld(IVrGrabber hand, out bool isGrabbed)
+        {
+            if (hand.Held != null)
+            {
+                isGrabbed = true;
+                return hand.Held.GetComponentInParent<VobLoader>()?.Container;
+            }
+            isGrabbed = false;
+            return _palmPieces.TryGetValue(hand, out var entry) && entry.Piece?.Go != null ? entry.Piece : null;
+        }
+
+        private static Vector3 GetItemPosition(VobContainer container)
+        {
+            var interactable = container.Go.GetComponentInChildren<VrInteractable>();
+            return interactable != null ? interactable.transform.position : container.Go.transform.position;
+        }
+
+        private bool IsInHand(VobContainer container)
+        {
+            if (container?.Go == null)
+                return false;
+            if (IsHeld(container))
+                return true;
+            foreach (var entry in _palmPieces.Values)
+            {
+                if (entry.Piece == container)
+                    return true;
+            }
+            return false;
+        }
+
+        private bool TryStart(IVrGrabber hand, VrHandSide side, IVrGrabber otherHand)
+        {
+            if (!IsSplitPressed(side))
+                return false;
+
+            var otherContainer = GetHeld(otherHand, out var isOtherGrabbed);
+            var otherItem = otherContainer?.VobAs<IItem>();
+            if (otherItem == null)
+                return false;
+            // The grabbed item moves, not its VobLoader root.
+            if (Vector3.Distance(GetPalm(hand).position, GetItemPosition(otherContainer)) > _maxHandDistance)
+                return false;
+
+            var held = GetHeld(hand, out var isGrabbed);
+            if (held == null && hand.Held == null)
+                return TryStartSplit(hand, side, otherContainer, otherItem, isOtherGrabbed);
+
+            return held != null && TryMerge(hand, held, isGrabbed, otherContainer, otherItem, isOtherGrabbed);
+        }
+
+        private bool TryStartSplit(IVrGrabber emptyHand, VrHandSide side, VobContainer source, IItem item,
+            bool isSourceGrabbed)
+        {
+            if (!_stackSplitService.CanSplit(item.Amount))
+                return false;
+
+            var palm = GetPalm(emptyHand);
+            var piece = SpawnPiece(item, palm.position, palm.rotation);
+            if (piece == null)
+                return false;
+            PutIntoPalm(emptyHand, piece);
+
+            item.Amount--;
+            TakeFromSource(item, isSourceGrabbed);
+
+            Begin(side, source, isSourceGrabbed, piece, null);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken, {item.Amount} left", LogCat.VR);
+            return true;
+        }
+
+        /// <summary>
+        /// An empty hand near a stack in a backpack slot presses its button: the first piece lies in the hand.
+        /// </summary>
+        private bool TryStartFromBackpack(IVrGrabber hand, VrHandSide side)
+        {
+            if (hand.Held != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
+                return false;
+
+            // IsSplitPressed is true on the press frame only, so the search runs once per button press.
+            foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsSortMode.None))
+            {
+                var stackGrabbable = backpack.FindStackNear(GetPalm(hand).position, _maxBackpackStackDistance);
+                var source = stackGrabbable != null ? stackGrabbable.GetComponentInParent<VobLoader>()?.Container : null;
+                var item = source?.VobAs<IItem>();
+                if (item == null || !_stackSplitService.CanSplit(item.Amount))
+                    continue;
+
+                var palm = GetPalm(hand);
+                var piece = SpawnPiece(item, palm.position, palm.rotation);
+                if (piece == null)
+                    return false;
+                PutIntoPalm(hand, piece);
+
+                item.Amount--;
+                _sourceBackpack = backpack;
+                _piecesFromBackpack = 1;
+                _backpackItemName = item.GetSymbolName();
+                Begin(side, source, false, piece, null);
+                Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken out of {backpack.name}", LogCat.VR);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The hand holds a stack near an empty socket and presses its button: the first piece waits at the socket.
+        /// </summary>
+        private bool TryStartFeed(IVrGrabber hand, VrHandSide side)
+        {
+            var stackGrabbable = hand.Held;
+            if (stackGrabbable == null || !IsSplitPressed(side))
+                return false;
+
+            var source = stackGrabbable.GetComponentInParent<VobLoader>()?.Container;
+            var item = source?.VobAs<IItem>();
+            if (item == null || !_stackSplitService.CanSplit(item.Amount))
+                return false;
+
+            var socket = FindEmptySocket(stackGrabbable);
+            if (socket == null)
+                return false;
+
+            var piece = SpawnPiece(item, socket.Transform.position,
+                socket.Transform.rotation);
+            if (piece == null)
+                return false;
+            SetKinematic(piece, true);
+
+            item.Amount--;
+            TakeFromSource(item, true);
+
+            Begin(side, source, true, piece, socket);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: feeding {socket.Transform.name}", LogCat.VR);
+            return true;
+        }
+
+        /// <summary>
+        /// Free item sockets of any backend (VrSocketSlot: only those taking Gothic items, not the shoulder).
+        /// </summary>
+        private IVrSocket FindEmptySocket(VrInteractable stackGrabbable)
+        {
+            IVrSocket nearest = null;
+            var nearestDistance = _maxSocketDistance;
+            foreach (var slot in VrSocketSlot.Instances)
+            {
+                IVrSocket socket = slot;
+                if (socket.IsOccupied || socket.IsShoulder || !slot.HasActiveBackend || !slot.Accepts(stackGrabbable))
+                    continue;
+                var distance = Vector3.Distance(socket.Transform.position, stackGrabbable.transform.position);
+                if (distance > nearestDistance)
+                    continue;
+                nearest = socket;
+                nearestDistance = distance;
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// A piece taken off a grabbed stack leaves the inventory - the pieces lie in the world (palm, socket) until
+        /// grabbed or socketed. A stack that isn't grabbed itself (lying in the palm) isn't counted anyway.
+        /// </summary>
+        private void TakeFromSource(IItem sourceItem, bool isSourceGrabbed)
+        {
+            if (isSourceGrabbed)
+                _playerService.RemoveItem(sourceItem.GetSymbolName(), 1);
+        }
+
+        private void Begin(VrHandSide side, VobContainer source, bool isSourceGrabbed, VobContainer piece,
+            IVrSocket feedSocket)
+        {
+            _buttonSide = side;
+            _isSourceGrabbed = isSourceGrabbed;
+            _source = source;
+            _piece = piece;
+            _feedSocket = feedSocket;
+            _piecesSplit = 1;
+            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit);
+            SetLabelPinned(_source, true);
+            SetLabelPinned(_piece, true);
+        }
+
+        /// <summary>
+        /// Button held: one more piece from the stack to the piece.
+        /// </summary>
+        private void Continue()
+        {
+            var sourceItem = _source?.Go != null ? _source.VobAs<IItem>() : null;
+            var pieceItem = _piece?.Go != null ? _piece.VobAs<IItem>() : null;
+            var isPieceInPlace = _feedSocket != null ? !_feedSocket.IsOccupied : IsInHand(_piece);
+            var isSourceInPlace = _sourceBackpack != null ? IsSocketed(_source) : IsInHand(_source);
+            if (!IsSplitHeld(_buttonSide) || sourceItem == null || pieceItem == null || !isSourceInPlace ||
+                !isPieceInPlace)
+            {
+                End();
+                return;
+            }
+
+            if (Time.time < _nextPieceTime || !_stackSplitService.CanSplit(sourceItem.Amount))
+                return;
+
+            sourceItem.Amount--;
+            pieceItem.Amount++;
+            TakeFromSource(sourceItem, _isSourceGrabbed);
+            if (_sourceBackpack != null)
+                _piecesFromBackpack++;
+            _piecesSplit++;
+            _nextPieceTime = Time.time + _stackSplitService.GetRepeatDelay(_piecesSplit);
+            RefreshLabel(_source);
+            RefreshLabel(_piece);
+        }
+
+        private void End()
+        {
+            SetLabelPinned(_source, false);
+            SetLabelPinned(_piece, false);
+
+            if (_sourceBackpack != null && _piecesFromBackpack > 0)
+                _sourceBackpack.RemoveTakenPieces(_backpackItemName, _piecesFromBackpack);
+            _sourceBackpack = null;
+            _piecesFromBackpack = 0;
+
+            if (_feedSocket != null && _piece?.Go != null)
+            {
+                // Into the socket in one go - its owner (backpack, counter) counts the whole amount once.
+                SetKinematic(_piece, false);
+                var interactable = _piece.Go.GetComponentInChildren<VrInteractable>();
+                if (interactable == null || _feedSocket.IsOccupied || !_feedSocket.TryPlace(interactable, false))
+                    Logger.LogWarning($"[StackSplit] {_piece.Go.name} couldn't go into {_feedSocket.Transform.name}",
+                        LogCat.VR);
+            }
+
+            if (_piece?.Go != null && _source?.Go != null)
+                Logger.Log($"[StackSplit] {_piece.VobAs<IItem>()?.Amount} piece(s) taken, " +
+                           $"{_source.VobAs<IItem>()?.Amount} left", LogCat.VR);
+            _source = null;
+            _piece = null;
+            _feedSocket = null;
+            _piecesSplit = 0;
+        }
+
+        /// <summary>
+        /// This hand's stack of the same item joins the other hand's stack, this hand is empty afterwards.
+        /// </summary>
+        private bool TryMerge(IVrGrabber hand, VobContainer source, bool isSourceGrabbed, VobContainer target,
+            IItem targetItem, bool isTargetGrabbed)
+        {
+            var sourceItem = source?.VobAs<IItem>();
+            if (sourceItem == null || source == target)
+                return false;
+
+            var instanceName = sourceItem.GetSymbolName();
+            if (!instanceName.EqualsIgnoreCase(targetItem.GetSymbolName()))
+                return false;
+
+            // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again.
+            var amount = Mathf.Max(1, sourceItem.Amount);
+            _palmPieces.Remove(hand);
+            if (isSourceGrabbed)
+                hand.ForceRelease();
+            targetItem.Amount += amount;
+            if (isTargetGrabbed)
+                _playerService.AddItem(instanceName, amount);
+
+            _vobService.RemoveWorldItem(source);
+            StartCoroutine(ShowLabelBriefly(target));
+            Logger.Log($"[StackSplit] {instanceName}: {amount} joined, now {targetItem.Amount}", LogCat.VR);
+            return true;
+        }
+
+        private IEnumerator ShowLabelBriefly(VobContainer container)
+        {
+            SetLabelPinned(container, true);
+            yield return new WaitForSeconds(_mergeLabelSeconds);
+            SetLabelPinned(container, false);
+        }
+
+        private void SetLabelPinned(VobContainer container, bool isPinned)
+        {
+            if (container?.Go == null)
+                return;
+
+            if (!isPinned)
+            {
+                if (_labels.Remove(container, out var oldEntry) && oldEntry.Label != null)
+                    Destroy(oldEntry.Label.gameObject);
+                _dynamicMaterialService.ResetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
+                    Constants.ShaderPropertyFocusBrightnessDefault);
+                return;
+            }
+
+            if (_labels.ContainsKey(container))
+                return;
+
+            // Highlighted like hovered items, for the whole split.
+            _dynamicMaterialService.SetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
+                Constants.ShaderPropertyFocusBrightnessValue);
+
+            // White, centered, about the size of the hover name (VRFocus) - Gothic's font sprites come at runtime.
+            var labelGo = _resourceCacheService.TryGetPrefabObject(_labelPrefabPath, "StackLabel");
+            if (labelGo == null)
+                return;
+            var label = labelGo.GetComponent<TextMeshPro>();
+            GothicText.Apply(label);
+            _labels[container] = (label, container.Go.GetComponentInChildren<VRFocus>(),
+                container.Go.GetComponentInChildren<Renderer>());
+            RefreshLabel(container);
+        }
+
+        private void RefreshLabel(VobContainer container)
+        {
+            if (container?.Go != null && _labels.TryGetValue(container, out var entry) && entry.Label != null)
+                entry.Label.text = container.Props.GetFocusName();
+        }
+
+        /// <summary>
+        /// The labels float over their stacks, facing the camera.
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (_labels.Count == 0)
+                return;
+
+            if (_camera == null)
+                _camera = Camera.main;
+            var camera = _camera;
+            _labelBuffer.Clear();
+            _labelBuffer.AddRange(_labels);
+            foreach (var (container, entry) in _labelBuffer)
+            {
+                var label = entry.Label;
+                if (container?.Go == null || label == null)
+                {
+                    if (label != null)
+                        Destroy(label.gameObject);
+                    _labels.Remove(container);
+                    continue;
+                }
+
+                // Destroyed or not there yet (e.g. a mesh loaded later): looked up again.
+                var focus = entry.Focus;
+                var renderer = entry.Renderer;
+                if (focus == null || renderer == null)
+                {
+                    if (focus == null)
+                        focus = container.Go.GetComponentInChildren<VRFocus>();
+                    if (renderer == null)
+                        renderer = container.Go.GetComponentInChildren<Renderer>();
+                    _labels[container] = (label, focus, renderer);
+                }
+
+                // The hover name shows the amount already (VRFocus refreshes it) - no second label.
+                label.gameObject.SetActive(focus == null || !focus.IsNameShown);
+
+                var top = renderer != null
+                    ? new Vector3(renderer.bounds.center.x, renderer.bounds.max.y, renderer.bounds.center.z)
+                    : container.Go.transform.position;
+                label.transform.position = top + Vector3.up * 0.1f;
+                if (camera != null)
+                    label.transform.rotation = Quaternion.LookRotation(label.transform.position - camera.transform.position);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            foreach (var entry in _labels.Values)
+            {
+                if (entry.Label != null)
+                    Destroy(entry.Label.gameObject);
+            }
+            _labels.Clear();
+        }
+
+        /// <summary>
+        /// Held, but by no hand: in a socket.
+        /// </summary>
+        private bool IsSocketed(VobContainer container)
+        {
+            var interactable = container?.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
+            return interactable != null && interactable.IsHeld && !IsHeld(container);
+        }
+
+        /// <summary>
+        /// Held by a hand.
+        /// </summary>
+        private bool IsHeld(VobContainer container)
+        {
+            var interactable = container.Go.GetComponentInChildren<VrInteractable>();
+            return interactable != null && (_leftHand?.Held == interactable || _rightHand?.Held == interactable);
+        }
+
+        private static void SetKinematic(VobContainer container, bool isKinematic)
+        {
+            var rigidbody = container.Go.GetComponentInChildren<Rigidbody>();
+            if (rigidbody != null)
+                rigidbody.isKinematic = isKinematic;
+        }
+
+        private VobContainer SpawnPiece(IItem item, Vector3 position, Quaternion rotation)
+        {
+            var instanceName = item.GetSymbolName();
+            var piece = _vobService.CreateItem(new Item
+            {
+                Name = instanceName,
+                Visual = new VisualMesh(),
+                Instance = instanceName,
+                Amount = 1
+            });
+            if (piece?.Go == null)
+                return null;
+
+            piece.Go.transform.SetPositionAndRotation(position, rotation);
+            SetKinematic(piece, false);
+
+            // A loose world item like one taken out of the backpack - culled and saved when dropped.
+            _vobMeshCullingService.AddCullingEntry(piece);
+            _saveGameService.CurrentWorldData.Vobs.Add(piece.Vob);
+            return piece;
+        }
+
+        /// <summary>
+        /// The piece lies in the palm, kinematic and following it, its collision with the hands off - a forced HVR grab
+        /// flung the physics hand away (the piece spawned inside the hand's colliders).
+        /// </summary>
+        private void PutIntoPalm(IVrGrabber hand, VobContainer piece)
+        {
+            var palm = GetPalm(hand);
+            SetKinematic(piece, true);
+            piece.Go.transform.SetParent(palm, true);
+            SetHandCollisions(piece, false);
+            _palmPieces[hand] = (piece, false);
+
+            var interactable = piece.Go.GetComponentInChildren<VrInteractable>();
+            if (interactable != null)
+                interactable.Grabbed += OnPalmPieceGrabbed;
+        }
+
+        /// <summary>
+        /// Grip on the piece: the backend takes over, it is a normal item again.
+        /// </summary>
+        private void OnPalmPieceGrabbed(VrGrabArgs args)
+        {
+            var interactable = args.Interactable;
+            if (interactable == null)
+                return;
+
+            interactable.Grabbed -= OnPalmPieceGrabbed;
+            foreach (var hand in new List<IVrGrabber>(_palmPieces.Keys))
+            {
+                var piece = _palmPieces[hand].Piece;
+                if (piece?.Go == null || piece.Go.GetComponentInChildren<VrInteractable>() != interactable)
+                    continue;
+                _palmPieces.Remove(hand);
+                // The backend ignores the hand collisions of what it holds and restores them on release - not us.
+                LetGoOfPalm(piece, isCollisionRestored: false);
+            }
+        }
+
+        private void LetGoOfPalm(VobContainer piece, bool isCollisionRestored)
+        {
+            if (piece?.Go == null)
+                return;
+            piece.Go.transform.SetParent(null, true);
+            SetKinematic(piece, false);
+            if (isCollisionRestored)
+                StartCoroutine(RestoreHandCollisionsLater(piece));
+        }
+
+        private IEnumerator RestoreHandCollisionsLater(VobContainer piece)
+        {
+            // Out of the hand first, or it is pushed out of it.
+            yield return new WaitForSeconds(0.5f);
+            SetHandCollisions(piece, true);
+        }
+
+        private void SetHandCollisions(VobContainer piece, bool isEnabled)
+        {
+            if (piece?.Go == null)
+                return;
+            var pieceColliders = piece.Go.GetComponentsInChildren<Collider>(true);
+            var physicsHands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (physicsHands == null)
+                return;
+            foreach (var hand in physicsHands)
+            {
+                if (hand != null)
+                    hand.IgnoreCollisions(pieceColliders, !isEnabled);
+            }
+        }
+
+        /// <summary>
+        /// A piece lying in the palm: grip grabs it (OnPalmPieceGrabbed); a grip press + release that didn't grab it
+        /// drops it.
+        /// </summary>
+        private void UpdatePalmPiece(IVrGrabber hand, VrHandSide side)
+        {
+            if (!_palmPieces.TryGetValue(hand, out var entry))
+                return;
+
+            if (entry.Piece?.Go == null)
+            {
+                _palmPieces.Remove(hand);
+                return;
+            }
+
+            var grip = _vrInput.GetButton(side, VrButton.Grip);
+            if (grip.IsJustActivated)
+            {
+                _palmPieces[hand] = (entry.Piece, true);
+                return;
+            }
+
+            if (entry.IsGripPressed && !grip.IsActive)
+            {
+                _palmPieces.Remove(hand);
+                LetGoOfPalm(entry.Piece, isCollisionRestored: true);
+            }
+        }
+    }
+}

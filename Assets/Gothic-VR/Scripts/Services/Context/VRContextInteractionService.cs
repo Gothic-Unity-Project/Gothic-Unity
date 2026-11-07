@@ -125,6 +125,9 @@ namespace Gothic.VR.Services.Context
                     Logger.LogError($"[VRContextInteractionService] Hero body prefab >{_heroBodyPrefabPath}< not " +
                                     "found. No VR hero body.", LogCat.VR);
             }
+
+            // Taking pieces off held stacks.
+            new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
         }
 
         private void OnLoadingSceneLoaded()
@@ -190,6 +193,10 @@ namespace Gothic.VR.Services.Context
 
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
+
+            // A trigger click at a worn item in the backpack equips it.
+            var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+            equipToggle.transform.SetParent(_player.transform, false);
 
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
