@@ -1,4 +1,5 @@
 using System.Text;
+using Gothic.Core;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
@@ -14,9 +15,10 @@ using ZenKit.Vobs;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// V2 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and the other
-    /// hand holds an item (or is near one inside the backpack), a popup above the item shows what Gothic's inventory
-    /// shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
+    /// V2 (Immersion option itemDetailsPopup, on by default): "backpack mode" - while the backpack is held in one hand
+    /// and the other hand holds an item (or is near one inside the backpack), a popup above the item shows what
+    /// Gothic's inventory shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required
+    /// attributes, value, ...).
     /// On the backpack prefab next to VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items
     /// near the hand in its slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
     /// Any VR backend (IVrRig hands, VrInteractable).
@@ -45,6 +47,8 @@ namespace Gothic.VR.Adapters.Player
         private GameObject _shownItem;
         private Renderer[] _shownItemRenderers;
         private float _updateTimer;
+        // Immersion option itemDetailsPopup (Gothic.ini, refreshed on PlayerPrefUpdated).
+        private bool _isOptionOn = VRConstants.ItemDetailsPopupDefaultValue == 1;
 
 
         private void Awake()
@@ -58,12 +62,29 @@ namespace Gothic.VR.Adapters.Player
             _backpack = _isCounter ? null : GetComponent<VrInteractable>();
             BuildCanvas();
             _canvasGo.SetActive(false);
+            ReadOption();
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
         private void OnDestroy()
         {
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             if (_canvasGo != null)
                 Destroy(_canvasGo);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.ItemDetailsPopup)
+                ReadOption();
+        }
+
+        private void ReadOption()
+        {
+            var gothicIni = _configService.Gothic;
+            if (gothicIni != null)
+                _isOptionOn = gothicIni.GetInt(VRConstants.IniNames.ItemDetailsPopup,
+                    VRConstants.ItemDetailsPopupDefaultValue) == 1;
         }
 
         private void LateUpdate()
@@ -110,7 +131,7 @@ namespace Gothic.VR.Adapters.Player
         private GameObject FindItemToShow()
         {
             var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (!_configService.Dev.EnableItemDetailsPopup || rig == null ||
+            if (!_isOptionOn || rig == null ||
                 (!_isCounter && (_backpack == null || !IsHeldByHand(rig, _backpack))))
                 return null;
             // A held backpack shows the held item with its own popup.

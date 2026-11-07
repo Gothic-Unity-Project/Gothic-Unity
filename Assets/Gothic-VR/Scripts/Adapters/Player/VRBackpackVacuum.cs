@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -16,13 +17,13 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// V2 (DeveloperConfig.EnableBackpackVacuum): while the backpack is held in a hand, its bottom opening
+    /// V2 (Immersion option backpackVacuum, on by default): while the backpack is held in a hand, its bottom opening
     /// (BackpackPutIntoSlot on HVR, PutIntoSlot on XRI) works like a weak magnet on nearby world items:
     /// - Items are moved towards the opening without building up momentum.
     /// - The pull target ("gravity eye") sits outside the opening, away from the backpack body: items approach from
     ///   there and never through the backpack. Collisions stay on; an item that would bump into the backpack waits
     ///   instead of pushing it.
-    /// - An item inside the opening gets stored after BackpackVacuumStoreSeconds - via the regular socket, same logic
+    /// - An item inside the opening gets stored after _storeSeconds - via the regular socket, same logic
     ///   as storing by hand (HVR also shows the socket's hover feedback meanwhile; XRI's slot shows its own).
     /// On the backpack prefab; disabled on an NPC loot backpack (VRBackpack.SetOwner).
     /// Any VR backend (IVrSocket, VrInteractable).
@@ -38,6 +39,14 @@ namespace Gothic.VR.Adapters.Player
         // How far outside of the opening the "gravity eye" sits, so items approach from below and not through the backpack.
         private const float _approachDistance = 0.25f;
 
+        [Tooltip("Pull radius around the backpack opening in meters.")]
+        [Range(0.2f, 3f)]
+        [SerializeField] private float _radius = 1.2f;
+
+        [Tooltip("Seconds an item has to stay inside the backpack opening before it's stored.")]
+        [Range(0.5f, 10f)]
+        [SerializeField] private float _storeSeconds = 3f;
+
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
@@ -50,6 +59,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<VrInteractable, Rigidbody> _rigidbodies = new();
         private float _scanTimer;
         private int _itemLayerMask;
+        // Immersion option backpackVacuum (Gothic.ini, refreshed on PlayerPrefUpdated).
+        private bool _isOptionOn = VRConstants.BackpackVacuumDefaultValue == 1;
 
 
         private void Awake()
@@ -73,6 +84,27 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
+            ReadOption();
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.BackpackVacuum)
+                ReadOption();
+        }
+
+        private void ReadOption()
+        {
+            var gothicIni = _configService.Gothic;
+            if (gothicIni != null)
+                _isOptionOn = gothicIni.GetInt(VRConstants.IniNames.BackpackVacuum,
+                    VRConstants.BackpackVacuumDefaultValue) == 1;
         }
 
         /// <summary>
@@ -90,7 +122,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void FixedUpdate()
         {
-            if (!_configService.Dev.EnableBackpackVacuum || !IsBackpackInHand())
+            if (!_isOptionOn || !IsBackpackInHand())
             {
                 UntrackAll();
                 return;
@@ -176,8 +208,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateDwellTimes(Vector3 opening, float elapsed)
         {
-            var radius = _configService.Dev.BackpackVacuumRadius;
-            var count = Physics.OverlapSphereNonAlloc(opening, radius, _overlapResults, _itemLayerMask, QueryTriggerInteraction.Ignore);
+            var count = Physics.OverlapSphereNonAlloc(opening, _radius, _overlapResults, _itemLayerMask,
+                QueryTriggerInteraction.Ignore);
 
             _seenThisScan.Clear();
             VrInteractable inside = null;
@@ -198,7 +230,7 @@ namespace Gothic.VR.Adapters.Player
                 if (isInside && inside == null)
                     inside = item;
 
-                if (dwell >= _configService.Dev.BackpackVacuumStoreSeconds)
+                if (dwell >= _storeSeconds)
                 {
                     TryStore(item);
                     if (inside == item)

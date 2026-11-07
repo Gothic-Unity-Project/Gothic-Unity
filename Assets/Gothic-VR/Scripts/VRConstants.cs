@@ -30,6 +30,13 @@ namespace Gothic.VR
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
+            // 1 = backpack in one hand + item in the other shows the item's Gothic inventory text (VRItemDetailsPopup).
+            public const string ItemDetailsPopup = "itemDetailsPopup";
+            // 1 = the held backpack's opening pulls nearby world items and stores them (VRBackpackVacuum).
+            public const string BackpackVacuum = "backpackVacuum";
+            // 1 = loot backpacks of dead NPCs and lidless containers show a green "X" that takes all (VRBackpack).
+            public const string LootTakeAll = "lootTakeAll";
+
             // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.
             public const string MoveVignette = "moveVignette";
 
@@ -80,6 +87,10 @@ namespace Gothic.VR
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
+
+        public const int ItemDetailsPopupDefaultValue = 1;
+        public const int BackpackVacuumDefaultValue = 1;
+        public const int LootTakeAllDefaultValue = 1;
 
         public const int MoveVignetteDefaultValue = 0;
 

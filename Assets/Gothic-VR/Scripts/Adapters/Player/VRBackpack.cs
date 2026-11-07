@@ -54,9 +54,13 @@ namespace Gothic.VR.Adapters.Player
                  "backpack is held.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
-        [Tooltip("DeveloperConfig.EnableLootTakeAll: the green \"X\" above the right page arrow (inactive child, " +
+        [Tooltip("Immersion option lootTakeAll: the green \"X\" above the right page arrow (inactive child, " +
                  "shown on a loot backpack only).")]
         [SerializeField] private GameObject _takeAllButton;
+
+        [Tooltip("While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
+                 "had to be grabbed very precisely. 1 = off.")]
+        [SerializeField] private float _shoulderGrabScale = 4f;
 
         private VrInteractable _interactable;
         private IVrSocketContainer _socketContainer;
@@ -170,12 +174,13 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableLootTakeAll: loot of a dead NPC or of a container without a lid (mummy) shows the green
-        /// "X" above the right page arrow (OnTakeAllClick). Not for knocked out NPCs (they're robbed item by item).
+        /// Immersion option lootTakeAll (on by default): loot of a dead NPC or of a container without a lid (mummy)
+        /// shows the green "X" above the right page arrow (OnTakeAllClick). Not for knocked out NPCs (they're robbed
+        /// item by item).
         /// </summary>
         private void ShowTakeAllButton()
         {
-            if (_configService == null || !_configService.Dev.EnableLootTakeAll || _owner == null || _owner.IsHero)
+            if (!IsLootTakeAllOn() || _owner == null || _owner.IsHero)
                 return;
             if (_owner.Npc != null && _owner.Npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 return;
@@ -188,8 +193,16 @@ namespace Gothic.VR.Adapters.Player
             _takeAllButton.SetActive(true);
         }
 
+        private bool IsLootTakeAllOn()
+        {
+            if (_configService == null || _configService.Gothic == null)
+                return VRConstants.LootTakeAllDefaultValue == 1;
+            return _configService.Gothic.GetInt(VRConstants.IniNames.LootTakeAll,
+                VRConstants.LootTakeAllDefaultValue) == 1;
+        }
+
         /// <summary>
-        /// DeveloperConfig.EnableLootTakeAll: everything the loot holds goes into the hero's inventory at once.
+        /// Immersion option lootTakeAll: everything the loot holds goes into the hero's inventory at once.
         /// </summary>
         public void OnTakeAllClick()
         {
@@ -259,7 +272,7 @@ namespace Gothic.VR.Adapters.Player
 
 
         /// <summary>
-        /// DeveloperConfig.EnableBackpackEquipToggle: [E] labels after equipping from outside (VRBackpackEquipToggle).
+        /// [E] labels after equipping from outside (VRBackpackEquipToggle).
         /// </summary>
         public void RefreshInventoryView()
         {
@@ -474,13 +487,12 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.BackpackShoulderGrabScale: on the shoulder, the grab volumes (trigger colliders the hands
+        /// _shoulderGrabScale: on the shoulder, the grab volumes (trigger colliders the hands
         /// grab it by) are larger - it had to be grabbed very precisely over the shoulder. Original size in a hand.
         /// </summary>
         private void SetShoulderGrabVolumes(bool isOnShoulder)
         {
-            var scale = _configService != null ? _configService.Dev.BackpackShoulderGrabScale : 1f;
-            if (isOnShoulder && (_grabVolumeSizes.Count > 0 || scale <= 1f))
+            if (isOnShoulder && (_grabVolumeSizes.Count > 0 || _shoulderGrabScale <= 1f))
                 return;
 
             if (!isOnShoulder)
@@ -498,7 +510,7 @@ namespace Gothic.VR.Adapters.Player
 
                 var size = GetVolumeSize(volume);
                 _grabVolumeSizes[volume] = size;
-                SetVolumeSize(volume, size * scale);
+                SetVolumeSize(volume, size * _shoulderGrabScale);
             }
         }
 
