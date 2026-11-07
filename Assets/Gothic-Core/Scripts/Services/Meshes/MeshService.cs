@@ -27,7 +27,7 @@ namespace Gothic.Core.Services.Meshes
 
         public GameObject CreateNpc(string npcName, string mdmName, string mdhName, ExtSetVisualBodyData bodyData,
             Vector3 position = default, Quaternion rotation = default,
-            GameObject parent = null, GameObject root = null)
+            GameObject parent = null, GameObject root = null, bool isHitboxExpected = false)
         {
             var npcBuilder = new NpcMeshBuilder().Inject();
             npcBuilder.SetRootPosAndRot(position, rotation);
@@ -37,6 +37,7 @@ namespace Gothic.Core.Services.Meshes
             npcBuilder.SetMdh(mdhName);
             npcBuilder.SetMdm(mdmName);
             npcBuilder.SetBodyData(bodyData);
+            npcBuilder.SetHitboxExpected(isHitboxExpected);
 
             var npcGo = npcBuilder.Build();
 

@@ -38,6 +38,11 @@ namespace Gothic.VR.Adapters
 
         [SerializeField] private GameObject _nameCanvas;
 
+        /// <summary>
+        /// The hover name (with the amount) is shown right now.
+        /// </summary>
+        public bool IsNameShown => _isHovered && _nameCanvas != null && _nameCanvas.activeSelf;
+
         private bool _isHovered;
         private Renderer _cachedObjectRenderer;
         private bool _isNpc;

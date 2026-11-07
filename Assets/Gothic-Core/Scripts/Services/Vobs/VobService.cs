@@ -912,5 +912,31 @@ namespace Gothic.Core.Services.Vobs
                 return true;
             return _gameStateService.VobsMover.TryGetValue(key + ".3DS", out containers);
         }
+        /// <summary>
+        /// Removes a VobContainer from the world cache without destroying its GameObject.
+        /// Use when the player physically takes a world item (GO stays alive in VR hands).
+        /// </summary>
+        public void UntrackVobFromCache(VobContainer container)
+        {
+            // Out of the world's VOB list in any case: an item taken out of the backpack isn't in the cache any more,
+            // put back in it stayed in the save's world list too (saved twice).
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            if (_multiTypeCacheService.VobCache.Remove(container))
+                Logger.Log($"[VobService] UntrackVobFromCache: '{container.Vob.Name}' removed from cache", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Removes exactly this world item (cache + save data) and destroys its GameObject.
+        /// Callers must pass the container they validated themselves - re-searching by name here could pick
+        /// another copy of the item (e.g., the one in the player's hand).
+        /// </summary>
+        public void RemoveWorldItem(VobContainer container)
+        {
+            Logger.Log($"[VobService] RemoveWorldItem: destroying '{container.Vob.Name}' GO", LogCat.Vob);
+            _vobMeshCullingService.RemoveCullingEntry(container);
+            _multiTypeCacheService.VobCache.Remove(container);
+            _saveGameService.CurrentWorldData.Vobs.Remove(container.Vob);
+            Object.Destroy(container.Go);
+        }
     }
 }

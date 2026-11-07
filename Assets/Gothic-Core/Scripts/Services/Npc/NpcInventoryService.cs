@@ -1,16 +1,18 @@
 using System.Collections.Generic;
 using System.Linq;
-using Gothic.Core.Const;
+using Gothic.Core.Domain.Inventory;
+using Gothic.Core.Domain.Meshes.Builder;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
-using Object = UnityEngine.Object;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Npc
 {
@@ -19,15 +21,125 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
 
-        
+        private readonly EquipDomain _equipDomain = new EquipDomain().Inject();
+        private readonly NpcArmorMeshBuilder _armorMeshBuilder = new NpcArmorMeshBuilder().Inject();
+
+        /// <summary>
+        /// The NPC whose item function (on_equip/on_unequip) runs right now, null otherwise.
+        /// </summary>
+        public NpcInstance ItemFunctionOwner => _equipDomain.ItemFunctionOwner;
+
+
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {
-            var props = npc.GetUserData().Props;
             var itemData = _vmCacheService.TryGetItemData(itemId);
-            
-            props.EquippedItems.Add(itemData);
+
+            // "gibt dem Nsc direkt das angegebene Item an den Guertel"
+            // (externals.d) - the engine gives the item too. Orc shamans equip their staff without CreateInvItem,
+            // Mroczne Tajemnice's Rockefeller his warhammer: equipped, but not in the inventory.
+            if (itemData != null && ExtNpcHasItems(npc, itemId) <= 0)
+            {
+                ExtCreateInvItems(npc, itemId, 1);
+                Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} got '{itemData.Name}' from EquipItem " +
+                           "(not in the inventory)", LogCat.Npc);
+            }
+
+            // The engine applies protection[] + on_equip for script equips too (OpenGothic: Inventory::setSlot ->
+            // applyArmor). Without it, every NPC's armor (and the hero's starting armor) protected nothing.
+            // A mod's EquipItem with a symbol that's no item: nothing to equip (a null entry broke every view).
+            if (itemData == null)
+            {
+                Logger.LogWarning($"[Equip] {npc.GetName(NpcNameSlot.Slot0)}: EquipItem symbol {itemId} is no item",
+                    LogCat.Npc);
+                return;
+            }
+
+            _equipDomain.EquipItemWithEffects(npc, itemData, deferItemFunctions: true);
         }
-        
+
+        /// <inheritdoc cref="EquipDomain.EquipItemWithEffects"/>
+        public void EquipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false)
+        {
+            _equipDomain.EquipItemWithEffects(npc, item, deferItemFunctions);
+        }
+
+        /// <inheritdoc cref="EquipDomain.UnequipItemWithEffects"/>
+        public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false,
+            bool updateArmorVisual = true)
+        {
+            return _equipDomain.UnequipItemWithEffects(npc, item, deferItemFunctions, updateArmorVisual);
+        }
+
+        /// <summary>
+        /// AI_EquipArmor: equips an armor the NPC carries (engine: nothing happens without it in the inventory).
+        /// </summary>
+        public void EquipArmorFromInventory(NpcInstance npc, ItemInstance armor)
+        {
+            if (armor == null)
+                return;
+
+            if (ExtNpcHasItems(npc, armor.Index) <= 0)
+            {
+                Logger.LogWarning($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} doesn't carry '{armor.Name}' - " +
+                                  "AI_EquipArmor ignored like in the engine.", LogCat.Npc);
+                return;
+            }
+
+            if (npc.GetUserData().Props.EquippedItems.Any(i => i.Index == armor.Index))
+                return;
+
+            _equipDomain.EquipItemWithEffects(npc, armor);
+        }
+
+        /// <summary>
+        /// AI_UnequipArmor: takes the armor off (it stays in the inventory), the NPC shows its naked body.
+        /// </summary>
+        public void UnequipArmor(NpcInstance npc)
+        {
+            var armor = npc.GetUserData().Props.EquippedItems.FirstOrDefault(i => i.IsTorsoArmor());
+            if (armor != null)
+                _equipDomain.UnequipItemWithEffects(npc, armor);
+        }
+
+        /// <summary>
+        /// AI_EquipBestArmor: the carried armor with the highest total protection.
+        /// </summary>
+        public void EquipBestArmor(NpcInstance npc)
+        {
+            ItemInstance best = null;
+            var bestProtection = int.MinValue;
+            foreach (var content in GetAllInventoryItems(npc))
+            {
+                var item = _vmCacheService.TryGetItemData(content.Name);
+                if (!item.IsTorsoArmor())
+                    continue;
+
+                var protection = 0;
+                for (var i = 0; i < 8; i++)
+                    protection += item.GetProtection((DamageType)i);
+
+                if (protection > bestProtection)
+                {
+                    best = item;
+                    bestProtection = protection;
+                }
+            }
+
+            EquipArmorFromInventory(npc, best);
+        }
+
+        /// <inheritdoc cref="EquipDomain.RemoveEquippedWeapon"/>
+        public void RemoveEquippedWeapon(NpcContainer npc, string itemInstanceName)
+        {
+            _equipDomain.RemoveEquippedWeapon(npc, _vmCacheService.TryGetItemData(itemInstanceName));
+        }
+
+        public bool IsEquipped(NpcInstance npc, string itemInstanceName)
+        {
+            var item = _vmCacheService.TryGetItemData(itemInstanceName);
+            return item != null && npc.GetUserData().Props.EquippedItems.Any(i => i.Index == item.Index);
+        }
+
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)
         {
             // FIXME - Does it make sense? It would mean we never add an item if we loaded a SaveGame...
@@ -45,8 +157,17 @@ namespace Gothic.Core.Services.Npc
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
 
-            
-            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+            // DeveloperConfig.EnableItemInitSymbolCheck: no item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
+            // skipped like the engine. The exception stopped the NPC's creation.
+            var itemData = _vmCacheService.TryGetItemData(itemIndex);
+            if (itemData == null)
+            {
+                Logger.LogWarning($"[CreateInvItems] {npc.GetName(NpcNameSlot.Slot0)}: '{itemInstance?.Name}' is no " +
+                                  "item - skipped.", LogCat.Npc);
+                return;
+            }
+
+            var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = vob.GetPacked((int)inventoryCat).UnpackItems();
@@ -78,8 +199,16 @@ namespace Gothic.Core.Services.Npc
 
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
-            
-            var mainFlag = (VmGothicEnums.ItemFlags)_vmCacheService.TryGetItemData(itemIndex).MainFlag;
+
+            var itemData = _vmCacheService.TryGetItemData(itemIndex);
+            if (itemData == null)
+            {
+                Logger.LogWarning($"[RemoveInvItems] {npc.GetName(NpcNameSlot.Slot0)}: '{itemInstance?.Name}' is no " +
+                                  "item - skipped.", LogCat.Npc);
+                return;
+            }
+
+            var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
             var items = vob.GetPacked((int)inventoryCat).UnpackItems();
@@ -163,7 +292,15 @@ namespace Gothic.Core.Services.Npc
 
         public int ExtNpcHasItems(NpcInstance npc, int itemId)
         {
-            var itemInstanceName = _gameStateService.GothicVm.GetSymbolByIndex(itemId)!.Name;
+            var symbol = _gameStateService.GothicVm.GetSymbolByIndex(itemId);
+            if (symbol == null)
+            {
+                Logger.LogWarning($"[NpcHasItems] {npc?.GetName(NpcNameSlot.Slot0)}: no symbol with index {itemId}.",
+                    LogCat.Npc);
+                return 0;
+            }
+
+            var itemInstanceName = symbol.Name;
 
             foreach (InvCats cat in System.Enum.GetValues(typeof(InvCats)))
             {
@@ -229,19 +366,8 @@ namespace Gothic.Core.Services.Npc
             if (container.Go == null)
                 return;
 
-            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
-                Constants.SlotCrossbow };
-            if (isWeaponDrawn)
-                slotNames.Add(DrawWeapon.GetHandSlotName(weaponState));
-            foreach (var slotName in slotNames)
-            {
-                var slot = container.Go.FindChildRecursively(slotName);
-                if (slot == null)
-                    continue;
-
-                for (var i = slot.transform.childCount - 1; i >= 0; i--)
-                    Object.Destroy(slot.transform.GetChild(i).gameObject);
-            }
+            _armorMeshBuilder.DestroyAllWeaponMeshes(container,
+                isWeaponDrawn ? DrawWeapon.GetHandSlotName(weaponState) : null);
         }
 
         /// <summary>

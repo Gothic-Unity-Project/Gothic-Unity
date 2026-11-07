@@ -7,5 +7,7 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         public bool IsInsideLock;
         public VRContainerDoorPickingInteraction ActiveContainerDoorPicking;
         public Transform HoldingHand;
+        // HoldingHand is the hand, turning is its roll.
+        public bool IsHandRollTracked;
     }
 }

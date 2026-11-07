@@ -20,10 +20,20 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
 
         protected ExtSetVisualBodyData BodyData;
+        private bool _isHitboxExpected;
 
         public virtual void SetBodyData(ExtSetVisualBodyData body)
         {
             BodyData = body;
+        }
+
+        /// <summary>
+        /// True for NPCs built into the NPC prefab (NpcHitboxColliderAdapter must exist). Visual-only bodies (VR hero
+        /// body, Lab) have none - nothing to warn about.
+        /// </summary>
+        public void SetHitboxExpected(bool isHitboxExpected)
+        {
+            _isHitboxExpected = isHitboxExpected;
         }
 
         public override GameObject Build()
@@ -103,8 +113,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             // TODO - For NPC, the CollisionBoundingBox is quite narrow. Think about using Mdh.BoundingBox for VR as it's broader for better hit detection.
             var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
-            // Visual-only bodies (VR hero body) aren't built from the NPC prefab - no hitbox there.
-            RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>()?.SetDimension(bounds);
+            var hitbox = RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>();
+            if (hitbox != null)
+                hitbox.SetDimension(bounds);
+            else if (_isHitboxExpected)
+                Logger.LogWarning($"[NpcMeshBuilder] No NpcHitboxColliderAdapter below '{RootGo.name}' - " +
+                                  "the NPC has no hitbox.", LogCat.Npc);
         }
     }
 }

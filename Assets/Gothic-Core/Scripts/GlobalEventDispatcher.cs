@@ -126,6 +126,16 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
         /// <summary>
+        /// An inventory view (NPC loot sockets, NPC backpack) changed an NPC's items - the other views showing the same
+        /// NPC refresh.
+        /// NpcContainer - whose inventory changed
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> NpcInventoryChanged = new();
+
+        // DocModel - document to show; GameObject - item GO to attach the viewer to (may be null in flat mode).
+        public static readonly UnityEvent<Gothic.Core.Models.Doc.DocModel, GameObject> DocShow = new();
+
+        /// <summary>
         /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
         /// (LoadGameStart ends the knockout).
         /// </summary>

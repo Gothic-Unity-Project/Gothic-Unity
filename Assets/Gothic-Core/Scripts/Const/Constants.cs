@@ -26,6 +26,17 @@ namespace Gothic.Core.Const
             public const string RootBoneName = "BIP01";
         }
 
+        /// <summary>
+        /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
+        /// </summary>
+        public static class Fonts
+        {
+            /// <summary>
+            /// An empty font: every character falls back to the sprite asset made from Gothic's font (GothicText).
+            /// </summary>
+            public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";
+        }
+
         // Unity shaders
         public static readonly Shader ShaderUnlit = Shader.Find("Universal Render Pipeline/Unlit");
         public static readonly Shader ShaderUnlitParticles = Shader.Find("Universal Render Pipeline/Particles/Unlit");
@@ -141,6 +152,11 @@ namespace Gothic.Core.Const
         // Items inside a VR slot (holster, backpack, chest). Collides with nothing (hands, body, ground check), only
         // the hands' near grab finds it.
         public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
+
+        // Layer mask (not an index) of the solid colliders of doors and chests: body (Default), door wing (VobItem),
+        // chest lid (VobMovable), handles (Grabbable).
+        public static readonly int MobLockableMask = (1 << DefaultLayer) | (1 << VobItemLayer) |
+                                                     (1 << VobMovableLayer) | (1 << GrabbableLayer);
 
         
         /*
