@@ -43,7 +43,7 @@ namespace Gothic.VR.Adapters
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
 
-        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\").")]
+        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera).")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
         [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking " +

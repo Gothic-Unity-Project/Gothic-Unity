@@ -2655,8 +2655,9 @@ MonoBehaviour:
   - {fileID: 7401336062048036547}
   - {fileID: 5690367176338909822}
   - {fileID: 20846681383763424}
-  _equippedLabelPrefab: {fileID: 7287385748860620739, guid: 5c070705acbf35a4c80e712ff99cc44b, type: 3}
+  _equippedLabelPrefab: {fileID: 8561692902897600125, guid: 76f1c8a5b07e19609b5aa836da0819e8, type: 3}
   _takeAllButton: {fileID: 6345370817526419299}
+  _shoulderGrabScale: 4
 --- !u!114 &1225520967283189248
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2865,6 +2866,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1156d4e900b83a4b8595f56d62214c8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.Player.VRBackpackVacuum
+  _radius: 1.2
+  _storeSeconds: 3
 --- !u!114 &6847288572151395398
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -50,8 +50,8 @@ namespace Gothic.VR.Adapters.Player
         [Tooltip("Backpack slots (IVrSocket) which add/remove items to/from the inventory when used.")]
         [SerializeField] private GameObject[] _inventorySockets;
 
-        [Tooltip("The [E] badge above an equipped item's slot - the billboard variant, readable however the " +
-                 "backpack is held.")]
+        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera, " +
+                 "readable however the backpack is held).")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
         [Tooltip("Immersion option lootTakeAll: the green \"X\" above the right page arrow (inactive child, " +

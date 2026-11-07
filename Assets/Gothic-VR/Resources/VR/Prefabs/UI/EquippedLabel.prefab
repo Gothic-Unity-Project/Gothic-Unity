@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7413166583355852079}
   - component: {fileID: 7089918548968031044}
   - component: {fileID: 6191459147878653285}
+  - component: {fileID: 645964387148789860}
   m_Layer: 0
   m_Name: EquippedLabel
   m_TagString: Untagged
@@ -181,3 +182,15 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_renderer: {fileID: 7089918548968031044}
   m_maskType: 0
+--- !u!114 &645964387148789860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8561692902897600125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 383b7c9b1aac41f49b7f65488b62def4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.UI.VRBillboard
