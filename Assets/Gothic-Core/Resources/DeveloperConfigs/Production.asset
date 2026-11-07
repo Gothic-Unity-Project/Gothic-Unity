@@ -76,23 +76,7 @@ MonoBehaviour:
   TimeSpeedMultiplier: 1
   EnableVrHeroBody: 1
   EnableHeroHands: 1
-  EnableEquipItems: 1
-  EnableBackpackEquipToggle: 1
-  EnableItemDetailsPopup: 1
-  EnableBackpackVacuum: 1
-  BackpackVacuumRadius: 1.2
-  BackpackVacuumStoreSeconds: 3
-  BackpackShoulderGrabScale: 4
   NpcLootMode: 1
-  NpcLootBackpackTimeout: 20
-  EnableLootTakeAll: 1
-  EnableStackSplit: 1
-  StackSplitRepeatDelay: 0.45
-  StackSplitAcceleration: 0.8
-  EnableSmoking: 1
-  SmokePuffs: 4
-  SmokeStartDelay: 1.5
-  G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
