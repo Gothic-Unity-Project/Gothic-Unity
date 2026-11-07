@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -22,10 +23,13 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly DialogService _dialogService;
 
         // Fallbacks for G1's smaller SVM set: DialogService takes the first one the game has a line for.
-        private static readonly string[] _keyOrPickMissingSvms = { "$PICKLOCKORKEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
-        private static readonly string[] _keyMissingSvms = { "$KEYMISSING", "$NEEDKEY", "$DOESNTWORK" };
-        private static readonly string[] _pickMissingSvms = { "$PICKLOCKMISSING", "$NOMOREPICKS", "$DOESNTWORK" };
-        private static readonly string[] _neverOpenSvms = { "$NEVEROPEN", "$DOESNTWORK" };
+        private static readonly string[] _keyOrPickMissingSvms =
+            { DaedalusConst.Svm.PickLockOrKeyMissing, DaedalusConst.Svm.NeedKey, DaedalusConst.Svm.DoesntWork };
+        private static readonly string[] _keyMissingSvms =
+            { DaedalusConst.Svm.KeyMissing, DaedalusConst.Svm.NeedKey, DaedalusConst.Svm.DoesntWork };
+        private static readonly string[] _pickMissingSvms =
+            { DaedalusConst.Svm.PickLockMissing, DaedalusConst.Svm.NoMorePicks, DaedalusConst.Svm.DoesntWork };
+        private static readonly string[] _neverOpenSvms = { DaedalusConst.Svm.NeverOpen, DaedalusConst.Svm.DoesntWork };
 
         /// <summary>
         /// Like the engine, the key in the inventory opens the lock: it doesn't have to be taken out of the backpack.

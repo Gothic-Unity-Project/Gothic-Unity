@@ -32,5 +32,17 @@ namespace Gothic.Core.Const
         public const string AniDeadB = "S_DEADB";
         // G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
         public const string AniDead = "S_DEAD";
+
+        public static class Svm
+        {
+            // SVM keys the engine's oCMobLockable::CanOpen uses (output via DialogService.HeroSaySvm / OutputSvm).
+            public const string PickLockOrKeyMissing = "$PICKLOCKORKEYMISSING";
+            public const string KeyMissing = "$KEYMISSING";
+            public const string PickLockMissing = "$PICKLOCKMISSING";
+            public const string NeverOpen = "$NEVEROPEN";
+            public const string NeedKey = "$NEEDKEY";
+            public const string NoMorePicks = "$NOMOREPICKS";
+            public const string DoesntWork = "$DOESNTWORK";
+        }
     }
 }
