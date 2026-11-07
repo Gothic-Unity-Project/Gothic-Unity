@@ -106,14 +106,15 @@ namespace Gothic.Core.Domain.Npc
 
             if (closestEnemy == null)
             {
-                Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)}: no next target", LogCat.Fight);
+                Logger.LogEditor($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)}: no next target", LogCat.Fight);
                 return 0;
             }
 
             selfNpc.Props.TargetNpc = closestEnemy.Instance;
             selfNpc.Props.EnemyNpc = closestEnemy.Instance;
             _gameStateService.GothicVm.GlobalOther = closestEnemy.Instance;
-            Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)} → {closestEnemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            Logger.LogEditor($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)} → " +
+                $"{closestEnemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
             return 1;
         }
 

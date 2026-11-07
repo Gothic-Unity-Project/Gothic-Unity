@@ -312,13 +312,15 @@ namespace Gothic.Core.Services.Npc
 
             if (nearestData == null)
             {
-                Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)}: no item with flags={flags} nearby", LogCat.Npc);
+                Logger.LogEditor($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)}: no item with flags={flags} " +
+                    $"nearby", LogCat.Npc);
                 return false;
             }
 
             _gameStateService.GothicVm.GlobalItem = nearestData;
             npc.GetUserData().Props.DetectedItem = nearestContainer;
-            Logger.Log($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
+            Logger.LogEditor($"[Wld_DetectItem] {npc.GetName(NpcNameSlot.Slot0)} found '{nearestData.Name}' " +
+                $"flags={flags} dist={nearestDist:F1}m", LogCat.Npc);
             return true;
         }
 
