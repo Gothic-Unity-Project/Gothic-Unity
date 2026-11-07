@@ -110,5 +110,28 @@ namespace Gothic.VR
 
         // Cone angle in degrees of the far ray. The wider, the less precisely you need to point at an object.
         public const float DistanceGrabConeAngle = 3f;
+
+        // Render queue of the VR hands and the hero's arms while a menu or dialog wants the hands on top: after the
+        // on-top UI (UiOnTop-Text: 3901). VRHandsOnTop and VrHeroHands.
+        public const int HandsOnTopRenderQueue = 3950;
+
+        /// <summary>
+        /// VR swim values. Deliberately not the guild's water depths (GetWaterDepthKnee/Chest from Daedalus): those
+        /// decide whether the hero walks, wades or swims (VRSwimDive). The values here only decide how the VR hero body
+        /// looks in the water (VrHeroSwimPose) and how far VRSwimDive looks for the surface.
+        /// </summary>
+        public static class Swim
+        {
+            // Water at least this deep (m, bottom to surface) and the feet off the bottom: the VR hero body swims, even
+            // while the hero's swim state flickers at the surface (chest -> knee deep for a moment = walking).
+            public const float BodySwimWaterDepth = 1.1f;
+
+            // The feet at least this far (m) above the bottom count as floating (the body swims, doesn't stand).
+            public const float BodyFloatAboveBottom = 0.15f;
+
+            // VRSwimDive: the ray for the water surface goes this far (m) past the guild's chest depth, so the surface
+            // is still found when the player is a bit deeper than chest deep.
+            public const float WaterSurfaceRayBuffer = 2f;
+        }
     }
 }
