@@ -46,6 +46,10 @@ namespace Gothic.VR.Adapters
         [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\").")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
+        [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking " +
+                 "the body again).")]
+        [SerializeField] private float _lootBackpackTimeoutSeconds = 20f;
+
         /// <summary>
         /// The loot socket - also used for the trade counter's offer zones.
         /// </summary>
@@ -171,7 +175,7 @@ namespace Gothic.VR.Adapters
 
         private IEnumerator CloseUnusedLootBackpack()
         {
-            yield return new WaitForSeconds(Mathf.Max(1f, _configService.Dev.NpcLootBackpackTimeout));
+            yield return new WaitForSeconds(Mathf.Max(1f, _lootBackpackTimeoutSeconds));
             _lootBackpackTimeout = null;
             if (!_isOpen)
                 yield break;

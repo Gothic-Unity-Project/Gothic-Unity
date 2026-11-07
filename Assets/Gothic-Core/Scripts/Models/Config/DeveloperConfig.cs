@@ -302,75 +302,11 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Backpack and Items", true)]
-        [Tooltip("Grab armor/amulet/ring/belt with both hands + trigger (R) -> it's stored in the backpack and equipped " +
-                 "(protection + on_equip). Equipped items are listed first in the backpack with an [E] badge; " +
-                 "taking the last one out of the backpack unequips it.")]
-        public bool EnableEquipItems = true;
-
-        [Tooltip("An empty hand at an armor, amulet, ring or belt in the hero's backpack and a trigger click (quick, " +
-                 "without moving) puts it on or takes it off.")]
-        public bool EnableBackpackEquipToggle = true;
-
-        [Tooltip("Backpack in one hand + item in the other hand (or hovering one in the backpack) shows a popup " +
-                 "with the item's name, amount and Gothic inventory description (C_Item text[]/count[]).")]
-        public bool EnableItemDetailsPopup = true;
-
-        [Tooltip("While the backpack is held in a hand, its bottom opening gently pulls nearby world items. " +
-                 "An item staying inside the opening for BackpackVacuumStoreSeconds gets stored.")]
-        public bool EnableBackpackVacuum = true;
-
-        [Tooltip("Pull radius around the backpack opening in meters.")]
-        [Range(0.2f, 3f)]
-        public float BackpackVacuumRadius = 1.2f;
-
-        [Tooltip("Seconds an item has to stay inside the backpack opening before it's stored.")]
-        [Range(0.5f, 10f)]
-        public float BackpackVacuumStoreSeconds = 3f;
-
-        [Tooltip("While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
-                 "had to be grabbed very precisely. 1 = off.")]
-        public float BackpackShoulderGrabScale = 4f;
-
         [Tooltip("How an NPC's loot is shown: Backpack (default) - the NPC's backpack lying next to it (a tinted copy " +
                  "of the hero's, categories and pages), Sockets - the old row of loot sockets at the NPC, Both - in sync " +
                  "(the sockets stand where the backpack lies: the hand takes their items, not the backpack). Gone when " +
                  "the loot closes.")]
         public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
-
-        [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking the " +
-                 "body again).")]
-        public float NpcLootBackpackTimeout = 20f;
-
-        [Tooltip("Loot backpacks of dead NPCs and of containers without a lid (mummies) get a green X above the right " +
-                 "page arrow - it moves everything into the hero's inventory.")]
-        public bool EnableLootTakeAll = true;
-
-        [Tooltip("Taking pieces off a held item stack: the empty hand near the stack presses its trigger (T in the " +
-                 "simulator) - one piece jumps into it, holding the trigger takes more and more quickly.")]
-        public bool EnableStackSplit = true;
-
-        [Tooltip("Seconds until the second piece while the split trigger is held (EnableStackSplit).")]
-        public float StackSplitRepeatDelay = 0.45f;
-
-        [Tooltip("Each next piece comes this factor faster (0.1-1, 1 = constant pace) (EnableStackSplit).")]
-        public float StackSplitAcceleration = 0.8f;
-
-        [Tooltip("Swampweed joints (scheme JOINT) can be smoked at the VR mouth: smoke sound + LIGHTSMOKE puffs, " +
-                 "on_state[0] like the engine, joint used up.")]
-        public bool EnableSmoking = true;
-
-        [Tooltip("Smoke puffs of one joint (at least 1), spread over the smoking sound.")]
-        [Min(1)]
-        public int SmokePuffs = 4;
-
-        [Tooltip("Seconds from putting the joint to the mouth until the smoking sound and the first puff (taking a drag).")]
-        [Min(0f)]
-        public float SmokeStartDelay = 1.5f;
-
-        [Tooltip("G1 world map (WORLD.ZEN) edges in Gothic cm: x = left, y = top, z = right, w = bottom. G1 maps have no " +
-                 "Doc_SetLevelCoords - fit by two spots in VR (start, Swamp Camp). " +
-                 "All 0 = the world mesh bounds.")]
-        public Vector4 G1WorldMapBounds = new(-84056f, 67222f, 84451f, -61217f);
 
 
         /**

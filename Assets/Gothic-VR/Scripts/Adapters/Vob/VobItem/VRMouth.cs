@@ -11,7 +11,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
@@ -39,12 +38,20 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         [SerializeField] private AudioSource _mouthAudio;
 
+        [Tooltip("Smoke puffs of one joint (at least 1), spread over the smoking sound.")]
+        [Min(1)]
+        [SerializeField] private int _smokePuffs = 4;
+
+        [Tooltip("Seconds from putting the joint to the mouth until the smoking sound and the first puff (taking a " +
+                 "drag).")]
+        [Min(0f)]
+        [SerializeField] private float _smokeStartDelay = 1.5f;
+
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly Gothic.Core.Services.World.SaveGameService _saveGameService;
@@ -81,8 +88,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 Logger.LogWarning("No SFX for eating/drinking item found. Removing item anyways after 1 second.", LogCat.VR);
 
             _objectsInDestroyGracePeriod.Add(rootGo);
-            // Smoking: a drag first, then the sound and the smoke (DeveloperConfig.SmokeStartDelay).
-            var startDelay = IsSmokable(item) ? Mathf.Max(0f, _configService.Dev.SmokeStartDelay) : 0f;
+            // Smoking: a drag first, then the sound and the smoke (_smokeStartDelay).
+            var startDelay = IsSmokable(item) ? Mathf.Max(0f, _smokeStartDelay) : 0f;
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime, startDelay));
 
             if (IsSmokable(item))
@@ -90,13 +97,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// V1 (DeveloperConfig.EnableSmoking): swampweed joints (scheme JOINT, ITEM_KAT_NONE) are smoked at the mouth like
+        /// V1: swampweed joints (scheme JOINT, ITEM_KAT_NONE) are smoked at the mouth like
         /// food is eaten: the SFX of t_JOINT_S0_2_Stand (SMOKE_JOINT) plays, on_state[0] runs (XP/effects) and the joint is
         /// used up (that animation ends with DEF_DESTROY_ITEM). Data driven - mods with own JOINT items work the same.
         /// </summary>
         private bool IsSmokable(ItemInstance item)
         {
-            return _configService.Dev.EnableSmoking && item.SchemeName.EqualsIgnoreCase("JOINT");
+            return item.SchemeName.EqualsIgnoreCase("JOINT");
         }
 
         /// <summary>
@@ -104,7 +111,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds, float startDelay)
         {
-            var puffs = Mathf.Max(1, _configService.Dev.SmokePuffs);
+            var puffs = Mathf.Max(1, _smokePuffs);
             if (startDelay > 0f)
                 yield return new WaitForSeconds(startDelay);
 

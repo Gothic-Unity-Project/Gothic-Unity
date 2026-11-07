@@ -1,20 +1,20 @@
 using UnityEngine;
-using Gothic.Core.Services.Config;
-using Reflex.Attributes;
 
 namespace Gothic.Core.Services.Inventory
 {
     /// <summary>
-    /// DeveloperConfig.EnableStackSplit: taking pieces off a held item stack with the other hand. How many and how
-    /// fast - the VR adapter only reads the input and moves the items.
+    /// Taking pieces off a held item stack with the other hand. How many and how fast - the VR adapter only reads the
+    /// input and moves the items.
     /// </summary>
     public class StackSplitService
     {
         private const float _minRepeatDelay = 0.1f;
-
-        [Inject] private readonly ConfigService _configService;
-
-        public bool IsEnabled => _configService.Dev.EnableStackSplit;
+        // Seconds until the second piece while the split trigger is held.
+        private const float _repeatDelay = 0.45f;
+        // Each next piece comes this factor faster (0.1-1, 1 = constant pace).
+        private const float _acceleration = 0.8f;
+        // Speeding up gently (square root of the factor) - the full factor raced.
+        private static readonly float _gentleAcceleration = Mathf.Sqrt(_acceleration);
 
         /// <summary>
         /// The last piece always stays - the stack itself.
@@ -29,10 +29,8 @@ namespace Gothic.Core.Services.Inventory
         /// </summary>
         public float GetRepeatDelay(int piecesSplit)
         {
-            var firstDelay = Mathf.Max(0.02f, _configService.Dev.StackSplitRepeatDelay);
-            // Speeding up gently (square root of the factor) - the full factor raced.
-            var acceleration = Mathf.Sqrt(Mathf.Clamp(_configService.Dev.StackSplitAcceleration, 0.1f, 1f));
-            return Mathf.Max(_minRepeatDelay, firstDelay * Mathf.Pow(acceleration, Mathf.Max(0, piecesSplit - 1)));
+            return Mathf.Max(_minRepeatDelay,
+                _repeatDelay * Mathf.Pow(_gentleAcceleration, Mathf.Max(0, piecesSplit - 1)));
         }
     }
 }
