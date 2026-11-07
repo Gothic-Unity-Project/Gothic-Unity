@@ -132,7 +132,10 @@ namespace Gothic.Core.Domain.Vm
         public ItemInstance AsItem(DaedalusInstance instance, string external)
         {
             if (instance == null)
+            {
+                LogNullInstance(external, "C_ITEM");
                 return null;
+            }
             if (instance is ItemInstance item)
                 return item;
             var converted = _vmCacheService.TryGetItemData(instance.Index);
@@ -143,11 +146,25 @@ namespace Gothic.Core.Domain.Vm
         public NpcInstance AsNpc(DaedalusInstance instance, string external)
         {
             if (instance == null)
+            {
+                LogNullInstance(external, "C_NPC");
                 return null;
+            }
             if (instance is NpcInstance npc)
                 return npc;
             LogInstanceMismatch(external, instance, "C_NPC", false);
             return null;
+        }
+
+        /// <summary>
+        /// Scripts legitimately pass unset instances (other/victim not set yet), so this is logged once per external
+        /// and world, not per call. It makes an external that silently returns its default visible.
+        /// </summary>
+        private void LogNullInstance(string external, string expected)
+        {
+            Logger.LogWarningOnce($"null:{external}:{expected}",
+                $"[VM] {external}: got a null {expected} instance - the external returns its default. Happens " +
+                "when the script's other/victim/item isn't set; logged once per world.", LogCat.ZenKit);
         }
 
         private void LogInstanceMismatch(string external, DaedalusInstance instance, string expected, bool isConverted)
