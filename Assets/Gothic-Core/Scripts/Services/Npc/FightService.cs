@@ -1523,6 +1523,9 @@ namespace Gothic.Core.Services.Npc
             // Play hurt on top of whatever is currently running — don't interrupt the current action.
             var animName = _animationService.GetAnimationName(VmGothicEnums.AnimationType.StumbleA, target);
             target.PrefabProps.AnimationSystem.PlayAnimation(animName);
+
+            // The stumble may push the NPC over an edge - the sleeping fall check has to see it.
+            _npcJumpFallFactory.Wake(target);
         }
 
         private void OnHitPlaySound(NpcContainer target)

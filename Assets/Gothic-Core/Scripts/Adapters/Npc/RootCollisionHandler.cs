@@ -142,6 +142,9 @@ namespace Gothic.Core.Adapters.Npc
 
             // Apply the pushback to the root position
             Go.transform.position += pushbackOffset;
+
+            // Pushed over an edge: the sleeping fall check has to see it.
+            NpcJumpFall.Wake(Go);
         }
     }
 }

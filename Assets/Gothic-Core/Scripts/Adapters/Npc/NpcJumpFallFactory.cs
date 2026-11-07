@@ -9,5 +9,10 @@ namespace Gothic.Core.Adapters.Npc
         {
             return NpcJumpFall.Get(npc);
         }
+
+        public void Wake(NpcContainer npc)
+        {
+            NpcJumpFall.Wake(npc?.Go);
+        }
     }
 }

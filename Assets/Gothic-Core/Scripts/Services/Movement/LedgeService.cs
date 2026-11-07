@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Gothic.Core.Domain.Movement;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -11,7 +12,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Services.Movement
 {
     /// <summary>
-    /// Gothic's ledge climbing rules for the hero: which ledges can be climbed and how (see LedgeProbeDomain and
+    /// Gothic's ledge climbing rules: which ledges the hero and NPCs can climb and how (see LedgeProbeDomain and
     /// Docs/ledge-climbing.md). The values come from the scripts' GIL_VALUES.
     /// </summary>
     public class LedgeService
@@ -19,9 +20,11 @@ namespace Gothic.Core.Services.Movement
         [Inject] private readonly GameStateService _gameStateService;
 
         private readonly LedgeProbeDomain _probeDomain = new LedgeProbeDomain().Inject();
+        private readonly Dictionary<int, LedgeRules> _guildRules = new();
 
         private GuildValuesInstance _rulesValues;
         private LedgeRules _rules;
+        private GuildValuesInstance _guildRulesValues;
 
         /// <summary>
         /// Climbing values of the hero. The hero is human, its values are in the GIL_HUMAN slot (see
@@ -46,6 +49,40 @@ namespace Gothic.Core.Services.Movement
 
                 return _rules;
             }
+        }
+
+        /// <summary>
+        /// Climbing values of a guild's GIL_VALUES slot (pass ZenKitExtension.GetValuesGuild for an NPC). Values the
+        /// guild leaves out are Gothic's human ones. Built once per guild and GIL_VALUES.
+        /// </summary>
+        public LedgeRules GetRules(int guild)
+        {
+            var values = _gameStateService.GuildValues;
+            if (values == null)
+                return LedgeRules.GothicHumanDefaults;
+
+            if (!ReferenceEquals(values, _guildRulesValues))
+            {
+                _guildRules.Clear();
+                _guildRulesValues = values;
+            }
+
+            if (!_guildRules.TryGetValue(guild, out var rules))
+            {
+                rules = LedgeRules.FromGuildValues(values, guild);
+                _guildRules[guild] = rules;
+            }
+
+            return rules;
+        }
+
+        /// <summary>
+        /// A ledge an NPC root at position (restHeight above its feet) can climb along direction - see
+        /// LedgeProbeDomain.ProbeNpcClimb.
+        /// </summary>
+        public LedgeInfo ProbeNpcClimb(Vector3 position, float restHeight, Vector3 direction, LedgeRules rules)
+        {
+            return _probeDomain.ProbeNpcClimb(position, restHeight, direction, rules);
         }
 
         /// <summary>
@@ -83,29 +120,7 @@ namespace Gothic.Core.Services.Movement
                 return LedgeRules.GothicHumanDefaults;
             }
 
-            var defaults = LedgeRules.GothicHumanDefaults;
-            return new LedgeRules
-            {
-                StepHeight = Metres(values.GetStepHeight(guild), defaults.StepHeight),
-                JumpLowHeight = Metres(values.GetJumpLowHeight(guild), defaults.JumpLowHeight),
-                JumpMidHeight = Metres(values.GetJumpMidHeight(guild), defaults.JumpMidHeight),
-                JumpUpHeight = Metres(values.GetJumpUpHeight(guild), defaults.JumpUpHeight),
-                SlideAngle = Degrees(values.GetSlideAngle(guild), defaults.SlideAngle),
-                ClimbHeadingAngle = Degrees(values.GetClimbHeadingAngle(guild), defaults.ClimbHeadingAngle)
-            };
-        }
-
-        /// <summary>
-        /// A value of 0 counts as missing, like the whole GIL_VALUES (a script without it).
-        /// </summary>
-        private static float Metres(int centimetres, float fallback)
-        {
-            return centimetres > 0 ? centimetres.ToMeter() : fallback;
-        }
-
-        private static float Degrees(int degrees, float fallback)
-        {
-            return degrees > 0 ? degrees : fallback;
+            return LedgeRules.FromGuildValues(values, guild);
         }
     }
 }

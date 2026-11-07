@@ -11,5 +11,10 @@ namespace Gothic.Core.Domain.Npc
         /// The NPC's handler, created on first use. Null without a GameObject.
         /// </summary>
         INpcJumpFall Get(NpcContainer npc);
+
+        /// <summary>
+        /// Something moved the NPC (a hit): its handler, if it has one, checks for a fall again. Never adds one.
+        /// </summary>
+        void Wake(NpcContainer npc);
     }
 }

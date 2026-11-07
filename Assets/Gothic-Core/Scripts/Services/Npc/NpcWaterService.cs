@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -25,7 +26,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly ConfigService _configService;
 
-        private const int _flyOverWaterHint = 999999;
         private const float _rayHeight = 50f;
         private const float _bridgeTolerance = 0.3f;
         // Swimmers: the hips this part of the rest root height below the surface - the head stays above water.
@@ -214,7 +214,7 @@ namespace Gothic.Core.Services.Npc
                 chestCm = guildValues.GetWaterDepthChest((int)VmGothicEnums.Guild.GIL_HUMAN);
             }
 
-            isFlying = kneeCm == _flyOverWaterHint && chestCm == _flyOverWaterHint;
+            isFlying = NpcFallDomain.IsFlyer(kneeCm, chestCm);
             knee = kneeCm / 100f;
             chest = chestCm / 100f;
         }
