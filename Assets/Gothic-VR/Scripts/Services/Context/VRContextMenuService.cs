@@ -109,7 +109,19 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
                         VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
-                        VRConstants.MoveVignetteDefaultValue))
+                        VRConstants.MoveVignetteDefaultValue)),
+                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP", "Item details",
+                        "Backpack in one hand, item in the other shows its text"),
+                    CreateToggleChoice(gameMenu, "ITEM_DETAILS_POPUP", VRConstants.IniNames.ItemDetailsPopup,
+                        VRConstants.ItemDetailsPopupDefaultValue)),
+                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM", "Backpack vacuum",
+                        "The open backpack pulls in nearby items"),
+                    CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
+                        VRConstants.BackpackVacuumDefaultValue)),
+                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
+                        "A loot backpack shows an X that takes everything"),
+                    CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
+                        VRConstants.LootTakeAllDefaultValue))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
