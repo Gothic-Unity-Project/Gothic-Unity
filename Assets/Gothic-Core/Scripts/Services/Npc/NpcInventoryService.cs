@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Domain.Meshes.Builder;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -369,12 +370,10 @@ namespace Gothic.Core.Services.Npc
 
             // Check if the weapon mesh GO exists in the stow slot or the hand slot.
             // The mesh can be lost after combat cycles; if missing, respawn it.
-            var isTwoHanded = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdAxe) ||
-                              ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdSwd);
-            var stowSlotName = isTwoHanded ? "ZS_LONGSWORD" : "ZS_SWORD";
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
 
             var stowGo = container.Go.FindChildRecursively(stowSlotName);
-            var handGo = container.Go.FindChildRecursively("ZS_RIGHTHAND");
+            var handGo = container.Go.FindChildRecursively(Constants.SlotRightHand);
 
             var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
                              (handGo != null && handGo.transform.childCount > 0);
@@ -428,10 +427,9 @@ namespace Gothic.Core.Services.Npc
             }
 
             // Ensure weapon mesh exists in the bow/crossbow stow slot.
-            var isCrossbow = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.ItemCrossbow);
-            var stowSlotName = isCrossbow ? "ZS_CROSSBOW" : "ZS_BOW";
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
             var stowGo = container.Go.FindChildRecursively(stowSlotName);
-            var handGo = container.Go.FindChildRecursively("ZS_LEFTHAND");
+            var handGo = container.Go.FindChildRecursively(Constants.SlotLeftHand);
 
             var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
                              (handGo != null && handGo.transform.childCount > 0);
