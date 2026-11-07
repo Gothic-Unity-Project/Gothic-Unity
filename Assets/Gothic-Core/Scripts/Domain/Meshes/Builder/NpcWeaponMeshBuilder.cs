@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -14,6 +15,27 @@ namespace Gothic.Core.Domain.Meshes.Builder
         private VmGothicEnums.ItemFlags _mainFlag;
         private VmGothicEnums.ItemFlags _flags;
         private bool _isEquipped;
+
+        /// <summary>
+        /// Where the NPC carries a weapon it hasn't drawn: 2H on the back, 1H on the belt, bow or crossbow on the back.
+        /// Null for an item that is no melee or ranged weapon.
+        /// </summary>
+        public static string GetHolsterSlotName(ItemInstance item)
+        {
+            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
+            var flags = (VmGothicEnums.ItemFlags)item.Flags;
+            // HasFlag like AiDrawWeapon: a two-hander with any other flag (temple guards' swords) hung at the belt and
+            // drawing it looked for it on the back - the guards attacked empty-handed.
+            var isTwoHanded = flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
+                              flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd);
+            return mainFlag switch
+            {
+                VmGothicEnums.ItemFlags.ItemKatNf => isTwoHanded ? Constants.SlotLongsword : Constants.SlotSword,
+                VmGothicEnums.ItemFlags.ItemKatFf =>
+                    flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow) ? Constants.SlotCrossbow : Constants.SlotBow,
+                _ => null
+            };
+        }
 
         public void SetWeaponData(GameObject npcGo, ItemInstance itemData, VmGothicEnums.ItemFlags mainFlag,
             VmGothicEnums.ItemFlags flags, bool isEquipped)
@@ -41,22 +63,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private GameObject EquipMeleeWeapon()
         {
-            string slotName;
+            var slotName = _isEquipped ? Constants.SlotRightHand : GetHolsterSlotName(_itemData);
 
-            if (_isEquipped)
-            {
-                slotName = "ZS_RIGHTHAND";
-            }
-            else
-            {
-                // HasFlag like AiDrawWeapon: a two-hander with any other flag (temple guards' swords) hung at the belt and
-                // drawing it looked for it on the back - the guards attacked empty-handed.
-                var flags = (VmGothicEnums.ItemFlags)_itemData.Flags;
-                var isTwoHanded = flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
-                                  flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd);
-                slotName = isTwoHanded ? "ZS_LONGSWORD" : "ZS_SWORD";
-            }
-            
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
             if (weaponSlotGo == null)
             {
@@ -94,8 +102,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private GameObject EquipRangeWeapon()
         {
-            var flags = (VmGothicEnums.ItemFlags)_itemData.Flags;
-            var slotName = flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow) ? "ZS_CROSSBOW" : "ZS_BOW";
+            var slotName = GetHolsterSlotName(_itemData);
 
             var weaponSlotGo = _npcGo.FindChildRecursively(slotName);
             if (weaponSlotGo == null)

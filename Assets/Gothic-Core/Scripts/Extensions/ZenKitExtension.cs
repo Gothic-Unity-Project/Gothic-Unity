@@ -84,6 +84,33 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// oCMobLockable's fields: doors and chests are both lockable, but ZenKit has no common interface for them.
+        /// Returns false if the vob is neither.
+        /// </summary>
+        public static bool TryGetLock([CanBeNull] this IVirtualObject vob, out bool isLocked, out string key,
+            out string pickString)
+        {
+            switch (vob)
+            {
+                case IDoor door:
+                    isLocked = door.IsLocked;
+                    key = door.Key;
+                    pickString = door.PickString;
+                    return true;
+                case IContainer container:
+                    isLocked = container.IsLocked;
+                    key = container.Key;
+                    pickString = container.PickString;
+                    return true;
+                default:
+                    isLocked = false;
+                    key = null;
+                    pickString = null;
+                    return false;
+            }
+        }
+
+        /// <summary>
         /// Like Gothic, a trigger counts its remaining activations down in CountCanBeActivated, which save games store
         /// (a .zen sets it to MaxActivationCount: -1 = unlimited, 0 = never, N = N times).
         /// Returns false if no activation is left.

@@ -962,30 +962,7 @@ namespace Gothic.Core.Domain.Vm
 
         #region Doc
 
-        public int Doc_Create() => _docService.CreateDoc();
-
-        public int Doc_CreateMap() => _docService.CreateMap();
-
-        public void Doc_SetPages(int id, int count) => _docService.SetPages(id, count);
-
-        public void Doc_SetPage(int id, int page, string texture, int flags) =>
-            _docService.SetPage(id, page, texture, flags);
-
-        public void Doc_SetMargins(int id, int page, int left, int top, int right, int bottom, int type) =>
-            _docService.SetMargins(id, page, left, top, right, bottom, type);
-
-        public void Doc_SetFont(int id, int page, string font) => _docService.SetFont(id, page, font);
-
-        public void Doc_PrintLine(int id, int page, string text) => _docService.PrintLine(id, page, text);
-
-        public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
-
-        public void Doc_Show(int id) => _docService.ShowDoc(id);
-
-        public void Doc_SetLevel(int id, string level) => _docService.SetLevel(id, level);
-
-        public void Doc_SetLevelCoords(int id, int left, int top, int right, int bottom) =>
-            _docService.SetLevelCoords(id, left, top, right, bottom);
+        //
 
         #endregion
 
@@ -2410,6 +2387,46 @@ namespace Gothic.Core.Domain.Vm
         {
             _vobService.DispatchUntrigger(vobName);
         }
+
+        #endregion
+
+        #region Doc
+
+        public int Doc_Create() => _docService.CreateDoc();
+
+        public int Doc_CreateMap() => _docService.CreateMap();
+
+        public void Doc_SetPages(int id, int count) => _docService.SetPages(id, count);
+
+        public void Doc_SetPage(int id, int page, string texture, int flags) =>
+            _docService.SetPage(id, page, texture, flags);
+
+        public void Doc_SetMargins(int id, int page, int left, int top, int right, int bottom, int type) =>
+            _docService.SetMargins(id, page, left, top, right, bottom, type);
+
+        public void Doc_SetFont(int id, int page, string font) => _docService.SetFont(id, page, font);
+
+        public void Doc_PrintLine(int id, int page, string text) => _docService.PrintLine(id, page, text);
+
+        public void Doc_PrintLines(int id, int page, string text) => _docService.PrintLines(id, page, text);
+
+        public void Doc_Show(int id)
+        {
+            // ShowDoc raises the platform listeners (VR viewer) - their exceptions must not escape into the VM.
+            try
+            {
+                _docService.ShowDoc(id);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Doc_Show({id}) failed: {e}", LogCat.Dialog);
+            }
+        }
+
+        public void Doc_SetLevel(int id, string level) => _docService.SetLevel(id, level);
+
+        public void Doc_SetLevelCoords(int id, int left, int top, int right, int bottom) =>
+            _docService.SetLevelCoords(id, left, top, right, bottom);
 
         #endregion
 

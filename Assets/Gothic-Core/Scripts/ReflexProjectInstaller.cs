@@ -81,6 +81,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VobService));
             containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
+            containerBuilder.AddSingleton(typeof(MobLockService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
@@ -104,6 +105,8 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(Services.Audio.GroundSoundService));
             containerBuilder.AddSingleton(typeof(DocService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.ItemUseService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.InventoryTransferService));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

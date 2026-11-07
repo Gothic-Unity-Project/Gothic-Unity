@@ -47,7 +47,15 @@ namespace Gothic.VR.Services
         /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
         /// view itself only without it.
         /// </summary>
-        public bool IsFallCameraOnHeroBody { get; set; }
+        public bool IsFallCameraOnHeroBody { get; private set; }
+
+        /// <summary>
+        /// Only VrHeroDownPose writes IsFallCameraOnHeroBody (on Bind, SetEnabled, the option changing, Dispose).
+        /// </summary>
+        public void SetFallCameraOnHeroBody(bool isOnHeroBody)
+        {
+            IsFallCameraOnHeroBody = isOnHeroBody;
+        }
 
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;

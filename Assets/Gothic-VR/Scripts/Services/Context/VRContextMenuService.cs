@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
@@ -21,7 +22,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextMenuService : IContextMenuService
     {
         [Inject] private readonly LocalizationService _localizationService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmService _vmService;
 
         private const int _rowsPerPage = 6;
@@ -108,7 +109,19 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
                         VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
-                        VRConstants.MoveVignetteDefaultValue))
+                        VRConstants.MoveVignetteDefaultValue)),
+                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP", "Item details",
+                        "Backpack in one hand, item in the other shows its text"),
+                    CreateToggleChoice(gameMenu, "ITEM_DETAILS_POPUP", VRConstants.IniNames.ItemDetailsPopup,
+                        VRConstants.ItemDetailsPopupDefaultValue)),
+                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM", "Backpack vacuum",
+                        "The open backpack pulls in nearby items"),
+                    CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
+                        VRConstants.BackpackVacuumDefaultValue)),
+                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
+                        "A loot backpack shows an X that takes everything"),
+                    CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
+                        VRConstants.LootTakeAllDefaultValue))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)

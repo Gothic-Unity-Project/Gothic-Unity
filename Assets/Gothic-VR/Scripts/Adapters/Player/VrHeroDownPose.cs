@@ -112,7 +112,7 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             EndDown();
             _body = null;
-            _vrPlayerService.IsFallCameraOnHeroBody = false;
+            _vrPlayerService.SetFallCameraOnHeroBody(false);
         }
 
         /// <summary>
@@ -157,8 +157,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateFallCameraOwner()
         {
-            _vrPlayerService.IsFallCameraOnHeroBody = _isEnabled && _isOptionOn && _body != null &&
-                                                      _animator != null && _animator.IsValid && _headBone != null;
+            _vrPlayerService.SetFallCameraOnHeroBody(_isEnabled && _isOptionOn && _body != null &&
+                                                     _animator != null && _animator.IsValid && _headBone != null);
         }
 
         private void OnHeroKnockedOut(NpcContainer hero)

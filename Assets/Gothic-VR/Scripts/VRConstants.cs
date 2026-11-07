@@ -30,6 +30,13 @@ namespace Gothic.VR
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
+            // 1 = backpack in one hand + item in the other shows the item's Gothic inventory text (VRItemDetailsPopup).
+            public const string ItemDetailsPopup = "itemDetailsPopup";
+            // 1 = the held backpack's opening pulls nearby world items and stores them (VRBackpackVacuum).
+            public const string BackpackVacuum = "backpackVacuum";
+            // 1 = loot backpacks of dead NPCs and lidless containers show a green "X" that takes all (VRBackpack).
+            public const string LootTakeAll = "lootTakeAll";
+
             // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.
             public const string MoveVignette = "moveVignette";
 
@@ -81,6 +88,10 @@ namespace Gothic.VR
         public const int LedgeClimbModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
 
+        public const int ItemDetailsPopupDefaultValue = 1;
+        public const int BackpackVacuumDefaultValue = 1;
+        public const int LootTakeAllDefaultValue = 1;
+
         public const int MoveVignetteDefaultValue = 0;
 
         public const int TextSizeDefaultValue = 0;
@@ -110,5 +121,28 @@ namespace Gothic.VR
 
         // Cone angle in degrees of the far ray. The wider, the less precisely you need to point at an object.
         public const float DistanceGrabConeAngle = 3f;
+
+        // Render queue of the VR hands and the hero's arms while a menu or dialog wants the hands on top: after the
+        // on-top UI (UiOnTop-Text: 3901). VRHandsOnTop and VrHeroHands.
+        public const int HandsOnTopRenderQueue = 3950;
+
+        /// <summary>
+        /// VR swim values. Deliberately not the guild's water depths (GetWaterDepthKnee/Chest from Daedalus): those
+        /// decide whether the hero walks, wades or swims (VRSwimDive). The values here only decide how the VR hero body
+        /// looks in the water (VrHeroSwimPose) and how far VRSwimDive looks for the surface.
+        /// </summary>
+        public static class Swim
+        {
+            // Water at least this deep (m, bottom to surface) and the feet off the bottom: the VR hero body swims, even
+            // while the hero's swim state flickers at the surface (chest -> knee deep for a moment = walking).
+            public const float BodySwimWaterDepth = 1.1f;
+
+            // The feet at least this far (m) above the bottom count as floating (the body swims, doesn't stand).
+            public const float BodyFloatAboveBottom = 0.15f;
+
+            // VRSwimDive: the ray for the water surface goes this far (m) past the guild's chest depth, so the surface
+            // is still found when the player is a bit deeper than chest deep.
+            public const float WaterSurfaceRayBuffer = 2f;
+        }
     }
 }

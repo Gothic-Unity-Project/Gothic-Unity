@@ -9,17 +9,16 @@ namespace Gothic.VR.Adapters.Player
     /// The hero body in the water: its own water check from the feet (swimming even while the hero's swim state
     /// flickers at the surface), the player's speed while swimming (no controller velocity then) and the swim/dive
     /// animations - floating upright (S_SWIM), the crawl (S_SWIMF) blended in with the speed, swimming backwards,
-    /// turning while drifting, diving. VRHeroBody only asks for the swim animation and plays the walking set without
-    /// one. Worker of VRHeroBody (new()).
+    /// turning while drifting, diving. VrHeroLocomotion only asks for the swim animation and plays the walking set
+    /// without one. Worker of VrHeroLocomotion (new()).
     /// </summary>
     public class VrHeroSwimPose
     {
         // The body looks at the water itself - the swim state flickered while
         // bobbing at the surface (chest -> knee deep for a moment = walking, not grounded = the fall animation).
-        private const float _swimWaterDepth = 1.1f;
+        // Depths: VRConstants.Swim.
         private const float _waterSurfaceRayLength = 3f;
         private const float _bottomRayStart = 0.1f;
-        private const float _floatAboveBottom = 0.15f;
 
         // The body's own speed from how far the player moved (teleport jumps ignored).
         private Vector3 _lastPlayerPosition;
@@ -30,6 +29,11 @@ namespace Gothic.VR.Adapters.Player
         private const float _swimCrawlFullSpeed = 0.8f;
         private const float _swimCrawlMaxWeight = 0.8f;
         private const string _swimCrawlAnimation = "S_SWIMF";
+        // Per side, not concatenated every frame.
+        private const string _swimTurnLeftAnimation = "T_SWIMTURNL";
+        private const string _swimTurnRightAnimation = "T_SWIMTURNR";
+        private const string _diveTurnLeftAnimation = "T_DIVETURNL";
+        private const string _diveTurnRightAnimation = "T_DIVETURNR";
 
         /// <summary>
         /// Any water above the feet (last GetBodyState) - no fall animation then.
@@ -79,11 +83,11 @@ namespace Gothic.VR.Adapters.Player
 
             IsInWater = true;
             var bottom = Physics.Raycast(feet + Vector3.up * _bottomRayStart, Vector3.down, out var bottomHit,
-                _swimWaterDepth, 1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore)
+                VRConstants.Swim.BodySwimWaterDepth, 1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore)
                 ? bottomHit.distance - _bottomRayStart
-                : _swimWaterDepth;
-            var isFloating = bottom > _floatAboveBottom;
-            if (isFloating && surfaceHit.distance + bottom >= _swimWaterDepth &&
+                : VRConstants.Swim.BodySwimWaterDepth;
+            var isFloating = bottom > VRConstants.Swim.BodyFloatAboveBottom;
+            if (isFloating && surfaceHit.distance + bottom >= VRConstants.Swim.BodySwimWaterDepth &&
                 bodyState != VmGothicEnums.BodyState.BsDive)
                 return VmGothicEnums.BodyState.BsSwim;
             return bodyState;
@@ -105,14 +109,18 @@ namespace Gothic.VR.Adapters.Player
 
             // Drifting (not moving) while turning plays the swim/dive turn.
             var isDriftTurning = !isMoving && isTurning;
-            var turnSide = isTurningLeft ? "L" : "R";
-
             if (bodyState == VmGothicEnums.BodyState.BsSwim)
-                return isDriftTurning && animator.HasAnimation("T_SWIMTURN" + turnSide) ? "T_SWIMTURN" + turnSide
+            {
+                var swimTurn = isTurningLeft ? _swimTurnLeftAnimation : _swimTurnRightAnimation;
+                return isDriftTurning && animator.HasAnimation(swimTurn) ? swimTurn
                     : isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
+            }
             if (bodyState == VmGothicEnums.BodyState.BsDive)
-                return isDriftTurning && animator.HasAnimation("T_DIVETURN" + turnSide) ? "T_DIVETURN" + turnSide
+            {
+                var diveTurn = isTurningLeft ? _diveTurnLeftAnimation : _diveTurnRightAnimation;
+                return isDriftTurning && animator.HasAnimation(diveTurn) ? diveTurn
                     : isMoving ? "S_DIVEF" : "S_DIVE";
+            }
             return null;
         }
     }

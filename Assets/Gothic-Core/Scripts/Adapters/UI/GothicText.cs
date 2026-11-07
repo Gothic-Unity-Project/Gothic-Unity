@@ -1,6 +1,7 @@
+using Gothic.Core.Const;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.UI;
 using TMPro;
-using UnityEngine;
 
 namespace Gothic.Core.Adapters.UI
 {
@@ -10,17 +11,13 @@ namespace Gothic.Core.Adapters.UI
     /// </summary>
     public static class GothicText
     {
-        private const string _emptyFontPath = "FontAsset/LiberationSans SDF empty";
-
-        private static TMP_FontAsset _emptyFont;
-
         /// <param name="isTinted">The font sprites take the text color (e.g. red/green numbers).</param>
         public static void Apply(TMP_Text text, bool isHighlighted = false, bool isTinted = false)
         {
-            if (_emptyFont == null)
-                _emptyFont = Resources.Load<TMP_FontAsset>(_emptyFontPath);
-            if (_emptyFont != null)
-                text.font = _emptyFont;
+            var emptyFont = ReflexProjectInstaller.DIContainer.Resolve<ResourceCacheService>()
+                .TryGetFontAsset(Constants.Fonts.GothicEmptyPath);
+            if (emptyFont != null)
+                text.font = emptyFont;
 
             var fontService = ReflexProjectInstaller.DIContainer.Resolve<FontService>();
             var spriteAsset = isHighlighted ? fontService.HighlightSpriteAsset : fontService.DefaultSpriteAsset;

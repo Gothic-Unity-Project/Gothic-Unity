@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-10-31
-- Technical details: VRBackpack, VRItemUser, VRBackpackEquipToggle, VRStackSplitter (Gothic-VR); IInventoryOwner, NpcInventoryService, DocService (Core); DeveloperConfig "Backpack and Items"
+- Technical details: VRBackpack, VRItemUser, VRBackpackEquipToggle, VRStackSplitter (Gothic-VR); IInventoryOwner, NpcInventoryService, DocService (Core); Gothic.ini `[GOTHIC_VR_IMMERSION]` (itemDetailsPopup, backpackVacuum, lootTakeAll); DeveloperConfig.NpcLootMode
 
 ## Context
 
@@ -19,6 +19,7 @@ In VR the player has no inventory screen. Items are physical: in the hands, in h
    - joints are smoked at the mouth;
    - a key in the inventory opens its lock when the lock is touched.
 5. **Holsters and the shoulder backpack turn with the head's yaw at once.** Turning while looking down no longer brings them into view.
+6. **Few switches.** Equipping, the equip click in the backpack, splitting stacks and smoking are always on - no flag. The item details popup, the backpack vacuum and the loot "take all" button are player options in Gothic.ini (`[GOTHIC_VR_IMMERSION]`: `itemDetailsPopup`, `backpackVacuum`, `lootTakeAll`, on by default). Tuning values (vacuum radius and time, shoulder grab scale, loot backpack timeout, smoke puffs and delay) are fields on the component that uses them; the stack split pace and the G1 world map edges are constants. Only the NPC loot view (`NpcLootMode`) stays in DeveloperConfig. Not chosen: a DeveloperConfig flag per feature.
 
 ## Consequences
 

@@ -123,6 +123,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private XriInput _xriInput;
         private List<IVrGrabber> _handGrabbers;
+        // GetHandVisual/GetHandColliders are asked several times per frame (hero body, locks, popups): the hands are
+        // found once per side (0 = left, 1 = right), again once destroyed or moved off their controller.
+        private readonly VrBlockHand[] _blockHands = new VrBlockHand[2];
+        private readonly VrPhysicsHand[] _physicsHands = new VrPhysicsHand[2];
+        // The solid colliders per side and the physics body they were collected from (a new body: collected anew).
+        private readonly List<Collider>[] _handColliders = { new(), new() };
+        private readonly Rigidbody[] _handColliderBodies = new Rigidbody[2];
         private Transform _cameraOffset;
         private bool _turnEnabled = true;
         private bool _teleportEnabled = true;
@@ -793,34 +800,64 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
-        /// The shown hand: the block hand's root, or the controller without one.
+        /// The shown hand: the block hand's root, or the controller without one. The block hand is cached per side.
         /// </summary>
         public Transform GetHandVisual(VrHandSide side)
         {
-            var controller = side == VrHandSide.Left ? _leftController : _rightController;
+            var controller = GetController(side);
             if (controller == null)
                 return null;
 
             // The block hand's root (with VrPhysicsHand next to it) - its visual offset keeps it out of walls.
-            var blockHand = controller.GetComponentInChildren<VrBlockHand>(true);
+            var blockHand = GetCachedInChildren(_blockHands, side, controller);
             return blockHand != null ? blockHand.transform : controller;
         }
 
+        /// <summary>
+        /// The physics body's solid colliders, cached per side: the same list until the physics hand builds a new body.
+        /// </summary>
         public IReadOnlyList<Collider> GetHandColliders(VrHandSide side)
         {
-            var controller = side == VrHandSide.Left ? _leftController : _rightController;
-            var physicsHand = controller != null ? controller.GetComponentInChildren<VrPhysicsHand>(true) : null;
-            if (physicsHand == null || physicsHand.Body == null)
+            var controller = GetController(side);
+            var physicsHand = controller != null ? GetCachedInChildren(_physicsHands, side, controller) : null;
+            var body = physicsHand != null ? physicsHand.Body : null;
+            if (body == null)
                 return Array.Empty<Collider>();
 
-            var result = new List<Collider>();
-            foreach (var handCollider in physicsHand.Body.GetComponentsInChildren<Collider>(true))
+            var index = side == VrHandSide.Left ? 0 : 1;
+            var result = _handColliders[index];
+            if (_handColliderBodies[index] == body)
+                return result;
+
+            _handColliderBodies[index] = body;
+            result.Clear();
+            foreach (var handCollider in body.GetComponentsInChildren<Collider>(true))
             {
                 if (!handCollider.isTrigger)
                     result.Add(handCollider);
             }
 
             return result;
+        }
+
+        private Transform GetController(VrHandSide side)
+        {
+            return side == VrHandSide.Left ? _leftController : _rightController;
+        }
+
+        /// <summary>
+        /// The component under the controller, from the cache while it's alive and still under the controller.
+        /// </summary>
+        private static T GetCachedInChildren<T>(T[] cache, VrHandSide side, Transform controller) where T : Component
+        {
+            var index = side == VrHandSide.Left ? 0 : 1;
+            var cached = cache[index];
+            if (cached != null && cached.transform.IsChildOf(controller))
+                return cached;
+
+            cached = controller.GetComponentInChildren<T>(true);
+            cache[index] = cached;
+            return cached;
         }
 
         /// <summary>

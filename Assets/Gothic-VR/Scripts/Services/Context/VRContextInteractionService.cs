@@ -126,7 +126,7 @@ namespace Gothic.VR.Services.Context
                                     "found. No VR hero body.", LogCat.VR);
             }
 
-            // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+            // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
         }
 
@@ -194,12 +194,10 @@ namespace Gothic.VR.Services.Context
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
-            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
-            if (developerConfig.EnableBackpackEquipToggle)
-            {
-                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
-                equipToggle.transform.SetParent(_player.transform, false);
-            }
+            // A trigger click at a worn item in the backpack equips it.
+            var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+            equipToggle.transform.SetParent(_player.transform, false);
+
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
