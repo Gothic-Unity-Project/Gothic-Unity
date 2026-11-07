@@ -794,7 +794,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void CallGuardsAgainstBerzerk(NpcContainer berzerker)
         {
-            if (!IsBerzerk(berzerker))
+            if (!_configService.Dev.EnableGuardsAgainstBerzerk || !IsBerzerk(berzerker))
                 return;
 
             var vm = _gameStateService.GothicVm;
@@ -907,7 +907,8 @@ namespace Gothic.Core.Services.Npc
             // should still keep focusing the hero — the real aggressor — not redirect onto the summon
             // that's just piling on damage. This was the confirmed cause of NPCs abandoning the hero to
             // fight the party member instead (logs: "Strażnik bramy switches target to Golem").
-            if (attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
+            if (_configService.Dev.EnableNpcHitRetaliation &&
+                attacker.Instance.Index != heroIndex && target.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
                 target.Instance.Guild != attacker.Instance.Guild &&
                 !IsPartyMember(attacker) &&
                 _npcAiService.ExtGetAttitude(target.Instance, attacker.Instance) != VmGothicEnums.Attitude.Friendly)

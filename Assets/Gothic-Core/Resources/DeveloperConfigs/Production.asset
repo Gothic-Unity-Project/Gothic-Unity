@@ -88,6 +88,12 @@ MonoBehaviour:
   EnableWindfistThrow: 1
   EnableRoutinePerceptionReset: 1
   EnableProclaimFromAfar: 1
+  EnableNpcArmedThreatDetection: 1
+  EnableActiveAttackerRetarget: 1
+  EnableNpcHitRetaliation: 1
+  EnableHeroChaseCooldown: 1
+  EnableGuardsAgainstBerzerk: 1
+  EnableHeroSummonAttitude: 1
   EnableAnimationPfx: 1
   EnableVisualFxLights: 1
   EnableVisualFxEarthquake: 1

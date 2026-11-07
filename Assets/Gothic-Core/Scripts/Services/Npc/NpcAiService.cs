@@ -1027,6 +1027,8 @@ namespace Gothic.Core.Services.Npc
         private bool IsHeroChaseCoolingDown(VmGothicEnums.PerceptionType type, NpcProperties props, NpcInstance self,
             NpcInstance other)
         {
+            if (!_configService.Dev.EnableHeroChaseCooldown)
+                return false;
             if (type is not (VmGothicEnums.PerceptionType.AssessEnemy or VmGothicEnums.PerceptionType.AssessWarn))
                 return false;
             if (Time.time - props.HeroChaseGivenUpTime > _chaseCooldownSeconds)

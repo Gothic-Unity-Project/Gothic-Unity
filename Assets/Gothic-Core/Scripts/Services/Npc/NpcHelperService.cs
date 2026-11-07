@@ -373,10 +373,13 @@ namespace Gothic.Core.Services.Npc
             // NPC sees the hero - bandits and wolves fight it, Cavalorn or Xardas leave it alone. A deviation: the G2
             // scripts make humans hostile to the GIL_SUMMONED_* guilds (B_InitMonsterAttitudes), so in vanilla
             // guards attack the hero's summons too.
-            if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
-                return GetAttitudeTowardsHero(self);
-            if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
-                return GetAttitudeTowardsHero(other);
+            if (_configService.Dev.EnableHeroSummonAttitude)
+            {
+                if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
+                    return GetAttitudeTowardsHero(self);
+                if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
+                    return GetAttitudeTowardsHero(other);
+            }
 
             const int attNull = (int)VmGothicEnums.Attitude.Null;
 

@@ -362,6 +362,31 @@ namespace Gothic.Core.Models.Config
                  "it caught the hero, who ran away right after his attack (Lukis chased forever).")]
         public bool EnableProclaimFromAfar = true;
 
+        [Tooltip("Beyond the scripts: an NPC in routine reacts (ZS_AssessFighter) to a nearby NPC that fights with a " +
+                 "drawn weapon. B_AssessFighter ignores everything but the hero. Off: only the scripts' perceptions.")]
+        public bool EnableNpcArmedThreatDetection = true;
+
+        [Tooltip("Beyond the scripts: an NPC that is already fighting notices a second NPC attacking it and " +
+                 "turns to that one (heard through walls too). Off: it stays on its target until the scripts change it.")]
+        public bool EnableActiveAttackerRetarget = true;
+
+        [Tooltip("Beyond the scripts: an NPC hit by another NPC (not the hero) makes the attacker its target. " +
+                 "B_CombatReactToDamage does this for the hero only. Off: only the AssessDamage perception reacts.")]
+        public bool EnableNpcHitRetaliation = true;
+
+        [Tooltip("Beyond the scripts: after giving up the chase, an NPC ignores the hero's presence for 5 seconds " +
+                 "(hitting it still starts a fight). Off: PERC_ASSESSENEMY/ASSESSWARN restart the fight at once, " +
+                 "like the scripts.")]
+        public bool EnableHeroChaseCooldown = true;
+
+        [Tooltip("Beyond the scripts (G1): guards near a berzerk NPC attack it and knock it out. " +
+                 "Off: guards leave it raging, as in the original scripts.")]
+        public bool EnableGuardsAgainstBerzerk = true;
+
+        [Tooltip("Beyond the scripts: the hero's summons are seen by NPCs like the hero himself (bandits fight " +
+                 "them, friends leave them alone). Off: the guild table alone decides (G2 guards attack them).")]
+        public bool EnableHeroSummonAttitude = true;
+
         [Tooltip("Particle effects of animations (*eventPFX/*eventPFXStop in the MDS): joint smoke of smoking NPCs, " +
                  "bubbles, teleport rings of scrolls, ... attached to their bone. Before they were only logged.")]
         public bool EnableAnimationPfx = true;

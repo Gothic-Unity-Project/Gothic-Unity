@@ -464,7 +464,7 @@ namespace Gothic.Core.Adapters.Npc
             // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never
             // register that perception, so an NPC already engaged with the hero would otherwise never
             // notice a companion or monster (e.g. Cavalorn, a wolf) engaging it in melee instead.
-            if (hadTargetBeforeThisTick)
+            if (hadTargetBeforeThisTick && _configService.Dev.EnableActiveAttackerRetarget)
             {
                 _npcAiService.UpdateActiveAttackerTarget(NpcInstance);
             }
@@ -473,7 +473,7 @@ namespace Gothic.Core.Adapters.Npc
             // an armed non-player NPC approaching. We add NPC→NPC armed-threat detection in C#:
             // an NPC in routine (no current target) reacts to nearby actively-fighting hostile NPCs
             // exactly as it would react to the player drawing a weapon (ZS_AssessFighter).
-            if (Properties.TargetNpc == null)
+            if (Properties.TargetNpc == null && _configService.Dev.EnableNpcArmedThreatDetection)
             {
                 _npcAiService.CheckForArmedNpcThreat(NpcInstance);
             }
