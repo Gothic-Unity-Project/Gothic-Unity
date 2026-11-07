@@ -93,8 +93,10 @@ name of the external. Split big classes along Gothic's own families.
 **Why:** Whoever knows Gothic, its scripts or OpenGothic finds the code by name. `MobInteractionService` says more
 than `InteractableManager`.
 
-**Example:** `VmExternalDomain` (1,440 lines) would split by the externals' prefixes: `Npc_*`, `AI_*`, `Wld_*`,
-`Mdl_*`, `Log_*`/`Info_*`.
+**Example:** `VmExternalDomain` (2,472 lines) was split by the externals' prefixes into `VmAiExternalDomain` (`AI_*`),
+`VmNpcExternalDomain` (`Npc_*`), `VmNpcInventoryExternalDomain`, `VmWorldExternalDomain` (`Wld_*`),
+`VmModelExternalDomain` (`Mdl_*`), `VmUiExternalDomain` (`Doc_*`/`Info_*`/`Log_*`) and `VmUtilityExternalDomain`
+(`Hlp_*`/`Mob_*`/`Perc_*`). `VmExternalDomain` only registers them and reports the externals nobody implements.
 
 ### 7. Events for facts, calls for sequences
 
@@ -117,7 +119,7 @@ what wasn't chosen).
 time on every change.
 
 **Example:** `SaveGameService` orchestrates, the details live in `Domain/SaveGames/*`, the design in
-`Docs/save-game.md`.
+`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`.
 
 ### 9. Leave it better, don't rewrite
 
@@ -156,7 +158,8 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 
 | You want to ... | Put it into |
 |---|---|
-| implement a Daedalus external | `Domain/Vm/VmExternalDomain` registers it, the service of its area implements it (e.g. `NpcAiService`) |
+| implement a Daedalus external | the `Domain/Vm/Vm*ExternalDomain` of its family registers it, the service of its area implements it (e.g. `NpcAiService`) |
+| change NPC AI or fights | see the map in `Docs/npc-ai.md` |
 | add a rule about an NPC, item or VOB | a property on its model or an extension in `Extensions/` |
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |

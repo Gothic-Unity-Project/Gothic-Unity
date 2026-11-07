@@ -620,8 +620,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableNpcPrehitCancelsAttack: the NPC's own swing before its hit frame ends when the hero
-        /// swings - the next AI_Attack can parry or jump back instead.
+        /// The NPC's own swing before its hit frame ends when the hero swings (FightService.OnHeroMeleeSwing) - the
+        /// next AI_Attack can parry or jump back instead.
         /// </summary>
         public bool TryInterruptSwing()
         {
