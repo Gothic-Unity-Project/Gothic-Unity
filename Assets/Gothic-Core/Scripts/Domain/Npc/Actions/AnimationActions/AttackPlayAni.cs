@@ -353,7 +353,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (direction.sqrMagnitude < 0.001f)
                 return;
 
-            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var guild = NpcInstance.GetValuesGuild();
             NpcGo.transform.rotation = Quaternion.RotateTowards(NpcGo.transform.rotation,
                 Quaternion.LookRotation(direction), Time.deltaTime * GameStateService.GuildValues.GetTurnSpeed(guild));
         }
@@ -368,7 +368,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
 
             var angle = Vector3.SignedAngle(NpcGo.transform.forward, direction.normalized, Vector3.up);
-            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var guild = NpcInstance.GetValuesGuild();
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
 
             if (Mathf.Abs(angle) > _turnThresholdDeg)
@@ -504,7 +504,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 runDirection = steerDirection;
             }
 
-            var guild = NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM ? (int)VmGothicEnums.Guild.GIL_HUMAN : NpcInstance.Guild;
+            var guild = NpcInstance.GetValuesGuild();
             var turnSpeed = GameStateService.GuildValues.GetTurnSpeed(guild);
             if (runDirection.sqrMagnitude > 0.0001f)
             {

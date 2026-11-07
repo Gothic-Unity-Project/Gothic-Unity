@@ -55,9 +55,6 @@ namespace Gothic.Core.Services.Npc
         // DAM_FIRE in Constants.d (bit after DAM_EDGE).
         private const int _damFire = 8;
 
-        // The scripts' GIL_SEPERATOR_ORC: monsters are below it, orcs above (G1 37, G2 58).
-        private int? _orcSeparatorGuild;
-
         public void Init()
         {
             // Scripts (B_KillNpc), drowning and damage zones kill with or without the combat system.
@@ -1221,13 +1218,6 @@ namespace Gothic.Core.Services.Npc
             Logger.LogWarning($"[FightService.FinishingMove] {target.Instance.GetName(NpcNameSlot.Slot0)}: no lying death " +
                               "animation - falls like a standing death", LogCat.Npc);
             return false;
-        }
-
-        private int GetOrcSeparatorGuild()
-        {
-            _orcSeparatorGuild ??= _gameStateService.GothicVm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0) ??
-                                   (int)VmGothicEnums.Guild.GIL_SEPERATOR_ORC;
-            return _orcSeparatorGuild.Value;
         }
 
         /// <summary>

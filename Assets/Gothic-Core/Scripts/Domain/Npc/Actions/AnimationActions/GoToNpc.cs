@@ -215,7 +215,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool TryWarnBeforePursuit()
         {
-            if (NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_ORC ||
+            if (!GameStateService.IsOrcGuild(NpcInstance.Guild) ||
                 !IsInPursuitLoop() || Time.time - Props.LastPursuitWarnTime < _pursuitWarnRepeatSeconds)
                 return false;
 

@@ -155,9 +155,7 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         private float RestHeight => _npc.PrefabProps.AnimationSystem.RestRootHeight;
-        private int Guild => _npc.Instance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM
-            ? (int)VmGothicEnums.Guild.GIL_HUMAN
-            : _npc.Instance.Guild;
+        private int Guild => _npc.Instance.GetValuesGuild();
 
         private float StepHeight => GuildCm(_gameStateService.GuildValues?.GetStepHeight(Guild), _defaultStepHeight);
         private float JumpLowHeight => GuildCm(_gameStateService.GuildValues?.GetJumpLowHeight(Guild), _defaultJumpLow);

@@ -1582,7 +1582,7 @@ namespace Gothic.Core.Services.Npc
 
         private bool IsFriendlyNonHumanWarner(NpcContainer receiver, NpcInstance warner, NpcInstance threat)
         {
-            return warner != null && threat != null && warner.Guild > (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM &&
+            return warner != null && threat != null && warner.Guild > _gameStateService.GuildSeparatorHuman &&
                    ExtGetAttitude(receiver.Instance, warner) == VmGothicEnums.Attitude.Friendly;
         }
 
