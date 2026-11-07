@@ -180,7 +180,8 @@ namespace Gothic.Core.Adapters.Animations
             SnapToGround();
             var parentTf = Go.transform.parent;
             var parentInfo = parentTf != null ? $"parent='{parentTf.name}' parentPos={parentTf.position}" : "parent=none";
-            Logger.Log($"[SnapDiag] {Go.name} Start: enabling physics. GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} {parentInfo}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} Start: enabling physics. GoWorldPos={Go.transform.position} " +
+                $"GoLocalPos={Go.transform.localPosition} {parentInfo}", LogCat.Animation);
             if (PrefabProps.ColliderRootMotion != null)
                 PrefabProps.ColliderRootMotion.GetComponent<Rigidbody>().isKinematic = false;
         }
@@ -207,12 +208,15 @@ namespace Gothic.Core.Adapters.Animations
                 rootHeight = _animationService.GetRootBoneHeight(Properties.MdsNameBase);
             var colliderTransform = PrefabProps.ColliderRootMotion;
 
-            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider: base={Properties.MdsNameBase} overlay={Properties.MdsNameOverlay} mdsForHeight={mdsForHeight} rootHeight={rootHeight:F3} collider={(colliderTransform == null ? "NULL" : "OK")}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} ResizeRootCollider: base={Properties.MdsNameBase} " +
+                $"overlay={Properties.MdsNameOverlay} mdsForHeight={mdsForHeight} rootHeight={rootHeight:F3} " +
+                $"collider={(colliderTransform == null ? "NULL" : "OK")}", LogCat.Animation);
 
             if (rootHeight <= 0f || colliderTransform == null ||
                 !colliderTransform.TryGetComponent<CapsuleCollider>(out var capsule))
             {
-                Logger.LogWarning($"[SnapDiag] {Go.name} ResizeRootCollider SKIPPED: rootHeight={rootHeight:F3} colliderNull={colliderTransform == null}", LogCat.Animation);
+                Logger.LogWarningEditor($"[SnapDiag] {Go.name} ResizeRootCollider SKIPPED: " +
+                    $"rootHeight={rootHeight:F3} colliderNull={colliderTransform == null}", LogCat.Animation);
                 return;
             }
 
@@ -222,7 +226,9 @@ namespace Gothic.Core.Adapters.Animations
             _walkCapsuleBaseRadius = Mathf.Min(capsule.radius, rootHeight);
 
             UpdateRootCollider(0f);
-            Logger.Log($"[SnapDiag] {Go.name} ResizeRootCollider DONE: restRootHeight={_restRootHeight:F3} capsuleCenter={_walkCapsule.center} capsuleHeight={_walkCapsule.height:F3} capsuleLayer={colliderTransform.gameObject.layer}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} ResizeRootCollider DONE: restRootHeight={_restRootHeight:F3} " +
+                $"capsuleCenter={_walkCapsule.center} capsuleHeight={_walkCapsule.height:F3} " +
+                $"capsuleLayer={colliderTransform.gameObject.layer}", LogCat.Animation);
         }
 
         /// Snap NpcGo.Y so the capsule bottom lands exactly on the world mesh below.
@@ -233,33 +239,39 @@ namespace Gothic.Core.Adapters.Animations
         {
             if (_restRootHeight <= 0f || _walkCapsule == null)
             {
-                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround SKIPPED: restRootHeight={_restRootHeight:F3} walkCapsuleNull={_walkCapsule == null}", LogCat.Animation);
+                Logger.LogWarningEditor($"[SnapDiag] {Go.name} SnapToGround SKIPPED: " +
+                    $"restRootHeight={_restRootHeight:F3} walkCapsuleNull={_walkCapsule == null}", LogCat.Animation);
                 return;
             }
 
             var groundMask = 1 << (int)Constants.DefaultLayer;
             var origin = Go.transform.position + Vector3.up * 2f;
-            Logger.Log($"[SnapDiag] {Go.name} SnapToGround: GoWorldPos={Go.transform.position} GoLocalPos={Go.transform.localPosition} origin={origin} mask={groundMask}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} SnapToGround: GoWorldPos={Go.transform.position} " +
+                $"GoLocalPos={Go.transform.localPosition} origin={origin} mask={groundMask}", LogCat.Animation);
 
             if (!Physics.Raycast(origin, Vector3.down, out var hit, 20f, groundMask))
             {
-                Logger.LogWarning($"[SnapDiag] {Go.name} SnapToGround RAYCAST MISSED from {origin} (no ground within 20m on DefaultLayer)", LogCat.Animation);
+                Logger.LogWarningEditor($"[SnapDiag] {Go.name} SnapToGround RAYCAST MISSED from {origin} (no " +
+                    $"ground within 20m on DefaultLayer)", LogCat.Animation);
                 return;
             }
 
             var beforeY = Go.transform.position.y;
             var targetY = hit.point.y + _restRootHeight;
-            Logger.Log($"[SnapDiag] {Go.name} SnapToGround HIT: collider='{hit.collider.name}' layer={hit.collider.gameObject.layer} hitY={hit.point.y:F3} restH={_restRootHeight:F3} targetY={targetY:F3} currentY={beforeY:F3} delta={targetY - beforeY:F3}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} SnapToGround HIT: collider='{hit.collider.name}' " +
+                $"layer={hit.collider.gameObject.layer} hitY={hit.point.y:F3} restH={_restRootHeight:F3} " +
+                $"targetY={targetY:F3} currentY={beforeY:F3} delta={targetY - beforeY:F3}", LogCat.Animation);
 
             if (Mathf.Abs(beforeY - targetY) < 0.05f)
             {
-                Logger.Log($"[SnapDiag] {Go.name} SnapToGround: already at correct Y (delta < 0.05), no move needed", LogCat.Animation);
+                Logger.LogEditor($"[SnapDiag] {Go.name} SnapToGround: already at correct Y (delta < 0.05), no move " +
+                    $"needed", LogCat.Animation);
                 return;
             }
 
             var pos = Go.transform.position;
             Go.transform.position = new Vector3(pos.x, targetY, pos.z);
-            Logger.Log($"[SnapDiag] {Go.name} SnapToGround MOVED: {beforeY:F3} -> {targetY:F3}", LogCat.Animation);
+            Logger.LogEditor($"[SnapDiag] {Go.name} SnapToGround MOVED: {beforeY:F3} -> {targetY:F3}", LogCat.Animation);
         }
 
         /// <summary>
@@ -801,7 +813,8 @@ namespace Gothic.Core.Adapters.Animations
             if ((Mathf.Abs(finalMovement.y) > 0.0001f || Mathf.Abs(worldMove.y) > 0.0001f)
                 && Time.time - _lastMovementLogTime > 1f)
             {
-                Logger.Log($"[SnapDiag] {Go.name} ApplyFinalMovement: rawY={finalMovement.y:F5} worldY={worldMove.y:F5} GoWorldY={Go.transform.position.y:F3}", LogCat.Animation);
+                Logger.LogEditor($"[SnapDiag] {Go.name} ApplyFinalMovement: rawY={finalMovement.y:F5} " +
+                    $"worldY={worldMove.y:F5} GoWorldY={Go.transform.position.y:F3}", LogCat.Animation);
                 _lastMovementLogTime = Time.time;
             }
 
