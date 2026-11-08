@@ -320,30 +320,14 @@ namespace Gothic.Core.Models.Config
                  "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
         public bool EnableHeroSleepBody = true;
 
-        [Tooltip("Chasing NPCs run along a NavMesh (built at runtime around the hero from world + vob colliders, " +
-                 "Gothic STEP_HEIGHT/SLIDE_ANGLE): around obstacles, and they stop at ledges/drops instead of running " +
-                 "off the world. Routines still walk the waynet.")]
-        public bool EnableNpcNavMesh = true;
-
         [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;
-
-        [Tooltip("G1 chain lightning like the engine - the NPC in front of the eyes is zapped (ZS_Zapped hurts him " +
-                 "every second), every invest level it jumps on to the nearest NPC, with nobody left it zaps the hero. " +
-                 "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
-        public bool EnableVrChainLightning = true;
 
         [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +
                  "hero's body) play with the ground's suffix like the engine (RUN_EARTH, RUN_STONE, RUN_WOOD, " +
                  "RUN_WATER); the material is guessed (wading, a VOB below, under a ceiling). They were skipped.")]
         public bool EnableFootstepSounds = true;
-
-        [Tooltip("Hero attacks deal max HP damage — one hit kills any non-immortal NPC.")]
-        public bool EnableOneHitKill;
-
-        [Tooltip("Hero attacks deal currentHP-1 damage — one hit knocks out any NPC without killing them.")]
-        public bool EnableOneHitKnockout;
 
         [Tooltip("Blocking in VR like Gothic's parry: both hands on a melee weapon (one- or two-handed) and both " +
                  "triggers held. Hits of humans (fists too) and of monsters with a drawn weapon (orcs, skeletons) from " +
@@ -359,18 +343,9 @@ namespace Gothic.Core.Models.Config
         [Range(0.1f, 5f)]
         public float NpcDialogStopDistance = 1.3f;
 
-        [Tooltip("How much an NPC's flying spell follows its target (0 = flies to where the target was at the cast, 1 = " +
-                 "always hits). At 0.2 a step aside dodges it - fully homing nobody could dodge a crawler's web.")]
-        [Range(0f, 1f)]
-        public float NpcSpellHoming = 0.2f;
-
         [Tooltip("Scales NPC ranged/magic engagement distances — how far a mage/archer will attack and connect from (vanilla HAI_DIST_RANGED = 30m). Gothic's ranges feel too far against our Unity units; 0.8 = 24m.")]
         [Range(0.1f, 2f)]
         public float RangedCombatRangeMultiplier = 0.8f;
-
-        [Tooltip("Scales Wld_SpawnNpcRange's spawn radius (summon spells). Gothic's cm ranges feel too spread out against our Unity units — 0.8 keeps summons visibly near their caster.")]
-        [Range(0.1f, 2f)]
-        public float SummonSpawnRangeMultiplier = 0.8f;
 
 
         /**

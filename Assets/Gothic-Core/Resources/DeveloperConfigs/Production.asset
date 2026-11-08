@@ -78,18 +78,12 @@ MonoBehaviour:
   EnableHeroHands: 1
   NpcLootMode: 1
   EnableHeroSleepBody: 1
-  EnableNpcNavMesh: 1
   WorldLightmapBrightness: 1
-  EnableVrChainLightning: 1
   EnableFootstepSounds: 1
-  EnableOneHitKill: 0
-  EnableOneHitKnockout: 0
   EnableVrHeroBlock: 1
   NpcAttackArrivalThreshold: 0.2
   NpcDialogStopDistance: 1.3
-  NpcSpellHoming: 0.2
   RangedCombatRangeMultiplier: 0.8
-  SummonSpawnRangeMultiplier: 0.8
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
