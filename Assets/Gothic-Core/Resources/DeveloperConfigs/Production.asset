@@ -77,9 +77,6 @@ MonoBehaviour:
   EnableVrHeroBody: 1
   EnableHeroHands: 1
   NpcLootMode: 1
-  EnableVrBows: 1
-  EnableVrCrossbow: 1
-  EnableVrCrossbowManualReload: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
