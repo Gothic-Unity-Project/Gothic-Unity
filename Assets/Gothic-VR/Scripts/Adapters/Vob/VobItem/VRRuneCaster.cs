@@ -575,6 +575,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             result = 0;
             var hero = _npcService.GetHeroContainer();
+            if (hero == null)
+            {
+                Logger.LogWarning("[VRRuneCaster] No hero while casting - spell stopped", LogCat.VR);
+                return false;
+            }
             var currentMana = hero.Vob.GetAttribute((int)NpcAttribute.Mana);
             if (currentMana <= 0)
                 return false;
@@ -799,7 +804,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var container = GetComponentInParent<VobLoader>()?.Container;
             var vobItem = container?.VobAs<ZenKit.Vobs.IItem>();
             if (vobItem == null)
+            {
+                Logger.LogWarning($"[VRRuneCaster] Scroll {_item.Description} has no item vob - not used up", LogCat.VR);
                 return;
+            }
             var instanceName = vobItem.GetSymbolName();
 
             // The ring's spell is an invisible item outside the inventory - the scroll comes out of the backpack.
@@ -832,7 +840,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void ToggleLightSpell()
         {
             var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null) return;
+            if (hero?.Go == null)
+            {
+                Logger.LogWarning("[VRRuneCaster] Light spell without a hero object - no light", LogCat.VR);
+                return;
+            }
 
             if (hero.ActiveLightGo != null)
             {
@@ -909,9 +921,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             DestroySpellVfx();
             var mfxName = GetSpellMfxName(_item.Spell);
-            if (mfxName == null) return;
             var handGo = _vrPlayerService.GetHandModelGo(handSide);
-            if (handGo == null) return;
+            if (mfxName == null || handGo == null)
+            {
+                Logger.LogWarning($"[VRRuneCaster] No effect in the hand for spell {_item.Spell} " +
+                                  $"(effect name: {mfxName ?? "-"}, {handSide} hand: {handGo != null})", LogCat.VR);
+                return;
+            }
             var pfxName = pfxNameOverride ?? $"MFX_{mfxName.ToUpper()}_INIT";
             var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
             // The spell's own VISUALFX visual before the generic fallbacks: MFX_ICEWAVE_INIT doesn't exist, spellFX_Icewave
@@ -1086,7 +1102,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             else if (hero?.Go != null)
                 origin = hero.Go.transform;
             else
+            {
+                Logger.LogWarning($"[VRRuneCaster] Spell FX {fxName} has no origin (no hand, target or hero)",
+                    LogCat.VR);
                 return;
+            }
 
             var position = origin == handGo?.transform || origin == target
                 ? origin.position
@@ -1335,7 +1355,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var fx = _vmCacheService.TryGetVfxData(fxId);
             var handGo = _vrPlayerService.GetHandModelGo(_throwHandSide);
             if (fx == null || handGo == null)
+            {
+                Logger.LogWarning($"[VRRuneCaster] Invest burst {fxId} skipped (VISUALFX found: {fx != null}, " +
+                                  $"hand found: {handGo != null})", LogCat.VR);
                 return;
+            }
 
             if (!string.IsNullOrEmpty(fx.VisNameS))
             {
