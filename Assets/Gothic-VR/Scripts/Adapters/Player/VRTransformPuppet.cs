@@ -72,6 +72,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly System.Collections.Generic.Dictionary<string, string> _moveAnimations = new();
         private readonly System.Collections.Generic.Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
         private VmGothicEnums.WalkMode? _specialWalkMode;
+        // Situations (idle, move, ...) without an animation name - warned once each, not per frame.
+        private readonly System.Collections.Generic.HashSet<string> _missingAnimationWarnings = new();
 
         // PiP: camera above and to the side, whole body in the picture (see research-2026-10-03.md).
         private const int _pipResolution = 256;
@@ -408,6 +410,7 @@ namespace Gothic.VR.Adapters.Player
                 _monster.Vob.AiHuman.WalkMode = (int)VmGothicEnums.WalkMode.Walk;
 
             string animation;
+            string situation;
             // Jumping/falling (the player isn't on the ground): the monster's fall animation.
             var isOnLand = !IsInWater() && _waterDepth <= 0f;
             var fall = _rig != null && !_rig.IsGrounded && isOnLand
@@ -417,6 +420,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 StopIdleVariation(animationSystem);
                 animation = fall;
+                situation = "fall";
             }
             else if (speed < _walkSpeed && Mathf.Abs(_yawSpeed) >= _turnAnimationSpeed && _specialWalkMode == null)
             {
@@ -424,6 +428,7 @@ namespace Gothic.VR.Adapters.Player
                 animation = _animationService.GetAnimationName(_yawSpeed < 0f
                     ? VmGothicEnums.AnimationType.RotL
                     : VmGothicEnums.AnimationType.RotR, _monster);
+                situation = "turn";
             }
             else if (speed < _walkSpeed)
             {
@@ -433,11 +438,22 @@ namespace Gothic.VR.Adapters.Player
                 if (_waterDepth > 0f)
                     StopIdleVariation(animationSystem);
                 animation = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, _monster);
+                situation = "idle";
             }
             else
             {
                 StopIdleVariation(animationSystem);
                 animation = GetMoveAnimation(velocity, speed);
+                situation = "move";
+            }
+
+            // No name for this situation (a missing track itself is logged once by AnimationSystem.PlayAnimation).
+            if (string.IsNullOrEmpty(animation))
+            {
+                if (_missingAnimationWarnings.Add(situation))
+                    Logger.LogWarning($"[VRTransform] {_monster.Props.MdsNameBase} has no {situation} animation " +
+                                      "- the puppet keeps its current one.", LogCat.VR);
+                return;
             }
 
             if (animation == _currentAnimation && animationSystem.IsPlaying(animation))
