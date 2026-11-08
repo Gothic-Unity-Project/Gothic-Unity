@@ -428,16 +428,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (!instanceName.EqualsIgnoreCase(targetItem.GetSymbolName()))
                 return false;
 
-            // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again.
             var amount = Mathf.Max(1, sourceItem.Amount);
             _palmPieces.Remove(hand);
-            if (isSourceGrabbed)
-                hand.ForceRelease();
             targetItem.Amount += amount;
-            if (isTargetGrabbed)
-                _playerService.AddItem(instanceName, amount);
 
-            _vobService.RemoveWorldItem(source);
+            // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again - like
+            // putting the source into the backpack.
+            if (isTargetGrabbed)
+                _vrPlayerService.StoreHeldItem(source);
+            else
+            {
+                if (isSourceGrabbed)
+                    hand.ForceRelease();
+                _vobService.RemoveWorldItem(source);
+            }
+
             StartCoroutine(ShowLabelBriefly(target));
             Logger.Log($"[StackSplit] {instanceName}: {amount} joined, now {targetItem.Amount}", LogCat.VR);
             return true;

@@ -35,6 +35,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VobService _vobService;
 
         // Gothic.ini heroFallMode, read on first use and again when the menu changes it.
         private VrHeroFallMode? _heroFallMode;
@@ -93,6 +94,31 @@ namespace Gothic.VR.Services
         {
             var held = grabber?.Held;
             return held != null ? held.GetComponentInParent<VobLoader>()?.Container : null;
+        }
+
+        /// <summary>
+        /// Puts an item from the hands into the hero's inventory - like putting it into the backpack - and removes the
+        /// world item. Also fine for an item that isn't (or no longer) held.
+        /// </summary>
+        /// <returns>false if the container isn't an item - nothing changed.</returns>
+        public bool StoreHeldItem(VobContainer container)
+        {
+            if (container?.Vob is not IItem item)
+            {
+                Logger.LogWarning($"[VRPlayerService] StoreHeldItem: {container?.Vob?.Name ?? "null"} is no item.",
+                    LogCat.VR);
+                return false;
+            }
+
+            // Items held in a hand already count as inventory (SetGrab/UnsetGrab). Release it first, which takes it out
+            // of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
+            var interactable = container.Go != null ? container.Go.GetComponentInChildren<VrInteractable>(true) : null;
+            if (interactable != null && interactable.IsHeld)
+                interactable.ForceRelease();
+
+            _playerService.AddItem(item.GetSymbolName(), Mathf.Max(1, item.Amount));
+            _vobService.RemoveWorldItem(container);
+            return true;
         }
 
         /// <summary>

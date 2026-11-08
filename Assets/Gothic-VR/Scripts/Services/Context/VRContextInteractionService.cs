@@ -30,8 +30,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
@@ -446,8 +445,7 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
-        /// the world item.
+        /// Like putting the held items into the backpack (VRPlayerService.StoreHeldItem).
         /// </summary>
         public void StoreHeldItemsInBackpack()
         {
@@ -465,14 +463,11 @@ namespace Gothic.VR.Services.Context
                 if (item == null)
                     continue;
 
-                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
-                interactable.ForceRelease();
-
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);
-                _playerService.AddItem(instanceName, amount);
-                _vobService.RemoveWorldItem(container);
-                Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack", LogCat.VR);
+                if (_vrPlayerService.StoreHeldItem(container))
+                    Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack",
+                        LogCat.VR);
             }
         }
 

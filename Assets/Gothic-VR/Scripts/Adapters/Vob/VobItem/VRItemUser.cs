@@ -11,6 +11,7 @@ using Gothic.Core.Services.Vobs;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -31,6 +32,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ItemUseService _itemUseService;
 
@@ -98,19 +100,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void Equip()
         {
-            var hero = _playerService.HeroContainer;
-            var vobItem = _container.VobAs<IItem>();
-            var instanceName = vobItem.GetSymbolName();
+            // Destroys our GameObject (and this component) at the end of the frame.
+            if (!_vrPlayerService.StoreHeldItem(_container))
+                return;
 
-            // Items held in a hand already count as inventory (VRPlayerService.SetGrab/UnsetGrab). Release it first,
-            // which takes it out of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
-            ReleaseFromHands();
-
-            _playerService.AddItem(instanceName, Mathf.Max(1, vobItem.Amount));
-            _npcInventoryService.EquipItemWithEffects(hero.Instance, _item);
-
-            // Destroys our GameObject (and this component).
-            _vobService.RemoveWorldItem(_container);
+            _npcInventoryService.EquipItemWithEffects(_playerService.HeroContainer.Instance, _item);
         }
 
         private void ReleaseFromHands()
