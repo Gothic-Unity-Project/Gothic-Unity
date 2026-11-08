@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Gothic.Core.Services.Npc
 {
     /// <summary>
-    /// Creates a flying arrow/bolt. Implemented in Adapters/, registered in ReflexProjectInstaller.
+    /// Creates a flying arrow/bolt or NPC spell. Implemented in Adapters/, registered in ReflexProjectInstaller.
     /// </summary>
     public interface IProjectileFactory
     {

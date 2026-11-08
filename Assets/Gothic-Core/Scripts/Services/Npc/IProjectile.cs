@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Gothic.Core.Services.Npc
 {
     /// <summary>
-    /// A flying arrow/bolt (the Projectile adapter). Services create it with IProjectileFactory and only decide what a
-    /// hit means (callbacks).
+    /// A flying arrow/bolt or NPC spell (the Projectile adapter). Services create it with IProjectileFactory and only
+    /// decide what a hit means (callbacks).
     /// </summary>
     public interface IProjectile
     {
@@ -14,6 +14,14 @@ namespace Gothic.Core.Services.Npc
         Vector3 Velocity { get; set; }
         bool UseGravity { get; set; }
         float MaxDistance { get; set; }
+        float Radius { get; set; }
+
+        /// <summary>
+        /// The NPC it steers to, with HomingShare (0..1, &lt; 0 = straight flight): how much it follows the target's
+        /// movement after the launch.
+        /// </summary>
+        NpcContainer HomingTarget { get; set; }
+        float HomingShare { get; set; }
 
         /// <summary>
         /// Hit NPC, hit position, flight direction.
