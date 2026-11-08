@@ -65,7 +65,8 @@ namespace Gothic.VR.Domain.Player
             CacheWeapon(weapon);
             var rigidbody = _cachedRigidbody;
             var handPosition = GetHandPosition(hand);
-            if (hand == null || rigidbody == null || handPosition == null)
+            // IVrGrabber is a MonoBehaviour: Unity's null check (a destroyed hand), not the reference one.
+            if (hand as UnityEngine.Object == null || rigidbody == null || handPosition == null)
                 return false;
 
             var tipDirection = GetTipDirection(weapon.transform, _cachedMeshFilter, handPosition.Value);
@@ -101,8 +102,8 @@ namespace Gothic.VR.Domain.Player
 
             var handPosition = GetHandPosition(_hand);
             var maxStuck = Melee.StabHoldSeconds + 1f;
-            if (_weapon == null || _rigidbody == null || _hand == null || _hand.Held != _weapon ||
-                handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
+            if (_weapon == null || _rigidbody == null || _hand as UnityEngine.Object == null ||
+                _hand.Held != _weapon || handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
             {
                 Logger.Log("[VrStabFinish] Blade let go - no finish", LogCat.Fight);
                 Clear();
@@ -166,7 +167,7 @@ namespace Gothic.VR.Domain.Player
 
         private Vector3? GetHandPosition(IVrGrabber hand)
         {
-            var handGo = hand != null ? _vrPlayerService.GetHandModelGo(hand.HandSide) : null;
+            var handGo = hand as UnityEngine.Object != null ? _vrPlayerService.GetHandModelGo(hand.HandSide) : null;
             return handGo != null ? handGo.transform.position : null;
         }
 

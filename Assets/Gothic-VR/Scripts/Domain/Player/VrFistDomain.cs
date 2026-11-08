@@ -98,7 +98,8 @@ namespace Gothic.VR.Domain.Player
                 return true;
             for (var i = 0; i < _fists.Count; i++)
             {
-                if (_fists[i].Hand == null || _fists[i].Hitbox == null)
+                // IVrGrabber is a MonoBehaviour: Unity's null check (a destroyed hand), not the reference one.
+                if (_fists[i].Hand as UnityEngine.Object == null || _fists[i].Hitbox == null)
                     return true;
             }
             return false;
