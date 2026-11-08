@@ -20,7 +20,6 @@ namespace Gothic.Core.Services.Meshes
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly AudioService _audioService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _npcSpellConfigService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly IProjectileFactory _projectileFactory;
         [Inject] private readonly IVisualFxLightFactory _visualFxLightFactory;
@@ -41,7 +40,8 @@ namespace Gothic.Core.Services.Meshes
         private const float _npcSpellHandHeight = 1.3f;
         private const float _npcSpellHandForward = 0.5f;
         private const float _npcSpellTargetHeight = 1f;
-        private const float _npcSpellRadius = 0.3f;
+        // Fallback hit widening (emTrjTargetRange, 20 cm for the firebolt) if the spell's FX has none.
+        private const float _npcSpellDefaultTargetRange = 0.2f;
         private const float _npcSpellFadeSeconds = 1f;
 
         public void Init()
@@ -287,11 +287,12 @@ namespace Gothic.Core.Services.Meshes
             projectile.Owner = caster;
             projectile.Velocity = (aimPoint - origin).normalized * speed;
             projectile.UseGravity = false;
-            projectile.Radius = _npcSpellRadius;
+            projectile.AllowAutoAim = false;
+            // Like the engine (OpenGothic World::shootSpell): aimed once at the target, straight flight, no homing - the
+            // hit test is widened by the effect's emTrjTargetRange (cm).
+            var targetRange = baseFx?.EmTrjTargetRange ?? 0f;
+            projectile.Radius = targetRange > 0f ? targetRange / 100f : _npcSpellDefaultTargetRange;
             projectile.MaxDistance = speed * _npcSpellMaxSeconds;
-            projectile.HomingTarget = target;
-            // DeveloperConfig.NpcSpellHoming: a step aside dodges it.
-            projectile.HomingShare = _npcSpellConfigService.Dev.NpcSpellHoming;
             projectile.OnNpcHit = (npc, _, _) =>
             {
                 // Like the engine, it stops at the first body or wall; only its target is hit (SpellHitDomain).

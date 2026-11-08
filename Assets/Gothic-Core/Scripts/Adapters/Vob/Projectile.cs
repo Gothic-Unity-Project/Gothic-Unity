@@ -32,13 +32,6 @@ namespace Gothic.Core.Adapters.Vob
         [Tooltip("Steers towards this NPC's upper body with HomingDegreesPerSecond (0 = straight flight).")]
         public NpcContainer HomingTarget;
         public float HomingDegreesPerSecond;
-        [Tooltip("With HomingTarget, instead of HomingDegreesPerSecond (< 0 = off): flies to a point this share " +
-                 "of the way from where the target was at launch to where it is now, straight on once it passed " +
-                 "that point. 0 = to the launch position, 1 = follows the target; a step aside dodges a low share " +
-                 "(NPC spells).")]
-        public float HomingShare = -1f;
-        private Vector3? _launchTargetPosition;
-        private bool _isPastAimPoint;
 
         // A VOB that reacts to hits (often invisible) in the flight direction.
         private Transform _homingVobTarget;
@@ -55,8 +48,7 @@ namespace Gothic.Core.Adapters.Vob
         bool IProjectile.UseGravity { get => UseGravity; set => UseGravity = value; }
         float IProjectile.MaxDistance { get => MaxDistance; set => MaxDistance = value; }
         float IProjectile.Radius { get => Radius; set => Radius = value; }
-        NpcContainer IProjectile.HomingTarget { get => HomingTarget; set => HomingTarget = value; }
-        float IProjectile.HomingShare { get => HomingShare; set => HomingShare = value; }
+        bool IProjectile.AllowAutoAim { get => AllowAutoAim; set => AllowAutoAim = value; }
         Action<NpcContainer, Vector3, Vector3> IProjectile.OnNpcHit { get => OnNpcHit; set => OnNpcHit = value; }
         Action<Vector3, Vector3> IProjectile.OnWorldHit { get => OnWorldHit; set => OnWorldHit = value; }
         Action IProjectile.OnExpired { get => OnExpired; set => OnExpired = value; }
@@ -153,8 +145,7 @@ namespace Gothic.Core.Adapters.Vob
         /// Once, at the start of the flight: without an NPC to home on, the closest hit-reactive VOB within a small cone
         /// (G2 Irdorath's bridge targets: invisible, the engine focuses them with a bow drawn).
         /// </summary>
-        private bool IsHoming => (HomingDegreesPerSecond > 0f && (_homingVobTarget != null || HomingTarget?.Go != null))
-                                 || (HomingShare >= 0f && HomingTarget?.Go != null);
+        private bool IsHoming => (HomingDegreesPerSecond > 0f && (_homingVobTarget != null || HomingTarget?.Go != null));
 
         private void TryAutoAimAtDamageTarget()
         {
@@ -189,11 +180,6 @@ namespace Gothic.Core.Adapters.Vob
                 return;
 
             var targetPos = HomingTarget.Go.transform.position + Vector3.up * _homingTargetHeight;
-            if (HomingShare >= 0f)
-            {
-                ApplyHomingShare(targetPos, deltaTime);
-                return;
-            }
             if (HomingDegreesPerSecond <= 0f)
                 return;
 
@@ -203,24 +189,6 @@ namespace Gothic.Core.Adapters.Vob
 
             Velocity = Vector3.RotateTowards(Velocity, toTarget.normalized * Velocity.magnitude,
                 HomingDegreesPerSecond * Mathf.Deg2Rad * deltaTime, 0f);
-        }
-
-        /// <summary>
-        /// HomingShare: steers to a mix of the target's launch and current position until it passes that point.
-        /// </summary>
-        private void ApplyHomingShare(Vector3 targetPos, float deltaTime)
-        {
-            _launchTargetPosition ??= targetPos;
-            if (_isPastAimPoint)
-                return;
-
-            var aimPoint = Vector3.Lerp(_launchTargetPosition.Value, targetPos, Mathf.Clamp01(HomingShare));
-            var toAim = aimPoint - transform.position;
-            var speed = Velocity.magnitude;
-            if (Vector3.Dot(toAim, Velocity) <= 0f || toAim.magnitude <= speed * deltaTime)
-                _isPastAimPoint = true;
-            else
-                Velocity = toAim.normalized * speed;
         }
 
         /// <summary>

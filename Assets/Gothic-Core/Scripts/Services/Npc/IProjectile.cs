@@ -15,13 +15,7 @@ namespace Gothic.Core.Services.Npc
         bool UseGravity { get; set; }
         float MaxDistance { get; set; }
         float Radius { get; set; }
-
-        /// <summary>
-        /// The NPC it steers to, with HomingShare (0..1, &lt; 0 = straight flight): how much it follows the target's
-        /// movement after the launch.
-        /// </summary>
-        NpcContainer HomingTarget { get; set; }
-        float HomingShare { get; set; }
+        bool AllowAutoAim { get; set; }
 
         /// <summary>
         /// Hit NPC, hit position, flight direction.
