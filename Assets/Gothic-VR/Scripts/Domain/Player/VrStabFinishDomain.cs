@@ -62,7 +62,7 @@ namespace Gothic.VR.Domain.Player
             if (IsStuck)
                 return false;
 
-            var hand = GetHoldingHand(weapon);
+            _vrPlayerService.TryGetHoldingHand(weapon, out var hand);
             CacheWeapon(weapon);
             var rigidbody = _cachedRigidbody;
             var handPosition = GetHandPosition(hand);
@@ -163,20 +163,6 @@ namespace Gothic.VR.Domain.Player
             _cachedWeapon = weapon;
             _cachedRigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
             _cachedMeshFilter = weapon != null ? weapon.GetComponentInChildren<MeshFilter>() : null;
-        }
-
-        private IVrGrabber GetHoldingHand(VrInteractable weapon)
-        {
-            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (weapon == null || rig == null)
-                return null;
-
-            foreach (var hand in rig.HandGrabbers)
-            {
-                if (hand.Kind == VrGrabberKind.Hand && hand.Held == weapon)
-                    return hand;
-            }
-            return null;
         }
 
         private Vector3? GetHandPosition(IVrGrabber hand)

@@ -7,7 +7,6 @@ using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
@@ -77,11 +76,7 @@ namespace Gothic.VR.Services
         {
             foreach (var hand in _vrPlayerService.GetHandGrabbers())
             {
-                var grabbed = hand.Held;
-                if (grabbed == null)
-                    continue;
-
-                var container = grabbed.GetComponentInParent<VobLoader>()?.Container;
+                var container = _vrPlayerService.GetHeldContainer(hand);
                 if (container == null || !container.IsMeleeWeapon())
                     continue;
                 var item = container.GetItemInstance()!;

@@ -70,7 +70,7 @@ namespace Gothic.VR.Services
             var held = new List<(IVrGrabber hand, VobContainer container)>();
             foreach (var hand in _vrPlayerService.GetHandGrabbers())
             {
-                var container = hand.Held?.GetComponentInParent<VobLoader>()?.Container;
+                var container = _vrPlayerService.GetHeldContainer(hand);
                 if (IsSameItem(container, itemName) && !held.Exists(h => h.container == container))
                     held.Add((hand, container));
             }
@@ -103,7 +103,7 @@ namespace Gothic.VR.Services
                 _playerService.AddItem(itemName, GetAmount(container));
                 foreach (var hand in _vrPlayerService.GetHandGrabbers())
                 {
-                    if (hand.Held?.GetComponentInParent<VobLoader>()?.Container == container)
+                    if (_vrPlayerService.GetHeldContainer(hand) == container)
                         hand.ForceRelease();
                 }
                 _vobService.RemoveWorldItem(container);

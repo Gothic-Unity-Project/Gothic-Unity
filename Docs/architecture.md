@@ -198,6 +198,8 @@ VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't kno
 | Need | Use |
 |---|---|
 | "is it a Gothic item?" | `VrSocketSlot.IsItem` |
+| which hand holds this item (direct grab, no allocations) | `VRPlayerService.TryGetHoldingHand` |
+| the Gothic object (`VobContainer`) a hand holds | `VRPlayerService.GetHeldContainer` |
 | a slot for one item (holster, chest, loot) | `VrSocketSlot` and its backend part |
 | "item let go in a zone, put it somewhere" | `VrDropZone` (trigger adapter, reports to `VrDropZoneService`) plus an `IVrDropTarget` on it or a parent |
 | something worn on the body | `VrBodyAnchor` |

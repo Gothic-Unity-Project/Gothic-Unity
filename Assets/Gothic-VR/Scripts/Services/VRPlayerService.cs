@@ -63,6 +63,37 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// The hand that holds the item right now - a direct grabber (Kind Hand), not a distance pull still flying it
+        /// in. No allocations: asked every physics step (stab finish).
+        /// </summary>
+        public bool TryGetHoldingHand(VrInteractable interactable, out IVrGrabber hand)
+        {
+            hand = null;
+            var rig = Rig;
+            if (interactable == null || rig == null)
+                return false;
+
+            var grabbers = rig.HandGrabbers;
+            for (var i = 0; i < grabbers.Count; i++)
+            {
+                if (grabbers[i].Kind != VrGrabberKind.Hand || grabbers[i].Held != interactable)
+                    continue;
+                hand = grabbers[i];
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The Gothic object (VOB, e.g. an item) the grabber holds. null: it holds nothing or no VOB.
+        /// </summary>
+        public VobContainer GetHeldContainer(IVrGrabber grabber)
+        {
+            var held = grabber?.Held;
+            return held != null ? held.GetComponentInParent<VobLoader>()?.Container : null;
+        }
+
+        /// <summary>
         /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
         /// </summary>
         public GameObject GetHandModelGo(VrHandSide side)

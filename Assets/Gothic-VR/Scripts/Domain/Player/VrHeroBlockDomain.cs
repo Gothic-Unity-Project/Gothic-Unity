@@ -9,12 +9,10 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
-using Gothic.VR.Services.Context;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -38,7 +36,6 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         // An NPC weapon within this of the held weapon touches it.
         private const int _bladeSamples = 6;
@@ -103,7 +100,7 @@ namespace Gothic.VR.Domain.Player
             if (_head != null)
                 return _head;
             // IVrRig is a MonoBehaviour: Unity's null check, not ?.
-            var rig = _contextInteractionService.GetImpl<VRContextInteractionService>()?.Rig;
+            var rig = _vrPlayerService.Rig;
             if (rig as Object != null)
                 _head = rig.Head;
             return _head;
