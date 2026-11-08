@@ -278,7 +278,7 @@ namespace Gothic.VR.Adapters.Vob
 
 
         /// <summary>
-        /// DeveloperConfig.EnableVrCrossbow / EnableVrBows: ranged weapons shoot while held.
+        /// Ranged weapons shoot while held (VRBow, VRCrossbow).
         /// </summary>
         private void TryPrepareRangedWeapon()
         {
@@ -290,11 +290,8 @@ namespace Gothic.VR.Adapters.Vob
                 return;
 
             if (item.IsCrossbow())
-            {
-                if (_configService.Dev.EnableVrCrossbow)
-                    gameObject.AddComponent<VobItem.VRCrossbow>();
-            }
-            else if (_configService.Dev.EnableVrBows)
+                gameObject.AddComponent<VobItem.VRCrossbow>();
+            else
                 gameObject.AddComponent<VobItem.VRBow>();
         }
 

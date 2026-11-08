@@ -184,13 +184,7 @@ namespace Gothic.VR.Services
                 var item = _vrPlayerService.GetHeldContainer(hand)?.GetItemInstance();
                 if (!item.IsRangedWeapon())
                     continue;
-                if (item.IsCrossbow())
-                {
-                    if (_configService.Dev.EnableVrCrossbow)
-                        return VmGothicEnums.WeaponState.CBow;
-                }
-                else if (_configService.Dev.EnableVrBows)
-                    return VmGothicEnums.WeaponState.Bow;
+                return item.IsCrossbow() ? VmGothicEnums.WeaponState.CBow : VmGothicEnums.WeaponState.Bow;
             }
             return VmGothicEnums.WeaponState.NoWeapon;
         }

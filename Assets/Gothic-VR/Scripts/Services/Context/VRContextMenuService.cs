@@ -145,12 +145,11 @@ namespace Gothic.VR.Services.Context
                     "Stab and hold the blade in to finish off (off: any hit)"),
                 CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
                     VRConstants.StabFinishDefaultValue)));
-            // DeveloperConfig.EnableVrCrossbowManualReload: off = a crossbow reloads by itself.
-            if (_configService.Dev.EnableVrCrossbow && _configService.Dev.EnableVrCrossbowManualReload)
-                rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
-                        "Pull the string to reload (off: automatic)"),
-                    CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
-                        VRConstants.CrossbowReloadDefaultValue)));
+            // Off = a crossbow reloads by itself.
+            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
+                    "Pull the string to reload (off: automatic)"),
+                CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
+                    VRConstants.CrossbowReloadDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

@@ -21,7 +21,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrBows (ADR 2026-11-02-vr-ranged): the Gothic bow mesh keeps its limbs,
+    /// VR bow (ADR 2026-11-02-vr-ranged): the Gothic bow mesh keeps its limbs,
     /// its own string triangles are cut out and replaced by our string (top limb tip -> nock -> bottom limb tip).
     /// - Hold the bow in one hand. Put the other, empty hand to the string and hold its grip to draw.
     ///   VrInteractable.CanSecondHandGrabAt keeps that hand from grabbing the bow. An arrow (the bow's munition) is

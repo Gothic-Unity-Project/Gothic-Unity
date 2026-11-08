@@ -8,7 +8,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrCrossbowManualReload: the cocked state and the shape of a crossbow. It stays on the item
+    /// The cocked state and the shape of a crossbow (manual reload, "crossbowReload" option). It stays on the item
     /// (a fired crossbow put on the ground stays fired); VRCrossbow drives it while the crossbow is held.
     /// The shapes are Gothic's own (ITRWCROSSBOW*.MMB): cocked = the rest mesh (S_READY has no offsets), fired = the
     /// frame of S_RELAX (the engine's reload animation) with the string farthest forward at the prod. In between the

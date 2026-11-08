@@ -19,13 +19,13 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrCrossbow: a held crossbow shoots bolts. Aim = the crossbow itself (a two-hand grab is
-    /// oriented by both hands), the trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow):
-    /// 1 munition item (bolt) per shot from the hero's inventory, 30 m/s with gravity, damage via RangedHit.
-    /// DeveloperConfig.EnableVrCrossbowManualReload + the "crossbowReload" option (Immersion menu): after a shot the
-    /// string sits at the prod (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls
-    /// it back along the stock and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps
-    /// back. A cocked crossbow shows a bolt on the stock if the hero has one - that bolt flies.
+    /// A held crossbow shoots bolts. Aim = the crossbow itself (a two-hand grab is oriented by both hands), the
+    /// trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow): 1 munition item (bolt) per shot
+    /// from the hero's inventory, 30 m/s with gravity, damage via RangedHit.
+    /// The "crossbowReload" option (Immersion menu, on by default): after a shot the string sits at the prod
+    /// (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls it back along the stock
+    /// and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps back. A cocked
+    /// crossbow shows a bolt on the stock if the hero has one - that bolt flies.
     /// Off (or a mesh without the shapes): it reloads by itself after _reloadSeconds.
     /// </summary>
     public class VRCrossbow : MonoBehaviour
@@ -105,14 +105,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrCrossbowManualReload: the cocked state lives on the item (VRCrossbowString) - a
-        /// fired crossbow picked up again stays fired.
+        /// The cocked state lives on the item (VRCrossbowString) - a fired crossbow picked up again stays fired.
         /// </summary>
         private void SetupString()
         {
-            if (!_configService.Dev.EnableVrCrossbowManualReload)
-                return;
-
             if (!TryGetComponent(out _string))
                 _string = gameObject.AddComponent<VRCrossbowString>();
             _string.Init(_item.Visual);
