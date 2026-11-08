@@ -996,7 +996,7 @@ namespace Gothic.Core.Adapters.Animations
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableAnimationPfx: *eventPFX (frame, index, name, bone, ATTACH) creates the effect at the
+        /// *eventPFX (frame, index, name, bone, ATTACH) creates the effect at the
         /// bone (following it if attached), *eventPFXStop (frame, index) lets it fade out. Joint smoke, bubbles, ...
         /// </summary>
         private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
@@ -1009,7 +1009,7 @@ namespace Gothic.Core.Adapters.Animations
             }
 
             var pfxEvents = trackInstance.GetPendingParticleEffects();
-            if (pfxEvents == null || !_configService.Dev.EnableAnimationPfx)
+            if (pfxEvents == null)
                 return;
 
             foreach (var pfx in pfxEvents)

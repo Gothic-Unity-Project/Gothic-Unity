@@ -261,13 +261,13 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVobWorldLight: a VOB in a light mapped area (cave, mine, house) takes the lightmap light
+        /// A VOB in a light mapped area (cave, mine, house) takes the lightmap light
         /// of the world around it - like the engine's VOB lighting from the static light. Stairs, stones and scaffolds in
         /// the Old Mine shone like the day next to the dark walls.
         /// </summary>
         public void ApplyWorldLight(GameObject vobGo)
         {
-            if (!_configService.Dev.EnableVobWorldLight || vobGo == null)
+            if (vobGo == null)
                 return;
             if (_lightmapCells.Count == 0)
             {
@@ -489,7 +489,7 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a pooled light changed (StationaryLight.UpdateRuntime) - its slot gets
+        /// A pooled light changed (StationaryLight.UpdateRuntime) - its slot gets
         /// the new values with the next upload; without a slot it competes with the others at the next rebalance.
         /// </summary>
         public void UpdatePooledLight(StationaryLight light)

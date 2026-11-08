@@ -76,7 +76,7 @@ namespace Gothic.Core.Adapters.Npc
         private float _fallVelocityY;
         private float _fallStartFeetY;
         private string _fallAnimName;
-        // DeveloperConfig.EnableWindfistThrow: thrown by a spell - lands lying and gets up.
+        // Thrown by a spell - lands lying and gets up.
         private bool _isThrown;
 
         // Landing / climbing: a sequence of animations played one after another.
@@ -225,7 +225,7 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableWindfistThrow: Windfist/Stormfist (DAM_FLY, OpenGothic MoveAlgo::accessDamFly) throw the
+        /// Windfist/Stormfist (DAM_FLY, OpenGothic MoveAlgo::accessDamFly) throw the
         /// NPC away - it flies with the given speed, lands lying (T_FALL_2_FALLEN) and gets up (T_FALLEN_2_STAND).
         /// Landing lower than it started hurts like any fall (off a ledge into the depth).
         /// </summary>

@@ -223,9 +223,9 @@ namespace Gothic.Core.Domain.Npc
                     other: caster.Instance);
             }
 
-            // DeveloperConfig.EnableHeroSpellStates: the hero has no PERC_ASSESSMAGIC - sleep/freeze are set here so the
+            // The hero has no PERC_ASSESSMAGIC - sleep/freeze are set here so the
             // caster's scripts see them (Npc_IsInState) instead of casting again and again.
-            if (_configService.Dev.EnableHeroSpellStates && target.Vob.Player &&
+            if (target.Vob.Player &&
                 target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 _npcAiService.ApplyHeroSpellState(target, GetSpellMfxName(caster.ActiveSpell));
 
@@ -250,12 +250,12 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableWindfistThrow: Windfist and Stormfist (DAM_FLY) throw the living away from the caster -
+        /// Windfist and Stormfist (DAM_FLY) throw the living away from the caster -
         /// the harder the spell, the farther (NpcJumpFall.TryThrow). Not the hero (his body is the player's).
         /// </summary>
         private void TryThrowBack(NpcContainer caster, NpcContainer target, string mfxName, int damage)
         {
-            if (!_configService.Dev.EnableWindfistThrow || mfxName == null || caster?.Go == null || target?.Go == null ||
+            if (mfxName == null || caster?.Go == null || target?.Go == null ||
                 target == caster || (target.PrefabProps != null && target.PrefabProps.IsHero()) ||
                 NpcHelperService.IsDown(target) || !SpellConst.ThrowEffectNames.Contains(mfxName))
                 return;

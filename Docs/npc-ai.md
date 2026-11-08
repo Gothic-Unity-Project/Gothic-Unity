@@ -58,7 +58,7 @@ the scripts:
 | `EnableNpcHitRetaliation`, `EnableGuardsAgainstBerzerk` | `DamagePerceptionDomain` |
 | `EnableHeroChaseCooldown` | `NpcAiService` |
 | `EnableHeroSummonAttitude` | `NpcHelperService` |
-| `EnableHeroSpellStates`, `EnableWindfistThrow`, `EnableVrChainLightning` | `SpellHitDomain`, `HeroSpellStateDomain` |
+| `EnableVrChainLightning` | `SpellHitDomain` |
 | `EnableRangedKnockoutOption` | `FightService`, `SpellHitDomain`, `MeleeDamageDomain` |
 | `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |
 | `EnableNpcNavMesh` | `NpcNavMeshService` (used by `NpcChaseMovement`) |

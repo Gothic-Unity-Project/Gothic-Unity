@@ -77,16 +77,11 @@ MonoBehaviour:
   EnableVrHeroBody: 1
   EnableHeroHands: 1
   NpcLootMode: 1
-  EnableNpcRangedCombat: 0
   RangedKnockoutByDefault: 0
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
-  EnableVobWorldLight: 1
   WorldLightmapBrightness: 1
-  EnableHeroSpellStates: 1
   EnableVrChainLightning: 1
-  EnableWindfistThrow: 1
-  EnableRoutinePerceptionReset: 1
   EnableProclaimFromAfar: 1
   EnableNpcArmedThreatDetection: 1
   EnableActiveAttackerRetarget: 1
@@ -94,9 +89,6 @@ MonoBehaviour:
   EnableHeroChaseCooldown: 1
   EnableGuardsAgainstBerzerk: 1
   EnableHeroSummonAttitude: 1
-  EnableAnimationPfx: 1
-  EnableVisualFxLights: 1
-  EnableVisualFxEarthquake: 1
   EnableFootstepSounds: 1
   EnableHeroDeath: 1
   EnableKillerXpOnly: 1

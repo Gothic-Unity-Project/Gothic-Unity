@@ -418,7 +418,7 @@ namespace Gothic.Core.Services.Npc
         /// <param name="isScriptCall">False for state changes of the engine itself (knockout): like the engine, the old
         /// state's _End isn't called and the queue doesn't wait for dialog lines (EnableQueuedStateEnd).</param>
         /// <summary>
-        /// DeveloperConfig.EnableHeroSpellStates: the sleep/freeze state a spell puts the hero in (HeroSpellStateDomain).
+        /// The sleep/freeze state a spell puts the hero in (HeroSpellStateDomain).
         /// </summary>
         public void ApplyHeroSpellState(NpcContainer hero, string mfxName)
         {
@@ -433,9 +433,9 @@ namespace Gothic.Core.Services.Npc
 
             var container = npc.GetUserData();
 
-            // DeveloperConfig.EnableHeroSpellStates: G2's Spell_Logic_Sleep puts its victim to sleep itself
+            // G2's Spell_Logic_Sleep puts its victim to sleep itself
             // (AI_StartState(other, ZS_MagicSleep)) - the hero runs no states, it was queued and never happened.
-            if (_configService.Dev.EnableHeroSpellStates && container?.Vob != null && container.Vob.Player)
+            if (container?.Vob != null && container.Vob.Player)
             {
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(action)?.Name;
                 if (stateName is "ZS_MAGICSLEEP" or "ZS_MAGICFREEZE")
@@ -1173,13 +1173,6 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiReadyRangedWeapon(NpcInstance npc)
         {
-            if (!_configService.Dev.EnableNpcRangedCombat)
-            {
-                // Ranged combat disabled - draw melee instead so the NPC doesn't stand empty-handed.
-                ExtAiDrawWeapon(npc);
-                return;
-            }
-
             var container = npc.GetUserData();
             // int0 == 1 --> DrawWeapon picks the equipped ranged weapon instead of the melee one.
             container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), container));

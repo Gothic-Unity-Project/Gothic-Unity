@@ -218,11 +218,6 @@ namespace Gothic.Core.Domain.Vm
 
         public int Npc_HasRangedWeaponWithAmmo(NpcInstance npc)
         {
-            // When ranged combat is disabled, pretend no ranged weapon exists so G2's combat AI
-            // takes the melee branch (same behavior as before this external was registered).
-            if (!_configService.Dev.EnableNpcRangedCombat)
-                return _support.LogInstantExternal(nameof(Npc_HasRangedWeaponWithAmmo), 0, npc);
-
             // Like the engine, only a ranged weapon with its munition counts -
             // B_SelectWeapon then switches to the melee weapon when the arrows/bolts are gone (B_FillQuiver refills
             // pure

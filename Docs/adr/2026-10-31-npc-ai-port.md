@@ -10,7 +10,7 @@ On main, NPCs fought only the hero and only with melee. Archers chased forever, 
 
 ## Decisions
 
-1. **The source branch's behaviour is the reference.** Each flag the PR drops is `1` in the branch's Production.asset, and its "on" path is what this PR runs. The feature switches stay flags. Example: `EnableNpcRangedCombat`, off as on the branch.
+1. **The source branch's behaviour is the reference.** Each flag the PR drops is `1` in the branch's Production.asset, and its "on" path is what this PR runs. Engine features of the vanilla game (hero spell states, Windfist throw, animation PFX, VisualFx lights and earthquake sound, routine perception reset, ranged combat, VOB world light) have no flag and are always on. The feature switches stay flags.
 2. **Arrows and bolts are real flying objects** (`Projectile`). They hit via sphere casts and stick in the body. A miss drops a real item that can be picked up again. Not chosen: an instant hit roll, because cover and dodging wouldn't exist.
 3. **NPC chase paths use a NavMesh** (`NpcNavMeshService`), built per world, with ladders as links. The Gothic waynet still drives routines.
 4. **Monster and orc guilds are friendly to their own.** Only the human block of the guild table comes from the scripts. The rest was all hostile, so wolves fought wolves.

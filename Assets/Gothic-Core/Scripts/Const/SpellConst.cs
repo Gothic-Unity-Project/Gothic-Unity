@@ -31,7 +31,7 @@ namespace Gothic.Core.Const
         };
 
         /// <summary>
-        /// DeveloperConfig.EnableWindfistThrow: DAM_FLY spells that throw their victims away.
+        /// DAM_FLY spells that throw their victims away.
         /// </summary>
         public static readonly HashSet<string> ThrowEffectNames = new(StringComparer.OrdinalIgnoreCase)
         {

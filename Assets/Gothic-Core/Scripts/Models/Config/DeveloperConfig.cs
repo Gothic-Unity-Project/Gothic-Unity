@@ -316,9 +316,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("NPC AI and Fight", true)]
-        [Tooltip("Enable NPC ranged combat (bow/crossbow). OFF = NPCs fall back to their best melee weapon regardless of range.")]
-        public bool EnableNpcRangedCombat;
-
         [Tooltip("The \"Ranged knockout\" option's value when Gothic.ini has none yet.")]
         public bool RangedKnockoutByDefault;
 
@@ -331,31 +328,14 @@ namespace Gothic.Core.Models.Config
                  "off the world. Routines still walk the waynet.")]
         public bool EnableNpcNavMesh = true;
 
-        [Tooltip("VOBs in light mapped areas (caves, mines, houses) take the lightmap light of the floor below them - " +
-                 "stairs and planks shone like the day next to the dark walls.")]
-        public bool EnableVobWorldLight = true;
-
         [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;
-
-        [Tooltip("Sleep and freeze spells (also Mroczne Tajemnice's crawler web) work on the hero - can't move for " +
-                 "SPL_TIME_SLEEP/FREEZE, damage wakes up, and the caster's scripts see the state (no endless re-casting).")]
-        public bool EnableHeroSpellStates = true;
 
         [Tooltip("G1 chain lightning like the engine - the NPC in front of the eyes is zapped (ZS_Zapped hurts him " +
                  "every second), every invest level it jumps on to the nearest NPC, with nobody left it zaps the hero. " +
                  "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
         public bool EnableVrChainLightning = true;
-
-        [Tooltip("Windfist and Stormfist throw their victims away (DAM_FLY, OpenGothic accessDamFly) - they fly back, " +
-                 "land lying and get up; thrown off a ledge, the fall hurts. Not the hero.")]
-        public bool EnableWindfistThrow = true;
-
-        [Tooltip("Clear an NPC's perceptions when its routine/state changes, like the engine (changes AI of all NPCs). " +
-                 "Fixes NPCs keeping ZS_AssessFighter perceptions after AI_ContinueRoutine ($WISEMOVE on every " +
-                 "weapon/rune removal). The new state's ZS_ init re-enables its own perceptions.")]
-        public bool EnableRoutinePerceptionReset = true;
 
         [Tooltip("An NPC chasing the hero to proclaim (ZS_ProclaimAndPunish: \"Now wait...\") stops within " +
                  "12 m and proclaims, and gives the chase up after HAI_TIME_PURSUIT - its loop only looked again once " +
@@ -386,20 +366,6 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Beyond the scripts: the hero's summons are seen by NPCs like the hero himself (bandits fight " +
                  "them, friends leave them alone). Off: the guild table alone decides (G2 guards attack them).")]
         public bool EnableHeroSummonAttitude = true;
-
-        [Tooltip("Particle effects of animations (*eventPFX/*eventPFXStop in the MDS): joint smoke of smoking NPCs, " +
-                 "bubbles, teleport rings of scrolls, ... attached to their bone. Before they were only logged.")]
-        public bool EnableAnimationPfx = true;
-
-        [Tooltip("Spell effects light up like in Gothic (OpenGothic Effect::setupLight): a VISUALFX lightPresetName " +
-                 "from LIGHTPRESETS.ZEN with its color/range animation - summoning glows red around the caster while " +
-                 "charging (the key's lightRange, growing per level) and flashes when cast, fire rain's glow and rain " +
-                 "light the area. Lights the world too (pooled stationary lights).")]
-        public bool EnableVisualFxLights = true;
-
-        [Tooltip("FX_EarthQuake (summoning's 3rd charge level, fire rain while charging) plays its sound - it was " +
-                 "skipped (no camera shake in VR).")]
-        public bool EnableVisualFxEarthquake = true;
 
         [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +
                  "hero's body) play with the ground's suffix like the engine (RUN_EARTH, RUN_STONE, RUN_WOOD, " +

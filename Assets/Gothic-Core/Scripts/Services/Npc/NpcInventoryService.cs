@@ -387,12 +387,6 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiEquipBestRangedWeapon(NpcInstance npc)
         {
-            if (!_configService.Dev.EnableNpcRangedCombat)
-            {
-                ExtAiEquipBestMeleeWeapon(npc);
-                return;
-            }
-
             var container = npc.GetUserData();
             if (container == null)
                 return;

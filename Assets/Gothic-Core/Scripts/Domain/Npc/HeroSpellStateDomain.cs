@@ -19,7 +19,7 @@ using Object = UnityEngine.Object;
 namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
-    /// DeveloperConfig.EnableHeroSpellStates: sleep and freeze spells work on the hero. The hero runs no Daedalus states
+    /// Sleep and freeze spells work on the hero. The hero runs no Daedalus states
     /// (its PERC_ASSESSMAGIC -> B_AssessMagic -> ZS_MagicSleep never happens), so the state is set here: the casters'
     /// scripts see it (B_SelectWeapon: !Npc_IsInState(oth, ZS_MagicSleep), C_NpcIsDown) and stop casting - Xardas put
     /// the hero to sleep again and again. The hero can't move until the spell's time (SPL_TIME_SLEEP/FREEZE) is over;

@@ -54,8 +54,8 @@ namespace Gothic.Core.Services.Meshes
         /// <summary>
         /// Plays a VISUALFX instance (spellFX_*, VOB_*): its PFX upright at the position (following `follow` if set),
         /// its sound and its emFXCreate_S chain. One-shot effects end on their own; looping ones (isLooping) stay
-        /// until the caller destroys the returned roots. Its light preset glows with it (EnableVisualFxLights), camera
-        /// effects only play their sound (FX_EarthQuake, EnableVisualFxEarthquake).
+        /// until the caller destroys the returned roots. Its light preset glows with it, camera
+        /// effects only play their sound (FX_EarthQuake).
         /// </summary>
         public List<GameObject> PlayVisualFx(string fxName, Vector3 position, Transform follow = null,
             bool isLooping = false, string skippedSfx = null, SkinnedMeshRenderer ownerMesh = null)
@@ -128,11 +128,11 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a light preset by name (LIGHTPRESETS.ZEN, read once).
+        /// A light preset by name (LIGHTPRESETS.ZEN, read once).
         /// </summary>
         public LightPresetLoader.LightPreset TryGetLightPreset(string presetName)
         {
-            if (string.IsNullOrEmpty(presetName) || !_npcSpellConfigService.Dev.EnableVisualFxLights)
+            if (string.IsNullOrEmpty(presetName))
                 return null;
             if (_lightPresets == null)
             {
@@ -146,7 +146,7 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a VISUALFX's light (OpenGothic Effect::setupLight) - rangeMeters is a
+        /// A VISUALFX's light (OpenGothic Effect::setupLight) - rangeMeters is a
         /// key's lightRange, below 0 the preset's. Null without a preset.
         /// </summary>
         private IVisualFxLight CreateVisualFxLight(string presetName, Transform parent, Vector3 position,
@@ -166,13 +166,13 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// Camera effects (FX_*): DeveloperConfig.EnableVisualFxEarthquake - FX_EarthQuake (earthquake.eqk) plays its
+        /// Camera effects (FX_*): FX_EarthQuake (earthquake.eqk) plays its
         /// sound (no camera shake in VR). Time and screen effects (time.slw, screenblend.scx) are skipped.
         /// </summary>
         private void PlayGlobalFx(string fxName, Vector3 position)
         {
             var fx = _vmCacheService.TryGetVfxData(fxName);
-            if (fx == null || !_npcSpellConfigService.Dev.EnableVisualFxEarthquake ||
+            if (fx == null ||
                 !_earthquakeVisual.Equals(fx.VisNameS, StringComparison.OrdinalIgnoreCase))
                 return;
 
