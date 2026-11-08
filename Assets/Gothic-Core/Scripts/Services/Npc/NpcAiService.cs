@@ -2,6 +2,7 @@ using Gothic.Core.Models.Npc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
@@ -35,6 +36,15 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly PhysicsService _physicsService;
         [Inject] private readonly ConfigService _configService;
+
+        // ExecuteAssessEnemy log de-duplication: the last logged enemy and result per NPC (one log per change).
+        private readonly ConditionalWeakTable<NpcInstance, AssessEnemyLog> _lastLoggedAssessEnemy = new();
+
+        private class AssessEnemyLog
+        {
+            public NpcInstance Enemy;
+            public bool? Result;
+        }
 
         private readonly HeroSpellStateDomain _heroSpellStateDomain = new HeroSpellStateDomain().Inject();
         private readonly NpcTargetSelectionDomain _targetSelectionDomain;
@@ -105,9 +115,11 @@ namespace Gothic.Core.Services.Npc
 
         private void LogAssessEnemy(NpcProperties properties, NpcInstance self, NpcInstance enemy, bool isAccepted)
         {
-            if (properties.LastLoggedAssessEnemy.Enemy == enemy && properties.LastLoggedAssessEnemy.Result == isAccepted)
+            var last = _lastLoggedAssessEnemy.GetOrCreateValue(self);
+            if (last.Enemy == enemy && last.Result == isAccepted)
                 return;
-            properties.LastLoggedAssessEnemy = (enemy, isAccepted);
+            last.Enemy = enemy;
+            last.Result = isAccepted;
 
             var selfGo = self.GetUserData()?.Go;
             var enemyGo = enemy.GetUserData()?.Go;
