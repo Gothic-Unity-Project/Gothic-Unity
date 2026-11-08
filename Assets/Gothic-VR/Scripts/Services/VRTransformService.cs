@@ -2,7 +2,6 @@ using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
@@ -34,7 +33,6 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly GameStateService _gameStateService;
 
         private const string _transformSpellPrefix = "SPL_TRF_";
@@ -92,9 +90,7 @@ namespace Gothic.VR.Services
             {
                 Logger.LogWarning($"[VRTransform] {instanceName} has no visual (Mdl_SetVisual/Mdl_SetVisualBody not called " +
                                   "by its constructor) - transformation cancelled.", LogCat.VR);
-                loaderGo.transform.position = new Vector3(0f, -10000f, 0f);
-                // Out of the culling's NPC list too - it tried to build the parked NPC (NullReferenceException).
-                _multiTypeCacheService.NpcCache.Remove(monster);
+                _npcService.DespawnRuntimeNpc(monster);
                 return false;
             }
 
@@ -108,7 +104,7 @@ namespace Gothic.VR.Services
 
             _puppet = new GameObject("_TransformPuppet").AddComponent<VRTransformPuppet>();
             _isTransformed = true;
-            _puppet.Init(this, monster, loaderGo, castingHand);
+            _puppet.Init(this, monster, castingHand);
 
             Logger.Log($"[VRTransform] Hero transformed into {monster.Instance.GetName(NpcNameSlot.Slot0)} " +
                        $"(guild {_originalGuild} -> {monster.Instance.Guild}).", LogCat.VR);

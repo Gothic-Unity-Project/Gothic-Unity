@@ -5,7 +5,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
@@ -33,7 +32,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly AnimationService _animationService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcWaterService _npcWaterService;
@@ -45,15 +43,14 @@ namespace Gothic.VR.Adapters.Player
         private const float _runSpeed = 1.6f;
         private const float _attackReach = 1.8f;
         private const float _attackHitDelay = 0.35f;
+        private const float _attackAngle = 60f;
         // A swing of the free hand (like a sword) bites/claws - the other hand holds the spell orb.
         private const float _attackSwingSpeed = 3f;
         private Vector3 _lastAttackHandPosition;
         private bool _hasLastAttackHandPosition;
-        private const float _parkingDepth = -10000f;
         // Some monster instances can't be built (G1 Lurker: no visual set) - don't stay transformed into nothing.
         private const float _setupTimeoutSeconds = 5f;
         private float _setupDeadline;
-        private GameObject _loaderGo;
 
         // Standing still: the monster's random routine animations (MDS r_Roam1-3 = scratching, pecking, digging, ...
         // and t_Perception) now and then, like ZS_MM_* routines.
@@ -147,21 +144,19 @@ namespace Gothic.VR.Adapters.Player
         private Material _orbMaterial;
 
 
-        public void Init(VRTransformService transformService, NpcContainer monster, GameObject loaderGo,
-            VrHandSide castingHand)
+        public void Init(VRTransformService transformService, NpcContainer monster, VrHandSide castingHand)
         {
             gameObject.Inject();
             _transformService = transformService;
             _monster = monster;
-            _loaderGo = loaderGo;
             _setupDeadline = Time.time + _setupTimeoutSeconds;
             _orbHand = castingHand;
             _rig = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
         }
 
         /// <summary>
-        /// Transform back: the puppet is parked far below the world (NPC culling disables it - it can't be removed from
-        /// the culling group), camera height and PiP are undone.
+        /// Transform back: the monster leaves the world (NpcService.DespawnRuntimeNpc, also if it was never built),
+        /// camera height and PiP are undone.
         /// </summary>
         public void Release()
         {
@@ -177,16 +172,8 @@ namespace Gothic.VR.Adapters.Player
                 _rig?.SetGrabbingEnabled(true);
 
             if (_monster?.Go != null)
-            {
-                _monster.Go.transform.position = new Vector3(0f, _parkingDepth, 0f);
                 _monster.PrefabProps?.AnimationSystem?.StopAllAnimations();
-            }
-            else if (_loaderGo != null)
-            {
-                // Never built: park the lazy loader, so culling doesn't try to build it again next to the player.
-                _loaderGo.transform.position = new Vector3(0f, _parkingDepth, 0f);
-            }
-            _multiTypeCacheService.NpcCache.Remove(_monster);
+            _npcService.DespawnRuntimeNpc(_monster);
 
             if (_pipTexture != null)
                 _pipTexture.Release();
@@ -317,7 +304,7 @@ namespace Gothic.VR.Adapters.Player
             if (_monster.Go == null || animationSystem == null || animationSystem.RestRootHeight <= 0f)
                 return;
 
-            _multiTypeCacheService.NpcCache.Remove(_monster);
+            _npcService.DetachFromWorldNpcs(_monster);
             if (_monster.PrefabProps.AiHandler != null)
                 _monster.PrefabProps.AiHandler.enabled = false;
             _monster.Props.Perceptions.Clear();
@@ -678,26 +665,10 @@ namespace Gothic.VR.Adapters.Player
 
         private void TryHit()
         {
+            // The puppet itself isn't among the world's NPCs any more (DetachFromWorldNpcs).
             var hero = _npcService.GetHeroContainer();
-            var origin = _monster.Go.transform.position;
-            var forward = _monster.Go.transform.forward;
-            NpcContainer best = null;
-            var bestDistance = _attackReach;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
-            {
-                if (npc == hero || npc == _monster || npc?.Go == null || !npc.Go.activeInHierarchy)
-                    continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead)
-                    continue;
-
-                var toNpc = npc.Go.transform.position - origin;
-                toNpc.y = 0f;
-                if (toNpc.magnitude > bestDistance || Vector3.Angle(forward, toNpc) > 60f)
-                    continue;
-                bestDistance = toNpc.magnitude;
-                best = npc;
-            }
-
+            var best = _npcService.GetClosestNpcInFront(_monster.Go.transform.position, _monster.Go.transform.forward,
+                _attackReach, _attackAngle);
             if (best != null)
                 GlobalEventDispatcher.FightHit.Invoke(hero, best, best.Go.transform.position, null);
         }
