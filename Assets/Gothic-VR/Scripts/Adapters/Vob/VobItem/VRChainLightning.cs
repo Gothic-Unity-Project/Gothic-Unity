@@ -58,6 +58,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private LineRenderer _line;
         private Material _lineMaterial;
         private bool _isStopped;
+        // Reused every re-jitter (every 0.05 s) to avoid GC allocations.
+        private readonly List<Vector3> _points = new();
+        private Vector3[] _positions = new Vector3[0];
 
         public void Begin(VrHandSide handSide)
         {
@@ -246,32 +249,41 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hand == null)
                 return;
 
-            var points = new List<Vector3> { hand.transform.position };
+            _points.Clear();
+            _points.Add(hand.transform.position);
             foreach (var victim in _victims)
             {
                 if (victim?.Go != null)
-                    points.Add(GetBodyPosition(victim));
+                    _points.Add(GetBodyPosition(victim));
             }
             if (_isHeroZapped && Camera.main != null)
-                points.Add(Camera.main.transform.position + Vector3.down * _heroChestBelowEyes);
+                _points.Add(Camera.main.transform.position + Vector3.down * _heroChestBelowEyes);
 
-            var zigzag = new List<Vector3>();
-            for (var i = 0; i < points.Count - 1; i++)
+            var count = (_points.Count - 1) * _segmentsPerLink + 1;
+            if (_points.Count < 2)
+            {
+                _line.positionCount = 0;
+                return;
+            }
+            if (_positions.Length != count)
+                _positions = new Vector3[count];
+
+            var index = 0;
+            for (var i = 0; i < _points.Count - 1; i++)
             {
                 for (var s = 0; s < _segmentsPerLink; s++)
                 {
                     var t = (float)s / _segmentsPerLink;
-                    var point = Vector3.Lerp(points[i], points[i + 1], t);
+                    var point = Vector3.Lerp(_points[i], _points[i + 1], t);
                     if (s > 0)
                         point += Random.insideUnitSphere * _jitter;
-                    zigzag.Add(point);
+                    _positions[index++] = point;
                 }
             }
-            zigzag.Add(points[^1]);
+            _positions[index] = _points[^1];
 
-            _line.positionCount = zigzag.Count > 1 ? zigzag.Count : 0;
-            if (zigzag.Count > 1)
-                _line.SetPositions(zigzag.ToArray());
+            _line.positionCount = count;
+            _line.SetPositions(_positions);
         }
     }
 }
