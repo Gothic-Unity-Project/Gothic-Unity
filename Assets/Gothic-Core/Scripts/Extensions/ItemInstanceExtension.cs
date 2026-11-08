@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Models.Vob;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
 
@@ -21,6 +22,18 @@ namespace Gothic.Core.Extensions
         public static bool IsMeleeWeapon(this ItemInstance item)
         {
             return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0;
+        }
+
+        /// <summary>
+        /// Bows and crossbows (ITEM_KAT_FF, ITEM_CROSSBOW) get colliders fitted to their parts, everything else
+        /// (arrows and bolts too) its pre-cached ones.
+        /// </summary>
+        public static ItemColliderKind GetColliderKind(this ItemInstance item)
+        {
+            if (!item.IsRangedWeapon())
+                return ItemColliderKind.Default;
+
+            return item.IsCrossbow() ? ItemColliderKind.Crossbow : ItemColliderKind.Bow;
         }
 
         public static bool IsArmor(this ItemInstance item)

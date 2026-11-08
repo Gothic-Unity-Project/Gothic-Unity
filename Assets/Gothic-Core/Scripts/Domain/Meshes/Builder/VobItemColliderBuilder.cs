@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Gothic.Core.Domain.StaticCache;
-using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.StaticCache;
 using Reflex.Attributes;
@@ -38,12 +38,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
 
         /// <summary>
-        /// mesh: the item's rendered mesh - bows and crossbows are fitted to it, items without cached colliders get
-        /// boxes along it.
+        /// kind: from the item's flags (bow, crossbow or anything else). mesh: the item's rendered mesh - bows and
+        /// crossbows are fitted to it, items without cached colliders get boxes along it.
         /// </summary>
-        public void AddColliders(GameObject rootGo, string meshName, Mesh mesh = null)
+        public void AddColliders(GameObject rootGo, string meshName, ItemColliderKind kind, Mesh mesh = null)
         {
-            if (mesh != null && TryAddFittedRangedWeaponColliders(rootGo, meshName, mesh))
+            if (mesh != null && kind != ItemColliderKind.Default &&
+                TryAddFittedRangedWeaponColliders(rootGo, meshName, kind, mesh))
                 return;
 
             if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(meshName, out var colliders) ||
@@ -51,7 +52,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 if (mesh != null)
                 {
-                    AddMeshBoxColliders(rootGo, meshName, mesh);
+                    AddMeshBoxColliders(rootGo, meshName, kind, mesh);
                     return;
                 }
 
@@ -117,18 +118,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
-        /// Bows and crossbows (ItRw_*) get boxes fitted to their parts: stock, prod, limbs, no string. Boxes along the
-        /// mesh axes follow the bounds of a straight weapon - a curved bow got three fat capsules, 13 cm radius, full
-        /// of air; axis aligned slices missed the diagonal crossbow prods. Arrows and bolts (ITRW_ARROW, ITRW_BOLT,
-        /// ...) are thin shafts the fitting drops as "strings" - they keep their cached colliders. The fit runs once
-        /// per mesh, its box meshes are shared (MultiTypeCacheService).
+        /// Bows and crossbows (ITEM_KAT_FF) get boxes fitted to their parts: stock, prod, limbs, no string. Boxes along
+        /// the mesh axes follow the bounds of a straight weapon - a curved bow got three fat capsules, 13 cm radius,
+        /// full of air; axis aligned slices missed the diagonal crossbow prods. Arrows and bolts (ITEM_KAT_MUN) are
+        /// thin shafts the fitting drops as "strings" - they keep their cached colliders. The fit runs once per mesh,
+        /// its box meshes are shared (MultiTypeCacheService).
         /// </summary>
-        private bool TryAddFittedRangedWeaponColliders(GameObject rootGo, string meshName, Mesh mesh)
+        private bool TryAddFittedRangedWeaponColliders(GameObject rootGo, string meshName, ItemColliderKind kind,
+            Mesh mesh)
         {
-            if (!meshName.StartsWith("ITRW", System.StringComparison.OrdinalIgnoreCase) ||
-                !meshName.ContainsIgnoreCase("BOW"))
-                return false;
-
             var boxMeshes = new List<Mesh>();
             if (_multiTypeCacheService.Meshes.TryGetValue(GetFittedCacheKey(meshName, 0), out var firstBoxMesh))
             {
@@ -157,7 +155,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 meshCollider.convex = true;
                 meshCollider.sharedMesh = boxMesh;
             }
-            return boxMeshes.Count > 0 || AddSlicedBoxColliders(rootGo, meshName, mesh);
+            return boxMeshes.Count > 0 || AddSlicedBoxColliders(rootGo, kind, mesh);
         }
 
         private static string GetFittedCacheKey(string meshName, int index)
@@ -170,12 +168,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// when rotated in a hand. Thin boxes along the mesh itself - a box around the whole bow enclosed the holding
         /// hand, physics pushed hand and bow away. A thin capsule along the mesh if it can't be sliced.
         /// </summary>
-        private static void AddMeshBoxColliders(GameObject rootGo, string meshName, Mesh mesh)
+        private static void AddMeshBoxColliders(GameObject rootGo, string meshName, ItemColliderKind kind, Mesh mesh)
         {
             if (_meshesWithoutCachedColliders.Add(meshName))
                 Logger.LogWarning($"No cached colliders for {meshName} - boxes from its mesh.", LogCat.Mesh);
 
-            if (AddSlicedBoxColliders(rootGo, meshName, mesh))
+            if (AddSlicedBoxColliders(rootGo, kind, mesh))
                 return;
 
             var size = mesh.bounds.size;
@@ -200,7 +198,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// grab every part (crossbow stock and prod, bow grip and limbs) and nothing encloses empty space.
         /// Hair-thin clusters (a bow's string) get no box - the string is drawn, not grabbed.
         /// </summary>
-        private static bool AddSlicedBoxColliders(GameObject rootGo, string meshName, Mesh mesh)
+        private static bool AddSlicedBoxColliders(GameObject rootGo, ItemColliderKind kind, Mesh mesh)
         {
             if (!mesh.isReadable)
                 return false;
@@ -215,7 +213,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             // Bows: the string runs from tip to tip (ends of the long axis) - it's drawn, never grabbed. Without its
             // vertices the boxes follow the limbs only (with them they became one flat plate).
-            var isBow = meshName.ContainsIgnoreCase("BOW") && !meshName.ContainsIgnoreCase("CROSSBOW");
+            var isBow = kind == ItemColliderKind.Bow;
             var sliceCount = isBow ? _bowColliderSlices : _colliderSlices;
             var clusterGap = isBow ? _bowColliderClusterGap : _colliderClusterGap;
             if (isBow)

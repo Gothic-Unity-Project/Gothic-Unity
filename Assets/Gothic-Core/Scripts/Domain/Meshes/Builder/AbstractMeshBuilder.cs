@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using MyBox;
@@ -32,6 +33,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         protected bool HasMeshCollider = true;
         protected bool UseTextureArray;
         protected bool UseColliderCache;
+        protected ItemColliderKind ColliderKind;
         protected bool AllowUntextured;
 
         protected IMultiResolutionMesh Mrm;
@@ -180,6 +182,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public void SetUseColliderCache(bool useColliderCache)
         {
             UseColliderCache = useColliderCache;
+        }
+
+        /// <summary>
+        /// Items only (with the collider cache): bows and crossbows get colliders fitted to their parts.
+        /// </summary>
+        public void SetItemColliderKind(ItemColliderKind colliderKind)
+        {
+            ColliderKind = colliderKind;
         }
 
         /// <summary>
@@ -706,7 +716,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         /// </summary>
         protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
-            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName, mesh);
+            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName, ColliderKind, mesh);
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)
