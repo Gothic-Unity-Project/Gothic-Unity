@@ -43,14 +43,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private const float _grabStringDistance = 0.25f;
         private const float _minShootTension = 0.15f;
         private const float _minSpeed = 8f;
         private const float _minDamageScale = 0.3f;
-        private const float _stringWidth = 0.005f;
-        private static readonly Color _stringColor = new(0.33f, 0.28f, 0.2f);
-        private static Material _stringMaterial;
+        private const string _stringPrefabPath = "Prefabs/Vobs/BowString";
 
         private ItemInstance _item;
         private ItemInstance _munition;
@@ -150,7 +149,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             _munition = _vrRangedService.GetMunition(_item);
-            CreateString();
+            if (!CreateString())
+                return false;
+
             _isSetUp = true;
             return true;
         }
@@ -441,25 +442,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return toString < _grabStringDistance && toString < Vector3.Distance(position, GetGripWorld());
         }
 
-        private void CreateString()
+        private bool CreateString()
         {
-            if (_stringMaterial == null)
-            {
-                var shader = Constants.ShaderUnlit != null ? Constants.ShaderUnlit : Constants.ShaderSingleMeshLit;
-                _stringMaterial = new Material(shader) { color = _stringColor };
-            }
+            var stringGo = _resourceCacheService.TryGetPrefabObject(_stringPrefabPath, "_BowString", gameObject,
+                worldPositionStays: false);
+            if (stringGo == null)
+                return false;
 
-            var stringGo = new GameObject("_BowString");
-            stringGo.transform.SetParent(transform, false);
-            _string = stringGo.AddComponent<LineRenderer>();
-            _string.useWorldSpace = true;
-            _string.positionCount = 3;
-            _string.widthMultiplier = _stringWidth;
-            _string.sharedMaterial = _stringMaterial;
-            _string.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _string.receiveShadows = false;
+            _string = stringGo.GetComponent<LineRenderer>();
             _nockWorld = GetRestNockWorld();
             UpdateString();
+            return true;
         }
 
         private void PlaySfx(string sfxName)
