@@ -90,6 +90,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private static readonly Color _lightColor = new(1f, 0.85f, 0.6f);
 
         private ItemInstance _item;
+        // Cached on first use: the rig's head (simulator throw direction) and the VR body (MESH effects).
+        private Transform _head;
+        private Gothic.VR.Adapters.Player.VRHeroBody _heroBody;
         private bool _isCasting;
 
         // DeveloperConfig.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
@@ -1095,7 +1098,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 ? origin.position
                 : origin.position + Vector3.up * GetBodyFxHeight(fx.VisNameS);
             // shpType MESH effects glow on the VR body (teleport silhouette).
-            var bodyMesh = FindFirstObjectByType<Gothic.VR.Adapters.Player.VRHeroBody>()?.BodyRenderer;
+            if (_heroBody == null)
+                _heroBody = FindFirstObjectByType<Gothic.VR.Adapters.Player.VRHeroBody>();
+            var bodyMesh = _heroBody != null ? _heroBody.BodyRenderer : null;
             var created = _particleService.PlayVisualFx(fxName, position, isWhileInvesting ? origin : null,
                 isWhileInvesting, $"MFX_{mfxName}_Cast", bodyMesh);
             if (isWhileInvesting)
@@ -1405,7 +1410,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             else
             {
                 // The simulator can't swing: where you look, at full speed.
-                direction = Camera.main != null ? Camera.main.transform.forward : handGo.transform.forward;
+                if (_head == null)
+                    _head = _vrPlayerService.Rig?.Head;
+                direction = _head != null ? _head.forward : handGo.transform.forward;
                 _throwSpeedFactor = 1f;
                 _throwGravityScale = 0f;
                 _isThrowHoming = true;
