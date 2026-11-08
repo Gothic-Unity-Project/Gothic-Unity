@@ -835,7 +835,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var vobItem = container?.VobAs<ZenKit.Vobs.IItem>();
             if (vobItem == null)
                 return;
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            var instanceName = vobItem.GetSymbolName();
 
             // The ring's spell is an invisible item outside the inventory - the scroll comes out of the backpack.
             if (RingHand.HasValue)
