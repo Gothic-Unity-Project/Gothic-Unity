@@ -359,7 +359,7 @@ namespace Gothic.VR.Adapters
             foreach (var equipped in _npcContainer.Props.EquippedItems)
             {
                 var mainFlag = (VmGothicEnums.ItemFlags)equipped.MainFlag;
-                if (mainFlag != VmGothicEnums.ItemFlags.ItemKatNf && mainFlag != VmGothicEnums.ItemFlags.ItemKatFf)
+                if (!equipped.IsMeleeWeapon() && (mainFlag & VmGothicEnums.ItemFlags.ItemKatFf) == 0)
                     continue;
 
                 var symbolName = _gameStateService.GothicVm.GetSymbolByIndex(equipped.Index)?.Name;

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Marvin;
-using Gothic.Core.Models.Vm;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -80,7 +79,7 @@ namespace Gothic.VR.Adapters.Player
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
-            if (itemInstance!.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+            if (!itemInstance.IsMeleeWeapon())
                 return;
 
             // A held weapon is only the hero's readied one (VRWeaponService.UpdateHeroWeaponState) - EquippedItems
@@ -104,7 +103,7 @@ namespace Gothic.VR.Adapters.Player
             var itemInstance = vobContainer.GetItemInstance();
 
             // Currently we handle melee weapons only.
-            if (itemInstance!.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+            if (!itemInstance.IsMeleeWeapon())
                 return;
 
             // The readied weapon follows in VRWeaponService (the other hand's weapon, if it still holds one).
