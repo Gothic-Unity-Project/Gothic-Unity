@@ -7,6 +7,8 @@ using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
+using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -38,10 +40,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// </summary>
     public class VRRuneCaster : MonoBehaviour
     {
-        // spells_params.d constants
-        private const int _splSendcast = 2;
-        private const int _splSendstop = 3;
-        private const int _splNextlevel = 4;
         private const string _chainLightningName = "Chainlightning";
         // DeveloperConfig.EnableVrChainLightning: the lightning while it's invested.
         private VRChainLightning _chainLightning;
@@ -250,10 +248,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_item == null || _castThisGrab) return;
 
             // No casting while knocked out, asleep or frozen (HeroSpellStateDomain).
-            var heroForState = _npcService.GetHeroContainer();
-            if (heroForState?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious ||
-                heroForState?.Vob.CurrentStateName is Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName
-                    or "ZS_MAGICFREEZE")
+            if (HeroSpellStateDomain.IsCastBlocked(_npcService.GetHeroContainer()))
                 return;
 
             bool triggered;
@@ -334,28 +329,28 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             // DeveloperConfig.EnableVrChainLightning: every level the lightning jumps on.
-            if (result == _splNextlevel)
+            if (result == DaedalusConst.SplNextLevel)
             {
                 _chainLightning?.AddLink();
                 NextBodyInvestLevel();
             }
 
             // Ready at once (instant spell): its effects stay in the hand for the minimum cast time first.
-            if (result == _splSendcast && Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+            if (result == DaedalusConst.SplSendCast && Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
             {
                 _isSendcastPending = true;
                 return;
             }
 
-            if (result == _splSendcast || result == _splSendstop)
+            if (result == DaedalusConst.SplSendCast || result == DaedalusConst.SplSendStop)
             {
                 Logger.Log($"[VRRuneCaster] result={result} after {_manaInvested} ticks — spell fired", LogCat.VR);
                 // The script refused on the first tick (no valid target, e.g. Shrink on a human): nothing happens, the
                 // mana comes back (G1 takes it per tick before asking the script). Later, SENDSTOP ends a spell that
                 // worked (G1 Heal at full HP, Pyrokinesis on a dead victim) - its mana stays spent like the engine.
-                if (result == _splSendstop && _manaInvested <= 1)
+                if (result == DaedalusConst.SplSendStop && _manaInvested <= 1)
                     RefundInvestedMana();
-                FinalizeCast(applyEffect: result == _splSendcast);
+                FinalizeCast(applyEffect: result == DaedalusConst.SplSendCast);
             }
         }
 
@@ -498,22 +493,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (vm.GetSymbolByName("Spell_ProcessMana_Release") == null)
                 return true;
 
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
             int result;
-            try
-            {
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
                 result = vm.Call<int, int>("Spell_ProcessMana_Release", _manaInvested);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
-            }
             Logger.Log($"[VRRuneCaster] Spell_ProcessMana_Release({_manaInvested}) = {result}", LogCat.VR);
-            return result == _splSendcast;
+            return result == DaedalusConst.SplSendCast;
         }
 
         /// <summary>
@@ -598,31 +582,20 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // taking it here too left too little for Spell_Logic's check (SPL_SENDSTOP, nothing fired, mana gone).
             if (!IsScriptPaidSpell())
             {
-                hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
-                // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
-                // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
-                // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
-                hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
+                // Vob and instance both (NpcService.SetAttribute) - a vob-only write was reverted by the next
+                // SyncHeroInstanceToVob() (the "mana snaps back" bug).
+                _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1);
                 RefreshManaFill();
             }
 
             var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
-            try
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
             {
                 ++_manaInvested;
                 // Summons can't be shrunk (the script only checks for a monster) - refused like an invalid target.
                 result = IsShrinkOnSummon()
-                    ? _splSendstop
+                    ? DaedalusConst.SplSendStop
                     : vm.Call<int, int>("Spell_ProcessMana", _manaInvested);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
             }
             SyncManaFromInstance(hero);
             return true;
@@ -643,7 +616,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
                 return;
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
             RefreshManaFill();
         }
 
@@ -657,8 +630,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
-            hero.Instance.SetAttribute(NpcAttribute.Mana, mana);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
             RefreshManaFill();
             Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
             _manaInvested = 0;
@@ -690,30 +662,23 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
-            try
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
             {
-                if (castSymbol.Size == 1)
-                    vm.Call(castSymbol.Index, Mathf.Max(1, _investLevel));
-                else
-                    vm.Call(castSymbol.Index);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
+                try
+                {
+                    if (castSymbol.Size == 1)
+                        vm.Call(castSymbol.Index, Mathf.Max(1, _investLevel));
+                    else
+                        vm.Call(castSymbol.Index);
+                }
+                catch (System.Exception e)
+                {
+                    Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
+                }
             }
 
             // The script changed the instance's mana - the vob (mana bar, saves) follows.
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, hero.Instance.GetAttribute(NpcAttribute.Mana));
-            RefreshManaFill();
+            SyncManaFromInstance(hero);
         }
 
         /// <summary>
@@ -1248,15 +1213,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            if (result == _splSendstop)
+            if (result == DaedalusConst.SplSendStop)
             {
                 CancelThrow("SPL_SENDSTOP");
             }
-            else if (result == _splNextlevel)
+            else if (result == DaedalusConst.SplNextLevel)
             {
                 NextInvestLevel();
             }
-            else if (result == _splSendcast)
+            else if (result == DaedalusConst.SplSendCast)
             {
                 _isThrowCharged = true;
                 Logger.Log($"[VRRuneCaster] Throw fully charged at level {_manaInvested}", LogCat.VR);
@@ -1729,11 +1694,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private string GetSpellMfxName(int spellId)
         {
-            if (spellId < 0) return null;
-            var sym = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            if (sym == null) return null;
-            var name = sym.GetString((ushort)spellId);
-            return string.IsNullOrEmpty(name) ? null : name;
+            return _vmCacheService.TryGetSpellMfxName(spellId, out var mfxName) ? mfxName : null;
         }
 
         private void StartInvestSound(int spellId)

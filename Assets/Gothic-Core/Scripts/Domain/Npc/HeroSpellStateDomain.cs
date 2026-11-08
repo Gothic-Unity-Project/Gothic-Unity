@@ -6,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
@@ -75,6 +76,15 @@ namespace Gothic.Core.Domain.Npc
         {
             return string.Equals(stateName, DaedalusConst.ZsMagicSleep, StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(stateName, DaedalusConst.ZsMagicFreeze, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The hero can't cast while knocked out, asleep or frozen.
+        /// </summary>
+        public static bool IsCastBlocked(NpcContainer hero)
+        {
+            return hero?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious ||
+                   IsSpellState(hero?.Vob.CurrentStateName);
         }
 
         /// <summary>

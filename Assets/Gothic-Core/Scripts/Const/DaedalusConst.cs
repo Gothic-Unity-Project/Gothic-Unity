@@ -62,6 +62,11 @@ namespace Gothic.Core.Const
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";
 
+        // Spell_ProcessMana / Spell_ProcessMana_Release return values (spells_params.d SPL_*).
+        public const int SplSendCast = 2;
+        public const int SplSendStop = 3;
+        public const int SplNextLevel = 4;
+
         public static class Svm
         {
             // SVM keys the engine's oCMobLockable::CanOpen uses (output via DialogService.HeroSaySvm / OutputSvm).
