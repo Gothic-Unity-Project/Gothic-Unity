@@ -8,7 +8,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -35,7 +35,7 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly FightService _fightService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
 
         // An NPC weapon within this of the held weapon touches it.
         private const int _bladeSamples = 6;
@@ -145,9 +145,12 @@ namespace Gothic.VR.Domain.Player
             if (_heldColliders.Count == 0 || hero.Go == null)
                 return;
 
+            // Only the NPCs in visible range (also the ones visible since the world loaded) - not the whole world.
             var heroPosition = hero.Go.transform.position;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            for (var i = 0; i < awakeNpcs.Count; i++)
             {
+                var npc = awakeNpcs[i];
                 if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.IsDown() ||
                     (npc.Go.transform.position - heroPosition).sqrMagnitude >
                     Melee.BlockContactRange * Melee.BlockContactRange)
