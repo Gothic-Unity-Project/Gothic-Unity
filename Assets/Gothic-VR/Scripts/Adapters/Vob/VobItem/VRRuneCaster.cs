@@ -14,6 +14,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
@@ -67,6 +68,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
         private const string _transformName = "Transform";
         // VISUALFX effects at the body/hand while charging and when cast.
         private readonly System.Collections.Generic.List<GameObject> _bodyFxGos = new();
@@ -840,7 +842,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // The ring's spell is an invisible item outside the inventory - the scroll comes out of the backpack.
             if (RingHand.HasValue)
             {
-                new Gothic.Core.Domain.Inventory.PlayerInventoryOwner().Remove(instanceName, 1);
+                _inventoryTransferService.GetHeroOwner().Remove(instanceName, 1);
                 Logger.Log($"[VRRuneCaster] Scroll {_item.Description} used up (favorites ring)", LogCat.VR);
                 return;
             }
