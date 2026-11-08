@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -18,6 +19,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Melee = Gothic.VR.VRConstants.Melee;
 
 namespace Gothic.VR.Domain.Player
 {
@@ -37,10 +39,7 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
         [Inject] private readonly IVrInput _vrInput;
 
-        private const float _fistPunchVelocity = 2f;
-        private const float _fistPunchCooldownSeconds = 0.5f;
         private const string _fistAttackAnimName = "S_FISTATTACK";
-        private const float _hitboxRetrySeconds = 2f;
 
         private readonly List<(IVrGrabber Hand, VRFistHitbox Hitbox)> _fists = new();
         private readonly Dictionary<VrHandSide, float> _lastPunchTime = new();
@@ -114,7 +113,7 @@ namespace Gothic.VR.Domain.Player
         {
             var side = hand.HandSide;
             var speed = _vrInput.GetControllerVelocity(side).magnitude;
-            var isSwinging = speed >= _fistPunchVelocity;
+            var isSwinging = speed >= Melee.FistPunchVelocity;
             _isFistSwinging.TryGetValue(side, out var wasSwinging);
             _isFistSwinging[side] = isSwinging;
             if (!isSwinging || wasSwinging)
@@ -132,7 +131,7 @@ namespace Gothic.VR.Domain.Player
                 return _fistSwingSound;
             _isFistSwingSoundResolved = true;
 
-            var mds = _resourceCacheService.TryGetModelScript("HUMANS", false);
+            var mds = _resourceCacheService.TryGetModelScript(Constants.Animations.HumanModelScript, false);
             var anim = mds?.Animations.FirstOrDefault(a => a.Name.EqualsIgnoreCase(_fistAttackAnimName));
             var soundName = anim?.SoundEffects.FirstOrDefault()?.Name;
             _fistSwingSound = soundName != null ? _vmCacheService.TryGetSfxData(soundName) : null;
@@ -150,7 +149,7 @@ namespace Gothic.VR.Domain.Player
                     Object.Destroy(hitbox.gameObject);
             }
             _fists.Clear();
-            _nextHitboxRetryTime = Time.time + _hitboxRetrySeconds;
+            _nextHitboxRetryTime = Time.time + Melee.FistHitboxRetrySeconds;
 
             var rig = _vrPlayerService.Rig;
             foreach (var hand in _vrPlayerService.GetHandGrabbers())
@@ -159,7 +158,7 @@ namespace Gothic.VR.Domain.Player
                 if (handVisual == null)
                 {
                     Logger.LogWarning($"[VRFist] No hand visual for {hand.HandSide} - no fist hitbox, retry in "
-                                      + $"{_hitboxRetrySeconds:F0}s", LogCat.Fight);
+                                      + $"{Melee.FistHitboxRetrySeconds:F0}s", LogCat.Fight);
                     continue;
                 }
                 var hitbox = VRFistHitbox.Create(handVisual, hand.HandSide);
@@ -188,13 +187,13 @@ namespace Gothic.VR.Domain.Player
             var side = hitbox.HandSide;
             var targetName = target.Instance.GetName(NpcNameSlot.Slot0);
             var speed = _vrInput.GetControllerVelocity(side).magnitude;
-            if (speed < _fistPunchVelocity)
+            if (speed < Melee.FistPunchVelocity)
             {
                 Logger.LogEditor($"[VRFist] {side} fist touched {targetName} - too slow ({speed:F1} m/s)",
                     LogCat.Fight);
                 return;
             }
-            if (_lastPunchTime.TryGetValue(side, out var last) && Time.time - last < _fistPunchCooldownSeconds)
+            if (_lastPunchTime.TryGetValue(side, out var last) && Time.time - last < Melee.FistPunchCooldownSeconds)
                 return;
 
             _lastPunchTime[side] = Time.time;

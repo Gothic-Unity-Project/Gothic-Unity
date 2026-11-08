@@ -1,4 +1,5 @@
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -13,14 +14,15 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Melee = Gothic.VR.VRConstants.Melee;
 
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
     /// The "stabFinish" option (Immersion menu): the hero finishes off an
     /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (speed along the blade).
-    /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for _holdSeconds kills - FightFinishingMove,
-    /// like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade out lets go.
+    /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for the hold time kills -
+    /// FightFinishingMove, like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade out lets go.
     /// </summary>
     public class VrStabFinishDomain
     {
@@ -32,15 +34,8 @@ namespace Gothic.VR.Domain.Player
 
         // Hand speed (m/s) along the blade for a stab, and the share of the whole speed that has to go along it.
         // A slash whose blade happened to point along its way counted as a stab - the share is high now.
-        private const float _thrustSpeed = 1.2f;
-        private const float _thrustAlignment = 0.85f;
         // The blade in the body this long kills.
-        private const float _holdSeconds = 2f;
-        private const float _holdPulseSeconds = 1f;
         // Meters back out of the body (against the tip) / sideways that let go.
-        private const float _maxPullBackDistance = 0.15f;
-        private const float _maxSidewaysDistance = 0.25f;
-        private const string _stabSound = "FIG_SWORDFINAL";
 
         private NpcContainer _attacker;
         private NpcContainer _target;
@@ -77,7 +72,7 @@ namespace Gothic.VR.Domain.Player
             var velocity = rigidbody.linearVelocity - playerVelocity;
             var alongBlade = Vector3.Dot(velocity, tipDirection);
             // Called every physics step while the blade is inside the hitbox - no log here.
-            if (alongBlade < _thrustSpeed || alongBlade < velocity.magnitude * _thrustAlignment)
+            if (alongBlade < Melee.StabThrustSpeed || alongBlade < velocity.magnitude * Melee.StabThrustAlignment)
                 return false;
 
             _attacker = attacker;
@@ -92,7 +87,7 @@ namespace Gothic.VR.Domain.Player
             PlayStabSound(weapon.transform.position);
             _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
             Logger.Log($"[VrStabFinish] Stab into {target.Instance.GetName(NpcNameSlot.Slot0)} " +
-                       $"({alongBlade:0.0} m/s) - hold it {_holdSeconds:0} s to finish", LogCat.Fight);
+                       $"({alongBlade:0.0} m/s) - hold it {Melee.StabHoldSeconds:0} s to finish", LogCat.Fight);
             return true;
         }
 
@@ -105,7 +100,7 @@ namespace Gothic.VR.Domain.Player
                 return;
 
             var handPosition = GetHandPosition(_hand);
-            var maxStuck = _holdSeconds + 1f;
+            var maxStuck = Melee.StabHoldSeconds + 1f;
             if (_weapon == null || _rigidbody == null || _hand == null || _hand.Held != _weapon ||
                 handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
             {
@@ -118,7 +113,8 @@ namespace Gothic.VR.Domain.Player
             var axis = GetTipDirection(weapon, _cachedMeshFilter, handPosition.Value);
             var moved = weapon.position - _stabPosition;
             var alongBlade = Vector3.Dot(moved, axis);
-            if (-alongBlade > _maxPullBackDistance || (moved - axis * alongBlade).magnitude > _maxSidewaysDistance)
+            if (-alongBlade > Melee.StabMaxPullBackDistance ||
+                (moved - axis * alongBlade).magnitude > Melee.StabMaxSidewaysDistance)
             {
                 Logger.Log("[VrStabFinish] Blade pulled out - no finish", LogCat.Fight);
                 Clear();
@@ -127,12 +123,12 @@ namespace Gothic.VR.Domain.Player
 
             var heldTime = Time.time - _stabTime;
             // A pulse every second - you feel the blade is in.
-            if (heldTime >= (_holdPulses + 1) * _holdPulseSeconds && heldTime < _holdSeconds)
+            if (heldTime >= (_holdPulses + 1) * Melee.StabHoldPulseSeconds && heldTime < Melee.StabHoldSeconds)
             {
                 _holdPulses++;
                 _hapticsService.Vibrate(_hand.HandSide, VrHapticPreset.Info);
             }
-            if (heldTime < _holdSeconds)
+            if (heldTime < Melee.StabHoldSeconds)
                 return;
 
             Finish($"held {heldTime:0.0} s");
@@ -203,11 +199,11 @@ namespace Gothic.VR.Domain.Player
 
         private void PlayStabSound(Vector3 position)
         {
-            var sfx = _vmCacheService.TryGetSfxData(_stabSound);
+            var sfx = _vmCacheService.TryGetSfxData(Constants.SfxSwordFinal);
             var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
             if (clip == null)
             {
-                Logger.LogWarning($"[VrStabFinish] No sound {_stabSound}", LogCat.Fight);
+                Logger.LogWarning($"[VrStabFinish] No sound {Constants.SfxSwordFinal}", LogCat.Fight);
                 return;
             }
             _vrSfxPlayer.Play(clip, position);

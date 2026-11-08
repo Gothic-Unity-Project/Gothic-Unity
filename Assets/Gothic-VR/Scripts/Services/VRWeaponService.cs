@@ -107,7 +107,8 @@ namespace Gothic.VR.Services
         /// </summary>
         public bool IsStabFinishOn()
         {
-            _isStabFinishOn ??= _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+            _isStabFinishOn ??= _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish,
+                VRConstants.StabFinishDefaultValue) == 1;
             return _isStabFinishOn.Value;
         }
 

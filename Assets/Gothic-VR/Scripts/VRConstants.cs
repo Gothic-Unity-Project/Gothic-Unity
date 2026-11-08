@@ -90,6 +90,8 @@ namespace Gothic.VR
 
         public const int HeroBlockDefaultValue = 1;
 
+        public const int StabFinishDefaultValue = 1;
+
         public const int LedgeClimbModeDefaultValue = 0;
         public const int HeroFallModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
@@ -131,6 +133,40 @@ namespace Gothic.VR
         // Render queue of the VR hands and the hero's arms while a menu or dialog wants the hands on top: after the
         // on-top UI (UiOnTop-Text: 3901). VRHandsOnTop and VrHeroHands.
         public const int HandsOnTopRenderQueue = 3950;
+
+        /// <summary>
+        /// VR melee tunables: hero fists, blocking and the stab finish. Serialized prefab fields stay on the prefab.
+        /// </summary>
+        public static class Melee
+        {
+            // Fist punch: hand speed (m/s) needed to hit. Same rule as the weapon prefab's _weaponVelocityThreshold (2);
+            // the prefab field is serialized and not wired to this constant - keep both in step.
+            public const float FistPunchVelocity = 2f;
+
+            // Seconds before the same fist can hit again.
+            public const float FistPunchCooldownSeconds = 0.5f;
+
+            // Seconds between tries to find the fist hitbox while it is missing.
+            public const float FistHitboxRetrySeconds = 2f;
+
+            // Block: an NPC weapon within this distance (m) of the held weapon touches it.
+            public const float BlockContactDistance = 0.08f;
+
+            // Block: NPCs further away than this (m) from the hero are not checked.
+            public const float BlockContactRange = 4f;
+
+            // Stab finish: hand speed (m/s) along the blade for a stab, and the share of the whole speed along it.
+            public const float StabThrustSpeed = 1.2f;
+            public const float StabThrustAlignment = 0.85f;
+
+            // Stab finish: seconds the blade has to stay in the body to kill, and the seconds between hold pulses.
+            public const float StabHoldSeconds = 2f;
+            public const float StabHoldPulseSeconds = 1f;
+
+            // Stab finish: meters back out of the body (against the tip) / sideways that let go.
+            public const float StabMaxPullBackDistance = 0.15f;
+            public const float StabMaxSidewaysDistance = 0.25f;
+        }
 
         /// <summary>
         /// VR swim values. Deliberately not the guild's water depths (GetWaterDepthKnee/Chest from Daedalus): those

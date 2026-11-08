@@ -143,7 +143,8 @@ namespace Gothic.VR.Services.Context
                         VRConstants.HeroHandsDefaultValue)));
             rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
                     "Stab and hold the blade in to finish off (off: any hit)"),
-                CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish, 1)));
+                CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
+                    VRConstants.StabFinishDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

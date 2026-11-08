@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Const;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -18,6 +19,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Melee = Gothic.VR.VRConstants.Melee;
 
 namespace Gothic.VR.Domain.Player
 {
@@ -39,10 +41,7 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         // An NPC weapon within this of the held weapon touches it.
-        private const float _contactDistance = 0.08f;
-        private const float _contactRange = 4f;
         private const int _bladeSamples = 6;
-        private const string _fistBone = "BIP01 R HAND";
 
         private bool _isBlocking;
         private Transform _head;
@@ -153,7 +152,8 @@ namespace Gothic.VR.Domain.Player
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
                 if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.IsDown() ||
-                    (npc.Go.transform.position - heroPosition).sqrMagnitude > _contactRange * _contactRange)
+                    (npc.Go.transform.position - heroPosition).sqrMagnitude >
+                    Melee.BlockContactRange * Melee.BlockContactRange)
                     continue;
 
                 var fightMode = (VmGothicEnums.WeaponState)npc.Vob.FightMode;
@@ -191,7 +191,8 @@ namespace Gothic.VR.Domain.Player
             {
                 if (collider == null || !collider.enabled || collider.isTrigger)
                     continue;
-                if ((collider.ClosestPoint(point) - point).sqrMagnitude <= _contactDistance * _contactDistance)
+                if ((collider.ClosestPoint(point) - point).sqrMagnitude <=
+                    Melee.BlockContactDistance * Melee.BlockContactDistance)
                     return true;
             }
             return false;
@@ -210,7 +211,7 @@ namespace Gothic.VR.Domain.Player
                     Go = npc.Go,
                     RightSlot = npc.Go.FindChildRecursively(Constants.SlotRightHand)?.transform,
                     LeftSlot = npc.Go.FindChildRecursively(Constants.SlotLeftHand)?.transform,
-                    Fist = npc.Go.FindChildRecursively(_fistBone)?.transform
+                    Fist = npc.Go.FindChildRecursively(Constants.Animations.RightHandBoneName)?.transform
                 };
                 _npcParts[npc] = parts;
             }
