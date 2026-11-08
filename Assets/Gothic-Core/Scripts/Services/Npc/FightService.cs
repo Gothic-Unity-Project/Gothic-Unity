@@ -306,7 +306,7 @@ namespace Gothic.Core.Services.Npc
 
             if (!isHero && target.IsKnockedOut())
             {
-                OnHitOnKnockedOut(attacker, target, position, damageOverride);
+                OnHitOnKnockedOut(attacker, target, position, damageOverride, heroWeapon);
                 return;
             }
 
@@ -361,9 +361,9 @@ namespace Gothic.Core.Services.Npc
         /// finish (IsHeroFinishingMove). Both go through FightFinishingMove.
         /// </summary>
         private void OnHitOnKnockedOut(NpcContainer attacker, NpcContainer target, Vector3 position,
-            int? damageOverride)
+            int? damageOverride, ItemInstance heroWeapon)
         {
-            if (!IsHeroFinishingMove(attacker, target, damageOverride))
+            if (!IsHeroFinishingMove(attacker, target, damageOverride, heroWeapon))
             {
                 Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit doesn't hurt " +
                            $"knocked out {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
@@ -382,12 +382,14 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// The hero can finish a knocked out NPC like the engine (OpenGothic Npc::canFinish): a one- or two-handed
         /// weapon drawn, the target within NPC_ATTACK_FINISH_DISTANCE. Fists, arrows and spells can't.
+        /// The hit's own weapon decides (FightHit), not his FightMode: in VR one hand can hold a sword (W1H) while
+        /// the other punches - that fist finished knocked out NPCs.
         /// </summary>
-        private bool IsHeroFinishingMove(NpcContainer attacker, NpcContainer target, int? damageOverride)
+        private bool IsHeroFinishingMove(NpcContainer attacker, NpcContainer target, int? damageOverride,
+            ItemInstance heroWeapon)
         {
-            if (damageOverride.HasValue || !attacker.Instance.IsHero(_gameStateService.GothicVm) ||
-                (VmGothicEnums.WeaponState)attacker.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
-                    VmGothicEnums.WeaponState.W2H) ||
+            if (damageOverride.HasValue || !heroWeapon.IsMeleeWeapon() ||
+                !attacker.Instance.IsHero(_gameStateService.GothicVm) ||
                 attacker.Go == null || target.Go == null)
                 return false;
 

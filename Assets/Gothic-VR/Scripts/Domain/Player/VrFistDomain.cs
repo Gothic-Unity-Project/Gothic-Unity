@@ -177,11 +177,10 @@ namespace Gothic.VR.Domain.Player
             var target = npcLoader.Container;
             if (hero == null || target == null || target == hero)
                 return;
-            // An unconscious hero doesn't punch; a knocked out human is finished off by a stab only (a fist finished
-            // him - Bullit and his quest were gone after one punch).
+            // An unconscious hero doesn't punch. A fist never finishes a knocked out NPC - FightService decides that
+            // from the hit's weapon (null: fist).
             // A dead NPC takes no damage (FightService.OnHit returns on IsDead) - no punch haptics or log for him.
-            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious || target.IsKnockedOut() ||
-                target.Props.IsDead)
+            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious || target.Props.IsDead)
                 return;
 
             var side = hitbox.HandSide;

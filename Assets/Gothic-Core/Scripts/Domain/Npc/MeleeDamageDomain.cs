@@ -153,12 +153,15 @@ namespace Gothic.Core.Domain.Npc
             out bool isImmune)
         {
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
-            var weapon = isHeroAttacker
-                ? heroWeapon
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            // In fist mode the engine hits with the fist, not the sword in the belt.
-            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
+            // The hero: the hit's weapon decides, not his FightMode - in VR one hand can punch while the other holds a
+            // sword (FightMode W1H). NPCs: in fist mode the engine hits with the fist, not the sword in the belt.
+            ItemInstance weapon;
+            if (isHeroAttacker)
+                weapon = heroWeapon.IsMeleeWeapon() ? heroWeapon : null;
+            else if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
                 weapon = null;
+            else
+                weapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
 
             var mask = weapon?.DamageType ?? attacker.Instance.DamageType;
             if (mask == 0)
