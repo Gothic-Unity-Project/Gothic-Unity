@@ -166,39 +166,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             IsFinishedFlag = true;
         }
 
-        public override void Tick()
-        {
-            base.Tick();
-            if (IsFinishedFlag || !IsPursuitOver())
-                return;
-
-            // ZS_ProclaimAndPunish_Loop gives up after HAI_TIME_PURSUIT (AI_ContinueRoutine), but it only runs again
-            // once this AI_GotoNpc is done - which was on arrival: guards/orcs chased the hero all the way and put their
-            // weapon away right next to him. Stop here, the loop gives up mid-chase like in the engine.
-            Logger.Log($"[GoToNpc] {NpcInstance.GetName(NpcNameSlot.Slot0)}: pursuit over after {Props.StateTime:F0} s " +
-                       "- stopping so ZS_ProclaimAndPunish gives up", LogCat.Ai);
-            StopWalk();
-            IsFinishedFlag = true;
-
-            // A goodbye like a fighter giving up (ZS_Attack: "$RUNCOWARD") - plays before the loop's AI_ContinueRoutine,
-            // the loop only runs again once the queue is empty. Orc voices (17) have no $RUNCOWARD - "$GETOUTOFHERE".
-            var giveUpSvm = HasSvm(_giveUpSvm) ? _giveUpSvm : _giveUpFallbackSvm;
-            _dialogService.ExtAiOutputSvm(NpcInstance, (NpcInstance)GameStateService.GothicVm.GlobalHero, giveUpSvm);
-
-            // No PERC_ASSESSENEMY right away - it restarted the chase at once.
-            Props.HeroChaseGivenUpTime = Time.time;
-        }
-
-        private bool IsPursuitOver()
-        {
-            if (!IsInPursuitLoop() || !Props.IsStateTimeActive)
-                return false;
-
-            _pursuitSeconds ??= GameStateService.GothicVm.GetSymbolByName(_pursuitTimeName)?.GetInt(0) ??
-                                _defaultPursuitSeconds;
-            return Props.StateTime > _pursuitSeconds;
-        }
-
         private bool IsInPursuitLoop()
         {
             if (Props.CurrentLoopState != LoopState.Loop)
@@ -237,14 +204,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         private const string _pursuitLoopName = "ZS_PROCLAIMANDPUNISH_LOOP";
-        private const string _giveUpSvm = "$RUNCOWARD";
-        private const string _giveUpFallbackSvm = "$GETOUTOFHERE";
         private const string _warnSvm = "$DIEMORTALENEMY";
         private const string _warnAnimName = "T_WARN";
         private const float _pursuitWarnRepeatSeconds = 15f;
-        private const string _pursuitTimeName = "HAI_TIME_PURSUIT";
-        private const int _defaultPursuitSeconds = 20;
         private int? _pursuitLoopIndex;
-        private int? _pursuitSeconds;
     }
 }

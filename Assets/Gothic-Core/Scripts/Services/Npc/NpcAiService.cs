@@ -100,9 +100,6 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            if (IsHeroChaseCoolingDown(type, properties, self, other))
-                return;
-
             // Like the engine, other and victim are this perception's, null included (VmGlobalsScope). Disposing
             // the scope ensures a throwing perception function doesn't leave the globals polluted for every
             // subsequent script call of all NPCs.
@@ -1009,50 +1006,6 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<int> _sneakIgnoringGuards = new();
         private const float _caughtHeroDistance = 4f;
         private HashSet<int> _attackLoopIndices;
-
-        /// <summary>
-        /// An attack loop on the hero ended (he got away: too far, or ran too
-        /// long - often right next to the NPC, which is as fast as him) - remember when.
-        /// </summary>
-        public void RememberHeroChaseGivenUp(NpcInstance npc, NpcProperties props, string stateName)
-        {
-            if (stateName == null ||
-                !stateName.Contains("ATTACK", System.StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
-            if (hero == null || props.TargetNpc == null || props.TargetNpc.Index != hero.Index)
-                return;
-            // The hero knocked down or dead isn't an escape.
-            var heroState = hero.GetUserData()?.Props.BodyState;
-            if (heroState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
-                return;
-
-            props.HeroChaseGivenUpTime = Time.time;
-            Logger.Log($"[ChaseCooldown] {npc.GetName(NpcNameSlot.Slot0)} gave up the hero - no re-aggro for " +
-                       $"{_chaseCooldownSeconds:F0} s unless he attacks", LogCat.Ai);
-        }
-
-        /// <summary>
-        /// Vanilla has no hysteresis: after giving up, PERC_ASSESSENEMY / a comrade's PERC_ASSESSWARN within the 20 m
-        /// senses range starts the fight again at once - the NPC gave up and came back endlessly. After giving up it
-        /// ignores the hero for a while; hitting it (PERC_ASSESSDAMAGE) still starts a fight.
-        /// </summary>
-        private bool IsHeroChaseCoolingDown(VmGothicEnums.PerceptionType type, NpcProperties props, NpcInstance self,
-            NpcInstance other)
-        {
-            if (!_configService.Dev.EnableHeroChaseCooldown)
-                return false;
-            if (type is not (VmGothicEnums.PerceptionType.AssessEnemy or VmGothicEnums.PerceptionType.AssessWarn))
-                return false;
-            if (Time.time - props.HeroChaseGivenUpTime > _chaseCooldownSeconds)
-                return false;
-
-            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
-            return hero != null && other != null && other.Index == hero.Index;
-        }
-
-        private const float _chaseCooldownSeconds = 5f;
 
         public void ExtNpcSetStateTime(NpcInstance npc, int seconds)
         {

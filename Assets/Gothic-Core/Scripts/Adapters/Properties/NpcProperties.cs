@@ -152,8 +152,6 @@ namespace Gothic.Core.Adapters.Properties
         public bool IsStateTimeActive;
         public float StateTime;
 
-        // Time.time when this NPC gave up chasing the hero from far away.
-        public float HeroChaseGivenUpTime = float.MinValue;
         // Time.time since the enemy is out of this NPC's melee reach in height, -1: in reach
         public float MeleeUnreachableSince = -1f;
         // Time.time of the last threat before a chase.

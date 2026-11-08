@@ -186,9 +186,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 Logger.Log($"[Attack] {name}: enemy out of melee reach for {_meleeUnreachableGiveUpSeconds:F0} s - " +
                            "giving up, weapon away, back to the routine", LogCat.Ai);
                 Props.MeleeUnreachableSince = -1f;
-                if (enemy.PrefabProps != null &&
-                    enemy.PrefabProps.IsHero())
-                    Props.HeroChaseGivenUpTime = Time.time;
                 Props.AnimationQueue.Clear();
                 Props.CurrentLoopState = LoopState.End;
                 IsFinishedFlag = true;

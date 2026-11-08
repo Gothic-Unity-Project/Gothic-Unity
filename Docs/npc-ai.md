@@ -46,16 +46,14 @@ Platform and game version ports (in `Services/Context/`, registered in the modul
 - `IContextRangedCombatService`: ranged damage and hit chance. `Gothic1/.../G1RangedCombatService`, `Gothic2/...`.
 - `IMeleeDamageRule`: G1 critical hit vs G2 hit chance. `G1MeleeDamageRule`, `G2MeleeDamageRule`.
 
-## Rules beyond vanilla
+## Feature switches
 
-Our own additions and the fight features sit behind `DeveloperConfig` flags. The first row is an AI rule the scripts
-don't have (on in Production, listed in the ADR). The other AI rules beyond the scripts were removed, see
-[#501](https://github.com/Gothic-Unity-Project/Gothic-Unity/issues/501). Check the flag before you assume a behaviour
-comes from the scripts:
+The AI follows the scripts and the engine; there are no AI rules of our own (the removed ones are in
+[#501](https://github.com/Gothic-Unity-Project/Gothic-Unity/issues/501)). These `DeveloperConfig` flags switch whole
+features of the port on or off - check them before you assume a behaviour comes from the scripts:
 
 | Flag | Where |
 |---|---|
-| `EnableHeroChaseCooldown` | `NpcAiService` |
 | `EnableVrChainLightning` | `SpellHitDomain` |
 | `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |
 | `EnableNpcNavMesh` | `NpcNavMeshService` (used by `NpcChaseMovement`) |

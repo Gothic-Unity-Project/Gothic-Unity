@@ -244,7 +244,6 @@ namespace Gothic.Core.Adapters.Npc
                             Properties.CurrentLoopState = LoopState.End;
                             LogStateLoopEnded();
                             ForgetHeroAfterLookingAway();
-                            _npcAiService.RememberHeroChaseGivenUp(NpcInstance, Properties, Vob.CurrentStateName);
                         }
                         
                         break;
@@ -842,8 +841,8 @@ namespace Gothic.Core.Adapters.Npc
 
         /// <summary>
         /// DeveloperConfig.EnableTimeSkipResetsNpcs: after the hero slept the NPC starts over like after culling
-        /// (ReEnableNpc: routine waypoint, empty queue, routine) - and forgets its fight: no enemy/target, the cooldowns
-        /// of a given-up chase, weapon away. Monsters go back to their start state, not the one they were in (an attack).
+        /// (ReEnableNpc: routine waypoint, empty queue, routine) - and forgets its fight: no enemy/target, weapon away.
+        /// Monsters go back to their start state, not the one they were in (an attack).
         /// </summary>
         public void ResetAfterTimeSkip()
         {
@@ -852,7 +851,6 @@ namespace Gothic.Core.Adapters.Npc
             Properties.StateOther = null;
             Properties.StateVictim = null;
             Properties.LookAtTarget = null;
-            Properties.HeroChaseGivenUpTime = float.MinValue;
             Properties.LastPursuitWarnTime = float.MinValue;
 
             var isWeaponDrawn = (VmGothicEnums.WeaponState)Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon;

@@ -334,11 +334,6 @@ namespace Gothic.Core.Models.Config
                  "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
         public bool EnableVrChainLightning = true;
 
-        [Tooltip("Beyond the scripts: after giving up the chase, an NPC ignores the hero's presence for 5 seconds " +
-                 "(hitting it still starts a fight). Off: PERC_ASSESSENEMY/ASSESSWARN restart the fight at once, " +
-                 "like the scripts.")]
-        public bool EnableHeroChaseCooldown = true;
-
         [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +
                  "hero's body) play with the ground's suffix like the engine (RUN_EARTH, RUN_STONE, RUN_WOOD, " +
                  "RUN_WATER); the material is guessed (wading, a VOB below, under a ceiling). They were skipped.")]
