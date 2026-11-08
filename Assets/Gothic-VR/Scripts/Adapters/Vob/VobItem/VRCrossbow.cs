@@ -1,5 +1,6 @@
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -42,10 +43,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
         private const float _reloadSeconds = 1.5f;
-        private const string _shootSfx = "CrossbowShoot";
-        private const string _reloadSfx = "CrossbowReload";
-        // The NPCs' t_CBowReload plays BowReload.
-        private const string _manualReloadSfx = "BowReload";
 
         // Meters from the string (nock) in which the free hand's trigger takes it, the share of the way that locks it.
         // The trigger, not the grip: the grip near the stock grabbed the crossbow itself.
@@ -187,7 +184,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                         _isLoaded = true;
                         if (_string != null)
                             _string.SetProgress(1f);
-                        PlaySfx(_reloadSfx);
+                        PlaySfx(Constants.SfxCrossbowReload);
                     }
                 }
             }
@@ -272,7 +269,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _reloadTimer = _reloadSeconds;
             if (_string != null)
                 _string.SetProgress(0f);
-            PlaySfx(_shootSfx);
+            PlaySfx(Constants.SfxCrossbowShoot);
             _hapticsService.Vibrate(handSide, VrHapticPreset.Success);
         }
 
@@ -328,7 +325,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _isPulling = false;
             _isLoaded = true;
-            PlaySfx(_manualReloadSfx);
+            PlaySfx(Constants.SfxBowReload);
             _hapticsService.Vibrate(_pullHand, VrHapticPreset.Success);
             Logger.Log($"[VRCrossbow] {_item.Name}: cocked", LogCat.VR);
         }

@@ -71,5 +71,10 @@ namespace Gothic.Core.Const
         public const float JumpBackAngle = 90f;
         // The hero's facing in VR is his head, which turns more than a body - a bit more room than the engine's 30.
         public const float HeroFocusAngle = 45f;
+
+        // A VR crossbow is shot with one hand by a trained crossbowman only: talent skill "master" (G1/mods) or this
+        // crossbow percentage (G2 hitchance). Two hands otherwise.
+        public const int CrossbowMasterSkill = 2;
+        public const int OneHandedCrossbowPercent = 60;
     }
 }

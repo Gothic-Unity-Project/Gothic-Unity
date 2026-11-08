@@ -46,8 +46,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
         [Inject] private readonly FightService _fightService;
 
-        private const string _shootSfx = "BowShoot";
-        private const string _drawSfx = "BowReload";
         private const float _grabStringDistance = 0.25f;
         private const float _minShootTension = 0.15f;
         private const float _minSpeed = 8f;
@@ -238,7 +236,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isDrawing = true;
             _drawHand = side;
             _lastHapticTension = 0f;
-            PlaySfx(_drawSfx);
+            PlaySfx(Constants.SfxBowReload);
 
             var hero = _npcService.GetHeroContainer();
             if (_munition != null && _vrRangedService.HasAmmo(hero, _munition))
@@ -317,7 +315,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _arrow = null;
             _vrRangedService.Shoot(hero, _item, _munition, _nockWorld, direction, speed, damageScale, arrow);
 
-            PlaySfx(_shootSfx);
+            PlaySfx(Constants.SfxBowShoot);
             _hapticsService.Vibrate(_drawHand, VrHapticPreset.Success);
             Logger.Log($"[VRBow] Shot {_munition.Name}: tension={tension:F2} speed={speed:F1} dmgScale={damageScale:F2}", LogCat.VR);
         }
@@ -572,14 +570,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 // By position: the cached mapping was missing for every bow (built once without the morph mesh) -
                 // morph frames=0, the limbs never bent.
-                var frames = _morphMeshCacheService.TryGetMorphDataForVertices(_item.Visual, "S_SHOOT", _restVertices);
+                var frames = _morphMeshCacheService.TryGetMorphDataForVertices(_item.Visual,
+                    Constants.Animations.BowShootMorphAnimName, _restVertices);
                 if (frames == null || frames.Count == 0 || frames[0].Length != _restVertices.Length)
                     return null;
                 return frames;
             }
             catch (Exception e)
             {
-                Logger.LogWarning($"[VRBow] {_item.Visual}: no S_SHOOT morph ({e.Message}) - limbs stay straight.", LogCat.VR);
+                Logger.LogWarning($"[VRBow] {_item.Visual}: no {Constants.Animations.BowShootMorphAnimName} morph " +
+                                  $"({e.Message}) - limbs stay straight.", LogCat.VR);
                 return null;
             }
         }

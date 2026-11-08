@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Extensions;
@@ -18,8 +19,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRCrossbowString : MonoBehaviour
     {
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
-
-        private const string _reloadAnimation = "S_RELAX";
 
         private MeshFilter _meshFilter;
         private Mesh _originalMesh;
@@ -67,10 +66,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _originalMesh = _meshFilter.sharedMesh;
             _cockedVertices = _originalMesh.vertices;
-            var frames = _morphMeshCacheService.TryGetMorphDataForVertices(visual, _reloadAnimation, _cockedVertices);
+            var reloadAnimation = Constants.Animations.CrossbowReloadMorphAnimName;
+            var frames = _morphMeshCacheService.TryGetMorphDataForVertices(visual, reloadAnimation, _cockedVertices);
             if (frames == null || frames.Count == 0)
             {
-                Logger.LogWarning($"[VRCrossbowString] {visual}: no {_reloadAnimation} morph - automatic reload.",
+                Logger.LogWarning($"[VRCrossbowString] {visual}: no {reloadAnimation} morph - automatic reload.",
                     LogCat.VR);
                 return;
             }
@@ -93,7 +93,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_nockIndex < 0 || Mathf.Sqrt(bestDistance) < 0.05f)
             {
                 _nockIndex = -1;
-                Logger.LogWarning($"[VRCrossbowString] {visual}: the string doesn't move in {_reloadAnimation} - " +
+                Logger.LogWarning($"[VRCrossbowString] {visual}: the string doesn't move in {reloadAnimation} - " +
                                   "automatic reload.", LogCat.VR);
                 return;
             }

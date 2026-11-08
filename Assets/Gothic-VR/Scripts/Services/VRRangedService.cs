@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -17,9 +18,6 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-
-        private const int _masterSkill = 2;
-        private const int _oneHandPercent = 60;
 
         /// <summary>
         /// Bow (ITEM_KAT_FF without ITEM_CROSSBOW), CBow (ITEM_CROSSBOW) or NoWeapon (no ranged weapon). The one
@@ -44,7 +42,8 @@ namespace Gothic.VR.Services
             var talentIndex = (int)NpcTalent.Crossbow;
             var talent = hero.Vob.GetTalent(talentIndex);
             var percent = _npcHelperService.GetTalentPercent(hero, talentIndex);
-            return (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;
+            return (talent?.Skill ?? 0) >= FightConst.CrossbowMasterSkill ||
+                   percent >= FightConst.OneHandedCrossbowPercent;
         }
 
         public ItemInstance GetMunition(ItemInstance weapon) => _projectileService.GetMunition(weapon);
