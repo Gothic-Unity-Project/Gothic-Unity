@@ -411,6 +411,7 @@ namespace Gothic.Core.Domain.Vm
                         return _support.LogInstantExternal(nameof(Npc_HasSpell), 1, npc, spellId);
                 }
             }
+            // No rune slot - he never had a rune (see NpcInventoryService.GetAllInventoryItems), nothing to log.
             catch { }
             return _support.LogInstantExternal(nameof(Npc_HasSpell), 0, npc, spellId);
         }

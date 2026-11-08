@@ -342,6 +342,7 @@ namespace Gothic.Core.Services.Npc
             {
                 List<ContentItem> weaponItems;
                 try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
                 catch { return; }
 
                 var bestDamage = -1;
@@ -398,6 +399,7 @@ namespace Gothic.Core.Services.Npc
             {
                 List<ContentItem> weaponItems;
                 try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
                 catch { return; }
 
                 foreach (var contentItem in weaponItems)
