@@ -1,6 +1,6 @@
-using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -19,37 +19,30 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrCrossbow: a held crossbow shoots bolts. Aim = the crossbow itself (a two-hand grab is
-    /// oriented by both hands), the trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow):
-    /// 1 munition item (bolt) per shot from the hero's inventory, 30 m/s with gravity, damage via RangedHit.
-    /// DeveloperConfig.EnableVrCrossbowManualReload + the "crossbowReload" option (Immersion menu): after a shot the
-    /// string sits at the prod (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls
-    /// it back along the stock and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps
-    /// back. A cocked crossbow shows a bolt on the stock if the hero has one - that bolt flies.
-    /// Off (or a mesh without the shapes): it reloads by itself after _reloadSeconds.
+    /// A held crossbow shoots bolts. Aim = the crossbow itself (a two-hand grab is oriented by both hands), the
+    /// trigger of a holding hand fires. Like the engine (OpenGothic Npc::shootBow): 1 munition item (bolt) per shot
+    /// from the hero's inventory, 30 m/s with gravity, damage via RangedHit.
+    /// The "crossbowReload" option (Immersion menu, on by default): after a shot the string sits at the prod
+    /// (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls it back along the stock
+    /// and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps back. A cocked
+    /// crossbow shows a bolt on the stock if the hero has one - that bolt flies.
+    /// Off (or a mesh without the shapes): it reloads by itself after VRConstants.Ranged.CrossbowReloadSeconds.
+    /// The component stays on the crossbow; VRVobItem switches it with SetHeld (disabled = not held). The first grab's
+    /// setup runs in the next Update, not inside the backend's grab event.
     /// </summary>
-    public class VRCrossbow : MonoBehaviour
+    public class VRCrossbow : MonoBehaviour, IVrHoldable
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
-        [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRRangedService _vrRangedService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+        [Inject] private readonly FightService _fightService;
 
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
-        private const int _masterSkill = 2;
-        private const int _oneHandPercent = 60;
-
-        private const float _reloadSeconds = 1.5f;
-        private const string _shootSfx = "CrossbowShoot";
-        private const string _reloadSfx = "CrossbowReload";
-        // The NPCs' t_CBowReload plays BowReload.
-        private const string _manualReloadSfx = "BowReload";
 
         // Meters from the string (nock) in which the free hand's trigger takes it, the share of the way that locks it.
         // The trigger, not the grip: the grip near the stock grabbed the crossbow itself.
@@ -57,9 +50,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _lockProgress = 0.97f;
         private const float _hapticStep = 0.1f;
         private const float _ammoCheckSeconds = 0.5f;
-
-        // Local forward axis (towards the prod) per mesh - computed once from the vertices.
-        private static readonly Dictionary<string, Vector3> _forwardAxisCache = new();
 
         private ItemInstance _item;
         private ItemInstance _munition;
@@ -78,65 +68,137 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _hasAmmo;
         private float _nextAmmoCheck;
 
+        private bool _isHeld;
+        // The first grab: the setup (VRCrossbowString) waits for the next Update, outside the grab event.
+        private bool _isHoldPending;
+        private bool _isSetUp;
+        private bool _isSetupFailed;
 
         private void Awake()
         {
             this.Inject();
+            // Runs only while held (SetHeld).
+            enabled = false;
         }
 
-        private void Start()
+        /// <summary>
+        /// A hand took the crossbow (true) or the last hand let it go (false). A second hand changes nothing.
+        /// </summary>
+        public void SetHeld(bool isHeld)
         {
-            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
-            if (_item == null)
+            if (isHeld == (_isHeld || _isHoldPending))
+                return;
+
+            // Set up already (or failed): switching is cheap, a hand -> hand swap in one frame stays seamless.
+            if (isHeld && (_isSetUp || _isSetupFailed))
             {
-                Logger.LogWarning("[VRCrossbow] ItemInstance not found on parent VobLoader", LogCat.VR);
+                Hold();
+                return;
+            }
+
+            if (isHeld)
+            {
+                _isHoldPending = true;
+                enabled = true;
+                return;
+            }
+
+            // Let go before the pending setup ran: nothing was shown yet.
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
                 enabled = false;
                 return;
             }
 
-            _munition = _vrRangedService.GetMunition(_item);
-            CalculateAxes();
-            SetupString();
+            LetGo();
+        }
 
+        private void Hold()
+        {
+            if (!TrySetup())
+            {
+                enabled = false;
+                return;
+            }
+
+            _isHeld = true;
+            _isPulling = false;
+            _nextAmmoCheck = 0f;
+            _isLoaded = true;
+            _reloadTimer = 0f;
+            _isManualReload = false;
+            // The cocked state lives on the item (VRCrossbowString) - a fired crossbow picked up again stays fired.
+            if (_string.IsAnimated)
+            {
+                _isLoaded = _string.IsLoaded;
+                _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload,
+                    VRConstants.CrossbowReloadDefaultValue) == 1;
+            }
+            // Automatic reload: a crossbow picked up fired takes the whole reload time, like right after a shot.
+            if (!_isLoaded)
+                _reloadTimer = VRConstants.Ranged.CrossbowReloadSeconds;
+
+            enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
             Logger.Log($"[VRCrossbow] {_item.Name} readied - munition={_munition?.Name ?? "none"} " +
                        $"forward(local)={_localForward} muzzle(local)={_localMuzzle} loaded={_isLoaded} " +
                        $"manualReload={_isManualReload}", LogCat.VR);
         }
 
-        /// <summary>
-        /// DeveloperConfig.EnableVrCrossbowManualReload: the cocked state lives on the item (VRCrossbowString) - a
-        /// fired crossbow picked up again stays fired.
-        /// </summary>
-        private void SetupString()
+        private void LetGo()
         {
-            if (!_configService.Dev.EnableVrCrossbowManualReload)
-                return;
+            _isHeld = false;
+            enabled = false;
 
+            // Let go mid-pull: the string snaps back.
+            if (_isPulling)
+                _string.SetProgress(0f);
+            _isPulling = false;
+            DestroyBolt();
+            _vrWeaponService.UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Once per crossbow, in the Update after the first grab: munition, aim axes and the string (VRCrossbowString).
+        /// </summary>
+        private bool TrySetup()
+        {
+            if (_isSetUp || _isSetupFailed)
+                return _isSetUp;
+
+            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (_item == null)
+            {
+                _isSetupFailed = true;
+                Logger.LogWarning("[VRCrossbow] ItemInstance not found on parent VobLoader", LogCat.VR);
+                return false;
+            }
+
+            _munition = _vrRangedService.GetMunition(_item);
+            CalculateAxes();
             if (!TryGetComponent(out _string))
                 _string = gameObject.AddComponent<VRCrossbowString>();
             _string.Init(_item.Visual);
-            if (!_string.IsAnimated)
-                return;
-
-            _isLoaded = _string.IsLoaded;
-            _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload, 1) == 1;
+            _isSetUp = true;
+            return true;
         }
 
         private void OnDestroy()
         {
-            if (_item != null)
-                _vrWeaponService.UpdateHeroWeaponState(releasedItem: gameObject);
-
-            // Let go mid-pull: the string snaps back.
-            if (_isPulling && _string != null)
-                _string.SetProgress(0f);
             DestroyBolt();
         }
 
         private void Update()
         {
-            if (_item == null)
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
+                Hold();
+                return;
+            }
+
+            if (!_isHeld)
                 return;
 
             if (!_isLoaded)
@@ -153,7 +215,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                         _isLoaded = true;
                         if (_string != null)
                             _string.SetProgress(1f);
-                        PlaySfx(_reloadSfx);
+                        PlaySfx(Constants.SfxCrossbowReload);
                     }
                 }
             }
@@ -188,7 +250,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated)
                 {
                     handSide = side;
-                    if (IsTwoHandsRequired() && !_vrPlayerService.IsDualGrabbed)
+                    var isOneHanded = _vrRangedService.IsOneHandedCrossbow(_npcService.GetHeroContainer());
+                    if (!isOneHanded && !_vrPlayerService.IsDualGrabbed)
                     {
                         // Too heavy for one hand - hold it with both (a crossbow master shoots one-handed).
                         _hapticsService.Vibrate(side, VrHapticPreset.Warning);
@@ -231,13 +294,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var origin = _bolt != null ? _bolt.transform.position : transform.TransformPoint(_localMuzzle);
             var bolt = _bolt;
             _bolt = null;
-            _vrRangedService.Shoot(hero, _item, _munition, origin, forward, VRRangedService.ProjectileSpeed, 1f, bolt);
+            _vrRangedService.Shoot(hero, _item, _munition, origin, forward, ProjectileService.ProjectileSpeed, 1f, bolt);
 
             _isLoaded = false;
-            _reloadTimer = _reloadSeconds;
+            _reloadTimer = VRConstants.Ranged.CrossbowReloadSeconds;
             if (_string != null)
                 _string.SetProgress(0f);
-            PlaySfx(_shootSfx);
+            PlaySfx(Constants.SfxCrossbowShoot);
             _hapticsService.Vibrate(handSide, VrHapticPreset.Success);
         }
 
@@ -293,7 +356,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _isPulling = false;
             _isLoaded = true;
-            PlaySfx(_manualReloadSfx);
+            PlaySfx(Constants.SfxBowReload);
             _hapticsService.Vibrate(_pullHand, VrHapticPreset.Success);
             Logger.Log($"[VRCrossbow] {_item.Name}: cocked", LogCat.VR);
         }
@@ -340,7 +403,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _bolt = _vrRangedService.CreateAmmoVisual(_munition, transform);
             var mesh = _bolt.transform.GetChild(0);
-            var bounds = VRRangedService.GetLocalBounds(_bolt);
+            var bounds = ProjectileService.GetLocalBounds(_bolt);
             mesh.localPosition -= new Vector3(0f, 0f, bounds.min.z);
             _bolt.transform.localScale = Vector3.one / Mathf.Max(transform.lossyScale.x, 0.0001f);
             _bolt.transform.SetLocalPositionAndRotation(_string.CockedNockLocal,
@@ -355,35 +418,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// Only a trained crossbowman shoots with one hand (sword in the other).
-        /// G1/mods: crossbow talent skill "master" or 60 %+; G2: crossbow hitchance 60 %+.
-        /// </summary>
-        private bool IsTwoHandsRequired()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero == null)
-                return false;
-
-            var talentIndex = (int)ZenKit.Daedalus.NpcTalent.Crossbow;
-            var talent = hero.Vob.GetTalent(talentIndex);
-            var percent = _npcHelperService.GetTalentPercent(hero, talentIndex);
-            var isMaster = (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;
-            return !isMaster;
-        }
-
-        /// <summary>
-        /// Forward = the barrel axis, pointing to the wider end (prod/arms). Muzzle = that end.
+        /// Forward = the barrel axis, pointing to the wider end (prod/arms). Muzzle = that end. Once per crossbow
+        /// (TrySetup).
         /// </summary>
         private void CalculateAxes()
         {
-            var key = _item.Visual ?? string.Empty;
-            if (!_forwardAxisCache.TryGetValue(key, out _localForward))
-            {
-                _localForward = VRRangedService.GetLongAxis(gameObject, towardsWiderEnd: true, isAsymmetryAxis: true);
-                _forwardAxisCache[key] = _localForward;
-            }
+            _localForward = ProjectileService.GetLongAxis(gameObject, towardsWiderEnd: true, isAsymmetryAxis: true);
 
-            var bounds = VRRangedService.GetLocalBounds(gameObject);
+            var bounds = ProjectileService.GetLocalBounds(gameObject);
             var halfLength = Vector3.Scale(bounds.extents, _localForward).magnitude;
             _localMuzzle = bounds.center + _localForward * halfLength;
         }

@@ -19,9 +19,10 @@ namespace Gothic.Core.Const
         // States in which the NPC looks away from the hero on purpose (decision 5: forgets the temp attitude).
         public static readonly string[] LookingAwayStates = { "ZS_TURNAWAY" };
 
-        // AI states of a downed NPC (knockout, magic sleep, death).
+        // AI states of a downed NPC (knockout, magic sleep, death) - and a frozen one, which isn't down.
         public const string ZsUnconscious = "ZS_UNCONSCIOUS";
         public const string ZsMagicSleep = "ZS_MAGICSLEEP";
+        public const string ZsMagicFreeze = "ZS_MAGICFREEZE";
         public const string ZsDead = "ZS_Dead";
         public const string ZsDeadLoop = "ZS_Dead_Loop";
 
@@ -32,5 +33,45 @@ namespace Gothic.Core.Const
         public const string AniDeadB = "S_DEADB";
         // G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
         public const string AniDead = "S_DEAD";
+
+        // Swimming (idle, forward, backward) - only models with these can swim.
+        public const string AniSwim = "S_SWIM";
+        public const string AniSwimForward = "S_SWIMF";
+        public const string AniSwimBack = "S_SWIMB";
+
+        // Ammunition an NPC shoots when its inventory names none of the bow's/crossbow's munition (G1, G2).
+        public static readonly string[] FallbackArrowInstances = { "ItAmArrow", "ItRw_Arrow" };
+        public static readonly string[] FallbackBoltInstances = { "ItAmBolt", "ItRw_Bolt" };
+
+        // Daedalus symbols the C# side reads (constants, instances, script functions), by their script name.
+        public const string SpellFxInstanceNames = "spellFXInstanceNames";
+        public const string SpellBad = "SPELL_BAD";
+        public const string AivEnemyOverride = "AIV_ENEMYOVERRIDE";
+        public const string AivLastHitByRangedWeapon = "AIV_LASTHITBYRANGEDWEAPON";
+        public const string AivMmPartyMember = "AIV_MM_PARTYMEMBER";
+        public const string NpcTalentMage = "NPC_TALENT_MAGE";
+        public const string NpcAttackFinishDistance = "NPC_ATTACK_FINISH_DISTANCE";
+        public const string DamCriticalMultiplier = "DAM_CRITICAL_MULTIPLIER";
+        public const string GuildMinecrawler = "GIL_MINECRAWLER";
+        public const string FaiMinecrawler = "FAI_MINECRAWLER";
+        public const string GuildSeparatorHuman = "GIL_SEPERATOR_HUM";
+        public const string GuildSeparatorOrc = "GIL_SEPERATOR_ORC";
+        public const string ZsAttackLoop = "ZS_ATTACK_LOOP";
+        public const string ZsMmAttack = "ZS_MM_ATTACK";
+        public const string BMmReactToOthersDamage = "B_MM_REACTTOOTHERSDAMAGE";
+        public const string GCanNotCast = "G_CanNotCast";
+        public const string GCanNotUse = "G_CanNotUse";
+
+        public static class Svm
+        {
+            // SVM keys the engine's oCMobLockable::CanOpen uses (output via DialogService.HeroSaySvm / OutputSvm).
+            public const string PickLockOrKeyMissing = "$PICKLOCKORKEYMISSING";
+            public const string KeyMissing = "$KEYMISSING";
+            public const string PickLockMissing = "$PICKLOCKMISSING";
+            public const string NeverOpen = "$NEVEROPEN";
+            public const string NeedKey = "$NEEDKEY";
+            public const string NoMorePicks = "$NOMOREPICKS";
+            public const string DoesntWork = "$DOESNTWORK";
+        }
     }
 }

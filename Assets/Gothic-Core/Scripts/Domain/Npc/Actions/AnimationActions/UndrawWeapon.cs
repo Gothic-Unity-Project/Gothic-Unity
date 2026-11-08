@@ -115,7 +115,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 // playing. Blindly zeroing it here would wipe that back to 0 (= "Light", spellFXInstanceNames[0])
                 // once this animation finishes, so the mage would visibly cast Light instead of the spell
                 // it actually switched to. Only clear it when nothing is about to re-draw magic right after.
-                var isSwitchingSpells = Props.AnimationQueue.OfType<DrawWeapon>().Any(d => d.IsMagicRequest);
+                var isSwitchingSpells = Props.HasQueued(i => i is DrawWeapon { IsMagicRequest: true });
                 if (!isSwitchingSpells)
                     NpcContainer.ActiveSpell = 0;
             }

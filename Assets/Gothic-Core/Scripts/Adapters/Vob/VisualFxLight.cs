@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Gothic.Core.Adapters.Vob
 {
     /// <summary>
-    /// DeveloperConfig.EnableVisualFxLights: the light of a VISUALFX (lightPresetName: summoning's red REDAMBIENCE,
+    /// The light of a VISUALFX (lightPresetName: summoning's red REDAMBIENCE,
     /// fire rain's CATACLYSM) like OpenGothic's Effect::setupLight - the preset's color and range animations, a key's
     /// lightRange instead of the preset's range (summoning: 0 while held, 4 m while charging). A pooled
     /// StationaryLight, so the world shader lights the ground around it too. It follows its parent.
@@ -29,12 +29,6 @@ namespace Gothic.Core.Adapters.Vob
         private float _fadeSeconds;
         private float _nextUpdate;
         private Vector3 _gatheredAt;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            VisualFxLightFactory.Create = Create;
-        }
 
         public static VisualFxLight Create(Transform parent, Vector3 position, LightPresetLoader.LightPreset preset,
             float rangeMeters)

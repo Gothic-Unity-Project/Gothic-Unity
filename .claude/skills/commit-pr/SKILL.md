@@ -41,7 +41,7 @@ Branch from `main`. Description sections (same as `.github/PULL_REQUEST_TEMPLATE
 - **How to test manually** - concrete in-game steps for G1 and/or G2 (where to go, who to talk to, what you should
   see), and which DeveloperConfig flags must be on. Add it as checkboxes like "- [ ] - ...". The
   `playtest-planner` agent drafts them.
-- **Save/load** - what happens to the new state on save + load
+- **Test setup** - which input mode the steps were verified in (see "Test setup" below)
 - **Known gaps / follow-ups**
 - **AI usage** - what the AI did, what the human did
 - **AI review** - summary of the newest review and the author's response, generated from the files, never written
@@ -64,6 +64,29 @@ A PR that decides something (new feature, setting, trade-off, a rule different f
 decision record `Docs/adr/<date>-<topic>.md` in plain words (rules and template in `Docs/adr/README.md`).
 
 Add the `pipeline-test-build` label when the PR needs a CI build (Windows64 / Quest / Pico).
+
+## Test setup (Simulator / Headset)
+
+Write the "How to test manually" steps so another person or agent can run them without guessing. State which setup
+each step was verified in. The switches are `DeveloperConfig` fields (assigned to `GameManager`'s Developer Config
+slot in the Bootstrap scene; see `playtest-shortcuts` for creating your own asset instead of editing
+`Production.asset`). `GameSettings.dev.json` (git-ignored, `Assets/StreamingAssets/`) only holds the Gothic install
+paths and log filters - it has no input-mode switch.
+
+`Production.asset` already means: `GameControls = VR`, `EnableVRDeviceSimulator = false` (real headset). Only list
+what differs from it:
+
+| Setup | Change vs. Production | Use for |
+|---|---|---|
+| Real headset | nothing | Comfort, locomotion, scale, performance. Only a human can do this. |
+| VR Device Simulator (no headset, mouse + keyboard) | `EnableVRDeviceSimulator = true` | VR features (grabbing, hands, sockets, VR UI) and agent tests. Ready-made asset: `Lab.HVR.Simulator`. |
+
+Rules:
+- Name only the changed fields and values in the PR ("EnableVRDeviceSimulator = true"), plus any
+  `playtest-shortcuts` fields you set (`SkipVideos`, `EnableMainMenu`, `PreselectWorldToSpawn`).
+- Agents cannot use a headset: they test with the Simulator and list headset-only checks as unchecked boxes for the
+  author.
+- Don't commit your local config changes.
 
 ## Sending it to GitHub
 

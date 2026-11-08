@@ -19,9 +19,10 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Services.Npc
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableNpcNavMesh): a NavMesh for chasing NPCs, so they run around obstacles and stop at
-    /// ledges/deep drops instead of running off the world. The engine does this with its own ledge checks; the waynet
-    /// stays the main way to walk (routines, GoToWp/Fp) like in the engine.
+    /// V1: a NavMesh for chasing NPCs, so they run around obstacles and stop at ledges/deep drops instead of running
+    /// off the world. Not vanilla - our Unity-side substitute for the engine's MoveAlgo bounce off obstacles
+    /// (OpenGothic movealgo.cpp:940-1002) and its preFall ledge turn (movealgo.cpp:358). The waynet stays the main way
+    /// to walk (routines, GoToWp/Fp) like in the engine.
     /// - Built at runtime (UnityEngine.AI.NavMeshBuilder, no package) from the colliders on the Default layer (world
     ///   mesh + vobs). VOBs are created lazily near the hero, so the NavMesh covers an area around the hero and is
     ///   rebuilt asynchronously when the hero moved away - chases happen there anyway.
@@ -33,7 +34,6 @@ namespace Gothic.Core.Services.Npc
     public class NpcNavMeshService
     {
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
@@ -93,8 +93,7 @@ namespace Gothic.Core.Services.Npc
             var wait = new WaitForSecondsRealtime(_updateIntervalSeconds);
             while (true)
             {
-                if (_configService.Dev.EnableNpcNavMesh)
-                    EnsureNavMesh();
+                EnsureNavMesh();
                 yield return wait;
             }
         }
@@ -233,7 +232,7 @@ namespace Gothic.Core.Services.Npc
             steerPoint = target;
             isReachable = true;
 
-            if (!_configService.Dev.EnableNpcNavMesh || npc?.Go == null)
+            if (npc?.Go == null)
                 return false;
 
             EnsureNavMesh();

@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Const;
-using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -14,6 +12,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
@@ -27,7 +26,6 @@ using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -51,6 +49,18 @@ namespace Gothic.VR.Adapters.Player
 
         [Tooltip("Backpack slots (IVrSocket) which add/remove items to/from the inventory when used.")]
         [SerializeField] private GameObject[] _inventorySockets;
+
+        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera, " +
+                 "readable however the backpack is held).")]
+        [SerializeField] private GameObject _equippedLabelPrefab;
+
+        [Tooltip("Immersion option lootTakeAll: the green \"X\" above the right page arrow (inactive child, " +
+                 "shown on a loot backpack only).")]
+        [SerializeField] private GameObject _takeAllButton;
+
+        [Tooltip("While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
+                 "had to be grabbed very precisely. 1 = off.")]
+        [SerializeField] private float _shoulderGrabScale = 4f;
 
         private VrInteractable _interactable;
         private IVrSocketContainer _socketContainer;
@@ -77,6 +87,8 @@ namespace Gothic.VR.Adapters.Player
         private readonly HashSet<VrInteractable> _refreshRemovals = new();
         private readonly HashSet<VrInteractable> _refreshPlacements = new();
         private int _runningRefreshes;
+        // RemoveTakenPieces: the view shows the new amount already - no refresh from the hero's change event.
+        private bool _isIgnoringHeroChange;
         
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly PlayerService _playerService;
@@ -89,20 +101,18 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ConfigService _configService;
-
-        // DeveloperConfig.EnableLootTakeAll: the green "X" above the right page arrow of a loot backpack.
-        private const string _takeAllButtonName = "TakeAllButton";
-        private static readonly Color _takeAllColor = new(0.2f, 0.85f, 0.25f);
-        private GameObject _takeAllButton;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
+        [Inject] private readonly IVrUiPointers _vrUiPointers;
 
         private const string _equippedLabelName = "EquippedLabel";
 
-        private IInventoryOwner Owner => _owner ??= new PlayerInventoryOwner();
+        private IInventoryOwner Owner => _owner ??= _inventoryTransferService.GetHeroOwner();
 
         public bool IsNpcBackpack => _owner != null && !_owner.IsHero;
 
-        // An NPC owner fires NpcInventoryChanged on every change; a container (mummy) has no NPC - refresh ourselves.
-        private bool IsRefreshedByNpcEvent => IsNpcBackpack && _owner.Npc != null;
+        // The hero and NPC owners fire NpcInventoryChanged on every change; a container (mummy) has no NPC - refresh
+        // ourselves.
+        private bool IsRefreshedByNpcEvent => Owner.Npc != null;
 
 
         /// <summary>
@@ -120,8 +130,7 @@ namespace Gothic.VR.Adapters.Player
             var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
-                Gothic.Core.Logging.Logger.LogWarning($"[VRBackpack] Prefab {PrefabPath} not found.",
-                    Gothic.Core.Logging.LogCat.VR);
+                Logger.LogWarning($"[VRBackpack] Prefab {PrefabPath} not found.", LogCat.VR);
                 return null;
             }
 
@@ -139,12 +148,15 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void SetNpcOwner(NpcContainer npc)
         {
-            SetOwner(new NpcInventoryOwner(npc));
+            SetOwner(_inventoryTransferService.GetOwner(npc));
         }
 
         private void SetOwner(IInventoryOwner owner)
         {
             _owner = owner;
+            // The vacuum (prefab component) is the hero's only - disabled before its Start runs.
+            if (TryGetComponent(out VRBackpackVacuum vacuum))
+                vacuum.enabled = false;
             SelectFirstFilledCategory();
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
 
@@ -158,110 +170,55 @@ namespace Gothic.VR.Adapters.Player
             RegisterUiCanvases();
             Init();
             UpdateInventoryView();
-            CreateTakeAllButton();
+            ShowTakeAllButton();
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableLootTakeAll: loot of a dead NPC or of a container without a lid (mummy) gets a green "X"
-        /// above the right page arrow - a copy of that arrow, same font and look. Not for knocked out NPCs (they're
-        /// robbed item by item).
+        /// Immersion option lootTakeAll (on by default): loot of a dead NPC or of a container without a lid (mummy)
+        /// shows the green "X" above the right page arrow (OnTakeAllClick). Not for knocked out NPCs (they're robbed
+        /// item by item).
         /// </summary>
-        private void CreateTakeAllButton()
+        private void ShowTakeAllButton()
         {
-            if (_configService == null || !_configService.Dev.EnableLootTakeAll || _takeAllButton != null ||
-                _owner == null || _owner.IsHero)
+            if (!IsLootTakeAllOn() || _owner == null || _owner.IsHero)
                 return;
             if (_owner.Npc != null && _owner.Npc.Props.BodyState != VmGothicEnums.BodyState.BsDead)
                 return;
 
-            var arrow = FindButton(nameof(OnNextPageClick)) ?? FindButton(nameof(OnNextCategoryClick));
-            if (arrow == null)
+            if (_takeAllButton == null)
             {
-                Logger.LogWarning("[VRBackpack] No arrow button found - loot backpack without the take all button.",
-                    LogCat.VR);
+                Logger.LogWarning("[VRBackpack] No take all button set - loot backpack without it.", LogCat.VR);
                 return;
             }
-
-            _takeAllButton = Instantiate(arrow.gameObject, arrow.transform.parent);
-            _takeAllButton.name = _takeAllButtonName;
-            if (_takeAllButton.transform is RectTransform rect && arrow.transform is RectTransform arrowRect)
-                rect.anchoredPosition = arrowRect.anchoredPosition + new Vector2(0f, arrowRect.rect.height * 1.2f);
-            else
-                _takeAllButton.transform.localPosition = arrow.transform.localPosition + Vector3.up * 0.06f;
-
-            var button = _takeAllButton.GetComponent<Button>();
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(OnTakeAllClick);
-
-            var texts = _takeAllButton.GetComponentsInChildren<TMP_Text>(true);
-            foreach (var text in texts)
-            {
-                text.text = "X";
-                text.color = _takeAllColor;
-            }
-            if (texts.Length == 0)
-                Logger.LogWarning("[VRBackpack] The arrow button has no text - take all button without its X.", LogCat.VR);
+            _takeAllButton.SetActive(true);
         }
 
-        private Button FindButton(string methodName)
+        private bool IsLootTakeAllOn()
         {
-            foreach (var button in GetComponentsInChildren<Button>(true))
-            {
-                if (button.name == _takeAllButtonName)
-                    continue;
-                for (var i = 0; i < button.onClick.GetPersistentEventCount(); i++)
-                {
-                    if (button.onClick.GetPersistentMethodName(i) == methodName)
-                        return button;
-                }
-            }
-            return null;
+            if (_configService == null || _configService.Gothic == null)
+                return VRConstants.LootTakeAllDefaultValue == 1;
+            return _configService.Gothic.GetInt(VRConstants.IniNames.LootTakeAll,
+                VRConstants.LootTakeAllDefaultValue) == 1;
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableLootTakeAll: everything the loot holds goes into the hero's inventory at once.
+        /// Immersion option lootTakeAll: everything the loot holds goes into the hero's inventory at once.
         /// </summary>
         public void OnTakeAllClick()
         {
             if (_owner == null || _owner.IsHero)
                 return;
 
-            var itemCount = TakeAll(_owner);
+            // The NPC's and the hero's NpcInventoryChanged refresh both backpacks.
+            var itemCount = _inventoryTransferService.TakeAll(_owner);
             var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
             if (clip != null)
                 AudioSource.PlayClipAtPoint(clip, transform.position);
-            // Taking everything may have closed the loot (empty corpse) and despawned this backpack.
-            if (this != null && gameObject.activeInHierarchy)
+            // A container (mummy) has no NPC and no event. Taking everything may have closed the loot (empty corpse)
+            // and despawned this backpack.
+            if (this != null && gameObject.activeInHierarchy && !IsRefreshedByNpcEvent)
                 UpdateInventoryView();
             Logger.Log($"[VRBackpack] Took all from the loot: {itemCount} item(s)", LogCat.VR);
-        }
-
-        /// <summary>
-        /// Everything the owner (NPC, chest) gives away goes into the hero's inventory - the loot's green X and
-        /// DeveloperConfig.EnableCorpseHoldTakesAll. Returns the number of items taken.
-        /// </summary>
-        public static int TakeAll(IInventoryOwner from)
-        {
-            var hero = new PlayerInventoryOwner();
-            var itemCount = 0;
-            for (var category = VmGothicEnums.InvCats.InvWeapon; category < VmGothicEnums.InvCats.InvCatMax; category++)
-            {
-                foreach (var item in from.GetInventory(category).ToList())
-                {
-                    if (item.Amount <= 0 || !from.CanTake(item.Name))
-                        continue;
-                    from.Remove(item.Name, item.Amount);
-                    hero.Add(item.Name, item.Amount);
-                    itemCount += item.Amount;
-                }
-            }
-
-            foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                if (!backpack.IsNpcBackpack)
-                    backpack.UpdateInventoryView();
-            }
-            return itemCount;
         }
 
         /// <summary>
@@ -299,25 +256,23 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void RegisterUiCanvases()
         {
-            var uiPointers = ReflexProjectInstaller.DIContainer?.Resolve<IVrUiPointers>();
-            if (uiPointers == null)
+            if (_vrUiPointers == null)
                 return;
             foreach (var canvas in GetComponentsInChildren<Canvas>(true))
-                uiPointers.RegisterCanvas(canvas);
+                _vrUiPointers.RegisterCanvas(canvas);
         }
 
         private void UnregisterUiCanvases()
         {
-            var uiPointers = ReflexProjectInstaller.DIContainer?.Resolve<IVrUiPointers>();
-            if (uiPointers == null)
+            if (_vrUiPointers == null)
                 return;
             foreach (var canvas in GetComponentsInChildren<Canvas>(true))
-                uiPointers.UnregisterCanvas(canvas);
+                _vrUiPointers.UnregisterCanvas(canvas);
         }
 
 
         /// <summary>
-        /// DeveloperConfig.EnableBackpackEquipToggle: [E] labels after equipping from outside (VRBackpackEquipToggle).
+        /// [E] labels after equipping from outside (VRBackpackEquipToggle).
         /// </summary>
         public void RefreshInventoryView()
         {
@@ -349,7 +304,17 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void RemoveTakenPieces(string itemInstanceName, int amount)
         {
-            Owner.Remove(itemInstanceName, amount);
+            // The hero's change event would re-stack the page under the split stack - only an NPC's view refreshed
+            // here before (its other views, e.g. the loot sockets, need it).
+            _isIgnoringHeroChange = Owner.IsHero;
+            try
+            {
+                Owner.Remove(itemInstanceName, amount);
+            }
+            finally
+            {
+                _isIgnoringHeroChange = false;
+            }
         }
 
         /// <summary>
@@ -368,10 +333,16 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
+        /// <summary>
+        /// The owner (NPC or hero) changed through an IInventoryOwner - slots, take all, stack splitter. Several changes
+        /// in a row run one more refresh at most (UpdateInventoryView's dirty flag).
+        /// </summary>
         private void OnNpcInventoryChanged(NpcContainer npc)
         {
-            if (_owner != null && npc == _owner.Npc)
-                UpdateInventoryView();
+            // Inactive: no coroutine can run the refresh.
+            if (_isIgnoringHeroChange || npc == null || npc != Owner.Npc || !gameObject.activeInHierarchy)
+                return;
+            UpdateInventoryView();
         }
 
         private void Tint(Color tint)
@@ -421,30 +392,12 @@ namespace Gothic.VR.Adapters.Player
         private void Start()
         {
             GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+            // The hero's inventory changes (PlayerInventoryOwner) - a loot copy listens since SetOwner already.
+            if (!IsNpcBackpack)
+                GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             // Main's carried items save: only the hero's own backpack (a loot copy got its NPC owner before Start).
             if (!IsNpcBackpack)
                 _carriedItemsSaveService.RegisterHolsters(_holsters);
-
-            // V1, toggled at runtime via DeveloperConfig.EnableBackpackVacuum. Not for an NPC's loot backpack.
-            if (!IsNpcBackpack && GetComponent<VRBackpackVacuum>() == null)
-                gameObject.AddComponent<VRBackpackVacuum>();
-
-            // V1, toggled at runtime via DeveloperConfig.EnableItemDetailsPopup.
-            if (GetComponent<VRItemDetailsPopup>() == null)
-                gameObject.AddComponent<VRItemDetailsPopup>();
-
-            // Items held near the backpack pass through it.
-            if (GetComponent<VRBackpackItemPassThrough>() == null)
-                gameObject.AddComponent<VRBackpackItemPassThrough>();
-        }
-
-        /// <summary>
-        /// The item's instance symbol - the vob name isn't always the symbol (PlayerService.TryGetItemSymbol).
-        /// </summary>
-        private static string GetInstanceName(VobContainer vobContainer)
-        {
-            var item = vobContainer.VobAs<IItem>();
-            return item?.GetSymbolName() ?? vobContainer.Vob.Name;
         }
 
         private void OnDestroy()
@@ -534,13 +487,12 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.BackpackShoulderGrabScale: on the shoulder, the grab volumes (trigger colliders the hands
+        /// _shoulderGrabScale: on the shoulder, the grab volumes (trigger colliders the hands
         /// grab it by) are larger - it had to be grabbed very precisely over the shoulder. Original size in a hand.
         /// </summary>
         private void SetShoulderGrabVolumes(bool isOnShoulder)
         {
-            var scale = _configService != null ? _configService.Dev.BackpackShoulderGrabScale : 1f;
-            if (isOnShoulder && (_grabVolumeSizes.Count > 0 || scale <= 1f))
+            if (isOnShoulder && (_grabVolumeSizes.Count > 0 || _shoulderGrabScale <= 1f))
                 return;
 
             if (!isOnShoulder)
@@ -558,7 +510,7 @@ namespace Gothic.VR.Adapters.Player
 
                 var size = GetVolumeSize(volume);
                 _grabVolumeSizes[volume] = size;
-                SetVolumeSize(volume, size * scale);
+                SetVolumeSize(volume, size * _shoulderGrabScale);
             }
         }
 
@@ -666,7 +618,8 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.RemoveCullingEntry(vobContainer);
             _vobService.UntrackVobFromCache(vobContainer);
 
-            Owner.Add(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            var item = vobContainer.VobAs<IItem>();
+            Owner.Add(item.GetSymbolName(), Mathf.Max(1, item.Amount));
 
             // An NPC owner fires NpcInventoryChanged, which refreshes us.
             if (!IsRefreshedByNpcEvent)
@@ -737,7 +690,8 @@ namespace Gothic.VR.Adapters.Player
                 worldVobs.Add(vobContainer.Vob);
 
             // Taking the last one of an equipped item out takes it off (IInventoryOwner.Remove).
-            Owner.Remove(GetInstanceName(vobContainer), Mathf.Max(1, vobContainer.VobAs<IItem>().Amount));
+            var item = vobContainer.VobAs<IItem>();
+            Owner.Remove(item.GetSymbolName(), Mathf.Max(1, item.Amount));
 
             if (!IsRefreshedByNpcEvent)
                 UpdateInventoryView();
@@ -947,24 +901,10 @@ namespace Gothic.VR.Adapters.Player
             const float worldScale = 0.013f;
             const float worldOffsetUp = 0.06f;
 
-            var labelGo = new GameObject(_equippedLabelName);
-            labelGo.transform.SetParent(socket, false);
+            var labelGo = Instantiate(_equippedLabelPrefab, socket, false);
+            labelGo.name = _equippedLabelName;
             labelGo.transform.position = socket.position + socket.up * worldOffsetUp;
             labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
-
-            var tmp = labelGo.AddComponent<TextMeshPro>();
-            var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-            if (font != null)
-                tmp.font = font;
-            tmp.text = "[E]";
-            tmp.fontSize = 12;
-            tmp.color = new Color(1f, 0.65f, 0f, 1f);
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.fontStyle = FontStyles.Bold;
-
-            // Always readable, however the backpack is held.
-            labelGo.AddComponent<Gothic.VR.Adapters.UI.VRBillboard>();
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)

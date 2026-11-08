@@ -2,6 +2,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
@@ -35,7 +36,7 @@ namespace Gothic.VR
         [Inject] private readonly StationaryLightsService _lightsService;
         [Inject] private readonly SkyService _skyService;
         [Inject] private readonly BarrierService _barrierService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly SpeechToTextService _speechToTextService;
 
 

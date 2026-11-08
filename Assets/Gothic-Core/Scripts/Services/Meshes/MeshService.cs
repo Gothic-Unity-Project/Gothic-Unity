@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Domain.Meshes.Builder;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.StaticCache;
 using Gothic.Core.Extensions;
 using UnityEngine;
@@ -27,7 +28,7 @@ namespace Gothic.Core.Services.Meshes
 
         public GameObject CreateNpc(string npcName, string mdmName, string mdhName, ExtSetVisualBodyData bodyData,
             Vector3 position = default, Quaternion rotation = default,
-            GameObject parent = null, GameObject root = null)
+            GameObject parent = null, GameObject root = null, bool isHitboxExpected = false)
         {
             var npcBuilder = new NpcMeshBuilder().Inject();
             npcBuilder.SetRootPosAndRot(position, rotation);
@@ -37,6 +38,7 @@ namespace Gothic.Core.Services.Meshes
             npcBuilder.SetMdh(mdhName);
             npcBuilder.SetMdm(mdmName);
             npcBuilder.SetBodyData(bodyData);
+            npcBuilder.SetHitboxExpected(isHitboxExpected);
 
             var npcGo = npcBuilder.Build();
 
@@ -77,7 +79,7 @@ namespace Gothic.Core.Services.Meshes
         public GameObject CreateVob(string objectName, IMultiResolutionMesh mrm,
             Vector3 position = default, Quaternion rotation = default, bool withCollider = true,
             GameObject parent = null, GameObject rootGo = null, bool useTextureArray = true,
-            bool useColliderCache = false)
+            bool useColliderCache = false, ItemColliderKind colliderKind = ItemColliderKind.Default)
         {
             if (!HasTextures(mrm))
             {
@@ -92,6 +94,7 @@ namespace Gothic.Core.Services.Meshes
             vobBuilder.SetMrm(mrm);
             vobBuilder.SetUseTextureArray(useTextureArray);
             vobBuilder.SetUseColliderCache(useColliderCache);
+            vobBuilder.SetItemColliderKind(colliderKind);
 
             if (!withCollider)
             {
@@ -127,7 +130,7 @@ namespace Gothic.Core.Services.Meshes
         public GameObject CreateVob(string objectName, IMorphMesh mmb,
             Vector3 position = default, Quaternion rotation = default,
             GameObject parent = null, GameObject rootGo = null, bool useTextureArray = false,
-            bool useColliderCache = false)
+            bool useColliderCache = false, ItemColliderKind colliderKind = ItemColliderKind.Default)
         {
             var vobBuilder = new VobMeshBuilder().Inject();
             vobBuilder.SetRootPosAndRot(position, rotation);
@@ -137,6 +140,7 @@ namespace Gothic.Core.Services.Meshes
             vobBuilder.SetMmb(mmb);
             vobBuilder.SetUseTextureArray(useTextureArray);
             vobBuilder.SetUseColliderCache(useColliderCache);
+            vobBuilder.SetItemColliderKind(colliderKind);
 
             return vobBuilder.Build();
         }

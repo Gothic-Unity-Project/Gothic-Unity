@@ -3,12 +3,12 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -17,9 +17,9 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableBackpackEquipToggle: an empty hand at an armor, amulet, ring or belt in the hero's backpack
-    /// and a trigger click (released quickly, without moving) puts it on or takes it off - like a click on a spell in
-    /// the spell ring. The backpack shows [E] for the equipped ones.
+    /// An empty hand at an armor, amulet, ring or belt in the hero's backpack and a trigger click (released quickly,
+    /// without moving) puts it on or takes it off - like a click on a spell in the spell ring. The backpack shows [E]
+    /// for the equipped ones.
     /// </summary>
     public class VRBackpackEquipToggle : MonoBehaviour
     {
@@ -28,8 +28,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
-        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly IVrInput _vrInput;
 
         private const float _itemDistance = 0.1f;
         private const float _clickSeconds = 0.5f;
@@ -51,9 +50,6 @@ namespace Gothic.VR.Adapters.Player
 
         private void Update()
         {
-            if (!_configService.Dev.EnableBackpackEquipToggle)
-                return;
-
             UpdateHand(VrHandSide.Left, _clicks[0]);
             UpdateHand(VrHandSide.Right, _clicks[1]);
         }
@@ -102,7 +98,7 @@ namespace Gothic.VR.Adapters.Player
 
                 var instanceName = item.GetSymbolName();
                 var itemData = _vmCacheService.TryGetItemData(instanceName);
-                if (itemData == null || !NpcInventoryService.IsWearable(itemData))
+                if (itemData == null || !itemData.IsWearable())
                     continue;
 
                 var hero = _playerService.HeroContainer.Instance;

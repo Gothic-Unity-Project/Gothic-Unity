@@ -19,6 +19,7 @@ namespace Gothic.VR.Adapters.Context
         [Inject] private readonly ContextTextInputService _contextTextInputService;
         [Inject] private readonly ContextScreenshotService _contextScreenshotService;
         [Inject] private readonly ContextTradeService _contextTradeService;
+        [Inject] private readonly ContextHeroBlockService _contextHeroBlockService;
 
         protected override void RegisterControlModule(Controls controls)
         {
@@ -34,6 +35,7 @@ namespace Gothic.VR.Adapters.Context
             _contextTextInputService.SetImpl(new VRContextTextInputService());
             _contextScreenshotService.SetImpl(new VRContextScreenshotService());
             _contextTradeService.SetImpl(new VRContextTradeService().Inject());
+            _contextHeroBlockService.SetImpl(new VRContextHeroBlockService().Inject());
         }
 
         protected override void RegisterGameVersionModule(GameVersion version)

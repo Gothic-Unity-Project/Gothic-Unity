@@ -40,6 +40,8 @@ namespace Gothic.VR.Adapters.Player
         [Tooltip("Seconds after the hero's death until the menu opens to load a game.")]
         [SerializeField] private float _menuDelayAfterDeath = 4f;
 
+        private Coroutine _openMenuAfterDeath;
+
         /// <summary>
         /// The menu button was pressed this frame (and isn't disabled).
         /// </summary>
@@ -77,11 +79,13 @@ namespace Gothic.VR.Adapters.Player
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+            GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
 
         private void OnDestroy()
         {
             GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
+            GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
         }
 
         private void Update()
@@ -98,15 +102,32 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnHeroDied(NpcContainer killer)
         {
-            StartCoroutine(OpenMenuAfterDeath());
+            if (_openMenuAfterDeath != null)
+                StopCoroutine(_openMenuAfterDeath);
+            _openMenuAfterDeath = StartCoroutine(OpenMenuAfterDeath());
+        }
+
+        /// <summary>
+        /// A game gets loaded: the death menu must not open over the loading screen.
+        /// </summary>
+        private void OnLoadGameStart()
+        {
+            if (_openMenuAfterDeath == null)
+                return;
+
+            StopCoroutine(_openMenuAfterDeath);
+            _openMenuAfterDeath = null;
         }
 
         private IEnumerator OpenMenuAfterDeath()
         {
             yield return new WaitForSecondsRealtime(_menuDelayAfterDeath);
 
-            // A game got loaded meanwhile, or the player opened the menu himself.
-            if (_gameStateService.IsHeroAlive || MenuHandler == null || MenuHandler.gameObject.activeSelf)
+            _openMenuAfterDeath = null;
+
+            // A game got loaded meanwhile (loading screen), or the player opened the menu himself.
+            if (_gameStateService.IsHeroAlive || MenuHandler == null || MenuHandler.gameObject.activeSelf ||
+                !IsGameScene())
                 yield break;
             MenuHandler.ToggleVisibility();
             Logger.Log("[VRPlayer] The hero is dead - game menu opened", LogCat.VR);

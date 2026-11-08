@@ -1,4 +1,5 @@
 using Gothic.Core;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -13,34 +14,23 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using Melee = Gothic.VR.VRConstants.Melee;
 
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrStabFinish + the "stabFinish" option (Immersion menu): the hero finishes off an
+    /// The "stabFinish" option (Immersion menu): the hero finishes off an
     /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (speed along the blade).
-    /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for _holdSeconds kills - FightFinishingMove,
-    /// like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade out lets go.
+    /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for the hold time kills -
+    /// FightFinishingMove, like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade
+    /// out lets go.
     /// </summary>
     public class VrStabFinishDomain
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
-
-        // Hand speed (m/s) along the blade for a stab, and the share of the whole speed that has to go along it.
-        // A slash whose blade happened to point along its way counted as a stab - the share is high now.
-        private const float _thrustSpeed = 1.2f;
-        private const float _thrustAlignment = 0.85f;
-        // The blade in the body this long kills.
-        private const float _holdSeconds = 2f;
-        private const float _holdPulseSeconds = 1f;
-        // Meters back out of the body (against the tip) / sideways that let go.
-        private const float _maxPullBackDistance = 0.15f;
-        private const float _maxSidewaysDistance = 0.25f;
-        private const string _stabSound = "FIG_SWORDFINAL";
 
         private NpcContainer _attacker;
         private NpcContainer _target;
@@ -51,6 +41,11 @@ namespace Gothic.VR.Domain.Player
         private float _stabTime;
         private int _holdPulses;
 
+        // The weapon's Rigidbody and mesh, looked up once per weapon (TryStab runs every physics step in a hitbox).
+        private VrInteractable _cachedWeapon;
+        private Rigidbody _cachedRigidbody;
+        private MeshFilter _cachedMeshFilter;
+
         public bool IsStuck => _target != null;
 
         /// <summary>
@@ -58,17 +53,22 @@ namespace Gothic.VR.Domain.Player
         /// </summary>
         public bool TryStab(NpcContainer attacker, NpcContainer target, VrInteractable weapon, Vector3 playerVelocity)
         {
-            var hand = GetHoldingHand(weapon);
-            var rigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
-            var handPosition = GetHandPosition(hand);
-            if (IsStuck || hand == null || rigidbody == null || handPosition == null)
+            if (IsStuck)
                 return false;
 
-            var tipDirection = GetTipDirection(weapon.transform, handPosition.Value);
+            _vrPlayerService.TryGetHoldingHand(weapon, out var hand);
+            CacheWeapon(weapon);
+            var rigidbody = _cachedRigidbody;
+            var handPosition = GetHandPosition(hand);
+            // IVrGrabber is a MonoBehaviour: Unity's null check (a destroyed hand), not the reference one.
+            if (hand as UnityEngine.Object == null || rigidbody == null || handPosition == null)
+                return false;
+
+            var tipDirection = GetTipDirection(weapon.transform, _cachedMeshFilter, handPosition.Value);
             var velocity = rigidbody.linearVelocity - playerVelocity;
             var alongBlade = Vector3.Dot(velocity, tipDirection);
             // Called every physics step while the blade is inside the hitbox - no log here.
-            if (alongBlade < _thrustSpeed || alongBlade < velocity.magnitude * _thrustAlignment)
+            if (alongBlade < Melee.StabThrustSpeed || alongBlade < velocity.magnitude * Melee.StabThrustAlignment)
                 return false;
 
             _attacker = attacker;
@@ -81,9 +81,9 @@ namespace Gothic.VR.Domain.Player
             _holdPulses = 0;
 
             PlayStabSound(weapon.transform.position);
-            _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
+            GlobalEventDispatcher.StabStuck.Invoke((int)hand.HandSide);
             Logger.Log($"[VrStabFinish] Stab into {target.Instance.GetName(NpcNameSlot.Slot0)} " +
-                       $"({alongBlade:0.0} m/s) - hold it {_holdSeconds:0} s to finish", LogCat.Fight);
+                       $"({alongBlade:0.0} m/s) - hold it {Melee.StabHoldSeconds:0} s to finish", LogCat.Fight);
             return true;
         }
 
@@ -96,9 +96,9 @@ namespace Gothic.VR.Domain.Player
                 return;
 
             var handPosition = GetHandPosition(_hand);
-            var maxStuck = _holdSeconds + 1f;
-            if (_weapon == null || _rigidbody == null || _hand == null || _hand.Held != _weapon ||
-                handPosition == null || !NpcHelperService.IsKnockedOut(_target) || Time.time - _stabTime > maxStuck)
+            var maxStuck = Melee.StabHoldSeconds + 1f;
+            if (_weapon == null || _rigidbody == null || _hand as UnityEngine.Object == null ||
+                _hand.Held != _weapon || handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
             {
                 Logger.Log("[VrStabFinish] Blade let go - no finish", LogCat.Fight);
                 Clear();
@@ -106,10 +106,11 @@ namespace Gothic.VR.Domain.Player
             }
 
             var weapon = _weapon.transform;
-            var axis = GetTipDirection(weapon, handPosition.Value);
+            var axis = GetTipDirection(weapon, _cachedMeshFilter, handPosition.Value);
             var moved = weapon.position - _stabPosition;
             var alongBlade = Vector3.Dot(moved, axis);
-            if (-alongBlade > _maxPullBackDistance || (moved - axis * alongBlade).magnitude > _maxSidewaysDistance)
+            if (-alongBlade > Melee.StabMaxPullBackDistance ||
+                (moved - axis * alongBlade).magnitude > Melee.StabMaxSidewaysDistance)
             {
                 Logger.Log("[VrStabFinish] Blade pulled out - no finish", LogCat.Fight);
                 Clear();
@@ -118,12 +119,12 @@ namespace Gothic.VR.Domain.Player
 
             var heldTime = Time.time - _stabTime;
             // A pulse every second - you feel the blade is in.
-            if (heldTime >= (_holdPulses + 1) * _holdPulseSeconds && heldTime < _holdSeconds)
+            if (heldTime >= (_holdPulses + 1) * Melee.StabHoldPulseSeconds && heldTime < Melee.StabHoldSeconds)
             {
                 _holdPulses++;
-                _hapticsService.Vibrate(_hand.HandSide, VrHapticPreset.Info);
+                GlobalEventDispatcher.StabHeld.Invoke((int)_hand.HandSide);
             }
-            if (heldTime < _holdSeconds)
+            if (heldTime < Melee.StabHoldSeconds)
                 return;
 
             Finish($"held {heldTime:0.0} s");
@@ -133,7 +134,7 @@ namespace Gothic.VR.Domain.Player
         {
             Logger.Log($"[VrStabFinish] {_attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off " +
                        $"{_target.Instance.GetName(NpcNameSlot.Slot0)} ({reason})", LogCat.Fight);
-            _hapticsService.Vibrate(_hand.HandSide, VrHapticPreset.Success);
+            GlobalEventDispatcher.StabFinished.Invoke((int)_hand.HandSide);
             var attacker = _attacker;
             var target = _target;
             Clear();
@@ -149,23 +150,19 @@ namespace Gothic.VR.Domain.Player
             _hand = null;
         }
 
-        private IVrGrabber GetHoldingHand(VrInteractable weapon)
+        private void CacheWeapon(VrInteractable weapon)
         {
-            var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (weapon == null || rig == null)
-                return null;
+            if (weapon == _cachedWeapon)
+                return;
 
-            foreach (var hand in rig.HandGrabbers)
-            {
-                if (hand.Kind == VrGrabberKind.Hand && hand.Held == weapon)
-                    return hand;
-            }
-            return null;
+            _cachedWeapon = weapon;
+            _cachedRigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
+            _cachedMeshFilter = weapon != null ? weapon.GetComponentInChildren<MeshFilter>() : null;
         }
 
         private Vector3? GetHandPosition(IVrGrabber hand)
         {
-            var handGo = hand != null ? _vrPlayerService.GetHandModelGo(hand.HandSide) : null;
+            var handGo = hand as UnityEngine.Object != null ? _vrPlayerService.GetHandModelGo(hand.HandSide) : null;
             return handGo != null ? handGo.transform.position : null;
         }
 
@@ -173,10 +170,9 @@ namespace Gothic.VR.Domain.Player
         /// Gothic weapon meshes lie along their local X axis (WeaponAdapter: bounds.size.x is the length) - the tip is
         /// the end away from the hand.
         /// </summary>
-        private static Vector3 GetTipDirection(Transform weapon, Vector3 handPosition)
+        private static Vector3 GetTipDirection(Transform weapon, MeshFilter meshFilter, Vector3 handPosition)
         {
             var axis = weapon.right;
-            var meshFilter = weapon.GetComponentInChildren<MeshFilter>();
             var center = meshFilter != null && meshFilter.sharedMesh != null
                 ? meshFilter.transform.TransformPoint(meshFilter.sharedMesh.bounds.center)
                 : weapon.position;
@@ -185,11 +181,11 @@ namespace Gothic.VR.Domain.Player
 
         private void PlayStabSound(Vector3 position)
         {
-            var sfx = _vmCacheService.TryGetSfxData(_stabSound);
+            var sfx = _vmCacheService.TryGetSfxData(Constants.SfxSwordFinal);
             var clip = sfx == null ? null : _audioService.CreateAudioClip(sfx.GetRandomSound());
             if (clip == null)
             {
-                Logger.LogWarning($"[VrStabFinish] No sound {_stabSound}", LogCat.Fight);
+                Logger.LogWarning($"[VrStabFinish] No sound {Constants.SfxSwordFinal}", LogCat.Fight);
                 return;
             }
             _vrSfxPlayer.Play(clip, position);

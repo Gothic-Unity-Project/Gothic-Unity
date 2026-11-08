@@ -515,6 +515,15 @@ namespace Gothic.Core.Services.Npc
             if (vobNpc.IsRestored)
             {
                 _saveGameService.InitNpcInstanceFromSave(npcData, () => _vm.InitInstance(heroInstance));
+
+                // Saved while a sleep/freeze spell held the hero: nothing ends that state after loading, casters
+                // would see him asleep forever (HeroSpellStateDomain). The hero runs no states.
+                if (HeroSpellStateDomain.IsSpellState(vobNpc.CurrentStateName))
+                {
+                    Logger.Log($"[NpcService] Hero loaded in {vobNpc.CurrentStateName} - state cleared", LogCat.Npc);
+                    vobNpc.CurrentStateIndex = 0;
+                    vobNpc.CurrentStateName = string.Empty;
+                }
             }
             else
             {

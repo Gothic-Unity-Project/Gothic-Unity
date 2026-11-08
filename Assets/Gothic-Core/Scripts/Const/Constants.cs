@@ -15,8 +15,16 @@ namespace Gothic.Core.Const
         {
             // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
             public const string LightRefresh = "lightRefresh";
-            // 1 (default) = an NPC finishing off the knocked out hero kills him like in Gothic, 0 = only knocked out.
-            public const string HeroDeath = "heroDeath";
+
+            // 1 = the animations' ground sounds play (footsteps, GroundSoundService), 0 = off. In Gothic's own [SOUND]
+            // section like zWindEnabled in [ENGINE]: footsteps play in VR and Flat.
+            public const string FootstepSounds = "footstepSounds";
+            public const string IniSectionSound = "SOUND";
+            public const int FootstepSoundsDefaultValue = 1;
+
+            // [VIDEO] 0..1, vanilla 0.5 = neutral (the menu's Brightness slider).
+            public const string VideoBrightness = "zVidBrightness";
+            public const float VideoBrightnessDefaultValue = 0.5f;
         }
 
         public static class Items
@@ -35,6 +43,30 @@ namespace Gothic.Core.Const
         public static class Animations
         {
             public const string RootBoneName = "BIP01";
+            public const string RightHandBoneName = "BIP01 R HAND";
+
+            // Model script (.mds) of all human NPCs, hero included.
+            public const string HumanModelScript = "HUMANS";
+
+            // Animation (Humans.mds) of a fist punch; its sound effect is the hero's fist swing sound.
+            public const string FistAttackAnimName = "S_FISTATTACK";
+
+            // Morph animation of a bow mesh (ITRW_BOW_*.MMB): the frames of the draw.
+            public const string BowShootMorphAnimName = "S_SHOOT";
+
+            // Morph animation of a crossbow mesh (ITRWCROSSBOW*.MMB): the engine's reload, the string at the prod.
+            public const string CrossbowReloadMorphAnimName = "S_RELAX";
+        }
+
+        /// <summary>
+        /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
+        /// </summary>
+        public static class Fonts
+        {
+            /// <summary>
+            /// An empty font: every character falls back to the sprite asset made from Gothic's font (GothicText).
+            /// </summary>
+            public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";
         }
 
         // Unity shaders
@@ -153,6 +185,11 @@ namespace Gothic.Core.Const
         // the hands' near grab finds it.
         public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
 
+        // Layer mask (not an index) of the solid colliders of doors and chests: body (Default), door wing (VobItem),
+        // chest lid (VobMovable), handles (Grabbable).
+        public static readonly int MobLockableMask = (1 << DefaultLayer) | (1 << VobItemLayer) |
+                                                     (1 << VobMovableLayer) | (1 << GrabbableLayer);
+
         
         /*
          * ### Tags
@@ -177,6 +214,15 @@ namespace Gothic.Core.Const
         public const float DialogMaxHeightDifference = 3f;
         
 
+        // Sound effect (SFX instance) of a sword finishing move.
+        public const string SfxSwordFinal = "FIG_SWORDFINAL";
+
+        // Sound effects (SFX instances) of bows and crossbows. BowReload is also the NPCs' t_CBowReload.
+        public const string SfxBowShoot = "BowShoot";
+        public const string SfxBowReload = "BowReload";
+        public const string SfxCrossbowShoot = "CrossbowShoot";
+        public const string SfxCrossbowReload = "CrossbowReload";
+
         public const string SlotRightHand	= "ZS_RIGHTHAND";
         public const string SlotLeftHand	= "ZS_LEFTHAND";
         public const string SlotSword		= "ZS_SWORD";
@@ -188,7 +234,7 @@ namespace Gothic.Core.Const
 
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "5";
+        public const string StaticCacheVersion = "7";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

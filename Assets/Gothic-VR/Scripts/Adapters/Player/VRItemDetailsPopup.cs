@@ -1,4 +1,5 @@
 using System.Text;
+using Gothic.Core;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
@@ -8,18 +9,18 @@ using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// V2 (DeveloperConfig.EnableItemDetailsPopup): "backpack mode" - while the backpack is held in one hand and the other
-    /// hand holds an item (or is near one inside the backpack), a popup above the item shows what Gothic's inventory
-    /// shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required attributes, value, ...).
-    /// Added at runtime by VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items near the hand in
-    /// its slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
+    /// V2 (Immersion option itemDetailsPopup, on by default): "backpack mode" - while the backpack is held in one hand
+    /// and the other hand holds an item (or is near one inside the backpack), a popup above the item shows what
+    /// Gothic's inventory shows: description, amount and the C_Item text[]/count[] rows (damage, protection, required
+    /// attributes, value, ...).
+    /// On the backpack prefab next to VRBackpack. On the trade counter (VRTradeCounter, no backpack to hold): items
+    /// near the hand in its slots and in the trader's goods lying on it, and items in hand while the hero's backpack isn't held.
     /// Any VR backend (IVrRig hands, VrInteractable).
     /// </summary>
     public class VRItemDetailsPopup : MonoBehaviour
@@ -33,6 +34,9 @@ namespace Gothic.VR.Adapters.Player
         private const float _hoverDistance = 0.12f;
         private const float _updateInterval = 0.1f;
 
+        [Tooltip("World space popup (\"ItemDetailsPopup.prefab\"): background and auto-sized text.")]
+        [SerializeField] private GameObject _popupPrefab;
+
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
@@ -43,6 +47,8 @@ namespace Gothic.VR.Adapters.Player
         private GameObject _shownItem;
         private Renderer[] _shownItemRenderers;
         private float _updateTimer;
+        // Immersion option itemDetailsPopup (Gothic.ini, refreshed on PlayerPrefUpdated).
+        private bool _isOptionOn = VRConstants.ItemDetailsPopupDefaultValue == 1;
 
 
         private void Awake()
@@ -56,12 +62,29 @@ namespace Gothic.VR.Adapters.Player
             _backpack = _isCounter ? null : GetComponent<VrInteractable>();
             BuildCanvas();
             _canvasGo.SetActive(false);
+            ReadOption();
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
 
         private void OnDestroy()
         {
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             if (_canvasGo != null)
                 Destroy(_canvasGo);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.ItemDetailsPopup)
+                ReadOption();
+        }
+
+        private void ReadOption()
+        {
+            var gothicIni = _configService.Gothic;
+            if (gothicIni != null)
+                _isOptionOn = gothicIni.GetInt(VRConstants.IniNames.ItemDetailsPopup,
+                    VRConstants.ItemDetailsPopupDefaultValue) == 1;
         }
 
         private void LateUpdate()
@@ -108,7 +131,7 @@ namespace Gothic.VR.Adapters.Player
         private GameObject FindItemToShow()
         {
             var rig = _vrPlayerService.VRContextInteractionService?.Rig;
-            if (!_configService.Dev.EnableItemDetailsPopup || rig == null ||
+            if (!_isOptionOn || rig == null ||
                 (!_isCounter && (_backpack == null || !IsHeldByHand(rig, _backpack))))
                 return null;
             // A held backpack shows the held item with its own popup.
@@ -244,9 +267,13 @@ namespace Gothic.VR.Adapters.Player
         /// Placed above the item's rendered bounds (not its pivot) - big items like armor would cover it otherwise -
         /// and pulled a bit towards the camera so it doesn't end up inside the item.
         /// </summary>
+        private Camera _camera;
+
         private void FollowItem()
         {
-            var cam = Camera.main;
+            if (_camera == null)
+                _camera = Camera.main;
+            var cam = _camera;
             var anchor = _shownItem.transform.position;
 
             if (_shownItemRenderers is { Length: > 0 })
@@ -277,47 +304,10 @@ namespace Gothic.VR.Adapters.Player
         private void BuildCanvas()
         {
             // Not parented to the backpack: it follows the item in world space and must not inherit the backpack's scale.
-            _canvasGo = new GameObject("_ItemDetailsPopup");
+            _canvasGo = Instantiate(_popupPrefab);
+            _canvasGo.name = "_ItemDetailsPopup";
             _canvasGo.transform.localScale = Vector3.one * _canvasScale;
-
-            var canvas = _canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            var rootRt = canvas.GetComponent<RectTransform>();
-            rootRt.sizeDelta = new Vector2(360, 200);
-            rootRt.pivot = new Vector2(0.5f, 0f);
-
-            var bgGo = new GameObject("_BG");
-            bgGo.transform.SetParent(_canvasGo.transform, false);
-            var bg = bgGo.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.75f);
-            Stretch(bg.rectTransform, Vector2.zero, Vector2.zero);
-
-            var textGo = new GameObject("_Text");
-            textGo.transform.SetParent(_canvasGo.transform, false);
-            var tmp = textGo.AddComponent<TextMeshProUGUI>();
-
-            var font = Resources.Load<TMP_FontAsset>("FontAsset/LiberationSans SDF empty");
-            if (font != null)
-                tmp.font = font;
-
-            Stretch(tmp.rectTransform, new Vector2(15, 10), new Vector2(-15, -10));
-            tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 10;
-            tmp.fontSizeMax = 22;
-            tmp.color = Color.white;
-            tmp.richText = true;
-            tmp.textWrappingMode = TextWrappingModes.Normal;
-            tmp.alignment = TextAlignmentOptions.TopLeft;
-            _text = tmp;
-        }
-
-        private static void Stretch(RectTransform rt, Vector2 offsetMin, Vector2 offsetMax)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.offsetMin = offsetMin;
-            rt.offsetMax = offsetMax;
+            _text = _canvasGo.GetComponentInChildren<TMP_Text>(true);
         }
     }
 }

@@ -108,7 +108,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             foreach (var victim in _victims)
             {
-                if (victim?.Props == null || NpcHelperService.IsDown(victim))
+                if (victim?.Props == null || victim.IsDown())
                     continue;
                 _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssesssTopMagic, victim.Props,
                     victim.Instance, victim.Instance, hero?.Instance);
@@ -136,7 +136,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             foreach (var victim in _victims)
             {
                 // ZS_Zapped hurts by script - the engine kills at 0 hit points.
-                if (victim?.Props != null && !NpcHelperService.IsDown(victim) &&
+                if (victim?.Props != null && !victim.IsDown() &&
                     victim.Vob.GetAttribute((int)NpcAttribute.HitPoints) <= 0)
                     _fightService.OnScriptDamageDepleted(victim, hero);
             }
@@ -204,7 +204,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool IsZappable(NpcContainer npc)
         {
             return npc?.Go != null && npc.Go.activeInHierarchy && npc.Props != null && npc.Instance != null &&
-                   !(npc.PrefabProps != null && npc.PrefabProps.IsHero()) && !NpcHelperService.IsDown(npc);
+                   !(npc.PrefabProps != null && npc.PrefabProps.IsHero()) && !npc.IsDown();
         }
 
         private float GetRangeMeters()

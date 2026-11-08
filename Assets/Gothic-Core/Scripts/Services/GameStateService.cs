@@ -4,6 +4,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
@@ -66,6 +67,17 @@ namespace Gothic.Core.Services
 
         public int GuildHumanCount;
         public int GuildCount;
+
+        /// <summary>
+        /// The scripts' GIL_SEPERATOR_HUM / GIL_SEPERATOR_ORC (G1 and G2 number their guilds differently): humans are
+        /// below the first, monsters between them, orcs above the second. Set in BootstrapDomain.LoadGuildData; until
+        /// then (scripts not loaded) G1's values.
+        /// </summary>
+        public int GuildSeparatorHuman = (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
+        public int GuildSeparatorOrc = (int)VmGothicEnums.Guild.GIL_SEPERATOR_ORC;
+
+        public bool IsMonsterGuild(int guild) => guild > GuildSeparatorHuman && guild <= GuildSeparatorOrc;
+        public bool IsOrcGuild(int guild) => guild > GuildSeparatorOrc;
         public int[] GuildAttitudes;
 
         public readonly DialogModel Dialogs = new();

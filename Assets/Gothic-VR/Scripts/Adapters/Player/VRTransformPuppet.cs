@@ -699,7 +699,7 @@ namespace Gothic.VR.Adapters.Player
             }
 
             if (best != null)
-                GlobalEventDispatcher.FightHit.Invoke(hero, best, best.Go.transform.position);
+                GlobalEventDispatcher.FightHit.Invoke(hero, best, best.Go.transform.position, null);
         }
 
         private void UpdateTransformBackInput()

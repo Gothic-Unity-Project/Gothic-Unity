@@ -27,6 +27,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
+        private VrInteractable _interactable;
 
         private void Start()
         {
@@ -47,11 +48,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            // Only the weapon in the hero's hand attacks.
+            if (!IsWielded())
+                return;
+
             // Hands, grabbables, the world - touching them is normal. A warning per touch flooded the log (lag).
             if (other.gameObject.layer != Constants.VobHitbox)
                 return;
 
-            Logger.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
 
             // Try to get the target NPC/Monster from the hitbox
             var targetNpcLoader = other.GetComponentInParent<NpcLoader>();
@@ -68,10 +73,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}",
+                LogCat.Fight);
 
-            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab kept in the body only.
-            if (IsStabFinishOn() && NpcHelperService.IsKnockedOut(targetNpcContainer))
+            // The "stabFinish" option: an unconscious NPC is finished off by a stab kept in the body only.
+            if (IsStabFinishOn() && targetNpcContainer.IsKnockedOut())
             {
                 TryStabFinish(targetNpcContainer);
                 return;
@@ -80,25 +86,33 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // Try to fire the hit through VR weapon service if available
             if (TryFireHitViaVRWeaponService(targetNpcContainer))
             {
-                Logger.Log($"[WeaponAttackAdapter] *** HIT FIRED (VR)", LogCat.Fight);
+                Logger.LogEditor("[WeaponAttackAdapter] *** HIT FIRED (VR)", LogCat.Fight);
                 return;
             }
 
-            Logger.LogWarning("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)", LogCat.Fight);
+            Logger.LogEditor("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)",
+                LogCat.Fight);
             // TODO - Add support for flat-screen weapon hits and NPC-to-NPC hits here
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrStabFinish: the blade can already be inside the padded hitbox when the thrust comes.
+        /// Stab finish: the blade can already be inside the padded hitbox when the thrust comes.
         /// </summary>
         private void OnTriggerStay(Collider other)
         {
-            if (other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
+            // Called every physics step: the cheap checks first.
+            if (_vrWeaponService == null || _vrWeaponService.IsStabFinishStuck() || !IsWielded() ||
+                other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
                 return;
 
             var target = other.GetComponentInParent<NpcLoader>()?.Container;
-            if (target != null && NpcHelperService.IsKnockedOut(target))
+            if (target != null && target.IsKnockedOut())
                 TryStabFinish(target);
+        }
+
+        private bool IsWielded()
+        {
+            return _vrWeaponService != null && _vrWeaponService.IsWielded(_weaponVobContainer);
         }
 
         private bool IsStabFinishOn()
@@ -108,7 +122,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void TryStabFinish(NpcContainer target)
         {
-            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, GetComponent<VrInteractable>());
+            _interactable ??= GetComponent<VrInteractable>();
+            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, _interactable);
         }
 
         private void OnTriggerExit(Collider other)
@@ -126,10 +141,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             var isInAttackWindow = _vrWeaponService.IsWeaponInAttackWindow(_weaponVobContainer);
-            Logger.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
             if (!isInAttackWindow)
             {
-                Logger.LogWarning("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
+                Logger.LogEditor("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
                 return false;
             }
 
@@ -140,19 +155,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return false;
             }
 
-            Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] FightHit event: " +
+                             $"{attacker.Instance.GetName(NpcNameSlot.Slot0)} → " +
+                             $"{targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
-            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the
-            // hit). By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
-            attacker.Props.MeleeHitWeapon = _weaponVobContainer?.GetItemInstance();
-            try
-            {
-                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
-            }
-            finally
-            {
-                attacker.Props.MeleeHitWeapon = null;
-            }
+            // The weapon in the hand isn't equipped in VR - the hit carries it, FightService takes its damage from it.
+            // By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
+            var weapon = _weaponVobContainer?.GetItemInstance();
+            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position, weapon);
             return true;
         }
     }
