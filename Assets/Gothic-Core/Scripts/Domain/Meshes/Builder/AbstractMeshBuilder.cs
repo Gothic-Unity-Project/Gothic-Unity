@@ -185,7 +185,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
-        /// Items only (with the collider cache): bows and crossbows get colliders fitted to their parts.
+        /// Items only (with the collider cache): bows and crossbows get colliders fitted to their parts, the rest
+        /// (melee too) sliced ones when they have no pre-cached colliders.
         /// </summary>
         public void SetItemColliderKind(ItemColliderKind colliderKind)
         {

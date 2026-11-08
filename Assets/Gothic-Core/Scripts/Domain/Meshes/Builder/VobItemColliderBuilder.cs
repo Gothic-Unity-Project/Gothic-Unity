@@ -37,7 +37,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
 
         /// <summary>
-        /// kind: from the item's flags (bow, crossbow or anything else). mesh: the item's rendered mesh - items without
+        /// kind: from the item's flags (bow, crossbow, melee or anything else). mesh: the item's rendered mesh - items without
         /// pre-cached colliders get them from it.
         /// </summary>
         public void AddColliders(GameObject rootGo, string meshName, ItemColliderKind kind, Mesh mesh = null)
@@ -161,7 +161,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             Logger.LogWarning($"No cached colliders for {meshName} - calculated from its mesh.", LogCat.Mesh);
 
-            if (kind == ItemColliderKind.Default)
+            // Melee weapons are only fitted while pre-caching (they have an MRM), here they are sliced like the rest.
+            if (kind is not (ItemColliderKind.Bow or ItemColliderKind.Crossbow))
                 return VobItemFittedColliderCacheCreatorDomain.CreateSliced(mesh.vertices, false);
 
             return VobItemFittedColliderCacheCreatorDomain.CreateRangedWeapon(meshName, mesh.vertices,

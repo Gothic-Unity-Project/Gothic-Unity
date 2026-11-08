@@ -54,8 +54,8 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
-        /// Bows and crossbows get colliders fitted to their parts, everything else (arrows and bolts too) its
-        /// pre-cached ones.
+        /// Bows and crossbows get colliders fitted to their parts, melee weapons (IsMeleeWeapon) too while
+        /// pre-caching, everything else (arrows and bolts too) sliced ones. A ranged flag wins over a melee one.
         /// </summary>
         public static ItemColliderKind GetColliderKind(this ItemInstance item)
         {
@@ -63,7 +63,7 @@ namespace Gothic.Core.Extensions
             {
                 WeaponState.Bow => ItemColliderKind.Bow,
                 WeaponState.CBow => ItemColliderKind.Crossbow,
-                _ => ItemColliderKind.Default
+                _ => item.IsMeleeWeapon() ? ItemColliderKind.Melee : ItemColliderKind.Default
             };
         }
 

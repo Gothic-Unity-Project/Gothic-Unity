@@ -84,7 +84,7 @@ namespace Gothic.Core.Domain.StaticCache
                 
                 ItemCollider.Add(item.Visual, new());
                 
-                GenerateItemColliders(item.Visual, cachedVobBounds, item.IsMeleeWeapon(), item.GetColliderKind());
+                GenerateItemColliders(item.Visual, cachedVobBounds, item.GetColliderKind());
             }
 
             Logger.Log($"Fitted the colliders of {_meleeFitCount} melee weapons in " +
@@ -95,14 +95,14 @@ namespace Gothic.Core.Domain.StaticCache
         /// <summary>
         /// Generate colliders based on width variations along the items' main axis
         /// Automatically detects weapon orientation and segments from handle to tip
-        /// Bows and crossbows (colliderKind) are fitted to their parts. Most of them are morph meshes (no MRM, e.g.
+        /// Bows, crossbows and melee weapons (colliderKind) are fitted to their parts. Most of them are morph meshes (no MRM, e.g.
         /// ItRw_Bow_L_01): their mesh is the morph mesh's one, the same the item is built from when it spawns.
         /// </summary>
         public void GenerateItemColliders(string visualName, Dictionary<string, Bounds> cachedVobBounds,
-            bool isMeleeWeapon, ItemColliderKind colliderKind, float widthThreshold = 0.4f,
-            int minVerticesPerSegment = 3, int samples = 50, float segmentDistance = 0.05f)
+            ItemColliderKind colliderKind, float widthThreshold = 0.4f, int minVerticesPerSegment = 3,
+            int samples = 50, float segmentDistance = 0.05f)
         {
-            var isRangedWeapon = colliderKind != ItemColliderKind.Default;
+            var isRangedWeapon = colliderKind is ItemColliderKind.Bow or ItemColliderKind.Crossbow;
             var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visualName, !isRangedWeapon)?.Cache();
             if (mrm == null && isRangedWeapon)
                 mrm = _resourceCacheService.TryGetMorphMesh(visualName, false)?.Mesh?.Cache();
@@ -154,7 +154,7 @@ namespace Gothic.Core.Domain.StaticCache
                 return;
             }
 
-            if (isMeleeWeapon)
+            if (colliderKind == ItemColliderKind.Melee)
             {
                 _meleeFitWatch.Start();
                 ItemCollider[visualName].AddRange(
