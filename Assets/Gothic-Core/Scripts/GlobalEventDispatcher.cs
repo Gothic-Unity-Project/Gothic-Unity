@@ -111,21 +111,27 @@ namespace Gothic.Core
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
         /// Vector3      - at which position
+        /// ItemInstance - the weapon the hero hit with (VR: the one in his hand - it isn't equipped), null for fists.
+        ///                NPC hits pass null - their damage comes from their equipped weapon.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, ItemInstance> FightHit = new();
 
         /// <summary>
         /// The hero starts a melee swing (VR: the held weapon got faster than its attack threshold) - the engine's
         /// "prehit" of an attack animation. NPCs fighting him can parry or jump back (FightService).
-        /// int - the swung weapon's material (ItemMaterial), -1 without a weapon (fists).
         /// </summary>
-        public static readonly UnityEvent<int> HeroMeleeSwing = new();
+        public static readonly UnityEvent HeroMeleeSwing = new();
 
         /// <summary>
-        /// DeveloperConfig.EnableVrHeroBlock: the blocking hero parried a hit.
+        /// The blocking hero parried a hit.
         /// NpcContainer - the attacker
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroBlockedHit = new();
+
+        /// <summary>
+        /// The hero started blocking (VR: both hands on the same melee weapon, both triggers held).
+        /// </summary>
+        public static readonly UnityEvent HeroBlockStarted = new();
 
         /// <summary>
         /// A melee hit that landed (not parried, blocked, in a dialog, ...) - blood.
@@ -152,15 +158,11 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer, Vector3, int> SpellSpreadHit = new();
 
-        /// <summary>
-        /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
-        /// </summary>
-        public static readonly UnityEvent GameTimeSkipped = new();
-        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnEffect plays it.
+        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnService plays it.
         public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
         // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
         public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
-        // Marvin's "kill" (DeveloperConfig.EnableMarvinKill): the NPC dies at once, no killer (no experience).
+        // Marvin's "kill": the NPC dies at once, no killer (no experience).
         public static readonly UnityEvent<NpcContainer> CheatKill = new();
 
         /// <summary>
@@ -203,6 +205,19 @@ namespace Gothic.Core
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// A sleep spell put the hero to sleep (HeroSpellStateDomain, ZS_MagicSleep): he lies until HeroWokeUp. The VR
+        /// hero body lies down like knocked out (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE).
+        /// NpcContainer - the hero
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroFellAsleep = new();
+
+        /// <summary>
+        /// The sleeping hero woke up (time over, damage, another spell state, the hero gone). Not raised when a game
+        /// is loaded meanwhile (LoadGameStart ends the sleep).
+        /// </summary>
+        public static readonly UnityEvent HeroWokeUp = new();
 
         /// <summary>
         /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
@@ -265,6 +280,26 @@ namespace Gothic.Core
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
 
+        // Fists (VR): a fist got faster than a punch needs - once per swing (VrFistDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> FistSwung = new();
+
+        // Fists (VR): a punch hit an NPC - raised right before its FightHit (VrFistDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> FistPunchLanded = new();
+
+        // Stab finish (VR): the blade got thrust into an unconscious NPC and sticks now (VrStabFinishDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabStuck = new();
+
+        // Stab finish (VR): the blade is still in the body - once per StabHoldPulseSeconds until the finish.
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabHeld = new();
+
+        // Stab finish (VR): the blade was held in long enough - raised right before its FightFinishingMove.
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabFinished = new();
+
         // Backpack (VR): the backpack is in a hand now (true) or in none any more (false). Raised by VRBackpack.
         public static readonly UnityEvent<bool> BackpackInHandChanged = new();
 
@@ -282,10 +317,6 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
-
-        // DeveloperConfig.EnableVisualFxEarthquake: FX_EarthQuake played (summoning, fire rain) - position, radius in
-        // meters, seconds. VR rumbles the controllers instead of shaking the camera.
-        public static readonly UnityEvent<Vector3, float, float> VisualFxEarthquake = new();
 
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();

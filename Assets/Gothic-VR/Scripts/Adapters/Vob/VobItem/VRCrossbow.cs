@@ -120,7 +120,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             _isLoaded = _string.IsLoaded;
-            _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload, 1) == 1;
+            _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload,
+                VRConstants.CrossbowReloadDefaultValue) == 1;
         }
 
         private void OnDestroy()

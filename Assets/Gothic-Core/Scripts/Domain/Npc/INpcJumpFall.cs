@@ -4,7 +4,7 @@ namespace Gothic.Core.Domain.Npc
 {
     /// <summary>
     /// An NPC's falling, jumping and climbing (implemented by the NpcJumpFall adapter, added on first use).
-    /// Get it with NpcContainer.GetJumpFall().
+    /// Get it from INpcJumpFallFactory.
     /// </summary>
     public interface INpcJumpFall
     {

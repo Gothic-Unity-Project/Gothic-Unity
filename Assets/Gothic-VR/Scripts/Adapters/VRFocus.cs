@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
@@ -29,7 +30,7 @@ namespace Gothic.VR.Adapters
     {
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
-        [Inject] private readonly Gothic.Core.Services.Npc.HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
 

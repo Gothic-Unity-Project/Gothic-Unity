@@ -4,14 +4,16 @@ using UnityEngine;
 namespace Gothic.Core.Domain.Meshes
 {
     /// <summary>
-    /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned boxes
-    /// left gaps and air): a sword's slanted cross guard, an axe head, a curved bow, a diagonal crossbow prod.
+    /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned
+    /// boxes left gaps and air): a sword's slanted cross guard, an axe head, a curved bow, a diagonal crossbow prod.
     /// 1. The mesh is split into its separate parts (sword: blade, guard, grip, pommel; crossbow: stock, prod, trigger,
     ///    string; bow: limbs, string).
     /// 2. Each part is sampled densely (its triangles, not only the few low-poly vertices) and gets a box along its
     ///    principal axes (PCA). Curved parts are halved along their long axis as long as that removes a lot of air.
     /// 3. Line-thin boxes (bow and crossbow strings) are left out - the string is drawn, not grabbed.
-    /// Pure math, cached per mesh by the caller.
+    /// 4. Too many boxes: fewer halvings, then the smallest parts are left out (each box is one collider for PhysX).
+    /// Pure math. Melee weapons are fitted during pre-caching (VobItemFittedColliderCacheCreatorDomain), bows and
+    /// crossbows when they spawn (VobItemColliderBuilder).
     /// </summary>
     public static class ItemColliderFittingDomain
     {
@@ -29,7 +31,8 @@ namespace Gothic.Core.Domain.Meshes
         private const float _splitVolumeRatio = 0.7f;
         private const float _minSplitLength = 0.05f;
         private const int _minSplitPoints = 12;
-        // Meters: thinner in two directions = a string (G1 bow strings are 1.7 cm thick, the thinnest limb part 3.2 cm).
+        // Meters: thinner in two directions = a string (G1 bow strings are 1.7 cm thick, the thinnest limb part
+        // 3.2 cm).
         // Every box is at least _minBoxSize thick.
         private const float _stringThickness = 0.025f;
         private const float _minBoxSize = 0.015f;
@@ -37,15 +40,34 @@ namespace Gothic.Core.Domain.Meshes
 
         /// <summary>
         /// keepThinParts: melee weapons keep line-thin parts (a poker's rod, an axe's thin shaft) - they're held there.
+        /// maxBoxes: upper limit of the result. isTrimmed: even unsplit, the mesh had more parts than that, and the
+        /// smallest ones were left out.
         /// </summary>
-        public static List<Box> Fit(Vector3[] vertices, int[] triangles, bool keepThinParts = false)
+        public static List<Box> Fit(Vector3[] vertices, int[] triangles, bool keepThinParts, int maxBoxes,
+            out bool isTrimmed)
         {
+            isTrimmed = false;
             var boxes = new List<Box>();
-            if (vertices == null || triangles == null || triangles.Length < 3)
+            if (vertices == null || triangles == null || triangles.Length < 3 || maxBoxes <= 0)
                 return boxes;
 
+            var partPoints = new List<List<Vector3>>();
             foreach (var part in GetParts(vertices, triangles))
-                FitPart(Sample(vertices, triangles, part), 0, boxes, keepThinParts);
+                partPoints.Add(Sample(vertices, triangles, part));
+
+            for (var maxDepth = _maxDepth; maxDepth >= 0; maxDepth--)
+            {
+                boxes.Clear();
+                foreach (var points in partPoints)
+                    FitPart(points, 0, maxDepth, boxes, keepThinParts);
+
+                if (boxes.Count <= maxBoxes)
+                    return boxes;
+            }
+
+            boxes.Sort((a, b) => Volume(b.Size).CompareTo(Volume(a.Size)));
+            boxes.RemoveRange(maxBoxes, boxes.Count - maxBoxes);
+            isTrimmed = true;
             return boxes;
         }
 
@@ -117,7 +139,8 @@ namespace Gothic.Core.Domain.Meshes
             return points;
         }
 
-        private static void FitPart(List<Vector3> points, int depth, List<Box> boxes, bool keepThinParts)
+        private static void FitPart(List<Vector3> points, int depth, int maxDepth, List<Box> boxes,
+            bool keepThinParts)
         {
             if (points.Count == 0)
                 return;
@@ -126,7 +149,7 @@ namespace Gothic.Core.Domain.Meshes
             var size = max - min;
             var longAxis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
 
-            if (depth < _maxDepth && points.Count >= _minSplitPoints && size[longAxis] >= _minSplitLength)
+            if (depth < maxDepth && points.Count >= _minSplitPoints && size[longAxis] >= _minSplitLength)
             {
                 var middle = (min[longAxis] + max[longAxis]) * 0.5f;
                 var left = new List<Vector3>();
@@ -137,8 +160,8 @@ namespace Gothic.Core.Domain.Meshes
                 if (left.Count > 0 && right.Count > 0 &&
                     GetVolume(left) + GetVolume(right) < Volume(size) * _splitVolumeRatio)
                 {
-                    FitPart(left, depth + 1, boxes, keepThinParts);
-                    FitPart(right, depth + 1, boxes, keepThinParts);
+                    FitPart(left, depth + 1, maxDepth, boxes, keepThinParts);
+                    FitPart(right, depth + 1, maxDepth, boxes, keepThinParts);
                     return;
                 }
             }

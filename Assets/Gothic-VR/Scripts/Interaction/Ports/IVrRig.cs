@@ -105,12 +105,14 @@ namespace Gothic.VR.Interaction.Ports
 
         /// <summary>
         /// The hand as the player sees it (HVR: the physics hand's model, XRI: the block hand). Unlike LeftHand/RightHand
-        /// it stops at walls. Gestures, the favorites ring and spells measure from it.
+        /// it stops at walls. Gestures, the favorites ring and spells measure from it. Asked per frame: backends cache
+        /// it (XriRig: per side).
         /// </summary>
         Transform GetHandVisual(VrHandSide side);
 
         /// <summary>
-        /// The solid (non-trigger) colliders of a hand - not the triggers it finds grabbables with.
+        /// The solid (non-trigger) colliders of a hand - not the triggers it finds grabbables with. The list can be the
+        /// backend's cache (XriRig: per side, until the physics hand builds a new body) - read it, don't change it.
         /// </summary>
         IReadOnlyList<Collider> GetHandColliders(VrHandSide side);
 

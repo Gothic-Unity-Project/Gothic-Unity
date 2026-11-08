@@ -63,11 +63,7 @@ namespace Gothic.Core.Adapters.Properties
         // Until when (Time.time) this NPC - the hero - counts as starting a
         // melee hit (the engine's isPrehit(): an attack animation before its hit frame).
         public float MeleePrehitUntil = float.MinValue;
-        // The material of the weapon swung last (ItemMaterial, -1 = fists) - the hero's held weapon isn't equipped in VR.
-        public int MeleeSwingMaterial = -1;
-        // The weapon of the hero's VR hit (set only during the FightHit event).
-        public ItemInstance MeleeHitWeapon;
-        // DeveloperConfig.EnableVrHeroBlock: the hero parries (VR: both hands on a melee weapon, both triggers held) -
+        // The hero parries (VR: both hands on a melee weapon, both triggers held) -
         // the held weapon's material and the direction he faces (head) while he does.
         public bool IsBlocking;
         public int BlockWeaponMaterial = -1;
@@ -78,6 +74,46 @@ namespace Gothic.Core.Adapters.Properties
         public bool IsKnowingHero;
 
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
+
+        /// <summary>
+        /// Whether an action of this type waits in the AnimationQueue. A foreach over the Queue, unlike LINQ, allocates
+        /// nothing - the AI externals ask this many times per fight.
+        /// </summary>
+        public bool HasQueued<T>() where T : AbstractAnimationAction
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (action is T)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Whether a queued action matches. Pass a lambda that captures nothing, or it allocates per call.
+        /// </summary>
+        public bool HasQueued(Func<AbstractAnimationAction, bool> match)
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (match(action))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Whether every queued action matches (true for an empty queue). Same rule for the lambda as HasQueued.
+        /// </summary>
+        public bool AreAllQueued(Func<AbstractAnimationAction, bool> match)
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (!match(action))
+                    return false;
+            }
+            return true;
+        }
 
         // Mdl_ApplyRandomAni: a state animation -> the animations played now and then while it runs
         // (S_EAT -> R_ROAM1, R_ROAM2). Mdl_ApplyRandomAniFreq: the average seconds between them.
@@ -95,16 +131,6 @@ namespace Gothic.Core.Adapters.Properties
         /// </summary>
         public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
-        /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
-        /// </summary>
-        public bool IsKnockedOut => BodyState == VmGothicEnums.BodyState.BsUnconscious;
-
-        /// <summary>
-        /// Dead or knocked out.
-        /// </summary>
-        public bool IsDown => IsDead || IsKnockedOut;
-
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
         public int StateEnd;
@@ -114,8 +140,6 @@ namespace Gothic.Core.Adapters.Properties
         public bool IsStateTimeActive;
         public float StateTime;
 
-        // Time.time when this NPC gave up chasing the hero from far away.
-        public float HeroChaseGivenUpTime = float.MinValue;
         // Time.time since the enemy is out of this NPC's melee reach in height, -1: in reach
         public float MeleeUnreachableSince = -1f;
         // Time.time of the last threat before a chase.

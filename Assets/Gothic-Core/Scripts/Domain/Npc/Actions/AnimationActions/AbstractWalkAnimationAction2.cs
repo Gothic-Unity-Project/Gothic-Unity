@@ -24,6 +24,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         // Ladders on the way: like the engine, a waypoint on another height is
         // reached over a ladder nearby - walk to its end, climb, walk on.
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
+        [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
         private const float _ladderMinHeightDifference = 1.5f;
         private const float _ladderReachedDistance = 0.6f;
         private const float _ladderCheckInterval = 0.5f;
@@ -143,7 +144,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool HandleJumpFallAndLadders()
         {
-            var jumpFall = NpcContainer.GetJumpFall();
+            var jumpFall = _npcJumpFallFactory.Get(NpcContainer);
             if (jumpFall == null)
                 return false;
 

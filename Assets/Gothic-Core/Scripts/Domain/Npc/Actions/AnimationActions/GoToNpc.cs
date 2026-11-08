@@ -6,7 +6,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Manager;
 using Reflex.Attributes;
@@ -18,7 +17,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToNpc : AbstractWalkAnimationAction2
     {
-        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly NpcAiService _npcAiService;
@@ -26,6 +25,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private Transform _destinationTransform;
         private Stack<DijkstraWaypoint> _route;
         private Vector3? _approachDirection;
+        // The waynet route is dropped this many stop distances away from the target - a direct approach is safe.
+        private const float _directApproachStopFactor = 4f;
 
         public GoToNpc(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -52,7 +53,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // out of route mode requires reaching the *exact* nearest-to-target waypoint, which a freely
             // moving target may never stand on).
             var directDistance = Vector3.Distance(PrefabProps.Bip01.position, _destinationTransform.position);
-            var targetWp = directDistance <= _configService.Dev.NpcDialogStopDistance * 4f
+            var targetWp = directDistance <= GetStopDistance() * _directApproachStopFactor
                 ? null
                 : WayNetService.FindNearestWayPoint(_destinationTransform.position);
 
@@ -81,7 +82,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_route != null && _route.Count > 0)
             {
                 var directDist = Vector3.Distance(NpcGo.transform.position, _destinationTransform.position);
-                if (directDist <= _configService.Dev.NpcDialogStopDistance * 4f ||
+                if (directDist <= GetStopDistance() * _directApproachStopFactor ||
                     _npcHelperService.CanSeeNpc(NpcInstance, Action.Instance0, true))
                 {
                     // Sync CurrentWayPoint to wherever we actually are before dropping the route —
@@ -126,7 +127,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _approachDirection = NpcGo.transform.forward;
             }
 
-            return targetPos - _approachDirection.Value * _configService.Dev.NpcDialogStopDistance;
+            return targetPos - _approachDirection.Value * GetStopDistance();
+        }
+
+        /// <summary>
+        /// Like the engine's AI_GotoNpc (Npc::implGoTo, OpenGothic npc.cpp:1489-1493): it stops at the preferred
+        /// attack distance to the target (guild bases + weapon range, FightRangeDomain) - two unarmed humans 1.7 m.
+        /// </summary>
+        private float GetStopDistance()
+        {
+            return _fightService.GetPreferredAttackDistance(NpcContainer, Action.Instance0.GetUserData());
         }
 
         protected override void OnDestinationReached()
@@ -166,39 +176,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             IsFinishedFlag = true;
         }
 
-        public override void Tick()
-        {
-            base.Tick();
-            if (IsFinishedFlag || !IsPursuitOver())
-                return;
-
-            // ZS_ProclaimAndPunish_Loop gives up after HAI_TIME_PURSUIT (AI_ContinueRoutine), but it only runs again
-            // once this AI_GotoNpc is done - which was on arrival: guards/orcs chased the hero all the way and put their
-            // weapon away right next to him. Stop here, the loop gives up mid-chase like in the engine.
-            Logger.Log($"[GoToNpc] {NpcInstance.GetName(NpcNameSlot.Slot0)}: pursuit over after {Props.StateTime:F0} s " +
-                       "- stopping so ZS_ProclaimAndPunish gives up", LogCat.Ai);
-            StopWalk();
-            IsFinishedFlag = true;
-
-            // A goodbye like a fighter giving up (ZS_Attack: "$RUNCOWARD") - plays before the loop's AI_ContinueRoutine,
-            // the loop only runs again once the queue is empty. Orc voices (17) have no $RUNCOWARD - "$GETOUTOFHERE".
-            var giveUpSvm = HasSvm(_giveUpSvm) ? _giveUpSvm : _giveUpFallbackSvm;
-            _dialogService.ExtAiOutputSvm(NpcInstance, (NpcInstance)GameStateService.GothicVm.GlobalHero, giveUpSvm);
-
-            // No PERC_ASSESSENEMY right away - it restarted the chase at once.
-            Props.HeroChaseGivenUpTime = Time.time;
-        }
-
-        private bool IsPursuitOver()
-        {
-            if (!IsInPursuitLoop() || !Props.IsStateTimeActive)
-                return false;
-
-            _pursuitSeconds ??= GameStateService.GothicVm.GetSymbolByName(_pursuitTimeName)?.GetInt(0) ??
-                                _defaultPursuitSeconds;
-            return Props.StateTime > _pursuitSeconds;
-        }
-
         private bool IsInPursuitLoop()
         {
             if (Props.CurrentLoopState != LoopState.Loop)
@@ -215,7 +192,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool TryWarnBeforePursuit()
         {
-            if (NpcInstance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_ORC ||
+            if (!GameStateService.IsOrcGuild(NpcInstance.Guild) ||
                 !IsInPursuitLoop() || Time.time - Props.LastPursuitWarnTime < _pursuitWarnRepeatSeconds)
                 return false;
 
@@ -237,14 +214,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         private const string _pursuitLoopName = "ZS_PROCLAIMANDPUNISH_LOOP";
-        private const string _giveUpSvm = "$RUNCOWARD";
-        private const string _giveUpFallbackSvm = "$GETOUTOFHERE";
         private const string _warnSvm = "$DIEMORTALENEMY";
         private const string _warnAnimName = "T_WARN";
         private const float _pursuitWarnRepeatSeconds = 15f;
-        private const string _pursuitTimeName = "HAI_TIME_PURSUIT";
-        private const int _defaultPursuitSeconds = 20;
         private int? _pursuitLoopIndex;
-        private int? _pursuitSeconds;
     }
 }

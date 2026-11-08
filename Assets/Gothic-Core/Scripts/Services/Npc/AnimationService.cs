@@ -50,7 +50,6 @@ namespace Gothic.Core.Services.Npc
         private Dictionary<string, AnimationSkeleton> _skeletons = new();
 
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
 
         public AnimationService()
@@ -287,14 +286,13 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// The animation's sound events. DeveloperConfig.EnableFootstepSounds: its ground sounds (*eventSFXGrnd, the
-        /// steps of walk/run loops) too, marked - the ground's material is added when they play (GroundSoundDomain).
-        /// They were skipped: no footsteps at all.
+        /// The animation's sound events. Its ground sounds (*eventSFXGrnd, the steps of walk/run loops) too, marked -
+        /// the ground's material is added when they play (GroundSoundDomain), the footsteps option is checked there.
         /// </summary>
         private List<IEventSoundEffect> GetSoundEffects(IAnimation anim)
         {
             var soundEffects = anim.SoundEffects.Select(i => i.Cache()).ToList();
-            if (!_configService.Dev.EnableFootstepSounds || anim.SoundEffectGroundCount == 0)
+            if (anim.SoundEffectGroundCount == 0)
                 return soundEffects;
 
             foreach (var ground in anim.SoundEffectsGround)
@@ -757,7 +755,8 @@ namespace Gothic.Core.Services.Npc
             switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
             {
                 case ZenGineConst.WaterLevel.Chest
-                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    when GetTrack(DaedalusConst.AniSwimForward, npc.Props.MdsNameBase,
+                        npc.Props.MdsNameOverlay) != null:
                     return VmGothicEnums.WalkMode.Swim;
                 case ZenGineConst.WaterLevel.Knee
                     when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:

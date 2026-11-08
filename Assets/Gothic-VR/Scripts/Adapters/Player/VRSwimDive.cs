@@ -190,7 +190,8 @@ namespace Gothic.VR.Adapters.Player
             // FIXME - As we have different sizes of people in VR, we should use the size based on real heights.
             var kneeDeepHeight = _gameStateService.GuildValues.GetWaterDepthKnee((int)VmGothicEnums.Guild.GIL_HUMAN).ToMeter();
             var chestDeepHeight =  _gameStateService.GuildValues.GetWaterDepthChest((int)VmGothicEnums.Guild.GIL_HUMAN).ToMeter();
-            var chestDeepHeightWithBuffer = chestDeepHeight + 2; // Do raycast a little bit longer than it needs to be, to ensure it's working.
+            // Do raycast a little bit longer than it needs to be, to ensure it's working.
+            var chestDeepHeightWithBuffer = chestDeepHeight + VRConstants.Swim.WaterSurfaceRayBuffer;
 
             RaycastHit hit;
 

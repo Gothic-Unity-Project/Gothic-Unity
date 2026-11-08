@@ -93,8 +93,10 @@ name of the external. Split big classes along Gothic's own families.
 **Why:** Whoever knows Gothic, its scripts or OpenGothic finds the code by name. `MobInteractionService` says more
 than `InteractableManager`.
 
-**Example:** `VmExternalDomain` (1,440 lines) would split by the externals' prefixes: `Npc_*`, `AI_*`, `Wld_*`,
-`Mdl_*`, `Log_*`/`Info_*`.
+**Example:** `VmExternalDomain` (2,472 lines) was split by the externals' prefixes into `VmAiExternalDomain` (`AI_*`),
+`VmNpcExternalDomain` (`Npc_*`), `VmNpcInventoryExternalDomain`, `VmWorldExternalDomain` (`Wld_*`),
+`VmModelExternalDomain` (`Mdl_*`), `VmUiExternalDomain` (`Doc_*`/`Info_*`/`Log_*`) and `VmUtilityExternalDomain`
+(`Hlp_*`/`Mob_*`/`Perc_*`). `VmExternalDomain` only registers them and reports the externals nobody implements.
 
 ### 7. Events for facts, calls for sequences
 
@@ -117,7 +119,7 @@ what wasn't chosen).
 time on every change.
 
 **Example:** `SaveGameService` orchestrates, the details live in `Domain/SaveGames/*`, the design in
-`Docs/save-game.md`.
+`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`, the VR melee ones in `Docs/vr-melee.md`.
 
 ### 9. Leave it better, don't rewrite
 
@@ -139,7 +141,9 @@ Dependency rules. Domain and Services share a rank and may use each other: a Dom
 Service (`new XDomain().Inject()`).
 
 1. Nothing outside `Adapters/` uses the `Adapters` namespace. Plain data classes there (`NpcProperties`,
-   `InteractiveProperties`) belong in `Models/`.
+   `InteractiveProperties`) belong in `Models/`. When a service must create an adapter, it injects a factory
+   interface that lives in Core's `Services/` or `Domain/` (`IProjectileFactory`, `INpcJumpFallFactory`); the class
+   in `Adapters/` implements it and `ReflexProjectInstaller` binds the two. No static delegates set at startup.
 2. Models don't use Domain or Services.
 3. A file's namespace starts with `Gothic.Core.<Layer>` of the folder it lives in.
 4. MonoBehaviours live in `Adapters/` only.
@@ -154,11 +158,14 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 
 | You want to ... | Put it into |
 |---|---|
-| implement a Daedalus external | `Domain/Vm/VmExternalDomain` registers it, the service of its area implements it (e.g. `NpcAiService`) |
+| implement a Daedalus external | the `Domain/Vm/Vm*ExternalDomain` of its family registers it, the service of its area implements it (e.g. `NpcAiService`) |
+| change NPC AI or fights | see the map in `Docs/npc-ai.md` |
+| change VR melee (swings, fists, block, stab finish) | see the map in `Docs/vr-melee.md` |
 | add a rule about an NPC, item or VOB | a property on its model or an extension in `Extensions/` |
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |
 | react to Unity (Update, collisions, input) | an adapter in `Adapters/<Area>/` that calls a service |
+| create an adapter from a service or domain class | a factory interface next to the caller (`IProjectileFactory`), its implementation in `Adapters/`, bound in `ReflexProjectInstaller`; the caller injects the interface |
 | behave differently in G1/G2/VR/Flat | an interface in `Services/Context/`, the implementation in the module, registered in its `*ContextBootstrap` |
 | save state Gothic doesn't store | an `ISaveStateSection` (`Docs/save-game.md`) |
 | work around a ZenKit bug | `Extensions/ZenKit*.cs`, plus a line in the pitfalls of the area's doc |
@@ -192,6 +199,8 @@ VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't kno
 | Need | Use |
 |---|---|
 | "is it a Gothic item?" | `VrSocketSlot.IsItem` |
+| which hand holds this item (direct grab, no allocations) | `VRPlayerService.TryGetHoldingHand` |
+| the Gothic object (`VobContainer`) a hand holds | `VRPlayerService.GetHeldContainer` |
 | a slot for one item (holster, chest, loot) | `VrSocketSlot` and its backend part |
 | "item let go in a zone, put it somewhere" | `VrDropZone` (trigger adapter, reports to `VrDropZoneService`) plus an `IVrDropTarget` on it or a parent |
 | something worn on the body | `VrBodyAnchor` |

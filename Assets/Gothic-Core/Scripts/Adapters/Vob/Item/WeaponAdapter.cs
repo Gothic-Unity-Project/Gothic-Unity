@@ -26,8 +26,8 @@ namespace Gothic.Core.Adapters.Vob.Item
 
         public void StartTrail()
         {
-            // The scale at Start was the item's in a backpack slot or
-            // before it was held (XRI) - a short, oddly scaled trail in the middle of the blade. Measured now.
+            // Start() may run while the item still sits in a backpack slot or is not yet held (XRI), where its scale
+            // differs. That gave a short, oddly scaled trail in the middle of the blade. So measure at trail start.
             SetTrailWidthFromLength();
             _trailRenderer.enabled = true;
         }
@@ -39,7 +39,11 @@ namespace Gothic.Core.Adapters.Vob.Item
         {
             var meshFilter = GetComponent<MeshFilter>();
             if (meshFilter == null || meshFilter.sharedMesh == null)
+            {
+                Logger.LogWarning($"[WeaponAdapter] No MeshFilter or mesh on {name} - trail width not set",
+                    LogCat.Fight);
                 return;
+            }
 
             var bounds = meshFilter.sharedMesh.bounds;
             var scale = transform.lossyScale;

@@ -43,7 +43,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool IsDialogContinuing()
         {
-            return Props.AnimationQueue.Any(action => action is Output or OutputSvm or StopProcessInfos);
+            return Props.HasQueued(action => action is Output or OutputSvm or StopProcessInfos);
         }
 
         public override void Start()
@@ -105,9 +105,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void SpawnSpellVfx()
         {
-            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
-            if (string.IsNullOrEmpty(mfxName))
+            if (!VmCacheService.TryGetSpellMfxName(NpcContainer.ActiveSpell, out var mfxName))
                 return;
             var handGo = NpcGo.FindChildRecursively(Constants.SlotRightHand);
             if (handGo == null)
