@@ -59,6 +59,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private Material _lineMaterial;
         private bool _isStopped;
         private Camera _camera;
+        private bool _hasWarnedNoHand;
         // Reused every re-jitter (every 0.05 s) to avoid GC allocations.
         private readonly List<Vector3> _points = new();
         private Vector3[] _positions = new Vector3[0];
@@ -171,7 +172,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var head = GetCamera();
             if (head == null)
+            {
+                Logger.LogWarning("[ChainLightning] no main camera - can't find a target in front of the eyes",
+                    LogCat.VR);
                 return null;
+            }
 
             var range = GetRangeMeters();
             NpcContainer best = null;
@@ -255,7 +260,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var hand = _vrPlayerService.GetHandModelGo(_handSide);
             if (hand == null)
+            {
+                // Throttled by _nextJitter already, but warn once only.
+                if (!_hasWarnedNoHand)
+                    Logger.LogWarning($"[ChainLightning] no hand model for {_handSide} - line not drawn", LogCat.VR);
+                _hasWarnedNoHand = true;
                 return;
+            }
 
             _points.Clear();
             _points.Add(hand.transform.position);
