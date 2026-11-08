@@ -28,7 +28,7 @@ namespace Gothic.VR.Adapters.Player
 
         private const float _swimCrawlFullSpeed = 0.8f;
         private const float _swimCrawlMaxWeight = 0.8f;
-        private const string _swimCrawlAnimation = "S_SWIMF";
+        private const string _swimCrawlAnimation = DaedalusConst.AniSwimForward;
         // Per side, not concatenated every frame.
         private const string _swimTurnLeftAnimation = "T_SWIMTURNL";
         private const string _swimTurnRightAnimation = "T_SWIMTURNR";
@@ -113,7 +113,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 var swimTurn = isTurningLeft ? _swimTurnLeftAnimation : _swimTurnRightAnimation;
                 return isDriftTurning && animator.HasAnimation(swimTurn) ? swimTurn
-                    : isMoving && isBackwards ? "S_SWIMB" : "S_SWIM";
+                    : isMoving && isBackwards ? DaedalusConst.AniSwimBack : DaedalusConst.AniSwim;
             }
             if (bodyState == VmGothicEnums.BodyState.BsDive)
             {

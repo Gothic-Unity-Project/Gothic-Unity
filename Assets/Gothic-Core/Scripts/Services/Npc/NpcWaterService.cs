@@ -247,8 +247,9 @@ namespace Gothic.Core.Services.Npc
             if (_hasSwimAnimations.TryGetValue(mdsBase, out var hasSwim))
                 return hasSwim;
 
-            hasSwim = _animationService.GetTrack("S_SWIM", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null &&
-                      _animationService.GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null;
+            var overlay = npc.Props.MdsNameOverlay;
+            hasSwim = _animationService.GetTrack(DaedalusConst.AniSwim, npc.Props.MdsNameBase, overlay) != null &&
+                      _animationService.GetTrack(DaedalusConst.AniSwimForward, npc.Props.MdsNameBase, overlay) != null;
             _hasSwimAnimations[mdsBase] = hasSwim;
             return hasSwim;
         }

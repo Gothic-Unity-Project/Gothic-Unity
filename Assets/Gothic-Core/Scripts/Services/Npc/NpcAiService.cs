@@ -57,6 +57,8 @@ namespace Gothic.Core.Services.Npc
         {
             // Perceptions not delivered yet belong to the NPCs of the world they were sent in.
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearPassivePerceptions);
+            GlobalEventDispatcher.LoadGameStart.AddListener(_heroSpellStateDomain.Reset);
+            GlobalEventDispatcher.UnloadGameStart.AddListener(_heroSpellStateDomain.Reset);
         }
 
         private void ClearPassivePerceptions()
@@ -95,7 +97,7 @@ namespace Gothic.Core.Services.Npc
             // A knocked out NPC senses nothing but magic until he stands up
             // (ZS_Unconscious only enables PERC_ASSESSMAGIC) - also in the frames before ZS_Unconscious starts.
             if (type != VmGothicEnums.PerceptionType.AssessMagic &&
-                NpcHelperService.IsKnockedOut(self?.GetUserData()))
+                (self?.GetUserData()).IsKnockedOut())
             {
                 return;
             }
@@ -195,7 +197,7 @@ namespace Gothic.Core.Services.Npc
         {
             // A knocked out NPC lies on the ground: nobody notices him by sight (no enemy, no fighter).
             var otherContainer = other?.GetUserData();
-            if (otherContainer?.Props?.IsKnockedOut == true)
+            if (otherContainer.IsKnockedOut())
                 return false;
 
             // A seated NPC looks the way its body faces - NpcHelperService.CanSeeNpc.
@@ -442,7 +444,7 @@ namespace Gothic.Core.Services.Npc
             if (container?.Vob != null && container.Vob.Player)
             {
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(action)?.Name;
-                if (stateName is "ZS_MAGICSLEEP" or "ZS_MAGICFREEZE")
+                if (HeroSpellStateDomain.IsSpellState(stateName))
                 {
                     // The hero's own spell without a target - the
                     // script's other was the hero himself (OpenGothic: no other, nothing happens), Sleep cast past Ignaz
@@ -1075,10 +1077,11 @@ namespace Gothic.Core.Services.Npc
                 return 0;
 
             Vector3 npc2Pos;
-            // If hero: use camera position (VR head position is most accurate)
-            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+            // If hero: use camera position (VR head position is most accurate). No camera (scene switch): his body.
+            var camera = Camera.main;
+            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index && camera != null)
             {
-                npc2Pos = Camera.main!.transform.position;
+                npc2Pos = camera.transform.position;
             }
             else
             {
@@ -1316,7 +1319,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtSetTarget(NpcInstance npc, NpcInstance target)
         {
-            var props = npc.GetUserData().Props;
+            var props = npc.GetUserData()?.Props;
+            if (props == null)
+                return;
             props.TargetNpc = target;
             // Engine: the target is the enemy AI_Attack fights (berzerk picks another NPC).
             if (target != null)
@@ -1408,7 +1413,7 @@ namespace Gothic.Core.Services.Npc
                 return;
             if (receiver.PrefabProps != null && receiver.PrefabProps.IsHero())
                 return;
-            if (receiver.Props.IsDown)
+            if (receiver.IsDown())
                 return;
 
             var position = receiver.Go.transform.position;
@@ -1575,7 +1580,7 @@ namespace Gothic.Core.Services.Npc
             foreach (var candidate in awakeNpcs)
             {
                 if (candidate == hero || candidate.Props == null) continue;
-                if (NpcHelperService.IsDown(candidate)) continue;
+                if (candidate.IsDown()) continue;
                 // Culled NPCs don't perceive anything.
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
                 if (!candidate.Props.Perceptions.TryGetValue(perception, out var perceptionFunction) || perceptionFunction < 0) continue;

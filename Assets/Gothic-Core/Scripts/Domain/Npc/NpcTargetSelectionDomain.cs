@@ -59,7 +59,7 @@ namespace Gothic.Core.Domain.Npc
                     continue;
                 if (candidate.Instance.Index == npc.Index)
                     continue;
-                if (NpcHelperService.IsDown(candidate))
+                if (candidate.IsDown())
                     continue;
 
                 var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
@@ -175,7 +175,7 @@ namespace Gothic.Core.Domain.Npc
                 // excludes both states).
                 var stillValid = currentTargetNpc != null &&
                                   currentTargetNpc.Go != null &&
-                                  !NpcHelperService.IsDown(currentTargetNpc) &&
+                                  !currentTargetNpc.IsDown() &&
                                   currentTarget.Guild != self.Guild &&
                                   !IsPartyMember(currentTarget) &&
                                   (selfNpc.SummonedBy == null || selfNpc.SummonedBy.Index != currentTarget.Index) &&
@@ -228,7 +228,7 @@ namespace Gothic.Core.Domain.Npc
                 return false;
 
             // Corpses aren't enemies, and neither is someone currently knocked out.
-            if (NpcHelperService.IsDown(candidate))
+            if (candidate.IsDown())
                 return false;
 
             // Range and closest-so-far gates before the expensive attitude and senses checks

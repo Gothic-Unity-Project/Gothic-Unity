@@ -103,7 +103,7 @@ namespace Gothic.Core.Domain.Npc
             foreach (var candidate in awakeNpcs)
             {
                 if (!IsPartyMember(candidate)) continue;
-                if (NpcHelperService.IsDown(candidate)) continue;
+                if (candidate.IsDown()) continue;
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
 
                 // Fallback only — if the party member is already committed to a live primary target
@@ -170,7 +170,7 @@ namespace Gothic.Core.Domain.Npc
                 if (candidate == null) continue;
                 if (candidate == target || candidate == attacker)
                     continue;
-                if (candidate.Props?.IsDown == true)
+                if (candidate.IsDown())
                     continue;
                 // Skip culled NPCs — Go is null or inactive (out of cull range).
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy)
@@ -344,8 +344,14 @@ namespace Gothic.Core.Domain.Npc
             _npcAiService.ExtSetTarget(partyMember.Instance, enemy.Instance);
             var oldOther = _gameStateService.GothicVm.GlobalOther;
             _gameStateService.GothicVm.GlobalOther = enemy.Instance;
-            _npcAiService.ExtAiStartState(partyMember.Instance, zsAttack.Index, true, "");
-            _gameStateService.GothicVm.GlobalOther = oldOther;
+            try
+            {
+                _npcAiService.ExtAiStartState(partyMember.Instance, zsAttack.Index, true, "");
+            }
+            finally
+            {
+                _gameStateService.GothicVm.GlobalOther = oldOther;
+            }
             Logger.Log($"[DamagePerceptionDomain] Party member {partyMember.Instance.GetName(NpcNameSlot.Slot0)} → " +
                        $"attack {enemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
         }

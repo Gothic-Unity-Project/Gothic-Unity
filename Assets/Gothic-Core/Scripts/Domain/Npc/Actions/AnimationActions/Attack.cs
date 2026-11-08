@@ -232,7 +232,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return false;
 
             var target = _enemy.GetUserData();
-            var isFrozen = NpcHelperService.IsMagicFrozen(target);
+            var isFrozen = target.IsMagicFrozen();
             var meleeRange = GetAttackRange(isMelee: true);
             if (!isFrozen && GetDistance() > meleeRange * _spellMonsterMeleeRangeFactor)
             {

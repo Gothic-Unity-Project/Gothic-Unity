@@ -8,7 +8,6 @@ namespace Gothic.Core.Adapters.Npc
     {
         [SerializeField] private CapsuleCollider _walkCollider;
 
-        private SkinnedMeshRenderer[] _meshRenderers;
         private readonly Collider[] _separationBuffer = new Collider[8];
 
         private const float _pushbackDistance = 0.3f;
@@ -48,9 +47,6 @@ namespace Gothic.Core.Adapters.Npc
 
         private void Update()
         {
-            if (_meshRenderers == null)
-                _meshRenderers = Go.GetComponentsInChildren<SkinnedMeshRenderer>();
-
             // Apply physics based position change to root.
             Go.transform.localPosition += transform.localPosition;
 

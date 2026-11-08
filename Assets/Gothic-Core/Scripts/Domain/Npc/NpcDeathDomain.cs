@@ -82,8 +82,8 @@ namespace Gothic.Core.Domain.Npc
 
         /// <summary>
         /// ZS_Dead and ZS_Dead_Loop of a dead NPC with the killer as 'other', the state bookkeeping like the engine.
-        /// Also for a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh
-        /// VM - without a killer it is its own 'other' (no experience again).
+        /// Also for an NPC killed before it spawned (AiHandler: dead on spawn, e.g. Nek) - without a killer it is its
+        /// own 'other' (no experience). Not for a corpse from a save: its state is ZS_Dead already.
         /// </summary>
         public void RunZsDead(NpcInstance dead, NpcContainer killer)
         {

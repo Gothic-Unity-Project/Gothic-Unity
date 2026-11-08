@@ -121,7 +121,7 @@ namespace Gothic.Core.Services.Npc
             var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
             foreach (var npc in awakeNpcs)
             {
-                if (npc == hero || npc?.Go == null || npc.Props == null || NpcHelperService.IsDown(npc))
+                if (npc == hero || npc?.Go == null || npc.Props == null || npc.IsDown())
                     continue;
                 var enemy = npc.Props.EnemyNpc ?? npc.Props.TargetNpc;
                 if (enemy == null || enemy.Index != hero.Instance.Index ||
@@ -251,7 +251,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void OnScriptDamageDepleted(NpcContainer victim, NpcContainer attacker)
         {
-            if (victim?.Props == null || NpcHelperService.IsDown(victim) ||
+            if (victim?.Props == null || victim.IsDown() ||
                 (victim.PrefabProps != null && victim.PrefabProps.IsHero()))
                 return;
 
@@ -299,7 +299,7 @@ namespace Gothic.Core.Services.Npc
             if (IsHitIgnored(attacker, target, isHero))
                 return;
 
-            if (!isHero && NpcHelperService.IsKnockedOut(target))
+            if (!isHero && target.IsKnockedOut())
             {
                 OnHitOnKnockedOut(attacker, target, position, damageOverride);
                 return;

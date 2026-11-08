@@ -20,7 +20,7 @@ On main, NPCs fought only the hero and only with melee. Archers chased forever, 
 
 ## Consequences
 
-- `FightService` (~2000 lines) and `NpcAiService` need splitting: hero block, spell hit, ranged hit, damage perception, knockout/death.
+- `FightService` is split into domains (hero block, spell hit, ranged hit, damage perception, knockout/death). `NpcAiService` (~1600 lines), `AnimationSystem` and `AttackPlayAni` still need splitting - follow-up PRs.
 - The G1/G2 ranged rules are spread over two services.
 - Some events have only one side here. The other side comes with the VR melee, magic, Marvin and UI PRs.
 - Not in this PR: the hero's footstep perception (movement PR), theft (trade PR), dialog range by body size (dialog PR), model scale and runtime armor mesh swap (meshes PR).

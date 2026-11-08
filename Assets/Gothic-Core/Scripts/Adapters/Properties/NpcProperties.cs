@@ -133,16 +133,6 @@ namespace Gothic.Core.Adapters.Properties
         /// </summary>
         public bool IsDead => BodyState == VmGothicEnums.BodyState.BsDead;
 
-        /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS), like the scripts' C_NpcIsDown (ZS_Unconscious, ZS_MagicSleep).
-        /// </summary>
-        public bool IsKnockedOut => BodyState == VmGothicEnums.BodyState.BsUnconscious;
-
-        /// <summary>
-        /// Dead or knocked out.
-        /// </summary>
-        public bool IsDown => IsDead || IsKnockedOut;
-
         // StateStart is fetched from ZenKit.Vobs.Npc.CurrentStateIndex
         public int StateLoop;
         public int StateEnd;

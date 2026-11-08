@@ -30,7 +30,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var target = _target;
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
-            if (target?.Go == null || !NpcHelperService.IsKnockedOut(target) ||
+            if (target?.Go == null || !target.IsKnockedOut() ||
                 weaponState is not (VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H))
             {
                 Logger.Log($"[FinishingMove] {NpcInstance.GetName(NpcNameSlot.Slot0)}: target not unconscious or no " +
@@ -87,7 +87,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _hasKilled = true;
 
             var target = _target;
-            if (target == null || !NpcHelperService.IsKnockedOut(target))
+            if (target == null || !target.IsKnockedOut())
                 return;
             GlobalEventDispatcher.FightFinishingMove.Invoke(NpcContainer, target);
         }

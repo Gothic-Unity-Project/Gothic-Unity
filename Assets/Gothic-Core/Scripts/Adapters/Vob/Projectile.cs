@@ -5,6 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Npc;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -19,6 +20,8 @@ namespace Gothic.Core.Adapters.Vob
     /// </summary>
     public class Projectile : MonoBehaviour, IProjectile
     {
+        [Inject] private readonly NpcService _npcService;
+
         public NpcContainer Owner;
         public Vector3 Velocity;
         public bool UseGravity;
@@ -153,7 +156,6 @@ namespace Gothic.Core.Adapters.Vob
             if (!AllowAutoAim || HomingTarget != null || Velocity.sqrMagnitude < 0.01f)
                 return;
 
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>();
             _homingVobTarget = DamageTargets.FindInCone(transform.position, Velocity, _autoAimConeDegrees, MaxDistance);
             if (_homingVobTarget == null)
                 return;
@@ -201,7 +203,7 @@ namespace Gothic.Core.Adapters.Vob
                 return _heroTarget;
             _isHeroTargetChecked = true;
 
-            var hero = ReflexProjectInstaller.DIContainer.Resolve<NpcService>().GetHeroContainer();
+            var hero = _npcService.GetHeroContainer();
             _heroTarget = hero != null && hero != Owner ? hero : null;
             return _heroTarget;
         }

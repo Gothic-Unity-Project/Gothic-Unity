@@ -156,7 +156,7 @@ namespace Gothic.Core.Domain.Npc
                 if (candidate == caster || candidate == directTarget || candidate.Go == null ||
                     !candidate.Go.activeInHierarchy)
                     continue;
-                if (NpcHelperService.IsDown(candidate))
+                if (candidate.IsDown())
                     continue;
                 if (Vector3.Distance(pos, candidate.Go.transform.position) > SpellConst.SpreadRangeMeters)
                     continue;
@@ -189,7 +189,7 @@ namespace Gothic.Core.Domain.Npc
                 if (candidate == null) continue;
                 if (candidate == caster || candidate.Go == null || !candidate.Go.activeInHierarchy)
                     continue;
-                if (NpcHelperService.IsDown(candidate))
+                if (candidate.IsDown())
                     continue;
                 if (Vector3.Distance(casterPos, candidate.Go.transform.position) > rangeM)
                     continue;
@@ -205,7 +205,7 @@ namespace Gothic.Core.Domain.Npc
         {
             // Like the engine (OpenGothic takeDamage: isDown) a spell does nothing to the dead and the knocked out - no
             // damage, no PERC_ASSESSMAGIC, no fire. Only a finishing move kills a knocked out NPC.
-            if (NpcHelperService.IsDown(target))
+            if (target.IsDown())
             {
                 Logger.Log($"[SpellHitDomain] {target.Instance.GetName(NpcNameSlot.Slot0)} is down - the spell of " +
                            $"{caster.Instance.GetName(NpcNameSlot.Slot0)} does nothing", LogCat.Fight);
@@ -262,7 +262,7 @@ namespace Gothic.Core.Domain.Npc
         {
             if (mfxName == null || caster?.Go == null || target?.Go == null ||
                 target == caster || (target.PrefabProps != null && target.PrefabProps.IsHero()) ||
-                NpcHelperService.IsDown(target) || !SpellConst.ThrowEffectNames.Contains(mfxName))
+                target.IsDown() || !SpellConst.ThrowEffectNames.Contains(mfxName))
                 return;
 
             var away = Vector3.ProjectOnPlane(target.Go.transform.position - caster.Go.transform.position, Vector3.up);

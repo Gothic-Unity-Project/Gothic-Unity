@@ -60,8 +60,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private readonly NpcChaseMovement _chase;
 
         // Swimming: no attacks, only swimming after the target.
-        private const string _swimIdleAnimName = "S_SWIM";
-        private const string _swimForwardAnimName = "S_SWIMF";
+        private const string _swimIdleAnimName = DaedalusConst.AniSwim;
+        private const string _swimForwardAnimName = DaedalusConst.AniSwimForward;
         private const float _swimWaitSeconds = 0.5f;
         private string _swimAnimName;
 
@@ -81,7 +81,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         public override void Start()
         {
-            if (Gothic.Core.Services.Npc.NpcHelperService.IsDown(_enemy))
+            if (_enemy.IsDown())
             {
                 IsFinishedFlag = true;
                 return;
@@ -738,7 +738,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
-            if (Gothic.Core.Services.Npc.NpcHelperService.IsDown(target))
+            // Down, or culled/destroyed meanwhile.
+            if (target.IsDown() || target.Go == null)
                 return;
 
             // Like the engine, a bow/crossbow shot is a flying arrow/bolt

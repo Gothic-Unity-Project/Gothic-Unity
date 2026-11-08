@@ -474,36 +474,6 @@ namespace Gothic.Core.Services.Npc
             return CanSeeNpc(self, other, freeLOS);
         }
 
-        private static Gothic.Core.Services.Config.ConfigService _downConfigService;
-
-        /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS), not a magically frozen NPC. Like the
-        /// scripts (C_NpcIsDown: ZS_Unconscious, ZS_MagicSleep, dead), ZS_MagicFreeze sets BS_UNCONSCIOUS via
-        /// AI_PlayAniBS but the victim isn't down: Mroczne Tajemnice's crawlers freeze with their web and then bite.
-        /// Before the frozen NPC was invisible to monsters, dropped as a target and killed by the next hit.
-        /// </summary>
-        public static bool IsKnockedOut(NpcContainer npc)
-        {
-            if (npc?.Props == null || npc.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
-                return false;
-            _downConfigService ??= ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>();
-            return !IsMagicFrozen(npc);
-        }
-
-        /// <summary>
-        /// Dead or knocked out (a frozen NPC isn't, see IsKnockedOut).
-        /// </summary>
-        public static bool IsDown(NpcContainer npc)
-        {
-            return npc?.Props != null && (npc.Props.BodyState == VmGothicEnums.BodyState.BsDead || IsKnockedOut(npc));
-        }
-
-        public static bool IsMagicFrozen(NpcContainer npc)
-        {
-            var state = npc?.Vob?.CurrentStateName;
-            return state != null && state.StartsWith("ZS_MAGICFREEZE", StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
         /// Guide/follow states (G1 ZS_GuidePC/ZS_FollowPC, G2 ZS_Guide_Player/ZS_Follow_Player).
         /// </summary>

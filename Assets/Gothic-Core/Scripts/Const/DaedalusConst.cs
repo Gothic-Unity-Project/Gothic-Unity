@@ -19,9 +19,10 @@ namespace Gothic.Core.Const
         // States in which the NPC looks away from the hero on purpose (decision 5: forgets the temp attitude).
         public static readonly string[] LookingAwayStates = { "ZS_TURNAWAY" };
 
-        // AI states of a downed NPC (knockout, magic sleep, death).
+        // AI states of a downed NPC (knockout, magic sleep, death) - and a frozen one, which isn't down.
         public const string ZsUnconscious = "ZS_UNCONSCIOUS";
         public const string ZsMagicSleep = "ZS_MAGICSLEEP";
+        public const string ZsMagicFreeze = "ZS_MAGICFREEZE";
         public const string ZsDead = "ZS_Dead";
         public const string ZsDeadLoop = "ZS_Dead_Loop";
 
@@ -32,6 +33,15 @@ namespace Gothic.Core.Const
         public const string AniDeadB = "S_DEADB";
         // G1 crawler queen, harpy and meatbug have no S_DEADB, only S_DEAD.
         public const string AniDead = "S_DEAD";
+
+        // Swimming (idle, forward, backward) - only models with these can swim.
+        public const string AniSwim = "S_SWIM";
+        public const string AniSwimForward = "S_SWIMF";
+        public const string AniSwimBack = "S_SWIMB";
+
+        // Ammunition an NPC shoots when its inventory names none of the bow's/crossbow's munition (G1, G2).
+        public static readonly string[] FallbackArrowInstances = { "ItAmArrow", "ItRw_Arrow" };
+        public static readonly string[] FallbackBoltInstances = { "ItAmBolt", "ItRw_Bolt" };
 
         // Daedalus symbols the C# side reads (constants, instances, script functions), by their script name.
         public const string SpellFxInstanceNames = "spellFXInstanceNames";

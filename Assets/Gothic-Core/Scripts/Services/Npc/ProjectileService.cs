@@ -38,8 +38,6 @@ namespace Gothic.Core.Services.Npc
         private const float _stuckInNpcSeconds = 20f;
         private const float _maxDistance = 120f;
         // G1 / G2 names - only used when a weapon has no munition set.
-        private static readonly string[] _fallbackArrows = { "ItAmArrow", "ItRw_Arrow" };
-        private static readonly string[] _fallbackBolts = { "ItAmBolt", "ItRw_Bolt" };
 
 
         /// <summary>
@@ -55,7 +53,8 @@ namespace Gothic.Core.Services.Npc
                 return munition;
 
             var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
-            foreach (var name in isCrossbow ? _fallbackBolts : _fallbackArrows)
+            var fallbacks = isCrossbow ? DaedalusConst.FallbackBoltInstances : DaedalusConst.FallbackArrowInstances;
+            foreach (var name in fallbacks)
             {
                 if (_gameStateService.GothicVm.GetSymbolByName(name) != null)
                     return _vmCacheService.TryGetItemData(name);
@@ -248,7 +247,7 @@ namespace Gothic.Core.Services.Npc
             var horizontal = new Vector3(targetPoint.x - origin.x, 0f, targetPoint.z - origin.z).magnitude;
             var flightTime = Mathf.Max(horizontal / ProjectileSpeed, 0.01f);
             const float radius = 0.05f;
-            const int mask = 1 << 0; // Default layer: world and solid VOBs
+            var mask = 1 << Constants.DefaultLayer; // Default layer: world and solid VOBs
 
             var previous = origin;
             for (var i = 1; i <= _shotPathSegments; i++)
@@ -282,7 +281,7 @@ namespace Gothic.Core.Services.Npc
             {
                 var stepOrigin = origin + right * (side * _strafeTestDistance);
                 // The step itself must be possible (no wall right next to him).
-                if (Physics.Linecast(origin, stepOrigin, 1 << 0, QueryTriggerInteraction.Ignore))
+                if (Physics.Linecast(origin, stepOrigin, 1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore))
                     continue;
                 if (IsShotPathClear(stepOrigin, targetPoint))
                     return side;
@@ -322,7 +321,7 @@ namespace Gothic.Core.Services.Npc
 
         private static Vector3 GetShotOrigin(NpcContainer shooter)
         {
-            var hand = shooter.Go.FindChildRecursively("ZS_RIGHTHAND") ??
+            var hand = shooter.Go.FindChildRecursively(Constants.SlotRightHand) ??
                        shooter.Go.FindChildRecursively("BIP01 R HAND");
             var forward = shooter.Go.transform.forward;
             var position = hand != null

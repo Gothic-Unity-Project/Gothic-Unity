@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
@@ -40,7 +41,7 @@ namespace Gothic.Core.Domain.Npc
         // The sleep effect above the eyes (m).
         private const float _sleepFxHeight = 0.3f;
 
-        public const string SleepStateName = "ZS_MAGICSLEEP";
+        public const string SleepStateName = DaedalusConst.ZsMagicSleep;
 
         private List<GameObject> _sleepFx;
 
@@ -66,8 +67,24 @@ namespace Gothic.Core.Domain.Npc
             if (mfxName.Equals("IceCube", StringComparison.OrdinalIgnoreCase) ||
                 mfxName.Equals("IceWave", StringComparison.OrdinalIgnoreCase) ||
                 mfxName.Equals("CrawlerWeb", StringComparison.OrdinalIgnoreCase))
-                return "ZS_MAGICFREEZE";
+                return DaedalusConst.ZsMagicFreeze;
             return null;
+        }
+
+        public static bool IsSpellState(string stateName)
+        {
+            return string.Equals(stateName, DaedalusConst.ZsMagicSleep, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(stateName, DaedalusConst.ZsMagicFreeze, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Loading or leaving the game ends the spell at once - otherwise the lock stayed until the old timer ran out.
+        /// </summary>
+        public void Reset()
+        {
+            if (_isActive)
+                End("game unloaded");
+            _hero = null;
         }
 
         public void Apply(NpcContainer hero, string stateName)

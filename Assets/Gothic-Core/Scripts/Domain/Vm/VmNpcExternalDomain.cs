@@ -599,9 +599,10 @@ namespace Gothic.Core.Domain.Vm
 
             if (target == null)
                 return;
-            
+
             // FIXME - Also implement, that we unset our hero as target. Otherwise it will always play fight music!
-            if (target.GetUserData()!.PrefabProps.IsHero())
+            // A target that isn't spawned yet has no user data.
+            if (target.GetUserData()?.PrefabProps?.IsHero() == true)
                 GlobalEventDispatcher.SetHeroAsTarget.Invoke(npc.GetUserData(), target.GetUserData());
         }
 

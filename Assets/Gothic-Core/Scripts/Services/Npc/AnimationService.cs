@@ -755,7 +755,8 @@ namespace Gothic.Core.Services.Npc
             switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
             {
                 case ZenGineConst.WaterLevel.Chest
-                    when GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    when GetTrack(DaedalusConst.AniSwimForward, npc.Props.MdsNameBase,
+                        npc.Props.MdsNameOverlay) != null:
                     return VmGothicEnums.WalkMode.Swim;
                 case ZenGineConst.WaterLevel.Knee
                     when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:

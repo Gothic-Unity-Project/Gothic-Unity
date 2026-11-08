@@ -86,9 +86,10 @@ namespace Gothic.Core.Services.Caches
             {
                 newData = _gameStateService.GothicVm.InitInstance<ItemInstance>(symbol);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // ignored - like the name lookup: not an item
+                // Cached as null, so once per item.
+                Logger.LogWarning($"[VmCache] Item {symbol.Name} can't be initialized: {e.Message}", LogCat.ZenKit);
             }
 
             _itemDataCache[preparedKey] = newData;
@@ -135,7 +136,7 @@ namespace Gothic.Core.Services.Caches
             // instance without a parent class: its init failed natively and aborted ItemHoshi's script before
             // Mdl_SetVisualBody (an invisible NPC).
             if (symbol != null && symbol.Type == DaedalusDataType.Instance && symbol.Parent >= 0 &&
-                !symbol.Name.StartsWith("$"))
+                !symbol.Name.StartsWith("$", StringComparison.Ordinal))
                 return true;
 
             Logger.LogWarning($"[VmCache] '{symbol?.Name}' is no instance ({symbol?.Type}) - no item.", LogCat.ZenKit);
@@ -244,7 +245,8 @@ namespace Gothic.Core.Services.Caches
             var spellBad = vm.GetSymbolByName(DaedalusConst.SpellBad)?.GetInt(0) ?? 2;
             if (spell != null && spell.SpellType != spellBad)
                 return 0;
-            return vm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpper()}")?.GetInt(0) ?? spell?.DamagePerLevel ?? 0;
+            return vm.GetSymbolByName($"SPL_DAMAGE_{mfxName.ToUpperInvariant()}")?.GetInt(0) ??
+                   spell?.DamagePerLevel ?? 0;
         }
 
         /// <summary>
@@ -263,9 +265,10 @@ namespace Gothic.Core.Services.Caches
                 if (TryGetSpellMfxName(spellId, out var spellName))
                     newData = _gameStateService.GothicVm.InitInstance<SpellInstance>($"SPELL_{spellName}");
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // ignored
+                // Cached as null, so once per spell.
+                Logger.LogWarning($"[VmCache] Spell {spellId} can't be initialized: {e.Message}", LogCat.ZenKit);
             }
 
             _spellDataCache[spellId] = newData;
@@ -314,9 +317,10 @@ namespace Gothic.Core.Services.Caches
                 if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
                     newData = _gameStateService.VfxVm.InitInstance<EffectBaseInstance>(preparedKey);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // ignored
+                // Cached as null, so once per effect.
+                Logger.LogWarning($"[VmCache] Visual effect {key} can't be initialized: {e.Message}", LogCat.ZenKit);
             }
 
             _vfxDataCache[preparedKey] = newData;
@@ -338,9 +342,11 @@ namespace Gothic.Core.Services.Caches
                 if (_gameStateService.VfxVm?.GetSymbolByName(preparedKey) != null)
                     newData = _gameStateService.VfxVm.InitInstance<ParticleEffectEmitKeyInstance>(preparedKey);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // ignored
+                // Cached as null, so once per key.
+                Logger.LogWarning($"[VmCache] Visual effect key {key} can't be initialized: {e.Message}",
+                    LogCat.ZenKit);
             }
 
             _vfxEmitKeyCache[preparedKey] = newData;
