@@ -22,7 +22,7 @@ namespace Gothic.VR.Services
     /// - the monster is spawned like any NPC but without AI, collisions, focus or perception ("puppet"), follows the
     ///   hero's movement (walk/run/attack animations with their MDS sounds) and is invisible for the VR camera;
     /// - the VR camera goes down to the monster's eye height, the hands stay;
-    /// - the hero's guild is the monster's (wolves are friendly, hunters attack) like the engine re-inits the hero;
+    /// - the hero's guild is the monster's (wolves are friendly, hunters attack) - Core: NpcService.TransformHero;
     /// - the casting hand holds a small orb with a live picture of the puppet (the magic is still active) - its
     ///   trigger casts again = transform back.
     /// Not saved (V1): WorldSceneLoaded resets it. FIXME: save while transformed stores the monster guild.
@@ -38,9 +38,6 @@ namespace Gothic.VR.Services
         private const string _transformSpellPrefix = "SPL_TRF_";
 
         private VRTransformPuppet _puppet;
-        private int _originalGuild;
-        private int _originalVobGuild;
-        private int _originalVobGuildTrue;
 
         // Not the puppet's Unity null: it's destroyed with the world scene, the guild must still come back.
         private bool _isTransformed;
@@ -94,20 +91,15 @@ namespace Gothic.VR.Services
                 return false;
             }
 
-            // Like the engine (OpenGothic Npc::TransformBack): scripts see the hero as the monster.
-            _originalGuild = hero.Instance.Guild;
-            _originalVobGuild = hero.Vob.Guild;
-            _originalVobGuildTrue = hero.Vob.GuildTrue;
-            hero.Instance.Guild = monster.Instance.Guild;
-            hero.Vob.Guild = monster.Instance.Guild;
-            hero.Vob.GuildTrue = monster.Instance.Guild;
+            // Scripts see the hero as the monster (its guild) - Core's rule, the puppet and camera are VR's.
+            _npcService.TransformHero(monster);
 
             _puppet = new GameObject("_TransformPuppet").AddComponent<VRTransformPuppet>();
             _isTransformed = true;
             _puppet.Init(this, monster, castingHand);
 
-            Logger.Log($"[VRTransform] Hero transformed into {monster.Instance.GetName(NpcNameSlot.Slot0)} " +
-                       $"(guild {_originalGuild} -> {monster.Instance.Guild}).", LogCat.VR);
+            Logger.Log($"[VRTransform] Hero transformed into {monster.Instance.GetName(NpcNameSlot.Slot0)}.",
+                LogCat.VR);
             return true;
         }
 
@@ -139,14 +131,7 @@ namespace Gothic.VR.Services
             if (!IsTransformed)
                 return;
 
-            var hero = _npcService.GetHeroContainer();
-            if (hero != null)
-            {
-                hero.Instance.Guild = _originalGuild;
-                hero.Vob.Guild = _originalVobGuild;
-                hero.Vob.GuildTrue = _originalVobGuildTrue;
-            }
-
+            _npcService.TransformHeroBack();
             _isTransformed = false;
             var puppet = _puppet;
             _puppet = null;

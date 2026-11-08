@@ -59,6 +59,7 @@ namespace Gothic.Core.Services.Npc
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
+        private readonly HeroTransformDomain _heroTransformDomain = new HeroTransformDomain().Inject();
 
 
         private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
@@ -486,6 +487,19 @@ namespace Gothic.Core.Services.Npc
         {
             npc.Vob.Lp = lp;
             npc.Instance.Lp = lp;
+        }
+
+        /// <summary>
+        /// Transformation scroll: scripts see the hero as the monster (its guild). The body is the platform's.
+        /// </summary>
+        public void TransformHero(NpcContainer monster)
+        {
+            _heroTransformDomain.Transform(GetHeroContainer(), monster);
+        }
+
+        public void TransformHeroBack()
+        {
+            _heroTransformDomain.TransformBack(GetHeroContainer());
         }
 
         public NpcContainer GetHeroContainer()
