@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
@@ -57,19 +55,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private ItemInstance _item;
         private ItemInstance _munition;
 
-        private MeshFilter _meshFilter;
-        private Mesh _originalMesh;
-        private Mesh _bowMesh;
-        private Vector3[] _restVertices;
+        // Mesh-local, once per bow (TrySetup). The bent vertices while drawn, null at rest.
+        private readonly VrBowMeshCalibration _calibration = new();
         private Vector3[] _currentVertices;
-        private List<Vector3[]> _drawFrames;
-
-        // Mesh-local calibration.
-        private int _tipTopIndex;
-        private int _tipBottomIndex;
-        private Vector3 _localGrip;
-        private Vector3 _localForward;
-        private float _maxDraw;
 
         private LineRenderer _string;
         private bool _isDrawing;
@@ -110,7 +98,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             _isHeld = true;
-            _meshFilter.sharedMesh = _bowMesh;
+            _calibration.MeshFilter.sharedMesh = _calibration.BowMesh;
             _string.gameObject.SetActive(true);
             _nockWorld = GetRestNockWorld();
             UpdateString();
@@ -119,8 +107,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
 
-            Logger.Log($"[VRBow] {_item.Name} readied - munition={_munition?.Name ?? "none"}, maxDraw={_maxDraw:F2} m, " +
-                       $"morph frames={_drawFrames?.Count ?? 0}, forward(local)={_localForward}", LogCat.VR);
+            Logger.Log($"[VRBow] {_item.Name} readied - munition={_munition?.Name ?? "none"}, " +
+                       $"maxDraw={_calibration.MaxDraw:F2} m, morph frames={_calibration.DrawFrames?.Count ?? 0}, " +
+                       $"forward(local)={_calibration.LocalForward}", LogCat.VR);
         }
 
         /// <summary>
@@ -139,7 +128,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (TryGetComponent<VrInteractable>(out var interactable))
                 interactable.CanSecondHandGrabAt = null;
 
-            _meshFilter.sharedMesh = _originalMesh;
+            _calibration.MeshFilter.sharedMesh = _calibration.OriginalMesh;
             _string.gameObject.SetActive(false);
             _vrWeaponService.UpdateHeroWeaponState();
         }
@@ -153,7 +142,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return _isSetUp;
 
             _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
-            if (_item == null || !TrySetupMesh())
+            if (_item == null || !_calibration.TrySetup(gameObject, _item, _morphMeshCacheService))
             {
                 _isSetupFailed = true;
                 Logger.LogWarning($"[VRBow] {_item?.Name ?? gameObject.name}: no item or no readable bow mesh - no bow.", LogCat.VR);
@@ -170,8 +159,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             Application.onBeforeRender -= OnBeforeRender;
             DropArrow();
-            if (_bowMesh != null)
-                Destroy(_bowMesh);
+            if (_calibration.BowMesh != null)
+                Destroy(_calibration.BowMesh);
             if (_string != null)
                 Destroy(_string.gameObject);
         }
@@ -254,7 +243,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             var drawDistance = UpdateDrawnNock();
-            _tension = Mathf.Clamp01(drawDistance / _maxDraw);
+            _tension = Mathf.Clamp01(drawDistance / _calibration.MaxDraw);
             ApplyBend(_tension);
 
             if (_tension - _lastHapticTension >= 0.1f)
@@ -277,8 +266,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return 0f;
             }
 
-            var forward = _meshFilter.transform.TransformDirection(_localForward).normalized;
-            var pull = Vector3.ClampMagnitude(hand.transform.position - restNock, _maxDraw);
+            var forward = _calibration.MeshFilter.transform.TransformDirection(_calibration.LocalForward).normalized;
+            var pull = Vector3.ClampMagnitude(hand.transform.position - restNock, _calibration.MaxDraw);
             _nockWorld = restNock + pull;
             return Mathf.Max(0f, Vector3.Dot(pull, -forward));
         }
@@ -376,48 +365,48 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_string == null)
                 return;
 
-            var vertices = _currentVertices ?? _restVertices;
-            var meshTransform = _meshFilter.transform;
-            _string.SetPosition(0, meshTransform.TransformPoint(vertices[_tipTopIndex]));
+            var vertices = _currentVertices ?? _calibration.RestVertices;
+            var meshTransform = _calibration.MeshFilter.transform;
+            _string.SetPosition(0, meshTransform.TransformPoint(vertices[_calibration.TipTopIndex]));
             _string.SetPosition(1, _nockWorld);
-            _string.SetPosition(2, meshTransform.TransformPoint(vertices[_tipBottomIndex]));
+            _string.SetPosition(2, meshTransform.TransformPoint(vertices[_calibration.TipBottomIndex]));
         }
 
         private void ApplyBend(float tension)
         {
-            if (_drawFrames == null || _drawFrames.Count == 0)
+            if (_calibration.DrawFrames == null || _calibration.DrawFrames.Count == 0)
                 return;
 
             if (tension <= 0f)
             {
                 _currentVertices = null;
-                _bowMesh.vertices = _restVertices;
+                _calibration.BowMesh.vertices = _calibration.RestVertices;
                 return;
             }
 
-            var framePosition = tension * (_drawFrames.Count - 1);
+            var framePosition = tension * (_calibration.DrawFrames.Count - 1);
             var frame = Mathf.FloorToInt(framePosition);
-            var nextFrame = Mathf.Min(frame + 1, _drawFrames.Count - 1);
+            var nextFrame = Mathf.Min(frame + 1, _calibration.DrawFrames.Count - 1);
             var blend = framePosition - frame;
 
-            _currentVertices ??= new Vector3[_restVertices.Length];
-            var from = _drawFrames[frame];
-            var to = _drawFrames[nextFrame];
+            _currentVertices ??= new Vector3[_calibration.RestVertices.Length];
+            var from = _calibration.DrawFrames[frame];
+            var to = _calibration.DrawFrames[nextFrame];
             for (var i = 0; i < _currentVertices.Length; i++)
                 _currentVertices[i] = Vector3.LerpUnclamped(from[i], to[i], blend);
 
-            _bowMesh.vertices = _currentVertices;
-            _bowMesh.RecalculateBounds();
+            _calibration.BowMesh.vertices = _currentVertices;
+            _calibration.BowMesh.RecalculateBounds();
         }
 
         private Vector3 GetRestNockWorld()
         {
-            var vertices = _currentVertices ?? _restVertices;
-            var nockLocal = (vertices[_tipTopIndex] + vertices[_tipBottomIndex]) * 0.5f;
-            return _meshFilter.transform.TransformPoint(nockLocal);
+            var vertices = _currentVertices ?? _calibration.RestVertices;
+            var nockLocal = (vertices[_calibration.TipTopIndex] + vertices[_calibration.TipBottomIndex]) * 0.5f;
+            return _calibration.MeshFilter.transform.TransformPoint(nockLocal);
         }
 
-        private Vector3 GetGripWorld() => _meshFilter.transform.TransformPoint(_localGrip);
+        private Vector3 GetGripWorld() => _calibration.MeshFilter.transform.TransformPoint(_calibration.LocalGrip);
 
         /// <summary>
         /// The arrow points from the drawing hand through the hand holding the bow (where the player aims), not
@@ -439,149 +428,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         public bool IsAtString(Vector3 position)
         {
-            if (_meshFilter == null)
+            if (_calibration.MeshFilter == null)
                 return false;
 
-            var vertices = _currentVertices ?? _restVertices;
-            var meshTransform = _meshFilter.transform;
-            var top = meshTransform.TransformPoint(vertices[_tipTopIndex]);
-            var bottom = meshTransform.TransformPoint(vertices[_tipBottomIndex]);
+            var vertices = _currentVertices ?? _calibration.RestVertices;
+            var meshTransform = _calibration.MeshFilter.transform;
+            var top = meshTransform.TransformPoint(vertices[_calibration.TipTopIndex]);
+            var bottom = meshTransform.TransformPoint(vertices[_calibration.TipBottomIndex]);
             var nock = GetRestNockWorld();
-            var toString = Mathf.Min(DistanceToSegment(position, top, nock, out _),
-                DistanceToSegment(position, nock, bottom, out _));
+            var toString = Mathf.Min(VrBowMeshCalibration.DistanceToSegment(position, top, nock, out _),
+                VrBowMeshCalibration.DistanceToSegment(position, nock, bottom, out _));
             return toString < _grabStringDistance && toString < Vector3.Distance(position, GetGripWorld());
-        }
-
-        /// <summary>
-        /// Finds the bow mesh, the limb tips (ends of the long axis), the grip (farthest from the string) and cuts the
-        /// Gothic string out of a mesh copy.
-        /// </summary>
-        private bool TrySetupMesh()
-        {
-            foreach (var meshFilter in GetComponentsInChildren<MeshFilter>(true))
-            {
-                if (meshFilter.sharedMesh != null && meshFilter.sharedMesh.isReadable && meshFilter.sharedMesh.vertexCount > 0)
-                {
-                    _meshFilter = meshFilter;
-                    break;
-                }
-            }
-            if (_meshFilter == null)
-                return false;
-
-            _originalMesh = _meshFilter.sharedMesh;
-            _restVertices = _originalMesh.vertices;
-
-            var bounds = _originalMesh.bounds;
-            var size = bounds.size;
-            var axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
-
-            _tipTopIndex = 0;
-            _tipBottomIndex = 0;
-            for (var i = 1; i < _restVertices.Length; i++)
-            {
-                if (_restVertices[i][axis] > _restVertices[_tipTopIndex][axis])
-                    _tipTopIndex = i;
-                if (_restVertices[i][axis] < _restVertices[_tipBottomIndex][axis])
-                    _tipBottomIndex = i;
-            }
-
-            var tipTop = _restVertices[_tipTopIndex];
-            var tipBottom = _restVertices[_tipBottomIndex];
-            var bowLength = Vector3.Distance(tipTop, tipBottom);
-            if (bowLength < 0.1f)
-                return false;
-
-            // Grip/belly: the vertex farthest away from the string line.
-            var farthest = 0f;
-            _localGrip = bounds.center;
-            foreach (var vertex in _restVertices)
-            {
-                var distance = DistanceToSegment(vertex, tipTop, tipBottom, out _);
-                if (distance > farthest)
-                {
-                    farthest = distance;
-                    _localGrip = vertex;
-                }
-            }
-            DistanceToSegment(_localGrip, tipTop, tipBottom, out var gripOnString);
-            _localForward = (_localGrip - gripOnString).normalized;
-
-            var worldScale = _meshFilter.transform.lossyScale.x;
-            _maxDraw = Mathf.Clamp(bowLength * worldScale * 0.55f, 0.45f, 0.72f);
-
-            _bowMesh = Instantiate(_originalMesh);
-            _bowMesh.name = $"{_originalMesh.name} (VR bow)";
-            _bowMesh.MarkDynamic();
-            var removed = RemoveStringTriangles(_bowMesh, tipTop, tipBottom, bowLength);
-            _meshFilter.sharedMesh = _bowMesh;
-
-            _drawFrames = TryGetDrawFrames();
-            Logger.Log($"[VRBow] {_item.Name}: length={bowLength:F2}, string triangles removed={removed}", LogCat.VR);
-            return true;
-        }
-
-        /// <summary>
-        /// The Gothic string = triangles lying on the line between the limb tips (not at the tips themselves).
-        /// </summary>
-        private int RemoveStringTriangles(Mesh mesh, Vector3 tipTop, Vector3 tipBottom, float bowLength)
-        {
-            var maxDistance = Mathf.Max(0.005f, bowLength * 0.015f);
-            var removed = 0;
-
-            for (var subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
-            {
-                var triangles = mesh.GetTriangles(subMesh);
-                var kept = new List<int>(triangles.Length);
-                for (var i = 0; i + 2 < triangles.Length; i += 3)
-                {
-                    var a = _restVertices[triangles[i]];
-                    var b = _restVertices[triangles[i + 1]];
-                    var c = _restVertices[triangles[i + 2]];
-                    DistanceToSegment((a + b + c) / 3f, tipTop, tipBottom, out _, out var t);
-
-                    var isString = t > 0.08f && t < 0.92f &&
-                                   DistanceToSegment(a, tipTop, tipBottom, out _) < maxDistance &&
-                                   DistanceToSegment(b, tipTop, tipBottom, out _) < maxDistance &&
-                                   DistanceToSegment(c, tipTop, tipBottom, out _) < maxDistance;
-                    if (isString)
-                    {
-                        removed++;
-                        continue;
-                    }
-
-                    kept.Add(triangles[i]);
-                    kept.Add(triangles[i + 1]);
-                    kept.Add(triangles[i + 2]);
-                }
-                mesh.SetTriangles(kept, subMesh);
-            }
-
-            return removed;
-        }
-
-        /// <summary>
-        /// Gothic bows: morphAni "S_SHOOT" = the 10 frames of the draw (ITRW_BOW_*.MMB). Only if the vertex layout
-        /// matches this mesh - otherwise the limbs simply don't bend.
-        /// </summary>
-        private List<Vector3[]> TryGetDrawFrames()
-        {
-            try
-            {
-                // By position: the cached mapping was missing for every bow (built once without the morph mesh) -
-                // morph frames=0, the limbs never bent.
-                var frames = _morphMeshCacheService.TryGetMorphDataForVertices(_item.Visual,
-                    Constants.Animations.BowShootMorphAnimName, _restVertices);
-                if (frames == null || frames.Count == 0 || frames[0].Length != _restVertices.Length)
-                    return null;
-                return frames;
-            }
-            catch (Exception e)
-            {
-                Logger.LogWarning($"[VRBow] {_item.Visual}: no {Constants.Animations.BowShootMorphAnimName} morph " +
-                                  $"({e.Message}) - limbs stay straight.", LogCat.VR);
-                return null;
-            }
         }
 
         private void CreateString()
@@ -603,19 +460,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _string.receiveShadows = false;
             _nockWorld = GetRestNockWorld();
             UpdateString();
-        }
-
-        private static float DistanceToSegment(Vector3 point, Vector3 a, Vector3 b, out Vector3 closest)
-        {
-            return DistanceToSegment(point, a, b, out closest, out _);
-        }
-
-        private static float DistanceToSegment(Vector3 point, Vector3 a, Vector3 b, out Vector3 closest, out float t)
-        {
-            var ab = b - a;
-            t = Mathf.Clamp01(Vector3.Dot(point - a, ab) / ab.sqrMagnitude);
-            closest = a + ab * t;
-            return Vector3.Distance(point, closest);
         }
 
         private void PlaySfx(string sfxName)
