@@ -8,7 +8,7 @@ namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
     /// A trigger at the knuckles of an empty VR hand, active while it makes a fist
-    /// (grip + trigger). Reports NPC hitboxes it enters - VRWeaponService decides if it's a punch.
+    /// (grip + trigger). Reports NPC hitboxes it enters - VrFistDomain decides if it's a punch.
     /// </summary>
     public class VRFistHitbox : MonoBehaviour
     {

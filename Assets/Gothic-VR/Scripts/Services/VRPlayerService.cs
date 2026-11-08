@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
@@ -14,6 +15,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models;
 using Reflex.Attributes;
 using UnityEngine;
@@ -43,6 +45,22 @@ namespace Gothic.VR.Services
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
+
+        /// <summary>
+        /// The player body of the active VR backend. null before the VR player is set up.
+        /// </summary>
+        public IVrRig Rig => VRContextInteractionService?.Rig;
+
+        /// <summary>
+        /// The direct grabbers of both hands (a distance grab ends in the hand too).
+        /// </summary>
+        public IEnumerable<IVrGrabber> GetHandGrabbers()
+        {
+            var rig = Rig;
+            return rig == null
+                ? Enumerable.Empty<IVrGrabber>()
+                : rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand);
+        }
 
         /// <summary>
         /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
