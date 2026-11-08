@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Gothic.Core.Domain.Audio
 {
     /// <summary>
-    /// DeveloperConfig.EnableFootstepSounds / EnableEnvironmentReverb: ground sound events and the world's ceiling.
+    /// DeveloperConfig.EnableFootstepSounds: ground sound events and the world's ceiling.
     /// </summary>
     public static class GroundSoundDomain
     {

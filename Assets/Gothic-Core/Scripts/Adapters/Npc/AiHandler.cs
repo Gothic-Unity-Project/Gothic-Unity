@@ -840,7 +840,7 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableTimeSkipResetsNpcs: after the hero slept the NPC starts over like after culling
+        /// After the hero slept the NPC starts over like after culling
         /// (ReEnableNpc: routine waypoint, empty queue, routine) - and forgets its fight: no enemy/target, weapon away.
         /// Monsters go back to their start state, not the one they were in (an attack).
         /// </summary>

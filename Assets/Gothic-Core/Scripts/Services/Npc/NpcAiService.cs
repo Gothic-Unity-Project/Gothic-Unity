@@ -420,7 +420,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <param name="isScriptCall">False for state changes of the engine itself (knockout): like the engine, the old
-        /// state's _End isn't called and the queue doesn't wait for dialog lines (EnableQueuedStateEnd).</param>
+        /// state's _End isn't called and the queue doesn't wait for dialog lines.</param>
         /// <summary>
         /// The sleep/freeze state a spell puts the hero in (HeroSpellStateDomain).
         /// </summary>

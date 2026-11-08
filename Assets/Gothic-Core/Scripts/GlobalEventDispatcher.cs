@@ -156,7 +156,7 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
         // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
         public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
-        // Marvin's "kill" (DeveloperConfig.EnableMarvinKill): the NPC dies at once, no killer (no experience).
+        // Marvin's "kill": the NPC dies at once, no killer (no experience).
         public static readonly UnityEvent<NpcContainer> CheatKill = new();
 
         /// <summary>

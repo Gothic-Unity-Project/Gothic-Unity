@@ -477,7 +477,7 @@ namespace Gothic.Core.Services.Npc
         private static Gothic.Core.Services.Config.ConfigService _downConfigService;
 
         /// <summary>
-        /// Knocked out (BS_UNCONSCIOUS) - DeveloperConfig.EnableFrozenIsNotDown: not a magically frozen NPC. Like the
+        /// Knocked out (BS_UNCONSCIOUS), not a magically frozen NPC. Like the
         /// scripts (C_NpcIsDown: ZS_Unconscious, ZS_MagicSleep, dead), ZS_MagicFreeze sets BS_UNCONSCIOUS via
         /// AI_PlayAniBS but the victim isn't down: Mroczne Tajemnice's crawlers freeze with their web and then bite.
         /// Before the frozen NPC was invisible to monsters, dropped as a target and killed by the next hit.

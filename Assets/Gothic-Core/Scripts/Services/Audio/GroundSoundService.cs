@@ -74,7 +74,7 @@ namespace Gothic.Core.Services.Audio
         /// <summary>
         /// The texture of the triangle below (world chunks and VOBs both keep their texture array index in uv0.z): its
         /// world material group, or - G1's world has almost only UNDEF groups (2246 of 2263 materials), the engine then
-        /// plays RUN_UNDEF (stone) on grass too - DeveloperConfig.EnableGroundTextureGuess guesses it from the texture's
+        /// plays RUN_UNDEF (stone) on grass too - it is guessed from the texture's
         /// name (OWODFLGRASSMI: grass = earth, MOWOBARREL01: wood).
         /// </summary>
         private string GetTextureSoundSuffix(RaycastHit hit)

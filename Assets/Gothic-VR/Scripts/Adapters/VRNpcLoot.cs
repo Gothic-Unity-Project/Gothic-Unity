@@ -267,8 +267,7 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableCorpseHoldTakesAll: everything the NPC gives away into the hero's inventory (like the
-        /// loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// Everything the NPC gives away into the hero's inventory (like the loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
         /// </summary>
         public int TakeAll(NpcContainer npc)
         {

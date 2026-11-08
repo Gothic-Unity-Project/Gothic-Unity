@@ -92,7 +92,7 @@ namespace Gothic.Core.Domain.Npc
                 if (_npcAiService.ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
                     continue;
 
-                // DeveloperConfig.EnableEnemyOverrideNextTarget (G2): AIV_EnemyOverride NPCs (the bandits on the road
+                // G2: AIV_EnemyOverride NPCs (the bandits on the road
                 // below Xardas' tower) leave the guild-hostile hero alone until he talks to them (B_AssessEnemy skips
                 // them). After killing a wolf, ZS_Attack_Loop's Npc_GetNextTarget picked the bystanding hero.
                 if (enemyOverrideAivar >= 0 && candidate.PrefabProps != null && candidate.PrefabProps.IsHero() &&

@@ -199,8 +199,7 @@ namespace Gothic.Core.Services.World
         public int DynamicLightIndex { get; private set; } = -1;
 
         /// <summary>
-        /// DeveloperConfig.EnableWorldLightmaps: the current world's light mapped polygons show Gothic's lightmaps
-        /// (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
+        /// The current world's light mapped polygons show Gothic's lightmaps (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
         /// </summary>
         public bool HasWorldLightmaps { get; set; }
 

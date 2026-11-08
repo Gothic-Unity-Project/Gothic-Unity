@@ -10,7 +10,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
-    /// DeveloperConfig.EnableEngineFinishingMove: AI_FinishingMove like the engine (OpenGothic Npc::finishingMove):
+    /// AI_FinishingMove like the engine (OpenGothic Npc::finishingMove):
     /// queued after walking to the unconscious target (NPC_ATTACK_FINISH_DISTANCE), turning and drawing a melee weapon -
     /// t_1hSFinish / t_2hSFinish is played and the target dies with the stab (the animation's hit frame, else its end).
     /// Not unconscious any more (stood up, already dead) or no melee weapon: nothing happens.
