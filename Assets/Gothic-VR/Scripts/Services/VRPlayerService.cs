@@ -14,6 +14,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Models;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Vobs;
@@ -29,6 +30,16 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly ConfigService _configService;
+
+        // Gothic.ini heroFallMode, read on first use and again when the menu changes it.
+        private VrHeroFallMode? _heroFallMode;
+        private bool _hasHeroFallBody;
+
+        public VRPlayerService()
+        {
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -43,11 +54,43 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// The one owner of the camera height while the hero is down (knocked out, dead): true while a VR hero body
-        /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
-        /// view itself only without it.
+        /// The player's choice when the game takes the hero's body down - knocked out, dead, asleep (Gothic.ini
+        /// [GOTHIC_VR_ACCESSIBILITY] heroFallMode). Its only reader; VrHeroDownPose and VrKnockoutView ask here.
         /// </summary>
-        public bool IsFallCameraOnHeroBody { get; set; }
+        public VrHeroFallMode HeroFallMode
+        {
+            get
+            {
+                if (_heroFallMode.HasValue)
+                    return _heroFallMode.Value;
+                if (_configService.Gothic == null)
+                    return (VrHeroFallMode)VRConstants.HeroFallModeDefaultValue;
+                _heroFallMode = (VrHeroFallMode)_configService.Gothic.GetInt(VRConstants.IniNames.HeroFallMode,
+                    VRConstants.HeroFallModeDefaultValue);
+                return _heroFallMode.Value;
+            }
+        }
+
+        /// <summary>
+        /// The one owner of the camera height while the hero is down (knocked out, dead, asleep): true while a VR hero
+        /// body that can fall with its camera exists and the player chose to move with it (HeroFallMode) -
+        /// VrKnockoutView lowers the view itself (blink) only without it.
+        /// </summary>
+        public bool IsFallCameraOnHeroBody => _hasHeroFallBody && HeroFallMode == VrHeroFallMode.MoveWithBody;
+
+        /// <summary>
+        /// Only VrHeroDownPose writes it (on Bind, SetEnabled, Dispose): a VR hero body exists that can lie down.
+        /// </summary>
+        public void SetHeroFallBody(bool hasBody)
+        {
+            _hasHeroFallBody = hasBody;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.HeroFallMode)
+                _heroFallMode = null;
+        }
 
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;

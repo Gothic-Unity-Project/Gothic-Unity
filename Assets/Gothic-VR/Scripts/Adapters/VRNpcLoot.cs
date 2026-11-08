@@ -5,16 +5,17 @@ using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
-using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Inventory;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.Player;
@@ -23,7 +24,6 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
-using TMPro;
 using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
@@ -38,9 +38,17 @@ namespace Gothic.VR.Adapters
         private const float RefreshDelay = 0.6f;
         private const float SocketHeight = 0.8f;
         private const float SocketSpacing = 0.22f;
+        private const string _equippedLabelName = "EquippedLabel";
 
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
+
+        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera).")]
+        [SerializeField] private GameObject _equippedLabelPrefab;
+
+        [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking " +
+                 "the body again).")]
+        [SerializeField] private float _lootBackpackTimeoutSeconds = 20f;
 
         /// <summary>
         /// The loot socket - also used for the trade counter's offer zones.
@@ -54,10 +62,9 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
 
-        // The active backend's backpack prefab (VRBackpack.PrefabPath).
-        private static string _backpackPrefabPath => VRBackpack.PrefabPath;
-        private NpcInventoryOwner _lootOwner;
+        private IInventoryOwner _lootOwner;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
         private Coroutine _lootBackpackTimeout;
@@ -92,7 +99,7 @@ namespace Gothic.VR.Adapters
         private void Update()
         {
             // A knocked out NPC that gets up takes his things back out of reach.
-            if (_isOpen && _npcContainer != null && _npcContainer.Props?.IsDown != true)
+            if (_isOpen && _npcContainer != null && !_npcContainer.IsDown())
                 Close();
         }
 
@@ -107,7 +114,7 @@ namespace Gothic.VR.Adapters
         public void Open(NpcContainer npc)
         {
             _npcContainer = npc;
-            _lootOwner = new NpcInventoryOwner(npc);
+            _lootOwner = _inventoryTransferService.GetOwner(npc);
             _isOpen = true;
             GlobalEventDispatcher.NpcInventoryChanged.AddListener(OnNpcInventoryChanged);
             enabled = true;
@@ -130,25 +137,12 @@ namespace Gothic.VR.Adapters
         /// </summary>
         private void SpawnLootBackpack(NpcContainer npc)
         {
-            var prefab = Resources.Load<GameObject>(_backpackPrefabPath);
-            if (prefab == null)
-            {
-                Logger.LogWarning($"[VRNpcLoot] Backpack prefab {_backpackPrefabPath} not found.", LogCat.VR);
-                return;
-            }
-
             var npcTransform = npc.Go.transform;
             var position = npcTransform.position + npcTransform.right * 0.7f + Vector3.up * 0.4f;
-            var backpackGo = Instantiate(prefab, position, Quaternion.LookRotation(-npcTransform.right));
-            backpackGo.name = $"LootBackpack_{npc.Instance.GetName(NpcNameSlot.Slot0)}";
-            backpackGo.Inject();
-
-            _lootBackpack = backpackGo.GetComponentInChildren<VRBackpack>(true);
+            _lootBackpack = VRBackpack.SpawnCopy(position, Quaternion.LookRotation(-npcTransform.right),
+                $"LootBackpack_{npc.Instance.GetName(NpcNameSlot.Slot0)}", out var backpackGo);
             if (_lootBackpack == null)
-            {
-                Destroy(backpackGo);
                 return;
-            }
             _lootBackpackRoot = backpackGo;
             _lootBackpack.SetNpcOwner(npc);
 
@@ -181,7 +175,7 @@ namespace Gothic.VR.Adapters
 
         private IEnumerator CloseUnusedLootBackpack()
         {
-            yield return new WaitForSeconds(Mathf.Max(1f, _configService.Dev.NpcLootBackpackTimeout));
+            yield return new WaitForSeconds(Mathf.Max(1f, _lootBackpackTimeoutSeconds));
             _lootBackpackTimeout = null;
             if (!_isOpen)
                 yield break;
@@ -273,12 +267,11 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableCorpseHoldTakesAll: everything the NPC gives away into the hero's inventory (like the
-        /// loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// Everything the NPC gives away into the hero's inventory (like the loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
         /// </summary>
         public int TakeAll(NpcContainer npc)
         {
-            var itemCount = VRBackpack.TakeAll(new NpcInventoryOwner(npc));
+            var itemCount = _inventoryTransferService.TakeAll(_inventoryTransferService.GetOwner(npc));
             PlayOpenSound();
             Logger.Log($"[VRNpcLoot] Took all from {npc.Instance.GetName(NpcNameSlot.Slot0)}: {itemCount} item(s)",
                 LogCat.VR);
@@ -452,7 +445,7 @@ namespace Gothic.VR.Adapters
             // Remove equipped labels before clearing items
             foreach (var root in _socketRoots)
             {
-                var label = root.transform.Find("EquippedLabel");
+                var label = root.transform.Find(_equippedLabelName);
                 if (label != null)
                     Destroy(label.gameObject);
             }
@@ -518,27 +511,15 @@ namespace Gothic.VR.Adapters
             return idx >= 0 && idx < _socketRoots.Count ? _socketRoots[idx] : null;
         }
 
-        private static void AddEquippedLabel(GameObject socketRoot)
+        private void AddEquippedLabel(GameObject socketRoot)
         {
             if (socketRoot == null)
                 return;
 
-            var labelGo = new GameObject("EquippedLabel");
-            labelGo.transform.SetParent(socketRoot.transform, false);
+            var labelGo = Instantiate(_equippedLabelPrefab, socketRoot.transform, false);
+            labelGo.name = _equippedLabelName;
             labelGo.transform.localPosition = new Vector3(0f, 0.09f, 0f);
             labelGo.transform.localScale = Vector3.one * 0.013f;
-
-            var tmp = labelGo.AddComponent<TextMeshPro>();
-            // Assign font immediately after AddComponent to suppress repeated OnPreRenderObject warnings.
-            var font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-            if (font != null)
-                tmp.font = font;
-            tmp.text = "[E]";
-            tmp.fontSize = 12;
-            tmp.color = new Color(1f, 0.65f, 0f, 1f);
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.fontStyle = FontStyles.Bold;
         }
     }
 }

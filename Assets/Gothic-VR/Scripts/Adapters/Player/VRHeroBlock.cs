@@ -6,7 +6,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
@@ -19,7 +18,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrHeroBlock: Gothic's parry in VR. Its animation holds the weapon with both hands (one hand
+    /// Gothic's parry in VR (option heroBlock, VRContextHeroBlockService). Its animation holds the weapon with both hands (one hand
     /// at the grip, one at the blade) for one- and two-handed weapons alike - so: both hands on the same melee weapon and
     /// both triggers held. While it lasts the hero's props say so (IsBlocking, the weapon's material, the head's
     /// direction); FightService blocks the NPC hits from the front and ignores the hero's own hits.
@@ -30,7 +29,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
@@ -61,7 +59,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             var material = -1;
-            var isBlocking = _configService.Dev.EnableVrHeroBlock && TryGetBlockingWeapon(out material) &&
+            var isBlocking = TryGetBlockingWeapon(out material) &&
                              _vrInput.GetButton(VrHandSide.Left, VrButton.Trigger).IsActive &&
                              _vrInput.GetButton(VrHandSide.Right, VrButton.Trigger).IsActive;
 
@@ -102,7 +100,7 @@ namespace Gothic.VR.Adapters.Player
             var heroPosition = hero.Go.transform.position;
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
-                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || NpcHelperService.IsDown(npc) ||
+                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.IsDown() ||
                     (npc.Go.transform.position - heroPosition).sqrMagnitude > _contactRange * _contactRange)
                     continue;
 

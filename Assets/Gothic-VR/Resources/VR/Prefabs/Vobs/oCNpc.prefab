@@ -163,6 +163,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.VRNpcLoot
   _slotPrefab: {fileID: 7034454508457674463, guid: e970795bd5895ed4d8a7686f050c5832, type: 3}
+  _equippedLabelPrefab: {fileID: 8561692902897600125, guid: 76f1c8a5b07e19609b5aa836da0819e8, type: 3}
 --- !u!1 &2815092147823170342
 GameObject:
   m_ObjectHideFlags: 0
@@ -495,6 +496,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d53defac19fbb474d81910e60e275fd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Interaction.Backends.Xri.XriInteractableBridge
+  _grabTriggers: []
 --- !u!1 &3748409399599174953
 GameObject:
   m_ObjectHideFlags: 0

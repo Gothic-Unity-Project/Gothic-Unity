@@ -122,7 +122,7 @@ namespace Gothic.Core
         public static readonly UnityEvent<int> HeroMeleeSwing = new();
 
         /// <summary>
-        /// DeveloperConfig.EnableVrHeroBlock: the blocking hero parried a hit.
+        /// The blocking hero parried a hit.
         /// NpcContainer - the attacker
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroBlockedHit = new();
@@ -152,15 +152,11 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer, Vector3, int> SpellSpreadHit = new();
 
-        /// <summary>
-        /// The game time jumped (hero slept - PC_Sleep's Wld_SetTime, Marvin's time skip).
-        /// </summary>
-        public static readonly UnityEvent GameTimeSkipped = new();
-        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnEffect plays it.
+        // A fire hit set the NPC on fire (or keeps it burning longer) - NpcBurnService plays it.
         public static readonly UnityEvent<NpcContainer> NpcIgnited = new();
         // NPC landed after a fall higher than FALLDOWN_HEIGHT (damage already minus PROT_FALL).
         public static readonly UnityEvent<NpcContainer, int> FallDamage = new();
-        // Marvin's "kill" (DeveloperConfig.EnableMarvinKill): the NPC dies at once, no killer (no experience).
+        // Marvin's "kill": the NPC dies at once, no killer (no experience).
         public static readonly UnityEvent<NpcContainer> CheatKill = new();
 
         /// <summary>
@@ -203,6 +199,19 @@ namespace Gothic.Core
         /// NpcContainer - who killed him (the hero himself for a script)
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
+
+        /// <summary>
+        /// A sleep spell put the hero to sleep (HeroSpellStateDomain, ZS_MagicSleep): he lies until HeroWokeUp. The VR
+        /// hero body lies down like knocked out (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE).
+        /// NpcContainer - the hero
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroFellAsleep = new();
+
+        /// <summary>
+        /// The sleeping hero woke up (time over, damage, another spell state, the hero gone). Not raised when a game
+        /// is loaded meanwhile (LoadGameStart ends the sleep).
+        /// </summary>
+        public static readonly UnityEvent HeroWokeUp = new();
 
         /// <summary>
         /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
@@ -282,10 +291,6 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> TradeEnded = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
-
-        // DeveloperConfig.EnableVisualFxEarthquake: FX_EarthQuake played (summoning, fire rain) - position, radius in
-        // meters, seconds. VR rumbles the controllers instead of shaking the camera.
-        public static readonly UnityEvent<Vector3, float, float> VisualFxEarthquake = new();
 
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();

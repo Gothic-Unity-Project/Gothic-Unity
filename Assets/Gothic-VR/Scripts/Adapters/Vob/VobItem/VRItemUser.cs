@@ -1,77 +1,43 @@
-using System;
-using System.Linq;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
-using Gothic.Core.Services.World;
-using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
-using Gothic.VR.Interaction;
 using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using ZenKit;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
-using EventType = ZenKit.EventType;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// Gothic's "use item from inventory" for items with an on_state[0] function which no other VR interaction handles,
-    /// e.g. G2 pouches (ItSe_*) or mod items. Lives while the item is grabbed with both hands; trigger (or R) uses it once.
-    ///
-    /// Consumption follows the engine: an item is used up if its scheme's end animation (t_[Scheme]_S0_2_Stand)
-    /// fires DEF_DESTROY_ITEM (e.g. MAPSEALED for pouches/sealed letters). Items like maps (MAP -> DEF_REMOVE_ITEM) stay.
+    /// Gothic's "use item from inventory" in VR (ItemUseService decides what is usable and runs it), e.g. G2 pouches
+    /// (ItSe_*) or mod items. Lives while the item is grabbed with both hands; trigger (or R) uses it once.
+    /// Weapons, runes, documents and food are handled by VRRuneCaster, VRDocViewer and VRMouth.
     /// </summary>
     public class VRItemUser : MonoBehaviour
     {
-        private const string _useEndAnimationScheme = "t_{0}_S0_2_Stand";
-
-        // Handled elsewhere: weapons, VRRuneCaster, VRDocViewer, VRMouth. Wearables only via Equip() (flag).
-        private const int _notUsableCategories = (int)(VmGothicEnums.ItemFlags.ItemKatNf | VmGothicEnums.ItemFlags.ItemKatFf |
-                                                       VmGothicEnums.ItemFlags.ItemKatMun | VmGothicEnums.ItemFlags.ItemKatArmor |
-                                                       VmGothicEnums.ItemFlags.ItemKatFood | VmGothicEnums.ItemFlags.ItemKatDocs |
-                                                       VmGothicEnums.ItemFlags.ItemKatPotions | VmGothicEnums.ItemFlags.ItemKatRune |
-                                                       VmGothicEnums.ItemFlags.ItemKatMagic);
-
-        [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
+        [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VobService _vobService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
-        [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         private VobContainer _container;
         private ItemInstance _item;
         private bool _usedThisGrab;
 
-
-        /// <param name="allowEquip">DeveloperConfig.EnableEquipItems - wearables (armor, amulets, rings, belts) get equipped.</param>
-        public static bool IsUsable(ItemInstance item, bool allowEquip)
-        {
-            if (item == null)
-                return false;
-
-            if (allowEquip && NpcInventoryService.IsWearable(item))
-                return true;
-
-            return item.GetOnState(0) != 0 && (item.MainFlag & _notUsableCategories) == 0;
-        }
 
         private void Awake()
         {
@@ -83,7 +49,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _container = GetComponentInParent<VobLoader>()?.Container;
             _item = _container?.PropsAs<VobItemProperties2>()?.Instance;
 
-            if (!IsUsable(_item, _configService.Dev.EnableEquipItems))
+            if (!_itemUseService.IsUsable(_item))
             {
                 Destroy(this);
                 return;
@@ -99,7 +65,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             bool triggered;
             if (_vrInput.IsSimulator)
-                triggered = Keyboard.current[Key.R].wasPressedThisFrame;
+                triggered = Keyboard.current != null && Keyboard.current[Key.R].wasPressedThisFrame;
             else
                 triggered = _vrInput.GetButton(VrHandSide.Right, VrButton.Trigger).IsJustActivated;
 
@@ -113,32 +79,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Use()
         {
-            if (_configService.Dev.EnableEquipItems && NpcInventoryService.IsWearable(_item))
+            if (_itemUseService.IsEquippedOnUse(_item))
             {
                 Equip();
                 return;
             }
 
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalItem = _item;
-            try
-            {
-                vm.Call(_item.GetOnState(0));
-                Logger.Log($"[VRItemUser] Called on_state[0] for {_item.Name}", LogCat.VR);
-            }
-            catch (Exception e)
-            {
-                Logger.LogError($"[VRItemUser] on_state[0] failed for {_item.Name}: {e.Message}", LogCat.VR);
+            if (!_itemUseService.UseItem(_gameStateService.GothicVm.GlobalHero as NpcInstance, _item))
                 return;
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-            }
 
-            if (IsConsumedOnUse())
+            if (_itemUseService.IsConsumedOnUse(_item))
                 Consume();
         }
 
@@ -168,24 +118,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var interactable = VrInteractable.Find(this);
             if (interactable != null && interactable.IsHeld)
                 interactable.ForceRelease();
-        }
-
-        private bool IsConsumedOnUse() => IsConsumedOnUse(_item, _resourceCacheService);
-
-        /// <summary>
-        /// Used up like in the engine: the end animation of the item's scheme (t_[Scheme]_S0_2_Stand) fires
-        /// DEF_DESTROY_ITEM - e.g. MAPSEALED (sealed letters, G2 pouches). Also used by documents (VRVobItem).
-        /// </summary>
-        public static bool IsConsumedOnUse(ItemInstance item, ResourceCacheService resourceCacheService)
-        {
-            if (string.IsNullOrEmpty(item?.SchemeName))
-                return false;
-
-            var animationName = string.Format(_useEndAnimationScheme, item.SchemeName);
-            var anim = resourceCacheService.TryGetModelScript("Humans")?.Animations
-                .FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
-
-            return anim != null && anim.EventTags.Any(i => i.Type == EventType.ItemDestroy);
         }
 
         private void Consume()

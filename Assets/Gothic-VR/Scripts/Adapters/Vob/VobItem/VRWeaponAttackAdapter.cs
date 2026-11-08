@@ -70,8 +70,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
-            // DeveloperConfig.EnableVrStabFinish: an unconscious NPC is finished off by a stab kept in the body only.
-            if (IsStabFinishOn() && NpcHelperService.IsKnockedOut(targetNpcContainer))
+            // The "stabFinish" option: an unconscious NPC is finished off by a stab kept in the body only.
+            if (IsStabFinishOn() && targetNpcContainer.IsKnockedOut())
             {
                 TryStabFinish(targetNpcContainer);
                 return;
@@ -89,7 +89,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrStabFinish: the blade can already be inside the padded hitbox when the thrust comes.
+        /// Stab finish: the blade can already be inside the padded hitbox when the thrust comes.
         /// </summary>
         private void OnTriggerStay(Collider other)
         {
@@ -97,7 +97,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             var target = other.GetComponentInParent<NpcLoader>()?.Container;
-            if (target != null && NpcHelperService.IsKnockedOut(target))
+            if (target != null && target.IsKnockedOut())
                 TryStabFinish(target);
         }
 

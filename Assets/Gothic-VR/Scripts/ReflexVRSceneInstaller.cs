@@ -26,6 +26,7 @@ namespace Gothic.VR
             containerBuilder.AddSingleton(typeof(VRWeaponService));
             containerBuilder.AddSingleton(typeof(VrHapticsService));
             containerBuilder.AddSingleton(typeof(VrDropZoneService));
+            containerBuilder.AddSingleton(typeof(VrLockTouchService));
             containerBuilder.AddSingleton(typeof(VRCinemaService));
             containerBuilder.AddSingleton(typeof(VRUiOnTopService));
             containerBuilder.AddSingleton(typeof(VRGameViewFallbackService));

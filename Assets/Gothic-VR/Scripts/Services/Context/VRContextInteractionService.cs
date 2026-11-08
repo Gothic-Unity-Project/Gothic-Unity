@@ -126,7 +126,7 @@ namespace Gothic.VR.Services.Context
                                     "found. No VR hero body.", LogCat.VR);
             }
 
-            // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+            // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
         }
 
@@ -194,21 +194,16 @@ namespace Gothic.VR.Services.Context
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
-            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
-            if (developerConfig.EnableBackpackEquipToggle)
-            {
-                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
-                equipToggle.transform.SetParent(_player.transform, false);
-            }
+            // A trigger click at a worn item in the backpack equips it.
+            var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+            equipToggle.transform.SetParent(_player.transform, false);
+
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
-            // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
-            if (developerConfig.EnableVrHeroBlock)
-            {
-                var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
-                heroBlock.transform.SetParent(_player.transform, false);
-            }
+            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRContextHeroBlockService).
+            var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+            heroBlock.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.

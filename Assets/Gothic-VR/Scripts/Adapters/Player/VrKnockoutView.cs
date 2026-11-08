@@ -6,6 +6,7 @@ using Gothic.Core.Models.Container;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -14,9 +15,10 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// What the VR player sees while the hero is knocked out (GlobalEventDispatcher.HeroKnockedOut): a heavy grey veil
     /// that clears while the time runs - it's the timer - and a slow heartbeat in both controllers. The VR hero body
-    /// (VRHeroBody, Immersion option "Fall with the body") lowers the camera with the falling body. Without it, the
-    /// view fades out and comes back at ground level, and once the hero gets up (HeroRecovered) fades out and back at
-    /// the normal height.
+    /// (VRHeroBody, Accessibility option heroFallMode "move with the body") lowers the camera with the falling body.
+    /// Without it ("blink", or no body), the view fades out and comes back at ground level, and once the hero gets up
+    /// (HeroRecovered) fades out and back at the normal height. Put to sleep (HeroFellAsleep) the same way, without
+    /// veil and heartbeat, up again on HeroWokeUp.
     /// The view is only lowered, never turned: tilting the world makes players sick.
     /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
     /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be
@@ -56,15 +58,17 @@ namespace Gothic.VR.Adapters.Player
         private const int _menuShowFrames = 3;
         private const float _menuShowSeconds = 0.1f;
 
+        [Inject] private readonly IVrHaptics _haptics;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+
         private IVrRig _rig;
-        private IVrHaptics _haptics;
-        private VRPlayerService _vrPlayerService;
         private VrMoveVignette _vignette;
         private Material _materialInstance;
         private MeshRenderer _renderer;
-        // The knockout or the death, whichever runs.
+        // The knockout, the sleep or the death, whichever runs.
         private Coroutine _knockout;
         private bool _isRecovered;
+        private bool _isAwake;
         // The view was lowered by us (no VR hero body to do it).
         private bool _isLying;
         private bool _isMenuOpen;
@@ -84,13 +88,13 @@ namespace Gothic.VR.Adapters.Player
             if (_rig == null)
                 Logger.LogWarning($"[VrKnockoutView] No IVrRig above {name} - knockouts aren't shown.", LogCat.VR);
 
-            _haptics = ReflexProjectInstaller.DIContainer.Resolve<IVrHaptics>();
-            _vrPlayerService = ReflexProjectInstaller.DIContainer.Resolve<VRPlayerService>();
             _vignette = GetComponent<VrMoveVignette>();
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.AddListener(OnHeroRecovered);
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+            GlobalEventDispatcher.HeroFellAsleep.AddListener(OnHeroFellAsleep);
+            GlobalEventDispatcher.HeroWokeUp.AddListener(OnHeroWokeUp);
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.AddListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.AddListener(OnMenuClosed);
@@ -101,6 +105,8 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.HeroKnockedOut.RemoveListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.RemoveListener(OnHeroRecovered);
             GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
+            GlobalEventDispatcher.HeroFellAsleep.RemoveListener(OnHeroFellAsleep);
+            GlobalEventDispatcher.HeroWokeUp.RemoveListener(OnHeroWokeUp);
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.RemoveListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.RemoveListener(OnMenuClosed);
@@ -123,6 +129,23 @@ namespace Gothic.VR.Adapters.Player
         private void OnHeroRecovered()
         {
             _isRecovered = true;
+        }
+
+        private void OnHeroFellAsleep(NpcContainer hero)
+        {
+            if (_rig == null || _renderer == null)
+                return;
+
+            if (_knockout != null)
+                StopCoroutine(_knockout);
+
+            _isAwake = false;
+            _knockout = StartCoroutine(Sleep());
+        }
+
+        private void OnHeroWokeUp()
+        {
+            _isAwake = true;
         }
 
         private void OnHeroDied(NpcContainer killer)
@@ -211,7 +234,26 @@ namespace Gothic.VR.Adapters.Player
                 yield return null;
             }
 
-            // The body stands up and takes the camera with it.
+            yield return GetUp();
+        }
+
+        /// <summary>
+        /// Asleep: down like knocked out, but no veil and no heartbeat (the sleep effect floats over the head) - up
+        /// again once he wakes (HeroWokeUp).
+        /// </summary>
+        private IEnumerator Sleep()
+        {
+            yield return LieDown(0f);
+            yield return new WaitUntil(() => _isAwake);
+            yield return GetUp();
+        }
+
+        /// <summary>
+        /// Back up: the body stands up and takes the camera with it - or the view fades out and back at the normal
+        /// height.
+        /// </summary>
+        private IEnumerator GetUp()
+        {
             if (!_isLying)
             {
                 SetVeil(0f);
@@ -267,12 +309,12 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// The VR hero body lowers the camera itself (VRPlayerService.IsFallCameraOnHeroBody). Without it, the view
-        /// goes down behind a fade.
+        /// goes down behind a fade - unless it's already down (knocked out while asleep).
         /// </summary>
         private IEnumerator LieDown(float veilAlpha)
         {
             SetVeil(veilAlpha);
-            if (_vrPlayerService.IsFallCameraOnHeroBody)
+            if (_vrPlayerService.IsFallCameraOnHeroBody || _isLying)
                 yield break;
 
             yield return FadeToBlack();

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrFists: a trigger at the knuckles of an empty VR hand, active while it makes a fist
+    /// A trigger at the knuckles of an empty VR hand, active while it makes a fist
     /// (grip + trigger). Reports NPC hitboxes it enters - VRWeaponService decides if it's a punch.
     /// </summary>
     public class VRFistHitbox : MonoBehaviour

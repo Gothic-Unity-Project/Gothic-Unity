@@ -29,8 +29,6 @@ namespace Gothic.VR.Adapters.Player
         private readonly List<Renderer> _hiddenVrHandRenderers = new();
         private readonly HashSet<Transform> _hiddenVrHandVisuals = new();
 
-        // After the on-top UI (UiOnTop-Text: 3901), like VRHandsOnTop.
-        private const int _armsOnTopRenderQueue = 3950;
         private bool _areArmsOnTop;
         private readonly Dictionary<Renderer, Material[]> _armsOriginalMaterials = new();
         private readonly Dictionary<Material, Material> _onTopMaterialCopies = new();
@@ -271,7 +269,7 @@ namespace Gothic.VR.Adapters.Player
                 return null;
             if (!_onTopMaterialCopies.TryGetValue(material, out var copy) || copy == null)
             {
-                copy = new Material(material) { renderQueue = _armsOnTopRenderQueue };
+                copy = new Material(material) { renderQueue = VRConstants.HandsOnTopRenderQueue };
                 _onTopMaterialCopies[material] = copy;
             }
             return copy;

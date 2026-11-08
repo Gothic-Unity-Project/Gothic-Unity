@@ -15,8 +15,16 @@ namespace Gothic.Core.Const
         {
             // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
             public const string LightRefresh = "lightRefresh";
-            // 1 (default) = an NPC finishing off the knocked out hero kills him like in Gothic, 0 = only knocked out.
-            public const string HeroDeath = "heroDeath";
+
+            // 1 = the animations' ground sounds play (footsteps, GroundSoundService), 0 = off. In Gothic's own [SOUND]
+            // section like zWindEnabled in [ENGINE]: footsteps play in VR and Flat.
+            public const string FootstepSounds = "footstepSounds";
+            public const string IniSectionSound = "SOUND";
+            public const int FootstepSoundsDefaultValue = 1;
+
+            // [VIDEO] 0..1, vanilla 0.5 = neutral (the menu's Brightness slider).
+            public const string VideoBrightness = "zVidBrightness";
+            public const float VideoBrightnessDefaultValue = 0.5f;
         }
 
         public static class Items
@@ -35,6 +43,17 @@ namespace Gothic.Core.Const
         public static class Animations
         {
             public const string RootBoneName = "BIP01";
+        }
+
+        /// <summary>
+        /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
+        /// </summary>
+        public static class Fonts
+        {
+            /// <summary>
+            /// An empty font: every character falls back to the sprite asset made from Gothic's font (GothicText).
+            /// </summary>
+            public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";
         }
 
         // Unity shaders
@@ -152,6 +171,11 @@ namespace Gothic.Core.Const
         // Items inside a VR slot (holster, backpack, chest). Collides with nothing (hands, body, ground check), only
         // the hands' near grab finds it.
         public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
+
+        // Layer mask (not an index) of the solid colliders of doors and chests: body (Default), door wing (VobItem),
+        // chest lid (VobMovable), handles (Grabbable).
+        public static readonly int MobLockableMask = (1 << DefaultLayer) | (1 << VobItemLayer) |
+                                                     (1 << VobMovableLayer) | (1 << GrabbableLayer);
 
         
         /*

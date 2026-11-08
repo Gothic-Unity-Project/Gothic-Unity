@@ -17,7 +17,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrStabFinish + the "stabFinish" option (Immersion menu): the hero finishes off an
+    /// The "stabFinish" option (Immersion menu): the hero finishes off an
     /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (speed along the blade).
     /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for _holdSeconds kills - FightFinishingMove,
     /// like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade out lets go.
@@ -98,7 +98,7 @@ namespace Gothic.VR.Domain.Player
             var handPosition = GetHandPosition(_hand);
             var maxStuck = _holdSeconds + 1f;
             if (_weapon == null || _rigidbody == null || _hand == null || _hand.Held != _weapon ||
-                handPosition == null || !NpcHelperService.IsKnockedOut(_target) || Time.time - _stabTime > maxStuck)
+                handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
             {
                 Logger.Log("[VrStabFinish] Blade let go - no finish", LogCat.Fight);
                 Clear();

@@ -65,7 +65,7 @@ namespace Gothic.VR.Services
         // The hero's stab finish (one stuck blade at a time).
         private VrStabFinishDomain _stabFinish;
 
-        // DeveloperConfig.EnableVrFists: a fist is an empty hand with grip + trigger held; it punches like a weapon swing.
+        // Fists: a fist is an empty hand with grip + trigger held; it punches like a weapon swing.
         private const float _fistPunchVelocity = 2f;
         private const float _fistPunchCooldownSeconds = 0.5f;
         private readonly List<(IVrGrabber Hand, VRFistHitbox Hitbox)> _fists = new();
@@ -233,13 +233,12 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrStabFinish + the "stabFinish" option: an unconscious NPC is finished off by a stab
+        /// The "stabFinish" option (Immersion menu): an unconscious NPC is finished off by a stab
         /// kept in the body only (VrStabFinishDomain).
         /// </summary>
         public bool IsStabFinishOn()
         {
-            return _configService.Dev.EnableVrStabFinish &&
-                   _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+            return _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
         }
 
         /// <summary>
@@ -261,14 +260,11 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrFists: an empty hand with grip + trigger held is a fist - the hero is in fist mode
+        /// An empty hand with grip + trigger held is a fist - the hero is in fist mode
         /// (NPCs react like to drawn fists) and its knuckle hitbox punches.
         /// </summary>
         private void UpdateFists()
         {
-            if (!_configService.Dev.EnableVrFists)
-                return;
-
             if (_fists.Count == 0 || _fists.Any(f => f.Hand == null || f.Hitbox == null))
                 CreateFistHitboxes();
 
@@ -369,7 +365,7 @@ namespace Gothic.VR.Services
                 return;
             // An unconscious hero doesn't punch; a knocked out human is finished off by a stab only (a fist finished
             // him - Bullit and his quest were gone after one punch).
-            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious || NpcHelperService.IsKnockedOut(target))
+            if (hero.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious || target.IsKnockedOut())
                 return;
 
             var speed = _vrInput.GetControllerVelocity(hitbox.HandSide).magnitude;

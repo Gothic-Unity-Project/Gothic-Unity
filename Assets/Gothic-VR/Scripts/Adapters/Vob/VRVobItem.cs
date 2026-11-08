@@ -8,9 +8,11 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
-using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -30,9 +32,9 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DocService _docService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly Gothic.Core.Services.Caches.ResourceCacheService _resourceCacheService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (one hand lets go),
         // not while it's still in front of the player.
@@ -221,28 +223,13 @@ namespace Gothic.VR.Adapters.Vob
             if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
                 gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
 
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            vm.GlobalSelf = vm.GlobalHero;
-            _docService.PendingItemGo = gameObject;
-            try
-            {
-                vm.Call(onStateIndex);
-                Logger.Log($"[VRVobItem] Called on_state[0] for doc item {item.Name}", LogCat.VR);
+            var hero = _gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance;
+            if (!_docService.ShowItemDocument(hero, item, gameObject))
+                return;
 
-                // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
-                if (Adapters.Vob.VobItem.VRItemUser.IsConsumedOnUse(item, _resourceCacheService))
-                    _isConsumedOnDocClose = true;
-            }
-            catch (Exception e)
-            {
-                Logger.LogError($"[VRVobItem] on_state[0] failed for {item.Name}: {e.Message}", LogCat.VR);
-                _docService.PendingItemGo = null;
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-            }
+            // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
+            if (_itemUseService.IsConsumedOnUse(item))
+                _isConsumedOnDocClose = true;
         }
 
         /// <summary>
@@ -280,7 +267,7 @@ namespace Gothic.VR.Adapters.Vob
         {
             var item = GetComponentInParent<VobLoader>()?.Container
                 .PropsAs<VobItemProperties2>()?.Instance;
-            if (!VobItem.VRItemUser.IsUsable(item, _configService.Dev.EnableEquipItems))
+            if (!_itemUseService.IsUsable(item))
                 return;
 
             if (GetComponent<VobItem.VRItemUser>() == null)
