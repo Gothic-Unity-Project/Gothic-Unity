@@ -109,12 +109,11 @@ namespace Gothic.Core.Services.Npc
         /// stop a wait or strafe (the safe moves to cut short), so their next AI_Attack can parry or jump back - they
         /// pick a move only once per AI_Attack, and a VR swing is over before a waiting NPC would look again.
         /// </summary>
-        private void OnHeroMeleeSwing(int weaponMaterial)
+        private void OnHeroMeleeSwing(int _)
         {
             var hero = _npcService.GetHeroContainer();
             if (hero?.Go == null)
                 return;
-            hero.Props.MeleeSwingMaterial = weaponMaterial;
 
             hero.Props.MeleePrehitUntil = Time.time + FightConst.HeroPrehitSeconds;
 
@@ -317,7 +316,7 @@ namespace Gothic.Core.Services.Npc
 
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
 
-            if (IsHitBlocked(attacker, target, position, isHero, isHeroAttacker, damageOverride))
+            if (IsHitBlocked(attacker, target, position, isHero, isHeroAttacker, damageOverride, heroWeapon))
                 return;
 
             // Blood only now - not for a parried or blocked hit.
@@ -402,10 +401,10 @@ namespace Gothic.Core.Services.Npc
         /// A parry or block takes the hit (HeroBlockDomain).
         /// </summary>
         private bool IsHitBlocked(NpcContainer attacker, NpcContainer target, Vector3 position, bool isHero,
-            bool isHeroAttacker, int? damageOverride)
+            bool isHeroAttacker, int? damageOverride, ItemInstance heroWeapon)
         {
             // The hero's hit on a parrying / jumping back NPC.
-            if (!isHero && isHeroAttacker && _heroBlockDomain.TryBlockNpcHit(attacker, target))
+            if (!isHero && isHeroAttacker && _heroBlockDomain.TryBlockNpcHit(attacker, target, heroWeapon))
                 return true;
 
             // A parry is its own state like the engine's - no hits while blocking.

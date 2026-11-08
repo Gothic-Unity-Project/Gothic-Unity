@@ -61,8 +61,6 @@ namespace Gothic.Core.Adapters.Properties
         // Until when (Time.time) this NPC - the hero - counts as starting a
         // melee hit (the engine's isPrehit(): an attack animation before its hit frame).
         public float MeleePrehitUntil = float.MinValue;
-        // The material of the weapon swung last (ItemMaterial, -1 = fists) - the hero's held weapon isn't equipped in VR.
-        public int MeleeSwingMaterial = -1;
         // The hero parries (VR: both hands on a melee weapon, both triggers held) -
         // the held weapon's material and the direction he faces (head) while he does.
         public bool IsBlocking;

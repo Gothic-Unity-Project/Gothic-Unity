@@ -33,9 +33,9 @@ namespace Gothic.Core.Domain.Npc
         /// <summary>
         /// A parry facing the attacker (30 degrees) or a jump back (90 degrees) takes no damage, weapons clash
         /// (CS_IAI_ sound + CPFX_IAI_ effect). The whole parry/jump back animation counts (the engine: its DEF_WINDOW
-        /// frames).
+        /// frames). heroWeapon: what the hero hit with (FightHit, null: fist) - the clash is its material.
         /// </summary>
-        public bool TryBlockNpcHit(NpcContainer attacker, NpcContainer target)
+        public bool TryBlockNpcHit(NpcContainer attacker, NpcContainer target, ItemInstance heroWeapon)
         {
             if (target.Go == null || attacker.Go == null ||
                 target.Props.CurrentAction is not AttackPlayAni defence)
@@ -54,7 +54,7 @@ namespace Gothic.Core.Domain.Npc
                        $"{attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit",
                 LogCat.Fight);
             if (isParry)
-                PlayWeaponBlockEffect(attacker, target);
+                PlayWeaponBlockEffect(attacker, target, heroWeapon.IsMeleeWeapon() ? heroWeapon.Material : -1);
             return true;
         }
 
@@ -97,7 +97,7 @@ namespace Gothic.Core.Domain.Npc
         {
             Logger.Log($"[HeroBlockDomain] The hero blocks {attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit",
                 LogCat.Fight);
-            PlayWeaponBlockEffect(attacker, hero);
+            PlayWeaponBlockEffect(attacker, hero, GetNpcWeaponMaterial(attacker));
             GlobalEventDispatcher.HeroBlockedHit.Invoke(attacker);
         }
 
@@ -106,9 +106,8 @@ namespace Gothic.Core.Domain.Npc
         /// effect CPFX_IAI_ the same or by the defender's material. Without a weapon on either side there's nothing.
         /// G1 has only CS_IAI_ME_ME - other pairs take the generic CS_IAI.
         /// </summary>
-        private void PlayWeaponBlockEffect(NpcContainer attacker, NpcContainer target)
+        private void PlayWeaponBlockEffect(NpcContainer attacker, NpcContainer target, int attackerMaterial)
         {
-            var attackerMaterial = GetAttackerMaterial(attacker);
             var defenderMaterial = GetDefenderMaterial(target);
             if (attackerMaterial < 0 || defenderMaterial < 0)
             {
@@ -136,13 +135,11 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// The hero's held weapon isn't equipped in VR - the material of the swing (-1: fists).
+        /// An attacking NPC's weapon material (-1: fists, claws).
         /// </summary>
-        private int GetAttackerMaterial(NpcContainer attacker)
+        private int GetNpcWeaponMaterial(NpcContainer attacker)
         {
-            return attacker.PrefabProps != null && attacker.PrefabProps.IsHero()
-                ? attacker.Props.MeleeSwingMaterial
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance)?.Material ?? -1;
+            return _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance)?.Material ?? -1;
         }
 
         /// <summary>
