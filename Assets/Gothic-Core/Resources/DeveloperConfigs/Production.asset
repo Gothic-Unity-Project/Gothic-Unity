@@ -79,7 +79,6 @@ MonoBehaviour:
   NpcLootMode: 1
   EnableHeroSleepBody: 1
   WorldLightmapBrightness: 1
-  EnableFootstepSounds: 1
   EnableVrHeroBlock: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1

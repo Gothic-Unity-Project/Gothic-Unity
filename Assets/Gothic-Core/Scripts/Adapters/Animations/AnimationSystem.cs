@@ -935,10 +935,12 @@ namespace Gothic.Core.Adapters.Animations
 
             foreach (var sfx in sfxEvents)
             {
-                // DeveloperConfig.EnableFootstepSounds: a step - its sound by the ground below (RUN_EARTH, RUN_STONE),
-                // on top of the other sounds (it mustn't cut a swing or a scream).
+                // A step - its sound by the ground below (RUN_EARTH, RUN_STONE), on top of the other sounds (it mustn't
+                // cut a swing or a scream). Skipped if the player turned footsteps off (Gothic.ini footstepSounds).
                 if (sfx.Name.StartsWith(Domain.Audio.GroundSoundDomain.GroundEventPrefix))
                 {
+                    if (!_groundSoundService.IsEnabled)
+                        continue;
                     var stepName = _groundSoundService.GetSoundName(
                         sfx.Name.Substring(Domain.Audio.GroundSoundDomain.GroundEventPrefix.Length),
                         transform.position);

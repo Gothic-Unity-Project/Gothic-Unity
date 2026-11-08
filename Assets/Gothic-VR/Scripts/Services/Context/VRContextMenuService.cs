@@ -121,7 +121,11 @@ namespace Gothic.VR.Services.Context
                 (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
                         "A loot backpack shows an X that takes everything"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
-                        VRConstants.LootTakeAllDefaultValue))
+                        VRConstants.LootTakeAllDefaultValue)),
+                // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
+                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
+                    CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
+                        Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -214,7 +218,7 @@ namespace Gothic.VR.Services.Context
         }
 
         private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
-            int defaultValue = 0)
+            int defaultValue = 0, string iniSection = VRConstants.IniSectionImmersion)
         {
             // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
             var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
@@ -223,7 +227,7 @@ namespace Gothic.VR.Services.Context
             item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
             item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
             item.OnChgSetOption = iniName;
-            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+            item.OnChgSetOptionSection = iniSection;
 
             return item;
         }

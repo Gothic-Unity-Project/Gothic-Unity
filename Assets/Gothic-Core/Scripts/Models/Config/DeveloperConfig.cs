@@ -324,11 +324,6 @@ namespace Gothic.Core.Models.Config
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;
 
-        [Tooltip("Footsteps - the animations' ground sounds (*eventSFXGrnd, walk/run loops of NPCs, monsters and the " +
-                 "hero's body) play with the ground's suffix like the engine (RUN_EARTH, RUN_STONE, RUN_WOOD, " +
-                 "RUN_WATER); the material is guessed (wading, a VOB below, under a ceiling). They were skipped.")]
-        public bool EnableFootstepSounds = true;
-
         [Tooltip("Blocking in VR like Gothic's parry: both hands on a melee weapon (one- or two-handed) and both " +
                  "triggers held. Hits of humans (fists too) and of monsters with a drawn weapon (orcs, skeletons) from " +
                  "the front (45 degrees around the head's direction) do no damage, the weapons clash. Animals, spells, " +

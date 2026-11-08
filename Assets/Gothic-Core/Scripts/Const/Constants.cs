@@ -15,6 +15,12 @@ namespace Gothic.Core.Const
         {
             // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
             public const string LightRefresh = "lightRefresh";
+
+            // 1 = the animations' ground sounds play (footsteps, GroundSoundService), 0 = off. In Gothic's own [SOUND]
+            // section like zWindEnabled in [ENGINE]: footsteps play in VR and Flat.
+            public const string FootstepSounds = "footstepSounds";
+            public const string IniSectionSound = "SOUND";
+            public const int FootstepSoundsDefaultValue = 1;
         }
 
         public static class Items

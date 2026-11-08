@@ -14,11 +14,11 @@ using Mesh = UnityEngine.Mesh;
 namespace Gothic.Core.Services.Audio
 {
     /// <summary>
-    /// DeveloperConfig.EnableFootstepSounds: the ground's sound material for a step (*eventSFXGrnd "Run" -> RUN_WOOD)
-    /// like the engine (OpenGothic Npc::emitSoundGround: the material group of the polygon below). Our world mesh is
-    /// baked into chunks, but every vertex keeps its texture array index (uv0.z) - the index gives the texture, the
-    /// world's materials its group (Ghorri on the jetty: wood, not earth). Wading is water; a VOB below or a texture we
-    /// don't know falls back to stone under a ceiling, earth outside.
+    /// Footsteps (Gothic.ini [SOUND] footstepSounds): the ground's sound material for a step (*eventSFXGrnd "Run" ->
+    /// RUN_WOOD) like the engine (OpenGothic Npc::emitSoundGround: the material group of the polygon below). Our world
+    /// mesh is baked into chunks, but every vertex keeps its texture array index (uv0.z) - the index gives the texture,
+    /// the world's materials its group (Ghorri on the jetty: wood, not earth). Wading is water; a VOB below or a
+    /// texture we don't know falls back to stone under a ceiling, earth outside.
     /// </summary>
     public class GroundSoundService
     {
@@ -40,10 +40,25 @@ namespace Gothic.Core.Services.Audio
         private Dictionary<int, string> _transparentTextures;
         private readonly Dictionary<Mesh, (int[] Triangles, List<Vector4> Uvs)> _meshData = new();
         private string _worldName;
+        // Gothic.ini footstepSounds, read on first use and again when the menu changes it.
+        private bool? _isEnabled;
 
         public GroundSoundService()
         {
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(Reset);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
+
+        /// <summary>
+        /// The player's footsteps option: the animations' ground sounds play (AnimationSystem) or are skipped.
+        /// </summary>
+        public bool IsEnabled => _isEnabled ??= _configService.Gothic.GetInt(Constants.IniNames.FootstepSounds,
+            Constants.IniNames.FootstepSoundsDefaultValue) == 1;
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == Constants.IniNames.FootstepSounds)
+                _isEnabled = null;
         }
 
         public string GetSoundName(string baseName, Vector3 feet)
