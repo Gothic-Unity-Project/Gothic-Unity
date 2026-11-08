@@ -164,12 +164,16 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = grabbable.gameObject;
             }
 
+            // Every item in a hand is the hero's (inventory): NPCs neither detect nor take it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = true;
+
             // If we grabbed the element with second hand, return.
             if (IsDualGrabbed)
                 return;
 
             // Otherwise alter inventory count
-            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
+            _playerService.PickUpItem(container);
         }
 
         /// <summary>
@@ -201,14 +205,17 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = null;
             }
 
+            // Still the hero's while the other hand holds it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = IsHeldInHand(grabbable);
+
             // If we removed one hand from our item.
             if (dualGrabPrev)
                 return;
 
             // Otherwise alter inventory count
             // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
-            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
-                keepOutOfWorld: IsSocketed(grabbable));
+            _playerService.DropItem(container, keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>

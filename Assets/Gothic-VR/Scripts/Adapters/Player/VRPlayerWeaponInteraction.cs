@@ -74,8 +74,6 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
-            vobContainer.IsHeldByPlayer = true;
-
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
@@ -97,9 +95,6 @@ namespace Gothic.VR.Adapters.Player
             if (vobContainer == null || vobContainer.Vob.Type != VirtualObjectType.oCItem)
                 return;
 
-            // The releasing hand might still hold it at this point - only count the other hand.
-            vobContainer.IsHeldByPlayer = IsHeldByOtherHand(args);
-
             var itemInstance = vobContainer.GetItemInstance();
 
             // Currently we handle melee weapons only.
@@ -108,16 +103,6 @@ namespace Gothic.VR.Adapters.Player
 
             // The readied weapon follows in VRWeaponService (the other hand's weapon, if it still holds one).
             _weaponService.OnReleased(args.HandSide, GetWeaponPhysicsConfig());
-        }
-
-        private bool IsHeldByOtherHand(VrGrabArgs args)
-        {
-            foreach (var grabber in _rig.HandGrabbers)
-            {
-                if (grabber.HandSide != args.HandSide && grabber.Held == args.Interactable)
-                    return true;
-            }
-            return false;
         }
 
         /// <summary>

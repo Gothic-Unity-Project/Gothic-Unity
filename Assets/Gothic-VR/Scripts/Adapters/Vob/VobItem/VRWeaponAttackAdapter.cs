@@ -49,7 +49,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void OnTriggerEnter(Collider other)
         {
             // Only the weapon in the hero's hand attacks.
-            if (!IsHeldByPlayer())
+            if (!IsWielded())
                 return;
 
             // Hands, grabbables, the world - touching them is normal. A warning per touch flooded the log (lag).
@@ -101,7 +101,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void OnTriggerStay(Collider other)
         {
             // Called every physics step: the cheap checks first.
-            if (_vrWeaponService == null || _vrWeaponService.IsStabFinishStuck() || !IsHeldByPlayer() ||
+            if (_vrWeaponService == null || _vrWeaponService.IsStabFinishStuck() || !IsWielded() ||
                 other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
                 return;
 
@@ -110,9 +110,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 TryStabFinish(target);
         }
 
-        private bool IsHeldByPlayer()
+        private bool IsWielded()
         {
-            return _vrWeaponService != null && _vrWeaponService.IsHeldByPlayer(_weaponVobContainer);
+            return _vrWeaponService != null && _vrWeaponService.IsWielded(_weaponVobContainer);
         }
 
         private bool IsStabFinishOn()

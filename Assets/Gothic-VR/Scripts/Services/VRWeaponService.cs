@@ -123,9 +123,10 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// The weapon is handled by one of the attack domains, i.e. the hero holds it right now.
+        /// The weapon is wielded: one of the attack domains handles it (a melee weapon in the hero's hand). Whether any
+        /// item is held at all is VobContainer.IsHeldByPlayer (VRPlayerService).
         /// </summary>
-        public bool IsHeldByPlayer(VobContainer vobContainer)
+        public bool IsWielded(VobContainer vobContainer)
         {
             return vobContainer != null &&
                    (vobContainer == _firstAttackDomain.WeaponVobContainer ||
