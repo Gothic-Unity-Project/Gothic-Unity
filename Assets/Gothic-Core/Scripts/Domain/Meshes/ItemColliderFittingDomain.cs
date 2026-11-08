@@ -12,8 +12,9 @@ namespace Gothic.Core.Domain.Meshes
     ///    principal axes (PCA). Curved parts are halved along their long axis as long as that removes a lot of air.
     /// 3. Line-thin boxes (bow and crossbow strings) are left out - the string is drawn, not grabbed.
     /// 4. Too many boxes: fewer halvings, then the smallest parts are left out (each box is one collider for PhysX).
-    /// Pure math. Melee weapons are fitted during pre-caching (VobItemFittedColliderCacheCreatorDomain), bows and
-    /// crossbows when they spawn (VobItemColliderBuilder).
+    /// Pure math. Melee weapons, bows and crossbows are fitted during pre-caching
+    /// (VobItemFittedColliderCacheCreatorDomain); an item without pre-cached colliders when it spawns
+    /// (VobItemColliderBuilder).
     /// </summary>
     public static class ItemColliderFittingDomain
     {

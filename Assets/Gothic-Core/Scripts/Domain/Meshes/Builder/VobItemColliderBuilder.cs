@@ -12,10 +12,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
 {
     /// <summary>
     /// Adds an item's colliders. It only chooses where they come from, the geometry lives in the domains:
-    /// 1. Bows and crossbows: boxes fitted to their mesh (VobItemFittedColliderCacheCreatorDomain).
-    /// 2. Everything else: the pre-cached colliders (VobItemColliderCacheCreatorDomain).
-    /// 3. Without cached colliders (morph meshes), or a bow the fit found no part of: boxes sliced along the mesh
-    ///    (ItemColliderSlicingDomain), a thin capsule if it can't be sliced.
+    /// 1. The pre-cached colliders (VobItemColliderCacheCreatorDomain) - bows and crossbows are fitted there too.
+    /// 2. Without pre-cached colliders (other morph mesh items, an old cache): calculated from the item's mesh -
+    ///    bows and crossbows fitted (VobItemFittedColliderCacheCreatorDomain.CreateRangedWeapon), everything else
+    ///    boxes sliced along the mesh (ItemColliderSlicingDomain), a thin capsule if it can't be sliced.
     /// Colliders calculated from a mesh are cached per mesh name (MultiTypeCacheService.ItemColliders). Oriented boxes
     /// become convex box meshes on the item itself: child objects with BoxColliders would keep their layer when the
     /// grabbed item switches to VobItemNoWorldCollision. The box meshes are shared like the item meshes
@@ -37,17 +37,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
 
         /// <summary>
-        /// kind: from the item's flags (bow, crossbow or anything else). mesh: the item's rendered mesh - bows and
-        /// crossbows are fitted to it, items without cached colliders get boxes along it.
+        /// kind: from the item's flags (bow, crossbow or anything else). mesh: the item's rendered mesh - items without
+        /// pre-cached colliders get them from it.
         /// </summary>
         public void AddColliders(GameObject rootGo, string meshName, ItemColliderKind kind, Mesh mesh = null)
         {
-            if (mesh != null && kind != ItemColliderKind.Default)
-            {
-                AddMeshColliders(rootGo, meshName, kind, mesh);
-                return;
-            }
-
             if (_staticCacheService.LoadedVobItemColliders.TryGetValue(meshName, out var colliders) &&
                 colliders.Count > 0)
             {
@@ -160,40 +154,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
-        /// Bows and crossbows (ITEM_KAT_FF) get boxes fitted to their parts: stock, prod, limbs, no string. Boxes along
-        /// the mesh axes follow the bounds of a straight weapon - a curved bow got three fat capsules, 13 cm radius,
-        /// full of air; axis aligned slices missed the diagonal crossbow prods. Arrows and bolts (ITEM_KAT_MUN) are
-        /// thin shafts the fitting drops as "strings" - they keep their cached colliders.
+        /// Bows and crossbows are normally fitted while pre-caching. Here only if the cache has no entry for them.
         /// </summary>
         private static List<VobItemColliderCacheCreatorDomain.Data> CalculateMeshColliders(string meshName,
             ItemColliderKind kind, Mesh mesh)
         {
-            var vertices = mesh.vertices;
-            if (kind != ItemColliderKind.Default)
-            {
-                var fitted = VobItemFittedColliderCacheCreatorDomain.Create(meshName, vertices, mesh.triangles,
-                    false);
-                Logger.Log($"[MeshBuilder] {meshName}: {fitted.Count} fitted colliders", LogCat.Mesh);
-                if (fitted.Count > 0)
-                    return fitted;
-            }
-            else
-            {
-                Logger.LogWarning($"No cached colliders for {meshName} - boxes from its mesh.", LogCat.Mesh);
-            }
+            Logger.LogWarning($"No cached colliders for {meshName} - calculated from its mesh.", LogCat.Mesh);
 
-            var boxes = ItemColliderSlicingDomain.Slice(vertices, kind == ItemColliderKind.Bow);
-            var colliders = new List<VobItemColliderCacheCreatorDomain.Data>(boxes.Count);
-            foreach (var box in boxes)
-            {
-                colliders.Add(new VobItemColliderCacheCreatorDomain.Data
-                {
-                    T = VobItemColliderCacheCreatorDomain.T.B,
-                    C = box.center,
-                    S = box.size
-                });
-            }
-            return colliders;
+            if (kind == ItemColliderKind.Default)
+                return VobItemFittedColliderCacheCreatorDomain.CreateSliced(mesh.vertices, false);
+
+            return VobItemFittedColliderCacheCreatorDomain.CreateRangedWeapon(meshName, mesh.vertices,
+                mesh.triangles, kind == ItemColliderKind.Bow);
         }
     }
 }
