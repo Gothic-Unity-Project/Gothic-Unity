@@ -6,7 +6,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Models.WayNet;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Manager;
 using Reflex.Attributes;
@@ -18,7 +17,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     public class GoToNpc : AbstractWalkAnimationAction2
     {
-        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly NpcAiService _npcAiService;
@@ -26,6 +25,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private Transform _destinationTransform;
         private Stack<DijkstraWaypoint> _route;
         private Vector3? _approachDirection;
+        // The waynet route is dropped this many stop distances away from the target - a direct approach is safe.
+        private const float _directApproachStopFactor = 4f;
 
         public GoToNpc(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
@@ -52,7 +53,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // out of route mode requires reaching the *exact* nearest-to-target waypoint, which a freely
             // moving target may never stand on).
             var directDistance = Vector3.Distance(PrefabProps.Bip01.position, _destinationTransform.position);
-            var targetWp = directDistance <= _configService.Dev.NpcDialogStopDistance * 4f
+            var targetWp = directDistance <= GetStopDistance() * _directApproachStopFactor
                 ? null
                 : WayNetService.FindNearestWayPoint(_destinationTransform.position);
 
@@ -81,7 +82,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (_route != null && _route.Count > 0)
             {
                 var directDist = Vector3.Distance(NpcGo.transform.position, _destinationTransform.position);
-                if (directDist <= _configService.Dev.NpcDialogStopDistance * 4f ||
+                if (directDist <= GetStopDistance() * _directApproachStopFactor ||
                     _npcHelperService.CanSeeNpc(NpcInstance, Action.Instance0, true))
                 {
                     // Sync CurrentWayPoint to wherever we actually are before dropping the route —
@@ -126,7 +127,16 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 _approachDirection = NpcGo.transform.forward;
             }
 
-            return targetPos - _approachDirection.Value * _configService.Dev.NpcDialogStopDistance;
+            return targetPos - _approachDirection.Value * GetStopDistance();
+        }
+
+        /// <summary>
+        /// Like the engine's AI_GotoNpc (Npc::implGoTo, OpenGothic npc.cpp:1489-1493): it stops at the preferred
+        /// attack distance to the target (guild bases + weapon range, FightRangeDomain) - two unarmed humans 1.7 m.
+        /// </summary>
+        private float GetStopDistance()
+        {
+            return _fightService.GetPreferredAttackDistance(NpcContainer, Action.Instance0.GetUserData());
         }
 
         protected override void OnDestinationReached()

@@ -48,6 +48,7 @@ namespace Gothic.Core.Services.Npc
         private readonly MeleeDamageDomain _meleeDamageDomain = new MeleeDamageDomain().Inject();
         private readonly HeroBlockDomain _heroBlockDomain = new HeroBlockDomain().Inject();
         private readonly DamagePerceptionDomain _damagePerceptionDomain = new DamagePerceptionDomain().Inject();
+        private readonly FightRangeDomain _fightRangeDomain = new FightRangeDomain().Inject();
         private readonly SpellHitDomain _spellHitDomain;
         private readonly RangedHitDomain _rangedHitDomain;
 
@@ -57,6 +58,22 @@ namespace Gothic.Core.Services.Npc
             // Spells and projectiles hit through OnHit with their own damage and protection.
             _spellHitDomain = new SpellHitDomain(ApplyHit).Inject();
             _rangedHitDomain = new RangedHitDomain(ApplyHit).Inject();
+        }
+
+        /// <summary>
+        /// The engine's preferred attack distance (m) of self against target - see FightRangeDomain.
+        /// </summary>
+        public float GetPreferredAttackDistance(NpcContainer self, NpcContainer target, bool isMelee = false)
+        {
+            return _fightRangeDomain.GetPreferredAttackDistance(self, target, isMelee);
+        }
+
+        /// <summary>
+        /// Horizontal distance (m) compared with GetPreferredAttackDistance().
+        /// </summary>
+        public float GetFightDistance(NpcContainer self, NpcContainer target)
+        {
+            return _fightRangeDomain.GetFightDistance(self, target);
         }
 
         public void Init()

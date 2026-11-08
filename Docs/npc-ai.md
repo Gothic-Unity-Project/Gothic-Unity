@@ -26,6 +26,7 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 | `Domain/Npc/HeroSpellStateDomain` (NpcAiService) | sleep/freeze spells on the hero |
 | `Services/Npc/NpcHelperService` | senses (`CanSenseNpc`, `CanSeeNpc`), perception ranges, person/guild attitude |
 | `Services/Npc/FightService` | how an NPC goes down: a hit (`FightHit`), hit points gone, knockout, death, finishing moves (the NPCs' and the hero's), the hero's death; the hero's prehit swing |
+| `Domain/Npc/FightRangeDomain` (FightService) | the engine's fight distance (`prefferedAttackDistance`: guild bases + weapon range): W-range, run stop, strike reach, `AI_GotoNpc` stop |
 | `Domain/Npc/MeleeDamageDomain` | melee damage: roll, damage types, protection; the formula comes from `IMeleeDamageRule` (G1/G2) |
 | `Domain/Npc/SpellHitDomain` | an NPC casting its spell (`CastNpcSpell`) and spells reaching NPCs: ASSESSMAGIC, area/spread hits, burning, Windfist throw |
 | `Domain/Npc/RangedHitDomain` | arrow/bolt damage via `IContextRangedCombatService` (G1/G2) |
@@ -43,7 +44,7 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 Platform and game version ports (in `Services/Context/`, registered in the modules' `*ContextBootstrap`):
 
 - `IContextHeroBlockService`: does the hero block now? `Gothic-VR/.../VRContextHeroBlockService`, Flat has its own.
-- `IContextRangedCombatService`: ranged damage and hit chance. `Gothic1/.../G1RangedCombatService`, `Gothic2/...`.
+- `IContextRangedCombatService`: ranged damage, hit chance and the bow's reference range (also its weapon range). `Gothic1/.../G1RangedCombatService`, `Gothic2/...`.
 - `IMeleeDamageRule`: G1 critical hit vs G2 hit chance. `G1MeleeDamageRule`, `G2MeleeDamageRule`.
 
 ## Feature switches

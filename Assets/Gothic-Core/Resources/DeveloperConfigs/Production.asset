@@ -81,9 +81,6 @@ MonoBehaviour:
   WorldLightmapBrightness: 1
   EnableFootstepSounds: 1
   EnableVrHeroBlock: 1
-  NpcAttackArrivalThreshold: 0.2
-  NpcDialogStopDistance: 1.3
-  RangedCombatRangeMultiplier: 0.8
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1

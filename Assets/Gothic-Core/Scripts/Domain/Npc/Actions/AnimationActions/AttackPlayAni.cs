@@ -6,7 +6,6 @@ using Gothic.Core.Models.Container;
 using Logger = Gothic.Core.Logging.Logger;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Extensions;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using UnityEngine;
@@ -19,7 +18,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     /// </summary>
     public class AttackPlayAni : PlayAni
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
@@ -74,10 +72,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private const float _blockedShotRunStopDistance = 2f;
         private float _shotPathCheckTime;
         private float _runStepTime;
-        // Attack.GetDistance() subtracts _npcMonsterVolumina (0.3m) from actual distance.
-        // To land exactly at attackRange when the run ends, stop at weaponReach + 0.3m.
-        private const float _npcVoluminaOffset = 0.3f;
-        private const float _minStopDistance = 1.11f;
 
 
         public AttackPlayAni(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
@@ -428,7 +422,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var toTarget = targetPositionH - myPositionH;
 
             // A blocked archer runs closer until he has a free shot -
-            // his ranged reach (20 m) stopped the run after one frame, every frame: he shook forward in place.
+            // his bow's W-range (G1 21 m) stopped the run after one frame, every frame: he shook forward in place.
             if (IsBlockedShotMove() && HasShotPathCleared())
             {
                 Logger.Log($"[Attack] {NpcInstance.GetName(NpcNameSlot.Slot0)} has a free line of shot - stops " +
@@ -443,7 +437,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 TryStartRunAttack())
                 return;
 
-            if (HasRunArrived(myPositionH, targetPositionH, toTarget, stopDistance))
+            if (toTarget.magnitude <= stopDistance)
             {
                 StopRunning();
                 return;
@@ -476,31 +470,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         }
 
         /// <summary>
-        /// Weapon reach + body volume (minimum 1.11 m so guild-value edge cases (0 range) don't collapse to 0) - a
+        /// Like the engine (GoTo::isClose for GT_Enemy = FightAlgo::isInWRange, OpenGothic npc.cpp:52-54), the run
+        /// stops in W-range: the preferred attack distance, the same the fight table choice in Attack.cs uses. A
         /// blocked archer (IsBlockedShotMove) runs up to _blockedShotRunStopDistance instead.
         /// </summary>
         private float GetRunStopDistance()
         {
             if (IsBlockedShotMove())
                 return _blockedShotRunStopDistance;
-            return Mathf.Max(GetWeaponReach() + _npcVoluminaOffset, _minStopDistance);
-        }
-
-        /// <summary>
-        /// Close enough, or at the approach point: a point at stopDistance from the enemy. Each attacker comes from
-        /// its own direction so they naturally spread around the target instead of stacking.
-        /// </summary>
-        private bool HasRunArrived(Vector3 myPositionH, Vector3 targetPositionH, Vector3 toTarget, float stopDistance)
-        {
-            if (toTarget.magnitude <= stopDistance)
-                return true;
-
-            var arrivalThreshold = _configService.Dev.NpcAttackArrivalThreshold;
-            var approachTarget = toTarget.sqrMagnitude > 0.001f
-                ? targetPositionH - toTarget.normalized * Mathf.Max(0f, stopDistance - arrivalThreshold)
-                : targetPositionH;
-
-            return Vector3.Distance(myPositionH, approachTarget) <= arrivalThreshold;
+            return GetWeaponReach();
         }
 
         private void GiveUpChase()
@@ -774,14 +752,15 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             }
 
             // NPC vs NPC hit: check weapon reach + forward arc so the target can dodge by
-            // stepping out of range or to the side. The +0.3m buffer accounts for body volume.
+            // stepping out of range or to the side. The reach is the engine's (Npc::commitDamage: isInAttackRange,
+            // OpenGothic npc.cpp:2010), the same distance the run stops at.
             // Real bone-collider detection (DEF_HIT_LIMB) should replace this once implemented.
             var attackerPos = NpcGo.transform.position;
             var targetPos = target.Go.transform.position;
             var toTarget = targetPos - attackerPos;
             toTarget.y = 0f;
 
-            var reach = GetWeaponReach() + 0.3f;
+            var reach = GetWeaponReach();
             if (toTarget.magnitude > reach)
             {
                 Logger.LogEditor($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)} miss — target out of " +
@@ -809,24 +788,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 GlobalEventDispatcher.FightHit.Invoke(NpcContainer, target, attackerPos);
         }
 
+        /// <summary>
+        /// The engine's preferred attack distance against the enemy (FightRangeDomain): guild bases + weapon range,
+        /// for bows the reference bow range, for spells MaxMagRange. A spell monster biting uses its fist range.
+        /// </summary>
         private float GetWeaponReach()
         {
-            var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
-            // Matches Attack.cs's MyFkFocusFar routing: a ranged/magic attack can be dispatched from
-            // anywhere within FK-range, not just the old artificial "close" W-range guess — otherwise
-            // TryFireHit() rejects the very attacks the fight-AI just chose to fire as "out of reach".
-            if (!NpcContainer.IsSpellMonsterInMelee &&
-                weaponState is VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return FightConst.RangedAttackReachMeters * _configService.Dev.RangedCombatRangeMultiplier;
-
-            var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
-            // Fists / no weapon: CurrentItem is the last used item (a novice's joint, range 0) - fist range instead.
-            // Reach was 0.3 m and every punch of a berzerk victim missed.
-            var isMeleeWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
-            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
-            var weaponRange = item?.Range ?? GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-            // Same minimum as Attack.GetAttackRange(): the fight AI attacks from there, so the hit must connect there.
-            return Mathf.Max((baseRange + weaponRange) / 100f, 1.5f);
+            return _fightService.GetPreferredAttackDistance(NpcContainer, _enemy, NpcContainer.IsSpellMonsterInMelee);
         }
     }
 }

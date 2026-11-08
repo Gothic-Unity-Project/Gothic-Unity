@@ -335,18 +335,6 @@ namespace Gothic.Core.Models.Config
                  "projectiles and hits from the side or back go through; while blocking the hero's own hits don't count.")]
         public bool EnableVrHeroBlock = true;
 
-        [Tooltip("Attack approach: how close an attacker must get to the offset target before stopping the chase. Default 0.2m.")]
-        [Range(0.05f, 2f)]
-        public float NpcAttackArrivalThreshold = 0.2f;
-
-        [Tooltip("How close an NPC stops when walking toward the player for dialog (GoToNpc). Default 1.3m.")]
-        [Range(0.1f, 5f)]
-        public float NpcDialogStopDistance = 1.3f;
-
-        [Tooltip("Scales NPC ranged/magic engagement distances — how far a mage/archer will attack and connect from (vanilla HAI_DIST_RANGED = 30m). Gothic's ranges feel too far against our Unity units; 0.8 = 24m.")]
-        [Range(0.1f, 2f)]
-        public float RangedCombatRangeMultiplier = 0.8f;
-
 
         /**
          * ##########

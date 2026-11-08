@@ -10,7 +10,9 @@ namespace Gothic.Core.Services.Context
     public interface IContextRangedCombatService
     {
         /// <summary>
-        /// Distance (m) at which the hit chance equals GetHitChance(); it is 100% at the shooter.
+        /// Distance (m) at which the hit chance equals GetHitChance(); it is 100% at the shooter. Also the weapon range
+        /// of bows and crossbows in the fight distances (OpenGothic ReferenceBowRangeG1 2000 / G2 1500 cm,
+        /// constants.h:134-135, used by FightAlgo::weaponRange and DamageCalculator::rangeDamage).
         /// </summary>
         float HitChanceReferenceRange { get; }
 

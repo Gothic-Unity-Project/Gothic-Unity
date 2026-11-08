@@ -7,7 +7,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -20,8 +19,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     {
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly ProjectileService _projectileService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly FightService _fightService;
 
         private NpcInstance _enemy => Props.EnemyNpc ?? Props.StateOther;
 
@@ -84,9 +83,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         /// <summary>
         /// An archer/crossbowman/mage whose target, the hero, got out of the reach
-        /// of its shots (RangedAttackReachMeters * RangedCombatRangeMultiplier) gives up - the attack state ends like
-        /// the script's own "...Gegner außerhalb Fernkampfreichweite" (HAI_DIST_ABORT_RANGED, 35 m - beyond our reach,
-        /// so it stood there shooting into nothing). ZS_Attack_End puts the weapon away (B_RemoveWeapon) and the NPC
+        /// of its shots (the engine's MaxBowRange 45 m / MaxMagRange 35 m, FightConst) gives up - the attack state ends
+        /// like the script's own "...Gegner außerhalb Fernkampfreichweite" (HAI_DIST_ABORT_RANGED, 35 m), so it
+        /// doesn't stand there shooting into nothing. ZS_Attack_End puts the weapon away (B_RemoveWeapon) and the NPC
         /// goes back to its routine; the give-up cooldown keeps it from coming back at once.
         /// </summary>
         private bool TryGiveUpOutOfRangedReach()
@@ -103,7 +102,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (hero == null || _enemy.Index != hero.Index)
                 return false;
 
-            var reach = FightConst.RangedAttackReachMeters * _configService.Dev.RangedCombatRangeMultiplier;
+            var reach = weaponState == VmGothicEnums.WeaponState.Mage
+                ? FightConst.MaxMagRangeMeters
+                : FightConst.MaxBowRangeMeters;
             var distance = GetDistance();
             if (distance <= reach)
                 return false;
@@ -290,13 +291,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private string FindAiFunctionTemplate()
         {
             var isInFocus = _npcAiService.ExtNpcCanSeeNpc(NpcInstance, _enemy, false, 30f); // 60° is also assumed by Open Gothic.
-            var distance = GetDistance();
+            // W-Range == Weapon range: the same distance the run stops at (AttackPlayAni), else it ran and stood.
+            var distance = _fightService.GetFightDistance(NpcContainer, _enemy.GetUserData());
             var attackRange = GetAttackRange(NpcContainer.IsSpellMonsterInMelee);
-            var isInWRange = distance <= attackRange; // W-Range == Weapon range
+            var isInWRange = distance <= attackRange;
             var isInGRange = !isInWRange && distance <= attackRange * 3; // G-Range == Goto range
             // FIXME - We need to handle an "isRunning" state for >MyGRunTo<
 
-            // Bow, CBow, Mage: range values are overridden in GetAttackRange() — fight logic is identical.
+            // Bow, CBow, Mage: their weapon range is the bow reference range / MaxMagRange - fight logic is identical.
 
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
             var isRangedWeapon = !NpcContainer.IsSpellMonsterInMelee &&
@@ -305,7 +307,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // An archer facing the hero behind a pillar counts him as in
             // focus - the head-to-head line is blocked, so he only turned (already facing him) and froze. In focus, the
             // attack move reaches AvoidBlockedShot, which steps aside to a free line of shot. (Before the W-Range check:
-            // bows/crossbows have a 20 m W-Range, so a close archer uses the W tables.)
+            // bows/crossbows have a ~21 m (G1) / ~16 m (G2) W-Range, so a close archer uses the W tables.)
             if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow && !isInFocus &&
                 !NpcContainer.IsSpellMonsterInMelee && _enemy?.GetUserData()?.Go != null &&
                 IsInAngle(NpcGo.transform, _enemy.GetUserData().Go.transform.position, _rangedFocusAngle))
@@ -469,50 +471,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             return Vector3.Distance(NpcGo.transform.position, _enemy.GetUserData().Go.transform.position) - _npcMonsterVolumina;
         }
 
-        /// Fight range is calculated by base range + weapon attack range.
+        /// <summary>
+        /// The engine's preferred attack distance (m) against the enemy, FightRangeDomain: both guilds' fight range
+        /// bases + the weapon range (bows: reference bow range, spells: MaxMagRange). No minimum, like the engine.
+        /// </summary>
+        /// <param name="isMelee">A spell monster in melee bites with its fist range.</param>
         private float GetAttackRange(bool isMelee = false)
         {
-            // A spell monster in melee bites with its fist range.
-            var weaponState = isMelee ? VmGothicEnums.WeaponState.Fist : (VmGothicEnums.WeaponState)Vob.FightMode;
-
-            // Magic and ranged use fixed engagement ranges instead of guild melee values. These are
-            // the W-range boundary only (inside it the close-quarters W tables are used; beyond it
-            // ranged units fire from the FK_FOCUS_FAR tables) — scaled by the same config multiplier
-            // as the hit-connect range so both shrink together.
-            var rangedMultiplier = _configService.Dev.RangedCombatRangeMultiplier;
-            if (weaponState == VmGothicEnums.WeaponState.Mage)
-                return 12f * rangedMultiplier;
-            if (weaponState is VmGothicEnums.WeaponState.Bow or VmGothicEnums.WeaponState.CBow)
-                return 20f * rangedMultiplier;
-
-            var baseRange = GameStateService.GuildValues.GetFightRangeBase(Vob.GuildTrue);
-
-            // If NPC has a weapon drawn, use its range; otherwise fall back to fist range (CurrentItem can be the
-            // last used item, e.g. a joint).
-            var isMeleeWeaponDrawn = weaponState is VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H;
-            var item = isMeleeWeaponDrawn ? VmCacheService.TryGetItemData(Props.CurrentItem) : null;
-            float weaponRange;
-            if (item != null)
-            {
-                weaponRange = item.Range;
-            }
-            else
-            {
-                switch (weaponState)
-                {
-                    case VmGothicEnums.WeaponState.NoWeapon:
-                    case VmGothicEnums.WeaponState.Fist:
-                    case VmGothicEnums.WeaponState.W1H:
-                    case VmGothicEnums.WeaponState.W2H:
-                        weaponRange = GameStateService.GuildValues.GetFightRangeFist(Vob.GuildTrue);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            // Minimum 1.5m — prevents NPCs with zero guild fight values from looping in G-Range forever.
-            return Mathf.Max((baseRange + weaponRange) / 100f, 1.5f);
+            return _fightService.GetPreferredAttackDistance(NpcContainer, _enemy.GetUserData(), isMelee);
         }
 
         /// <summary>

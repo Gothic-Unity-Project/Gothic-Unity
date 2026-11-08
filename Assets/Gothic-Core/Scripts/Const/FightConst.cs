@@ -52,13 +52,14 @@ namespace Gothic.Core.Const
             public static string MyFkNoFocusFar = "FA_MY_FK_NOFOCUS_FAR_{0}"; // I have opponent NOT in focus
         }
 
-        // HAI_DIST_RANGED (vanilla AI_Constants.d) — the assumed max engagement distance for ranged/
-        // magic combat. A Bow/CBow/Mage attack dispatched from MyFkFocusFar (see Attack.cs) can
-        // legitimately connect from anywhere within this range; only true melee needs point-blank
-        // weapon reach. Used by AttackPlayAni.GetWeaponReach() so the hit-connect check agrees with
-        // what the move-selection already allows — a mismatch here silently turns every ranged
-        // "Attack" move dispatched beyond melee range into a "miss, target out of reach".
-        public const float RangedAttackReachMeters = 30f;
+        // OpenGothic constants.h:137 MaxMagRange (3500 cm, "from Focus_Ranged"): a spell's weapon range
+        // (FightAlgo::weaponRange, fightalgo.cpp:359-360) and how far it flies before it can't hit any more
+        // (DamageCalculator::rangeDamage, damagecalculator.cpp:62). A mage farther away gives up (Attack.cs).
+        public const float MaxMagRangeMeters = 35f;
+        // OpenGothic constants.h:136 MaxBowRange (4500 cm): an arrow's hit chance falls to 0 here
+        // (damagecalculator.cpp:74-78). The bow's weapon range is the game's reference range instead
+        // (ReferenceBowRangeG1/G2, IContextRangedCombatService.HitChanceReferenceRange).
+        public const float MaxBowRangeMeters = 45f;
 
         // A VR swing counts as the hero's "prehit" this long - an attack
         // animation's time before its hit frame (DEF_OPT_FRAME).
