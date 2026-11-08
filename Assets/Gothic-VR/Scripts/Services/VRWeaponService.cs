@@ -304,14 +304,25 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___, ItemInstance ____)
+        /// <summary>
+        /// A weapon hit: the swing that made it waits for the combo. Only the hero's own weapon counts - the hit
+        /// carries it (FightHit). A punch (no weapon) or an NPC hitting the hero doesn't end the sword's swing.
+        /// </summary>
+        private void OnHit(NpcContainer attacker, NpcContainer _, Vector3 __, ItemInstance weapon)
         {
-            // Find which domain's weapon caused this hit and advance its state.
-            // We check based on the attacker being the owner of one of our domains.
-            if (_firstAttackDomain.GetOwner() != null && _firstAttackDomain.IsInAttackState())
+            if (weapon == null)
+                return;
+
+            if (IsHitOfDomain(_firstAttackDomain, attacker, weapon))
                 _firstAttackDomain.AdvanceStateAfterAttack();
-            else if (_secondAttackDomain.GetOwner() != null && _secondAttackDomain.IsInAttackState())
+            else if (IsHitOfDomain(_secondAttackDomain, attacker, weapon))
                 _secondAttackDomain.AdvanceStateAfterAttack();
+        }
+
+        private static bool IsHitOfDomain(VrWeaponAttackDomain domain, NpcContainer attacker, ItemInstance weapon)
+        {
+            return domain.IsInAttackState() && domain.GetOwner() == attacker &&
+                   domain.WeaponVobContainer?.GetItemInstance()?.Index == weapon.Index;
         }
     }
 }

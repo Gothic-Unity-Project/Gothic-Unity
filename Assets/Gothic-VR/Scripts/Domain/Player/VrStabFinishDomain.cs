@@ -32,11 +32,6 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
 
-        // Hand speed (m/s) along the blade for a stab, and the share of the whole speed that has to go along it.
-        // A slash whose blade happened to point along its way counted as a stab - the share is high now.
-        // The blade in the body this long kills.
-        // Meters back out of the body (against the tip) / sideways that let go.
-
         private NpcContainer _attacker;
         private NpcContainer _target;
         private VrInteractable _weapon;

@@ -36,7 +36,7 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
 
-        // An NPC weapon within this of the held weapon touches it.
+        // Points sampled along an NPC weapon's blade to test whether it touches the held weapon.
         private const int _bladeSamples = 6;
 
         private bool _isBlocking;

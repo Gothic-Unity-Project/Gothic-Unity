@@ -109,7 +109,7 @@ namespace Gothic.Core.Services.Npc
         /// stop a wait or strafe (the safe moves to cut short), so their next AI_Attack can parry or jump back - they
         /// pick a move only once per AI_Attack, and a VR swing is over before a waiting NPC would look again.
         /// </summary>
-        private void OnHeroMeleeSwing(int _)
+        private void OnHeroMeleeSwing()
         {
             var hero = _npcService.GetHeroContainer();
             if (hero?.Go == null)

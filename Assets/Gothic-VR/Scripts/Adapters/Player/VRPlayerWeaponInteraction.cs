@@ -82,7 +82,7 @@ namespace Gothic.VR.Adapters.Player
 
             // A held weapon is only the hero's readied one (VRWeaponService.UpdateHeroWeaponState) - EquippedItems
             // stays what he or the scripts equipped, that's what a save keeps. Before, the grab equipped it: a save
-            // while holding it lost the weapon from before, and a grab + release left none equipped (Rockefeller).
+            // while holding it lost the weapon from before, and a grab + release left none equipped.
             _weaponService.OnGrabbed(args.HandSide, vobContainer, GetWeaponPhysicsConfig());
         }
 

@@ -147,7 +147,7 @@ namespace Gothic.Core.Domain.Npc
         /// The dice roll's meaning and the formula of one type are the game version's (IMeleeDamageRule).
         /// </summary>
         /// The hero's weapon is the one the hit carries (FightHit: the one in his VR hand) - it isn't equipped in VR,
-        /// he hit with his strength alone (Lukis in heavy armor took 30 instead of 80). Swung without its requirements
+        /// he hit with his strength alone (an NPC in heavy armor took 30 instead of 80). Swung without its requirements
         /// (cond_atr/cond_value, e.g. 50 strength), every hit does only 1 damage.
         private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, ItemInstance heroWeapon,
             out bool isImmune)

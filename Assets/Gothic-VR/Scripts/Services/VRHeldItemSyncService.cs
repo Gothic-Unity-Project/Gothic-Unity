@@ -38,7 +38,7 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// When a script takes items (B_GiveInvItems in a dialog, Npc_RemoveInvItems), the physical copies
-        /// must vanish too - otherwise the hero keeps e.g. Lobart's clothes in a holster after handing them over.
+        /// must vanish too - otherwise the hero keeps e.g. a quest NPC's clothes in a holster after handing them over.
         /// Only surplus copies (more physical than the inventory still has) are removed. Backpack sockets are skipped:
         /// the backpack refills from the inventory anyway.
         /// </summary>
