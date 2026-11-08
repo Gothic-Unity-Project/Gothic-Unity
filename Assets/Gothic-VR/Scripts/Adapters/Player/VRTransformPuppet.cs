@@ -221,7 +221,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // Body under the head, facing where the head looks.
-            var head = Camera.main != null ? Camera.main.transform : null;
+            var head = _rig.Head;
             var feetY = _rig.Root.position.y;
             var x = head != null ? head.position.x : _rig.Root.position.x;
             var z = head != null ? head.position.z : _rig.Root.position.z;
@@ -354,7 +354,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void LowerCamera()
         {
-            if (_rig == null || Camera.main == null)
+            if (_rig == null || _rig.Head == null)
                 return;
 
             var feetY = _monster.Go.transform.position.y - _monster.PrefabProps.AnimationSystem.RestRootHeight;
@@ -368,7 +368,7 @@ namespace Gothic.VR.Adapters.Player
                 }
             }
 
-            var currentEyeHeight = Camera.main.transform.position.y - _rig.Root.position.y;
+            var currentEyeHeight = _rig.Head.position.y - _rig.Root.position.y;
             var rig = _rig;
             _originalCameraYOffset = rig.CameraYOffset;
             _eyeHeight = Mathf.Clamp(eyeHeight, 0.2f, 3f);
@@ -652,9 +652,7 @@ namespace Gothic.VR.Adapters.Player
 
             // In the player's own space - running and turning (snap/smooth turn) move the hands too. The simulator's hands
             // hang on the camera - there the camera's space (mouse look moved them).
-            var space = _vrInput.IsSimulator && Camera.main != null
-                ? Camera.main.transform
-                : _rig != null ? _rig.Root : null;
+            var space = _rig == null ? null : _vrInput.IsSimulator && _rig.Head != null ? _rig.Head : _rig.Root;
             var position = space != null ? space.InverseTransformPoint(hand.transform.position) : hand.transform.position;
             var isSwing = _hasLastAttackHandPosition &&
                           Vector3.Distance(position, _lastAttackHandPosition) / Time.deltaTime >= _attackSwingSpeed;
@@ -849,10 +847,11 @@ namespace Gothic.VR.Adapters.Player
             _pipCamera.transform.LookAt(center);
 
             var hand = _vrPlayerService.GetHandModelGo(_orbHand);
-            if (hand == null || _orb == null || Camera.main == null)
+            var head = _rig?.Head;
+            if (hand == null || _orb == null || head == null)
                 return;
             _orb.transform.position = hand.transform.position + Vector3.up * _orbHandOffset;
-            _orb.transform.rotation = Quaternion.LookRotation(_orb.transform.position - Camera.main.transform.position);
+            _orb.transform.rotation = Quaternion.LookRotation(_orb.transform.position - head.position);
         }
 
         private void OnDestroy()

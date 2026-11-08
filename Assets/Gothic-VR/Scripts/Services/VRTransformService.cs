@@ -32,6 +32,7 @@ namespace Gothic.VR.Services
     public class VRTransformService : System.IDisposable
     {
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameStateService _gameStateService;
 
@@ -68,7 +69,8 @@ namespace Gothic.VR.Services
             if (hero?.Go == null)
                 return false;
 
-            var heroPosition = Camera.main != null ? Camera.main.transform.position : hero.Go.transform.position;
+            var head = _vrPlayerService.Rig?.Head;
+            var heroPosition = head != null ? head.position : hero.Go.transform.position;
             var spawnPosition = new Vector3(heroPosition.x, hero.Go.transform.position.y, heroPosition.z);
             var loaderGo = _npcService.SpawnNpcRuntime(monsterInstanceIndex, spawnPosition, Quaternion.identity);
             var monster = loaderGo != null ? loaderGo.GetComponentInChildren<Gothic.Core.Adapters.Npc.NpcLoader>(true)?.Container : null;
