@@ -116,7 +116,7 @@ namespace Gothic.Core.Services.Npc
                 // looked at the hero's swings - its queued combo swings go, a swing before its hit frame stops.
                 var queuedSwings = npc.Props.AnimationQueue.Count;
                 var isOnlySwingsQueued = queuedSwings > 0 &&
-                                         npc.Props.AnimationQueue.All(i => i is AttackPlayAni);
+                                         npc.Props.AreAllQueued(i => i is AttackPlayAni);
                 if (queuedSwings > 0 && !(isOnlySwingsQueued))
                     continue;
 

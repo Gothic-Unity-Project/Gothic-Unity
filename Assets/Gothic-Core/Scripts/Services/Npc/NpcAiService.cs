@@ -479,8 +479,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.Log($"[ExtAiStartState] {npc.GetName(NpcNameSlot.Slot0)}: queued after the dialog's lines",
                         LogCat.Ai);
                 }
-                else if (!container.Props.AnimationQueue.OfType<UndrawWeapon>().Any() &&
-                         !container.Props.AnimationQueue.OfType<StandUp>().Any())
+                else if (!container.Props.HasQueued<UndrawWeapon>() && !container.Props.HasQueued<StandUp>())
                 {
                     container.PrefabProps?.AiHandler?.ClearState(false);
                 }
@@ -490,13 +489,13 @@ namespace Gothic.Core.Services.Npc
                 container.Props.StateEnd = 0;
                 container.Props.CurrentWayPoint = null;
 
-                if (container.Props.AnimationQueue.OfType<UndrawWeapon>().Any())
+                if (container.Props.HasQueued<UndrawWeapon>())
                 {
                     // UndrawWeapon is already queued (B_RemoveWeapon in ZS_Attack_End).
                     // Let it play the sheath animation; StartState enqueued below will follow it.
                     Logger.LogWarning($"[ExtAiStartState] pending UndrawWeapon — deferring state clear so sheath plays", LogCat.Fight);
                 }
-                else if (container.Props.AnimationQueue.OfType<StandUp>().Any())
+                else if (container.Props.HasQueued<StandUp>())
                 {
                     // StandUp was just enqueued (e.g. AI_StandUp in ZS_Unconscious_End before AI_StartState).
                     // Don't clear the queue — let the standup animation play; StartState follows it.
@@ -518,8 +517,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private static bool IsTalking(NpcContainer container)
         {
-            return container.Props.AnimationQueue.Any(i =>
-                i is Output or OutputSvm or StartProcessInfos or StopProcessInfos);
+            return container.Props.HasQueued(i => i is Output or OutputSvm or StartProcessInfos or StopProcessInfos);
         }
 
         public void ExtAiLookAt(NpcInstance npc, string wayPointName)
@@ -753,7 +751,7 @@ namespace Gothic.Core.Services.Npc
             // running or queued (e.g. ZS_SitAround_End: AI_UseMob(BENCH, -1)).
             var props = container.Props;
             var isBackTransitionPending = props.CurrentAction is UseMob { IsStopUsingMob: true } ||
-                                          props.AnimationQueue.OfType<UseMob>().Any(u => u.IsStopUsingMob);
+                                          props.HasQueued(i => i is UseMob { IsStopUsingMob: true });
             if (container.IsUsingMob() && !isBackTransitionPending)
             {
                 var scheme = container.PrefabProps.CurrentInteractable.Props.GetVisualScheme();

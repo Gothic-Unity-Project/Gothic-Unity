@@ -77,6 +77,46 @@ namespace Gothic.Core.Adapters.Properties
 
         public readonly Queue<AbstractAnimationAction> AnimationQueue = new();
 
+        /// <summary>
+        /// Whether an action of this type waits in the AnimationQueue. A foreach over the Queue, unlike LINQ, allocates
+        /// nothing - the AI externals ask this many times per fight.
+        /// </summary>
+        public bool HasQueued<T>() where T : AbstractAnimationAction
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (action is T)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Whether a queued action matches. Pass a lambda that captures nothing, or it allocates per call.
+        /// </summary>
+        public bool HasQueued(Func<AbstractAnimationAction, bool> match)
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (match(action))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Whether every queued action matches (true for an empty queue). Same rule for the lambda as HasQueued.
+        /// </summary>
+        public bool AreAllQueued(Func<AbstractAnimationAction, bool> match)
+        {
+            foreach (var action in AnimationQueue)
+            {
+                if (!match(action))
+                    return false;
+            }
+            return true;
+        }
+
         // Mdl_ApplyRandomAni: a state animation -> the animations played now and then while it runs
         // (S_EAT -> R_ROAM1, R_ROAM2). Mdl_ApplyRandomAniFreq: the average seconds between them.
         public readonly Dictionary<string, List<string>> RandomAnis = new(StringComparer.OrdinalIgnoreCase);

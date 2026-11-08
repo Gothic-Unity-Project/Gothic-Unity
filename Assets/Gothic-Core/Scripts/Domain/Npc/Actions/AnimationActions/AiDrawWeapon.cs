@@ -43,7 +43,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool IsDialogContinuing()
         {
-            return Props.AnimationQueue.Any(action => action is Output or OutputSvm or StopProcessInfos);
+            return Props.HasQueued(action => action is Output or OutputSvm or StopProcessInfos);
         }
 
         public override void Start()
