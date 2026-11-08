@@ -134,9 +134,7 @@ namespace Gothic.Core.Models.Container
         /// </summary>
         public bool IsMeleeWeapon()
         {
-            var item = GetItemInstance();
-            return item != null &&
-                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
+            return GetItemInstance().IsMeleeWeapon();
         }
     }
 }

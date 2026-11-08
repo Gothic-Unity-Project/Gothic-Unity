@@ -50,7 +50,7 @@ namespace Gothic.Core.Services.Caches
                 return false;
 
             var tool = TryGetItemData(mob.Item);
-            return tool != null && ((VmGothicEnums.ItemFlags)tool.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
+            return tool.IsMeleeWeapon();
         }
 
         /// <summary>

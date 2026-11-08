@@ -8,7 +8,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.StaticCache
 {
     /// <summary>
-    /// Melee weapons (ItMw_*) get boxes fitted to their parts (blade, guard, grip, pommel, axe and hammer heads)
+    /// Melee weapons (ITEM_KAT_NF, see ItemInstanceExtension.IsMeleeWeapon) get boxes fitted to their parts (blade, guard, grip, pommel, axe and hammer heads)
     /// instead of the width profile colliders of other items - boxes along the mesh axes: the slanted cross guard of
     /// ItMw_2H_Sword_Light_03 had a 28 x 20 cm box, axe heads boxes full of air. Thin parts stay (rods and shafts
     /// are held there). They are the hitboxes of the hero's swings.
@@ -21,11 +21,6 @@ namespace Gothic.Core.Domain.StaticCache
         private const int _maxBoxesPerWeapon = 12;
         // Meters: how much bigger an axis aligned box may be than the fitted one to become a BoxCollider.
         private const float _maxAxisAlignedGrowth = 0.01f;
-
-        public static bool IsMeleeWeapon(string visualName)
-        {
-            return visualName.StartsWith("ITMW", StringComparison.OrdinalIgnoreCase);
-        }
 
         /// <summary>
         /// vertices: in meters, three per triangle (as VobItemColliderCacheCreatorDomain prepares them).

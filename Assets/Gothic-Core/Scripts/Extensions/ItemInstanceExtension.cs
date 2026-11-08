@@ -14,6 +14,15 @@ namespace Gothic.Core.Extensions
         private const int _wearHead = 2;
 
 
+        /// <summary>
+        /// A melee weapon (ITEM_KAT_NF: swords, axes, clubs) - what can be swung, blocked with and stabbed. The one
+        /// definition of "melee weapon"; never derive it from the mesh name.
+        /// </summary>
+        public static bool IsMeleeWeapon(this ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0;
+        }
+
         public static bool IsArmor(this ItemInstance item)
         {
             return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0;

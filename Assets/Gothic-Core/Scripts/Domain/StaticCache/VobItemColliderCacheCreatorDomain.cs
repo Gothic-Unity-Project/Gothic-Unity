@@ -81,7 +81,7 @@ namespace Gothic.Core.Domain.StaticCache
                 
                 ItemCollider.Add(item.Visual, new());
                 
-                GenerateItemColliders(item.Visual, cachedVobBounds);
+                GenerateItemColliders(item.Visual, cachedVobBounds, item.IsMeleeWeapon());
             }
 
             Logger.Log($"Fitted the colliders of {_meleeFitCount} melee weapons in " +
@@ -92,7 +92,8 @@ namespace Gothic.Core.Domain.StaticCache
         /// Generate colliders based on width variations along the items' main axis
         /// Automatically detects weapon orientation and segments from handle to tip
         /// </summary>
-        public void GenerateItemColliders(string visualName, Dictionary<string, Bounds> cachedVobBounds, float widthThreshold = 0.4f, int minVerticesPerSegment = 3,
+        public void GenerateItemColliders(string visualName, Dictionary<string, Bounds> cachedVobBounds,
+            bool isMeleeWeapon, float widthThreshold = 0.4f, int minVerticesPerSegment = 3,
             int samples = 50, float segmentDistance = 0.05f)
         {
             var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visualName)?.Cache();
@@ -133,7 +134,7 @@ namespace Gothic.Core.Domain.StaticCache
             if (vertices.Length == 0 || triangles.Length == 0)
                 return;
 
-            if (VobItemFittedColliderCacheCreatorDomain.IsMeleeWeapon(visualName))
+            if (isMeleeWeapon)
             {
                 _meleeFitWatch.Start();
                 ItemCollider[visualName].AddRange(
