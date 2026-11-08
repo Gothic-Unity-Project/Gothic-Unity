@@ -29,6 +29,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRCarriedItemsSaveService _carriedItemsSaveService;
 
         public void Init()
         {
@@ -54,8 +55,13 @@ namespace Gothic.VR.Services
             var remaining = _npcInventoryService.ExtNpcHasItems(hero.Instance, itemIndex);
 
             var socketed = new List<(IVrSocket socket, VobContainer container)>();
-            foreach (var socket in GetPlayerHolsterSockets())
+            var holsters = _carriedItemsSaveService.Holsters;
+            for (var i = 0; i < holsters.Count; i++)
             {
+                var socket = holsters[i];
+                if (socket.Held == null)
+                    continue;
+
                 var container = socket.Held.GetComponentInParent<VobLoader>(true)?.Container;
                 if (IsSameItem(container, itemName))
                     socketed.Add((socket, container));
@@ -102,23 +108,6 @@ namespace Gothic.VR.Services
                 }
                 _vobService.RemoveWorldItem(container);
             }
-        }
-
-        /// <summary>
-        /// Occupied sockets on the player (hips, shoulders) - not the backpack's, which refills from the inventory.
-        /// </summary>
-        private IEnumerable<IVrSocket> GetPlayerHolsterSockets()
-        {
-            var rig = _vrPlayerService.Rig;
-            if (rig == null)
-                return Enumerable.Empty<IVrSocket>();
-
-            var playerRoot = rig.Root.root;
-            return Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
-                .OfType<IVrSocket>()
-                .Where(i => i.Held != null && i.Transform.root == playerRoot &&
-                            i.Transform.GetComponentInParent<VRBackpack>(true) == null)
-                .ToList();
         }
 
         private static bool IsSameItem(VobContainer container, string itemName)
