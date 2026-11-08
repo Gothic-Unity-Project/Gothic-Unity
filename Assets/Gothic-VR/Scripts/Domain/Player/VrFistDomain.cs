@@ -177,7 +177,7 @@ namespace Gothic.VR.Domain.Player
             _lastPunchTime[side] = Time.time;
             _hapticsService.Vibrate(side, VrHapticPreset.FistHit);
             Logger.Log($"[VRFist] {side} punch at {speed:F1} m/s → {targetName}", LogCat.Fight);
-            GlobalEventDispatcher.FightHit.Invoke(hero, target, position);
+            GlobalEventDispatcher.FightHit.Invoke(hero, target, position, null);
         }
     }
 }

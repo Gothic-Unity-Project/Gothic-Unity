@@ -111,8 +111,10 @@ namespace Gothic.Core
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
         /// Vector3      - at which position
+        /// ItemInstance - the weapon the hero hit with (VR: the one in his hand - it isn't equipped), null for fists.
+        ///                NPC hits pass null - their damage comes from their equipped weapon.
         /// </summary>
-        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3> FightHit = new();
+        public static readonly UnityEvent<NpcContainer, NpcContainer, Vector3, ItemInstance> FightHit = new();
 
         /// <summary>
         /// The hero starts a melee swing (VR: the held weapon got faster than its attack threshold) - the engine's

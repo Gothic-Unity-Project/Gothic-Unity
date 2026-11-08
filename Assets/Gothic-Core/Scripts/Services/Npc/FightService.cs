@@ -85,7 +85,7 @@ namespace Gothic.Core.Services.Npc
             if (!_configService.Dev.EnableCombatSystem)
                 return;
 
-            GlobalEventDispatcher.FightHit.AddListener(OnHit);
+            GlobalEventDispatcher.FightHit.AddListener(OnFightHit);
             GlobalEventDispatcher.SpellHit.AddListener(_spellHitDomain.OnSpellHit);
             GlobalEventDispatcher.SpellSpreadHit.AddListener((caster, pos, damage) =>
                 _spellHitDomain.ApplySpreadHit(caster, pos, damage, null));
@@ -277,8 +277,13 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
-        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __) =>
-            OnHit(attacker, target, __, damageOverride: null);
+        /// <summary>
+        /// A melee hit. heroWeapon: the weapon the hero hit with (VR hand), null for fists and NPC hits.
+        /// </summary>
+        private void OnFightHit(NpcContainer attacker, NpcContainer target, Vector3 position, ItemInstance heroWeapon)
+        {
+            OnHit(attacker, target, position, damageOverride: null, heroWeapon: heroWeapon);
+        }
 
         /// <summary>
         /// A spell or projectile hit (SpellHitDomain, RangedHitDomain): its damage and protection index.
@@ -290,7 +295,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 position, int? damageOverride,
-            int overrideProtectionIndex = (int)DamageType.Fire)
+            int overrideProtectionIndex = (int)DamageType.Fire, ItemInstance heroWeapon = null)
         {
             if (target.Props.IsDead)
                 return;
@@ -321,7 +326,7 @@ namespace Gothic.Core.Services.Npc
 
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT " +
                        $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            if (_meleeDamageDomain.ApplyHit(attacker, target, damageOverride, overrideProtectionIndex))
+            if (_meleeDamageDomain.ApplyHit(attacker, target, damageOverride, overrideProtectionIndex, heroWeapon))
                 GoDown(attacker, target, isHero, damageOverride);
             else
                 ReactToHurt(attacker, target, isHeroAttacker);

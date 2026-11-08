@@ -274,7 +274,7 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___)
+        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___, ItemInstance ____)
         {
             // Find which domain's weapon caused this hit and advance its state.
             // We check based on the attacker being the owner of one of our domains.

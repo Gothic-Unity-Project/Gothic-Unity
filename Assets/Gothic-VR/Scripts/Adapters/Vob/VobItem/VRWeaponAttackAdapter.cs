@@ -142,17 +142,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
-            // The weapon in the hand isn't equipped in VR - FightService takes its damage from here (only during the
-            // hit). By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
-            attacker.Props.MeleeHitWeapon = _weaponVobContainer?.GetItemInstance();
-            try
-            {
-                GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position);
-            }
-            finally
-            {
-                attacker.Props.MeleeHitWeapon = null;
-            }
+            // The weapon in the hand isn't equipped in VR - the hit carries it, FightService takes its damage from it.
+            // By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).
+            var weapon = _weaponVobContainer?.GetItemInstance();
+            GlobalEventDispatcher.FightHit.Invoke(attacker, targetNpcContainer, transform.position, weapon);
             return true;
         }
     }

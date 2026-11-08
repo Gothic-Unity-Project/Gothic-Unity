@@ -786,7 +786,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (weaponState == VmGothicEnums.WeaponState.Mage && !NpcContainer.IsSpellMonsterInMelee)
                 _fightService.CastNpcSpell(NpcContainer, target, targetPos);
             else
-                GlobalEventDispatcher.FightHit.Invoke(NpcContainer, target, attackerPos);
+                GlobalEventDispatcher.FightHit.Invoke(NpcContainer, target, attackerPos, null);
         }
 
         /// <summary>
