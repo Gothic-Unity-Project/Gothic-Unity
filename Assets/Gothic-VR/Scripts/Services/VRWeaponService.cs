@@ -47,6 +47,8 @@ namespace Gothic.VR.Services
 
         // The hero's stab finish (one stuck blade at a time).
         private VrStabFinishDomain _stabFinish;
+        // Gothic.ini stabFinish, read on first use and again when the menu changes it (asked every physics step).
+        private bool? _isStabFinishOn;
 
         // Fists. Created on first use, like the stab finish (its services live in the VR scene scope).
         private VrFistDomain _fistDomain;
@@ -57,6 +59,13 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.FightWindowAttack.AddListener(OnAttackWindowStart);
             GlobalEventDispatcher.FightWindowInitial.AddListener(OnAttackWindowEnd);
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.StabFinish)
+                _isStabFinishOn = null;
         }
 
         /// <summary>
@@ -98,7 +107,26 @@ namespace Gothic.VR.Services
         /// </summary>
         public bool IsStabFinishOn()
         {
-            return _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+            _isStabFinishOn ??= _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish, 1) == 1;
+            return _isStabFinishOn.Value;
+        }
+
+        /// <summary>
+        /// A blade sticks in a body right now - nothing else to check until it lets go.
+        /// </summary>
+        public bool IsStabFinishStuck()
+        {
+            return _stabFinish?.IsStuck == true;
+        }
+
+        /// <summary>
+        /// The weapon is handled by one of the attack domains, i.e. the hero holds it right now.
+        /// </summary>
+        public bool IsHeldByPlayer(VobContainer vobContainer)
+        {
+            return vobContainer != null &&
+                   (vobContainer == _firstAttackDomain.WeaponVobContainer ||
+                    vobContainer == _secondAttackDomain.WeaponVobContainer);
         }
 
         /// <summary>
@@ -220,6 +248,9 @@ namespace Gothic.VR.Services
         /// </summary>
         public NpcContainer GetWeaponOwner(VobContainer vobContainer)
         {
+            if (vobContainer == null)
+                return null;
+
             if (vobContainer == _firstAttackDomain.WeaponVobContainer)
                 return _firstAttackDomain.GetOwner();
             else if (vobContainer == _secondAttackDomain.WeaponVobContainer)

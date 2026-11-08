@@ -27,6 +27,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private VobContainer _weaponVobContainer;
         private NpcContainer _targetNpcContainer;
+        private VrInteractable _interactable;
 
         private void Start()
         {
@@ -47,6 +48,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            // Only the weapon in the hero's hand attacks.
+            if (!IsHeldByPlayer())
+                return;
+
             // Hands, grabbables, the world - touching them is normal. A warning per touch flooded the log (lag).
             if (other.gameObject.layer != Constants.VobHitbox)
                 return;
@@ -93,12 +98,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnTriggerStay(Collider other)
         {
-            if (other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
+            // Called every physics step: the cheap checks first.
+            if (_vrWeaponService == null || _vrWeaponService.IsStabFinishStuck() || !IsHeldByPlayer() ||
+                other.gameObject.layer != Constants.VobHitbox || !IsStabFinishOn())
                 return;
 
             var target = other.GetComponentInParent<NpcLoader>()?.Container;
             if (target != null && target.IsKnockedOut())
                 TryStabFinish(target);
+        }
+
+        private bool IsHeldByPlayer()
+        {
+            return _vrWeaponService != null && _vrWeaponService.IsHeldByPlayer(_weaponVobContainer);
         }
 
         private bool IsStabFinishOn()
@@ -108,7 +120,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void TryStabFinish(NpcContainer target)
         {
-            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, GetComponent<VrInteractable>());
+            _interactable ??= GetComponent<VrInteractable>();
+            _vrWeaponService.TryStabFinish(_weaponVobContainer, target, _interactable);
         }
 
         private void OnTriggerExit(Collider other)

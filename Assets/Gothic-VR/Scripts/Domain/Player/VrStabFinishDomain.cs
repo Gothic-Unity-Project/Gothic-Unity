@@ -51,6 +51,11 @@ namespace Gothic.VR.Domain.Player
         private float _stabTime;
         private int _holdPulses;
 
+        // The weapon's Rigidbody and mesh, looked up once per weapon (TryStab runs every physics step in a hitbox).
+        private VrInteractable _cachedWeapon;
+        private Rigidbody _cachedRigidbody;
+        private MeshFilter _cachedMeshFilter;
+
         public bool IsStuck => _target != null;
 
         /// <summary>
@@ -58,13 +63,17 @@ namespace Gothic.VR.Domain.Player
         /// </summary>
         public bool TryStab(NpcContainer attacker, NpcContainer target, VrInteractable weapon, Vector3 playerVelocity)
         {
-            var hand = GetHoldingHand(weapon);
-            var rigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
-            var handPosition = GetHandPosition(hand);
-            if (IsStuck || hand == null || rigidbody == null || handPosition == null)
+            if (IsStuck)
                 return false;
 
-            var tipDirection = GetTipDirection(weapon.transform, handPosition.Value);
+            var hand = GetHoldingHand(weapon);
+            CacheWeapon(weapon);
+            var rigidbody = _cachedRigidbody;
+            var handPosition = GetHandPosition(hand);
+            if (hand == null || rigidbody == null || handPosition == null)
+                return false;
+
+            var tipDirection = GetTipDirection(weapon.transform, _cachedMeshFilter, handPosition.Value);
             var velocity = rigidbody.linearVelocity - playerVelocity;
             var alongBlade = Vector3.Dot(velocity, tipDirection);
             // Called every physics step while the blade is inside the hitbox - no log here.
@@ -106,7 +115,7 @@ namespace Gothic.VR.Domain.Player
             }
 
             var weapon = _weapon.transform;
-            var axis = GetTipDirection(weapon, handPosition.Value);
+            var axis = GetTipDirection(weapon, _cachedMeshFilter, handPosition.Value);
             var moved = weapon.position - _stabPosition;
             var alongBlade = Vector3.Dot(moved, axis);
             if (-alongBlade > _maxPullBackDistance || (moved - axis * alongBlade).magnitude > _maxSidewaysDistance)
@@ -149,6 +158,16 @@ namespace Gothic.VR.Domain.Player
             _hand = null;
         }
 
+        private void CacheWeapon(VrInteractable weapon)
+        {
+            if (weapon == _cachedWeapon)
+                return;
+
+            _cachedWeapon = weapon;
+            _cachedRigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
+            _cachedMeshFilter = weapon != null ? weapon.GetComponentInChildren<MeshFilter>() : null;
+        }
+
         private IVrGrabber GetHoldingHand(VrInteractable weapon)
         {
             var rig = _vrPlayerService.VRContextInteractionService?.Rig;
@@ -173,10 +192,9 @@ namespace Gothic.VR.Domain.Player
         /// Gothic weapon meshes lie along their local X axis (WeaponAdapter: bounds.size.x is the length) - the tip is
         /// the end away from the hand.
         /// </summary>
-        private static Vector3 GetTipDirection(Transform weapon, Vector3 handPosition)
+        private static Vector3 GetTipDirection(Transform weapon, MeshFilter meshFilter, Vector3 handPosition)
         {
             var axis = weapon.right;
-            var meshFilter = weapon.GetComponentInChildren<MeshFilter>();
             var center = meshFilter != null && meshFilter.sharedMesh != null
                 ? meshFilter.transform.TransformPoint(meshFilter.sharedMesh.bounds.center)
                 : weapon.position;
