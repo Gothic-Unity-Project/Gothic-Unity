@@ -29,7 +29,6 @@ namespace Gothic.VR.Domain.Player
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
 
@@ -86,7 +85,7 @@ namespace Gothic.VR.Domain.Player
             _holdPulses = 0;
 
             PlayStabSound(weapon.transform.position);
-            _hapticsService.Vibrate(hand.HandSide, VrHapticPreset.Info);
+            GlobalEventDispatcher.StabStuck.Invoke((int)hand.HandSide);
             Logger.Log($"[VrStabFinish] Stab into {target.Instance.GetName(NpcNameSlot.Slot0)} " +
                        $"({alongBlade:0.0} m/s) - hold it {Melee.StabHoldSeconds:0} s to finish", LogCat.Fight);
             return true;
@@ -127,7 +126,7 @@ namespace Gothic.VR.Domain.Player
             if (heldTime >= (_holdPulses + 1) * Melee.StabHoldPulseSeconds && heldTime < Melee.StabHoldSeconds)
             {
                 _holdPulses++;
-                _hapticsService.Vibrate(_hand.HandSide, VrHapticPreset.Info);
+                GlobalEventDispatcher.StabHeld.Invoke((int)_hand.HandSide);
             }
             if (heldTime < Melee.StabHoldSeconds)
                 return;
@@ -139,7 +138,7 @@ namespace Gothic.VR.Domain.Player
         {
             Logger.Log($"[VrStabFinish] {_attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off " +
                        $"{_target.Instance.GetName(NpcNameSlot.Slot0)} ({reason})", LogCat.Fight);
-            _hapticsService.Vibrate(_hand.HandSide, VrHapticPreset.Success);
+            GlobalEventDispatcher.StabFinished.Invoke((int)_hand.HandSide);
             var attacker = _attacker;
             var target = _target;
             Clear();

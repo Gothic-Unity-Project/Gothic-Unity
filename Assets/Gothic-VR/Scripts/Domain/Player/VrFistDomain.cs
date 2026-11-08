@@ -35,7 +35,6 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
         [Inject] private readonly IVrInput _vrInput;
 
@@ -119,7 +118,7 @@ namespace Gothic.VR.Domain.Player
             if (!isSwinging || wasSwinging)
                 return;
 
-            _hapticsService.Vibrate(side, VrHapticPreset.FistSwing);
+            GlobalEventDispatcher.FistSwung.Invoke((int)side);
             var sound = GetFistSwingSound();
             if (sound != null)
                 _vrSfxPlayer.Play(_audioService.CreateAudioClip(sound.GetRandomSound()), hitbox.transform.position);
@@ -196,7 +195,7 @@ namespace Gothic.VR.Domain.Player
                 return;
 
             _lastPunchTime[side] = Time.time;
-            _hapticsService.Vibrate(side, VrHapticPreset.FistHit);
+            GlobalEventDispatcher.FistPunchLanded.Invoke((int)side);
             Logger.Log($"[VRFist] {side} punch at {speed:F1} m/s → {targetName}", LogCat.Fight);
             GlobalEventDispatcher.FightHit.Invoke(hero, target, position, null);
         }

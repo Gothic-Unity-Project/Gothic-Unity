@@ -31,7 +31,6 @@ namespace Gothic.VR.Domain.Player
     public class VrHeroBlockDomain
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly FightService _fightService;
@@ -55,7 +54,6 @@ namespace Gothic.VR.Domain.Player
 
         public VrHeroBlockDomain()
         {
-            GlobalEventDispatcher.HeroBlockedHit.AddListener(OnHeroBlockedHit);
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(OnNpcMeshCullingChanged);
             GlobalEventDispatcher.NpcVisualBodyChanged.AddListener(OnNpcVisualBodyChanged);
             GlobalEventDispatcher.LoadGameStart.AddListener(OnWorldChanging);
@@ -88,10 +86,7 @@ namespace Gothic.VR.Domain.Player
             _isBlocking = isBlocking;
             Logger.Log($"[HeroBlock] {(isBlocking ? "blocks" : "stops blocking")}", LogCat.Fight);
             if (isBlocking)
-            {
-                _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Info);
-                _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Info);
-            }
+                GlobalEventDispatcher.HeroBlockStarted.Invoke();
         }
 
         private Transform GetHead()
@@ -288,12 +283,6 @@ namespace Gothic.VR.Domain.Player
             _cachedHeld = null;
             _isCachedHeldMeleeWeapon = false;
             _heldColliders.Clear();
-        }
-
-        private void OnHeroBlockedHit(NpcContainer attacker)
-        {
-            _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Warning);
-            _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Warning);
         }
 
         /// <summary>

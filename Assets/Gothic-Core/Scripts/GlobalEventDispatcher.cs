@@ -130,6 +130,11 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroBlockedHit = new();
 
         /// <summary>
+        /// The hero started blocking (VR: both hands on the same melee weapon, both triggers held).
+        /// </summary>
+        public static readonly UnityEvent HeroBlockStarted = new();
+
+        /// <summary>
         /// A melee hit that landed (not parried, blocked, in a dialog, ...) - blood.
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
@@ -275,6 +280,26 @@ namespace Gothic.Core
         // Ledge climbing (VR): a comfort climb found no place on top to put the player (VrLedgeClimb).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
+
+        // Fists (VR): a fist got faster than a punch needs - once per swing (VrFistDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> FistSwung = new();
+
+        // Fists (VR): a punch hit an NPC - raised right before its FightHit (VrFistDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> FistPunchLanded = new();
+
+        // Stab finish (VR): the blade got thrust into an unconscious NPC and sticks now (VrStabFinishDomain).
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabStuck = new();
+
+        // Stab finish (VR): the blade is still in the body - once per StabHoldPulseSeconds until the finish.
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabHeld = new();
+
+        // Stab finish (VR): the blade was held in long enough - raised right before its FightFinishingMove.
+        // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
+        public static readonly UnityEvent<int> StabFinished = new();
 
         // Backpack (VR): the backpack is in a hand now (true) or in none any more (false). Raised by VRBackpack.
         public static readonly UnityEvent<bool> BackpackInHandChanged = new();
