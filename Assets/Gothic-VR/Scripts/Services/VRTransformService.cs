@@ -121,7 +121,8 @@ namespace Gothic.VR.Services
             {
                 var symbol = vm.GetSymbolByIndex(i);
                 if (symbol == null || !symbol.IsConst || symbol.Type != DaedalusDataType.Int ||
-                    !symbol.Name.StartsWith(_transformSpellPrefix) || symbol.GetInt(0) != spellId)
+                    !symbol.Name.StartsWith(_transformSpellPrefix, System.StringComparison.Ordinal) ||
+                    symbol.GetInt(0) != spellId)
                     continue;
                 var monster = vm.GetSymbolByName(symbol.Name.Substring(_transformSpellPrefix.Length));
                 return monster != null && monster.Type == DaedalusDataType.Instance ? monster.Index : -1;
