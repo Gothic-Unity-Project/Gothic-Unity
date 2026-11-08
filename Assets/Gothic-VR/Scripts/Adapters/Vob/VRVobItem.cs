@@ -58,6 +58,11 @@ namespace Gothic.VR.Adapters.Vob
         private VrInteractable _interactable;
         private Coroutine _reEnableCollisionRoutine;
 
+        // Added on the first grab of a bow/crossbow and kept on the item (switched by SetRangedWeaponHeld).
+        private VobItem.VRBow _bow;
+        private VobItem.VRCrossbow _crossbow;
+        private bool _isRangedWeaponChecked;
+
 
         private struct OverlapCheckData
         {
@@ -148,7 +153,7 @@ namespace Gothic.VR.Adapters.Vob
             TryShowWeaponRequirement();
 
             // One hand is enough for ranged weapons.
-            TryPrepareRangedWeapon();
+            SetRangedWeaponHeld(true);
 
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
@@ -191,15 +196,9 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
 
-            // Bows/crossbows shoot as long as any hand holds them. Removed immediately: a release + grab in the same
-            // frame (holster -> hand, hand -> hand) found the component still pending destruction and added no new
-            // one - the bow ended up without its string.
-            var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject ||
-                              _vrPlayerService.GrabbedItemRight == gameObject;
-            if (!isStillHeld && TryGetComponent<VobItem.VRCrossbow>(out var crossbow))
-                DestroyImmediate(crossbow);
-            if (!isStillHeld && TryGetComponent<VobItem.VRBow>(out var bow))
-                DestroyImmediate(bow);
+            // Bows/crossbows shoot as long as any hand holds them (UnsetGrab above already forgot this hand).
+            if (!_vrPlayerService.IsHeldInHand(_interactable))
+                SetRangedWeaponHeld(false);
 
             if (_vrPlayerService.IsDualGrabbed)
                 return;
@@ -279,19 +278,36 @@ namespace Gothic.VR.Adapters.Vob
 
 
         /// <summary>
-        /// Ranged weapons shoot while held (VRBow, VRCrossbow).
+        /// Ranged weapons shoot while a hand holds them (VRBow, VRCrossbow). The component is added on the first grab
+        /// and stays on the item - a release and a grab in the same frame (hand -> hand, holster -> hand) only switch
+        /// it off and on again.
         /// </summary>
-        private void TryPrepareRangedWeapon()
+        private void SetRangedWeaponHeld(bool isHeld)
         {
-            if (GetComponent<VobItem.VRCrossbow>() != null || GetComponent<VobItem.VRBow>() != null)
+            if (isHeld)
+                TryAddRangedWeapon();
+
+            if (_bow != null)
+                _bow.SetHeld(isHeld);
+            if (_crossbow != null)
+                _crossbow.SetHeld(isHeld);
+        }
+
+        private void TryAddRangedWeapon()
+        {
+            if (_isRangedWeaponChecked)
                 return;
 
-            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            var item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+            _isRangedWeaponChecked = true;
+
             var state = _vrRangedService.GetRangedState(item);
             if (state == VmGothicEnums.WeaponState.CBow)
-                gameObject.AddComponent<VobItem.VRCrossbow>();
+                _crossbow = gameObject.AddComponent<VobItem.VRCrossbow>();
             else if (state == VmGothicEnums.WeaponState.Bow)
-                gameObject.AddComponent<VobItem.VRBow>();
+                _bow = gameObject.AddComponent<VobItem.VRBow>();
         }
 
         /// <summary>

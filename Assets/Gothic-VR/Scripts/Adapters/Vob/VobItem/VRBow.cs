@@ -30,7 +30,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     ///   draws instead.
     /// - Release the grip to shoot along the line drawing hand -> bow hand: speed and damage grow with the draw.
     /// - If the bow has its Gothic morph animation (S_SHOOT), the limbs bend with the draw.
-    /// Everything is calibrated from the mesh (tips = ends of the long axis, grip = farthest vertex from the string).
+    /// Everything is calibrated from the mesh (tips = ends of the long axis, grip = farthest vertex from the string),
+    /// once on the first grab. The component stays on the bow; VRVobItem switches it with SetHeld (disabled = not held:
+    /// the Gothic mesh and string are back).
     /// </summary>
     public class VRBow : MonoBehaviour
     {
@@ -79,46 +81,98 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private GameObject _arrow;
         private Vector3 _nockWorld;
 
+        private bool _isHeld;
+        private bool _isSetUp;
+        private bool _isSetupFailed;
+
 
         private void Awake()
         {
             this.Inject();
+            // Runs only while held (SetHeld).
+            enabled = false;
         }
 
-        private void Start()
+        /// <summary>
+        /// A hand took the bow (true) or the last hand let it go (false). A second hand on the bow changes nothing.
+        /// </summary>
+        public void SetHeld(bool isHeld)
         {
-            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
-            if (_item == null || !TrySetupMesh())
-            {
-                Logger.LogWarning($"[VRBow] {_item?.Name ?? gameObject.name}: no item or no readable bow mesh - no bow.", LogCat.VR);
-                enabled = false;
+            if (isHeld == _isHeld)
                 return;
-            }
 
-            _munition = _vrRangedService.GetMunition(_item);
-            CreateString();
+            if (isHeld)
+                Hold();
+            else
+                LetGo();
+        }
+
+        private void Hold()
+        {
+            if (!TrySetup())
+                return;
+
+            _isHeld = true;
+            _meshFilter.sharedMesh = _bowMesh;
+            _string.gameObject.SetActive(true);
+            _nockWorld = GetRestNockWorld();
+            UpdateString();
             AddStringFilter();
             Application.onBeforeRender += OnBeforeRender;
+            enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
 
             Logger.Log($"[VRBow] {_item.Name} readied - munition={_munition?.Name ?? "none"}, maxDraw={_maxDraw:F2} m, " +
                        $"morph frames={_drawFrames?.Count ?? 0}, forward(local)={_localForward}", LogCat.VR);
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// The bow goes back to the holster/backpack/world with its Gothic string.
+        /// </summary>
+        private void LetGo()
         {
+            _isHeld = false;
+            enabled = false;
             Application.onBeforeRender -= OnBeforeRender;
-            if (_item == null)
-                return;
 
-            _vrWeaponService.UpdateHeroWeaponState(releasedItem: gameObject);
+            _isDrawing = false;
+            _tension = 0f;
+            ApplyBend(0f);
             DropArrow();
             if (TryGetComponent<VrInteractable>(out var interactable))
                 interactable.CanSecondHandGrabAt = null;
 
-            // The bow goes back to the holster/backpack with its Gothic string.
-            if (_meshFilter != null && _originalMesh != null)
-                _meshFilter.sharedMesh = _originalMesh;
+            _meshFilter.sharedMesh = _originalMesh;
+            _string.gameObject.SetActive(false);
+            _vrWeaponService.UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Once per bow, on the first grab: calibration from the mesh, munition, our string.
+        /// </summary>
+        private bool TrySetup()
+        {
+            if (_isSetUp || _isSetupFailed)
+                return _isSetUp;
+
+            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (_item == null || !TrySetupMesh())
+            {
+                _isSetupFailed = true;
+                Logger.LogWarning($"[VRBow] {_item?.Name ?? gameObject.name}: no item or no readable bow mesh - no bow.", LogCat.VR);
+                return false;
+            }
+
+            _munition = _vrRangedService.GetMunition(_item);
+            CreateString();
+            _isSetUp = true;
+            return true;
+        }
+
+        private void OnDestroy()
+        {
+            Application.onBeforeRender -= OnBeforeRender;
+            DropArrow();
             if (_bowMesh != null)
                 Destroy(_bowMesh);
             if (_string != null)
@@ -127,7 +181,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
-            if (_item == null)
+            if (!_isHeld)
                 return;
 
             if (!_isDrawing)
@@ -138,7 +192,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void LateUpdate()
         {
-            if (_item == null)
+            if (!_isHeld)
                 return;
 
             if (!_isDrawing)
@@ -154,7 +208,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void OnBeforeRender()
         {
-            if (_item == null || !isActiveAndEnabled)
+            if (!_isHeld || !isActiveAndEnabled)
                 return;
 
             if (!_isDrawing)

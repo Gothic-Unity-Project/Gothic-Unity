@@ -27,6 +27,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps back. A cocked
     /// crossbow shows a bolt on the stock if the hero has one - that bolt flies.
     /// Off (or a mesh without the shapes): it reloads by itself after _reloadSeconds.
+    /// The component stays on the crossbow; VRVobItem switches it with SetHeld (disabled = not held).
     /// </summary>
     public class VRCrossbow : MonoBehaviour
     {
@@ -74,62 +75,104 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _hasAmmo;
         private float _nextAmmoCheck;
 
+        private bool _isHeld;
+        private bool _isSetUp;
+        private bool _isSetupFailed;
+
 
         private void Awake()
         {
             this.Inject();
+            // Runs only while held (SetHeld).
+            enabled = false;
         }
 
-        private void Start()
+        /// <summary>
+        /// A hand took the crossbow (true) or the last hand let it go (false). A second hand changes nothing.
+        /// </summary>
+        public void SetHeld(bool isHeld)
         {
-            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
-            if (_item == null)
-            {
-                Logger.LogWarning("[VRCrossbow] ItemInstance not found on parent VobLoader", LogCat.VR);
-                enabled = false;
+            if (isHeld == _isHeld)
                 return;
+
+            if (isHeld)
+                Hold();
+            else
+                LetGo();
+        }
+
+        private void Hold()
+        {
+            if (!TrySetup())
+                return;
+
+            _isHeld = true;
+            _isPulling = false;
+            _nextAmmoCheck = 0f;
+            _isLoaded = true;
+            _reloadTimer = 0f;
+            _isManualReload = false;
+            // The cocked state lives on the item (VRCrossbowString) - a fired crossbow picked up again stays fired.
+            if (_string.IsAnimated)
+            {
+                _isLoaded = _string.IsLoaded;
+                _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload,
+                    VRConstants.CrossbowReloadDefaultValue) == 1;
             }
 
-            _munition = _vrRangedService.GetMunition(_item);
-            CalculateAxes();
-            SetupString();
-
+            enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
             Logger.Log($"[VRCrossbow] {_item.Name} readied - munition={_munition?.Name ?? "none"} " +
                        $"forward(local)={_localForward} muzzle(local)={_localMuzzle} loaded={_isLoaded} " +
                        $"manualReload={_isManualReload}", LogCat.VR);
         }
 
-        /// <summary>
-        /// The cocked state lives on the item (VRCrossbowString) - a fired crossbow picked up again stays fired.
-        /// </summary>
-        private void SetupString()
+        private void LetGo()
         {
+            _isHeld = false;
+            enabled = false;
+
+            // Let go mid-pull: the string snaps back.
+            if (_isPulling)
+                _string.SetProgress(0f);
+            _isPulling = false;
+            DestroyBolt();
+            _vrWeaponService.UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Once per crossbow, on the first grab: munition, aim axes and the string (VRCrossbowString).
+        /// </summary>
+        private bool TrySetup()
+        {
+            if (_isSetUp || _isSetupFailed)
+                return _isSetUp;
+
+            _item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (_item == null)
+            {
+                _isSetupFailed = true;
+                Logger.LogWarning("[VRCrossbow] ItemInstance not found on parent VobLoader", LogCat.VR);
+                return false;
+            }
+
+            _munition = _vrRangedService.GetMunition(_item);
+            CalculateAxes();
             if (!TryGetComponent(out _string))
                 _string = gameObject.AddComponent<VRCrossbowString>();
             _string.Init(_item.Visual);
-            if (!_string.IsAnimated)
-                return;
-
-            _isLoaded = _string.IsLoaded;
-            _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload,
-                VRConstants.CrossbowReloadDefaultValue) == 1;
+            _isSetUp = true;
+            return true;
         }
 
         private void OnDestroy()
         {
-            if (_item != null)
-                _vrWeaponService.UpdateHeroWeaponState(releasedItem: gameObject);
-
-            // Let go mid-pull: the string snaps back.
-            if (_isPulling && _string != null)
-                _string.SetProgress(0f);
             DestroyBolt();
         }
 
         private void Update()
         {
-            if (_item == null)
+            if (!_isHeld)
                 return;
 
             if (!_isLoaded)
