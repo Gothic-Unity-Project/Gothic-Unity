@@ -784,7 +784,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var reach = GetWeaponReach() + 0.3f;
             if (toTarget.magnitude > reach)
             {
-                Logger.Log($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)} miss — target out of reach ({toTarget.magnitude:F2}m > {reach:F2}m)", LogCat.Fight);
+                Logger.LogEditor($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)} miss — target out of " +
+                    $"reach ({toTarget.magnitude:F2}m > {reach:F2}m)", LogCat.Fight);
                 return;
             }
 
@@ -792,11 +793,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             var angle = Vector3.Angle(NpcGo.transform.forward, toTarget.normalized);
             if (angle > 60f)
             {
-                Logger.Log($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)} miss — target outside arc ({angle:F0}°)", LogCat.Fight);
+                Logger.LogEditor($"[AttackPlayAni] {NpcInstance.GetName(NpcNameSlot.Slot0)} miss — target outside " +
+                    $"arc ({angle:F0}°)", LogCat.Fight);
                 return;
             }
 
-            Logger.LogWarning($"[AttackPlayAni] HIT: {NpcInstance.GetName(NpcNameSlot.Slot0)} → {target.Instance.GetName(NpcNameSlot.Slot0)} dist={toTarget.magnitude:F2}m angle={angle:F0}°", LogCat.Fight);
+            Logger.LogEditor($"[AttackPlayAni] HIT: {NpcInstance.GetName(NpcNameSlot.Slot0)} → " +
+                $"{target.Instance.GetName(NpcNameSlot.Slot0)} dist={toTarget.magnitude:F2}m angle={angle:F0}°",
+                LogCat.Fight);
 
             // The web crawler bites its frozen/close target instead.
             if (weaponState == VmGothicEnums.WeaponState.Mage && !NpcContainer.IsSpellMonsterInMelee)
