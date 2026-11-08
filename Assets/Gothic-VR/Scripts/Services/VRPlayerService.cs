@@ -18,7 +18,6 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models;
 using Reflex.Attributes;
-using Gothic.VR.Interaction.Ports;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
 using UnityEngine;
