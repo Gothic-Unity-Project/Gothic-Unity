@@ -203,7 +203,7 @@ namespace Gothic.VR.Services.Context
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
-            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRContextHeroBlockService).
+            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
             var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
             heroBlock.transform.SetParent(_player.transform, false);
 

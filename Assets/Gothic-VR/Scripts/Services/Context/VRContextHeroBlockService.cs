@@ -2,13 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
-using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.VR.Domain.Player;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -20,7 +18,7 @@ namespace Gothic.VR.Services.Context
     /// Immersion option heroBlock (Gothic.ini, on by default): the hero blocks while the hero's props say so
     /// (IsBlocking, BlockWeaponMaterial - set by the VR block). Only a hit that touched the held weapon is blocked - a
     /// block held above the NPC's head blocked his hit too. The hit can reach the body first: it waits a moment for the
-    /// touch. The VR block itself (the hero's props, the weapon contacts) is VrHeroBlockDomain, ticked by VRHeroBlock.
+    /// touch. The VR block itself (the hero's props, the weapon contacts) is VRHeroBlockService (player scope).
     /// </summary>
     public class VRContextHeroBlockService : IContextHeroBlockService
     {
@@ -33,21 +31,10 @@ namespace Gothic.VR.Services.Context
         private bool _isBlockDecided;
         // Gothic.ini heroBlock, read on first use and again when the menu changes it.
         private bool? _isOptionOn;
-        // Created on the first tick: its VR services live in the player scene, which loads after this service.
-        private VrHeroBlockDomain _blockDomain;
 
         public VRContextHeroBlockService()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
-        }
-
-        /// <summary>
-        /// Every frame (VRHeroBlock): the hero's block props and the NPC weapons touching the held one.
-        /// </summary>
-        public void Tick()
-        {
-            _blockDomain ??= new VrHeroBlockDomain().Inject();
-            _blockDomain.Tick();
         }
 
         public bool IsBlocking(NpcContainer hero)

@@ -22,7 +22,7 @@ using Melee = Gothic.VR.VRConstants.Melee;
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
-    /// Gothic's parry in VR (option heroBlock), owned by VRContextHeroBlockService. Its animation holds the weapon with
+    /// Gothic's parry in VR (option heroBlock), owned by VRHeroBlockService. Its animation holds the weapon with
     /// both hands (one hand at the grip, one at the blade) for one- and two-handed weapons alike - so: both hands on
     /// the same melee weapon and both triggers held. While it lasts the hero's props say so (IsBlocking, the weapon's
     /// material, the head's direction) and the NPC weapons touching the held one are reported to FightService.
