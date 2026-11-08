@@ -301,7 +301,7 @@ namespace Gothic.VR.Adapters.Vob
                 return;
             _isRangedWeaponChecked = true;
 
-            var state = _vrRangedService.GetRangedState(item);
+            var state = item.GetRangedWeaponState();
             if (state == VmGothicEnums.WeaponState.CBow)
                 _crossbow = gameObject.AddComponent<VobItem.VRCrossbow>();
             else if (state == VmGothicEnums.WeaponState.Bow)

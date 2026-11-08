@@ -25,15 +25,46 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
-        /// Bows and crossbows (ITEM_KAT_FF, ITEM_CROSSBOW) get colliders fitted to their parts, everything else
-        /// (arrows and bolts too) its pre-cached ones.
+        /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
+        /// </summary>
+        public static bool IsRangedWeapon(this ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatFf) != 0;
+        }
+
+        /// <summary>
+        /// A crossbow (ITEM_CROSSBOW) - a ranged weapon that isn't one is a bow.
+        /// </summary>
+        public static bool IsCrossbow(this ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.Flags & ItemFlags.ItemCrossbow) != 0;
+        }
+
+        /// <summary>
+        /// Bow (ITEM_KAT_FF without ITEM_CROSSBOW), CBow (ITEM_CROSSBOW) or NoWeapon (no ranged weapon). The one
+        /// place that tells which items are bows and crossbows: NPCs drawing them (AiDrawWeapon), their colliders
+        /// (GetColliderKind) and the VR hero's ranged components and weapon state.
+        /// </summary>
+        public static WeaponState GetRangedWeaponState(this ItemInstance item)
+        {
+            if (!item.IsRangedWeapon())
+                return WeaponState.NoWeapon;
+
+            return item.IsCrossbow() ? WeaponState.CBow : WeaponState.Bow;
+        }
+
+        /// <summary>
+        /// Bows and crossbows get colliders fitted to their parts, everything else (arrows and bolts too) its
+        /// pre-cached ones.
         /// </summary>
         public static ItemColliderKind GetColliderKind(this ItemInstance item)
         {
-            if (!item.IsRangedWeapon())
-                return ItemColliderKind.Default;
-
-            return item.IsCrossbow() ? ItemColliderKind.Crossbow : ItemColliderKind.Bow;
+            return item.GetRangedWeaponState() switch
+            {
+                WeaponState.Bow => ItemColliderKind.Bow,
+                WeaponState.CBow => ItemColliderKind.Crossbow,
+                _ => ItemColliderKind.Default
+            };
         }
 
         public static bool IsArmor(this ItemInstance item)

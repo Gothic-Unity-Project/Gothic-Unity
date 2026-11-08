@@ -9,7 +9,7 @@ Why it's built this way: Docs/adr/2026-11-02-vr-ranged.md. The melee side is in 
 
 | Class | Owns |
 |---|---|
-| `VRRangedService` (VR, player scope) | the ranged rules of the hero in VR: which item is a bow or crossbow (`GetRangedState`), who shoots a crossbow one-handed (`IsOneHandedCrossbow`), access to munition and shots |
+| `VRRangedService` (VR, player scope) | the ranged rules of the hero in VR: who shoots a crossbow one-handed (`IsOneHandedCrossbow`), access to munition and shots |
 | `ProjectileService` (Core) | munition of a weapon (1 item per shot), the flying arrow/bolt, what happens when it lands (`RangedHit`, or it lies in the world) |
 | `FightService` / `RangedHitDomain` (Core) | the damage of a hit, the weapon requirement (`CheckHeroWeaponRequirement`) |
 | `VRVobItem` (VR adapter) | adds `VRBow`/`VRCrossbow` on the first grab of a ranged item, switches them with `SetHeld` while any hand holds it |
@@ -25,7 +25,7 @@ pre-caching (`VobItemFittedColliderCacheCreatorDomain`), like melee weapons.
 
 ## Data flow of one shot
 
-1. A hand grabs a bow. `VRVobItem` asks `VRRangedService.GetRangedState`, adds `VRBow` once and calls `SetHeld(true)`.
+1. A hand grabs a bow. `VRVobItem` asks `ItemInstanceExtension.GetRangedWeaponState`, adds `VRBow` once and calls `SetHeld(true)`.
    The first time, `VrBowMeshCalibration` reads the mesh; the bow shows the copy without the Gothic string and ours.
 2. `VRWeaponService.UpdateHeroWeaponState` reports Bow (CBow) to the NPCs (`PERC_DRAWWEAPON` and friends).
 3. The free hand's grip at the string starts the draw; an arrow is nocked if the hero has one. The limbs bend with
@@ -42,7 +42,7 @@ crossbow is cocked again. With "Crossbow" off it reloads by itself after 1.5 s.
 
 | You want to ... | Go to |
 |---|---|
-| change which items are bows/crossbows | `VRRangedService.GetRangedState` (item flags `ITEM_KAT_FF`, `ITEM_CROSSBOW`) |
+| change which items are bows/crossbows | `ItemInstanceExtension.GetRangedWeaponState` (Core, item flags `ITEM_KAT_FF`, `ITEM_CROSSBOW`; NPCs, colliders and the VR hero use it) |
 | change drawing, the arrow, the bow's shot | `VRBow` |
 | change how a bow mesh is read (tips, grip, Gothic string) | `VrBowMeshCalibration` |
 | change crossbow shot or reload | `VRCrossbow`, its shape in `VRCrossbowString` |

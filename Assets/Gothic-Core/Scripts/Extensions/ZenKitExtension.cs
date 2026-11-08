@@ -19,24 +19,6 @@ namespace Gothic.Core.Extensions
     public static class ZenKitExtension
     {
         /// <summary>
-        /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
-        /// </summary>
-        public static bool IsRangedWeapon(this ItemInstance item)
-        {
-            return item != null &&
-                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatFf) != 0;
-        }
-
-        /// <summary>
-        /// A crossbow (ITEM_CROSSBOW) - a ranged weapon that isn't one is a bow.
-        /// </summary>
-        public static bool IsCrossbow(this ItemInstance item)
-        {
-            return item != null &&
-                   ((VmGothicEnums.ItemFlags)item.Flags & VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
-        }
-
-        /// <summary>
         /// The item's instance symbol (e.g. ITMW_1H_SWORD) - a world item's vob name isn't always its symbol (mods, items
         /// placed in the world file). Inventory calls (CreateInvItems, Npc_RemoveInvItems) need the symbol.
         /// </summary>

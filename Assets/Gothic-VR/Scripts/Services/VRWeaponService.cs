@@ -41,7 +41,6 @@ namespace Gothic.VR.Services
         [Inject] private ConfigService _configService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
         [Inject] private VRPlayerService _vrPlayerService;
-        [Inject] private VRRangedService _vrRangedService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -191,7 +190,7 @@ namespace Gothic.VR.Services
                 return VmGothicEnums.WeaponState.NoWeapon;
 
             var item = heldItem.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
-            return _vrRangedService.GetRangedState(item);
+            return item.GetRangedWeaponState();
         }
 
         /// <summary>

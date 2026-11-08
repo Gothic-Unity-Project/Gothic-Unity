@@ -10,25 +10,14 @@ using ZenKit.Daedalus;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// The hero's ranged weapons in VR: which held item is a bow or a crossbow (VRVobItem, VRWeaponService), who may
-    /// shoot a crossbow with one hand, and VRBow and VRCrossbow's access to arrows/bolts. The projectile logic (ammo,
+    /// The hero's ranged weapons in VR: who may shoot a crossbow with one hand, and VRBow and VRCrossbow's access to
+    /// arrows/bolts. Which item is a bow or a crossbow is Core's ItemInstanceExtension.GetRangedWeaponState. The projectile logic (ammo,
     /// flying projectiles, what happens when they land) is shared with NPC archers in ProjectileService.
     /// </summary>
     public class VRRangedService
     {
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-
-        /// <summary>
-        /// Bow (ITEM_KAT_FF without ITEM_CROSSBOW), CBow (ITEM_CROSSBOW) or NoWeapon (no ranged weapon). The one
-        /// place that tells which ranged component (VRBow/VRCrossbow) an item gets and how the hero counts as armed.
-        /// </summary>
-        public VmGothicEnums.WeaponState GetRangedState(ItemInstance item)
-        {
-            if (!item.IsRangedWeapon())
-                return VmGothicEnums.WeaponState.NoWeapon;
-            return item.IsCrossbow() ? VmGothicEnums.WeaponState.CBow : VmGothicEnums.WeaponState.Bow;
-        }
 
         /// <summary>
         /// Only a trained crossbowman shoots with one hand (sword in the other).

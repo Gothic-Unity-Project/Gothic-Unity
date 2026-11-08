@@ -162,12 +162,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (weapon == null)
                 return VmGothicEnums.WeaponState.Fist;
 
-            var flags = (VmGothicEnums.ItemFlags)weapon.Flags;
-
+            // GetEquippedWeapon() only returns an ITEM_KAT_FF item for a ranged draw, so this is Bow or CBow.
             if (_isRangedRequested)
-                return flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow)
-                    ? VmGothicEnums.WeaponState.CBow
-                    : VmGothicEnums.WeaponState.Bow;
+                return weapon.GetRangedWeaponState();
+
+            var flags = (VmGothicEnums.ItemFlags)weapon.Flags;
 
             return flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) || flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd)
                 ? VmGothicEnums.WeaponState.W2H
