@@ -30,7 +30,7 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
 
-        // NavMesh steering while running (DeveloperConfig.EnableNpcNavMesh), recalculated a few times per second.
+        // NavMesh steering while running, recalculated a few times per second.
         private const float _pathUpdateInterval = 0.2f;
         private const float _unreachableStopDistance = 0.6f;
         private const float _targetAboveHeight = 0.5f;

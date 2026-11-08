@@ -31,7 +31,6 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly ParticleService _particleService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly INpcJumpFallFactory _npcJumpFallFactory;
         [Inject] private readonly AudioService _audioService;
@@ -120,10 +119,9 @@ namespace Gothic.Core.Domain.Npc
         {
             var mfxName = GetSpellMfxName(caster.ActiveSpell);
 
-            // DeveloperConfig.EnableVrChainLightning: chain lightning zaps its victims one by one (VRChainLightning, the
-            // scripts' ZS_Zapped does the damage) - not everyone around the caster at once.
-            var isChainLightning = _configService.Dev.EnableVrChainLightning &&
-                                   string.Equals(mfxName, _chainLightningName, StringComparison.OrdinalIgnoreCase);
+            // Chain lightning is script driven like in G1 (ZS_Zapped does the damage, PERC_ASSESSSTOPMAGIC frees the
+            // victims, the engine picks them one by one) - not everyone around the caster at once.
+            var isChainLightning = string.Equals(mfxName, _chainLightningName, StringComparison.OrdinalIgnoreCase);
             if (mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName) && !isChainLightning)
             {
                 ApplyAreaHit(caster, mfxName, damage);

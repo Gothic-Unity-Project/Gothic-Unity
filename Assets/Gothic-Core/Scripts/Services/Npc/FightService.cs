@@ -173,8 +173,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinKill: Marvin's "kill" - like a fall, the NPC is its own killer (ZS_Dead runs, the
-        /// hero gets no experience).
+        /// Marvin's "kill" - like a fall, the NPC is its own killer (ZS_Dead runs, the hero gets no experience).
         /// </summary>
         private void OnCheatKill(NpcContainer npc)
         {
@@ -230,7 +229,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrChainLightning: a zapped victim (ZS_Zapped: B_MagicHurtNpc every second) out of hit
+        /// Chain lightning: a zapped victim (ZS_Zapped: B_MagicHurtNpc every second) out of hit
         /// points dies like the engine's (OpenGothic: script damage kills, only melee knocks out).
         /// </summary>
         public void OnScriptDamageDepleted(NpcContainer victim, NpcContainer attacker)
@@ -244,8 +243,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrChainLightning: the chain lightning found nobody else and zaps the hero himself
-        /// (magic damage, his protection counts) - down at 0 like any hit.
+        /// The chain lightning found nobody else and zaps the hero himself (magic damage, his protection counts) -
+        /// down at 0 like any hit. This follows the script comment "Abbruchlogik selber Treffen" in
+        /// Spell_ChainLightning.d and is unverified against the engine.
         /// </summary>
         public void ApplySelfSpellDamage(NpcContainer hero, int damage)
         {
@@ -293,13 +293,7 @@ namespace Gothic.Core.Services.Npc
             if (isHero)
                 _damagePerceptionDomain.AlertPartyMembersToDefendHero(attacker);
 
-            // DeveloperConfig.EnableDefeatedNpcFightsBack: a human the hero beat before is a coward towards him
-            // (AIV_WASDEFEATEDBYSC: ZS_AssessEnemy -> ZS_ProclaimAndPunish -> ZS_TurnAway, "I didn't see anything") - fine
-            // as a witness, but attacked himself he drew, put away and looked away over and over (his temporary
-            // HOSTILE attitude restarts ZS_AssessEnemy through PERC_ASSESSENEMY). Hit by the hero, he fights back.
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
-            // Not by resetting AIV_WASDEFEATEDBYSC: every knockout paid XP again and quests reading it changed (review
-            // of PR #474). The coward fighting back needs a C# side flag - open.
 
             if (IsHitBlocked(attacker, target, position, isHero, isHeroAttacker, damageOverride))
                 return;

@@ -54,9 +54,7 @@ features of the port on or off - check them before you assume a behaviour comes 
 
 | Flag | Where |
 |---|---|
-| `EnableVrChainLightning` | `SpellHitDomain` |
 | `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |
-| `EnableNpcNavMesh` | `NpcNavMeshService` (used by `NpcChaseMovement`) |
 | `EnableCombatSystem` | `FightService.Init` (no hit listeners without it) |
 
 ## Where does my change go?

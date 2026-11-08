@@ -25,7 +25,6 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ContextMeleeDamageRuleService _meleeDamageRule;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PlayerService _playerService;
 
         private int? _minimalDamage;
@@ -68,15 +67,6 @@ namespace Gothic.Core.Domain.Npc
             if (_isRequirementCapped && !isImmune)
                 damage = 1;
             _isRequirementCapped = false;
-
-            // Dev cheats: hero one-hit kill / knockout.
-            if (attacker.Instance.IsHero(_gameStateService.GothicVm))
-            {
-                if (_configService.Dev.EnableOneHitKill)
-                    damage = maxHP;
-                else if (_configService.Dev.EnableOneHitKnockout)
-                    damage = Mathf.Max(0, hitPoints - 1);
-            }
 
             var isTargetHero = target.Instance.IsHero(_gameStateService.GothicVm);
             // NPC_FLAG_IMMORTAL: take no damage, but combat still plays out normally. Marvin's god mode for the hero
