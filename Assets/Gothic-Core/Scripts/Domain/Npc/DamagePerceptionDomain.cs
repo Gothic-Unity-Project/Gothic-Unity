@@ -333,13 +333,13 @@ namespace Gothic.Core.Domain.Npc
                 return true;
             }
 
-            if (candidate.Instance.Guild >= 16 && candidate.Instance.Guild < 37)
+            if (_gameStateService.IsMonsterGuild(candidate.Instance.Guild))
             {
                 // Monsters in routine states don't register the perception — call directly.
                 // Humans must NOT use B_MM_ReactToOthersDamage (monster AI) — their
                 // active PERC_ASSESSENEMY tick will pick up the fight naturally.
                 _npcAiService.CallVmFunctionWithNpcGlobals(
-                    "B_MM_REACTTOOTHERSDAMAGE",
+                    DaedalusConst.BMmReactToOthersDamage,
                     candidate.Instance,
                     victim: target.Instance,
                     other: attacker.Instance);

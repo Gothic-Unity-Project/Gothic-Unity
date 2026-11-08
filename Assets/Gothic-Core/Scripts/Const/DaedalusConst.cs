@@ -52,6 +52,7 @@ namespace Gothic.Core.Const
         public const string ZsMmAttack = "ZS_MM_ATTACK";
         public const string ZsAssessFighter = "ZS_AssessFighter";
         public const string CNpcIsGuard = "C_NpcIsGuard";
+        public const string BMmReactToOthersDamage = "B_MM_REACTTOOTHERSDAMAGE";
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";
 
