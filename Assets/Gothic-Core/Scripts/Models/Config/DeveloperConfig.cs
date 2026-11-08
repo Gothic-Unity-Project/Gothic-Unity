@@ -324,12 +324,6 @@ namespace Gothic.Core.Models.Config
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;
 
-        [Tooltip("Blocking in VR like Gothic's parry: both hands on a melee weapon (one- or two-handed) and both " +
-                 "triggers held. Hits of humans (fists too) and of monsters with a drawn weapon (orcs, skeletons) from " +
-                 "the front (45 degrees around the head's direction) do no damage, the weapons clash. Animals, spells, " +
-                 "projectiles and hits from the side or back go through; while blocking the hero's own hits don't count.")]
-        public bool EnableVrHeroBlock = true;
-
 
         /**
          * ##########

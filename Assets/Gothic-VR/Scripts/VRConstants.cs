@@ -24,6 +24,9 @@ namespace Gothic.VR
 
             // 1 = the hero's own fists are the VR hands (with the VR hero body, default), 0 = the VR hand models.
             public const string HeroHands = "heroHands";
+            // 1 = both hands on a melee weapon and both triggers held parry like Gothic (VRContextHeroBlockService),
+            // 0 = no blocking.
+            public const string HeroBlock = "heroBlock";
             // 1 = knocked out / dead, the camera goes down with the VR hero body (default), 0 = the view fades out and
             // comes back at ground level (VrKnockoutView) - a comfort choice.
             public const string HeroFallCamera = "heroFallCamera";
@@ -82,6 +85,8 @@ namespace Gothic.VR
         public const int PhysicalHandsDefaultValue = 1;
 
         public const int HeroHandsDefaultValue = 1;
+
+        public const int HeroBlockDefaultValue = 1;
 
         public const int HeroFallCameraDefaultValue = 1;
 

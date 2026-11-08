@@ -65,7 +65,7 @@ namespace Gothic.Core.Adapters.Properties
         public int MeleeSwingMaterial = -1;
         // The weapon of the hero's VR hit (set only during the FightHit event).
         public ItemInstance MeleeHitWeapon;
-        // DeveloperConfig.EnableVrHeroBlock: the hero parries (VR: both hands on a melee weapon, both triggers held) -
+        // The hero parries (VR: both hands on a melee weapon, both triggers held) -
         // the held weapon's material and the direction he faces (head) while he does.
         public bool IsBlocking;
         public int BlockWeaponMaterial = -1;

@@ -59,7 +59,7 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrHeroBlock: a parry is its own state like the engine's - no hits while blocking.
+        /// A parry is its own state like the engine's - no hits while blocking.
         /// </summary>
         public bool IsHeroBlocking(NpcContainer hero)
         {
@@ -67,7 +67,7 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrHeroBlock: the blocking hero takes no damage from a human's hit (fists too) or a
+        /// The blocking hero takes no damage from a human's hit (fists too) or a
         /// monster's with a drawn weapon (orcs, skeletons). Animals, spells and projectiles always hit (they don't come
         /// this way). The platform decides whether the weapons touched - maybe a moment later; a hit that missed the
         /// block lands then through onMissed.
@@ -146,7 +146,7 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// The blocking hero's held weapon isn't equipped either (DeveloperConfig.EnableVrHeroBlock).
+        /// The blocking hero's held weapon isn't equipped either.
         /// </summary>
         private int GetDefenderMaterial(NpcContainer target)
         {

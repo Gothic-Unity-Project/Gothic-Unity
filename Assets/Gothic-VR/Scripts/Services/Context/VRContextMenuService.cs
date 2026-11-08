@@ -122,6 +122,10 @@ namespace Gothic.VR.Services.Context
                         "A loot backpack shows an X that takes everything"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
                         VRConstants.LootTakeAllDefaultValue)),
+                (CreateToggleLabel(gameMenu, "HERO_BLOCK", "Blocking",
+                        "Both hands on a melee weapon, both triggers held: parry"),
+                    CreateToggleChoice(gameMenu, "HERO_BLOCK", VRConstants.IniNames.HeroBlock,
+                        VRConstants.HeroBlockDefaultValue)),
                 // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
                 (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
                     CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,

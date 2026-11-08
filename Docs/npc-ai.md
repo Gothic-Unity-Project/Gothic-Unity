@@ -43,7 +43,8 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 
 Platform and game version ports (in `Services/Context/`, registered in the modules' `*ContextBootstrap`):
 
-- `IContextHeroBlockService`: does the hero block now? `Gothic-VR/.../VRContextHeroBlockService`, Flat has its own.
+- `IContextHeroBlockService`: does the hero block now? `Gothic-VR/.../VRContextHeroBlockService` (player option
+  `heroBlock` in Gothic.ini [GOTHIC_VR_IMMERSION]), Flat has its own.
 - `IContextRangedCombatService`: ranged damage, hit chance and the bow's reference range (also its weapon range). `Gothic1/.../G1RangedCombatService`, `Gothic2/...`.
 - `IMeleeDamageRule`: G1 critical hit vs G2 hit chance. `G1MeleeDamageRule`, `G2MeleeDamageRule`.
 
@@ -55,7 +56,6 @@ features of the port on or off - check them before you assume a behaviour comes 
 
 | Flag | Where |
 |---|---|
-| `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |
 | `EnableCombatSystem` | `FightService.Init` (no hit listeners without it) |
 
 ## Where does my change go?

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -15,9 +16,10 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Services.Context
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrHeroBlock: the hero blocks while the hero's props say so (IsBlocking,
-    /// BlockWeaponMaterial - set by the VR block). Only a hit that touched the held weapon is blocked - a block held
-    /// above the NPC's head blocked his hit too. The hit can reach the body first: it waits a moment for the touch.
+    /// Immersion option heroBlock (Gothic.ini, on by default): the hero blocks while the hero's props say so
+    /// (IsBlocking, BlockWeaponMaterial - set by the VR block). Only a hit that touched the held weapon is blocked - a
+    /// block held above the NPC's head blocked his hit too. The hit can reach the body first: it waits a moment for the
+    /// touch.
     /// </summary>
     public class VRContextHeroBlockService : IContextHeroBlockService
     {
@@ -28,10 +30,25 @@ namespace Gothic.VR.Services.Context
         private readonly Dictionary<NpcContainer, float> _blockContacts = new();
         // A deferred hit resolved without a block lands again - without asking for a block twice.
         private bool _isBlockDecided;
+        // Gothic.ini heroBlock, read on first use and again when the menu changes it.
+        private bool? _isOptionOn;
+
+        public VRContextHeroBlockService()
+        {
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
 
         public bool IsBlocking(NpcContainer hero)
         {
-            return _configService.Dev.EnableVrHeroBlock && hero.Props.IsBlocking;
+            _isOptionOn ??= _configService.Gothic.GetInt(VRConstants.IniNames.HeroBlock,
+                VRConstants.HeroBlockDefaultValue) == 1;
+            return _isOptionOn.Value && hero.Props.IsBlocking;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.HeroBlock)
+                _isOptionOn = null;
         }
 
         public int GetBlockWeaponMaterial(NpcContainer hero)

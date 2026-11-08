@@ -4,7 +4,7 @@ using Gothic.Core.Models.Container;
 namespace Gothic.Core.Services.Context
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrHeroBlock: the hero's parry. The platform knows whether he holds a block and which NPC
+    /// The hero's parry. The platform knows whether he holds a block and which NPC
     /// weapons touched it (VR: both hands on a melee weapon, both triggers held). Core (HeroBlockDomain) asks and keeps
     /// the Gothic rules: which attackers can be blocked, the weapon clash, HeroBlockedHit.
     /// </summary>

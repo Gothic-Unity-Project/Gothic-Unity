@@ -401,7 +401,7 @@ namespace Gothic.Core.Services.Npc
             if (!isHero && isHeroAttacker && _heroBlockDomain.TryBlockNpcHit(attacker, target))
                 return true;
 
-            // DeveloperConfig.EnableVrHeroBlock: a parry is its own state like the engine's - no hits while blocking.
+            // A parry is its own state like the engine's - no hits while blocking.
             if (isHeroAttacker && damageOverride == null && _heroBlockDomain.IsHeroBlocking(attacker))
             {
                 Logger.Log($"[FightService] The hero blocks - his hit on {target.Instance.GetName(NpcNameSlot.Slot0)} " +
@@ -409,7 +409,7 @@ namespace Gothic.Core.Services.Npc
                 return true;
             }
 
-            // DeveloperConfig.EnableVrHeroBlock: an NPC's melee hit (no damage override: not a spell or projectile).
+            // The hero's parry: an NPC's melee hit (no damage override: not a spell or projectile).
             // A hit that missed the block lands a moment later.
             return isHero && damageOverride == null &&
                    _heroBlockDomain.TryBlockHeroHit(attacker, target, () => OnHit(attacker, target, position, null));
