@@ -15,6 +15,11 @@ namespace Gothic.Core.Services.Context
             _impl = impl;
         }
 
+        public T GetImpl<T>() where T : IContextHeroBlockService
+        {
+            return (T)_impl;
+        }
+
         public bool IsBlocking(NpcContainer hero)
         {
             return _impl.IsBlocking(hero);
