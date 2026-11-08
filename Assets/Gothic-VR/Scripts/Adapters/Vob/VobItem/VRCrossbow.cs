@@ -114,6 +114,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _isManualReload = _configService.Gothic.GetInt(VRConstants.IniNames.CrossbowReload,
                     VRConstants.CrossbowReloadDefaultValue) == 1;
             }
+            // Automatic reload: a crossbow picked up fired takes the whole reload time, like right after a shot.
+            if (!_isLoaded)
+                _reloadTimer = _reloadSeconds;
 
             enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
