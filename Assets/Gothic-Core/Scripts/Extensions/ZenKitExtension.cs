@@ -24,8 +24,7 @@ namespace Gothic.Core.Extensions
         public static bool IsRangedWeapon(this ItemInstance item)
         {
             return item != null &&
-                   ((Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags)item.MainFlag &
-                    Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags.ItemKatFf) != 0;
+                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatFf) != 0;
         }
 
         /// <summary>
@@ -34,8 +33,7 @@ namespace Gothic.Core.Extensions
         public static bool IsCrossbow(this ItemInstance item)
         {
             return item != null &&
-                   ((Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags)item.Flags &
-                    Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
+                   ((VmGothicEnums.ItemFlags)item.Flags & VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
         }
 
         /// <summary>

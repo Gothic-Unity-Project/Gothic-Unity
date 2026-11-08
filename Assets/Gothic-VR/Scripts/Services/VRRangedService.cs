@@ -21,8 +21,6 @@ namespace Gothic.VR.Services
         private const int _masterSkill = 2;
         private const int _oneHandPercent = 60;
 
-        public const float ProjectileSpeed = ProjectileService.ProjectileSpeed;
-
         /// <summary>
         /// Bow (ITEM_KAT_FF without ITEM_CROSSBOW), CBow (ITEM_CROSSBOW) or NoWeapon (no ranged weapon). The one
         /// place that tells which ranged component (VRBow/VRCrossbow) an item gets and how the hero counts as armed.
@@ -67,10 +65,5 @@ namespace Gothic.VR.Services
         public void Shoot(NpcContainer shooter, ItemInstance weapon, ItemInstance munition, Vector3 position,
             Vector3 direction, float speed, float damageScale, GameObject visual = null) =>
             _projectileService.Shoot(shooter, weapon, munition, position, direction, speed, damageScale, visual);
-
-        public static Vector3 GetLongAxis(GameObject root, bool towardsWiderEnd, bool isAsymmetryAxis = false) =>
-            ProjectileService.GetLongAxis(root, towardsWiderEnd, isAsymmetryAxis);
-
-        public static Bounds GetLocalBounds(GameObject root) => ProjectileService.GetLocalBounds(root);
     }
 }

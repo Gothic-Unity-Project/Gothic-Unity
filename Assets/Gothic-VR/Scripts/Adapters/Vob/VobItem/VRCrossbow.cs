@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
@@ -39,7 +38,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VRRangedService _vrRangedService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+        [Inject] private readonly FightService _fightService;
 
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
         private const float _reloadSeconds = 1.5f;
@@ -54,9 +53,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _lockProgress = 0.97f;
         private const float _hapticStep = 0.1f;
         private const float _ammoCheckSeconds = 0.5f;
-
-        // Local forward axis (towards the prod) per mesh - computed once from the vertices.
-        private static readonly Dictionary<string, Vector3> _forwardAxisCache = new();
 
         private ItemInstance _item;
         private ItemInstance _munition;
@@ -78,7 +74,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _isHeld;
         private bool _isSetUp;
         private bool _isSetupFailed;
-
 
         private void Awake()
         {
@@ -268,7 +263,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var origin = _bolt != null ? _bolt.transform.position : transform.TransformPoint(_localMuzzle);
             var bolt = _bolt;
             _bolt = null;
-            _vrRangedService.Shoot(hero, _item, _munition, origin, forward, VRRangedService.ProjectileSpeed, 1f, bolt);
+            _vrRangedService.Shoot(hero, _item, _munition, origin, forward, ProjectileService.ProjectileSpeed, 1f, bolt);
 
             _isLoaded = false;
             _reloadTimer = _reloadSeconds;
@@ -377,7 +372,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _bolt = _vrRangedService.CreateAmmoVisual(_munition, transform);
             var mesh = _bolt.transform.GetChild(0);
-            var bounds = VRRangedService.GetLocalBounds(_bolt);
+            var bounds = ProjectileService.GetLocalBounds(_bolt);
             mesh.localPosition -= new Vector3(0f, 0f, bounds.min.z);
             _bolt.transform.localScale = Vector3.one / Mathf.Max(transform.lossyScale.x, 0.0001f);
             _bolt.transform.SetLocalPositionAndRotation(_string.CockedNockLocal,
@@ -392,18 +387,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// Forward = the barrel axis, pointing to the wider end (prod/arms). Muzzle = that end.
+        /// Forward = the barrel axis, pointing to the wider end (prod/arms). Muzzle = that end. Once per crossbow
+        /// (TrySetup).
         /// </summary>
         private void CalculateAxes()
         {
-            var key = _item.Visual ?? string.Empty;
-            if (!_forwardAxisCache.TryGetValue(key, out _localForward))
-            {
-                _localForward = VRRangedService.GetLongAxis(gameObject, towardsWiderEnd: true, isAsymmetryAxis: true);
-                _forwardAxisCache[key] = _localForward;
-            }
+            _localForward = ProjectileService.GetLongAxis(gameObject, towardsWiderEnd: true, isAsymmetryAxis: true);
 
-            var bounds = VRRangedService.GetLocalBounds(gameObject);
+            var bounds = ProjectileService.GetLocalBounds(gameObject);
             var halfLength = Vector3.Scale(bounds.extents, _localForward).magnitude;
             _localMuzzle = bounds.center + _localForward * halfLength;
         }

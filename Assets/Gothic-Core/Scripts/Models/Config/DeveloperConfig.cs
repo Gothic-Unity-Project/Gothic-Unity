@@ -7,7 +7,6 @@ using ZenKit;
 using ZenKit.Vobs;
 using static Gothic.Core.Models.Config.DeveloperConfigEnums;
 
-
 namespace Gothic.Core.Models.Config
 {
     [CreateAssetMenu(fileName = "NewDeveloperConfiguration", menuName = "Gothic/ScriptableObjects/DeveloperConfiguration", order = 1)]
@@ -160,7 +159,6 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(fieldToCheck: nameof(EnableVOBMeshCulling), compareValues: true)]
         public MeshCullingGroup LargeVOBMeshCullingGroup = new() { MaximumObjectSize = 100, CullingDistance = 200 };
 
-
         [Separator("Immersion")]
         [OverrideLabel("Brighten Up Hovered VOBs")]
         public bool BrightenUpHoveredVOBs = true;
@@ -294,7 +292,6 @@ namespace Gothic.Core.Models.Config
         public bool EnableHeroHands = true;
 
 
-
         /**
          * ##########
          * Backpack and Items
@@ -307,7 +304,6 @@ namespace Gothic.Core.Models.Config
                  "(the sockets stand where the backpack lies: the hand takes their items, not the backpack). Gone when " +
                  "the loot closes.")]
         public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
-
 
 
         /**

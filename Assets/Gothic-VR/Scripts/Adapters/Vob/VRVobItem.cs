@@ -63,7 +63,6 @@ namespace Gothic.VR.Adapters.Vob
         private VobItem.VRCrossbow _crossbow;
         private bool _isRangedWeaponChecked;
 
-
         private struct OverlapCheckData
         {
             public Axis MaxAxis; // Used for P0 and P1 calculation
@@ -275,7 +274,6 @@ namespace Gothic.VR.Adapters.Vob
                 _interactable.ForceRelease();
             _vobService.RemoveWorldItem(container);
         }
-
 
         /// <summary>
         /// Ranged weapons shoot while a hand holds them (VRBow, VRCrossbow). The component is added on the first grab

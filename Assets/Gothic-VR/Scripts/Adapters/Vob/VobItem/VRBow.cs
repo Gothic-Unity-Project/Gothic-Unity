@@ -44,7 +44,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VRRangedService _vrRangedService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
-        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+        [Inject] private readonly FightService _fightService;
 
         private const string _shootSfx = "BowShoot";
         private const string _drawSfx = "BowReload";
@@ -84,7 +84,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _isHeld;
         private bool _isSetUp;
         private bool _isSetupFailed;
-
 
         private void Awake()
         {
@@ -312,7 +311,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _vrRangedService.ConsumeAmmo(hero, _munition);
 
-            var speed = Mathf.Lerp(_minSpeed, VRRangedService.ProjectileSpeed, tension);
+            var speed = Mathf.Lerp(_minSpeed, ProjectileService.ProjectileSpeed, tension);
             var damageScale = Mathf.Lerp(_minDamageScale, 1f, tension);
             var arrow = _arrow;
             _arrow = null;
@@ -352,7 +351,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // Tail at the root: the root sits on the nock and looks along the shot.
             var mesh = _arrow.transform.GetChild(0);
-            var bounds = VRRangedService.GetLocalBounds(_arrow);
+            var bounds = ProjectileService.GetLocalBounds(_arrow);
             mesh.localPosition -= new Vector3(0f, 0f, bounds.min.z);
         }
 
