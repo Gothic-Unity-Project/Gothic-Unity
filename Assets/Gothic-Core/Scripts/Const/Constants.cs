@@ -212,7 +212,7 @@ namespace Gothic.Core.Const
 
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "5";
+        public const string StaticCacheVersion = "6";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

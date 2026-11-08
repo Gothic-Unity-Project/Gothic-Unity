@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
@@ -34,12 +35,14 @@ namespace Gothic.Core.Domain.StaticCache
             public int D; // CapsuleDirection
             public float H; // CapsuleHeight
             public float R; // CapsuleRadius
+            public Quaternion Q; // OrientedBoxRotation
         };
         
         public enum T // ColliderType
         {
             B, // Box
-            C // Capsule
+            C, // Capsule
+            O // OrientedBox (melee weapons, see VobItemFittedColliderCacheCreatorDomain)
         }
         
         private class WidthSegment
@@ -53,6 +56,10 @@ namespace Gothic.Core.Domain.StaticCache
         }
         
         
+        private readonly Stopwatch _meleeFitWatch = new();
+        private int _meleeFitCount;
+
+
         public async Task CalculateVobItemColliderCache(Dictionary<string, Bounds> cachedVobBounds)
         {
             var allItems = _gameStateService.GothicVm.GetInstanceSymbols("C_Item");
@@ -76,6 +83,9 @@ namespace Gothic.Core.Domain.StaticCache
                 
                 GenerateItemColliders(item.Visual, cachedVobBounds);
             }
+
+            Logger.Log($"Fitted the colliders of {_meleeFitCount} melee weapons in " +
+                       $"{_meleeFitWatch.ElapsedMilliseconds} ms.", LogCat.PreCaching);
         }
 
         /// <summary>
@@ -122,6 +132,16 @@ namespace Gothic.Core.Domain.StaticCache
 
             if (vertices.Length == 0 || triangles.Length == 0)
                 return;
+
+            if (VobItemFittedColliderCacheCreatorDomain.IsMeleeWeapon(visualName))
+            {
+                _meleeFitWatch.Start();
+                ItemCollider[visualName].AddRange(
+                    VobItemFittedColliderCacheCreatorDomain.Create(visualName, vertices, triangles));
+                _meleeFitWatch.Stop();
+                _meleeFitCount++;
+                return;
+            }
             
             // Logger.LogEditor($"Calculating Colliders for {visualName}", LogCat.PreCaching);
             

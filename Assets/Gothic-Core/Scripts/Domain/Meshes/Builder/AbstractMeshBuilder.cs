@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Gothic.Core.Const;
-using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -27,7 +25,6 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] protected readonly TextureCacheService TextureCacheService;
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly StaticCacheService _staticCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         protected GameObject RootGo;
@@ -212,7 +209,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 if (UseColliderCache)
                 {
-                    PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
+                    PrepareCachedCollider(RootGo);
                 }
                 else
                 {
@@ -697,108 +694,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
         }
 
-        /// <summary>
-        /// Melee weapons (ItMw_*) get boxes fitted to their parts (blade, guard, grip, pommel, axe and hammer heads)
-        /// instead of the cached colliders - boxes along the mesh axes: the slanted cross guard of
-        /// ItMw_2H_Sword_Light_03 had a 28 x 20 cm box, axe heads boxes full of air. Thin parts stay (rods and shafts
-        /// are held there). They are the hitboxes of the hero's swings.
-        /// </summary>
-        private bool TryAddMeleeFittedColliders(GameObject rootGo, Mesh mesh)
+        protected void PrepareCachedCollider(GameObject rootGo)
         {
-            if (mesh == null || MeshName == null ||
-                !MeshName.StartsWith("ITMW", System.StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            return AddFittedColliders(rootGo, mesh, keepThinParts: true);
-        }
-
-        // Box meshes per item mesh, computed once.
-        private static readonly Dictionary<string, Mesh[]> _fittedColliderMeshes = new();
-
-        /// <summary>
-        /// Oriented boxes along the item's parts (ItemColliderFittingDomain) as convex mesh colliders on the item itself:
-        /// child objects would keep their layer when the grabbed item switches to VobItemNoWorldCollision.
-        /// </summary>
-        private bool AddFittedColliders(GameObject rootGo, Mesh mesh, bool keepThinParts = false)
-        {
-            if (!mesh.isReadable)
-                return false;
-
-            if (!_fittedColliderMeshes.TryGetValue(MeshName, out var boxMeshes))
-            {
-                var boxes = ItemColliderFittingDomain.Fit(mesh.vertices, mesh.triangles, keepThinParts);
-                boxMeshes = new Mesh[boxes.Count];
-                for (var i = 0; i < boxes.Count; i++)
-                    boxMeshes[i] = CreateBoxMesh(boxes[i], $"{MeshName}_FitCollider{i}");
-                _fittedColliderMeshes[MeshName] = boxMeshes;
-                Logger.Log($"[MeshBuilder] {MeshName}: {boxes.Count} fitted colliders", LogCat.Mesh);
-            }
-
-            foreach (var boxMesh in boxMeshes)
-            {
-                var meshCollider = rootGo.AddComponent<MeshCollider>();
-                meshCollider.convex = true;
-                meshCollider.sharedMesh = boxMesh;
-            }
-            return boxMeshes.Length > 0;
-        }
-
-        private static readonly int[] _boxTriangles =
-        {
-            0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4,
-            2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5
-        };
-
-        private static Mesh CreateBoxMesh(ItemColliderFittingDomain.Box box, string name)
-        {
-            var half = box.Size * 0.5f;
-            var corners = new Vector3[8];
-            for (var i = 0; i < 8; i++)
-            {
-                var local = new Vector3((i & 1) == 0 ? -half.x : half.x, (i & 2) == 0 ? -half.y : half.y,
-                    (i & 4) == 0 ? -half.z : half.z);
-                corners[i] = box.Center + box.Rotation * local;
-            }
-
-            var boxMesh = new Mesh { name = name };
-            boxMesh.SetVertices(corners);
-            boxMesh.SetTriangles(_boxTriangles, 0);
-            boxMesh.RecalculateBounds();
-            return boxMesh;
-        }
-
-        protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
-        {
-            if (TryAddMeleeFittedColliders(rootGo, mesh))
-                return;
-
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders))
-            {
-                Logger.LogError($"Can't find Collider data for {MeshName}. Skipping...", LogCat.Mesh);
-                return;
-            }
-
-            foreach (var coll in colliders)
-            {
-                if (coll.T == VobItemColliderCacheCreatorDomain.T.B)
-                {
-                    var boxCollider = rootGo.AddComponent<BoxCollider>();
-                    boxCollider.center = coll.C;
-                    boxCollider.size = coll.S;
-                }
-                else if (coll.T == VobItemColliderCacheCreatorDomain.T.C)
-                {
-                    var capsuleCollider = rootGo.AddComponent<CapsuleCollider>();
-                    capsuleCollider.center = coll.C;
-                    capsuleCollider.direction = coll.D;
-                    capsuleCollider.height = coll.H;
-                    capsuleCollider.radius = coll.R;
-                }
-                else
-                {
-                    Logger.LogError($"Capsule cache type {coll.T} not yet handled", LogCat.Mesh);
-                }
-            }
+            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName);
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)
