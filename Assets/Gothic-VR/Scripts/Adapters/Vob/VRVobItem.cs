@@ -45,6 +45,7 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VRRangedService _vrRangedService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -286,12 +287,10 @@ namespace Gothic.VR.Adapters.Vob
                 return;
 
             var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
-            if (!item.IsRangedWeapon())
-                return;
-
-            if (item.IsCrossbow())
+            var state = _vrRangedService.GetRangedState(item);
+            if (state == VmGothicEnums.WeaponState.CBow)
                 gameObject.AddComponent<VobItem.VRCrossbow>();
-            else
+            else if (state == VmGothicEnums.WeaponState.Bow)
                 gameObject.AddComponent<VobItem.VRBow>();
         }
 

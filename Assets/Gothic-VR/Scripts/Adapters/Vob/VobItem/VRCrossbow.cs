@@ -32,7 +32,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
-        [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -42,9 +41,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
 
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
-        private const int _masterSkill = 2;
-        private const int _oneHandPercent = 60;
-
         private const float _reloadSeconds = 1.5f;
         private const string _shootSfx = "CrossbowShoot";
         private const string _reloadSfx = "CrossbowReload";
@@ -185,7 +181,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated)
                 {
                     handSide = side;
-                    if (IsTwoHandsRequired() && !_vrPlayerService.IsDualGrabbed)
+                    var isOneHanded = _vrRangedService.IsOneHandedCrossbow(_npcService.GetHeroContainer());
+                    if (!isOneHanded && !_vrPlayerService.IsDualGrabbed)
                     {
                         // Too heavy for one hand - hold it with both (a crossbow master shoots one-handed).
                         _hapticsService.Vibrate(side, VrHapticPreset.Warning);
@@ -349,23 +346,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_bolt != null)
                 Destroy(_bolt);
             _bolt = null;
-        }
-
-        /// <summary>
-        /// Only a trained crossbowman shoots with one hand (sword in the other).
-        /// G1/mods: crossbow talent skill "master" or 60 %+; G2: crossbow hitchance 60 %+.
-        /// </summary>
-        private bool IsTwoHandsRequired()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero == null)
-                return false;
-
-            var talentIndex = (int)ZenKit.Daedalus.NpcTalent.Crossbow;
-            var talent = hero.Vob.GetTalent(talentIndex);
-            var percent = _npcHelperService.GetTalentPercent(hero, talentIndex);
-            var isMaster = (talent?.Skill ?? 0) >= _masterSkill || percent >= _oneHandPercent;
-            return !isMaster;
         }
 
         /// <summary>

@@ -40,6 +40,7 @@ namespace Gothic.VR.Services
         [Inject] private ConfigService _configService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
         [Inject] private VRPlayerService _vrPlayerService;
+        [Inject] private VRRangedService _vrRangedService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
@@ -182,9 +183,9 @@ namespace Gothic.VR.Services
                     continue;
 
                 var item = _vrPlayerService.GetHeldContainer(hand)?.GetItemInstance();
-                if (!item.IsRangedWeapon())
-                    continue;
-                return item.IsCrossbow() ? VmGothicEnums.WeaponState.CBow : VmGothicEnums.WeaponState.Bow;
+                var state = _vrRangedService.GetRangedState(item);
+                if (state != VmGothicEnums.WeaponState.NoWeapon)
+                    return state;
             }
             return VmGothicEnums.WeaponState.NoWeapon;
         }
