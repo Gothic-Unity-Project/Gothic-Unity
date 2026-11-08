@@ -459,9 +459,13 @@ namespace Gothic.VR.Services.Context
                 if (interactable == null || !stored.Add(interactable))
                     continue;
                 var container = interactable.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
-                var item = container?.VobAs<ZenKit.Vobs.IItem>();
+                var item = container?.Vob as ZenKit.Vobs.IItem;
                 if (item == null)
+                {
+                    Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",
+                        LogCat.VR);
                     continue;
+                }
 
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);
