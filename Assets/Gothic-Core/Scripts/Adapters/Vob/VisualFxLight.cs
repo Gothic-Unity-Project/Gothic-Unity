@@ -13,8 +13,6 @@ namespace Gothic.Core.Adapters.Vob
     [RequireComponent(typeof(StationaryLight))]
     public class VisualFxLight : MonoBehaviour, IVisualFxLight
     {
-        public GameObject Go => gameObject;
-
         // CATACLYSM is 200 m - the world shader's lights are meant for a room or a camp, not the whole valley.
         private const float _maxRangeMeters = 20f;
         private const float _updateSeconds = 0.1f;
@@ -72,7 +70,8 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void FadeOut(float seconds, float delay = 0f)
         {
-            if (_fadeStart >= 0f)
+            // Already gone (its parent was destroyed) or fading.
+            if (this == null || _fadeStart >= 0f)
                 return;
             _fadeStart = Time.time + Mathf.Max(0f, delay);
             _fadeSeconds = Mathf.Max(0.01f, seconds);

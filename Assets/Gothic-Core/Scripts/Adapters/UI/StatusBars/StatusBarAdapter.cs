@@ -59,6 +59,10 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                     GlobalEventDispatcher.PlayVideo.AddListener(OnPlayVideo);
                     GlobalEventDispatcher.VideoPlaybackFinished.AddListener(OnVideoPlaybackFinished);
                 }
+                else if (_statusType == StatusType.Mana)
+                {
+                    GlobalEventDispatcher.HeroManaBarRequested.AddListener(OnHeroManaBarRequested);
+                }
             }
             else
             {
@@ -101,21 +105,27 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             }
         }
 
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.HeroManaBarRequested.RemoveListener(OnHeroManaBarRequested);
+        }
+
         /// <summary>
-        /// Health follows NpcAttributeChanged while enabled. Culled NPCs are disabled - they refresh when re-enabled.
+        /// Health and mana follow NpcAttributeChanged while enabled. Culled NPCs are disabled - they refresh when
+        /// re-enabled.
         /// </summary>
         private void OnEnable()
         {
-            if (_statusType != StatusType.Health)
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.AddListener(OnNpcAttributeChanged);
-            RefreshHealth();
+            Refresh();
         }
 
         private void OnDisable()
         {
-            if (_statusType != StatusType.Health)
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.RemoveListener(OnNpcAttributeChanged);
@@ -123,10 +133,26 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnNpcAttributeChanged(NpcContainer npc, NpcAttribute attribute)
         {
-            if (attribute is not (NpcAttribute.HitPoints or NpcAttribute.HitPointsMax) || npc != GetOwner())
+            var isShownAttribute = _statusType == StatusType.Health
+                ? attribute is NpcAttribute.HitPoints or NpcAttribute.HitPointsMax
+                : attribute is NpcAttribute.Mana or NpcAttribute.ManaMax;
+            if (!isShownAttribute || npc != GetOwner())
                 return;
 
-            RefreshHealth();
+            Refresh();
+        }
+
+        private void OnHeroManaBarRequested(bool isShown)
+        {
+            if (isShown)
+            {
+                RefreshMana();
+                FadeIn();
+            }
+            else
+            {
+                FadeOut();
+            }
         }
 
         private void OnWorldSceneLoaded()
@@ -154,6 +180,24 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             _isVideoPlaying = false;
             if (_isInWorld)
                 EnableBar();
+        }
+
+        private void Refresh()
+        {
+            if (_statusType == StatusType.Health)
+                RefreshHealth();
+            else if (_statusType == StatusType.Mana)
+                RefreshMana();
+        }
+
+        private void RefreshMana()
+        {
+            var owner = GetOwner();
+            var manaMax = owner?.Vob.GetAttribute((int)NpcAttribute.ManaMax) ?? 0;
+            if (manaMax <= 0)
+                return;
+
+            SetFillAmount(owner.Vob.GetAttribute((int)NpcAttribute.Mana), manaMax);
         }
 
         private void RefreshHealth()
@@ -218,16 +262,13 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             _statusValue.enabled = true;
         }
 
-        /// <summary>
-        /// VRRuneCaster: the hero's mana bar shows while a spell is charged.
-        /// </summary>
-        public void FadeIn(float duration = 0.25f)
+        private void FadeIn(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(0f, 1f, duration, enable: true));
         }
 
-        public void FadeOut(float duration = 0.25f)
+        private void FadeOut(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));

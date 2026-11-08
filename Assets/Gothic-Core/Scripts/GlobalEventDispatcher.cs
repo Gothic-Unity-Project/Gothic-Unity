@@ -110,6 +110,11 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer, NpcAttribute> NpcAttributeChanged = new();
 
         /// <summary>
+        /// The hero's mana bar fades in (true) or out (false) - VR: while a rune or scroll is readied (VRRuneCaster).
+        /// </summary>
+        public static readonly UnityEvent<bool> HeroManaBarRequested = new();
+
+        /// <summary>
         /// NpcContainer - who attacks
         /// NpcContainer - who got hit
         /// Vector3      - at which position

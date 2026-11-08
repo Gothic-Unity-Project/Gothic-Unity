@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties.Vobs;
-using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
 using Gothic.Core.Const;
@@ -102,7 +101,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool _castThisGrab;
         private int _manaInvested;
         private NpcContainer _spellTarget;
-        private StatusBarAdapter _manaBar;
         private AudioSource _investAudioSource;
         private bool _telekinesisPrepped;
         private bool _isTargeting; // combat spells: trigger 1 pressed, waiting for target + trigger 2
@@ -588,7 +586,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 // Vob and instance both (NpcService.SetAttribute) - a vob-only write was reverted by the next
                 // SyncHeroInstanceToVob() (the "mana snaps back" bug).
                 _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1);
-                RefreshManaFill();
             }
 
             var vm = _gameStateService.GothicVm;
@@ -620,7 +617,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
                 return;
             _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
-            RefreshManaFill();
         }
 
         /// <summary>
@@ -634,7 +630,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
             _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
-            RefreshManaFill();
             Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
             _manaInvested = 0;
         }
@@ -1008,7 +1003,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 hero.Go.transform.position + Vector3.up * _bodyFxHeight, range);
             if (_investLight == null)
                 return;
-            _bodyFxGos.Add(_investLight.Go);
             Logger.Log($"[VRRuneCaster] Spell light {preset} while charging ({range:F1} m)", LogCat.VR);
         }
 
@@ -1128,6 +1122,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void DestroyBodyFx()
         {
+            _investLight?.FadeOut(_bodyFxFadeSeconds);
             _investLight = null;
             foreach (var fxGo in _bodyFxGos)
             {
@@ -1739,38 +1734,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 AudioSource.PlayClipAtPoint(clip, transform.position);
         }
 
-        private void ShowManaBar()
-        {
-            _manaBar = FindManaBar();
-            if (_manaBar == null) return;
-            RefreshManaFill();
-            if (_manaBar != null)
-                _manaBar.FadeIn();
-        }
+        // The bar follows the mana itself (NpcAttributeChanged from NpcService.SetAttribute).
+        private static void ShowManaBar() => GlobalEventDispatcher.HeroManaBarRequested.Invoke(true);
 
-        private void HideManaBar()
-        {
-            if (_manaBar != null)
-                _manaBar.FadeOut();
-        }
-
-        private void RefreshManaFill()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero == null || _manaBar == null) return;
-            var mana = hero.Vob.GetAttribute((int)NpcAttribute.Mana);
-            var manaMax = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
-            if (manaMax > 0)
-                _manaBar.SetFillAmount(mana, manaMax);
-        }
-
-        private StatusBarAdapter FindManaBar()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null) return null;
-            return hero.Go
-                .GetComponentsInChildren<StatusBarAdapter>(includeInactive: true)
-                .FirstOrDefault(b => b.Type == StatusBarAdapter.StatusType.Mana);
-        }
+        private static void HideManaBar() => GlobalEventDispatcher.HeroManaBarRequested.Invoke(false);
     }
 }
