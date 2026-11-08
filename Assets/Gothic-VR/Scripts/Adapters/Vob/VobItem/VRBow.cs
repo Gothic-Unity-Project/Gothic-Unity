@@ -29,10 +29,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// - Release the grip to shoot along the line drawing hand -> bow hand: speed and damage grow with the draw.
     /// - If the bow has its Gothic morph animation (S_SHOOT), the limbs bend with the draw.
     /// Everything is calibrated from the mesh (tips = ends of the long axis, grip = farthest vertex from the string),
-    /// once on the first grab. The component stays on the bow; VRVobItem switches it with SetHeld (disabled = not held:
-    /// the Gothic mesh and string are back).
+    /// once, in the Update after the first grab (not inside the backend's grab event). The component stays on the bow;
+    /// VRVobItem switches it with SetHeld (disabled = not held: the Gothic mesh and string are back).
     /// </summary>
-    public class VRBow : MonoBehaviour
+    public class VRBow : MonoBehaviour, IVrHoldable
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
@@ -67,6 +67,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private Vector3 _nockWorld;
 
         private bool _isHeld;
+        // The first grab: the setup (calibration, string) waits for the next Update, outside the grab event.
+        private bool _isHoldPending;
         private bool _isSetUp;
         private bool _isSetupFailed;
 
@@ -82,19 +84,41 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         public void SetHeld(bool isHeld)
         {
-            if (isHeld == _isHeld)
+            if (isHeld == (_isHeld || _isHoldPending))
                 return;
 
-            if (isHeld)
+            // Set up already (or failed): switching is cheap, a hand -> hand swap in one frame stays seamless.
+            if (isHeld && (_isSetUp || _isSetupFailed))
+            {
                 Hold();
-            else
-                LetGo();
+                return;
+            }
+
+            if (isHeld)
+            {
+                _isHoldPending = true;
+                enabled = true;
+                return;
+            }
+
+            // Let go before the pending setup ran: nothing was shown yet.
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
+                enabled = false;
+                return;
+            }
+
+            LetGo();
         }
 
         private void Hold()
         {
             if (!TrySetup())
+            {
+                enabled = false;
                 return;
+            }
 
             _isHeld = true;
             _calibration.MeshFilter.sharedMesh = _calibration.BowMesh;
@@ -133,7 +157,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// Once per bow, on the first grab: calibration from the mesh, munition, our string.
+        /// Once per bow, in the Update after the first grab: calibration from the mesh, munition, our string.
         /// </summary>
         private bool TrySetup()
         {
@@ -150,7 +174,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             _munition = _vrRangedService.GetMunition(_item);
             if (!CreateString())
+            {
+                // The calibration already shows the copy without the Gothic string: back to the Gothic mesh, and no
+                // new calibration (and mesh copy) on every grab.
+                _calibration.MeshFilter.sharedMesh = _calibration.OriginalMesh;
+                Destroy(_calibration.BowMesh);
+                _isSetupFailed = true;
+                Logger.LogWarning($"[VRBow] {_item.Name}: string prefab {_stringPrefabPath} not found - no bow.",
+                    LogCat.VR);
                 return false;
+            }
 
             _isSetUp = true;
             return true;
@@ -168,6 +201,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
+                Hold();
+                return;
+            }
+
             if (!_isHeld)
                 return;
 

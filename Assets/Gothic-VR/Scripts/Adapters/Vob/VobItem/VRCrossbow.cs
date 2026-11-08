@@ -27,9 +27,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps back. A cocked
     /// crossbow shows a bolt on the stock if the hero has one - that bolt flies.
     /// Off (or a mesh without the shapes): it reloads by itself after _reloadSeconds.
-    /// The component stays on the crossbow; VRVobItem switches it with SetHeld (disabled = not held).
+    /// The component stays on the crossbow; VRVobItem switches it with SetHeld (disabled = not held). The first grab's
+    /// setup runs in the next Update, not inside the backend's grab event.
     /// </summary>
-    public class VRCrossbow : MonoBehaviour
+    public class VRCrossbow : MonoBehaviour, IVrHoldable
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
@@ -69,6 +70,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private float _nextAmmoCheck;
 
         private bool _isHeld;
+        // The first grab: the setup (VRCrossbowString) waits for the next Update, outside the grab event.
+        private bool _isHoldPending;
         private bool _isSetUp;
         private bool _isSetupFailed;
 
@@ -84,19 +87,41 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         public void SetHeld(bool isHeld)
         {
-            if (isHeld == _isHeld)
+            if (isHeld == (_isHeld || _isHoldPending))
                 return;
 
-            if (isHeld)
+            // Set up already (or failed): switching is cheap, a hand -> hand swap in one frame stays seamless.
+            if (isHeld && (_isSetUp || _isSetupFailed))
+            {
                 Hold();
-            else
-                LetGo();
+                return;
+            }
+
+            if (isHeld)
+            {
+                _isHoldPending = true;
+                enabled = true;
+                return;
+            }
+
+            // Let go before the pending setup ran: nothing was shown yet.
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
+                enabled = false;
+                return;
+            }
+
+            LetGo();
         }
 
         private void Hold()
         {
             if (!TrySetup())
+            {
+                enabled = false;
                 return;
+            }
 
             _isHeld = true;
             _isPulling = false;
@@ -136,7 +161,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// Once per crossbow, on the first grab: munition, aim axes and the string (VRCrossbowString).
+        /// Once per crossbow, in the Update after the first grab: munition, aim axes and the string (VRCrossbowString).
         /// </summary>
         private bool TrySetup()
         {
@@ -167,6 +192,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
+            if (_isHoldPending)
+            {
+                _isHoldPending = false;
+                Hold();
+                return;
+            }
+
             if (!_isHeld)
                 return;
 

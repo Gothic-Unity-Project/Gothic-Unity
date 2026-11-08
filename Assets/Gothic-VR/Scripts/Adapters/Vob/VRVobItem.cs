@@ -59,8 +59,7 @@ namespace Gothic.VR.Adapters.Vob
         private Coroutine _reEnableCollisionRoutine;
 
         // Added on the first grab of a bow/crossbow and kept on the item (switched by SetRangedWeaponHeld).
-        private VobItem.VRBow _bow;
-        private VobItem.VRCrossbow _crossbow;
+        private VobItem.IVrHoldable _rangedWeapon;
         private bool _isRangedWeaponChecked;
 
         private struct OverlapCheckData
@@ -276,19 +275,16 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
-        /// Ranged weapons shoot while a hand holds them (VRBow, VRCrossbow). The component is added on the first grab
-        /// and stays on the item - a release and a grab in the same frame (hand -> hand, holster -> hand) only switch
-        /// it off and on again.
+        /// Ranged weapons shoot while a hand holds them (VRRangedService.AddRangedWeapon). The component is added on the
+        /// first grab and stays on the item - a release and a grab in the same frame (hand -> hand, holster -> hand)
+        /// only switch it off and on again. Its first setup waits for its own next Update (not in this grab event).
         /// </summary>
         private void SetRangedWeaponHeld(bool isHeld)
         {
             if (isHeld)
                 TryAddRangedWeapon();
 
-            if (_bow != null)
-                _bow.SetHeld(isHeld);
-            if (_crossbow != null)
-                _crossbow.SetHeld(isHeld);
+            _rangedWeapon?.SetHeld(isHeld);
         }
 
         private void TryAddRangedWeapon()
@@ -301,11 +297,7 @@ namespace Gothic.VR.Adapters.Vob
                 return;
             _isRangedWeaponChecked = true;
 
-            var state = item.GetRangedWeaponState();
-            if (state == VmGothicEnums.WeaponState.CBow)
-                _crossbow = gameObject.AddComponent<VobItem.VRCrossbow>();
-            else if (state == VmGothicEnums.WeaponState.Bow)
-                _bow = gameObject.AddComponent<VobItem.VRBow>();
+            _rangedWeapon = _vrRangedService.AddRangedWeapon(gameObject, item);
         }
 
         /// <summary>

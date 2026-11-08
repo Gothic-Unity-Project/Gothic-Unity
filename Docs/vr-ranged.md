@@ -9,10 +9,10 @@ Why it's built this way: Docs/adr/2026-11-02-vr-ranged.md. The melee side is in 
 
 | Class | Owns |
 |---|---|
-| `VRRangedService` (VR, player scope) | the ranged rules of the hero in VR: who shoots a crossbow one-handed (`IsOneHandedCrossbow`), access to munition and shots |
+| `VRRangedService` (VR, player scope) | the ranged rules of the hero in VR: which component a held ranged item gets (`AddRangedWeapon`), who shoots a crossbow one-handed (`IsOneHandedCrossbow`), access to munition and shots |
 | `ProjectileService` (Core) | munition of a weapon (1 item per shot), the flying arrow/bolt, what happens when it lands (`RangedHit`, or it lies in the world) |
 | `FightService` / `RangedHitDomain` (Core) | the damage of a hit, the weapon requirement (`CheckHeroWeaponRequirement`) |
-| `VRVobItem` (VR adapter) | adds `VRBow`/`VRCrossbow` on the first grab of a ranged item, switches them with `SetHeld` while any hand holds it |
+| `VRVobItem` (VR adapter) | asks `VRRangedService.AddRangedWeapon` on the first grab, switches the `IVrHoldable` it got with `SetHeld` while any hand holds it |
 | `VRBow` (VR adapter) | a held bow: drawing with the free hand's grip, the nocked arrow, the shot (speed and damage grow with the draw), our string |
 | `VrBowMeshCalibration` | once per bow: limb tips, grip, max draw, the mesh copy without Gothic's string, the `S_SHOOT` draw frames |
 | `VRCrossbow` (VR adapter) | a held crossbow: trigger shot, the bolt on the stock, manual or automatic reload |
@@ -25,8 +25,10 @@ pre-caching (`VobItemFittedColliderCacheCreatorDomain`), like melee weapons.
 
 ## Data flow of one shot
 
-1. A hand grabs a bow. `VRVobItem` asks `ItemInstanceExtension.GetRangedWeaponState`, adds `VRBow` once and calls `SetHeld(true)`.
-   The first time, `VrBowMeshCalibration` reads the mesh; the bow shows the copy without the Gothic string and ours.
+1. A hand grabs a bow. `VRVobItem` gets `VRBow` once from `VRRangedService.AddRangedWeapon` (by
+   `ItemInstanceExtension.GetRangedWeaponState`) and calls `SetHeld(true)`. The first time, `VRBow`'s next `Update`
+   (not the grab event) lets `VrBowMeshCalibration` read the mesh; the bow shows the copy without the Gothic string
+   and ours.
 2. `VRWeaponService.UpdateHeroWeaponState` reports Bow (CBow) to the NPCs (`PERC_DRAWWEAPON` and friends).
 3. The free hand's grip at the string starts the draw; an arrow is nocked if the hero has one. The limbs bend with
    the `S_SHOOT` frames.
@@ -46,6 +48,7 @@ crossbow is cocked again. With "Crossbow" off it reloads by itself after 1.5 s.
 | change drawing, the arrow, the bow's shot | `VRBow` |
 | change how a bow mesh is read (tips, grip, Gothic string) | `VrBowMeshCalibration` |
 | change crossbow shot or reload | `VRCrossbow`, its shape in `VRCrossbowString` |
+| add a new held ranged kind (throwing weapon) | a component implementing `IVrHoldable`, added in `VRRangedService.AddRangedWeapon` |
 | change who shoots a crossbow one-handed | `VRRangedService.IsOneHandedCrossbow`, `FightConst` |
 | change munition, flight or damage | `ProjectileService`, `RangedHitDomain` (Core, not VR) |
 | change a bow's hitboxes | `VobItemFittedColliderCacheCreatorDomain` (then bump the cache version) |

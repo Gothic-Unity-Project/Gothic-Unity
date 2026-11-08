@@ -3,6 +3,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
+using Gothic.VR.Adapters.Vob.VobItem;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -10,7 +11,7 @@ using ZenKit.Daedalus;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// The hero's ranged weapons in VR: who may shoot a crossbow with one hand, and VRBow and VRCrossbow's access to
+    /// The hero's ranged weapons in VR: the component a held bow/crossbow gets, who may shoot a crossbow with one hand, and VRBow and VRCrossbow's access to
     /// arrows/bolts. Which item is a bow or a crossbow is Core's ItemInstanceExtension.GetRangedWeaponState. The projectile logic (ammo,
     /// flying projectiles, what happens when they land) is shared with NPC archers in ProjectileService.
     /// </summary>
@@ -18,6 +19,20 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly NpcHelperService _npcHelperService;
+
+        /// <summary>
+        /// The component a held ranged weapon shoots with (VRBow, VRCrossbow), added to itemGo. Null for any other
+        /// item. VRVobItem calls it once, on the first grab, and only switches the result with SetHeld.
+        /// </summary>
+        public IVrHoldable AddRangedWeapon(GameObject itemGo, ItemInstance item)
+        {
+            return item.GetRangedWeaponState() switch
+            {
+                VmGothicEnums.WeaponState.CBow => itemGo.AddComponent<VRCrossbow>(),
+                VmGothicEnums.WeaponState.Bow => itemGo.AddComponent<VRBow>(),
+                _ => null
+            };
+        }
 
         /// <summary>
         /// Only a trained crossbowman shoots with one hand (sword in the other).
