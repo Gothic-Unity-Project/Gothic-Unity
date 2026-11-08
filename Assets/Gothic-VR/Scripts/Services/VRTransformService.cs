@@ -27,8 +27,10 @@ namespace Gothic.VR.Services
     /// - the casting hand holds a small orb with a live picture of the puppet (the magic is still active) - its
     ///   trigger casts again = transform back.
     /// Not saved (V1): WorldSceneLoaded resets it. FIXME: save while transformed stores the monster guild.
+    /// Lives in the VR scene scope: Reflex disposes it with the scene, which removes the listeners from the static
+    /// events - a reloaded VR scene would transform back twice otherwise.
     /// </summary>
-    public class VRTransformService
+    public class VRTransformService : System.IDisposable
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
@@ -53,6 +55,12 @@ namespace Gothic.VR.Services
             // camps attacked - and the rig's camera height, speed and no-grab.
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(TransformBack);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(TransformBack);
+        }
+
+        public void Dispose()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(TransformBack);
+            GlobalEventDispatcher.WorldSceneLoaded.RemoveListener(TransformBack);
         }
 
         /// <returns>False if the hero wasn't transformed (the scroll isn't used up then).</returns>
