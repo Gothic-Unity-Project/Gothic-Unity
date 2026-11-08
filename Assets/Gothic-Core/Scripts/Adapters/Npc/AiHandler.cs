@@ -78,7 +78,7 @@ namespace Gothic.Core.Adapters.Npc
                 // ZS_Dead once, without a killer (other = the dead NPC, like the engine's script kill): with the hero
                 // as other, B_DeathXP paid him for Nek in every new game.
                 if (spawnHp <= 0 && !NpcData.IsZsDeadCalled)
-                    _fightService.RunZsDead(NpcInstance, _npcService.GetHeroContainer().Instance, killer: null);
+                    _fightService.RunZsDead(NpcInstance, killer: null);
             }
             // Knocked out ones lie there too until ZS_Unconscious ends (a loaded game, the NPC coming back into view).
             else if (IsUnconsciousFromStart())

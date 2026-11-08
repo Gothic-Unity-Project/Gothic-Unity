@@ -405,8 +405,9 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// The hit took the last hit points. The hero goes down by the same rule as everybody (OpenGothic
         /// checkHealth): monsters and humans hostile to him kill him, the others knock him out. A berzerk is always
-        /// only stopped; arrows and spells kill unless the "Ranged knockout" option is on (IsRangedKill). What the
-        /// hero's summon does counts as the hero's (GetCreditedAttacker).
+        /// only stopped; arrows and spells kill unless the "Ranged knockout" option is on (IsRangedKill). A knockout by
+        /// the hero's summon counts as the hero's (GetCreditedAttacker); a kill is the summon's own - ZS_Dead pays the
+        /// hero through its AIV_MM_PARTYMEMBER like the engine (OpenGothic: other = lastHit).
         /// </summary>
         private void GoDown(NpcContainer attacker, NpcContainer target, bool isHero, int? damageOverride)
         {
@@ -431,7 +432,7 @@ namespace Gothic.Core.Services.Npc
             {
                 Logger.Log($"[FightService.OnHit] {target.Instance.GetName(NpcNameSlot.Slot0)} is DEAD",
                     LogCat.Npc);
-                Kill(target, _damagePerceptionDomain.GetCreditedAttacker(attacker));
+                Kill(target, attacker);
             }
         }
 
@@ -745,9 +746,9 @@ namespace Gothic.Core.Services.Npc
         /// ZS_Dead of a corpse loaded from a save (AiHandler: dead on spawn) - its quest variables are set in the fresh
         /// VM (NpcDeathDomain).
         /// </summary>
-        public void RunZsDead(NpcInstance dead, NpcInstance hero, NpcContainer killer)
+        public void RunZsDead(NpcInstance dead, NpcContainer killer)
         {
-            _deathDomain.RunZsDead(dead, hero, killer);
+            _deathDomain.RunZsDead(dead, killer);
         }
 
         /// <summary>

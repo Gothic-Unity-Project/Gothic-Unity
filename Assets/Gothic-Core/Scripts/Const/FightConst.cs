@@ -72,8 +72,5 @@ namespace Gothic.Core.Const
         public const float HeroFocusAngle = 45f;
         // Gothic.ini (immersion): 1 = a lethal arrow/bolt/spell knocks a human out, 0 = it kills (OpenGothic).
         public const string RangedKnockoutIniName = "rangedKnockout";
-        // Immersion option (DeveloperConfig.EnableKillerXpOnly): 1 = every death gives the hero experience (cheat),
-        // 0 = only his own kills, his summons' and his party's (Gothic, default).
-        public const string XpForAnyKillIniName = "xpForAnyKill";
     }
 }

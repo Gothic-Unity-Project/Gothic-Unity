@@ -85,7 +85,6 @@ MonoBehaviour:
   EnableHeroChaseCooldown: 1
   EnableFootstepSounds: 1
   EnableHeroDeath: 1
-  EnableKillerXpOnly: 1
   EnableOneHitKill: 0
   EnableOneHitKnockout: 0
   EnableRangedKnockoutOption: 1

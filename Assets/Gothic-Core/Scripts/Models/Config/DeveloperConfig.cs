@@ -351,11 +351,6 @@ namespace Gothic.Core.Models.Config
                  "Immersion menu can turn it off - then he only stays knocked out).")]
         public bool EnableHeroDeath = true;
 
-        [Tooltip("ZS_Dead gets the real killer as other like the engine - XP only for the hero's, his summons' and " +
-                 "his party's kills (Mordrag leading him); every death anywhere gave XP. Immersion option \"XP for every " +
-                 "death\" (ini xpForAnyKill, off by default) brings that back as a cheat.")]
-        public bool EnableKillerXpOnly = true;
-
         [Tooltip("Hero attacks deal max HP damage — one hit kills any non-immortal NPC.")]
         public bool EnableOneHitKill;
 
