@@ -129,11 +129,23 @@ namespace Gothic.VR.Domain.Player
         {
             _cachedHeld = held;
             held.GetComponentsInChildren(_heldColliders);
+            // Collider.ClosestPoint works on box, sphere, capsule and convex mesh colliders only.
+            var unsupported = _heldColliders.RemoveAll(i => !IsClosestPointSupported(i));
 
             // By its symbol (a world item's vob name isn't always it).
             var container = held.GetComponentInParent<VobLoader>()?.Container;
             _isCachedHeldMeleeWeapon = container != null && container.IsMeleeWeapon();
             _cachedHeldMaterial = _isCachedHeldMeleeWeapon ? container.GetItemInstance()!.Material : -1;
+
+            if (_isCachedHeldMeleeWeapon && unsupported > 0 && _heldColliders.Count == 0)
+                Logger.LogWarning($"[HeroBlock] {held.name} has only colliders without ClosestPoint (non-convex " +
+                                  "mesh): it blocks no NPC weapon", LogCat.Fight);
+        }
+
+        private static bool IsClosestPointSupported(Collider collider)
+        {
+            return collider is BoxCollider or SphereCollider or CapsuleCollider ||
+                   collider is MeshCollider { convex: true };
         }
 
         /// <summary>
