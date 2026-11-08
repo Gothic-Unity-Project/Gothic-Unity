@@ -21,6 +21,10 @@ namespace Gothic.Core.Const
             public const string FootstepSounds = "footstepSounds";
             public const string IniSectionSound = "SOUND";
             public const int FootstepSoundsDefaultValue = 1;
+
+            // [VIDEO] 0..1, vanilla 0.5 = neutral (the menu's Brightness slider).
+            public const string VideoBrightness = "zVidBrightness";
+            public const float VideoBrightnessDefaultValue = 0.5f;
         }
 
         public static class Items

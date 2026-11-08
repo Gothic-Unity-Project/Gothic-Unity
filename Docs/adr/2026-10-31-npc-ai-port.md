@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-10-31
-- Technical details: FightService, NpcAiService, NpcInventoryService, ProjectileService, NpcNavMeshService, NpcWaterService, GroundSoundService, ParticleService, VmExternalDomain, Domain/Npc/Actions (Core); DeveloperConfig "NPC AI and Fight"
+- Technical details: FightService, NpcAiService, NpcInventoryService, ProjectileService, NpcNavMeshService, NpcWaterService, GroundSoundService, ParticleService, VmExternalDomain, Domain/Npc/Actions (Core)
 
 ## Context
 

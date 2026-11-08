@@ -308,19 +308,6 @@ namespace Gothic.Core.Models.Config
                  "the loot closes.")]
         public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
 
-
-        /**
-         * ##########
-         * NPC AI and Fight
-         * ##########
-         */
-
-        [Foldout("NPC AI and Fight", true)]
-        [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
-        [Range(0.25f, 4f)]
-        public float WorldLightmapBrightness = 1f;
-
-
         /**
          * ##########
          * Misc
