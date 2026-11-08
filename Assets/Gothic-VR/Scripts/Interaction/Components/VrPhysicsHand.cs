@@ -1,10 +1,10 @@
-using Gothic.Core.Extensions;
 using System;
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Logger = Gothic.Core.Logging.Logger;

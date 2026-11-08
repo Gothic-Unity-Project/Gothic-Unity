@@ -139,8 +139,8 @@ namespace Gothic.VR
         /// </summary>
         public static class Melee
         {
-            // Fist punch: hand speed (m/s) needed to hit. Same rule as the weapon prefab's _weaponVelocityThreshold (2);
-            // the prefab field is serialized and not wired to this constant - keep both in step.
+            // Fist punch: hand speed (m/s) needed to hit. Same rule as the weapon prefab's _weaponVelocityThreshold
+            // (2); the prefab field is serialized and not wired to this constant - keep both in step.
             public const float FistPunchVelocity = 2f;
 
             // Seconds before the same fist can hit again.

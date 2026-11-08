@@ -26,8 +26,8 @@ namespace Gothic.Core.Adapters.Vob.Item
 
         public void StartTrail()
         {
-            // The scale at Start was the item's in a backpack slot or
-            // before it was held (XRI) - a short, oddly scaled trail in the middle of the blade. Measured now.
+            // Start() may run while the item still sits in a backpack slot or is not yet held (XRI), where its scale
+            // differs. That gave a short, oddly scaled trail in the middle of the blade. So measure at trail start.
             SetTrailWidthFromLength();
             _trailRenderer.enabled = true;
         }

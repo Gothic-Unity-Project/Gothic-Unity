@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Gothic.Core.Domain.Meshes
 {
     /// <summary>
-    /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned boxes
-    /// left gaps and air): a sword's slanted cross guard, an axe head; bows and crossbows with the ranged PR.
+    /// Oriented boxes that follow an item mesh - for weapons whose parts lie diagonally or are curved (axis aligned
+    /// boxes left gaps and air): a sword's slanted cross guard, an axe head; bows and crossbows with the ranged PR.
     /// 1. The mesh is split into its separate parts (sword: blade, guard, grip, pommel; crossbow: stock, prod, string).
     /// 2. Each part is sampled densely (its triangles, not only the few low-poly vertices) and gets a box along its
     ///    principal axes (PCA). Curved parts are halved along their long axis as long as that removes a lot of air.
@@ -29,7 +29,8 @@ namespace Gothic.Core.Domain.Meshes
         private const float _splitVolumeRatio = 0.7f;
         private const float _minSplitLength = 0.05f;
         private const int _minSplitPoints = 12;
-        // Meters: thinner in two directions = a string (G1 bow strings are 1.7 cm thick, the thinnest limb part 3.2 cm).
+        // Meters: thinner in two directions = a string (G1 bow strings are 1.7 cm thick, the thinnest limb part
+        // 3.2 cm).
         // Every box is at least _minBoxSize thick.
         private const float _stringThickness = 0.025f;
         private const float _minBoxSize = 0.015f;

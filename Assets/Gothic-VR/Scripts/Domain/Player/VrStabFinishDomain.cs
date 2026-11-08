@@ -22,7 +22,8 @@ namespace Gothic.VR.Domain.Player
     /// The "stabFinish" option (Immersion menu): the hero finishes off an
     /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (speed along the blade).
     /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for the hold time kills -
-    /// FightFinishingMove, like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade out lets go.
+    /// FightFinishingMove, like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade
+    /// out lets go.
     /// </summary>
     public class VrStabFinishDomain
     {

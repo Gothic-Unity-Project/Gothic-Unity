@@ -10,6 +10,7 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
@@ -40,7 +41,7 @@ namespace Gothic.VR.Adapters.Vob
         // not while it's still in front of the player.
         private bool _isConsumedOnDocClose;
         [Inject] private readonly MarvinService _marvinService;
-        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
@@ -477,7 +478,8 @@ namespace Gothic.VR.Adapters.Vob
         private void TryShowWeaponRequirement()
         {
             var container = GetComponentInParent<VobLoader>()?.Container;
-            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem && container.IsMeleeWeapon())
+            if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem &&
+                container.IsMeleeWeapon())
                 _fightService.CheckHeroWeaponRequirement(container.GetItemInstance(), isMessageShown: true);
         }
     }

@@ -70,7 +70,8 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// MVP: vanilla drops the hero's readied weapon when knocked out.
-        /// In VR we let the hands drop every melee weapon they hold. Release events handle the rest (attack domain, flags).
+        /// In VR we let the hands drop every melee weapon they hold. Release events handle the rest (attack domain,
+        /// flags).
         /// </summary>
         private void OnHeroKnockedOut(NpcContainer hero)
         {
@@ -85,7 +86,8 @@ namespace Gothic.VR.Services
                     continue;
                 var item = container.GetItemInstance()!;
 
-                Logger.Log($"[VRWeaponService] Hero knocked out - dropping '{item.Name}' from {hand.HandSide} hand.", LogCat.VR);
+                Logger.Log($"[VRWeaponService] Hero knocked out - dropping '{item.Name}' from {hand.HandSide} hand.",
+                    LogCat.VR);
                 hand.ForceRelease();
             }
         }

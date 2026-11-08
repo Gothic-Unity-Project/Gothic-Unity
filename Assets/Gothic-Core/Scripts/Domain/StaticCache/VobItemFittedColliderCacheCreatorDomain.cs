@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Gothic.Core.Domain.Meshes;
 using Gothic.Core.Logging;
@@ -8,7 +7,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.StaticCache
 {
     /// <summary>
-    /// Melee weapons (ITEM_KAT_NF, see ItemInstanceExtension.IsMeleeWeapon) get boxes fitted to their parts (blade, guard, grip, pommel, axe and hammer heads)
+    /// Melee weapons (ITEM_KAT_NF, see ItemInstanceExtension.IsMeleeWeapon) get boxes fitted to their parts (blade, guard, grip,
+    /// pommel, axe and hammer heads)
     /// instead of the width profile colliders of other items - boxes along the mesh axes: the slanted cross guard of
     /// ItMw_2H_Sword_Light_03 had a 28 x 20 cm box, axe heads boxes full of air. Thin parts stay (rods and shafts
     /// are held there). They are the hitboxes of the hero's swings.
