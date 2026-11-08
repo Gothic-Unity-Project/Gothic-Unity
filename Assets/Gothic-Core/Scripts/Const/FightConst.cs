@@ -70,7 +70,5 @@ namespace Gothic.Core.Const
         public const float JumpBackAngle = 90f;
         // The hero's facing in VR is his head, which turns more than a body - a bit more room than the engine's 30.
         public const float HeroFocusAngle = 45f;
-        // Gothic.ini (immersion): 1 = a lethal arrow/bolt/spell knocks a human out, 0 = it kills (OpenGothic).
-        public const string RangedKnockoutIniName = "rangedKnockout";
     }
 }

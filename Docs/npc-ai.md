@@ -57,7 +57,6 @@ comes from the scripts:
 |---|---|
 | `EnableHeroChaseCooldown` | `NpcAiService` |
 | `EnableVrChainLightning` | `SpellHitDomain` |
-| `EnableRangedKnockoutOption` | `FightService`, `SpellHitDomain`, `MeleeDamageDomain` |
 | `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |
 | `EnableNpcNavMesh` | `NpcNavMeshService` (used by `NpcChaseMovement`) |
 | `EnableCombatSystem` | `FightService.Init` (no hit listeners without it) |

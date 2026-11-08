@@ -316,9 +316,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("NPC AI and Fight", true)]
-        [Tooltip("The \"Ranged knockout\" option's value when Gothic.ini has none yet.")]
-        public bool RangedKnockoutByDefault;
-
         [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
                  "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
         public bool EnableHeroSleepBody = true;
@@ -352,11 +349,6 @@ namespace Gothic.Core.Models.Config
 
         [Tooltip("Hero attacks deal currentHP-1 damage — one hit knocks out any NPC without killing them.")]
         public bool EnableOneHitKnockout;
-
-        [Tooltip("Immersion option \"Ranged knockout\": off (like OpenGothic) a lethal arrow, bolt or spell kills a " +
-                 "human, on it knocks him out and the next one (or a sword) finishes him off. Area spells (fire rain) hit " +
-                 "the knocked out too. Before: ranged and magic always left humans and the hero at 1 HP.")]
-        public bool EnableRangedKnockoutOption = true;
 
         [Tooltip("Blocking in VR like Gothic's parry: both hands on a melee weapon (one- or two-handed) and both " +
                  "triggers held. Hits of humans (fists too) and of monsters with a drawn weapon (orcs, skeletons) from " +

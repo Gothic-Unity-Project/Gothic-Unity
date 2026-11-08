@@ -158,7 +158,7 @@ namespace Gothic.Core.Domain.Npc
                 if (candidate == caster || candidate == directTarget || candidate.Go == null ||
                     !candidate.Go.activeInHierarchy)
                     continue;
-                if (IsSparedByAreaSpell(candidate))
+                if (NpcHelperService.IsDown(candidate))
                     continue;
                 if (Vector3.Distance(pos, candidate.Go.transform.position) > SpellConst.SpreadRangeMeters)
                     continue;
@@ -191,7 +191,7 @@ namespace Gothic.Core.Domain.Npc
                 if (candidate == null) continue;
                 if (candidate == caster || candidate.Go == null || !candidate.Go.activeInHierarchy)
                     continue;
-                if (IsSparedByAreaSpell(candidate))
+                if (NpcHelperService.IsDown(candidate))
                     continue;
                 if (Vector3.Distance(casterPos, candidate.Go.transform.position) > rangeM)
                     continue;
@@ -272,18 +272,6 @@ namespace Gothic.Core.Domain.Npc
                 away = caster.Go.transform.forward;
             var speed = Mathf.Clamp(_throwBaseSpeed + damage / _throwDamagePerSpeed, _throwBaseSpeed, _throwMaxSpeed);
             _npcJumpFallFactory.Get(target)?.TryThrow(away.normalized * speed, _throwUpSpeed);
-        }
-
-        /// <summary>
-        /// Area spells (fire rain, ice wave, a fire storm's flames) skip the dead - and the knocked out unless
-        /// DeveloperConfig.EnableRangedKnockoutOption: like the engine they hit them too (finishing them off), the fire
-        /// rain only ever knocked the Irdorath crew down.
-        /// </summary>
-        private bool IsSparedByAreaSpell(NpcContainer candidate)
-        {
-            if (!_configService.Dev.EnableRangedKnockoutOption)
-                return NpcHelperService.IsDown(candidate);
-            return candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead;
         }
 
         private bool IsFireSpell(int spellId)

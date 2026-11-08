@@ -77,7 +77,6 @@ MonoBehaviour:
   EnableVrHeroBody: 1
   EnableHeroHands: 1
   NpcLootMode: 1
-  RangedKnockoutByDefault: 0
   EnableHeroSleepBody: 1
   EnableNpcNavMesh: 1
   WorldLightmapBrightness: 1
@@ -86,7 +85,6 @@ MonoBehaviour:
   EnableFootstepSounds: 1
   EnableOneHitKill: 0
   EnableOneHitKnockout: 0
-  EnableRangedKnockoutOption: 1
   EnableVrHeroBlock: 1
   NpcAttackArrivalThreshold: 0.2
   NpcDialogStopDistance: 1.3

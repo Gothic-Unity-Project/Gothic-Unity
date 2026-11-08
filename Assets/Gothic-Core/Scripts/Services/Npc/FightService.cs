@@ -231,23 +231,13 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// DeveloperConfig.EnableVrChainLightning: a zapped victim (ZS_Zapped: B_MagicHurtNpc every second) out of hit
-        /// points dies like the engine's (OpenGothic: script damage kills) - or is knocked out with the "Ranged knockout"
-        /// option (humans).
+        /// points dies like the engine's (OpenGothic: script damage kills, only melee knocks out).
         /// </summary>
         public void OnScriptDamageDepleted(NpcContainer victim, NpcContainer attacker)
         {
             if (victim?.Props == null || NpcHelperService.IsDown(victim) ||
                 (victim.PrefabProps != null && victim.PrefabProps.IsHero()))
                 return;
-
-            if (IsRangedKnockoutOn() && _knockoutDomain.IsKnockout(attacker, victim))
-            {
-                Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} zapped down - UNCONSCIOUS",
-                    LogCat.Fight);
-                DropReadiedWeapon(victim);
-                _knockoutDomain.KnockOutNpc(victim, attacker);
-                return;
-            }
 
             Logger.Log($"[FightService] {victim.Instance.GetName(NpcNameSlot.Slot0)} zapped to death", LogCat.Fight);
             Kill(victim, attacker);
@@ -417,17 +407,19 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// The hit took the last hit points. The hero goes down by the same rule as everybody (OpenGothic
         /// checkHealth): monsters and humans hostile to him kill him, the others knock him out. A berzerk is always
-        /// only stopped; arrows and spells kill unless the "Ranged knockout" option is on (IsRangedKill). A knockout by
+        /// only stopped. Like the engine (OpenGothic takeDamage: dontKill only without a bullet or spell) arrows, bolts
+        /// and spells (they pass their damage) always kill - the hero too, only melee knocks out. A knockout by
         /// the hero's summon counts as the hero's (GetCreditedAttacker); a kill is the summon's own - ZS_Dead pays the
         /// hero through its AIV_MM_PARTYMEMBER like the engine (OpenGothic: other = lastHit).
         /// </summary>
         private void GoDown(NpcContainer attacker, NpcContainer target, bool isHero, int? damageOverride)
         {
-            var isKnockedOut = isHero
+            var isMelee = !damageOverride.HasValue;
+            var isKnockedOut = isMelee && (isHero
                 ? _knockoutDomain.IsKnockout(attacker, target)
-                : !IsRangedKill(damageOverride) && target.IsHuman() &&
+                : target.IsHuman() &&
                   (DamagePerceptionDomain.IsBerzerk(target) ||
-                   _knockoutDomain.IsKnockout(_damagePerceptionDomain.GetCreditedAttacker(attacker), target));
+                   _knockoutDomain.IsKnockout(_damagePerceptionDomain.GetCreditedAttacker(attacker), target)));
             if (isHero && isKnockedOut)
             {
                 Logger.LogWarning("[FightService] Hero knocked out!", LogCat.Fight);
@@ -467,15 +459,6 @@ namespace Gothic.Core.Services.Npc
                 OnHitChangeAnimation(target);
             }
             OnHitPlaySound(target);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableRangedKnockoutOption: an arrow, bolt or spell (they pass their damage) kills unless the
-        /// "rangedKnockout" option is on.
-        /// </summary>
-        private bool IsRangedKill(int? damageOverride)
-        {
-            return _configService.Dev.EnableRangedKnockoutOption && damageOverride.HasValue && !IsRangedKnockoutOn();
         }
 
         private void OnFinishingMove(NpcContainer attacker, NpcContainer target)
@@ -592,18 +575,6 @@ namespace Gothic.Core.Services.Npc
                 return false;
 
             return npc == dialogs.CurrentDialogNpc || npc.Instance.IsHero(_gameStateService.GothicVm);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableRangedKnockoutOption + the "rangedKnockout" immersion option: off (default, like
-        /// OpenGothic: only melee knocks out) a lethal arrow, bolt or spell kills a human; on, it knocks him out like a
-        /// sword and the next shot, spell or fire rain finishes him off.
-        /// </summary>
-        private bool IsRangedKnockoutOn()
-        {
-            return _configService.Dev.EnableRangedKnockoutOption && _configService.Gothic != null &&
-                   _configService.Gothic.GetInt(FightConst.RangedKnockoutIniName,
-                       _configService.Dev.RangedKnockoutByDefault ? 1 : 0) == 1;
         }
 
         private const float _cannotUseMessageSeconds = 2f;

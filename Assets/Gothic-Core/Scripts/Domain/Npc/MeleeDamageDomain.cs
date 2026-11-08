@@ -78,16 +78,7 @@ namespace Gothic.Core.Domain.Npc
                     damage = Mathf.Max(0, hitPoints - 1);
             }
 
-            // Magic and ranged never one-shot humanoids or the hero - they always survive with 1 HP, a follow-up hit
-            // knocks them out. Monsters take full damage. DeveloperConfig.EnableRangedKnockoutOption replaces this
-            // (FightService.OnHit: kill or knock out by the option).
-            var attackerMode = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            var isMagicOrRanged = attackerMode is VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow
-                or VmGothicEnums.WeaponState.CBow;
             var isTargetHero = target.Instance.IsHero(_gameStateService.GothicVm);
-            if (!_configService.Dev.EnableRangedKnockoutOption && isMagicOrRanged && (isTargetHero || target.IsHuman()))
-                damage = Mathf.Min(damage, Mathf.Max(1, hitPoints - 1));
-
             // NPC_FLAG_IMMORTAL: take no damage, but combat still plays out normally. Marvin's god mode for the hero
             // likewise (the script flag is left alone - AI reads it).
             if (((int)target.Instance.Flags & FightConst.NpcFlagImmortal) != 0 || (isTargetHero && _playerService.IsGodMode))
