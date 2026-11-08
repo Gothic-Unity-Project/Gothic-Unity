@@ -17,6 +17,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         [SerializeField] private StatusType _statusType;
         public StatusType Type => _statusType;
         private Coroutine _fadeCoroutine;
+        private bool _isFadingIn;
         [SerializeField] private bool _isPlayer;
         [SerializeField] private Image _background;
         [SerializeField] private Image _statusValue;
@@ -125,6 +126,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnDisable()
         {
+            FinishFade();
+
             if (_statusType == StatusType.Misc)
                 return;
 
@@ -274,8 +277,24 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));
         }
 
+        /// <summary>
+        /// Disabled mid-fade, Unity stops the routine - the bar jumps to the fade's end instead of staying half visible.
+        /// </summary>
+        private void FinishFade()
+        {
+            if (_fadeCoroutine == null)
+                return;
+
+            StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = null;
+            SetAlpha(_isFadingIn ? 1f : 0f);
+            if (!_isFadingIn)
+                DisableBar();
+        }
+
         private IEnumerator FadeRoutine(float from, float to, float duration, bool enable)
         {
+            _isFadingIn = enable;
             if (enable)
                 EnableBar();
 
@@ -291,6 +310,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
             if (!enable)
                 DisableBar();
+            _fadeCoroutine = null;
         }
 
         private void SetAlpha(float alpha)
