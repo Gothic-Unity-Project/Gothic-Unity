@@ -19,6 +19,13 @@ namespace Gothic.VR.Adapters.Player
         public Action<VRFistHitbox, NpcLoader, Vector3> OnNpcEntered;
 
         private GameObject _debugSphere;
+        private Material _debugMaterial;
+
+        private void OnDestroy()
+        {
+            if (_debugMaterial != null)
+                Destroy(_debugMaterial);
+        }
 
         /// <summary>
         /// DeveloperConfig.ShowNpcColliders: the punch volume as a see-through sphere, to check where the fist hits.
@@ -33,7 +40,11 @@ namespace Gothic.VR.Adapters.Player
                 _debugSphere.transform.SetParent(transform, false);
                 _debugSphere.transform.localScale = Vector3.one * (_radius * 2f);
                 var debugRenderer = _debugSphere.GetComponent<Renderer>();
-                debugRenderer.material.color = new Color(1f, 0.2f, 0.2f, 0.35f);
+                _debugMaterial = new Material(debugRenderer.sharedMaterial)
+                {
+                    color = new Color(1f, 0.2f, 0.2f, 0.35f)
+                };
+                debugRenderer.sharedMaterial = _debugMaterial;
             }
             if (_debugSphere != null && _debugSphere.activeSelf != isVisible)
                 _debugSphere.SetActive(isVisible);

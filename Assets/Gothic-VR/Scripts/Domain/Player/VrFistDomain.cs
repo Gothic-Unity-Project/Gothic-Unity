@@ -40,12 +40,14 @@ namespace Gothic.VR.Domain.Player
         private const float _fistPunchVelocity = 2f;
         private const float _fistPunchCooldownSeconds = 0.5f;
         private const string _fistAttackAnimName = "S_FISTATTACK";
+        private const float _hitboxRetrySeconds = 2f;
 
         private readonly List<(IVrGrabber Hand, VRFistHitbox Hitbox)> _fists = new();
         private readonly Dictionary<VrHandSide, float> _lastPunchTime = new();
         private readonly Dictionary<VrHandSide, bool> _isFistSwinging = new();
         private SfxModel _fistSwingSound;
         private bool _isFistSwingSoundResolved;
+        private float _nextHitboxRetryTime;
 
         /// <summary>
         /// At least one hand is a fist - the hero is in fist mode (NPCs react like to drawn fists).
@@ -59,12 +61,13 @@ namespace Gothic.VR.Domain.Player
         /// </summary>
         public bool Tick()
         {
-            if (_fists.Count == 0 || _fists.Any(f => f.Hand == null || f.Hitbox == null))
+            if (NeedsHitboxes() && Time.time >= _nextHitboxRetryTime)
                 CreateFistHitboxes();
 
             var isAnyFist = false;
-            foreach (var (hand, hitbox) in _fists)
+            for (var i = 0; i < _fists.Count; i++)
             {
+                var (hand, hitbox) = _fists[i];
                 var side = hand.HandSide;
                 var isFist = hand.Held == null &&
                              _vrInput.GetButton(side, VrButton.Grip).IsActive &&
@@ -89,6 +92,18 @@ namespace Gothic.VR.Domain.Player
             IsReadied = isAnyFist;
             Logger.Log($"[VRFist] Fists {(isAnyFist ? "up" : "down")}", LogCat.Fight);
             return true;
+        }
+
+        private bool NeedsHitboxes()
+        {
+            if (_fists.Count == 0)
+                return true;
+            for (var i = 0; i < _fists.Count; i++)
+            {
+                if (_fists[i].Hand == null || _fists[i].Hitbox == null)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -135,13 +150,18 @@ namespace Gothic.VR.Domain.Player
                     Object.Destroy(hitbox.gameObject);
             }
             _fists.Clear();
+            _nextHitboxRetryTime = Time.time + _hitboxRetrySeconds;
 
             var rig = _vrPlayerService.Rig;
             foreach (var hand in _vrPlayerService.GetHandGrabbers())
             {
                 var handVisual = rig.GetHandVisual(hand.HandSide);
                 if (handVisual == null)
+                {
+                    Logger.LogWarning($"[VRFist] No hand visual for {hand.HandSide} - no fist hitbox, retry in "
+                                      + $"{_hitboxRetrySeconds:F0}s", LogCat.Fight);
                     continue;
+                }
                 var hitbox = VRFistHitbox.Create(handVisual, hand.HandSide);
                 hitbox.OnNpcEntered = OnFistEnteredNpc;
                 _fists.Add((hand, hitbox));
