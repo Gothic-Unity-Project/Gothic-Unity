@@ -38,8 +38,6 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
         [Inject] private readonly IVrInput _vrInput;
 
-        private const string _fistAttackAnimName = "S_FISTATTACK";
-
         private readonly List<(IVrGrabber Hand, VRFistHitbox Hitbox)> _fists = new();
         private readonly Dictionary<VrHandSide, float> _lastPunchTime = new();
         private readonly Dictionary<VrHandSide, bool> _isFistSwinging = new();
@@ -132,11 +130,12 @@ namespace Gothic.VR.Domain.Player
             _isFistSwingSoundResolved = true;
 
             var mds = _resourceCacheService.TryGetModelScript(Constants.Animations.HumanModelScript, false);
-            var anim = mds?.Animations.FirstOrDefault(a => a.Name.EqualsIgnoreCase(_fistAttackAnimName));
+            var animName = Constants.Animations.FistAttackAnimName;
+            var anim = mds?.Animations.FirstOrDefault(a => a.Name.EqualsIgnoreCase(animName));
             var soundName = anim?.SoundEffects.FirstOrDefault()?.Name;
             _fistSwingSound = soundName != null ? _vmCacheService.TryGetSfxData(soundName) : null;
             if (_fistSwingSound == null)
-                Logger.LogWarning($"[VRFist] Humans.mds: {_fistAttackAnimName} has no sound - fist swings are silent",
+                Logger.LogWarning($"[VRFist] Humans.mds: {animName} has no sound - fist swings are silent",
                     LogCat.Fight);
             return _fistSwingSound;
         }

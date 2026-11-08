@@ -47,6 +47,9 @@ namespace Gothic.Core.Const
 
             // Model script (.mds) of all human NPCs, hero included.
             public const string HumanModelScript = "HUMANS";
+
+            // Animation (Humans.mds) of a fist punch; its sound effect is the hero's fist swing sound.
+            public const string FistAttackAnimName = "S_FISTATTACK";
         }
 
         /// <summary>

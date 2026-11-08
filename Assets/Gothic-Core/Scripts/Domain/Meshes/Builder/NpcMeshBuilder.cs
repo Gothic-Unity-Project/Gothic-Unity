@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -57,7 +58,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             foreach (var nodeObject in nodeObjects)
             {
-                if (nodeObject.name == "BIP01 L HAND" || nodeObject.name == "BIP01 R HAND")
+                if (nodeObject.name == "BIP01 L HAND" || nodeObject.name == Constants.Animations.RightHandBoneName)
                 {
                     // var capsuleCollider = nodeObject.AddComponent<FistFightAdapter>();
                 }
