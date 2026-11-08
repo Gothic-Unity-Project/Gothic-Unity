@@ -292,13 +292,16 @@ namespace Gothic.Core.Services.Npc
             if (IsHitIgnored(attacker, target, isHero))
                 return;
 
+            if (!isHero && NpcHelperService.IsKnockedOut(target))
+            {
+                OnHitOnKnockedOut(attacker, target, position, damageOverride);
+                return;
+            }
+
             // Hero is being hit — alert party members immediately. We already know isHero here so no
             // comparison needed; attacker is directly the enemy party members should engage.
             if (isHero)
                 _damagePerceptionDomain.AlertPartyMembersToDefendHero(attacker);
-
-            if (TryFinishOffKnockedOut(attacker, target, position, isHero, damageOverride))
-                return;
 
             // DeveloperConfig.EnableDefeatedNpcFightsBack: a human the hero beat before is a coward towards him
             // (AIV_WASDEFEATEDBYSC: ZS_AssessEnemy -> ZS_ProclaimAndPunish -> ZS_TurnAway, "I didn't see anything") - fine
@@ -326,7 +329,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Hits that don't count at all: in a dialog, on the knocked out hero, a summon's on a downed target.
+        /// Hits that don't count at all: in a dialog, on the knocked out hero.
         /// </summary>
         private bool IsHitIgnored(NpcContainer attacker, NpcContainer target, bool isHero)
         {
@@ -337,45 +340,54 @@ namespace Gothic.Core.Services.Npc
                 return true;
             }
 
-            // Ignore hits on already-unconscious hero — prevents stacking recovery coroutines.
+            // Like the engine (OpenGothic takeDamage: isDown) the knocked out hero takes no damage - only a finishing
+            // move kills him (OnFinishingMove).
             if (isHero && target.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return true;
-
-            // Summons stop at a downed target like the scripts
-            // (ZS_MM_Attack_Loop: C_NpcIsDown(other)) - a swing already under way doesn't finish it off.
-            if (attacker.SummonedBy != null &&
-                NpcHelperService.IsKnockedOut(target))
-            {
-                Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} (summon) doesn't finish off " +
-                           $"unconscious {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-                return true;
-            }
 
             return false;
         }
 
         /// <summary>
-        /// Any attacker finishes off an unconscious NPC — set dead and call ZS_Dead. True: the hit is used up.
+        /// Like the engine (OpenGothic takeDamage returns if isDown()) a knocked out NPC takes no damage - arrows,
+        /// spells and other hits pass (summons stop at him anyway: ZS_MM_Attack_Loop C_NpcIsDown). Only a finishing
+        /// move kills him: the NPCs' AI_FinishingMove, and the hero's melee hit (VR: his action key) when he could
+        /// finish (IsHeroFinishingMove). Both go through FightFinishingMove.
         /// </summary>
-        private bool TryFinishOffKnockedOut(NpcContainer attacker, NpcContainer target, Vector3 position, bool isHero,
+        private void OnHitOnKnockedOut(NpcContainer attacker, NpcContainer target, Vector3 position,
             int? damageOverride)
         {
-            // The melee hit lands (finishing off a downed NPC too).
-            if (damageOverride == null && NpcHelperService.IsKnockedOut(target) && !isHero)
-                GlobalEventDispatcher.MeleeHitLanded.Invoke(attacker, target, position);
-
-            if (!target.Props.IsKnockedOut || isHero)
-                return false;
+            if (!IsHeroFinishingMove(attacker, target, damageOverride))
+            {
+                Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit doesn't hurt " +
+                           $"knocked out {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+                return;
+            }
 
             // Not the swing that knocked him out: a VR weapon can enter several hitboxes in one swing - Bullit died
             // instead of lying down.
             if (_knockoutDomain.IsInKnockoutGraceTime(target))
-                return true;
+                return;
 
-            Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)} finishes off unconscious " +
-                       $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            Kill(target, attacker);
-            return true;
+            GlobalEventDispatcher.MeleeHitLanded.Invoke(attacker, target, position);
+            GlobalEventDispatcher.FightFinishingMove.Invoke(attacker, target);
+        }
+
+        /// <summary>
+        /// The hero can finish a knocked out NPC like the engine (OpenGothic Npc::canFinish): a one- or two-handed
+        /// weapon drawn, the target within NPC_ATTACK_FINISH_DISTANCE. Fists, arrows and spells can't.
+        /// </summary>
+        private bool IsHeroFinishingMove(NpcContainer attacker, NpcContainer target, int? damageOverride)
+        {
+            if (damageOverride.HasValue || !attacker.Instance.IsHero(_gameStateService.GothicVm) ||
+                (VmGothicEnums.WeaponState)attacker.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
+                    VmGothicEnums.WeaponState.W2H) ||
+                attacker.Go == null || target.Go == null)
+                return false;
+
+            var toTarget = Vector3.ProjectOnPlane(target.Go.transform.position - attacker.Go.transform.position,
+                Vector3.up);
+            return toTarget.magnitude <= _npcAiService.GetFinishDistanceMeters();
         }
 
         /// <summary>
@@ -469,17 +481,9 @@ namespace Gothic.Core.Services.Npc
         private void OnFinishingMove(NpcContainer attacker, NpcContainer target)
         {
             var isHero = target.PrefabProps != null && target.PrefabProps.IsHero();
-            if (isHero && IsHeroDeathOn())
-            {
-                OnHeroDied(target, attacker);
-                return;
-            }
             if (isHero)
             {
-                // No respawn system yet — treat as extended knockout so the player can reload.
-                Logger.LogWarning("[FightService.FinishingMove] Hero executed — extended knockout (no respawn yet)", LogCat.Fight);
-                if (target.Props.BodyState != VmGothicEnums.BodyState.BsUnconscious)
-                    _knockoutDomain.KnockOutHero(target, attacker);
+                OnHeroDied(target, attacker);
                 return;
             }
 
@@ -493,18 +497,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableHeroDeath + the "heroDeath" option (Immersion menu, on by default): an NPC finishing
-        /// the knocked out hero off kills him like in Gothic. Off: he only stays knocked out.
-        /// </summary>
-        private bool IsHeroDeathOn()
-        {
-            return _configService.Dev.EnableHeroDeath &&
-                   _configService.Gothic.GetInt(Constants.IniNames.HeroDeath, 1) == 1;
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableHeroDeath: like the engine (OpenGothic Npc::finishingMove - hit points 0, then
-        /// PERC_ASSESSMURDER). The hero stays locked; the VR body falls dead and the menu opens (VRHeroBody).
+        /// An NPC finishing the knocked out hero off kills him like the engine (OpenGothic Npc::finishingMove - hit
+        /// points 0, then PERC_ASSESSMURDER). The hero stays locked; the VR body falls dead and the menu opens
+        /// (VRHeroBody).
         /// </summary>
         private void OnHeroDied(NpcContainer hero, NpcContainer attacker)
         {
@@ -513,8 +508,8 @@ namespace Gothic.Core.Services.Npc
 
             Logger.LogWarning($"[FightService] Hero finished off by {attacker.Instance.GetName(NpcNameSlot.Slot0)} - " +
                               "DEAD", LogCat.Fight);
-            _npcAiService.BroadcastDownPerception(hero, attacker, VmGothicEnums.PerceptionType.AssessMurder);
-            // The same death as any other (EndGame: locked, the death scream, the menu offers loading only).
+            // The same death as any other (PERC_ASSESSMURDER, EndGame: locked, the death scream, the menu offers loading
+            // only).
             Kill(hero, attacker);
         }
 

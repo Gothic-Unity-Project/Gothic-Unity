@@ -376,10 +376,8 @@ namespace Gothic.Core.Services.Npc
             if (container?.Go == null || target?.Go == null)
                 return;
 
-            var finishDistance = (_gameStateService.GothicVm
-                .GetSymbolByName(DaedalusConst.NpcAttackFinishDistance)?.GetInt(0) ??
-                                  _defaultFinishDistanceCm) / 100f;
-            if (Vector3.Distance(container.Go.transform.position, target.Go.transform.position) > finishDistance)
+            if (Vector3.Distance(container.Go.transform.position, target.Go.transform.position) >
+                GetFinishDistanceMeters())
                 ExtAiGoToNpc(self, other);
             ExtAiTurnToNpc(self, other);
             if ((VmGothicEnums.WeaponState)container.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
@@ -390,6 +388,15 @@ namespace Gothic.Core.Services.Npc
         }
 
         private const int _defaultFinishDistanceCm = 180;
+
+        /// <summary>
+        /// NPC_ATTACK_FINISH_DISTANCE - how close a finishing move is done (the NPCs' and the hero's).
+        /// </summary>
+        public float GetFinishDistanceMeters()
+        {
+            return (_gameStateService.GothicVm?.GetSymbolByName(DaedalusConst.NpcAttackFinishDistance)?.GetInt(0) ??
+                    _defaultFinishDistanceCm) / 100f;
+        }
 
         public void ExtAiGoToNpc(NpcInstance self, NpcInstance other)
         {

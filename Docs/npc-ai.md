@@ -25,7 +25,7 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 | `Domain/Npc/NpcTargetSelectionDomain` (owned by NpcAiService) | who an NPC fights or looks at: `Npc_GetNextTarget`, `UpdateEnemyNpc`, `FindClosestSensedBody` |
 | `Domain/Npc/HeroSpellStateDomain` (NpcAiService) | sleep/freeze spells on the hero |
 | `Services/Npc/NpcHelperService` | senses (`CanSenseNpc`, `CanSeeNpc`), perception ranges, person/guild attitude |
-| `Services/Npc/FightService` | how an NPC goes down: a hit (`FightHit`), hit points gone, knockout, death, the hero's death; the hero's prehit swing |
+| `Services/Npc/FightService` | how an NPC goes down: a hit (`FightHit`), hit points gone, knockout, death, finishing moves (the NPCs' and the hero's), the hero's death; the hero's prehit swing |
 | `Domain/Npc/MeleeDamageDomain` | melee damage: roll, damage types, protection; the formula comes from `IMeleeDamageRule` (G1/G2) |
 | `Domain/Npc/SpellHitDomain` | an NPC casting its spell (`CastNpcSpell`) and spells reaching NPCs: ASSESSMAGIC, area/spread hits, burning, Windfist throw |
 | `Domain/Npc/RangedHitDomain` | arrow/bolt damage via `IContextRangedCombatService` (G1/G2) |

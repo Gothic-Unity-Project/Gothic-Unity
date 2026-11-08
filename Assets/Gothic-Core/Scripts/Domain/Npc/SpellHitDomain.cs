@@ -205,6 +205,15 @@ namespace Gothic.Core.Domain.Npc
 
         private void ApplySpellHit(NpcContainer caster, NpcContainer target, Vector3 pos, int damage)
         {
+            // Like the engine (OpenGothic takeDamage: isDown) a spell does nothing to the dead and the knocked out - no
+            // damage, no PERC_ASSESSMAGIC, no fire. Only a finishing move kills a knocked out NPC.
+            if (NpcHelperService.IsDown(target))
+            {
+                Logger.Log($"[SpellHitDomain] {target.Instance.GetName(NpcNameSlot.Slot0)} is down - the spell of " +
+                           $"{caster.Instance.GetName(NpcNameSlot.Slot0)} does nothing", LogCat.Fight);
+                return;
+            }
+
             Logger.Log($"[SpellHitDomain] {caster.Instance.GetName(NpcNameSlot.Slot0)} → " +
                        $"{target.Instance.GetName(NpcNameSlot.Slot0)} dmg={damage}", LogCat.Fight);
 
@@ -213,8 +222,7 @@ namespace Gothic.Core.Domain.Npc
             // That's pure Daedalus content dispatched by spell ID, so it covers every "bad" spell
             // (Sleep, Icecube, Fear, Charm, Berzerk, ChainLightning...) without any C# per-spell
             // logic, and works identically for G1/G2 since it's just a symbol lookup by name.
-            if (target.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
-                !DamagePerceptionDomain.IsOwnSummonHit(caster, target))
+            if (!DamagePerceptionDomain.IsOwnSummonHit(caster, target))
             {
                 _npcAiService.ExecutePerception(
                     VmGothicEnums.PerceptionType.AssessMagic,
@@ -225,8 +233,7 @@ namespace Gothic.Core.Domain.Npc
 
             // The hero has no PERC_ASSESSMAGIC - sleep/freeze are set here so the
             // caster's scripts see them (Npc_IsInState) instead of casting again and again.
-            if (target.Vob.Player &&
-                target.Props.BodyState != VmGothicEnums.BodyState.BsDead)
+            if (target.Vob.Player)
                 _npcAiService.ApplyHeroSpellState(target, GetSpellMfxName(caster.ActiveSpell));
 
             // Direct damage (Firebolt, Fireball, ...) still goes through the normal hit pipeline for
