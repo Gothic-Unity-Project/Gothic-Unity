@@ -58,6 +58,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private LineRenderer _line;
         private Material _lineMaterial;
         private bool _isStopped;
+        private Camera _camera;
         // Reused every re-jitter (every 0.05 s) to avoid GC allocations.
         private readonly List<Vector3> _points = new();
         private Vector3[] _positions = new Vector3[0];
@@ -159,9 +160,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             UpdateLine();
         }
 
+        private Camera GetCamera()
+        {
+            if (_camera == null)
+                _camera = Camera.main;
+            return _camera;
+        }
+
         private NpcContainer FindInFrontOfEyes()
         {
-            var head = Camera.main;
+            var head = GetCamera();
             if (head == null)
                 return null;
 
@@ -256,8 +264,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (victim?.Go != null)
                     _points.Add(GetBodyPosition(victim));
             }
-            if (_isHeroZapped && Camera.main != null)
-                _points.Add(Camera.main.transform.position + Vector3.down * _heroChestBelowEyes);
+            if (_isHeroZapped && GetCamera() != null)
+                _points.Add(GetCamera().transform.position + Vector3.down * _heroChestBelowEyes);
 
             var count = (_points.Count - 1) * _segmentsPerLink + 1;
             if (_points.Count < 2)
