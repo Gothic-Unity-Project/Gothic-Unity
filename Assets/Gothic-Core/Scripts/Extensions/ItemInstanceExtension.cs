@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Models.Vob;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
 
@@ -21,6 +22,49 @@ namespace Gothic.Core.Extensions
         public static bool IsMeleeWeapon(this ItemInstance item)
         {
             return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0;
+        }
+
+        /// <summary>
+        /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
+        /// </summary>
+        public static bool IsRangedWeapon(this ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatFf) != 0;
+        }
+
+        /// <summary>
+        /// A crossbow (ITEM_CROSSBOW) - a ranged weapon that isn't one is a bow.
+        /// </summary>
+        public static bool IsCrossbow(this ItemInstance item)
+        {
+            return item != null && ((ItemFlags)item.Flags & ItemFlags.ItemCrossbow) != 0;
+        }
+
+        /// <summary>
+        /// Bow (ITEM_KAT_FF without ITEM_CROSSBOW), CBow (ITEM_CROSSBOW) or NoWeapon (no ranged weapon). The one
+        /// place that tells which items are bows and crossbows: NPCs drawing them (AiDrawWeapon), their colliders
+        /// (GetColliderKind) and the VR hero's ranged components and weapon state.
+        /// </summary>
+        public static WeaponState GetRangedWeaponState(this ItemInstance item)
+        {
+            if (!item.IsRangedWeapon())
+                return WeaponState.NoWeapon;
+
+            return item.IsCrossbow() ? WeaponState.CBow : WeaponState.Bow;
+        }
+
+        /// <summary>
+        /// Bows and crossbows get colliders fitted to their parts, melee weapons (IsMeleeWeapon) too while
+        /// pre-caching, everything else (arrows and bolts too) sliced ones. A ranged flag wins over a melee one.
+        /// </summary>
+        public static ItemColliderKind GetColliderKind(this ItemInstance item)
+        {
+            return item.GetRangedWeaponState() switch
+            {
+                WeaponState.Bow => ItemColliderKind.Bow,
+                WeaponState.CBow => ItemColliderKind.Crossbow,
+                _ => item.IsMeleeWeapon() ? ItemColliderKind.Melee : ItemColliderKind.Default
+            };
         }
 
         public static bool IsArmor(this ItemInstance item)

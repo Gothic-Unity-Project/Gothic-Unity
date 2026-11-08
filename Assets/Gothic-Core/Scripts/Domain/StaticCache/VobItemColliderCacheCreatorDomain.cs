@@ -7,6 +7,7 @@ using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
@@ -58,6 +59,8 @@ namespace Gothic.Core.Domain.StaticCache
         
         private readonly Stopwatch _meleeFitWatch = new();
         private int _meleeFitCount;
+        private readonly Stopwatch _rangedFitWatch = new();
+        private int _rangedFitCount;
 
 
         public async Task CalculateVobItemColliderCache(Dictionary<string, Bounds> cachedVobBounds)
@@ -81,26 +84,33 @@ namespace Gothic.Core.Domain.StaticCache
                 
                 ItemCollider.Add(item.Visual, new());
                 
-                GenerateItemColliders(item.Visual, cachedVobBounds, item.IsMeleeWeapon());
+                GenerateItemColliders(item.Visual, cachedVobBounds, item.GetColliderKind());
             }
 
             Logger.Log($"Fitted the colliders of {_meleeFitCount} melee weapons in " +
-                       $"{_meleeFitWatch.ElapsedMilliseconds} ms.", LogCat.PreCaching);
+                       $"{_meleeFitWatch.ElapsedMilliseconds} ms, of {_rangedFitCount} bows and crossbows in " +
+                       $"{_rangedFitWatch.ElapsedMilliseconds} ms.", LogCat.PreCaching);
         }
 
         /// <summary>
         /// Generate colliders based on width variations along the items' main axis
         /// Automatically detects weapon orientation and segments from handle to tip
+        /// Bows, crossbows and melee weapons (colliderKind) are fitted to their parts. Most of them are morph meshes (no MRM, e.g.
+        /// ItRw_Bow_L_01): their mesh is the morph mesh's one, the same the item is built from when it spawns.
         /// </summary>
         public void GenerateItemColliders(string visualName, Dictionary<string, Bounds> cachedVobBounds,
-            bool isMeleeWeapon, float widthThreshold = 0.4f, int minVerticesPerSegment = 3,
+            ItemColliderKind colliderKind, float widthThreshold = 0.4f, int minVerticesPerSegment = 3,
             int samples = 50, float segmentDistance = 0.05f)
         {
-            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visualName)?.Cache();
+            var isRangedWeapon = colliderKind is ItemColliderKind.Bow or ItemColliderKind.Crossbow;
+            var mrm = _resourceCacheService.TryGetMultiResolutionMesh(visualName, !isRangedWeapon)?.Cache();
+            if (mrm == null && isRangedWeapon)
+                mrm = _resourceCacheService.TryGetMorphMesh(visualName, false)?.Mesh?.Cache();
             if (mrm == null)
                 return;
 
-            if (!cachedVobBounds.TryGetValue(visualName, out var bounds) || bounds == default)
+            var bounds = default(Bounds);
+            if (!isRangedWeapon && (!cachedVobBounds.TryGetValue(visualName, out bounds) || bounds == default))
                 return;
 
             // Extract vertices and triangles similar to PrepareMeshFilter
@@ -134,7 +144,17 @@ namespace Gothic.Core.Domain.StaticCache
             if (vertices.Length == 0 || triangles.Length == 0)
                 return;
 
-            if (isMeleeWeapon)
+            if (isRangedWeapon)
+            {
+                _rangedFitWatch.Start();
+                ItemCollider[visualName].AddRange(VobItemFittedColliderCacheCreatorDomain.CreateRangedWeapon(
+                    visualName, vertices, triangles, colliderKind == ItemColliderKind.Bow));
+                _rangedFitWatch.Stop();
+                _rangedFitCount++;
+                return;
+            }
+
+            if (colliderKind == ItemColliderKind.Melee)
             {
                 _meleeFitWatch.Start();
                 ItemCollider[visualName].AddRange(

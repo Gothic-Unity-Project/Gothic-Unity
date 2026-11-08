@@ -1,4 +1,5 @@
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -29,7 +30,7 @@ namespace Gothic.G1.Services.Fight
         {
             var damage = weapon.DamageTotal;
             var vm = _gameStateService.GothicVm;
-            var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags & VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
+            var isCrossbow = weapon.IsCrossbow();
             var talentId = vm.GetSymbolByName(isCrossbow ? "NPC_TALENT_CROSSBOW" : "NPC_TALENT_BOW")?.GetInt(0) ??
                            (isCrossbow ? 4 : 3);
             var chance = _npcHelperService.ExtNpcGetTalentValue(shooter.Instance, talentId);

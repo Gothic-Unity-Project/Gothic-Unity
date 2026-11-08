@@ -1,6 +1,7 @@
 using Gothic.Core;
 using ZenKit.Daedalus;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Services;
 using Gothic.Core.Adapters.Vob.Item;
 using Gothic.Core.Const;
@@ -171,8 +172,30 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// A bow/crossbow in any hand (VRBow/VRCrossbow shoot with it). Read from the hands, not pushed by the
+        /// components: two held crossbows, one let go, still leave the hero armed. VRPlayerService's grabbed items,
+        /// not the backend's hands: they already forgot a hand that is letting go right now.
+        /// </summary>
+        private VmGothicEnums.WeaponState GetHeldRangedState()
+        {
+            var state = GetRangedState(_vrPlayerService.GrabbedItemLeft);
+            return state != VmGothicEnums.WeaponState.NoWeapon
+                ? state
+                : GetRangedState(_vrPlayerService.GrabbedItemRight);
+        }
+
+        private VmGothicEnums.WeaponState GetRangedState(GameObject heldItem)
+        {
+            if (heldItem == null)
+                return VmGothicEnums.WeaponState.NoWeapon;
+
+            var item = heldItem.GetComponentInParent<VobLoader>()?.Container?.GetItemInstance();
+            return item.GetRangedWeaponState();
+        }
+
+        /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > fist > nothing (bows and runes join with their PRs).
+        /// melee weapon in any hand > held crossbow/bow > fist > nothing (runes join with the magic PR).
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
         /// </summary>
         public void UpdateHeroWeaponState()
@@ -180,6 +203,8 @@ namespace Gothic.VR.Services
             var state = _firstAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = GetHeldRangedState();
             if (state == VmGothicEnums.WeaponState.NoWeapon && _fistDomain?.IsReadied == true)
                 state = VmGothicEnums.WeaponState.Fist;
 

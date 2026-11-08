@@ -13,6 +13,8 @@ namespace Gothic.Core.Domain.StaticCache
     /// boxes full of air. Thin parts stay (rods and shafts are held there). They are the hitboxes of the hero's swings.
     /// Fitted during pre-caching, as the fit samples every triangle. A box along the item's axes is stored as a plain
     /// box (BoxCollider), a slanted one as an oriented box (convex box mesh, VobItemColliderBuilder).
+    /// Bows and crossbows (ITEM_KAT_FF) are fitted the same way, without their line-thin strings - and get boxes sliced
+    /// along their mesh if no part was found (CreateRangedWeapon).
     /// </summary>
     public static class VobItemFittedColliderCacheCreatorDomain
     {
@@ -23,11 +25,12 @@ namespace Gothic.Core.Domain.StaticCache
 
         /// <summary>
         /// vertices: in meters, three per triangle (as VobItemColliderCacheCreatorDomain prepares them).
+        /// keepThinParts: false for bows and crossbows - their strings get no box. Empty if no part was found.
         /// </summary>
         public static List<VobItemColliderCacheCreatorDomain.Data> Create(string visualName, Vector3[] vertices,
-            int[] triangles)
+            int[] triangles, bool keepThinParts = true)
         {
-            var boxes = ItemColliderFittingDomain.Fit(vertices, triangles, true, _maxBoxesPerWeapon,
+            var boxes = ItemColliderFittingDomain.Fit(vertices, triangles, keepThinParts, _maxBoxesPerWeapon,
                 out var isTrimmed);
 
             if (isTrimmed)
@@ -37,6 +40,37 @@ namespace Gothic.Core.Domain.StaticCache
             var colliders = new List<VobItemColliderCacheCreatorDomain.Data>(boxes.Count);
             foreach (var box in boxes)
                 colliders.Add(ToColliderData(box));
+            return colliders;
+        }
+
+        /// <summary>
+        /// Bows and crossbows: their parts (stock, prod, limbs, no string), or boxes sliced along the mesh if the fit
+        /// found none. Empty if neither works (the item gets a capsule, VobItemColliderBuilder). Pre-caching (from the
+        /// morph mesh) and spawning (an item without pre-cached colliders) share it.
+        /// </summary>
+        public static List<VobItemColliderCacheCreatorDomain.Data> CreateRangedWeapon(string visualName,
+            Vector3[] vertices, int[] triangles, bool isBow)
+        {
+            var colliders = Create(visualName, vertices, triangles, false);
+            return colliders.Count > 0 ? colliders : CreateSliced(vertices, isBow);
+        }
+
+        /// <summary>
+        /// Axis aligned boxes along the mesh (ItemColliderSlicingDomain) as BoxColliders.
+        /// </summary>
+        public static List<VobItemColliderCacheCreatorDomain.Data> CreateSliced(Vector3[] vertices, bool isBow)
+        {
+            var boxes = ItemColliderSlicingDomain.Slice(vertices, isBow);
+            var colliders = new List<VobItemColliderCacheCreatorDomain.Data>(boxes.Count);
+            foreach (var box in boxes)
+            {
+                colliders.Add(new VobItemColliderCacheCreatorDomain.Data
+                {
+                    T = VobItemColliderCacheCreatorDomain.T.B,
+                    C = box.center,
+                    S = box.size
+                });
+            }
             return colliders;
         }
 

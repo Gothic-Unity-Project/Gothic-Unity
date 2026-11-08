@@ -43,9 +43,6 @@ namespace Gothic.Core.Adapters.Npc
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly PhysicsService _physicsService;
 
-        // One log per new enemy (PERC_ASSESSENEMY runs every perception tick).
-        private NpcInstance _lastLoggedEnemy;
-
         private DaedalusVm Vm => _gameStateService.GothicVm;
         private readonly HashSet<Type> _failedActionTypes = new();
 
@@ -422,17 +419,7 @@ namespace Gothic.Core.Adapters.Npc
 
                 // FIXME - Throws a lot of errors and warnings when NPCs are nearby monsters (e.g. Bridge guard next to OC)
                 if(Properties.EnemyNpc != null && !IsLookingAwayFrom(Properties.EnemyNpc))
-                {
-                    if (_lastLoggedEnemy != Properties.EnemyNpc)
-                    {
-                        _lastLoggedEnemy = Properties.EnemyNpc;
-                        var enemyPos = Properties.EnemyNpc.GetUserData()?.Go?.transform.position ?? transform.position;
-                        Logger.Log($"[Perc] AssessEnemy {NpcInstance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)} -> " +
-                                   $"{Properties.EnemyNpc.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)} " +
-                                   $"({Vector3.Distance(transform.position, enemyPos):F1} m)", LogCat.Ai);
-                    }
-                    _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
-                }
+                    _npcAiService.ExecuteAssessEnemy(Properties, NpcInstance);
             }
 
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.

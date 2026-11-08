@@ -50,6 +50,12 @@ namespace Gothic.Core.Const
 
             // Animation (Humans.mds) of a fist punch; its sound effect is the hero's fist swing sound.
             public const string FistAttackAnimName = "S_FISTATTACK";
+
+            // Morph animation of a bow mesh (ITRW_BOW_*.MMB): the frames of the draw.
+            public const string BowShootMorphAnimName = "S_SHOOT";
+
+            // Morph animation of a crossbow mesh (ITRWCROSSBOW*.MMB): the engine's reload, the string at the prod.
+            public const string CrossbowReloadMorphAnimName = "S_RELAX";
         }
 
         /// <summary>
@@ -211,6 +217,12 @@ namespace Gothic.Core.Const
         // Sound effect (SFX instance) of a sword finishing move.
         public const string SfxSwordFinal = "FIG_SWORDFINAL";
 
+        // Sound effects (SFX instances) of bows and crossbows. BowReload is also the NPCs' t_CBowReload.
+        public const string SfxBowShoot = "BowShoot";
+        public const string SfxBowReload = "BowReload";
+        public const string SfxCrossbowShoot = "CrossbowShoot";
+        public const string SfxCrossbowReload = "CrossbowReload";
+
         public const string SlotRightHand	= "ZS_RIGHTHAND";
         public const string SlotLeftHand	= "ZS_LEFTHAND";
         public const string SlotSword		= "ZS_SWORD";
@@ -222,7 +234,7 @@ namespace Gothic.Core.Const
 
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "6";
+        public const string StaticCacheVersion = "7";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

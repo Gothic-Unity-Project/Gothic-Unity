@@ -45,6 +45,7 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VRRangedService _vrRangedService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -57,6 +58,9 @@ namespace Gothic.VR.Adapters.Vob
         private VrInteractable _interactable;
         private Coroutine _reEnableCollisionRoutine;
 
+        // Added on the first grab of a bow/crossbow and kept on the item (switched by SetRangedWeaponHeld).
+        private VobItem.IVrHoldable _rangedWeapon;
+        private bool _isRangedWeaponChecked;
 
         private struct OverlapCheckData
         {
@@ -122,6 +126,9 @@ namespace Gothic.VR.Adapters.Vob
             if (args.Kind == VrGrabberKind.Socket)
             {
                 SetSocketedLayer();
+                // Out of a holster/backpack a crossbow is cocked.
+                if (TryGetComponent<VobItem.VRCrossbowString>(out var crossbowString))
+                    crossbowString.SetProgress(1f);
                 return;
             }
 
@@ -139,8 +146,12 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StartTrackVobPositionUpdates(gameObject);
             _vrPlayerService.SetGrab(args);
 
-            // The engine's "missing ... points" (G_CanNotUse) for a melee weapon the hero can't use - it hits for 1.
+            // The engine's "missing ... points" (G_CanNotUse) for a weapon the hero can't use - a melee weapon hits
+            // for 1, a bow/crossbow doesn't shoot.
             TryShowWeaponRequirement();
+
+            // One hand is enough for ranged weapons.
+            SetRangedWeaponHeld(true);
 
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
@@ -182,6 +193,10 @@ namespace Gothic.VR.Adapters.Vob
 
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
+
+            // Bows/crossbows shoot as long as any hand holds them (UnsetGrab above already forgot this hand).
+            if (!_vrPlayerService.IsHeldInHand(_interactable))
+                SetRangedWeaponHeld(false);
 
             if (_vrPlayerService.IsDualGrabbed)
                 return;
@@ -259,6 +274,31 @@ namespace Gothic.VR.Adapters.Vob
             _vobService.RemoveWorldItem(container);
         }
 
+        /// <summary>
+        /// Ranged weapons shoot while a hand holds them (VRRangedService.AddRangedWeapon). The component is added on the
+        /// first grab and stays on the item - a release and a grab in the same frame (hand -> hand, holster -> hand)
+        /// only switch it off and on again. Its first setup waits for its own next Update (not in this grab event).
+        /// </summary>
+        private void SetRangedWeaponHeld(bool isHeld)
+        {
+            if (isHeld)
+                TryAddRangedWeapon();
+
+            _rangedWeapon?.SetHeld(isHeld);
+        }
+
+        private void TryAddRangedWeapon()
+        {
+            if (_isRangedWeaponChecked)
+                return;
+
+            var item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
+                return;
+            _isRangedWeaponChecked = true;
+
+            _rangedWeapon = _vrRangedService.AddRangedWeapon(gameObject, item);
+        }
 
         /// <summary>
         /// Items with a "use" function (on_state[0]) like pouches, potions and food, and wearables (armor, amulets,
@@ -479,7 +519,7 @@ namespace Gothic.VR.Adapters.Vob
         {
             var container = GetComponentInParent<VobLoader>()?.Container;
             if (container != null && container.Vob.Type == ZenKit.Vobs.VirtualObjectType.oCItem &&
-                container.IsMeleeWeapon())
+                (container.IsMeleeWeapon() || container.IsRangedWeapon()))
                 _fightService.CheckHeroWeaponRequirement(container.GetItemInstance(), isMessageShown: true);
         }
     }

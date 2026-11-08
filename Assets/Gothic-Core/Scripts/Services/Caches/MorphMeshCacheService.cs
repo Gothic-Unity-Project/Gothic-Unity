@@ -160,6 +160,110 @@ namespace Gothic.Core.Services.Caches
             return newData;
         }
 
+        // TryGetMorphDataForVertices: frames per "mmb-animation-vertexCount".
+        private readonly Dictionary<string, List<Vector3[]>> _animationMorphsByVertices = new();
+
+        // Position rounding for matching Unity vertices to ZenKit positions (0.1 mm).
+        private const float _positionMatchScale = 10000f;
+
+        /// <summary>
+        /// The frames of a morph animation for the given vertices of a Unity mesh (rest pose + the animation's
+        /// offsets). One source of frames per mesh: if the mesh was built from the morph mesh (its vertex mapping
+        /// exists, same vertex count), these are the frames of TryGetMorphData(). Only otherwise the vertices are
+        /// matched to the morph mesh by position - a bow (or crossbow) built once without it (welded, cached) never had
+        /// a mapping and never bent.
+        /// </summary>
+        [CanBeNull]
+        public List<Vector3[]> TryGetMorphDataForVertices(string mmbName, string animationName, Vector3[] unityVertices)
+        {
+            if (unityVertices == null || unityVertices.Length == 0)
+                return null;
+
+            var preparedKey = $"{GetPreparedKey(mmbName)}-{GetPreparedKey(animationName)}-{unityVertices.Length}";
+            if (_animationMorphsByVertices.TryGetValue(preparedKey, out var cached))
+                return cached;
+
+            var mmb = _resourceCacheService.TryGetMorphMesh(mmbName);
+            var anim = mmb?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
+            if (mmb?.Mesh == null || anim == null)
+            {
+                _animationMorphsByVertices[preparedKey] = null;
+                return null;
+            }
+
+            if (IsSameAsMappedMesh(mmbName, unityVertices))
+            {
+                var mappedFrames = TryGetMorphData(mmbName, animationName);
+                _animationMorphsByVertices[preparedKey] = mappedFrames;
+                return mappedFrames;
+            }
+
+            var positions = mmb.Mesh.Positions;
+            var zkByPosition = new Dictionary<Vector3Int, List<int>>();
+            for (var i = 0; i < positions.Count; i++)
+            {
+                var key = Vector3Int.RoundToInt(new Vector3(positions[i].X, positions[i].Y, positions[i].Z) / 100f *
+                                                _positionMatchScale);
+                if (!zkByPosition.TryGetValue(key, out var list))
+                    zkByPosition[key] = list = new List<int>();
+                list.Add(i);
+            }
+
+            var unityByZk = new List<int>[positions.Count];
+            var matched = 0;
+            for (var u = 0; u < unityVertices.Length; u++)
+            {
+                if (!zkByPosition.TryGetValue(Vector3Int.RoundToInt(unityVertices[u] * _positionMatchScale),
+                        out var zkIds))
+                    continue;
+                matched++;
+                foreach (var zkId in zkIds)
+                    (unityByZk[zkId] ??= new List<int>()).Add(u);
+            }
+
+            if (matched == 0)
+            {
+                Logger.LogWarning($"[MorphMesh] {mmbName}: no vertex matches the morph mesh - {animationName} skipped.",
+                    LogCat.Mesh);
+                _animationMorphsByVertices[preparedKey] = null;
+                return null;
+            }
+
+            var vertexCount = anim.Vertices.Count;
+            var frames = new List<Vector3[]>(anim.FrameCount);
+            for (var f = 0; f < anim.FrameCount; f++)
+                frames.Add((Vector3[])unityVertices.Clone());
+
+            for (var i = 0; i < anim.SampleCount; i++)
+            {
+                var frame = i / vertexCount;
+                var zkId = anim.Vertices[i % vertexCount];
+                if (frame >= frames.Count || zkId < 0 || zkId >= unityByZk.Length || unityByZk[zkId] == null)
+                    continue;
+
+                var offset = anim.Samples[i].ToUnityVector();
+                foreach (var u in unityByZk[zkId])
+                    frames[frame][u] = unityVertices[u] + offset;
+            }
+
+            Logger.Log($"[MorphMesh] {mmbName} {animationName}: {anim.FrameCount} frames, " +
+                       $"{matched}/{unityVertices.Length} vertices matched by position", LogCat.Mesh);
+            _animationMorphsByVertices[preparedKey] = frames;
+            return frames;
+        }
+
+        /// <summary>
+        /// The vertices are the ones the morph mesh was built into (its vertex mapping exists): same count, same ends.
+        /// </summary>
+        private bool IsSameAsMappedMesh(string mmbName, Vector3[] unityVertices)
+        {
+            var preparedKey = GetPreparedKey(mmbName);
+            return _vertexMapping.ContainsKey(preparedKey) &&
+                   _unityVertices.TryGetValue(preparedKey, out var mappedVertices) &&
+                   mappedVertices.Length == unityVertices.Length &&
+                   mappedVertices[0] == unityVertices[0] && mappedVertices[^1] == unityVertices[^1];
+        }
+
         public string GetPreparedKey(string key)
         {
             var lowerKey = key.ToLower();
@@ -178,6 +282,7 @@ namespace Gothic.Core.Services.Caches
             _vertexMapping.Clear();
             _unityVertices.Clear();
             _animationMorphs.Clear();
+            _animationMorphsByVertices.Clear();
         }
     }
 }

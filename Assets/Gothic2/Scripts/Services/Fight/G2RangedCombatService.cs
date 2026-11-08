@@ -1,3 +1,4 @@
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
@@ -25,8 +26,7 @@ namespace Gothic.G2.Services.Fight
 
         public float GetHitChance(NpcContainer shooter, ItemInstance weapon)
         {
-            var isCrossbow = weapon != null &&
-                             ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
+            var isCrossbow = weapon.IsCrossbow();
             var talentName = isCrossbow ? "NPC_TALENT_CROSSBOW" : "NPC_TALENT_BOW";
             var talent = _gameStateService.GothicVm.GetSymbolByName(talentName)?.GetInt(0) ?? (isCrossbow ? 4 : 3);
             return shooter.Vob.GetHitChance(talent) / 100f;

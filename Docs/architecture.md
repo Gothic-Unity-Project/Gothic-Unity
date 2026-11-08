@@ -119,7 +119,8 @@ what wasn't chosen).
 time on every change.
 
 **Example:** `SaveGameService` orchestrates, the details live in `Domain/SaveGames/*`, the design in
-`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`, the VR melee ones in `Docs/vr-melee.md`.
+`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`, the VR melee ones in
+`Docs/vr-melee.md`, the VR ranged ones in `Docs/vr-ranged.md`.
 
 ### 9. Leave it better, don't rewrite
 
@@ -161,6 +162,7 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 | implement a Daedalus external | the `Domain/Vm/Vm*ExternalDomain` of its family registers it, the service of its area implements it (e.g. `NpcAiService`) |
 | change NPC AI or fights | see the map in `Docs/npc-ai.md` |
 | change VR melee (swings, fists, block, stab finish) | see the map in `Docs/vr-melee.md` |
+| change VR bows/crossbows (draw, shot, reload) | see the map in `Docs/vr-ranged.md` |
 | add a rule about an NPC, item or VOB | a property on its model or an extension in `Extensions/` |
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |

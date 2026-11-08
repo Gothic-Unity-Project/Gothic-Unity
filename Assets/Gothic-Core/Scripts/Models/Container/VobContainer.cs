@@ -137,5 +137,13 @@ namespace Gothic.Core.Models.Container
         {
             return GetItemInstance().IsMeleeWeapon();
         }
+
+        /// <summary>
+        /// A ranged weapon (ITEM_KAT_FF: bows, crossbows).
+        /// </summary>
+        public bool IsRangedWeapon()
+        {
+            return GetItemInstance().IsRangedWeapon();
+        }
     }
 }

@@ -32,6 +32,8 @@ namespace Gothic.VR
             public const string HeroBlock = "heroBlock";
             // 1 = an unconscious NPC is finished off by a stab kept in the body (default), 0 = by any hit.
             public const string StabFinish = "stabFinish";
+            // 1 = a crossbow is reloaded by pulling its string (default), 0 = by itself.
+            public const string CrossbowReload = "crossbowReload";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -91,6 +93,8 @@ namespace Gothic.VR
         public const int HeroBlockDefaultValue = 1;
 
         public const int StabFinishDefaultValue = 1;
+
+        public const int CrossbowReloadDefaultValue = 1;
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int HeroFallModeDefaultValue = 0;
@@ -166,6 +170,23 @@ namespace Gothic.VR
             // Stab finish: meters back out of the body (against the tip) / sideways that let go.
             public const float StabMaxPullBackDistance = 0.15f;
             public const float StabMaxSidewaysDistance = 0.25f;
+        }
+
+        /// <summary>
+        /// VR ranged tunables: bows (VrBowMeshCalibration) and crossbows (VRCrossbow).
+        /// </summary>
+        public static class Ranged
+        {
+            // Bow: a mesh whose limb tips are closer than this (m) is no bow to draw.
+            public const float BowMinLength = 0.1f;
+
+            // Bow: the max draw (m) is this share of the bow's length, clamped to the range below.
+            public const float BowDrawPerLength = 0.55f;
+            public const float BowMinDraw = 0.45f;
+            public const float BowMaxDraw = 0.72f;
+
+            // Crossbow: seconds it reloads by itself with the Immersion option "Crossbow" (crossbowReload) off.
+            public const float CrossbowReloadSeconds = 1.5f;
         }
 
         /// <summary>

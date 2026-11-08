@@ -49,7 +49,7 @@ namespace Gothic.VR.Interaction.Components
 
         /// <summary>
         /// While a hand holds it: can another hand at this position grab it too? null = yes. VRBow: not at the string -
-        /// that hand draws instead. Read by the XRI backend; HVR uses VRBowStringFilter.
+        /// that hand draws instead. Read by the XRI backend.
         /// </summary>
         public Func<Vector3, bool> CanSecondHandGrabAt { get; set; }
 

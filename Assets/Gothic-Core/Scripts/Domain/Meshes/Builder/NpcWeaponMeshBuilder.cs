@@ -32,7 +32,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 VmGothicEnums.ItemFlags.ItemKatNf => isTwoHanded ? Constants.SlotLongsword : Constants.SlotSword,
                 VmGothicEnums.ItemFlags.ItemKatFf =>
-                    flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow) ? Constants.SlotCrossbow : Constants.SlotBow,
+                    item.IsCrossbow() ? Constants.SlotCrossbow : Constants.SlotBow,
                 _ => null
             };
         }

@@ -52,7 +52,7 @@ namespace Gothic.Core.Services.Npc
             if (munition != null)
                 return munition;
 
-            var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
+            var isCrossbow = weapon.IsCrossbow();
             var fallbacks = isCrossbow ? DaedalusConst.FallbackBoltInstances : DaedalusConst.FallbackArrowInstances;
             foreach (var name in fallbacks)
             {

@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using JetBrains.Annotations;
 using MyBox;
@@ -32,6 +33,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         protected bool HasMeshCollider = true;
         protected bool UseTextureArray;
         protected bool UseColliderCache;
+        protected ItemColliderKind ColliderKind;
         protected bool AllowUntextured;
 
         protected IMultiResolutionMesh Mrm;
@@ -183,6 +185,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
+        /// Items only (with the collider cache): bows and crossbows get colliders fitted to their parts, the rest
+        /// (melee too) sliced ones when they have no pre-cached colliders.
+        /// </summary>
+        public void SetItemColliderKind(ItemColliderKind colliderKind)
+        {
+            ColliderKind = colliderKind;
+        }
+
+        /// <summary>
         /// Render texture-less materials with their color instead of skipping them (e.g. G2's treasure X marks).
         /// Needs UseTextureArray=false, as there is no texture array slot for them.
         /// </summary>
@@ -209,7 +220,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 if (UseColliderCache)
                 {
-                    PrepareCachedCollider(RootGo);
+                    PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
                 }
                 else
                 {
@@ -351,6 +362,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             PrepareMeshFilter(meshFilter, Mmb.Mesh, meshRenderer, 0);
             PrepareMeshRenderer(meshRenderer, Mmb.Mesh);
+
+            // Morph mesh items (bows, crossbows) never got a collider: the hand grabbed "nothing" next to them and they
+            // fell through the world (crossbows from NPC loot too). Items only (the collider cache): world VOBs with a
+            // morph visual (flags, plants) stay without one, as before.
+            if (HasMeshCollider && UseColliderCache)
+                PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
 
             SetPosAndRot(RootGo, RootPosition, RootRotation);
 
@@ -694,9 +711,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
         }
 
-        protected void PrepareCachedCollider(GameObject rootGo)
+        /// <summary>
+        /// mesh: bows and crossbows get boxes fitted to it, items without pre-cached colliders (morph meshes) boxes
+        /// along it.
+        /// </summary>
+        protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
         {
-            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName);
+            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName, ColliderKind, mesh);
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)
