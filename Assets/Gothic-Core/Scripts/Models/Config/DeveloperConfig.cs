@@ -316,10 +316,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("NPC AI and Fight", true)]
-        [Tooltip("Put to sleep by a spell, the VR hero's body falls asleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE, " +
-                 "wakes with T_VICTIM_SLE_2_STAND, the camera follows the head) and the sleep effect floats over his head.")]
-        public bool EnableHeroSleepBody = true;
-
         [Tooltip("Brightness of the world's lightmaps (1 = as compiled by Gothic).")]
         [Range(0.25f, 4f)]
         public float WorldLightmapBrightness = 1f;

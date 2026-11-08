@@ -345,6 +345,19 @@ MonoBehaviour:
       zachowany."
     m_Metadata:
       m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: Upadek bohatera
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: "Nieprzytomny, martwy lub u\u015Bpiony: widok opada z cia\u0142em
+      albo si\u0119 wygasza (mniej ruchu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: "z cia\u0142em|wygaszenie"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

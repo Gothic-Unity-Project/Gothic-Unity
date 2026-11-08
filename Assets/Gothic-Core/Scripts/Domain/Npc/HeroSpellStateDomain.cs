@@ -7,7 +7,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
@@ -24,15 +23,14 @@ namespace Gothic.Core.Domain.Npc
     /// scripts see it (B_SelectWeapon: !Npc_IsInState(oth, ZS_MagicSleep), C_NpcIsDown) and stop casting - Xardas put
     /// the hero to sleep again and again. The hero can't move until the spell's time (SPL_TIME_SLEEP/FREEZE) is over;
     /// damage wakes a sleeping hero (B_StopMagicSleep).
-    /// DeveloperConfig.EnableHeroSleepBody: asleep, the spell's effect on its target (emFXCollDyn of spellFX_Sleep, the
-    /// "z"s) floats over the hero's head; VRHeroBody lets the body fall asleep.
+    /// Asleep, the spell's effect on its target (emFXCollDyn of spellFX_Sleep, the "z"s) floats over the hero's head;
+    /// HeroFellAsleep / HeroWokeUp let the platform lay the body down (VR: VrHeroDownPose, VrKnockoutView).
     /// Owned by NpcAiService.
     /// </summary>
     public class HeroSpellStateDomain
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly ParticleService _particleService;
         [Inject] private readonly UnityMonoService _unityMonoService;
@@ -53,6 +51,7 @@ namespace Gothic.Core.Domain.Npc
         private float _endTime;
         private int _hitPoints;
         private bool _isActive;
+        private bool _isAsleep;
 
         /// <summary>
         /// The state a spell puts its victim in (the scripts' B_AssessMagic_*): null for the others.
@@ -103,6 +102,7 @@ namespace Gothic.Core.Domain.Npc
             hero.Vob.CurrentStateName = stateName;
             if (isSleep)
                 PlaySleepFx();
+            SetAsleep(isSleep);
             if (!wasActive)
                 _unityMonoService.StartCoroutine(WatchState());
             Logger.Log($"[HeroSpellState] Hero in {stateName} for {seconds} s", LogCat.Fight);
@@ -131,7 +131,7 @@ namespace Gothic.Core.Domain.Npc
 
         private void PlaySleepFx()
         {
-            if (_sleepFx != null || !_configService.Dev.EnableHeroSleepBody || Camera.main == null)
+            if (_sleepFx != null || Camera.main == null)
                 return;
 
             var fxName = _vmCacheService.TryGetVfxData("spellFX_Sleep")?.EmFxCollDynS;
@@ -157,10 +157,29 @@ namespace Gothic.Core.Domain.Npc
             _sleepFx = null;
         }
 
+        /// <summary>
+        /// HeroFellAsleep / HeroWokeUp once per sleep - a second sleep spell only renews the time, a freeze ends it.
+        /// </summary>
+        private void SetAsleep(bool isAsleep)
+        {
+            if (_isAsleep == isAsleep)
+                return;
+
+            _isAsleep = isAsleep;
+            if (isAsleep)
+            {
+                GlobalEventDispatcher.HeroFellAsleep.Invoke(_hero);
+                return;
+            }
+            StopSleepFx();
+            GlobalEventDispatcher.HeroWokeUp.Invoke();
+        }
+
         private void End(string reason)
         {
             _isActive = false;
             StopSleepFx();
+            SetAsleep(false);
             // Only if nothing else (a cutscene, a dialog) set another state meanwhile.
             if (_hero?.Vob != null && _hero.Vob.CurrentStateName == _stateName)
             {

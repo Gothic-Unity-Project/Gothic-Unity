@@ -16,6 +16,9 @@ namespace Gothic.VR
             // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
             public const string LedgeClimbMode = "ledgeClimbMode";
 
+            // VrHeroFallMode: knocked out, dead or asleep - 0 = the view goes down with the hero's body, 1 = fade.
+            public const string HeroFallMode = "heroFallMode";
+
             // Immersion
             public const string Microphone = "microphone";
 
@@ -27,9 +30,6 @@ namespace Gothic.VR
             // 1 = both hands on a melee weapon and both triggers held parry like Gothic (VRContextHeroBlockService),
             // 0 = no blocking.
             public const string HeroBlock = "heroBlock";
-            // 1 = knocked out / dead, the camera goes down with the VR hero body (default), 0 = the view fades out and
-            // comes back at ground level (VrKnockoutView) - a comfort choice.
-            public const string HeroFallCamera = "heroFallCamera";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -88,9 +88,8 @@ namespace Gothic.VR
 
         public const int HeroBlockDefaultValue = 1;
 
-        public const int HeroFallCameraDefaultValue = 1;
-
         public const int LedgeClimbModeDefaultValue = 0;
+        public const int HeroFallModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
 
         public const int ItemDetailsPopupDefaultValue = 1;

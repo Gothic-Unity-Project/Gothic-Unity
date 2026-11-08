@@ -26,7 +26,7 @@ namespace Gothic.VR.Adapters.Player
     /// (VrHeroBodyMeshCutter) and the bare forearms of the hero's naked body mesh are skinned to the same skeleton
     /// instead, so the backpack's slots aren't hidden.
     /// Workers: VrHeroHands (the hero's fists as the VR hands, held items, arms on top), VrHeroDownPose (knocked out /
-    /// dead body and camera, Immersion option "Fall with the body"), VrHeroLocomotion (legs/torso animation, with
+    /// dead / asleep body and camera, Accessibility option heroFallMode), VrHeroLocomotion (legs/torso animation, with
     /// VrHeroSwimPose for the water), VrHeroSleeves (rolled-up sleeves, arm meshes), VrHeroBodyMeshCutter (mesh
     /// cuts), VrHeroArmIk (arms). VRHeroBody places the body and orchestrates them. The crouch button lowers the
     /// camera to the eyes of its sneak pose (IVrRig.CrouchHeightOverride).
@@ -85,7 +85,7 @@ namespace Gothic.VR.Adapters.Player
         private VrHeroLocomotion _locomotion;
         private float _standingScale;
 
-        // Knocked out / dead body and camera (Immersion option "Fall with the body").
+        // Knocked out / dead / asleep body and camera (Accessibility option heroFallMode).
         private VrHeroDownPose _downPose;
 
         // The eye height of the sneak pose at scale 1 (S_SNEAK, measured once per built body), -1 = not yet.

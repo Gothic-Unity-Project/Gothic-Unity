@@ -201,6 +201,19 @@ namespace Gothic.Core
         public static readonly UnityEvent<NpcContainer> HeroDied = new();
 
         /// <summary>
+        /// A sleep spell put the hero to sleep (HeroSpellStateDomain, ZS_MagicSleep): he lies until HeroWokeUp. The VR
+        /// hero body lies down like knocked out (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE).
+        /// NpcContainer - the hero
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer> HeroFellAsleep = new();
+
+        /// <summary>
+        /// The sleeping hero woke up (time over, damage, another spell state, the hero gone). Not raised when a game
+        /// is loaded meanwhile (LoadGameStart ends the sleep).
+        /// </summary>
+        public static readonly UnityEvent HeroWokeUp = new();
+
+        /// <summary>
         /// Daedalus Npc_RemoveInvItem(s) only (not our own VR inventory syncs).
         /// NpcContainer - whose inventory lost the item
         /// int - item instance index
