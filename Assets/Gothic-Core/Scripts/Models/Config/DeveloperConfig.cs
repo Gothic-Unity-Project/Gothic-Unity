@@ -351,12 +351,6 @@ namespace Gothic.Core.Models.Config
                  "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
         public bool EnableVrChainLightning = true;
 
-        [Tooltip("Spell effects light up like in Gothic (OpenGothic Effect::setupLight): a VISUALFX lightPresetName " +
-                 "from LIGHTPRESETS.ZEN with its color/range animation - summoning glows red around the caster while " +
-                 "charging (the key's lightRange, growing per level) and flashes when cast, fire rain's glow and rain " +
-                 "light the area. Lights the world too (pooled stationary lights).")]
-        public bool EnableVisualFxLights = true;
-
         /**
          * ##########
          * Misc

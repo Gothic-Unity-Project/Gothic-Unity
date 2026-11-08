@@ -76,7 +76,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _bodyFxFadeSeconds = 2f;
         // A body effect with a downward offset ends this far above the ground.
         private const float _groundFxClearance = 0.05f;
-        // DeveloperConfig.EnableVisualFxLights: the light while charging, and the cast's flash.
+        // The spell's light while charging, and the cast's flash.
         private Gothic.Core.Services.Meshes.IVisualFxLight _investLight;
         private int _bodyInvestLevel;
         private const float _castLightSeconds = 0.3f;
@@ -1023,7 +1023,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: the spell's light while charging, at the body (OpenGothic: the spell
+        /// The spell's light while charging, at the body (OpenGothic: the spell
         /// effect's light with the INVEST key) - the key's lightPresetName or the spell's, the key's lightRange
         /// (summoning: 0 while held, 4 m from the first level). Gone with the other charging effects.
         /// </summary>
@@ -1077,7 +1077,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: the spell's light flashes when it's cast (OpenGothic: the spell effect
+        /// The spell's light flashes when it's cast (OpenGothic: the spell effect
         /// with the CAST key and its light) - summoning's red REDAMBIENCE around the caster. Thrown spells carry
         /// their own light on the projectile.
         /// </summary>

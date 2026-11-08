@@ -85,7 +85,6 @@ MonoBehaviour:
   SpellThrowSpeedMultiplier: 1.25
   SpellThrowFullSwingSpeed: 6
   EnableVrChainLightning: 1
-  EnableVisualFxLights: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
