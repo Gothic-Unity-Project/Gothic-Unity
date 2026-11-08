@@ -42,16 +42,12 @@ namespace Gothic.Core.Const
         public const string NpcTalentMage = "NPC_TALENT_MAGE";
         public const string NpcAttackFinishDistance = "NPC_ATTACK_FINISH_DISTANCE";
         public const string DamCriticalMultiplier = "DAM_CRITICAL_MULTIPLIER";
-        public const string HaiTimePursuit = "HAI_TIME_PURSUIT";
         public const string GuildMinecrawler = "GIL_MINECRAWLER";
         public const string FaiMinecrawler = "FAI_MINECRAWLER";
         public const string GuildSeparatorHuman = "GIL_SEPERATOR_HUM";
         public const string GuildSeparatorOrc = "GIL_SEPERATOR_ORC";
-        public const string ZsAttack = "ZS_Attack";
         public const string ZsAttackLoop = "ZS_ATTACK_LOOP";
         public const string ZsMmAttack = "ZS_MM_ATTACK";
-        public const string ZsAssessFighter = "ZS_AssessFighter";
-        public const string CNpcIsGuard = "C_NpcIsGuard";
         public const string BMmReactToOthersDamage = "B_MM_REACTTOOTHERSDAMAGE";
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";

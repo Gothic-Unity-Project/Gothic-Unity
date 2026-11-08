@@ -13,7 +13,6 @@ using Gothic.Core.Models.Vm;
 using FreePoint = Gothic.Core.Models.Vob.WayNet.FreePoint;
 using WayPoint = Gothic.Core.Models.Vob.WayNet.WayPoint;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vm;
@@ -34,7 +33,6 @@ namespace Gothic.Core.Adapters.Npc
 #endif
 
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcAiService _npcAiService;
@@ -56,9 +54,6 @@ namespace Gothic.Core.Adapters.Npc
         private float _nextLoopTime;
         private const int _daedalusLoopContinue = 0; // Id taken from a Daedalus constant.
         private const int _daedalusLoopEnd = 1;
-        private const string _proclaimState = "ZS_PROCLAIMANDPUNISH";
-        private const float _proclaimDistance = 12f;
-        private const float _defaultPursuitSeconds = 20f;
 
         // True while the combo-preload CallAiFunction is executing. Used by ExtNpcClearAiQueue to
         // avoid stopping the active AttackPlayAni when Npc_ClearAIQueue fires from ZS_Attack_Loop.
@@ -153,7 +148,6 @@ namespace Gothic.Core.Adapters.Npc
 
             _npcAiService.DeliverPassivePerceptions(NpcData);
             ExecuteActivePerceptions();
-            CheckProclaimChase();
             ExecuteStates();
 
             TickCurrentAction();
@@ -302,39 +296,6 @@ namespace Gothic.Core.Adapters.Npc
                        $"(state time {Properties.StateTime:F1} s, active {Properties.IsStateTimeActive})", LogCat.Ai);
         }
 
-        /// <summary>
-        /// DeveloperConfig.EnableProclaimFromAfar (opinion): ZS_ProclaimAndPunish_Loop only looks again once AI_GotoNpc
-        /// reached the hero - a hero running away right after his attack was chased until caught (Lukis), the loop's
-        /// 5 m (PERC_DIST_DIALOG) and HAI_TIME_PURSUIT never had a say. Within _proclaimDistance the chase stops and the
-        /// proclaim (_End: "Now wait...", the attack) comes; after HAI_TIME_PURSUIT the loop decides (back to routine).
-        /// </summary>
-        private void CheckProclaimChase()
-        {
-            if (!_configService.Dev.EnableProclaimFromAfar ||
-                Properties.CurrentLoopState != LoopState.Loop ||
-                Properties.AnimationQueue.Count == 0 && Properties.CurrentAction.IsFinished() ||
-                !string.Equals(Vob.CurrentStateName, _proclaimState, System.StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var heroGo = (Vm.GlobalHero as NpcInstance)?.GetUserData()?.Go;
-            if (heroGo == null)
-                return;
-
-            var distance = Vector3.Distance(transform.position, heroGo.transform.position);
-            var pursuitSeconds = Vm.GetSymbolByName(DaedalusConst.HaiTimePursuit)?.GetInt(0) ?? _defaultPursuitSeconds;
-            var isClose = distance <= _proclaimDistance;
-            if (!isClose && Properties.StateTime <= pursuitSeconds)
-                return;
-
-            _npcAiService.ExtNpcClearAiQueue(NpcInstance);
-            if (isClose)
-                Properties.CurrentLoopState = LoopState.End;
-            Logger.Log($"[Proclaim] {NpcInstance.GetName(NpcNameSlot.Slot0)}: " +
-                       (isClose
-                           ? $"hero {distance:F1} m away - stops chasing and proclaims"
-                           : $"chased {Properties.StateTime:F0} s - the loop decides"), LogCat.Ai);
-        }
-
         private bool IsDailyState(int stateIndex)
         {
             return stateIndex == Properties.RoutineCurrent?.Action || stateIndex == NpcInstance.StartAiState;
@@ -434,12 +395,6 @@ namespace Gothic.Core.Adapters.Npc
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.ObserveSuspect, Properties, NpcInstance, null, hero);
             }
 
-            // Snapshot before UpdateEnemyNpc below can assign a fresh target this tick — gates
-            // UpdateActiveAttackerTarget on an ONGOING fight from a previous tick only, so a target
-            // UpdateEnemyNpc just picked doesn't get immediately second-guessed in the same tick by
-            // a second heuristic using different selection criteria.
-            var hadTargetBeforeThisTick = Properties.TargetNpc != null;
-
             // Scanning all NPCs for the closest enemy is expensive - only do it for NPCs that react to enemies at all.
             if (Properties.Perceptions.TryGetValue(VmGothicEnums.PerceptionType.AssessEnemy, out var enemyPerception) &&
                 enemyPerception >= 0)
@@ -459,23 +414,6 @@ namespace Gothic.Core.Adapters.Npc
                     }
                     _npcAiService.ExecutePerception(VmGothicEnums.PerceptionType.AssessEnemy, Properties, NpcInstance,null, Properties.EnemyNpc);
                 }
-            }
-
-            // Independent of PERC_ASSESSENEMY registration above: combat states like ZS_Attack never
-            // register that perception, so an NPC already engaged with the hero would otherwise never
-            // notice a companion or monster (e.g. Cavalorn, a wolf) engaging it in melee instead.
-            if (hadTargetBeforeThisTick && _configService.Dev.EnableActiveAttackerRetarget)
-            {
-                _npcAiService.UpdateActiveAttackerTarget(NpcInstance);
-            }
-
-            // B_AssessFighter.d has !Npc_IsPlayer(other) guard so vanilla Daedalus never reacts to
-            // an armed non-player NPC approaching. We add NPC→NPC armed-threat detection in C#:
-            // an NPC in routine (no current target) reacts to nearby actively-fighting hostile NPCs
-            // exactly as it would react to the player drawing a weapon (ZS_AssessFighter).
-            if (Properties.TargetNpc == null && _configService.Dev.EnableNpcArmedThreatDetection)
-            {
-                _npcAiService.CheckForArmedNpcThreat(NpcInstance);
             }
 
             // PERC_MOVENPC: fire when hero is within reach — collision (RootCollisionHandler) is the primary trigger.

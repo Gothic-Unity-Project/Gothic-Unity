@@ -82,13 +82,7 @@ MonoBehaviour:
   EnableNpcNavMesh: 1
   WorldLightmapBrightness: 1
   EnableVrChainLightning: 1
-  EnableProclaimFromAfar: 1
-  EnableNpcArmedThreatDetection: 1
-  EnableActiveAttackerRetarget: 1
-  EnableNpcHitRetaliation: 1
   EnableHeroChaseCooldown: 1
-  EnableGuardsAgainstBerzerk: 1
-  EnableHeroSummonAttitude: 1
   EnableFootstepSounds: 1
   EnableHeroDeath: 1
   EnableKillerXpOnly: 1

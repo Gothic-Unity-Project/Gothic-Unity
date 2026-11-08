@@ -35,7 +35,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly WayNetService _wayNetService;
         [Inject] private readonly VobService _vobService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         private const float _fpLookupDistance = 7f; // meter
@@ -362,26 +361,13 @@ namespace Gothic.Core.Services.Npc
             // everyone on its master's behalf), and the guild attitude table only covers human guilds,
             // so monster-vs-monster falls back to hostile — a SkeletonMage (GIL_DEMON) would otherwise
             // pick its own fresh GIL_SKELETON summons (spawned 2-5m away, closer than any real enemy)
-            // as targets, and the summons would then retaliate via the hit-response path. Vanilla gets
-            // this peace from engine-internal target filtering we don't replicate; SummonedBy is our
-            // equivalent, and every targeting path (GetNextTarget, UpdateEnemyNpc, armed-threat scan,
-            // hit-response switch) already respects Friendly.
+            // as targets, and the summons would then fight back. Vanilla gets this peace from
+            // engine-internal target filtering we don't replicate; SummonedBy is our equivalent, and every
+            // targeting path (GetNextTarget, UpdateEnemyNpc) already respects Friendly.
             if (self.SummonedBy != null && other.Instance != null && self.SummonedBy.Index == other.Instance.Index)
                 return VmGothicEnums.Attitude.Friendly;
             if (other.SummonedBy != null && self.Instance != null && other.SummonedBy.Index == self.Instance.Index)
                 return VmGothicEnums.Attitude.Friendly;
-
-            // The hero's summon and an NPC see each other the way that
-            // NPC sees the hero - bandits and wolves fight it, Cavalorn or Xardas leave it alone. A deviation: the G2
-            // scripts make humans hostile to the GIL_SUMMONED_* guilds (B_InitMonsterAttitudes), so in vanilla
-            // guards attack the hero's summons too.
-            if (_configService.Dev.EnableHeroSummonAttitude)
-            {
-                if (IsHeroSummon(other) && self.SummonedBy == null && !IsHero(self))
-                    return GetAttitudeTowardsHero(self);
-                if (IsHeroSummon(self) && other.SummonedBy == null && !IsHero(other))
-                    return GetAttitudeTowardsHero(other);
-            }
 
             const int attNull = (int)VmGothicEnums.Attitude.Null;
 
@@ -422,26 +408,6 @@ namespace Gothic.Core.Services.Npc
         private static bool IsHero(NpcContainer npc)
         {
             return npc.PrefabProps != null && npc.PrefabProps.IsHero();
-        }
-
-        private bool IsHeroSummon(NpcContainer npc)
-        {
-            return npc.SummonedBy != null && _gameStateService.GothicVm?.GlobalHero is NpcInstance hero &&
-                   npc.SummonedBy.Index == hero.Index;
-        }
-
-        /// <summary>
-        /// The NPC's attitude towards the hero, like GetPersonAttitude(npc, hero): temp, else permanent, else guild.
-        /// </summary>
-        private VmGothicEnums.Attitude GetAttitudeTowardsHero(NpcContainer npc)
-        {
-            const int attNull = (int)VmGothicEnums.Attitude.Null;
-            if (npc.Vob.AttitudeTemp != attNull)
-                return (VmGothicEnums.Attitude)npc.Vob.AttitudeTemp;
-            if (npc.Vob.Attitude != attNull)
-                return (VmGothicEnums.Attitude)npc.Vob.Attitude;
-            var hero = (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();
-            return hero?.Vob != null ? GetGuildAttitude(npc.Vob.Guild, hero.Vob.Guild) : VmGothicEnums.Attitude.Neutral;
         }
 
         [CanBeNull]

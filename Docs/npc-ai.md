@@ -22,7 +22,7 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 | Class | Owns |
 |---|---|
 | `Services/Npc/NpcAiService` | the `AI_*`/`Npc_*` externals' logic, perceptions (send, deliver, passive broadcast), AI queue, attitudes, the hero's weapon state perceptions |
-| `Domain/Npc/NpcTargetSelectionDomain` (owned by NpcAiService) | who an NPC fights or looks at: `Npc_GetNextTarget`, `UpdateEnemyNpc`, `UpdateActiveAttackerTarget`, `CheckForArmedNpcThreat`, `FindClosestSensedBody` |
+| `Domain/Npc/NpcTargetSelectionDomain` (owned by NpcAiService) | who an NPC fights or looks at: `Npc_GetNextTarget`, `UpdateEnemyNpc`, `FindClosestSensedBody` |
 | `Domain/Npc/HeroSpellStateDomain` (NpcAiService) | sleep/freeze spells on the hero |
 | `Services/Npc/NpcHelperService` | senses (`CanSenseNpc`, `CanSeeNpc`), perception ranges, person/guild attitude |
 | `Services/Npc/FightService` | how an NPC goes down: a hit (`FightHit`), hit points gone, knockout, death, the hero's death; the hero's prehit swing |
@@ -30,7 +30,7 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
 | `Domain/Npc/SpellHitDomain` | an NPC casting its spell (`CastNpcSpell`) and spells reaching NPCs: ASSESSMAGIC, area/spread hits, burning, Windfist throw |
 | `Domain/Npc/RangedHitDomain` | arrow/bolt damage via `IContextRangedCombatService` (G1/G2) |
 | `Domain/Npc/HeroBlockDomain` | parries, jump backs, the hero's block via `IContextHeroBlockService` (VR/Flat), weapon clash |
-| `Domain/Npc/DamagePerceptionDomain` | who reacts to a hit: victim, witnesses, party members, guards vs berzerk |
+| `Domain/Npc/DamagePerceptionDomain` | who reacts to a hit: victim, witnesses, party members |
 | `Domain/Npc/NpcKnockoutDomain`, `NpcDeathDomain` | unconscious vs dead, XP, `ZS_Dead` |
 | `Services/Npc/ProjectileService` | flying arrows/bolts, line of shot, hit chance |
 | `Actions/AnimationActions/Attack` | `AI_Attack`: picks the fight move (`FightAiMove`) and queues `AttackPlayAni` |
@@ -48,16 +48,14 @@ Platform and game version ports (in `Services/Context/`, registered in the modul
 
 ## Rules beyond vanilla
 
-Our own additions and the fight features sit behind `DeveloperConfig` flags. The first four rows are AI rules the
-scripts don't have (all on in Production, listed in the ADR). Check the flag before you assume a behaviour comes from
-the scripts:
+Our own additions and the fight features sit behind `DeveloperConfig` flags. The first row is an AI rule the scripts
+don't have (on in Production, listed in the ADR). The other AI rules beyond the scripts were removed, see
+[#501](https://github.com/Gothic-Unity-Project/Gothic-Unity/issues/501). Check the flag before you assume a behaviour
+comes from the scripts:
 
 | Flag | Where |
 |---|---|
-| `EnableNpcArmedThreatDetection`, `EnableActiveAttackerRetarget` | `AiHandler.ExecuteActivePerceptions` |
-| `EnableNpcHitRetaliation`, `EnableGuardsAgainstBerzerk` | `DamagePerceptionDomain` |
 | `EnableHeroChaseCooldown` | `NpcAiService` |
-| `EnableHeroSummonAttitude` | `NpcHelperService` |
 | `EnableVrChainLightning` | `SpellHitDomain` |
 | `EnableRangedKnockoutOption` | `FightService`, `SpellHitDomain`, `MeleeDamageDomain` |
 | `EnableVrHeroBlock` | `VRContextHeroBlockService` (Gothic-VR) |

@@ -1556,22 +1556,6 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Switches focus to a nearby NPC/monster that is actively fighting >self< - see NpcTargetSelectionDomain.
-        /// </summary>
-        public void UpdateActiveAttackerTarget(NpcInstance self)
-        {
-            _targetSelectionDomain.UpdateActiveAttackerTarget(self);
-        }
-
-        /// <summary>
-        /// NPC->NPC armed-threat detection (not in vanilla) - see NpcTargetSelectionDomain.
-        /// </summary>
-        public void CheckForArmedNpcThreat(NpcInstance self)
-        {
-            _targetSelectionDomain.CheckForArmedNpcThreat(self);
-        }
-
-        /// <summary>
         /// The hero readies/removes a weapon (VR: a melee weapon enters/leaves the player's hands).
         /// Gothic's engine does this in oCNpc::SetWeaponMode: store the fight mode (read by Npc_IsInFightMode and
         /// Npc_HasReadied*Weapon) and send the passive perception PERC_DRAWWEAPON / PERC_ASSESSREMOVEWEAPON to nearby NPCs.

@@ -5,7 +5,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
@@ -18,7 +17,7 @@ namespace Gothic.Core.Domain.Npc
     /// <summary>
     /// Who reacts to a hit: the victim (PERC_ASSESSDAMAGE), the witnesses around the attacker
     /// (PERC_ASSESSOTHERSDAMAGE / PERC_ASSESSFIGHTSOUND, monsters B_MM_ReactToOthersDamage), the hero's party members
-    /// (AIV_MM_PARTYMEMBER: ZS_MM_Attack) and guards stopping a berzerk.
+    /// (AIV_MM_PARTYMEMBER: ZS_MM_Attack).
     /// </summary>
     public class DamagePerceptionDomain
     {
@@ -26,10 +25,6 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
-        [Inject] private readonly ConfigService _configService;
-
-        // HAI_DIST_HELPATTACKEDCHARGES-like: guards in this range step in.
-        private const float _guardsHelpRange = 15f;
 
 
         /// <summary>
@@ -66,8 +61,6 @@ namespace Gothic.Core.Domain.Npc
         /// </summary>
         public void BroadcastDamagePerceptions(NpcContainer attacker, NpcContainer target)
         {
-            CallGuardsAgainstBerzerk(attacker);
-
             // A summon is a training dummy for its own summoner -
             // it takes the damage but neither it nor bystanders turn on the summoner.
             if (IsOwnSummonHit(attacker, target))
@@ -85,8 +78,6 @@ namespace Gothic.Core.Domain.Npc
 
             var heroContainer = _npcService.GetHeroContainer();
             var heroIndex = heroContainer.Instance.Index;
-
-            TrySwitchTargetToAttacker(attacker, target, heroIndex);
 
             // Party member was hit by a non-hero — only defend itself once it has no alive primary
             // target to stay committed to (see HasAlivePrimaryTarget). Otherwise an incidental hit from
@@ -161,35 +152,6 @@ namespace Gothic.Core.Domain.Npc
             Logger.Log($"[DamagePerceptionDomain] AssessDamage on {target.Instance.GetName(NpcNameSlot.Slot0)} " +
                        $"(state {target.Vob.CurrentStateName}) by " +
                        $"{attacker.Instance.GetName(NpcNameSlot.Slot0)}: {percFunction}", LogCat.Fight);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableNpcHitRetaliation: when a non-hero NPC hits a target that is alive, force-switch the
-        /// target's focus to the attacker. Gothic's B_CombatReactToDamage only does this for the player; we extend
-        /// it here so that wolves, monsters, etc. become the active fight target when they land
-        /// a hit. Still skip Friendly attackers (e.g. a stray combo hit in a crowd) so allies/guards
-        /// don't turn hostile on each other from incidental damage — same gate used in
-        /// ActivatePartyMemberAttack and in NpcAiService's target-switching methods.
-        /// Same-guild is excluded unconditionally too — this mechanic has no vanilla precedent for
-        /// guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
-        /// Party members (summons/allies) are excluded too: an NPC being pummeled by the hero's golem
-        /// should still keep focusing the hero — the real aggressor — not redirect onto the summon
-        /// that's just piling on damage. This was the confirmed cause of NPCs abandoning the hero to
-        /// fight the party member instead (logs: "Strażnik bramy switches target to Golem").
-        /// </summary>
-        private void TrySwitchTargetToAttacker(NpcContainer attacker, NpcContainer target, int heroIndex)
-        {
-            if (!_configService.Dev.EnableNpcHitRetaliation ||
-                attacker.Instance.Index == heroIndex || target.Props.BodyState == VmGothicEnums.BodyState.BsDead ||
-                target.Instance.Guild == attacker.Instance.Guild ||
-                IsPartyMember(attacker) ||
-                _npcAiService.ExtGetAttitude(target.Instance, attacker.Instance) == VmGothicEnums.Attitude.Friendly)
-                return;
-
-            target.Props.TargetNpc = attacker.Instance;
-            target.Props.EnemyNpc = attacker.Instance;
-            Logger.Log($"[DamagePerceptionDomain] {target.Instance.GetName(NpcNameSlot.Slot0)} switches target to " +
-                       $"{attacker.Instance.GetName(NpcNameSlot.Slot0)} (hit by non-hero)", LogCat.Fight);
         }
 
         /// <summary>
@@ -282,7 +244,7 @@ namespace Gothic.Core.Domain.Npc
         /// attacker, so without this companions/wolves attacking NPCs are fully ignored.
         /// Skip Friendly attackers — otherwise a guard who loses sight of the hero for a
         /// moment redirects onto the ally guard standing next to them instead. Same-guild
-        /// excluded unconditionally too, same reasoning as TrySwitchTargetToAttacker.
+        /// excluded unconditionally too (no vanilla precedent for guild-mates fighting each other).
         /// Party members excluded as well — a bystander that's lost sight of the hero should
         /// keep trying to reacquire the hero, not settle on the summon that's visibly fighting
         /// nearby instead.
@@ -347,74 +309,6 @@ namespace Gothic.Core.Domain.Npc
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Guards near a berzerk NPC attack it to stop it - it is knocked out,
-        /// not killed (it isn't hostile to them, so ZS_Attack_End doesn't finish it). Vanilla G1 let it rage: guards
-        /// only protect charges from non-friends (B_AssessFightSound, "friendly fire"). G1 only (C_NpcIsGuard).
-        /// </summary>
-        private void CallGuardsAgainstBerzerk(NpcContainer berzerker)
-        {
-            if (!_configService.Dev.EnableGuardsAgainstBerzerk || !IsBerzerk(berzerker))
-                return;
-
-            var vm = _gameStateService.GothicVm;
-            var attackState = vm.GetSymbolByName(DaedalusConst.ZsAttack);
-            if (attackState == null || vm.GetSymbolByName(DaedalusConst.CNpcIsGuard) == null)
-                return;
-
-            var berzerkerPosition = berzerker.Go.transform.position;
-            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
-            foreach (var guard in awakeNpcs)
-            {
-                if (!IsGuardCandidate(guard, berzerker, berzerkerPosition))
-                    continue;
-
-                int isGuard;
-                try
-                {
-                    isGuard = vm.Call<int, NpcInstance>("C_NpcIsGuard", guard.Instance);
-                }
-                catch (System.Exception e)
-                {
-                    Logger.LogWarning($"[DamagePerceptionDomain] C_NpcIsGuard failed: {e.Message}", LogCat.Fight);
-                    return;
-                }
-                if (isGuard == 0)
-                    continue;
-
-                guard.Props.EnemyNpc = berzerker.Instance;
-                guard.Props.TargetNpc = berzerker.Instance;
-
-                var oldSelf = vm.GlobalSelf;
-                var oldOther = vm.GlobalOther;
-                vm.GlobalSelf = guard.Instance;
-                vm.GlobalOther = berzerker.Instance;
-                _npcAiService.ExtAiDrawWeapon(guard.Instance);
-                _npcAiService.ExtAiStartState(guard.Instance, attackState.Index, false, "");
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
-
-                Logger.Log($"[DamagePerceptionDomain] {guard.Instance.GetName(NpcNameSlot.Slot0)} stops the berzerk " +
-                           $"{berzerker.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            }
-        }
-
-        /// <summary>
-        /// An NPC near the berzerk that could step in: up, not the hero, not raging or fighting itself.
-        /// </summary>
-        private static bool IsGuardCandidate(NpcContainer guard, NpcContainer berzerker, Vector3 berzerkerPosition)
-        {
-            if (guard == berzerker || guard.Props == null || guard.Go == null || guard.Vob == null ||
-                guard.PrefabProps == null || guard.PrefabProps.IsHero())
-                return false;
-            if (guard.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
-                return false;
-            if (IsBerzerk(guard) || guard.Vob.CurrentStateName.EqualsIgnoreCase("ZS_Attack"))
-                return false;
-            return (guard.Go.transform.position - berzerkerPosition).sqrMagnitude <=
-                   _guardsHelpRange * _guardsHelpRange;
         }
 
         private bool IsPartyMember(NpcContainer npc)
