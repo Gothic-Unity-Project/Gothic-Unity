@@ -39,7 +39,11 @@ namespace Gothic.Core.Adapters.Vob.Item
         {
             var meshFilter = GetComponent<MeshFilter>();
             if (meshFilter == null || meshFilter.sharedMesh == null)
+            {
+                Logger.LogWarning($"[WeaponAdapter] No MeshFilter or mesh on {name} - trail width not set",
+                    LogCat.Fight);
                 return;
+            }
 
             var bounds = meshFilter.sharedMesh.bounds;
             var scale = transform.lossyScale;

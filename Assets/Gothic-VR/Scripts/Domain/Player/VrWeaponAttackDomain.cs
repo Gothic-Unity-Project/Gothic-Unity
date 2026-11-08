@@ -462,10 +462,12 @@ namespace Gothic.VR.Domain.Player
             _hasReturnedToThreshold = false;
 
             // Which speeds made this a swing - a trembling hand played the swing sound and effect (to be tuned from it).
-            Logger.Log($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s >= {_attackVelocityThreshold:0.00} " +
-                       $"(samples {string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; weapon body " +
-                       $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, player {_characterController.velocity.magnitude:0.00})",
-                LogCat.VR);
+            var samples = string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")));
+            Logger.LogEditor($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s " +
+                             $">= {_attackVelocityThreshold:0.00} " +
+                             $"(samples {samples}; weapon body " +
+                             $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, " +
+                             $"player {_characterController.velocity.magnitude:0.00})", LogCat.VR);
 
             // If no sound is set, ignore playing it and mark it as "played".
             _soundPlayed = _swingSwordSound == null;

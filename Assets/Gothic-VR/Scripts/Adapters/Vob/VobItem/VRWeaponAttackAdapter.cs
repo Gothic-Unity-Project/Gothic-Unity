@@ -56,7 +56,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (other.gameObject.layer != Constants.VobHitbox)
                 return;
 
-            Logger.Log($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] Collision with VobHitbox: {other.gameObject.name}", LogCat.Fight);
 
             // Try to get the target NPC/Monster from the hitbox
             var targetNpcLoader = other.GetComponentInParent<NpcLoader>();
@@ -73,7 +73,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            Logger.Log($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] Target: {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}",
+                LogCat.Fight);
 
             // The "stabFinish" option: an unconscious NPC is finished off by a stab kept in the body only.
             if (IsStabFinishOn() && targetNpcContainer.IsKnockedOut())
@@ -85,11 +86,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // Try to fire the hit through VR weapon service if available
             if (TryFireHitViaVRWeaponService(targetNpcContainer))
             {
-                Logger.Log($"[WeaponAttackAdapter] *** HIT FIRED (VR)", LogCat.Fight);
+                Logger.LogEditor("[WeaponAttackAdapter] *** HIT FIRED (VR)", LogCat.Fight);
                 return;
             }
 
-            Logger.LogWarning("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)", LogCat.Fight);
+            Logger.LogEditor("[WeaponAttackAdapter] Failed to fire hit (not in attack window or VR unavailable)",
+                LogCat.Fight);
             // TODO - Add support for flat-screen weapon hits and NPC-to-NPC hits here
         }
 
@@ -139,10 +141,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             var isInAttackWindow = _vrWeaponService.IsWeaponInAttackWindow(_weaponVobContainer);
-            Logger.Log($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] IsInAttackWindow: {isInAttackWindow}", LogCat.Fight);
             if (!isInAttackWindow)
             {
-                Logger.LogWarning("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
+                Logger.LogEditor("[WeaponAttackAdapter] Weapon not in attack window", LogCat.Fight);
                 return false;
             }
 
@@ -153,7 +155,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return false;
             }
 
-            Logger.Log($"[WeaponAttackAdapter] FightHit event: {attacker.Instance.GetName(NpcNameSlot.Slot0)} → {targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            Logger.LogEditor($"[WeaponAttackAdapter] FightHit event: " +
+                             $"{attacker.Instance.GetName(NpcNameSlot.Slot0)} → " +
+                             $"{targetNpcContainer.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
 
             // The weapon in the hand isn't equipped in VR - the hit carries it, FightService takes its damage from it.
             // By its symbol: a world item's vob name isn't always it (the hero hit with his strength alone).

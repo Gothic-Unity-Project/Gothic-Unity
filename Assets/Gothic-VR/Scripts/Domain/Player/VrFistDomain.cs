@@ -188,7 +188,8 @@ namespace Gothic.VR.Domain.Player
             var speed = _vrInput.GetControllerVelocity(side).magnitude;
             if (speed < _fistPunchVelocity)
             {
-                Logger.Log($"[VRFist] {side} fist touched {targetName} - too slow ({speed:F1} m/s)", LogCat.Fight);
+                Logger.LogEditor($"[VRFist] {side} fist touched {targetName} - too slow ({speed:F1} m/s)",
+                    LogCat.Fight);
                 return;
             }
             if (_lastPunchTime.TryGetValue(side, out var last) && Time.time - last < _fistPunchCooldownSeconds)
