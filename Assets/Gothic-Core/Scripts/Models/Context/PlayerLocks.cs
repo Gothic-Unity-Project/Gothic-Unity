@@ -14,6 +14,8 @@ namespace Gothic.Core.Models.Context
         Seat = 1 << 2,
         Cinema = 1 << 3,
         Knockout = 1 << 4,
-        Death = 1 << 5
+        Death = 1 << 5,
+        // A spell's state on the hero (sleep, freeze) - HeroSpellStateDomain.
+        SpellState = 1 << 6
     }
 }

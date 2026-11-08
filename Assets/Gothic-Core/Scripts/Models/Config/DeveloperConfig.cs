@@ -308,7 +308,6 @@ namespace Gothic.Core.Models.Config
                  "the loot closes.")]
         public DeveloperConfigEnums.NpcLootMode NpcLootMode = DeveloperConfigEnums.NpcLootMode.Backpack;
 
-
         /**
          * ##########
          * Misc

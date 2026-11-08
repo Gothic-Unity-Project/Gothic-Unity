@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
@@ -94,82 +95,6 @@ namespace Gothic.Core.Services.Npc
             return track;
         }
 
-        private AnimationTrack GetTrack(string animName, string mdsName)
-        {
-            if (mdsName == null)
-            {
-                return null;
-            }
-
-            var mdsTracks = GetMdsTrackCache(mdsName);
-
-            if (mdsTracks.TryGetValue(animName, out var track))
-            {
-                return track;
-            }
-
-            var mds = _resourceCacheService.TryGetModelScript(mdsName);
-            if (mds == null)
-            {
-                mdsTracks.Add(animName, null);
-                return null;
-            }
-
-            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
-            IAnimationAlias animAlias = null;
-
-            // AniAlias lookup
-            // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
-            if (anim == null)
-            {
-                animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
-                if (animAlias != null)
-                {
-                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
-                }
-            }
-
-            // Nothing found
-            if (anim == null)
-            {
-                // Caching an empty track means, we don't need to try creating this track again.
-                mdsTracks.Add(animName, null);
-                return null;
-            }
-
-            var modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
-            if (modelAnimation == null)
-            {
-                // Caching an empty track means, we don't need to try creating this track again.
-                mdsTracks.Add(animName, null);
-                return null;
-            }
-
-            // For animations: mdhName == mdsName (with different file ending of course ;-))
-            var mdhName = mdsName;
-            var mdh = _resourceCacheService.TryGetModelHierarchy(mdhName);
-
-            var skeleton = GetSkeleton(mdhName, mdh);
-
-            // Aliases bake bit-identical buffers (samples are always baked forward; reversed Direction is
-            // applied at playback via AnimationTrackInstance.CurrentFrame), so all tracks of the same real
-            // animation share the buffers of whichever track got baked first.
-            var bakedKey = GetCombinedAnimationKey(mdsName, anim.Name);
-            _bakedSourceTracks.TryGetValue(bakedKey, out var bakedSource);
-
-            track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource);
-            SetClipMovementSpeed(track, modelAnimation, skeleton);
-
-            if (bakedSource == null)
-            {
-                _bakedSourceTracks.Add(bakedKey, track);
-            }
-
-            mdsTracks.Add(animName, track);
-
-            return track;
-        }
-
         /// <summary>
         /// The animation played back to front (e.g. a walk loop as walking backwards for models without a backwards
         /// walk). Registered next to the real tracks under "{animName}_REVERSED" - share the baked samples, root motion
@@ -223,6 +148,7 @@ namespace Gothic.Core.Services.Npc
                 SoundEffects = source.SoundEffects,
                 ParticleEffects = source.ParticleEffects,
                 MorphAnimations = source.MorphAnimations,
+                ParticleEffectsStop = source.ParticleEffectsStop,
                 HasEvents = source.HasEvents,
                 IsMoving = source.IsMoving,
                 MovementSpeed = -source.MovementSpeed
@@ -230,6 +156,184 @@ namespace Gothic.Core.Services.Npc
             reversed.ShareBakedSamples(source);
             mdsTracks[reversedName] = reversed;
             return reversedName;
+        }
+
+        /// <summary>
+        /// How far the animation lifts the root bone from its first to its last frame (e.g. one ladder climb cycle).
+        /// 0 if unknown.
+        /// </summary>
+        public float GetRootHeightChange(string animName, string mdsBase, string mdsOverlay)
+        {
+            return TryGetRootHeightOffsets(animName, mdsBase, mdsOverlay, out var first, out var last) ? last - first : 0f;
+        }
+
+        /// <summary>
+        /// Root bone height offset (from the rest height) at the first and last played frame - the pose offset
+        /// AnimationSystem applies on top of the NPC's position (reversed tracks start at their last baked frame).
+        /// </summary>
+        public bool TryGetRootHeightOffsets(string animName, string mdsBase, string mdsOverlay, out float first,
+            out float last)
+        {
+            first = last = 0f;
+            var track = GetTrack(animName, mdsBase, mdsOverlay);
+            var skeleton = GetSkeleton(mdsBase);
+            if (track == null || skeleton == null || track.BakedFrameCount < 2 || !track.Positions.IsCreated)
+                return false;
+
+            for (var bone = 0; bone < track.BoneCount; bone++)
+            {
+                if (track.BoneToNode[bone] != skeleton.RootNodeIndex)
+                    continue;
+                first = track.Positions[bone].y;
+                last = track.Positions[(track.BakedFrameCount - 1) * track.BoneCount + bone].y;
+                if (track.Direction == AnimationDirection.Backward)
+                    (first, last) = (last, first);
+                return true;
+            }
+            return false;
+        }
+
+        private AnimationTrack GetTrack(string animName, string mdsName)
+        {
+            if (mdsName == null)
+            {
+                return null;
+            }
+
+            var mdsTracks = GetMdsTrackCache(mdsName);
+
+            if (mdsTracks.TryGetValue(animName, out var track))
+            {
+                return track;
+            }
+
+            var mds = _resourceCacheService.TryGetModelScript(mdsName);
+            if (mds == null)
+            {
+                mdsTracks.Add(animName, null);
+                return null;
+            }
+
+            var anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+            IAnimationAlias animAlias = null;
+
+            // AniAlias lookup
+            // Looking up multiple animation types (Animation/AniAlias) for the actual animation name.
+            if (anim == null)
+            {
+                animAlias = mds.AnimationAliases.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                if (animAlias != null)
+                {
+                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animAlias.Alias));
+                }
+            }
+
+            // AniComb lookup - the name stands for numbered variants of one
+            // animation (c_Ore_S1_1..3), the engine picks one by the angle to a target. Mobs have no target: the middle
+            // one. The ore vein's S1 (t_Ore_S0_2_S1, s_Ore_S1) only exists like this - miners stood at it frozen.
+            IAnimationCombine animCombine = null;
+            if (anim == null)
+            {
+                animCombine = mds.AnimationCombines.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animName));
+                if (animCombine != null)
+                {
+                    var variantName = $"{animCombine.Model}{(Math.Max(1, animCombine.LastFrame) + 1) / 2}";
+                    anim = mds.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(variantName));
+                    if (anim == null)
+                        animCombine = null;
+                }
+            }
+
+            // Nothing found
+            if (anim == null)
+            {
+                // Caching an empty track means, we don't need to try creating this track again.
+                mdsTracks.Add(animName, null);
+                return null;
+            }
+
+            var modelAnimation = _resourceCacheService.TryGetModelAnimation(mdsName, anim.Name);
+            if (modelAnimation == null)
+            {
+                // Caching an empty track means, we don't need to try creating this track again.
+                mdsTracks.Add(animName, null);
+                return null;
+            }
+
+            // For animations: mdhName == mdsName (with different file ending of course ;-))
+            var mdhName = mdsName;
+            var mdh = _resourceCacheService.TryGetModelHierarchy(mdhName);
+
+            var skeleton = GetSkeleton(mdhName, mdh);
+
+            // Aliases bake bit-identical buffers (samples are always baked forward; reversed Direction is
+            // applied at playback via AnimationTrackInstance.CurrentFrame), so all tracks of the same real
+            // animation share the buffers of whichever track got baked first.
+            var bakedKey = GetCombinedAnimationKey(mdsName, anim.Name);
+            _bakedSourceTracks.TryGetValue(bakedKey, out var bakedSource);
+
+            track = CreateTrack(modelAnimation, skeleton, anim, animAlias, bakedSource, animCombine);
+            SetClipMovementSpeed(track, modelAnimation, skeleton);
+
+            if (bakedSource == null)
+            {
+                _bakedSourceTracks.Add(bakedKey, track);
+            }
+
+            mdsTracks.Add(animName, track);
+
+            return track;
+        }
+
+        /// <summary>
+        /// The animation's sound events. Its ground sounds (*eventSFXGrnd, the steps of walk/run loops) too, marked -
+        /// the ground's material is added when they play (GroundSoundDomain), the footsteps option is checked there.
+        /// </summary>
+        private List<IEventSoundEffect> GetSoundEffects(IAnimation anim)
+        {
+            var soundEffects = anim.SoundEffects.Select(i => i.Cache()).ToList();
+            if (anim.SoundEffectGroundCount == 0)
+                return soundEffects;
+
+            foreach (var ground in anim.SoundEffectsGround)
+            {
+                soundEffects.Add(new CachedEventSoundEffect
+                {
+                    Frame = ground.Frame,
+                    Name = Gothic.Core.Domain.Audio.GroundSoundDomain.GroundEventPrefix + ground.Name,
+                    Range = ground.Range,
+                    EmptySlot = ground.EmptySlot
+                });
+            }
+            return soundEffects;
+        }
+
+        /// <summary>
+        /// Own lists: tracks sharing baked data share the variant's (empty) event lists too.
+        /// </summary>
+        private static void AddCombineEvents(AnimationTrack track, int frame,
+            (int Frame, string Sfx, string Pfx, string PfxSlot) combineEvent)
+        {
+            track.SoundEffects = new List<IEventSoundEffect>(track.SoundEffects)
+            {
+                new CachedEventSoundEffect
+                {
+                    Frame = frame,
+                    Name = combineEvent.Sfx,
+                    Range = _defaultSoundRange,
+                    EmptySlot = true
+                }
+            };
+            track.ParticleEffects = new List<IEventParticleEffect>(track.ParticleEffects)
+            {
+                new CachedEventParticleEffect
+                {
+                    Frame = frame,
+                    Index = 1,
+                    Name = combineEvent.Pfx,
+                    Position = combineEvent.PfxSlot
+                }
+            };
         }
 
         /// <summary>
@@ -254,22 +358,38 @@ namespace Gothic.Core.Services.Npc
             return mdsTracks;
         }
 
+        // Events of aniComb blocks - ZenKit doesn't expose them
+        // (IAnimationCombine has no event lists). From G1/G2's HUMANS.MDS: s_Ore_S1 { *eventPFX (25 1 "pickore"
+        // "ZS_RIGHTHAND") *eventSFX (25 "pickore" EMPTY_SLOT) } - the pickaxe hits with sound and ore splinters. The
+        // frame counts from the variant's first frame.
+        private static readonly Dictionary<string, (int Frame, string Sfx, string Pfx, string PfxSlot)> _combineEvents =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                { "s_Ore_S1", (25, "PICKORE", "PICKORE", "ZS_RIGHTHAND") }
+            };
+
+        // ZenKit's default range of an eventSFX without one (cm).
+        private const float _defaultSoundRange = 1000f;
+
         private AnimationTrack CreateTrack(IModelAnimation modelAnimation,
-            AnimationSkeleton skeleton, IAnimation anim, IAnimationAlias animAlias, AnimationTrack bakedSource)
+            AnimationSkeleton skeleton, IAnimation anim, IAnimationAlias animAlias, AnimationTrack bakedSource,
+            IAnimationCombine animCombine = null)
         {
             var isAlias = animAlias != null;
+            var isCombine = animCombine != null;
             var track = new AnimationTrack
             {
-                TrackType = isAlias ? AnimationTrack.Type.Alias : AnimationTrack.Type.Animation,
+                // A combination behaves like an alias: its own name, layer, next, blending and flags.
+                TrackType = isAlias || isCombine ? AnimationTrack.Type.Alias : AnimationTrack.Type.Animation,
                 Name = anim.Name,
-                AliasName = isAlias ? animAlias.Name : null,
+                AliasName = isAlias ? animAlias.Name : isCombine ? animCombine.Name : null,
 
                 // Alias entries overwrite layer/next/blend/flags/direction of the aliased animation.
-                Layer = isAlias ? animAlias.Layer : anim.Layer,
-                NextAni = isAlias ? animAlias.Next : anim.Next,
-                BlendIn = isAlias ? animAlias.BlendIn : anim.BlendIn,
-                BlendOut = isAlias ? animAlias.BlendOut : anim.BlendOut,
-                Flags = isAlias ? animAlias.Flags : anim.Flags,
+                Layer = isAlias ? animAlias.Layer : isCombine ? animCombine.Layer : anim.Layer,
+                NextAni = isAlias ? animAlias.Next : isCombine ? animCombine.Next : anim.Next,
+                BlendIn = isAlias ? animAlias.BlendIn : isCombine ? animCombine.BlendIn : anim.BlendIn,
+                BlendOut = isAlias ? animAlias.BlendOut : isCombine ? animCombine.BlendOut : anim.BlendOut,
+                Flags = isAlias ? animAlias.Flags : isCombine ? animCombine.Flags : anim.Flags,
                 Direction = isAlias ? animAlias.Direction : anim.Direction,
 
                 FirstFrame = anim.FirstFrame,
@@ -282,17 +402,23 @@ namespace Gothic.Core.Services.Npc
                 // Cache() turns the native interop objects into plain managed copies once. The event lists are
                 // read-only at runtime, so tracks sharing baked data also share them instead of re-marshalling.
                 EventTags = bakedSource?.EventTags ?? anim.EventTags.Select(i => i.Cache()).ToList(),
-                SoundEffects = bakedSource?.SoundEffects ?? anim.SoundEffects.Select(i => i.Cache()).ToList(),
+                SoundEffects = bakedSource?.SoundEffects ?? GetSoundEffects(anim),
                 ParticleEffects = bakedSource?.ParticleEffects ?? anim.ParticleEffects.Select(i => i.Cache()).ToList(),
-                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList()
+                MorphAnimations = bakedSource?.MorphAnimations ?? anim.MorphAnimations.Select(i => i.Cache()).ToList(),
+                ParticleEffectsStop = bakedSource?.ParticleEffectsStop ??
+                                      anim.ParticleEffectsStop.Select(i => i.Cache()).ToList()
             };
+
+            if (isCombine && _combineEvents.TryGetValue(animCombine.Name, out var combineEvent))
+                AddCombineEvents(track, anim.FirstFrame + combineEvent.Frame, combineEvent);
 
             // Looping if this == next. If an alias is used, we expect the same alias being selected.
             track.IsLooping = track.DisplayName.EqualsIgnoreCase(track.NextAni);
 
             // Cached so the per-frame event scan can skip the vast majority of tracks without any events.
             track.HasEvents = track.EventTags.Count > 0 || track.SoundEffects.Count > 0 ||
-                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0;
+                              track.ParticleEffects.Count > 0 || track.MorphAnimations.Count > 0 ||
+                              track.ParticleEffectsStop.Count > 0;
 
             if (bakedSource != null)
             {
@@ -530,12 +656,22 @@ namespace Gothic.Core.Services.Npc
 
             var weaponStateString = GetWeaponAnimationPrefix(overrideWeaponState ?? fightMode);
 
-            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            var walkMode = GetWaterWalkMode(npc, weaponStateString);
             var walkModeString = GetWalkModeString(walkMode);
+            // Swimming/diving animations exist only once, without weapon variants (S_SWIM, T_SWIMTURNL, ...).
+            if (walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                weaponStateString = string.Empty;
             var animationName = type switch
             {
                 VmGothicEnums.AnimationType.Idle => GetIdleAnimationName(weaponStateString, walkModeString),
                 VmGothicEnums.AnimationType.Move => GetMoveAnimationName(weaponStateString, walkMode, walkModeString),
+                // Ranged/Mage have no s_*Attack — use their actual shoot/cast animations.
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "BOW" => "s_BowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "CBOW" => "s_CBowShoot",
+                VmGothicEnums.AnimationType.Attack or VmGothicEnums.AnimationType.AttackL or VmGothicEnums.AnimationType.AttackR
+                    when weaponStateString is "MAG" => "t_MagRun_2_FBTShoot", // wind-up, the spell leaves at its end
                 VmGothicEnums.AnimationType.Attack => $"s_{weaponStateString}Attack",
                 VmGothicEnums.AnimationType.MoveL => $"t_{weaponStateString}{walkModeString}StrafeL",
                 VmGothicEnums.AnimationType.MoveR => $"t_{weaponStateString}{walkModeString}StrafeR",
@@ -596,10 +732,38 @@ namespace Gothic.Core.Services.Npc
             if (GetTrack(animationName, npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) == null &&
                 overrideWeaponState == null)
             {
+                Logger.LogWarning(
+                    $"[AnimFallback] >{npc.Go.name}< anim >{animationName}< not found " +
+                    $"(base={npc.Props.MdsNameBase}, overlay={npc.Props.MdsNameOverlay}, fightMode={(VmGothicEnums.WeaponState)npc.Vob.FightMode}) → falling back to Fist",
+                    LogCat.Animation);
                 return GetAnimationName(type, npc, VmGothicEnums.WeaponState.Fist);
             }
 
             return animationName;
+        }
+
+        /// <summary>
+        /// The engine picks the water animations itself, AI_SetWalkMode only says walk/run (
+        /// level set by NpcWaterService). Only if the model has them - most monsters have no wading loop.
+        /// </summary>
+        private VmGothicEnums.WalkMode GetWaterWalkMode(NpcContainer npc, string weaponStateString)
+        {
+            var walkMode = (VmGothicEnums.WalkMode)npc.Vob.AiHuman.WalkMode;
+            if (npc.Vob.Player || walkMode is VmGothicEnums.WalkMode.Swim or VmGothicEnums.WalkMode.Dive)
+                return walkMode;
+
+            switch ((ZenGineConst.WaterLevel)npc.Vob.AiHuman.WaterLevel)
+            {
+                case ZenGineConst.WaterLevel.Chest
+                    when GetTrack(DaedalusConst.AniSwimForward, npc.Props.MdsNameBase,
+                        npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Swim;
+                case ZenGineConst.WaterLevel.Knee
+                    when GetTrack($"S_{weaponStateString}WALKWL", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null:
+                    return VmGothicEnums.WalkMode.Water;
+                default:
+                    return walkMode;
+            }
         }
 
         private string GetWalkModeString(VmGothicEnums.WalkMode walkMode)

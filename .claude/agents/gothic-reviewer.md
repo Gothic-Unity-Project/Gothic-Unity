@@ -33,6 +33,10 @@ direct collaborators - never grep the repo root or all of `Assets/`.
 **Config & wiring**
 - New `DeveloperConfig` field without the value in `Production.asset` (C# default is ignored once serialized)
 - Feature needed in builds but only readable from Editor-only DeveloperConfig (needs `GameSettings.json`)
+- New `DeveloperConfig` entries (diff against main): decide per entry whether it is better as a player-facing
+  Gothic.ini value, or should be removed (dead/one-off debug flag). For each suggested ini value, also suggest
+  (a) a matching entry in the VR menu, under immersion or accessibility, and (b) a wiki update for the entry
+  (wiki is a separate repo - follow-up)
 - New service not registered in Reflex; DI cycles
 - Layer changes without updating both rows of the collision matrix
 - Logic in adapters that belongs in a service/domain; lateral module dependencies

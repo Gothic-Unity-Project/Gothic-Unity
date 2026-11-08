@@ -1,4 +1,7 @@
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Npc;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
@@ -68,6 +71,8 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextTradeService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
             containerBuilder.AddSingleton(typeof(ContextMeleeDamageRuleService));
+            containerBuilder.AddSingleton(typeof(ContextRangedCombatService));
+            containerBuilder.AddSingleton(typeof(ContextHeroBlockService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
@@ -99,10 +104,21 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(NpcRoutineService));
             containerBuilder.AddSingleton(typeof(NpcInventoryService));
             containerBuilder.AddSingleton(typeof(FightService));
+            containerBuilder.AddSingleton(typeof(NpcWaterService));
+            containerBuilder.AddSingleton(typeof(NpcNavMeshService));
+            containerBuilder.AddSingleton(typeof(ProjectileService));
+            containerBuilder.AddSingleton(typeof(Services.Audio.GroundSoundService));
             containerBuilder.AddSingleton(typeof(DocService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.ItemUseService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.InventoryTransferService));
+            containerBuilder.AddSingleton(typeof(NpcBurnService));
+
+            // Adapter factories: Services and Domain create these adapters through their Core interface only.
+            containerBuilder.AddSingleton(typeof(ProjectileFactory), typeof(IProjectileFactory));
+            containerBuilder.AddSingleton(typeof(VisualFxLightFactory), typeof(IVisualFxLightFactory));
+            containerBuilder.AddSingleton(typeof(NpcJumpFallFactory), typeof(INpcJumpFallFactory));
+            containerBuilder.AddSingleton(typeof(NpcBurnEffectFactory), typeof(INpcBurnEffectFactory));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

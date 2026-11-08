@@ -24,6 +24,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         {
             var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
             var flags = (VmGothicEnums.ItemFlags)item.Flags;
+            // HasFlag like AiDrawWeapon: a two-hander with any other flag (temple guards' swords) hung at the belt and
+            // drawing it looked for it on the back - the guards attacked empty-handed.
             var isTwoHanded = flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) ||
                               flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd);
             return mainFlag switch

@@ -62,10 +62,12 @@ namespace Gothic.Core.Domain.Npc
                 _npcService.SetAttribute(dead, NpcAttribute.HitPoints, 0);
             }
 
+            // Set at once so AiHandler.Start() on the corpse doesn't call ZS_Dead a second time.
+            dead.IsZsDeadCalled = true;
+
             // ZS_Dead (B_CheckDeadMissionNPCs + B_GiveDeathInv etc.) takes ~280ms in G2 — too heavy
             // to run synchronously in the hit frame. Defer by one frame so the frame spike is gone.
-            var deadInstance = dead.Instance;
-            _unityMonoService.StartCoroutine(CallZsDeadDeferred(deadInstance, killer));
+            _unityMonoService.StartCoroutine(CallZsDeadDeferred(dead.Instance, killer));
 
             Logger.Log($"[FightService.OnNpcDied] {dead.Instance.GetName(NpcNameSlot.Slot0)} died — ZS_Dead deferred " +
                        $"(killer: {killer.Instance.GetName(NpcNameSlot.Slot0)})", LogCat.Npc);
@@ -74,13 +76,26 @@ namespace Gothic.Core.Domain.Npc
         private IEnumerator CallZsDeadDeferred(NpcInstance dead, NpcContainer killer)
         {
             yield return null;
+            RunZsDead(dead, killer);
+            _npcAiService.BroadcastDownPerception(dead.GetUserData(), killer, VmGothicEnums.PerceptionType.AssessMurder);
+        }
+
+        /// <summary>
+        /// ZS_Dead and ZS_Dead_Loop of a dead NPC with the killer as 'other', the state bookkeeping like the engine.
+        /// Also for an NPC killed before it spawned (AiHandler: dead on spawn, e.g. Nek) - without a killer it is its
+        /// own 'other' (no experience). Not for a corpse from a save: its state is ZS_Dead already.
+        /// </summary>
+        public void RunZsDead(NpcInstance dead, NpcContainer killer)
+        {
+            if (dead.GetUserData() is { } deadNpc)
+                deadNpc.IsZsDeadCalled = true;
 
             var vm = _gameStateService.GothicVm;
             var zsDeadSym = vm.GetSymbolByName(DaedalusConst.ZsDead);
             if (zsDeadSym == null)
             {
                 Logger.LogWarning("[FightService.OnNpcDied] ZS_Dead symbol not found", LogCat.Npc);
-                yield break;
+                return;
             }
 
             // Like the engine's state change: the state he died in is the last one - G1's B_DeathXP pays nothing for
@@ -96,10 +111,9 @@ namespace Gothic.Core.Domain.Npc
             var oldSelf = vm.GlobalSelf;
             var oldOther = vm.GlobalOther;
             vm.GlobalSelf = dead;
-            // Like the engine (OpenGothic checkHealth: currentOther) 'other' is the killer - ZS_Dead gives XP only if
-            // he's the hero or in his party (AIV_PARTYMEMBER, AIV_MM_PARTYMEMBER: the hero's summons, Mordrag leading
-            // him), and G2 marks only the hero's victims as killed by him. The hero for everybody gave XP for every
-            // death.
+            // Like the engine (OpenGothic onNoHealth: setOther(lastHit)) 'other' is the real killer - ZS_Dead gives XP
+            // only if he's the hero or in his party (AIV_PARTYMEMBER: Mordrag leading him; AIV_MM_PARTYMEMBER: the
+            // hero's summons, passed as themselves), and G2 marks only the hero's victims as killed by him.
             vm.GlobalOther = killer?.Instance ?? dead;
             try
             {
@@ -131,8 +145,6 @@ namespace Gothic.Core.Domain.Npc
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
-
-            _npcAiService.BroadcastDownPerception(deadContainer, killer, VmGothicEnums.PerceptionType.AssessMurder);
         }
     }
 }

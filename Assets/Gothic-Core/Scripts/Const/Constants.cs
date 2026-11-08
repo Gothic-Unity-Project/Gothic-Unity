@@ -8,6 +8,25 @@ namespace Gothic.Core.Const
 {
     public static class Constants
     {
+        /// <summary>
+        /// Gothic.ini keys of our own menu options (written by the settings menu).
+        /// </summary>
+        public static class IniNames
+        {
+            // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
+            public const string LightRefresh = "lightRefresh";
+
+            // 1 = the animations' ground sounds play (footsteps, GroundSoundService), 0 = off. In Gothic's own [SOUND]
+            // section like zWindEnabled in [ENGINE]: footsteps play in VR and Flat.
+            public const string FootstepSounds = "footstepSounds";
+            public const string IniSectionSound = "SOUND";
+            public const int FootstepSoundsDefaultValue = 1;
+
+            // [VIDEO] 0..1, vanilla 0.5 = neutral (the menu's Brightness slider).
+            public const string VideoBrightness = "zVidBrightness";
+            public const float VideoBrightnessDefaultValue = 0.5f;
+        }
+
         public static class Items
         {
             /// <summary>

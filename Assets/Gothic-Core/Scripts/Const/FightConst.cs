@@ -51,5 +51,25 @@ namespace Gothic.Core.Const
             public static string MyFkFocusFar = "FA_MY_FK_FOCUS_FAR_{0}"; // I have opponent in focus
             public static string MyFkNoFocusFar = "FA_MY_FK_NOFOCUS_FAR_{0}"; // I have opponent NOT in focus
         }
+
+        // OpenGothic constants.h:137 MaxMagRange (3500 cm, "from Focus_Ranged"): a spell's weapon range
+        // (FightAlgo::weaponRange, fightalgo.cpp:359-360) and how far it flies before it can't hit any more
+        // (DamageCalculator::rangeDamage, damagecalculator.cpp:62). A mage farther away gives up (Attack.cs).
+        public const float MaxMagRangeMeters = 35f;
+        // OpenGothic constants.h:136 MaxBowRange (4500 cm): an arrow's hit chance falls to 0 here
+        // (damagecalculator.cpp:74-78). The bow's weapon range is the game's reference range instead
+        // (ReferenceBowRangeG1/G2, IContextRangedCombatService.HitChanceReferenceRange).
+        public const float MaxBowRangeMeters = 45f;
+
+        // A VR swing counts as the hero's "prehit" this long - an attack
+        // animation's time before its hit frame (DEF_OPT_FRAME).
+        public const float HeroPrehitSeconds = 0.4f;
+        // The hero's reach for the prehit check (the engine: the attacker's weapon range) - a swung sword plus a step.
+        public const float HeroPrehitRangeMeters = 3f;
+        // OpenGothic FightAlgo: isInFocusAngle 30 degrees, isInJumpBackAngle 90 degrees.
+        public const float FocusAngle = 30f;
+        public const float JumpBackAngle = 90f;
+        // The hero's facing in VR is his head, which turns more than a body - a bit more room than the engine's 30.
+        public const float HeroFocusAngle = 45f;
     }
 }

@@ -149,6 +149,17 @@ namespace Gothic.Core.Domain.Npc
                     new PlayAni(new AnimationAction(string0: DaedalusConst.AniWounded), npc));
             }
 
+            // Summons fighting the NPC stop like the scripts (ZS_MM_Attack_Loop ends on C_NpcIsDown) - their queued
+            // attacks kept hitting the downed NPC.
+            foreach (var summon in _multiTypeCacheService.NpcCache)
+            {
+                if (summon?.SummonedBy == null || summon.Props?.TargetNpc?.Index != npc.Instance.Index)
+                    continue;
+                _npcAiService.ExtNpcClearAiQueue(summon.Instance);
+                Logger.Log($"[FightService] {summon.Instance.GetName(NpcNameSlot.Slot0)} (summon) stops attacking " +
+                           $"downed {npc.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
+            }
+
             _npcAiService.BroadcastDownPerception(npc, attacker, VmGothicEnums.PerceptionType.AssessDefeat);
         }
 
@@ -213,7 +224,7 @@ namespace Gothic.Core.Domain.Npc
 
         private bool IsPartyMember(NpcContainer npc)
         {
-            var sym = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            var sym = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivMmPartyMember);
             if (sym == null) return false;
             var aivIndex = sym.GetInt(0);
             return npc.Instance.GetAiVar(aivIndex) == 1;

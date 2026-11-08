@@ -21,6 +21,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
 
+
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
         public void Init()
@@ -67,6 +68,9 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
+            var npcData = npcInstance.GetUserData();
+            if (npcData != null)
+                npcData.Vob.CurrentRoutine = formattedRoutineName;
             ExchangeRoutine(npcInstance, newRoutine.Index);
         }
 
@@ -178,6 +182,9 @@ namespace Gothic.Core.Services.Npc
                 npcProps.RoutinePrevious = npcProps.Routines[prevRoutineIndex];
             }
             npcProps.RoutineCurrent = newRoutine;
+
+            if (changed)
+                _npcMeshCullingService.NotifyNpcRoutineChanged(npc.GetUserData());
 
             return changed;
         }

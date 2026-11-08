@@ -68,6 +68,7 @@ namespace Gothic.Lab
         [Inject] private readonly SkyService _skyService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcBurnService _npcBurnService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly ParticleService _particleService;
 
@@ -125,6 +126,7 @@ namespace Gothic.Lab
             _npcService.Init();
             _vobService.Init();
             _fightService.Init();
+            _npcBurnService.Init();
             _vrWeaponService.Init();
             _particleService.Init();
 

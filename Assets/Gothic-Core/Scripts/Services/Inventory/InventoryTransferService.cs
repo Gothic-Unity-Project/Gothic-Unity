@@ -33,8 +33,8 @@ namespace Gothic.Core.Services.Inventory
         }
 
         /// <summary>
-        /// Everything the owner (NPC, chest) gives away goes into the hero's inventory - the loot's green X and
-        /// DeveloperConfig.EnableCorpseHoldTakesAll. Returns the number of items taken.
+        /// Everything the owner (NPC, chest) gives away goes into the hero's inventory - the loot's green X.
+        /// Returns the number of items taken.
         /// </summary>
         public int TakeAll(IInventoryOwner from)
         {

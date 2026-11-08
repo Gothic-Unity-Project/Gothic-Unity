@@ -16,6 +16,7 @@ namespace Gothic.Flat.Adapters.Context
     {
         [Inject] private readonly ContextTextInputService _contextTextInputService;
         [Inject] private readonly ContextScreenshotService _contextScreenshotService;
+        [Inject] private readonly ContextHeroBlockService _contextHeroBlockService;
 
         protected override void RegisterControlModule(Controls controls)
         {
@@ -24,6 +25,7 @@ namespace Gothic.Flat.Adapters.Context
 
             _contextTextInputService.SetImpl(new FlatContextTextInputService());
             _contextScreenshotService.SetImpl(new FlatContextScreenshotService());
+            _contextHeroBlockService.SetImpl(new FlatContextHeroBlockService());
 
             throw new NotImplementedException("FlatContext needs rework.");
         }

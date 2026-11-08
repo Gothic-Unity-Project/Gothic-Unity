@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Domain.Meshes.Builder;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
@@ -9,6 +10,8 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Meshes;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
@@ -20,6 +23,8 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly MeshService _meshService;
+        [Inject] private readonly ConfigService _configService;
 
         private readonly EquipDomain _equipDomain = new EquipDomain().Inject();
         private readonly NpcArmorMeshBuilder _armorMeshBuilder = new NpcArmorMeshBuilder().Inject();
@@ -157,7 +162,7 @@ namespace Gothic.Core.Services.Npc
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
 
-            // DeveloperConfig.EnableItemInitSymbolCheck: no item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
+            // No item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
             // skipped like the engine. The exception stopped the NPC's creation.
             var itemData = _vmCacheService.TryGetItemData(itemIndex);
             if (itemData == null)
@@ -323,6 +328,115 @@ namespace Gothic.Core.Services.Npc
             return 0;
         }
         
+        public void ExtAiEquipBestMeleeWeapon(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            // Find already-equipped melee weapon, or pick the best from inventory.
+            var equipped = container.Props.EquippedItems
+                .FirstOrDefault(i => i.MainFlag == (int)ItemFlags.ItemKatNf);
+
+            if (equipped == null)
+            {
+                List<ContentItem> weaponItems;
+                try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
+                catch { return; }
+
+                var bestDamage = -1;
+                foreach (var contentItem in weaponItems)
+                {
+                    var symbol = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (symbol == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(symbol.Index);
+                    if (itemData == null || itemData.MainFlag != (int)ItemFlags.ItemKatNf) continue;
+                    if (itemData.DamageTotal > bestDamage)
+                    {
+                        bestDamage = itemData.DamageTotal;
+                        equipped = itemData;
+                    }
+                }
+
+                if (equipped == null)
+                {
+                    Logger.LogWarning($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: no melee weapon in inventory", LogCat.Npc);
+                    return;
+                }
+
+                container.Props.EquippedItems.Add(equipped);
+                Logger.Log($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: equipped '{equipped.Name}' dmg={bestDamage}", LogCat.Npc);
+            }
+
+            // Check if the weapon mesh GO exists in the stow slot or the hand slot.
+            // The mesh can be lost after combat cycles; if missing, respawn it.
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
+
+            var stowGo = container.Go.FindChildRecursively(stowSlotName);
+            var handGo = container.Go.FindChildRecursively(Constants.SlotRightHand);
+
+            var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
+                             (handGo != null && handGo.transform.childCount > 0);
+
+            if (!meshExists)
+            {
+                Logger.Log($"[AI_EquipBestMeleeWeapon] {npc.GetName(NpcNameSlot.Slot0)}: mesh missing — respawning '{equipped.Name}'", LogCat.Npc);
+                _meshService.CreateNpcWeapon(container.Go, equipped, (ItemFlags)equipped.MainFlag, (ItemFlags)equipped.Flags);
+            }
+        }
+
+        public void ExtAiEquipBestRangedWeapon(NpcInstance npc)
+        {
+            var container = npc.GetUserData();
+            if (container == null)
+                return;
+
+            var equipped = container.Props.EquippedItems
+                .FirstOrDefault(i => i.MainFlag == (int)ItemFlags.ItemKatFf);
+
+            if (equipped == null)
+            {
+                List<ContentItem> weaponItems;
+                try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
+                catch { return; }
+
+                foreach (var contentItem in weaponItems)
+                {
+                    var symbol = _gameStateService.GothicVm.GetSymbolByName(contentItem.Name);
+                    if (symbol == null) continue;
+                    var itemData = _vmCacheService.TryGetItemData(symbol.Index);
+                    if (itemData == null || itemData.MainFlag != (int)ItemFlags.ItemKatFf) continue;
+                    equipped = itemData;
+                    break; // first ranged weapon found is good enough (no damage comparison for ranged)
+                }
+
+                if (equipped == null)
+                {
+                    Logger.LogWarning($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: no ranged weapon in inventory", LogCat.Npc);
+                    return;
+                }
+
+                container.Props.EquippedItems.Add(equipped);
+                Logger.Log($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: equipped '{equipped.Name}'", LogCat.Npc);
+            }
+
+            // Ensure weapon mesh exists in the bow/crossbow stow slot.
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
+            var stowGo = container.Go.FindChildRecursively(stowSlotName);
+            var handGo = container.Go.FindChildRecursively(Constants.SlotLeftHand);
+
+            var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
+                             (handGo != null && handGo.transform.childCount > 0);
+
+            if (!meshExists)
+            {
+                Logger.Log($"[AI_EquipBestRangedWeapon] {npc.GetName(NpcNameSlot.Slot0)}: mesh missing — respawning '{equipped.Name}'", LogCat.Npc);
+                _meshService.CreateNpcWeapon(container.Go, equipped, (ItemFlags)equipped.MainFlag, (ItemFlags)equipped.Flags);
+            }
+        }
+
         /// <summary>
         /// Npc_ClearInventory like the engine (OpenGothic Inventory::clear): everything goes except the items worn or
         /// held (equipped) and mission items. Found comparing with BoroBongo's branch.

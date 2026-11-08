@@ -167,8 +167,28 @@ namespace Gothic.Core.Manager
         [CanBeNull]
         public AudioClip CreateAudioClip(SoundEffectInstance soundEffectInstance)
         {
-            return CreateAudioClip(soundEffectInstance.File);
+            return CreateSfxAudioClip(soundEffectInstance.File);
         }
+
+        /// <summary>
+        /// The file of a sound effect instance (C_SFX) - from _WORK/DATA/SOUND/SFX first like the engine (a speech file
+        /// with the same name doesn't win).
+        /// </summary>
+        [CanBeNull]
+        public AudioClip CreateSfxAudioClip(string fileName)
+        {
+            return _soundDomain.CreateAudioClip(fileName, _sfxFolder);
+        }
+
+        /// <summary>
+        /// Like CreateSfxAudioClip(), but decodes on a worker thread (see SoundDomain.CreateAudioClipAsync()).
+        /// </summary>
+        public Task<AudioClip> CreateSfxAudioClipAsync(string fileName)
+        {
+            return _soundDomain.CreateAudioClipAsync(fileName, _sfxFolder);
+        }
+
+        private const string _sfxFolder = "SFX";
 
         /// <summary>
         /// Create AudioClip from a file inside .vdf containers.

@@ -59,6 +59,11 @@ namespace Gothic.VR.Services.Context
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_LEDGE_CLIMB_MODE",
                         "ledgeClimbMode", VRConstants.IniNames.LedgeClimbMode, VRConstants.IniSectionAccessibility,
                         VRConstants.LedgeClimbModeDefaultValue)),
+                // Knocked out, dead, asleep: the view goes down with the hero's body or fades (VrHeroFallMode).
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HERO_FALL_MODE", "heroFallMode"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HERO_FALL_MODE",
+                        "heroFallMode", VRConstants.IniNames.HeroFallMode, VRConstants.IniSectionAccessibility,
+                        VRConstants.HeroFallModeDefaultValue)),
                 // The controller layout (VrControlLayout) - the VR counterpart of Gothic's key bindings.
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_CONTROLLER_HAND", "controllerHand"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_CONTROLLER_HAND",
@@ -121,19 +126,21 @@ namespace Gothic.VR.Services.Context
                 (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
                         "A loot backpack shows an X that takes everything"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
-                        VRConstants.LootTakeAllDefaultValue))
+                        VRConstants.LootTakeAllDefaultValue)),
+                (CreateToggleLabel(gameMenu, "HERO_BLOCK", "Blocking",
+                        "Both hands on a melee weapon, both triggers held: parry"),
+                    CreateToggleChoice(gameMenu, "HERO_BLOCK", VRConstants.IniNames.HeroBlock,
+                        VRConstants.HeroBlockDefaultValue)),
+                // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
+                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
+                    CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
+                        Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
                 rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
                     CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
                         VRConstants.HeroHandsDefaultValue)));
-            // The camera falls with the VR hero body when he's knocked out or dies - off: the view fades instead.
-            if (_configService.Dev.EnableVrHeroBody)
-                rows.Add((CreateToggleLabel(gameMenu, "HERO_FALL_CAMERA", "Fall with the body",
-                        "Knocked out, the view goes down with the hero"),
-                    CreateToggleChoice(gameMenu, "HERO_FALL_CAMERA", VRConstants.IniNames.HeroFallCamera,
-                        VRConstants.HeroFallCameraDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 
@@ -214,7 +221,7 @@ namespace Gothic.VR.Services.Context
         }
 
         private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
-            int defaultValue = 0)
+            int defaultValue = 0, string iniSection = VRConstants.IniSectionImmersion)
         {
             // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
             var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
@@ -223,7 +230,7 @@ namespace Gothic.VR.Services.Context
             item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
             item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
             item.OnChgSetOption = iniName;
-            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+            item.OnChgSetOptionSection = iniSection;
 
             return item;
         }

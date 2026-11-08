@@ -189,9 +189,10 @@ namespace Gothic.Core.Services.Meshes
         }
 
         public GameObject CreateVobPfx(string pfxName, Vector3 position = default, Quaternion rotation = default,
-            GameObject parent = null, bool destroyAfterPlay = false)
+            GameObject parent = null, bool destroyAfterPlay = false, bool isFullRate = false)
         {
             var vobPfxBuilder = new VobPfxMeshBuilder().Inject();
+            vobPfxBuilder.SetFullRate(isFullRate);
             vobPfxBuilder.SetGameObject(null, pfxName);
             vobPfxBuilder.SetParent(parent);
             vobPfxBuilder.SetRootPosAndRot(position, rotation);

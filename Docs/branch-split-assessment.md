@@ -75,7 +75,7 @@ including Flat. Your test and code review are the real gate.
 1. Unity Hub → *Add project from disk* → `Gothic-workspace/GU-split-integration` (contains all of Wave 1). It already
    has the `Assets/HurricaneVR` junction and your `GameSettings.dev.json`. The first import builds its own `Library/`.
 2. Assign your local DeveloperConfig to `GameManager` in the Bootstrap scene. **Don't commit the scene.** For the
-   Marvin tests, turn on `ActivateMarvinMode` and the cheats (see test 2 below).
+   Marvin tests, turn on `PreselectMarvinMode` and the cheats (see test 2 below).
 3. Have ready: G1, G2 NotR, and optionally Mroczne Tajemnice (G1 mod) and G2 New Balance (Ogg dubbing).
 4. Keep the Uber Console open (`Gothic > Debug > Uber Console`). Most tests also check that **no new exceptions or
    log spam** appear.
@@ -140,7 +140,6 @@ Things a ported slice left out on purpose that a later slice must add (in the la
 |---|---|---|
 | 14 | 07 | `adc2067a` "endings quit after the credits": the source's static `VRCinema.QuitAfterVideos` + `ScriptExitGame` event must become instance members of `VRCinemaService` / `VRCinema` (statics no longer exist). |
 | 13 | 07 | Bow-collider part of `9504e2c9` in `AbstractMeshBuilder`. |
-| 08 | 03 | Cheats `EnableOneHitKill` / `EnableOneHitKnockout` (+ Marvin buttons if any). |
 | 20 | 03 | Summon part of `aebea3c9`: `summonedBy` parameter of the runtime spawn, `NpcService.SpawnNpcRuntime` wrapper, `Wld_SpawnNpcRange`. |
 | 11 | 03 | `NpcRoutineService.RecalculateAllNpcRoutines` (time skip doesn't call it in 03). |
 | 08 | 01 | `523c277d` (`Vm.InitInstance` in `Wld_InsertNpc`, needs `IsZkInstanceInitialized` + attribute sync `cd88a122`; for dead-on-spawn NPCs like Nek). |

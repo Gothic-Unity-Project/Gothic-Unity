@@ -99,7 +99,7 @@ namespace Gothic.VR.Adapters
         private void Update()
         {
             // A knocked out NPC that gets up takes his things back out of reach.
-            if (_isOpen && _npcContainer != null && _npcContainer.Props?.IsDown != true)
+            if (_isOpen && _npcContainer != null && !_npcContainer.IsDown())
                 Close();
         }
 
@@ -267,8 +267,7 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableCorpseHoldTakesAll: everything the NPC gives away into the hero's inventory (like the
-        /// loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// Everything the NPC gives away into the hero's inventory (like the loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
         /// </summary>
         public int TakeAll(NpcContainer npc)
         {

@@ -48,8 +48,8 @@ namespace Gothic.Core.Manager
         // An NPC farther away doesn't open its dialog. The engine allows 20 m (OpenGothic AI_ProcessInfos) - in VR that
         // was far too wide, Bloodwyn talked to the hero from across the yard.
         private const float _startMaxDistance = 8f;
-        // Room-scale steps around the spot where the hero stood when the dialog opened - free up to the soft radius,
-        // slowed down to a stop at the radius.
+        // Steps (stick or room-scale) around the spot where the hero stood when the dialog opened - free up to the soft
+        // radius, slowed down to a stop at the radius.
         private const float _pinSoftRadius = 0.3f;
         private const float _pinRadius = 0.75f;
         // Held back a little inside the edge, so the hero isn't held right at the stop distance.
@@ -138,8 +138,9 @@ namespace Gothic.Core.Manager
                 npcContainer.PrefabProps.AnimationHeadHandler.StartDialogLookAt(
                     _npcService.GetHeroContainer().PrefabProps.Head);
 
-            // On every (re)open, as something else may have unlocked the player in between.
-            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Walking);
+            // On every (re)open, as something else may have unlocked the player in between. Only teleport is off: the
+            // hero walks (stick or room-scale) inside the pin radius, HoldHero slows him down at its edge.
+            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Teleport);
 
             if (initialDialogStarting)
             {
@@ -293,6 +294,36 @@ namespace Gothic.Core.Manager
             }
 
             Logger.LogWarning($"[Dialog] Hero has no line for {string.Join(", ", svmNames)}.", LogCat.Dialog);
+        }
+
+        /// <summary>
+        /// The hero by instance, not by C_NPC.id == 0 - monsters don't set an id either (0). Speaker id 0 marks the hero
+        /// in Output/OutputSvm, others get a non-zero one.
+        /// </summary>
+        public void ExtAiOutputSvmOverlay(NpcInstance npc, NpcInstance target, string svmName)
+        {
+            var npcContainer = GetNpcContainer(npc);
+            var queue = npcContainer.Props.AnimationQueue;
+            var svmAction = new OutputSvm(
+                new AnimationAction(int0: GetSpeakerId(npcContainer.Instance, IsHero(npc)), string0: svmName,
+                    bool0: true),
+                npcContainer);
+
+            // Daedalus queues GoToNpc before AI_OutputSVM_Overlay in the same script execution.
+            // Reorder so the SVM fires first (fire-and-forget), then the NPC runs.
+            if (queue.Count > 0 && queue.Last() is GoToNpc)
+            {
+                var items = queue.ToArray();
+                queue.Clear();
+                for (var i = 0; i < items.Length - 1; i++)
+                    queue.Enqueue(items[i]);
+                queue.Enqueue(svmAction);
+                queue.Enqueue(items[items.Length - 1]);
+            }
+            else
+            {
+                queue.Enqueue(svmAction);
+            }
         }
 
         public void ExtAiOutputSvm(NpcInstance npc, NpcInstance target, string svmName)

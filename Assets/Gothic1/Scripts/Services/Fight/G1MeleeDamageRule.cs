@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
@@ -57,7 +58,7 @@ namespace Gothic.G1.Services.Fight
         private int GetCriticalMultiplier()
         {
             _criticalMultiplier ??=
-                _gameStateService.GothicVm.GetSymbolByName("DAM_CRITICAL_MULTIPLIER")?.GetInt(0) ?? 2;
+                _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.DamCriticalMultiplier)?.GetInt(0) ?? 2;
             return _criticalMultiplier.Value;
         }
     }
