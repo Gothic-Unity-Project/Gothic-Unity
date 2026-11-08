@@ -173,6 +173,23 @@ namespace Gothic.VR
         }
 
         /// <summary>
+        /// VR ranged tunables: bows (VrBowMeshCalibration) and crossbows (VRCrossbow).
+        /// </summary>
+        public static class Ranged
+        {
+            // Bow: a mesh whose limb tips are closer than this (m) is no bow to draw.
+            public const float BowMinLength = 0.1f;
+
+            // Bow: the max draw (m) is this share of the bow's length, clamped to the range below.
+            public const float BowDrawPerLength = 0.55f;
+            public const float BowMinDraw = 0.45f;
+            public const float BowMaxDraw = 0.72f;
+
+            // Crossbow: seconds it reloads by itself with the Immersion option "Crossbow" (crossbowReload) off.
+            public const float CrossbowReloadSeconds = 1.5f;
+        }
+
+        /// <summary>
         /// VR swim values. Deliberately not the guild's water depths (GetWaterDepthKnee/Chest from Daedalus): those
         /// decide whether the hero walks, wades or swims (VRSwimDive). The values here only decide how the VR hero body
         /// looks in the water (VrHeroSwimPose) and how far VRSwimDive looks for the surface.

@@ -20,7 +20,8 @@ Why it's built this way: Docs/adr/2026-11-02-vr-ranged.md. The melee side is in 
 | `VRWeaponService` (VR) | folds a held bow/crossbow into the hero's weapon state (`UpdateHeroWeaponState`: melee > ranged > fist) |
 
 Tunables: the one-handed crossbow rule in `FightConst`, sounds and morph animation names in `Constants`, the
-Immersion option "Crossbow" (Gothic.ini `crossbowReload`) in `VRConstants`. Bow and crossbow colliders are fitted while
+Immersion option "Crossbow" (Gothic.ini `crossbowReload`) in `VRConstants`, the bow's draw and the crossbow's
+automatic reload time in `VRConstants.Ranged`. Bow and crossbow colliders are fitted while
 pre-caching (`VobItemFittedColliderCacheCreatorDomain`), like melee weapons.
 
 ## Data flow of one shot
@@ -38,7 +39,7 @@ pre-caching (`VobItemFittedColliderCacheCreatorDomain`), like melee weapons.
 
 A crossbow: the trigger of a holding hand fires (both hands needed below the one-hand rule). Then the string sits at
 the prod; the free hand's trigger pulls it back along the stock until it locks. Out of a holster or the backpack a
-crossbow is cocked again. With "Crossbow" off it reloads by itself after 1.5 s.
+crossbow is cocked again. With "Crossbow" off it reloads by itself after `VRConstants.Ranged.CrossbowReloadSeconds`.
 
 ## Where does my change go?
 

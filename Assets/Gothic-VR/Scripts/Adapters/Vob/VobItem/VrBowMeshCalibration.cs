@@ -85,7 +85,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var tipTop = RestVertices[TipTopIndex];
             var tipBottom = RestVertices[TipBottomIndex];
             var bowLength = Vector3.Distance(tipTop, tipBottom);
-            if (bowLength < 0.1f)
+            if (bowLength < VRConstants.Ranged.BowMinLength)
                 return false;
 
             // Grip/belly: the vertex farthest away from the string line.
@@ -105,7 +105,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             LocalForward = (LocalGrip - gripOnString).normalized;
 
             var worldScale = MeshFilter.transform.lossyScale.x;
-            MaxDraw = Mathf.Clamp(bowLength * worldScale * 0.55f, 0.45f, 0.72f);
+            MaxDraw = Mathf.Clamp(bowLength * worldScale * VRConstants.Ranged.BowDrawPerLength,
+                VRConstants.Ranged.BowMinDraw, VRConstants.Ranged.BowMaxDraw);
 
             BowMesh = Object.Instantiate(OriginalMesh);
             BowMesh.name = $"{OriginalMesh.name} (VR bow)";

@@ -26,7 +26,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// (VRCrossbowString, Gothic's own shapes) - the free hand takes it there (trigger), pulls it back along the stock
     /// and it locks at the end (BowReload, like the NPCs' t_CBowReload). Let go earlier, it snaps back. A cocked
     /// crossbow shows a bolt on the stock if the hero has one - that bolt flies.
-    /// Off (or a mesh without the shapes): it reloads by itself after _reloadSeconds.
+    /// Off (or a mesh without the shapes): it reloads by itself after VRConstants.Ranged.CrossbowReloadSeconds.
     /// The component stays on the crossbow; VRVobItem switches it with SetHeld (disabled = not held). The first grab's
     /// setup runs in the next Update, not inside the backend's grab event.
     /// </summary>
@@ -43,7 +43,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly FightService _fightService;
 
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
-        private const float _reloadSeconds = 1.5f;
 
         // Meters from the string (nock) in which the free hand's trigger takes it, the share of the way that locks it.
         // The trigger, not the grip: the grip near the stock grabbed the crossbow itself.
@@ -138,7 +137,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
             // Automatic reload: a crossbow picked up fired takes the whole reload time, like right after a shot.
             if (!_isLoaded)
-                _reloadTimer = _reloadSeconds;
+                _reloadTimer = VRConstants.Ranged.CrossbowReloadSeconds;
 
             enabled = true;
             _vrWeaponService.UpdateHeroWeaponState();
@@ -298,7 +297,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _vrRangedService.Shoot(hero, _item, _munition, origin, forward, ProjectileService.ProjectileSpeed, 1f, bolt);
 
             _isLoaded = false;
-            _reloadTimer = _reloadSeconds;
+            _reloadTimer = VRConstants.Ranged.CrossbowReloadSeconds;
             if (_string != null)
                 _string.SetProgress(0f);
             PlaySfx(Constants.SfxCrossbowShoot);
