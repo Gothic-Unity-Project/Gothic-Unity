@@ -1,17 +1,25 @@
 using Gothic.Core;
+using ZenKit.Daedalus;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Services;
 using Gothic.Core.Adapters.Vob.Item;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Logging;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Domain.Player;
+using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services
 {
@@ -27,22 +35,115 @@ namespace Gothic.VR.Services
 
         [Inject] private AudioService _audioService;
         [Inject] private PlayerService _playerService;
+        [Inject] private NpcAiService _npcAiService;
+        [Inject] private NpcHelperService _npcHelperService;
+        [Inject] private ConfigService _configService;
         [Inject] private IVrSfxPlayer _vrSfxPlayer;
+        [Inject] private VRPlayerService _vrPlayerService;
 
         private readonly VrWeaponAttackDomain _firstAttackDomain = new VrWeaponAttackDomain().Inject();
         private readonly VrWeaponAttackDomain _secondAttackDomain = new VrWeaponAttackDomain().Inject();
+
+        // The hero's stab finish (one stuck blade at a time).
+        private VrStabFinishDomain _stabFinish;
+        // Gothic.ini stabFinish, read on first use and again when the menu changes it (asked every physics step).
+        private bool? _isStabFinishOn;
+
+        // Fists. Created on first use, like the stab finish (its services live in the VR scene scope).
+        private VrFistDomain _fistDomain;
 
         public void Init()
         {
             GlobalEventDispatcher.FightHit.AddListener(OnHit);
             GlobalEventDispatcher.FightWindowAttack.AddListener(OnAttackWindowStart);
             GlobalEventDispatcher.FightWindowInitial.AddListener(OnAttackWindowEnd);
+            GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.StabFinish)
+                _isStabFinishOn = null;
+        }
+
+        /// <summary>
+        /// MVP: vanilla drops the hero's readied weapon when knocked out.
+        /// In VR we let the hands drop every melee weapon they hold. Release events handle the rest (attack domain,
+        /// flags).
+        /// </summary>
+        private void OnHeroKnockedOut(NpcContainer hero)
+        {
+            foreach (var hand in _vrPlayerService.GetHandGrabbers())
+            {
+                var container = _vrPlayerService.GetHeldContainer(hand);
+                if (container == null || !container.IsMeleeWeapon())
+                    continue;
+                var item = container.GetItemInstance()!;
+
+                Logger.Log($"[VRWeaponService] Hero knocked out - dropping '{item.Name}' from {hand.HandSide} hand.",
+                    LogCat.VR);
+                hand.ForceRelease();
+            }
         }
 
         public void FixedUpdate()
         {
             _firstAttackDomain.FixedUpdate();
             _secondAttackDomain.FixedUpdate();
+            _fistDomain ??= new VrFistDomain().Inject();
+            if (_fistDomain.Tick())
+                UpdateHeroWeaponState();
+            if (_stabFinish?.IsStuck == true)
+                _stabFinish.Tick();
+        }
+
+        /// <summary>
+        /// The "stabFinish" option (Immersion menu): an unconscious NPC is finished off by a stab
+        /// kept in the body only (VrStabFinishDomain).
+        /// </summary>
+        public bool IsStabFinishOn()
+        {
+            _isStabFinishOn ??= _configService.Gothic.GetInt(VRConstants.IniNames.StabFinish,
+                VRConstants.StabFinishDefaultValue) == 1;
+            return _isStabFinishOn.Value;
+        }
+
+        /// <summary>
+        /// A blade sticks in a body right now - nothing else to check until it lets go.
+        /// </summary>
+        public bool IsStabFinishStuck()
+        {
+            return _stabFinish?.IsStuck == true;
+        }
+
+        /// <summary>
+        /// The weapon is wielded: one of the attack domains handles it (a melee weapon in the hero's hand). Whether any
+        /// item is held at all is VobContainer.IsHeldByPlayer (VRPlayerService).
+        /// </summary>
+        public bool IsWielded(VobContainer vobContainer)
+        {
+            return vobContainer != null &&
+                   (vobContainer == _firstAttackDomain.WeaponVobContainer ||
+                    vobContainer == _secondAttackDomain.WeaponVobContainer);
+        }
+
+        /// <summary>
+        /// The hero's held weapon entered an unconscious NPC: a stab along the blade sticks it in.
+        /// </summary>
+        public void TryStabFinish(VobContainer weapon, NpcContainer target, VrInteractable interactable)
+        {
+            if (_stabFinish?.IsStuck == true)
+                return;
+
+            var attacker = GetWeaponOwner(weapon);
+            if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
+                return;
+
+            var playerVelocity = _vrPlayerService.Rig?.CharacterController?.velocity ?? Vector3.zero;
+            // Created on first use, like the scene's other VR domains (its services live in the VR scene scope).
+            _stabFinish ??= new VrStabFinishDomain().Inject();
+            _stabFinish.TryStab(attacker, target, interactable, playerVelocity);
         }
 
         public void OnGrabbed(VrHandSide handSide, VobContainer vobContainer, WeaponPhysicsConfig weaponConfig)
@@ -54,6 +155,8 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon grabbed with another hand.
                 _secondAttackDomain.TryHandle(vobContainer, weaponConfig, handSide, heroContainer);
             }
+
+            UpdateHeroWeaponState();
         }
 
         public void OnReleased(VrHandSide handSide, WeaponPhysicsConfig weaponConfig)
@@ -63,6 +166,28 @@ namespace Gothic.VR.Services
                 // If we can't handle with the first handler, then it's a second weapon released from another hand.
                 _secondAttackDomain.TryUnHandle(weaponConfig, handSide);
             }
+
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
+        /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
+        /// melee weapon in any hand > fist > nothing (bows and runes join with their PRs).
+        /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
+        /// </summary>
+        public void UpdateHeroWeaponState()
+        {
+            var state = _firstAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon)
+                state = _secondAttackDomain.GetWeaponState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon && _fistDomain?.IsReadied == true)
+                state = VmGothicEnums.WeaponState.Fist;
+
+            // Which melee weapon is readied - Npc_GetReadiedWeapon (orcs tolerate the Ulu-Mulu in the hero's hand).
+            var meleeWeapon = _firstAttackDomain.WeaponVobContainer ?? _secondAttackDomain.WeaponVobContainer;
+            _npcHelperService.HeroReadiedMeleeWeapon = meleeWeapon?.GetItemInstance();
+
+            _npcAiService.ExtSetHeroWeaponState(state);
         }
 
         public void PlayDrawSound(VobContainer weapon)
@@ -122,6 +247,9 @@ namespace Gothic.VR.Services
         /// </summary>
         public NpcContainer GetWeaponOwner(VobContainer vobContainer)
         {
+            if (vobContainer == null)
+                return null;
+
             if (vobContainer == _firstAttackDomain.WeaponVobContainer)
                 return _firstAttackDomain.GetOwner();
             else if (vobContainer == _secondAttackDomain.WeaponVobContainer)
@@ -176,14 +304,25 @@ namespace Gothic.VR.Services
                 weaponAdapter.EndTrail();
         }
 
-        private void OnHit(NpcContainer _, NpcContainer __, Vector3 ___)
+        /// <summary>
+        /// A weapon hit: the swing that made it waits for the combo. Only the hero's own weapon counts - the hit
+        /// carries it (FightHit). A punch (no weapon) or an NPC hitting the hero doesn't end the sword's swing.
+        /// </summary>
+        private void OnHit(NpcContainer attacker, NpcContainer _, Vector3 __, ItemInstance weapon)
         {
-            // Find which domain's weapon caused this hit and advance its state.
-            // We check based on the attacker being the owner of one of our domains.
-            if (_firstAttackDomain.GetOwner() != null && _firstAttackDomain.IsInAttackState())
+            if (weapon == null)
+                return;
+
+            if (IsHitOfDomain(_firstAttackDomain, attacker, weapon))
                 _firstAttackDomain.AdvanceStateAfterAttack();
-            else if (_secondAttackDomain.GetOwner() != null && _secondAttackDomain.IsInAttackState())
+            else if (IsHitOfDomain(_secondAttackDomain, attacker, weapon))
                 _secondAttackDomain.AdvanceStateAfterAttack();
+        }
+
+        private static bool IsHitOfDomain(VrWeaponAttackDomain domain, NpcContainer attacker, ItemInstance weapon)
+        {
+            return domain.IsInAttackState() && domain.GetOwner() == attacker &&
+                   domain.WeaponVobContainer?.GetItemInstance()?.Index == weapon.Index;
         }
     }
 }

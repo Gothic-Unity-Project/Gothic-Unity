@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
@@ -14,6 +15,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models;
 using Reflex.Attributes;
 using UnityEngine;
@@ -43,6 +45,53 @@ namespace Gothic.VR.Services
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
+
+        /// <summary>
+        /// The player body of the active VR backend. null before the VR player is set up.
+        /// </summary>
+        public IVrRig Rig => VRContextInteractionService?.Rig;
+
+        /// <summary>
+        /// The direct grabbers of both hands (a distance grab ends in the hand too).
+        /// </summary>
+        public IEnumerable<IVrGrabber> GetHandGrabbers()
+        {
+            var rig = Rig;
+            return rig == null
+                ? Enumerable.Empty<IVrGrabber>()
+                : rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand);
+        }
+
+        /// <summary>
+        /// The hand that holds the item right now - a direct grabber (Kind Hand), not a distance pull still flying it
+        /// in. No allocations: asked every physics step (stab finish).
+        /// </summary>
+        public bool TryGetHoldingHand(VrInteractable interactable, out IVrGrabber hand)
+        {
+            hand = null;
+            var rig = Rig;
+            if (interactable == null || rig == null)
+                return false;
+
+            var grabbers = rig.HandGrabbers;
+            for (var i = 0; i < grabbers.Count; i++)
+            {
+                if (grabbers[i].Kind != VrGrabberKind.Hand || grabbers[i].Held != interactable)
+                    continue;
+                hand = grabbers[i];
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The Gothic object (VOB, e.g. an item) the grabber holds. null: it holds nothing or no VOB.
+        /// </summary>
+        public VobContainer GetHeldContainer(IVrGrabber grabber)
+        {
+            var held = grabber?.Held;
+            return held != null ? held.GetComponentInParent<VobLoader>()?.Container : null;
+        }
 
         /// <summary>
         /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
@@ -146,12 +195,16 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = grabbable.gameObject;
             }
 
+            // Every item in a hand is the hero's (inventory): NPCs neither detect nor take it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = true;
+
             // If we grabbed the element with second hand, return.
             if (IsDualGrabbed)
                 return;
 
             // Otherwise alter inventory count
-            _playerService.PickUpItem(grabbable.GetComponentInParent<VobLoader>().Container);
+            _playerService.PickUpItem(container);
         }
 
         /// <summary>
@@ -183,14 +236,17 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = null;
             }
 
+            // Still the hero's while the other hand holds it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = IsHeldInHand(grabbable);
+
             // If we removed one hand from our item.
             if (dualGrabPrev)
                 return;
 
             // Otherwise alter inventory count
             // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
-            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
-                keepOutOfWorld: IsSocketed(grabbable));
+            _playerService.DropItem(container, keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>

@@ -34,7 +34,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
             (0.8f, 0.04f, 0f),
 
             // Touch
-            (0.25f, 0.04f, 0f)
+            (0.25f, 0.04f, 0f),
+
+            // FistSwing
+            (0.25f, 0.05f, 0f),
+
+            // FistHit
+            (0.8f, 0.12f, 0f)
         };
 
         private readonly XriInput _input;

@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Marvin;
-using Gothic.Core.Models.Vm;
-using Gothic.Core.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -17,7 +15,6 @@ namespace Gothic.VR.Adapters.Player
     public class VRPlayerWeaponInteraction : MonoBehaviour, IMarvinPropertyCollector
     {
         [Inject] private readonly VRWeaponService _weaponService;
-        [Inject] private readonly GameStateService _gameStateService;
 
 
         // FIXME - All of these values will be dynamic in the future. Based on skill level and weapon type.
@@ -80,11 +77,13 @@ namespace Gothic.VR.Adapters.Player
             var itemInstance = vobContainer.GetItemInstance();
 
             // We currently handle melee weapons only.
-            if (itemInstance!.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+            if (!itemInstance.IsMeleeWeapon())
                 return;
 
+            // A held weapon is only the hero's readied one (VRWeaponService.UpdateHeroWeaponState) - EquippedItems
+            // stays what he or the scripts equipped, that's what a save keeps. Before, the grab equipped it: a save
+            // while holding it lost the weapon from before, and a grab + release left none equipped.
             _weaponService.OnGrabbed(args.HandSide, vobContainer, GetWeaponPhysicsConfig());
-            SyncEquippedWeaponToHero(itemInstance, equip: true);
         }
 
         private void OnReleased(VrGrabArgs args)
@@ -99,27 +98,11 @@ namespace Gothic.VR.Adapters.Player
             var itemInstance = vobContainer.GetItemInstance();
 
             // Currently we handle melee weapons only.
-            if (itemInstance!.MainFlag != (int)VmGothicEnums.ItemFlags.ItemKatNf)
+            if (!itemInstance.IsMeleeWeapon())
                 return;
 
+            // The readied weapon follows in VRWeaponService (the other hand's weapon, if it still holds one).
             _weaponService.OnReleased(args.HandSide, GetWeaponPhysicsConfig());
-            SyncEquippedWeaponToHero(itemInstance, equip: false);
-        }
-
-        private void SyncEquippedWeaponToHero(ZenKit.Daedalus.ItemInstance itemInstance, bool equip)
-        {
-            var hero = _gameStateService.GothicVm?.GlobalHero as ZenKit.Daedalus.NpcInstance;
-            if (hero == null)
-                return;
-
-            var heroContainer = hero.GetUserData();
-            if (heroContainer == null)
-                return;
-
-            var equippedItems = heroContainer.Props.EquippedItems;
-            equippedItems.RemoveAll(i => i.MainFlag == itemInstance.MainFlag);
-            if (equip)
-                equippedItems.Add(itemInstance);
         }
 
         /// <summary>

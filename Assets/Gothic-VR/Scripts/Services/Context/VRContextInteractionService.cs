@@ -32,6 +32,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
         [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
@@ -89,6 +90,7 @@ namespace Gothic.VR.Services.Context
             this.Inject();
 
             _vrWeaponService.Init();
+            _vrHeldItemSyncService.Init();
             _vrCinemaService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
@@ -200,6 +202,10 @@ namespace Gothic.VR.Services.Context
 
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
+
+            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
+            var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+            heroBlock.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.

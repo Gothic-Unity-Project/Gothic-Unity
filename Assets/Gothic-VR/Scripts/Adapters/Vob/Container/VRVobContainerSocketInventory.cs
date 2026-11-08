@@ -1,4 +1,5 @@
 ﻿using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using System.Collections.Generic;
 using Gothic.Core.Models.Vm;
@@ -82,7 +83,7 @@ namespace Gothic.VR.Adapters.Vob.Container
             var itemInstance = container?.GetItemInstance();
             if (itemInstance == null) return false;
             var flag = (VmGothicEnums.ItemFlags)itemInstance.MainFlag;
-            return flag is VmGothicEnums.ItemFlags.ItemKatNf or VmGothicEnums.ItemFlags.ItemKatFf;
+            return itemInstance.IsMeleeWeapon() || (flag & VmGothicEnums.ItemFlags.ItemKatFf) != 0;
         }
     }
 }

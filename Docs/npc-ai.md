@@ -71,7 +71,7 @@ features of the port on or off - check them before you assume a behaviour comes 
 | change melee damage | `MeleeDamageDomain`, G1/G2 formula in the module's `*MeleeDamageRule` |
 | change spell effects or an NPC's spell cast | `SpellHitDomain` |
 | change arrows and bolts | `ProjectileService` (flight), `RangedHitDomain` + `*RangedCombatService` (damage) |
-| change parry/block | `HeroBlockDomain`, the VR side in `VRContextHeroBlockService` |
+| change parry/block | `HeroBlockDomain`, the VR side in `VRContextHeroBlockService` (rule) and `VRHeroBlockService` (props, contacts); VR overview in `Docs/vr-melee.md` |
 | change who reacts to a hit | `DamagePerceptionDomain` |
 | change knockout or death | `NpcKnockoutDomain`, `NpcDeathDomain` |
 | change falling, climbing, fall damage | `NpcFallDomain`, `LedgeService`; `NpcJumpFall` only moves |

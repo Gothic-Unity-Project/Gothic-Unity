@@ -1,5 +1,6 @@
 using System;
 using Gothic.Core.Adapters.Properties.Vobs;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
@@ -13,7 +14,8 @@ namespace Gothic.Core.Models.Container
     public class VobContainer
     {
         /// <summary>
-        /// The player holds it (in a hand) - set by the platform module (VR grab/release).
+        /// The player holds it in a hand - any item, not only weapons: it is his (inventory), so NPCs neither detect
+        /// nor take it (Wld_DetectItem, AI_TakeItem). Set by the platform module on grab/release.
         /// </summary>
         public bool IsHeldByPlayer;
 
@@ -126,6 +128,14 @@ namespace Gothic.Core.Models.Container
                 throw new Exception("Vob Item -> no usable name found.");
 
             return _vmCacheService.TryGetItemData(itemName);
+        }
+
+        /// <summary>
+        /// A melee weapon (ITEM_KAT_NF: swords, axes, clubs) - what can be swung, blocked with and stabbed.
+        /// </summary>
+        public bool IsMeleeWeapon()
+        {
+            return GetItemInstance().IsMeleeWeapon();
         }
     }
 }

@@ -119,7 +119,7 @@ what wasn't chosen).
 time on every change.
 
 **Example:** `SaveGameService` orchestrates, the details live in `Domain/SaveGames/*`, the design in
-`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`.
+`Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`, the VR melee ones in `Docs/vr-melee.md`.
 
 ### 9. Leave it better, don't rewrite
 
@@ -160,6 +160,7 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 |---|---|
 | implement a Daedalus external | the `Domain/Vm/Vm*ExternalDomain` of its family registers it, the service of its area implements it (e.g. `NpcAiService`) |
 | change NPC AI or fights | see the map in `Docs/npc-ai.md` |
+| change VR melee (swings, fists, block, stab finish) | see the map in `Docs/vr-melee.md` |
 | add a rule about an NPC, item or VOB | a property on its model or an extension in `Extensions/` |
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |
@@ -198,6 +199,8 @@ VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't kno
 | Need | Use |
 |---|---|
 | "is it a Gothic item?" | `VrSocketSlot.IsItem` |
+| which hand holds this item (direct grab, no allocations) | `VRPlayerService.TryGetHoldingHand` |
+| the Gothic object (`VobContainer`) a hand holds | `VRPlayerService.GetHeldContainer` |
 | a slot for one item (holster, chest, loot) | `VrSocketSlot` and its backend part |
 | "item let go in a zone, put it somewhere" | `VrDropZone` (trigger adapter, reports to `VrDropZoneService`) plus an `IVrDropTarget` on it or a parent |
 | something worn on the body | `VrBodyAnchor` |

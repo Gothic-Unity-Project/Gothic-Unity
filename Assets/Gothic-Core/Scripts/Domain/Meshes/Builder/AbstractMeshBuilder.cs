@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Gothic.Core.Const;
-using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.StaticCache;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
@@ -27,7 +25,6 @@ namespace Gothic.Core.Domain.Meshes.Builder
         [Inject] protected readonly TextureCacheService TextureCacheService;
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly StaticCacheService _staticCacheService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         protected GameObject RootGo;
@@ -212,7 +209,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             {
                 if (UseColliderCache)
                 {
-                    PrepareCachedCollider(RootGo, meshFilter.sharedMesh);
+                    PrepareCachedCollider(RootGo);
                 }
                 else
                 {
@@ -697,35 +694,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
         }
 
-        protected void PrepareCachedCollider(GameObject rootGo, Mesh mesh)
+        protected void PrepareCachedCollider(GameObject rootGo)
         {
-            if (!_staticCacheService.LoadedVobItemColliders.TryGetValue(MeshName, out var colliders))
-            {
-                Logger.LogError($"Can't find Collider data for {MeshName}. Skipping...", LogCat.Mesh);
-                return;
-            }
-
-            foreach (var coll in colliders)
-            {
-                if (coll.T == VobItemColliderCacheCreatorDomain.T.B)
-                {
-                    var boxCollider = rootGo.AddComponent<BoxCollider>();
-                    boxCollider.center = coll.C;
-                    boxCollider.size = coll.S;
-                }
-                else if (coll.T == VobItemColliderCacheCreatorDomain.T.C)
-                {
-                    var capsuleCollider = rootGo.AddComponent<CapsuleCollider>();
-                    capsuleCollider.center = coll.C;
-                    capsuleCollider.direction = coll.D;
-                    capsuleCollider.height = coll.H;
-                    capsuleCollider.radius = coll.R;
-                }
-                else
-                {
-                    Logger.LogError($"Capsule cache type {coll.T} not yet handled", LogCat.Mesh);
-                }
-            }
+            new VobItemColliderBuilder().Inject().AddColliders(rootGo, MeshName);
         }
 
         private void CreateMorphMeshBegin(IMultiResolutionMesh mrm, Mesh mesh)

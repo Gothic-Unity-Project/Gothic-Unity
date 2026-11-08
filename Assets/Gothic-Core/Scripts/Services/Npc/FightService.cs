@@ -85,7 +85,7 @@ namespace Gothic.Core.Services.Npc
             if (!_configService.Dev.EnableCombatSystem)
                 return;
 
-            GlobalEventDispatcher.FightHit.AddListener(OnHit);
+            GlobalEventDispatcher.FightHit.AddListener(OnFightHit);
             GlobalEventDispatcher.SpellHit.AddListener(_spellHitDomain.OnSpellHit);
             GlobalEventDispatcher.SpellSpreadHit.AddListener((caster, pos, damage) =>
                 _spellHitDomain.ApplySpreadHit(caster, pos, damage, null));
@@ -109,12 +109,11 @@ namespace Gothic.Core.Services.Npc
         /// stop a wait or strafe (the safe moves to cut short), so their next AI_Attack can parry or jump back - they
         /// pick a move only once per AI_Attack, and a VR swing is over before a waiting NPC would look again.
         /// </summary>
-        private void OnHeroMeleeSwing(int weaponMaterial)
+        private void OnHeroMeleeSwing()
         {
             var hero = _npcService.GetHeroContainer();
             if (hero?.Go == null)
                 return;
-            hero.Props.MeleeSwingMaterial = weaponMaterial;
 
             hero.Props.MeleePrehitUntil = Time.time + FightConst.HeroPrehitSeconds;
 
@@ -277,8 +276,13 @@ namespace Gothic.Core.Services.Npc
             }
         }
 
-        private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 __) =>
-            OnHit(attacker, target, __, damageOverride: null);
+        /// <summary>
+        /// A melee hit. heroWeapon: the weapon the hero hit with (VR hand), null for fists and NPC hits.
+        /// </summary>
+        private void OnFightHit(NpcContainer attacker, NpcContainer target, Vector3 position, ItemInstance heroWeapon)
+        {
+            OnHit(attacker, target, position, damageOverride: null, heroWeapon: heroWeapon);
+        }
 
         /// <summary>
         /// A spell or projectile hit (SpellHitDomain, RangedHitDomain): its damage and protection index.
@@ -290,7 +294,7 @@ namespace Gothic.Core.Services.Npc
         }
 
         private void OnHit(NpcContainer attacker, NpcContainer target, Vector3 position, int? damageOverride,
-            int overrideProtectionIndex = (int)DamageType.Fire)
+            int overrideProtectionIndex = (int)DamageType.Fire, ItemInstance heroWeapon = null)
         {
             if (target.Props.IsDead)
                 return;
@@ -301,7 +305,7 @@ namespace Gothic.Core.Services.Npc
 
             if (!isHero && target.IsKnockedOut())
             {
-                OnHitOnKnockedOut(attacker, target, position, damageOverride);
+                OnHitOnKnockedOut(attacker, target, position, damageOverride, heroWeapon);
                 return;
             }
 
@@ -312,7 +316,7 @@ namespace Gothic.Core.Services.Npc
 
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
 
-            if (IsHitBlocked(attacker, target, position, isHero, isHeroAttacker, damageOverride))
+            if (IsHitBlocked(attacker, target, position, isHero, isHeroAttacker, damageOverride, heroWeapon))
                 return;
 
             // Blood only now - not for a parried or blocked hit.
@@ -321,7 +325,7 @@ namespace Gothic.Core.Services.Npc
 
             Logger.Log($"[FightService.OnHit] *** {attacker.Instance.GetName(NpcNameSlot.Slot0)} HIT " +
                        $"{target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Npc);
-            if (_meleeDamageDomain.ApplyHit(attacker, target, damageOverride, overrideProtectionIndex))
+            if (_meleeDamageDomain.ApplyHit(attacker, target, damageOverride, overrideProtectionIndex, heroWeapon))
                 GoDown(attacker, target, isHero, damageOverride);
             else
                 ReactToHurt(attacker, target, isHeroAttacker);
@@ -356,9 +360,9 @@ namespace Gothic.Core.Services.Npc
         /// finish (IsHeroFinishingMove). Both go through FightFinishingMove.
         /// </summary>
         private void OnHitOnKnockedOut(NpcContainer attacker, NpcContainer target, Vector3 position,
-            int? damageOverride)
+            int? damageOverride, ItemInstance heroWeapon)
         {
-            if (!IsHeroFinishingMove(attacker, target, damageOverride))
+            if (!IsHeroFinishingMove(attacker, target, damageOverride, heroWeapon))
             {
                 Logger.Log($"[FightService] {attacker.Instance.GetName(NpcNameSlot.Slot0)}'s hit doesn't hurt " +
                            $"knocked out {target.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
@@ -377,12 +381,14 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// The hero can finish a knocked out NPC like the engine (OpenGothic Npc::canFinish): a one- or two-handed
         /// weapon drawn, the target within NPC_ATTACK_FINISH_DISTANCE. Fists, arrows and spells can't.
+        /// The hit's own weapon decides (FightHit), not his FightMode: in VR one hand can hold a sword (W1H) while
+        /// the other punches - that fist finished knocked out NPCs.
         /// </summary>
-        private bool IsHeroFinishingMove(NpcContainer attacker, NpcContainer target, int? damageOverride)
+        private bool IsHeroFinishingMove(NpcContainer attacker, NpcContainer target, int? damageOverride,
+            ItemInstance heroWeapon)
         {
-            if (damageOverride.HasValue || !attacker.Instance.IsHero(_gameStateService.GothicVm) ||
-                (VmGothicEnums.WeaponState)attacker.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
-                    VmGothicEnums.WeaponState.W2H) ||
+            if (damageOverride.HasValue || !heroWeapon.IsMeleeWeapon() ||
+                !attacker.Instance.IsHero(_gameStateService.GothicVm) ||
                 attacker.Go == null || target.Go == null)
                 return false;
 
@@ -395,10 +401,10 @@ namespace Gothic.Core.Services.Npc
         /// A parry or block takes the hit (HeroBlockDomain).
         /// </summary>
         private bool IsHitBlocked(NpcContainer attacker, NpcContainer target, Vector3 position, bool isHero,
-            bool isHeroAttacker, int? damageOverride)
+            bool isHeroAttacker, int? damageOverride, ItemInstance heroWeapon)
         {
             // The hero's hit on a parrying / jumping back NPC.
-            if (!isHero && isHeroAttacker && _heroBlockDomain.TryBlockNpcHit(attacker, target))
+            if (!isHero && isHeroAttacker && _heroBlockDomain.TryBlockNpcHit(attacker, target, heroWeapon))
                 return true;
 
             // A parry is its own state like the engine's - no hits while blocking.

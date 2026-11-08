@@ -33,6 +33,16 @@ namespace Gothic.VR.Interaction.Models
         /// <summary>
         /// e.g., a hand reached a body slot it can use (backpack on the shoulder, hip holster). Short soft tick.
         /// </summary>
-        Touch
+        Touch,
+
+        /// <summary>
+        /// e.g., a fist swing fast enough to punch. Very short soft tick.
+        /// </summary>
+        FistSwing,
+
+        /// <summary>
+        /// e.g., a fist hit an NPC. Short strong pulse.
+        /// </summary>
+        FistHit
     }
 }

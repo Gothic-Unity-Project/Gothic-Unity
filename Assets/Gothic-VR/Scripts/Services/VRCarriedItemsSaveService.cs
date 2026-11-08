@@ -44,6 +44,12 @@ namespace Gothic.VR.Services
 
         private readonly List<IVrSocket> _holsters = new();
 
+        /// <summary>
+        /// The hero backpack's holsters (hips, shoulders) - not the backpack's inventory sockets. Empty until
+        /// VRBackpack registered them.
+        /// </summary>
+        public IReadOnlyList<IVrSocket> Holsters => _holsters;
+
         // Socket events of our own placing/removing. Each one is consumed by the next matching event. Otherwise,
         // VRBackpack would change the inventory, which is loaded already.
         private readonly HashSet<VrInteractable> _silentPlacements = new();

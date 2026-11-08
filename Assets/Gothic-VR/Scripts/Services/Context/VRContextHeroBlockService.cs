@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
-using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Manager;
@@ -19,7 +18,7 @@ namespace Gothic.VR.Services.Context
     /// Immersion option heroBlock (Gothic.ini, on by default): the hero blocks while the hero's props say so
     /// (IsBlocking, BlockWeaponMaterial - set by the VR block). Only a hit that touched the held weapon is blocked - a
     /// block held above the NPC's head blocked his hit too. The hit can reach the body first: it waits a moment for the
-    /// touch.
+    /// touch. The VR block itself (the hero's props, the weapon contacts) is VRHeroBlockService (player scope).
     /// </summary>
     public class VRContextHeroBlockService : IContextHeroBlockService
     {

@@ -322,7 +322,7 @@ namespace Gothic.Core.Services.Npc
         private static Vector3 GetShotOrigin(NpcContainer shooter)
         {
             var hand = shooter.Go.FindChildRecursively(Constants.SlotRightHand) ??
-                       shooter.Go.FindChildRecursively("BIP01 R HAND");
+                       shooter.Go.FindChildRecursively(Constants.Animations.RightHandBoneName);
             var forward = shooter.Go.transform.forward;
             var position = hand != null
                 ? hand.transform.position

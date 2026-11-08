@@ -43,6 +43,13 @@ namespace Gothic.Core.Const
         public static class Animations
         {
             public const string RootBoneName = "BIP01";
+            public const string RightHandBoneName = "BIP01 R HAND";
+
+            // Model script (.mds) of all human NPCs, hero included.
+            public const string HumanModelScript = "HUMANS";
+
+            // Animation (Humans.mds) of a fist punch; its sound effect is the hero's fist swing sound.
+            public const string FistAttackAnimName = "S_FISTATTACK";
         }
 
         /// <summary>
@@ -201,6 +208,9 @@ namespace Gothic.Core.Const
         public const float DialogMaxHeightDifference = 3f;
         
 
+        // Sound effect (SFX instance) of a sword finishing move.
+        public const string SfxSwordFinal = "FIG_SWORDFINAL";
+
         public const string SlotRightHand	= "ZS_RIGHTHAND";
         public const string SlotLeftHand	= "ZS_LEFTHAND";
         public const string SlotSword		= "ZS_SWORD";
@@ -212,7 +222,7 @@ namespace Gothic.Core.Const
 
 
         // Alter this value to enforce game to recreate cache during next start.
-        public const string StaticCacheVersion = "5";
+        public const string StaticCacheVersion = "6";
 
         /// <summary>
         /// Used during pre-caching to calculate world chunks to merge.

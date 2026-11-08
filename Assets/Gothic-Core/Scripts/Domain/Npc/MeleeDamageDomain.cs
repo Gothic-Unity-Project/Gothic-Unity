@@ -35,10 +35,11 @@ namespace Gothic.Core.Domain.Npc
         /// <summary>
         /// The hit takes the target's hit points. Returns true if they are gone - the caller decides: knocked out or
         /// dead. A spell or projectile passes its damage (damageOverride) - only the protection of its type
-        /// (overrideProtectionIndex) is taken off.
+        /// (overrideProtectionIndex) is taken off. heroWeapon: the weapon of the hero's melee hit (FightHit), null for
+        /// fists - NPCs hit with their equipped weapon.
         /// </summary>
         public bool ApplyHit(NpcContainer attacker, NpcContainer target, int? damageOverride = null,
-            int overrideProtectionIndex = (int)DamageType.Fire)
+            int overrideProtectionIndex = (int)DamageType.Fire, ItemInstance heroWeapon = null)
         {
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
             var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
@@ -54,7 +55,7 @@ namespace Gothic.Core.Domain.Npc
             }
             else
             {
-                damage = CalculateMeleeDamage(attacker, target, out isImmune);
+                damage = CalculateMeleeDamage(attacker, target, heroWeapon, out isImmune);
             }
 
             // Like the engine, a hit never does less than NPC_MINIMAL_DAMAGE (Balancing.d, G1: 1) unless the target is
@@ -145,18 +146,22 @@ namespace Gothic.Core.Domain.Npc
         /// damageTotal - the target's protection of that type; immune types (protection -1) are left out.
         /// The dice roll's meaning and the formula of one type are the game version's (IMeleeDamageRule).
         /// </summary>
-        /// The hero's weapon is the one in his VR hand (Props.MeleeHitWeapon) - it isn't equipped in VR, he hit with
-        /// his strength alone (Lukis in heavy armor took 30 instead of 80). Swung without its requirements
+        /// The hero's weapon is the one the hit carries (FightHit: the one in his VR hand) - it isn't equipped in VR,
+        /// he hit with his strength alone (an NPC in heavy armor took 30 instead of 80). Swung without its requirements
         /// (cond_atr/cond_value, e.g. 50 strength), every hit does only 1 damage.
-        private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, out bool isImmune)
+        private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, ItemInstance heroWeapon,
+            out bool isImmune)
         {
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
-            var weapon = isHeroAttacker
-                ? attacker.Props.MeleeHitWeapon
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            // In fist mode the engine hits with the fist, not the sword in the belt.
-            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
+            // The hero: the hit's weapon decides, not his FightMode - in VR one hand can punch while the other holds a
+            // sword (FightMode W1H). NPCs: in fist mode the engine hits with the fist, not the sword in the belt.
+            ItemInstance weapon;
+            if (isHeroAttacker)
+                weapon = heroWeapon.IsMeleeWeapon() ? heroWeapon : null;
+            else if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
                 weapon = null;
+            else
+                weapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
 
             var mask = weapon?.DamageType ?? attacker.Instance.DamageType;
             if (mask == 0)
