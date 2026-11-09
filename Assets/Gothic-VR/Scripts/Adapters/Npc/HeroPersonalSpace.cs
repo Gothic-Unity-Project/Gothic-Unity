@@ -1,3 +1,4 @@
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
@@ -5,7 +6,7 @@ using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
 
-namespace Gothic.Core.Adapters.Npc
+namespace Gothic.VR.Adapters.Npc
 {
     /// <summary>
     /// DeveloperConfig.EnableHeroPersonalSpace: no NPC body inside a small circle around the hero's head - in VR their

@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); HeroPersonalSpace, NpcBodyBounds (Core adapters); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableVrPickpocket, EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableVrPickpocket, EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
 
 ## Context
 
