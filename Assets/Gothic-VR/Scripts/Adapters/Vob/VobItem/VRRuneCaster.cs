@@ -85,7 +85,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         public bool IsTargetingActive => _isTargeting;
 
         /// <summary>
-        /// DeveloperConfig.EnableVrSpellRing: a spell taken out of the ring (an invisible rune attached to this hand,
+        /// The favorites ring: a spell taken out of the ring (an invisible rune attached to this hand,
         /// not grabbed) - this hand alone casts it: its trigger aims/casts, throwable spells are charged and thrown
         /// with it.
         /// </summary>

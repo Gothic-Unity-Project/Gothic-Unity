@@ -22,7 +22,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrSpellRing: what the VR favorites ring holds and what putting into / taking out of it
+    /// The favorites ring: what the VR favorites ring holds and what putting into / taking out of it
     /// does (VRFavoritesRing shows it).
     /// - The slots: the hero's equipped spells (runes/scrolls, ITEM_KAT_RUNE) in equip order, his equipped melee weapon
     ///   and bow/crossbow (EnableRingWeaponSlots), his favorite items and the trade currency (EnableRingItemSlots) -

@@ -313,12 +313,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Favorites Ring", true)]
-        [Tooltip("VR: Gothic's spell selection - both empty hands above the head + both triggers (1 s) open a " +
-                 "carousel of the equipped runes/scrolls (max 8). Grip takes a spell, trigger + move turns it, a " +
-                 "trigger click unequips; a rune/scroll held into the empty slot is equipped. 'Favorites ring' " +
-                 "Immersion option (ini spellRing).")]
-        public bool EnableVrSpellRing = true;
-
         [Tooltip("VR: The favorites ring also holds the equipped melee weapon and bow/crossbow - at most 8 spells + 2 " +
                  "weapons. Grip takes the weapon into the hand, a weapon held into the empty slot (or onto the " +
                  "equipped one of its kind) is equipped, a trigger click unequips.")]

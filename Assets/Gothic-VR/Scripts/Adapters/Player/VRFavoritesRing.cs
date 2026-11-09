@@ -30,7 +30,7 @@ using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrSpellRing + the "spellRing" option (Immersion menu): the favorites ring - Gothic's spell
+    /// The "spellRing" option (Immersion menu): the favorites ring - Gothic's spell
     /// selection (hold the magic key, the equipped runes/scrolls circle the hero) in VR, plus the equipped weapons,
     /// favorite items and the money. What it holds and the put-in rules are VrFavoritesService's; this shows it and
     /// handles the hands. Its slot visuals are VRFavoritesRingSlotViews.
@@ -140,9 +140,8 @@ namespace Gothic.VR.Adapters.Player
                 Close("game loading");
         }
 
-        // DeveloperConfig.EnableVrSpellRing and the menu's "spellRing" option (Gothic.ini, refreshed on
-        // PlayerPrefUpdated).
-        private bool IsEnabled => _configService.Dev.EnableVrSpellRing && _isOptionOn;
+        // The menu's "spellRing" option (Gothic.ini, refreshed on PlayerPrefUpdated).
+        private bool IsEnabled => _isOptionOn;
         private bool _isOptionOn;
 
         private void ReadOption()

@@ -164,14 +164,10 @@ namespace Gothic.VR.Services.Context
                     "Charged spells grow only with both hands together"),
                 CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
                     VRConstants.TwoHandSpellChargeDefaultValue)));
-            // DeveloperConfig.EnableVrSpellRing: Gesture (both hands up, both triggers) or Off.
-            if (_configService.Dev.EnableVrSpellRing)
-            {
-                var spellRingChoice = CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing, 1);
-                spellRingChoice.SetText(0, "Off|Gesture");
-                rows.Add((CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
-                    "Both hands up + both triggers: equipped spells and weapons"), spellRingChoice));
-            }
+            // Off = the favorites ring (both hands up, both triggers) doesn't open.
+            rows.Add((CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
+                    "Both hands up + both triggers: equipped spells and weapons"),
+                CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing, 1)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

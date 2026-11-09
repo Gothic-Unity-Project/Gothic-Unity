@@ -22,7 +22,7 @@ using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrSpellRing: the spell taken out of the favorites ring - an invisible rune riding on one hand (not
+    /// The favorites ring: the spell taken out of the favorites ring - an invisible rune riding on one hand (not
     /// grabbed, the grip does nothing), cast by that hand (VRRuneCaster.RingHand). The spell stays in the inventory.
     /// - The hand shows the spell's effect while it isn't aiming/charging (then VRRuneCaster shows its own).
     /// - A trigger click of the other, empty hand puts it away. So does grabbing something with the spell hand, being
