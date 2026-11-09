@@ -18,6 +18,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
 
    VR decides it for now (`VRHeroMovement`, `VRSwimDive`). A Core owner, for Flat too, is a follow-up.
 2. **Footsteps are quiet sounds** (PERC_ASSESSQUIETSOUND), except while sneaking. Sleepers in G2 wake up from them, like in the engine.
+   The VR hero body's animations make the steps (always on, like an NPC's); a body without animations falls back to a step every stride walked.
 3. **Taking an item lying in the world can be theft** through main's world item list (`HeroPerceptionService.OnHeroTookItem`, called by `PlayerService.PickUpItem`). Our own theft check (`IsTakenWithoutTheft`) is gone. A piece split off a world stack counts as taking that stack (once per stack).
 4. **In VR, trade is a counter between the hero and the trader.** It replaces the trade window of [2026-10-30-trading](2026-10-30-trading.md), as that record foresaw ("can replace the panel later on top of the same trading rules"), and its author agreed to drop the window:
    - one `TradeService` with that record's rules: the trade starts after the trader's lines. Unlike the window, the counter doesn't hold the dialog: its choices come back at once (talking while trading, like with a cashier), and the dialog's end ends the trade. The counter opens through main's trade port (VR: the counter; a mode without one, Flat, ends the trade at once);

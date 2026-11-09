@@ -45,12 +45,12 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly GroundSoundService _groundSoundService;
 
-        // DeveloperConfig.EnableHeroBodySounds: the body's animations sound like an NPC's - steps by the ground below
-        // (*eventSFXGrnd). VRHeroMovement's stride steps are off then, VRSwimDive sounds the swimming.
+        // The body's animations sound like an NPC's - steps by the ground below (*eventSFXGrnd). VRHeroMovement's
+        // stride steps are off then (they stay the fallback for a body without animations), VRSwimDive sounds the
+        // swimming.
         public static bool IsBodySounding { get; private set; }
         private const float _bodySoundVolume = 1f;
         private AudioSource _bodySoundSource;
@@ -461,7 +461,7 @@ namespace Gothic.VR.Adapters.Player
 
             _animator = new VRHeroBodyAnimator(_animationService, props.MdsNameBase, props.MdsNameOverlay, bones);
             // Set on every build: a rebuilt body without animations (another armor) gives the stride steps back.
-            IsBodySounding = _configService.Dev.EnableHeroBodySounds && _animator.IsValid;
+            IsBodySounding = _animator.IsValid;
             if (IsBodySounding)
                 _animator.SoundEvent += OnBodySoundEvent;
             _locomotion.Bind(_animator);
@@ -472,7 +472,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableHeroBodySounds: a sound event of the body's animation (a step: *eventSFXGrnd with the
+        /// A sound event of the body's animation (a step: *eventSFXGrnd with the
         /// ground's suffix, like an NPC's). Skipped if the player turned footsteps off (Gothic.ini footstepSounds).
         /// </summary>
         private void OnBodySoundEvent(ZenKit.IEventSoundEffect sfx)

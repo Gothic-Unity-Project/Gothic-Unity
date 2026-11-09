@@ -321,11 +321,6 @@ namespace Gothic.Core.Models.Config
                  "and pushed the hands with the held weapon. Position only, the AI isn't changed.")]
         public bool EnableHeroPersonalSpace = true;
 
-        [Tooltip("VR: The VR hero body's animations sound like an NPC's - its steps (*eventSFXGrnd, by the ground " +
-                 "below) come from its walk/run animations. Off (or without the animated body): a step every stride " +
-                 "walked.")]
-        public bool EnableHeroBodySounds = true;
-
 
         /**
          * ##########
