@@ -30,6 +30,8 @@ namespace Gothic.Core
         public static readonly UnityEvent MainMenuSceneLoaded = new();
         public static readonly UnityEvent LoadingSceneLoaded = new();
         public static readonly UnityEvent WorldSceneLoaded = new();
+        // AI_Teleport moves the hero (a teleport spell) - VR: the held items go into the backpack first.
+        public static readonly UnityEvent HeroScriptTeleporting = new();
 
         public static readonly UnityEvent<DateTime> GameTimeSecondChangeCallback = new();
         public static readonly UnityEvent<DateTime> GameTimeMinuteChangeCallback = new();
@@ -106,6 +108,11 @@ namespace Gothic.Core
         /// An attribute was written via NpcService.SetAttribute or synced from the instance (SyncHeroInstanceToVob).
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcAttribute> NpcAttributeChanged = new();
+
+        /// <summary>
+        /// The hero's mana bar fades in (true) or out (false) - VR: while a rune or scroll is readied (VRRuneCaster).
+        /// </summary>
+        public static readonly UnityEvent<bool> HeroManaBarRequested = new();
 
         /// <summary>
         /// NpcContainer - who attacks
@@ -193,7 +200,6 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<NpcContainer> HeroKnockedOut = new();
 
-        /// <summary>
         /// <summary>
         /// The knocked out hero got up again (FightService). Not raised when a game is loaded meanwhile
         /// (LoadGameStart ends the knockout).

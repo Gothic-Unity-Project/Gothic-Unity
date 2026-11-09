@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -23,6 +24,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
@@ -30,6 +32,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
@@ -104,6 +107,9 @@ namespace Gothic.VR.Services.Context
                 ApplyControlLayout();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
+            // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
+            // place (or vanished) and the hero stayed in magic mode. Not on scene teleports (loads).
+            GlobalEventDispatcher.HeroScriptTeleporting.AddListener(StoreHeldItemsInBackpack);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.MarvinLogoPoked.AddListener(OnMarvinLogoPoked);
         }
@@ -438,6 +444,37 @@ namespace Gothic.VR.Services.Context
         public void TeleportPlayerTo(Vector3 position, Quaternion rotation = default)
         {
             _rig.Teleport(position, rotation);
+        }
+
+        /// <summary>
+        /// Like putting the held items into the backpack (VRPlayerService.StoreHeldItem).
+        /// </summary>
+        public void StoreHeldItemsInBackpack()
+        {
+            if (_rig == null)
+                return;
+            // A rune held with both hands is one item - stored once.
+            var stored = new HashSet<VrInteractable>();
+            foreach (var hand in _rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand).ToList())
+            {
+                var interactable = hand.Held;
+                if (interactable == null || !stored.Add(interactable))
+                    continue;
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.Vob as IItem;
+                if (item == null)
+                {
+                    Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",
+                        LogCat.VR);
+                    continue;
+                }
+
+                var instanceName = item.GetSymbolName();
+                var amount = Mathf.Max(1, item.Amount);
+                if (_vrPlayerService.StoreHeldItem(container))
+                    Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack",
+                        LogCat.VR);
+            }
         }
 
         public void SetViewHidden(bool isHidden, GameObject visibleUi = null)

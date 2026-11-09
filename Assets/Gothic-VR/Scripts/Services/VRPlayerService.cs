@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
@@ -18,6 +19,8 @@ using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models;
 using Reflex.Attributes;
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Extensions;
 using UnityEngine;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
@@ -33,6 +36,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VobService _vobService;
 
         // Gothic.ini heroFallMode, read on first use and again when the menu changes it.
         private VrHeroFallMode? _heroFallMode;
@@ -94,6 +98,31 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// Puts an item from the hands into the hero's inventory - like putting it into the backpack - and removes the
+        /// world item. Also fine for an item that isn't (or no longer) held.
+        /// </summary>
+        /// <returns>false if the container isn't an item - nothing changed.</returns>
+        public bool StoreHeldItem(VobContainer container)
+        {
+            if (container?.Vob is not IItem item)
+            {
+                Logger.LogWarning($"[VRPlayerService] StoreHeldItem: {container?.Vob?.Name ?? "null"} is no item.",
+                    LogCat.VR);
+                return false;
+            }
+
+            // Items held in a hand already count as inventory (SetGrab/UnsetGrab). Release it first, which takes it out
+            // of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
+            var interactable = container.Go != null ? container.Go.GetComponentInChildren<VrInteractable>(true) : null;
+            if (interactable != null && interactable.IsHeld)
+                interactable.ForceRelease();
+
+            _playerService.AddItem(item.GetSymbolName(), Mathf.Max(1, item.Amount));
+            _vobService.RemoveWorldItem(container);
+            return true;
+        }
+
+        /// <summary>
         /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
         /// </summary>
         public GameObject GetHandModelGo(VrHandSide side)
@@ -102,6 +131,105 @@ namespace Gothic.VR.Services
             return hand != null ? hand.gameObject : null;
         }
 
+        // True during any active spell (telekinesis or combat targeting) - blocks NPC dialog.
+        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive;
+        public bool IsSpellTargetingActive { get; private set; }
+
+        // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
+        public bool IsTelekinesisActive { get; private set; }
+        public event Action TelekinesisDeactivated;
+
+        // Spell targeting state (combat spells - extends the rune hand's distance grab only).
+        private VrHandSide _spellTargetingSide;
+        private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
+
+        /// <summary>
+        /// Combat spells aim with the rune hand's distance grab (IVrRig.GetDistanceHovered), extended to the spell's
+        /// range.
+        /// </summary>
+        public void ActivateSpellTargeting(VrHandSide runeHandSide, float range)
+        {
+            if (IsSpellTargetingActive || Rig == null)
+                return;
+            _spellTargetingSide = runeHandSide;
+            Rig.SetDistanceGrabRange(runeHandSide, range);
+            Logger.Log($"[SpellTarget] {runeHandSide} hand distance grab extended to {range} m", LogCat.VR);
+            IsSpellTargetingActive = true;
+        }
+
+        public void DeactivateSpellTargeting()
+        {
+            if (!IsSpellTargetingActive)
+                return;
+            // Telekinesis may still use the longer range.
+            if (!IsTelekinesisActive)
+                Rig?.ResetDistanceGrabRange(_spellTargetingSide);
+            IsSpellTargetingActive = false;
+        }
+
+        /// <summary>
+        /// The NPC the hand's distance grab points at (spell targeting), null if none.
+        /// </summary>
+        public NpcContainer GetSpellTarget(VrHandSide side)
+        {
+            var hovered = Rig?.GetDistanceHovered(side);
+            var npcLoader = hovered != null ? hovered.GetComponentInParent<NpcLoader>() : null;
+            return npcLoader != null && npcLoader.Npc != null ? npcLoader.Npc.GetUserData() : null;
+        }
+
+        /// <summary>
+        /// Both hands' distance grab reaches the spell's range - items far away are highlighted (VRFocus) and pulled
+        /// with TryTelekinesisGrab. Ends with the first item pulled into a hand.
+        /// </summary>
+        public void ActivateTelekinesis(float range)
+        {
+            if (IsTelekinesisActive || Rig == null)
+                return;
+
+            foreach (var side in _hands)
+            {
+                Rig.SetDistanceGrabRange(side, range);
+                Logger.Log($"[Telekinesis] {side} hand distance grab extended to {range} m", LogCat.VR);
+            }
+            foreach (var grabber in Rig.HandGrabbers)
+                grabber.Grabbed += OnTelekinesisItemGrabbed;
+
+            IsTelekinesisActive = true;
+        }
+
+        public void DeactivateTelekinesis()
+        {
+            if (!IsTelekinesisActive)
+                return;
+
+            var rig = Rig;
+            if (rig != null)
+            {
+                foreach (var side in _hands)
+                {
+                    if (!IsSpellTargetingActive || side != _spellTargetingSide)
+                        rig.ResetDistanceGrabRange(side);
+                }
+                foreach (var grabber in rig.HandGrabbers)
+                    grabber.Grabbed -= OnTelekinesisItemGrabbed;
+            }
+
+            IsTelekinesisActive = false;
+            TelekinesisDeactivated?.Invoke();
+        }
+
+        public bool TryTelekinesisGrab()
+        {
+            var rig = Rig;
+            return rig != null && (rig.TryDistanceGrabHovered(VrHandSide.Right) ||
+                                   rig.TryDistanceGrabHovered(VrHandSide.Left));
+        }
+
+        private void OnTelekinesisItemGrabbed(VrGrabArgs args)
+        {
+            if (args.Kind == VrGrabberKind.Distance)
+                DeactivateTelekinesis();
+        }
         /// <summary>
         /// The player's choice when the game takes the hero's body down - knocked out, dead, asleep (Gothic.ini
         /// [GOTHIC_VR_ACCESSIBILITY] heroFallMode). Its only reader; VrHeroDownPose and VrKnockoutView ask here.

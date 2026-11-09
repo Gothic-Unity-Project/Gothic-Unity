@@ -50,6 +50,9 @@ namespace Gothic.VR.Services
         // Gothic.ini stabFinish, read on first use and again when the menu changes it (asked every physics step).
         private bool? _isStabFinishOn;
 
+        // A rune/scroll readied in the hands (VRRuneCaster).
+        private bool _isRuneReadied;
+
         // Fists. Created on first use, like the stab finish (its services live in the VR scene scope).
         private VrFistDomain _fistDomain;
 
@@ -172,6 +175,16 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
+        /// Called by VRRuneCaster (rune dual-grabbed / released). Can't be derived from hero.ActiveSpell,
+        /// as spell ID 0 (SPL_LIGHT) is the same as "no spell".
+        /// </summary>
+        public void SetRuneReadied(bool isReadied)
+        {
+            _isRuneReadied = isReadied;
+            UpdateHeroWeaponState();
+        }
+
+        /// <summary>
         /// A bow/crossbow in any hand (VRBow/VRCrossbow shoot with it). Read from the hands, not pushed by the
         /// components: two held crossbows, one let go, still leave the hero armed. VRPlayerService's grabbed items,
         /// not the backend's hands: they already forgot a hand that is letting go right now.
@@ -195,7 +208,7 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// Gothic knows only one readied weapon at a time. VR hands can hold several, so we pick:
-        /// melee weapon in any hand > held crossbow/bow > fist > nothing (runes join with the magic PR).
+        /// melee weapon in any hand > held crossbow/bow > readied rune (VRRuneCaster) > fist > nothing.
         /// NPCs react to the result via PERC_DRAWWEAPON/PERC_ASSESSFIGHTER/PERC_ASSESSREMOVEWEAPON.
         /// </summary>
         public void UpdateHeroWeaponState()
@@ -205,6 +218,8 @@ namespace Gothic.VR.Services
                 state = _secondAttackDomain.GetWeaponState();
             if (state == VmGothicEnums.WeaponState.NoWeapon)
                 state = GetHeldRangedState();
+            if (state == VmGothicEnums.WeaponState.NoWeapon && _isRuneReadied)
+                state = VmGothicEnums.WeaponState.Mage;
             if (state == VmGothicEnums.WeaponState.NoWeapon && _fistDomain?.IsReadied == true)
                 state = VmGothicEnums.WeaponState.Fist;
 

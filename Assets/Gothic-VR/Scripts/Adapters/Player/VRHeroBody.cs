@@ -37,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
 
@@ -192,9 +193,21 @@ namespace Gothic.VR.Adapters.Player
             if (_body == null)
                 return;
 
-            SetHeroHandsShown(_hands.IsOptionOn && _handMeshes.Count > 0);
-            _hands.SetArmsOnTop(_hands.AreShown && _uiOnTopService != null && _uiOnTopService.AreHandsOnTop,
-                _armRenderers);
+            // Hidden while the hero is transformed (VRSpellTransformService) - the transformation's puppet is the body then.
+            var isVisible = !_vrSpellTransformService.IsTransformed;
+            foreach (var bodyRenderer in _renderers)
+            {
+                if (bodyRenderer != null && bodyRenderer.enabled != isVisible)
+                    bodyRenderer.enabled = isVisible;
+            }
+            SetHeroHandsShown(isVisible && _hands.IsOptionOn && _handMeshes.Count > 0);
+            _hands.SetArmsOnTop(isVisible && _hands.AreShown && _uiOnTopService != null &&
+                                _uiOnTopService.AreHandsOnTop, _armRenderers);
+            if (!isVisible)
+            {
+                _hands.UpdateHeldItemAttachPoints(false);
+                return;
+            }
 
             // Under the head, a bit behind it - looking down shows the chest, not the inside of the neck. Scaled to the
             // player's eye height above the floor, so the feet stay on the ground (sitting/standing mode, any height).

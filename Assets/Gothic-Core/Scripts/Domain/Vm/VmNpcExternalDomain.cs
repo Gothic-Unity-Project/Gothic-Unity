@@ -180,7 +180,7 @@ namespace Gothic.Core.Domain.Vm
                         _support.AsNpc(n, "Npc_GetHeightToItem") is { } npc &&
                         _support.AsItem(i, "Npc_GetHeightToItem") is { } item
                             ? Npc_GetHeightToItem(npc, item) : int.MaxValue));
-            // Transformation scrolls (Spell_Logic_Trf_*): the monster instance the hero becomes (VRTransformService).
+            // Transformation scrolls (Spell_Logic_Trf_*): the monster instance the hero becomes (VRSpellTransformService).
             if (vm.GetSymbolByName("Npc_SetActiveSpellInfo") != null)
                 vm.RegisterExternal<int, NpcInstance, int>("Npc_SetActiveSpellInfo", Npc_SetActiveSpellInfo);
             // G2 only - registering an external the scripts don't declare throws "Symbol not found" (G1/MT).

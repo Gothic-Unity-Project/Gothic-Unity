@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Gothic.Core.Services.Meshes
 {
     /// <summary>

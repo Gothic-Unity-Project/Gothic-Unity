@@ -1,6 +1,7 @@
 // Displays a decoded Bink frame: 3 single-channel planes (Y full size, U/V half size) -> RGB.
 // The planes are 16-aligned (stride), _ScaleY/_ScaleUV crop to the visible area. Rows are uploaded top-down.
 // Conversion like OpenGothic shader/bink/bink.frag (BT.601, limited range).
+// VR stereo (single-pass instanced) via the instance/stereo macros - without them only one eye shows the video.
 Shader "Gothic/Bink YUV"
 {
     Properties
@@ -34,17 +35,21 @@ Shader "Gothic/Bink YUV"
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             v2f vert(appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 // Bink rows start at the top, texture rows at the bottom.
                 o.uv = float2(v.uv.x, 1 - v.uv.y);
