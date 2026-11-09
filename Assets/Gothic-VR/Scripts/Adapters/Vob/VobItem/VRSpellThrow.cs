@@ -20,7 +20,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// Throwable spells (DeveloperConfig.EnableThrowableSpells): the hand's swing gives direction, speed, gravity and
+    /// Throwable spells (Immersion option "throwableSpells"): the hand's swing gives direction, speed, gravity and
     /// homing, the spell flies as a Projectile with the effect from the hand and its collision effects (VRSpellFx).
     /// Worker of VRRuneCaster (new VRSpellThrow(...).Inject()) - the caster charges, this class throws.
     /// </summary>

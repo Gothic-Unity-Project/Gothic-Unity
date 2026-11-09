@@ -308,22 +308,6 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
-         * Magic
-         * ##########
-         */
-
-        [Foldout("Magic", true)]
-        [Tooltip("VR: Projectile spells (VISUALFX CAST key with a TARGET trajectory: Firebolt, Fireball, Thunderbolt, " +
-                 "Icecube, ...) are thrown: hold the rune in one hand, hold trigger to charge, swing + release trigger " +
-                 "to throw. Soft homing towards the NPC closest to the throw direction. Other spells stay as they are.")]
-        public bool EnableThrowableSpells = true;
-
-        [Tooltip("VR: Charged spells (fireball, fire storm, fire rain, wind/storm fist, thunderball, G2's charged " +
-                 "ones) grow only while both hands are together (30 cm) - a kamehameha. Apart, the charge waits.")]
-        public bool EnableTwoHandSpellCharge = true;
-
-        /**
-         * ##########
          * Misc
          * ##########
          */

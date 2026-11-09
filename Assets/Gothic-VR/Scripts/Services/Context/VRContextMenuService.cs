@@ -154,6 +154,16 @@ namespace Gothic.VR.Services.Context
             rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
                     "A cast uses the scroll up (Gothic)"),
                 CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
+            // Off = projectile spells are cast like all others.
+            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "Thrown spells",
+                    "Swing and let go to throw projectile spells"),
+                CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
+                    VRConstants.ThrowableSpellsDefaultValue)));
+            // Off = one hand is enough to charge a spell.
+            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE", "Two-hand charge",
+                    "Charged spells grow only with both hands together"),
+                CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
+                    VRConstants.TwoHandSpellChargeDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

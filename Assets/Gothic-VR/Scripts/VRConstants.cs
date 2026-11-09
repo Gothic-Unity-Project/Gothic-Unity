@@ -36,6 +36,10 @@ namespace Gothic.VR
             public const string CrossbowReload = "crossbowReload";
             // 1 = a scroll is used up by its cast like in Gothic (default), 0 = scrolls are cast forever.
             public const string ScrollsSingleUse = "scrollsSingleUse";
+            // 1 = projectile spells (firebolt, ...) are thrown with a swing (default), 0 = they are cast like other spells.
+            public const string ThrowableSpells = "throwableSpells";
+            // 1 = a charged spell grows only while both hands are together (default), 0 = one hand is enough.
+            public const string TwoHandSpellCharge = "twoHandSpellCharge";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -97,6 +101,10 @@ namespace Gothic.VR
         public const int StabFinishDefaultValue = 1;
 
         public const int CrossbowReloadDefaultValue = 1;
+
+        public const int ThrowableSpellsDefaultValue = 1;
+
+        public const int TwoHandSpellChargeDefaultValue = 1;
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int HeroFallModeDefaultValue = 0;

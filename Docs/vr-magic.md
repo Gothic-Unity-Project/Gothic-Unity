@@ -26,8 +26,9 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 
 Constants: `DaedalusConst` (`SplSendCast`/`SplSendStop`/`SplNextLevel`, `ZsMagicFreeze`, `SpellFxInstanceNames`),
 `SpellConst` (AOE, summon, charge and spread spell names). Tunables: `VRConstants.Magic` (`MinSpellCastSeconds`,
-`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`), `DeveloperConfig` (the feature switches), the Immersion
-option "Single-use scrolls" (Gothic.ini `scrollsSingleUse`) in `VRConstants`.
+`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`), the Immersion options "Single-use scrolls" (Gothic.ini
+`scrollsSingleUse`), "Thrown spells" (`throwableSpells`) and "Two-hand charge" (`twoHandSpellCharge`), names in
+`VRConstants.IniNames`.
 
 ## Data flow of one cast
 
@@ -42,7 +43,7 @@ option "Single-use scrolls" (Gothic.ini `scrollsSingleUse`) in `VRConstants`.
    scroll is used up (`InventoryTransferService` hero owner or the held stack).
 6. The rune is let go: the caster is destroyed, effects end, `HeroManaBarRequested(false)`.
 
-A thrown spell (`EnableThrowableSpells`, VISUALFX CAST key with `TARGET` trajectory): the other hand charges with its
+A thrown spell (Gothic.ini `throwableSpells`, VISUALFX CAST key with `TARGET` trajectory): the other hand charges with its
 trigger; let go, `VRSpellThrow.Aim` reads the swing and `Throw` sends the hand's effect as a `Projectile`. Its hit
 raises `SpellHit`/`SpellSpreadHit` like a cast.
 

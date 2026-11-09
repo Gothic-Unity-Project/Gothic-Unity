@@ -102,7 +102,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         public bool IsBusy => _isTargeting || _isCasting;
 
-        // Throwable spells (DeveloperConfig.EnableThrowableSpells) - see vr-ranged-spells-plan.md section 3.
+        // Throwable spells (Immersion option "throwableSpells") - see vr-ranged-spells-plan.md section 3.
         public bool IsThrowable => _throw != null;
         private bool _isThrowCharged;
         private VrHandSide _throwHandSide;
@@ -141,7 +141,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var mfxName = GetSpellMfxName(_item.Spell);
             _fx = new VRSpellFx(gameObject, mfxName).Inject();
-            var throwCastKey = _configService.Dev.EnableThrowableSpells
+            var throwCastKey = IsIniOn(VRConstants.IniNames.ThrowableSpells, VRConstants.ThrowableSpellsDefaultValue)
                 ? VRSpellThrow.GetCastKey(_vmCacheService, mfxName)
                 : null;
             if (throwCastKey != null)
@@ -260,7 +260,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            // DeveloperConfig.EnableTwoHandSpellCharge: a charged spell grows only while both hands are together.
+            // Immersion option "twoHandSpellCharge": a charged spell grows only while both hands are together.
             if (!IsChargeAllowed())
                 return;
 
@@ -370,6 +370,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             FinalizeCast(applyEffect: true);
         }
 
+        private bool IsIniOn(string iniName, int defaultValue)
+        {
+            return _configService.Gothic == null || _configService.Gothic.GetInt(iniName, defaultValue) == 1;
+        }
+
         private bool IsCastButtonReleased()
         {
             if (_vrInput.IsSimulator)
@@ -378,13 +383,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableTwoHandSpellCharge: like a kamehameha - a charged spell (fireball, fire rain, wind
+        /// Immersion option "twoHandSpellCharge": like a kamehameha - a charged spell (fireball, fire rain, wind
         /// fist, ...) invests mana only while the other hand is next to the casting one; apart, the charge waits (a
         /// pulse reminds). VR only - the simulator moves one hand at a time.
         /// </summary>
         private bool IsChargeAllowed()
         {
-            if (!_configService.Dev.EnableTwoHandSpellCharge || _vrInput.IsSimulator ||
+            if (!IsIniOn(VRConstants.IniNames.TwoHandSpellCharge, VRConstants.TwoHandSpellChargeDefaultValue) ||
+                _vrInput.IsSimulator ||
                 !SpellConst.ChargeEffectNames.Contains(GetSpellMfxName(_item.Spell) ?? string.Empty))
                 return true;
 
@@ -407,7 +413,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return false;
         }
 
-        // DeveloperConfig.EnableTwoHandSpellCharge: the hands' distance (m) that still counts as together.
+        // Immersion option "twoHandSpellCharge": the hands' distance (m) that still counts as together.
         private const float _twoHandChargeDistance = 0.3f;
         private bool _isChargeWaitLogged;
 
