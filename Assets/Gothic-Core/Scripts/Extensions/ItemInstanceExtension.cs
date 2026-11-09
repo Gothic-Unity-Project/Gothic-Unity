@@ -97,6 +97,16 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// Weapons (ITEM_KAT_NF, ITEM_KAT_FF) stay equipped outside the backpack, like Gothic: they come off when
+        /// dropped, not when taken into a hand or holster. Everything else comes off with the last one leaving the
+        /// inventory.
+        /// </summary>
+        public static bool StaysEquippedOutsideBackpack(this ItemInstance item)
+        {
+            return item.IsMeleeWeapon() || item.IsRangedWeapon();
+        }
+
+        /// <summary>
         /// The equipped items that have to leave their slot before this item can be equipped.
         /// </summary>
         public static IEnumerable<ItemInstance> GetEquipConflicts(this ItemInstance item,

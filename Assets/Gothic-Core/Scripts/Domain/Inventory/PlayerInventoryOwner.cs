@@ -68,10 +68,7 @@ namespace Gothic.Core.Domain.Inventory
         private void UnequipIfLastOneTakenOut(string itemInstanceName)
         {
             var item = _vmCacheService.TryGetItemData(itemInstanceName);
-            if (item == null)
-                return;
-            if (((VmGothicEnums.ItemFlags)item.MainFlag &
-                 (VmGothicEnums.ItemFlags.ItemKatNf | VmGothicEnums.ItemFlags.ItemKatFf)) != 0)
+            if (item == null || item.StaysEquippedOutsideBackpack())
                 return;
 
             var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();

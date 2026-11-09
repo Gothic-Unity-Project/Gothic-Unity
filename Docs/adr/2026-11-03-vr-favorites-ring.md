@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRFavoritesRing, VRFavoritesRingSpell (VR); NpcInventoryService.GetConflictingEquippedItems, PlayerService.DropItem, PlayerInventoryOwner, NpcProperties.FavoriteItems (Core); DeveloperConfig EnableVrSpellRing, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
+- Technical details: VRFavoritesRing, VRFavoritesRingSpell (VR); ItemInstanceExtension.GetEquipConflicts (applied in EquipDomain), PlayerService.DropItem, PlayerInventoryOwner, NpcProperties.FavoriteItems (Core); DeveloperConfig EnableVrSpellRing, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
 
 ## Context
 
@@ -20,7 +20,7 @@ In Gothic, holding the magic key shows the equipped runes and scrolls in a circl
    Only what's in the backpack shows.
 4. **A spell is taken, not grabbed.** Grip puts an invisible rune into the hand, and the hand casts it alone (`VRRuneCaster.RingHand`). Weapons and items are the real items, taken out of the backpack.
 5. **An item let go at a slot goes in.** A rune or scroll is equipped. A weapon is equipped and replaces the one of its kind. Anything else becomes a favorite.
-6. **One melee weapon and one bow/crossbow are equipped, like Gothic.** The rule lives in `NpcInventoryService.GetConflictingEquippedItems`, so every equip path follows it.
+6. **One melee weapon and one bow/crossbow are equipped, like Gothic.** The rule lives in `ItemInstanceExtension.GetEquipConflicts`, applied in `EquipDomain`, so every equip path follows it.
 7. **An equipped weapon stays equipped while it's in the inventory, like Gothic.** That means in a hand, a holster or the backpack, so taking it out of the ring or the backpack doesn't unequip it. It comes off when the last one is dropped into the world (`PlayerService.DropItem`). Armor still comes off when it's taken out of the backpack (ADR 2026-10-31).
 
 ## Consequences
