@@ -1,5 +1,5 @@
 using Gothic.Core;
-using System.Linq;
+using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -95,7 +95,7 @@ namespace Gothic.VR.Adapters.Player
 
             // The last scroll was used up (VRRuneCaster, single-use scrolls) or the spell taken off in the backpack.
             var hero = _playerService.HeroContainer;
-            if (hero != null && _item != null && !hero.Props.EquippedItems.Any(i => i.Index == _item.Index))
+            if (hero != null && _item != null && !IsEquipped(hero.Props.EquippedItems))
             {
                 PutAway("no longer equipped (last scroll used up)");
                 return;
@@ -103,6 +103,17 @@ namespace Gothic.VR.Adapters.Player
 
             UpdateEffect();
             UpdatePutAwayClick();
+        }
+
+        // No LINQ: asked every frame while the spell is readied.
+        private bool IsEquipped(List<ItemInstance> equippedItems)
+        {
+            for (var i = 0; i < equippedItems.Count; i++)
+            {
+                if (equippedItems[i].Index == _item.Index)
+                    return true;
+            }
+            return false;
         }
 
         private void UpdateEffect()
