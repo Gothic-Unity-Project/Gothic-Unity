@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -10,6 +11,7 @@ using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Rendering;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -239,13 +241,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var lineGo = new GameObject("ChainLightning");
             _line = lineGo.AddComponent<LineRenderer>();
-            _lineMaterial = new Material(Gothic.Core.Const.Constants.ShaderUnlit);
+            _lineMaterial = new Material(Constants.ShaderUnlit);
             _lineMaterial.SetColor("_BaseColor", _beamColor);
             _line.sharedMaterial = _lineMaterial;
             _line.startWidth = _beamWidth;
             _line.endWidth = _beamWidth;
             _line.positionCount = 0;
-            _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _line.shadowCastingMode = ShadowCastingMode.Off;
             _line.receiveShadows = false;
         }
 

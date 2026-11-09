@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
@@ -136,7 +137,7 @@ namespace Gothic.VR.Services
 
         // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
         public bool IsTelekinesisActive { get; private set; }
-        public event System.Action TelekinesisDeactivated;
+        public event Action TelekinesisDeactivated;
 
         // Spell targeting state (combat spells - extends the rune hand's distance grab only).
         private VrHandSide _spellTargetingSide;

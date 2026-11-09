@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -23,6 +24,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
@@ -458,8 +460,8 @@ namespace Gothic.VR.Services.Context
                 var interactable = hand.Held;
                 if (interactable == null || !stored.Add(interactable))
                     continue;
-                var container = interactable.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
-                var item = container?.Vob as ZenKit.Vobs.IItem;
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.Vob as IItem;
                 if (item == null)
                 {
                     Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",

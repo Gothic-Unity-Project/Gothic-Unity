@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
@@ -12,6 +13,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
+using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Services;
 using Reflex.Attributes;
@@ -64,7 +66,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private int _bodyInvestLevel;
         private GameObject _handVfxGo;
         // Cached on first use: the VR body (shpType MESH effects).
-        private Gothic.VR.Adapters.Player.VRHeroBody _heroBody;
+        private VRHeroBody _heroBody;
 
         /// <summary>
         /// The hand the spell comes from: the throwing hand of a throwable spell, otherwise the rune hand.
@@ -326,7 +328,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 : origin.position + Vector3.up * GetBodyFxHeight(fx.VisNameS);
             // shpType MESH effects glow on the VR body (teleport silhouette).
             if (_heroBody == null)
-                _heroBody = Object.FindFirstObjectByType<Gothic.VR.Adapters.Player.VRHeroBody>();
+                _heroBody = Object.FindFirstObjectByType<VRHeroBody>();
             var bodyMesh = _heroBody != null ? _heroBody.BodyRenderer : null;
             var created = _particleService.PlayVisualFx(fxName, position, isWhileInvesting ? origin : null,
                 isWhileInvesting, $"MFX_{mfxName}_Cast", bodyMesh);
@@ -347,8 +349,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var offset = _vmCacheService.TryGetPfxData(pfxName)?.ShpOffsetVecS?
                 .Split((char[])null, System.StringSplitOptions.RemoveEmptyEntries);
             if (offset == null || offset.Length < 2 ||
-                !float.TryParse(offset[1], System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var offsetY) || offsetY >= 0f)
+                !float.TryParse(offset[1], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var offsetY) || offsetY >= 0f)
                 return _bodyFxHeight;
             return Mathf.Max(_bodyFxHeight, -offsetY / 100f + _groundFxClearance);
         }
@@ -427,7 +429,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 if (fxGo == null)
                     continue;
-                foreach (var fxLight in fxGo.GetComponentsInChildren<Gothic.Core.Adapters.Vob.VisualFxLight>(true))
+                foreach (var fxLight in fxGo.GetComponentsInChildren<VisualFxLight>(true))
                     fxLight.FadeOut(_bodyFxFadeSeconds);
                 foreach (var ps in fxGo.GetComponentsInChildren<ParticleSystem>(true))
                     ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);

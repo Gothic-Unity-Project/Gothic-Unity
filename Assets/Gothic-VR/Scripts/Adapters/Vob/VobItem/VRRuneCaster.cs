@@ -1,3 +1,4 @@
+using System;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
@@ -12,9 +13,12 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
@@ -24,6 +28,7 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -50,12 +55,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly NpcAiService _npcAiService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly VobService _vobService;
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
         private const string _transformName = "Transform";
@@ -146,7 +151,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 : null;
             if (throwCastKey != null)
                 _throw = new VRSpellThrow(throwCastKey, mfxName, _item.Spell, _fx).Inject();
-            if (string.Equals(mfxName, VRTelekinesisSpell.SpellName, System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(mfxName, VRTelekinesisSpell.SpellName, StringComparison.OrdinalIgnoreCase))
                 _telekinesis = new VRTelekinesisSpell(_fx).Inject();
 
             // The throwing hand (grip + trigger) can't grab the rune.
@@ -468,7 +473,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void TryBeginChainLightning()
         {
             if (_chainLightning != null ||
-                !string.Equals(GetSpellMfxName(_item.Spell), _chainLightningName, System.StringComparison.OrdinalIgnoreCase))
+                !string.Equals(GetSpellMfxName(_item.Spell), _chainLightningName, StringComparison.OrdinalIgnoreCase))
                 return;
 
             _chainLightning = gameObject.AddComponent<VRChainLightning>();
@@ -569,14 +574,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool IsShrinkOnSummon()
         {
             return _spellTarget?.SummonedBy != null &&
-                   string.Equals(GetSpellMfxName(_item.Spell), "Shrink", System.StringComparison.OrdinalIgnoreCase);
+                   string.Equals(GetSpellMfxName(_item.Spell), "Shrink", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
         /// The scripts take mana on the instance (G2 Spell_Logic_Trf*, ChargeFireball per level, Spell_Cast_*): the VOB
         /// (mana bar, the next tick's check) follows. Before, the next tick wrote VOB - 1 and undid the script's cost.
         /// </summary>
-        private void SyncManaFromInstance(Gothic.Core.Models.Container.NpcContainer hero)
+        private void SyncManaFromInstance(NpcContainer hero)
         {
             var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
@@ -634,7 +639,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     else
                         vm.Call(castSymbol.Index);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
                 }
@@ -761,7 +766,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             var container = GetComponentInParent<VobLoader>()?.Container;
-            var vobItem = container?.VobAs<ZenKit.Vobs.IItem>();
+            var vobItem = container?.VobAs<IItem>();
             if (vobItem == null)
             {
                 Logger.LogWarning($"[VRRuneCaster] Scroll {_item.Description} has no item vob - not used up",
@@ -1002,7 +1007,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         private bool IsTransformSpell() =>
-            string.Equals(GetSpellMfxName(_item.Spell), _transformName, System.StringComparison.OrdinalIgnoreCase);
+            string.Equals(GetSpellMfxName(_item.Spell), _transformName, StringComparison.OrdinalIgnoreCase);
 
         private void UpdateSpellTarget()
         {

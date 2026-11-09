@@ -1,7 +1,9 @@
 using Gothic.Core;
+using Gothic.Core.Adapters.Animations;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -37,7 +39,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcWaterService _npcWaterService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Manager.AudioService _audioService;
+        [Inject] private readonly AudioService _audioService;
 
         private const float _walkSpeed = 0.2f;
         private const float _runSpeed = 1.6f;
@@ -69,11 +71,11 @@ namespace Gothic.VR.Adapters.Player
         private const string _runAttackAnimation = "T_FISTATTACKMOVE";
         // Moving more backwards than this (share of the speed) plays the backwards walk instead of a moonwalk.
         private const float _backwardsShare = 0.5f;
-        private readonly System.Collections.Generic.Dictionary<string, string> _moveAnimations = new();
-        private readonly System.Collections.Generic.Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
+        private readonly Dictionary<string, string> _moveAnimations = new();
+        private readonly Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
         private VmGothicEnums.WalkMode? _specialWalkMode;
         // Situations (idle, move, ...) without an animation name - warned once each, not per frame.
-        private readonly System.Collections.Generic.HashSet<string> _missingAnimationWarnings = new();
+        private readonly HashSet<string> _missingAnimationWarnings = new();
 
         // PiP: camera above and to the side, whole body in the picture (see research-2026-10-03.md).
         private const int _pipResolution = 256;
@@ -600,7 +602,7 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// True while a random idle animation plays (the normal idle waits).
         /// </summary>
-        private bool UpdateIdleVariation(Gothic.Core.Adapters.Animations.AnimationSystem animationSystem)
+        private bool UpdateIdleVariation(AnimationSystem animationSystem)
         {
             if (_idleVariation != null)
             {
@@ -629,7 +631,7 @@ namespace Gothic.VR.Adapters.Player
             return true;
         }
 
-        private void StopIdleVariation(Gothic.Core.Adapters.Animations.AnimationSystem animationSystem)
+        private void StopIdleVariation(AnimationSystem animationSystem)
         {
             _nextIdleVariation = 0f;
             if (_idleVariation == null)
@@ -858,7 +860,7 @@ namespace Gothic.VR.Adapters.Player
             _orb = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _orb.name = "_TransformOrb";
             Destroy(_orb.GetComponent<Collider>());
-            var shader = Gothic.Core.Const.Constants.ShaderUnlit;
+            var shader = Constants.ShaderUnlit;
             _orbMaterial = new Material(shader) { mainTexture = _pipTexture };
             _orb.GetComponent<MeshRenderer>().sharedMaterial = _orbMaterial;
             _orb.transform.localScale = Vector3.one * _orbSize;

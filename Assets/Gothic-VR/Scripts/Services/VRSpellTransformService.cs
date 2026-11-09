@@ -1,4 +1,6 @@
+using System;
 using Gothic.Core;
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -28,7 +30,7 @@ namespace Gothic.VR.Services
     /// Lives in the VR scene scope: Reflex disposes it with the scene, which removes the listeners from the static
     /// events - a reloaded VR scene would transform back twice otherwise.
     /// </summary>
-    public class VRSpellTransformService : System.IDisposable
+    public class VRSpellTransformService : IDisposable
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
@@ -71,7 +73,7 @@ namespace Gothic.VR.Services
             var heroPosition = head != null ? head.position : hero.Go.transform.position;
             var spawnPosition = new Vector3(heroPosition.x, hero.Go.transform.position.y, heroPosition.z);
             var loaderGo = _npcService.SpawnNpcRuntime(monsterInstanceIndex, spawnPosition, Quaternion.identity);
-            var monster = loaderGo != null ? loaderGo.GetComponentInChildren<Gothic.Core.Adapters.Npc.NpcLoader>(true)?.Container : null;
+            var monster = loaderGo != null ? loaderGo.GetComponentInChildren<NpcLoader>(true)?.Container : null;
             if (monster == null)
             {
                 Logger.LogWarning($"[VRTransform] Can't spawn the monster instance {monsterInstanceIndex}.", LogCat.VR);
@@ -117,7 +119,7 @@ namespace Gothic.VR.Services
             {
                 var symbol = vm.GetSymbolByIndex(i);
                 if (symbol == null || !symbol.IsConst || symbol.Type != DaedalusDataType.Int ||
-                    !symbol.Name.StartsWith(_transformSpellPrefix, System.StringComparison.Ordinal) ||
+                    !symbol.Name.StartsWith(_transformSpellPrefix, StringComparison.Ordinal) ||
                     symbol.GetInt(0) != spellId)
                     continue;
                 var monster = vm.GetSymbolByName(symbol.Name.Substring(_transformSpellPrefix.Length));
