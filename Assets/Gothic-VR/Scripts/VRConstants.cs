@@ -47,7 +47,7 @@ namespace Gothic.VR
             // 1 = a charged spell grows only while both hands are together (default), 0 = one hand is enough.
             public const string TwoHandSpellCharge = "twoHandSpellCharge";
             // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
-            public const string SpellRing = "spellRing";
+            public const string FavoritesRing = "favoritesRing";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -103,6 +103,8 @@ namespace Gothic.VR
         // Favorites ring zoom: the ring's radius factor (1 = normal), 30 slider steps of 0.05 (Min to MaxRingZoom).
         public const float FavoritesRingZoomDefaultValue = 1f;
         public const int FavoritesRingZoomSettingAmount = 30;
+
+        public const int FavoritesRingDefaultValue = 1;
 
         public const int PhysicalHandsDefaultValue = 1;
 

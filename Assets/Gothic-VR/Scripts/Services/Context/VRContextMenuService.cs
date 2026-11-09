@@ -166,9 +166,10 @@ namespace Gothic.VR.Services.Context
                 CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
                     VRConstants.TwoHandSpellChargeDefaultValue)));
             // Off = the favorites ring (both hands up, both triggers) doesn't open.
-            rows.Add((CreateToggleLabel(gameMenu, "SPELL_RING", "Favorites ring",
+            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "Favorites ring",
                     "Both hands up + both triggers: equipped spells and weapons"),
-                CreateToggleChoice(gameMenu, "SPELL_RING", VRConstants.IniNames.SpellRing, 1)));
+                CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
+                    VRConstants.FavoritesRingDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

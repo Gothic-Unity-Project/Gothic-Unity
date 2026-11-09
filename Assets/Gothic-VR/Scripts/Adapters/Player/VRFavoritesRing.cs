@@ -30,7 +30,7 @@ using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// The "spellRing" option (Immersion menu): the favorites ring - Gothic's spell
+    /// The "favoritesRing" option (Immersion menu): the favorites ring - Gothic's spell
     /// selection (hold the magic key, the equipped runes/scrolls circle the hero) in VR, plus the equipped weapons,
     /// favorite items and the money. What it holds and the put-in rules are VrFavoritesService's; this shows it and
     /// handles the hands. Its slot visuals are VRFavoritesRingSlotViews.
@@ -139,7 +139,7 @@ namespace Gothic.VR.Adapters.Player
                 Close("game loading");
         }
 
-        // The menu's "spellRing" option (Gothic.ini, refreshed on PlayerPrefUpdated).
+        // The menu's "favoritesRing" option (Gothic.ini, refreshed on PlayerPrefUpdated).
         private bool IsEnabled => _isOptionOn;
         private bool _isOptionOn;
 
@@ -147,7 +147,8 @@ namespace Gothic.VR.Adapters.Player
         {
             // No Gothic.ini before a game was picked (profile menu).
             _isOptionOn = _configService.Gothic != null &&
-                          _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
+                          _configService.Gothic.GetInt(VRConstants.IniNames.FavoritesRing,
+                              VRConstants.FavoritesRingDefaultValue) == 1;
             ReadZoom();
         }
 
@@ -177,7 +178,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnPlayerPrefUpdated(string key, object value)
         {
-            if (key == VRConstants.IniNames.SpellRing)
+            if (key == VRConstants.IniNames.FavoritesRing)
                 ReadOption();
             // The menu's slider - or our own write (PersistZoom), which arrives with the value we have.
             else if (key == VRConstants.IniNames.FavoritesRingZoom)
