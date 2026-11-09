@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter); HeroPerceptionService, TradeService, PickpocketService, PickpocketDialogDomain, TradePricing (Core); Gothic.ini option pickpocketPurse
 
 ## Context
 
@@ -27,11 +27,11 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
    - the offers go back when the trade ends: closed, the dialog ends, or the world is left (saving is blocked in a dialog);
    - unpaid goods stay the trader's until OK, and currency held in a hand doesn't pay.
 5. **Pickpocketing in VR:**
-   - G1 pickpocketing is always on (no flag).
-   - A purse on the hip of a human who can't see the sneaking hero opens his pockets.
-   - The chance to get caught is G1's talent value, and in G2 100 - dexterity (5-90).
-   - Sleepers can't catch you.
-   - G2 gets the purse too, on top of its dialog (`EnableG2VrPickpocket`). It skips the dialog's one-time check and its XP, which is a deliberate choice, and the flag switches it off.
+   - A purse hangs on the hip of a human who can't see the sneaking hero.
+   - G1 (always on, no option): the purse is the engine's steal window. It opens his pockets, each item taken can get the hero caught with the talent value's chance. Sleepers can't catch you.
+   - G2: the purse is only a VR view of G2's own pickpocket dialog, not a theft system of its own. It shows exactly when the NPC's `DIA_*_PICKPOCKET` option would show (its condition with the NPC as self and the hero as other). No purse means already robbed, or not skilled enough (talent, dexterity). Grabbing it is choosing "pickpocket": the script's `B_Beklauen` runs and gives the gold, XP and sound, or the NPC attacks. Gold only, once per NPC, like the dialog. Vanilla's 10 dexterity "trap window" stays: the purse shows, the grab fails.
+   - G2's purse is a player immersion option in Gothic.ini (`pickpocketPurse`, Immersion menu, on by default). Off, G2 only has its dialog. It replaces the DeveloperConfig flag `EnableG2VrPickpocket`.
+   - Why: the first G2 purse was a separate theft system next to the dialog. It took any item with its own dexterity roll, bypassed G2's balance (gold amounts, XP, dexterity per NPC) and could rob an NPC twice (purse and dialog).
 6. **No personal space: NPC bodies may come into the camera.** A personal space (`HeroPersonalSpace`, NPCs pushed 1 m away from the hero's head) was tried and removed again:
    - in a fight the NPC hits first anyway, before its body reaches the camera;
    - leaning into an NPC is the player's choice;
