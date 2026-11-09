@@ -16,7 +16,7 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `VRSpellThrow` (worker of the caster) | throwable spells: hand velocity, the swing's direction/speed/gravity/homing, the flying `Projectile` and its hits |
 | `VRTelekinesisSpell` (worker of the caster) | Telekinesis: trigger 1 extends the distance grab, trigger 2 pulls (no Daedalus, no mana) |
 | `VRChainLightning` (VR adapter) | G1's chain lightning while invested |
-| `VRTransformService` (VR) / `VRTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
+| `VRSpellTransformService` (VR) / `VRSpellTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
 | `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), telekinesis range |
 | `VRWeaponService` (VR) | a readied rune is `WeaponState.Mage` for the NPCs (`SetRuneReadied`) |
 | `VmCacheService` (Core) | spell data, `spellFXInstanceNames` (`TryGetSpellMfxName`), VISUALFX keys, damage per level |
@@ -26,7 +26,9 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 
 Constants: `DaedalusConst` (`SplSendCast`/`SplSendStop`/`SplNextLevel`, `ZsMagicFreeze`, `SpellFxInstanceNames`),
 `SpellConst` (AOE, summon, charge and spread spell names). Tunables: `VRConstants.Magic` (`MinSpellCastSeconds`,
-`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`), the Immersion options "Single-use scrolls" (Gothic.ini
+`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`, plus the throw and
+homing values `MaxSwingFactor`, `HandVelocityWindow`, `MinHomingSwingFactor`, `MinThrowDirectionSpeed`,
+`DroppedSpellSpeed`, `HomingConeDegrees`, `HomingDegreesPerSecond`, `DefaultThrowRange`), the Immersion options "Single-use scrolls" (Gothic.ini
 `scrollsSingleUse`), "Thrown spells" (`throwableSpells`) and "Two-hand charge" (`twoHandSpellCharge`), names in
 `VRConstants.IniNames`.
 
@@ -58,4 +60,4 @@ raises `SpellHit`/`SpellSpreadHit` like a cast.
 | change what a hit does (damage, AOE, reactions) | `FightService`, `VmCacheService.GetSpellDamagePerLevel` (Core, not VR) |
 | change when the hero can't cast | `HeroSpellStateDomain.IsCastBlocked` (Core) |
 | change the mana bar | `StatusBarAdapter` (Core) |
-| change transformations | `VRTransformService`, `VRTransformPuppet` |
+| change transformations | `VRSpellTransformService`, `VRSpellTransformPuppet` |

@@ -32,16 +32,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
 
-        // Throw speed: the spell's own speed (emtrjeasevel) scaled by the swing - a lazy flick is slow.
-        private const float _maxSwingFactor = 1.5f;
-        private const float _handVelocityWindow = 0.1f;
-        private const float _minHomingSwingFactor = 0.5f;
-        private const float _minThrowDirectionSpeed = 0.2f;
-        private const float _droppedSpellSpeed = 0.1f;
-        private const float _homingConeDegrees = 12f;
-        private const float _homingDegreesPerSecond = 90f;
-        private const float _defaultThrowRange = 30f;
-
         private readonly ParticleEffectEmitKeyInstance _castKey;
         private readonly string _mfxName;
         private readonly int _spellId;
@@ -94,7 +84,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
 
             _handSamples.Enqueue((Time.time, handGo.transform.position));
-            while (_handSamples.Count > 2 && Time.time - _handSamples.Peek().time > _handVelocityWindow)
+            while (_handSamples.Count > 2 &&
+                   Time.time - _handSamples.Peek().time > VRConstants.Magic.HandVelocityWindow)
                 _handSamples.Dequeue();
         }
 
@@ -112,11 +103,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 var handVelocity = GetHandVelocity();
                 var swingFactor = Mathf.Clamp(handVelocity.magnitude / VRConstants.Magic.SpellThrowFullSwingSpeed, 0f,
-                    _maxSwingFactor);
-                direction = handVelocity.magnitude >= _minThrowDirectionSpeed ? handVelocity.normalized : Vector3.down;
+                    VRConstants.Magic.MaxSwingFactor);
+                direction = handVelocity.magnitude >= VRConstants.Magic.MinThrowDirectionSpeed
+                    ? handVelocity.normalized
+                    : Vector3.down;
                 _speedFactor = swingFactor;
                 _gravityScale = Mathf.Clamp01(1f - swingFactor);
-                _isHoming = swingFactor >= _minHomingSwingFactor;
+                _isHoming = swingFactor >= VRConstants.Magic.MinHomingSwingFactor;
                 Logger.Log($"[VRSpellThrow] Throw: hand {handVelocity.magnitude:F1} m/s, swing {swingFactor:F2}, " +
                            $"gravity {_gravityScale:F2}, homing {_isHoming}", LogCat.VR);
             }
@@ -177,14 +170,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var homingTarget = _isHoming ? FindHomingTarget(hero, origin, direction, range) : null;
             var projectile = projectileGo.AddComponent<Projectile>();
             projectile.Owner = hero;
-            projectile.Velocity = direction * Mathf.Max(speed, _droppedSpellSpeed);
+            projectile.Velocity = direction * Mathf.Max(speed, VRConstants.Magic.DroppedSpellSpeed);
             projectile.UseGravity = _gravityScale > 0f;
             projectile.GravityScale = _gravityScale;
             projectile.AllowAutoAim = _isHoming;
             projectile.Radius = 0.15f;
             projectile.MaxDistance = range;
             projectile.HomingTarget = homingTarget;
-            projectile.HomingDegreesPerSecond = _homingDegreesPerSecond;
+            projectile.HomingDegreesPerSecond = VRConstants.Magic.HomingDegreesPerSecond;
 
             // The rune can be gone before the spell lands - the lambdas keep this worker and its VRSpellFx.
             var fx = _fx;
@@ -242,7 +235,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private NpcContainer FindHomingTarget(NpcContainer hero, Vector3 origin, Vector3 direction, float range)
         {
             NpcContainer best = null;
-            var bestAngle = _homingConeDegrees;
+            var bestAngle = VRConstants.Magic.HomingConeDegrees;
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
                 if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy)
@@ -268,7 +261,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var targetRange = _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmTrjTargetRange ?? 0f;
             // emTrjTargetRange is in meters in VISUALFX (Fireball: 20).
-            return targetRange > 0f ? Mathf.Max(targetRange, _defaultThrowRange) : _defaultThrowRange;
+            return targetRange > 0f
+                ? Mathf.Max(targetRange, VRConstants.Magic.DefaultThrowRange)
+                : VRConstants.Magic.DefaultThrowRange;
         }
 
         private static Color GetSpellLightColor(string mfxName)

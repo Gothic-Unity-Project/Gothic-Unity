@@ -215,6 +215,38 @@ namespace Gothic.VR
             // Hand speed (m/s) of a full spell throw. Slower swings throw weaker and arc down - at 3 m/s a light flick
             // was already a strong throw.
             public const float SpellThrowFullSwingSpeed = 6f;
+
+            // Swing factor (hand speed / SpellThrowFullSwingSpeed) is capped here, so a wild swing throws at most 1.5x
+            // the spell's speed. Self-tuned for VR: faster than that overshoots and feels out of control.
+            public const float MaxSwingFactor = 1.5f;
+
+            // Seconds of hand movement the throw velocity is averaged over. Self-tuned for VR: short enough to catch the
+            // flick at release, long enough to smooth out the tracking jitter.
+            public const float HandVelocityWindow = 0.1f;
+
+            // Minimum swing factor for a throw to home on NPCs (and ignore gravity). Self-tuned for VR: weaker swings
+            // just arc down instead of being pulled to a target.
+            public const float MinHomingSwingFactor = 0.5f;
+
+            // Minimum hand speed (m/s) to take the swing as the throw direction; slower drops the spell straight down.
+            // Self-tuned for VR: below this the hand direction is just noise.
+            public const float MinThrowDirectionSpeed = 0.2f;
+
+            // Minimum speed (m/s) of a thrown spell, so a throw without a swing still leaves the hand and falls.
+            // Self-tuned for VR (the engine has no such drop).
+            public const float DroppedSpellSpeed = 0.1f;
+
+            // Half angle (degrees) of the cone around the throw direction in which a homing spell picks an NPC.
+            // Self-tuned for VR: helps aiming without taking it away - Gothic's focus targeting is much wider.
+            public const float HomingConeDegrees = 12f;
+
+            // How fast (degrees/s) a homing spell turns toward its target. Self-tuned for VR: a clear curve without
+            // making the spell chase around corners.
+            public const float HomingDegreesPerSecond = 90f;
+
+            // Throw range (m) at least; the spell's own emTrjTargetRange (e.g. Fireball: 20) is raised to it.
+            // Self-tuned for VR: the hand throws at long distances, vanilla ranges ended too early.
+            public const float DefaultThrowRange = 30f;
         }
 
         /// <summary>
