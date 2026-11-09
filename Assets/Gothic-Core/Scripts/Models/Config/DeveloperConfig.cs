@@ -313,11 +313,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Favorites Ring", true)]
-        [Tooltip("VR: The favorites ring also holds up to 3 favorite items (a torch, a key, potions, food) and the " +
-                 "money (G1 ore, G2 gold) - let go at its empty slot to put one in, grabbed out one at a time (grip " +
-                 "held at a stack takes more and more), a trigger click takes one off the ring. Not saved yet.")]
-        public bool EnableRingItemSlots = true;
-
         [Tooltip("VR: While the favorites ring is open the right stick up/down (simulator: mouse wheel) makes it " +
                  "bigger or smaller (x0.5-x2) - like the menu's distance. Kept for the session.")]
         public bool EnableRingZoom = true;

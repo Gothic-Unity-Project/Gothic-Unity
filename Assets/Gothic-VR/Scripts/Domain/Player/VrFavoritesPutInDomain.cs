@@ -21,7 +21,6 @@ namespace Gothic.VR.Domain.Player
     public class VrFavoritesPutInDomain
     {
         [Inject] private readonly FightService _fightService;
-        [Inject] private readonly ConfigService _configService;
 
         // The item whose "can't use" message was shown - TryPutIn runs every frame while it's held near the ring.
         private ItemInstance _lastMessageItem;
@@ -72,9 +71,6 @@ namespace Gothic.VR.Domain.Player
                     case FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged:
                         action = FavoritesPutInAction.Equipped;
                         replaced = slots.FirstOrDefault(s => s.Kind == kind)?.Item;
-                        break;
-                    case FavoriteSlotKind.Item when !_configService.Dev.EnableRingItemSlots:
-                        rejection = "item slots off (EnableRingItemSlots)";
                         break;
                     case FavoriteSlotKind.Item when favoriteItems.Count >= maxItems:
                         rejection = "3 favorite items already";

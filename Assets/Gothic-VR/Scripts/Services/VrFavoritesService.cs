@@ -25,7 +25,7 @@ namespace Gothic.VR.Services
     /// The favorites ring: what the VR favorites ring holds and what putting into / taking out of it
     /// does (VRFavoritesRing shows it).
     /// - The slots: the hero's equipped spells (runes/scrolls, ITEM_KAT_RUNE) in equip order, his equipped melee weapon
-    ///   and bow/crossbow, his favorite items and the trade currency (EnableRingItemSlots) -
+    ///   and bow/crossbow, his favorite items and the trade currency -
     ///   those in the backpack - plus the empty slot while something is missing.
     /// - The favorite items: the hero's, as Daedalus symbol names. Not saved yet (a save section with main's
     ///   save/load); a new hero (new game, loaded game) starts without.
@@ -41,7 +41,6 @@ namespace Gothic.VR.Services
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
@@ -55,7 +54,6 @@ namespace Gothic.VR.Services
         private VrFavoritesPutInDomain _putInDomain;
         private VrFavoritesGestureDomain _gestureDomain;
 
-        public bool IsItemSlotsEnabled => _configService.Dev.EnableRingItemSlots;
 
         /// <summary>
         /// The trade currency's instance name (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE) - TradeService's.
@@ -145,28 +143,24 @@ namespace Gothic.VR.Services
             }
 
             var itemCount = 0;
-            if (IsItemSlotsEnabled)
+            var currency = CurrencyName;
+            // Used up, sold or dropped: no longer a favorite. The money has its own slot.
+            FavoriteItems.RemoveAll(name => _playerService.GetItemAmount(name) <= 0 || IsSame(name, currency));
+            foreach (var instanceName in FavoriteItems.Take(MaxItems))
             {
-                var currency = CurrencyName;
-                // Used up, sold or dropped: no longer a favorite. The money has its own slot.
-                FavoriteItems.RemoveAll(name => _playerService.GetItemAmount(name) <= 0 || IsSame(name, currency));
-                foreach (var instanceName in FavoriteItems.Take(MaxItems))
-                {
-                    var item = _vmCacheService.TryGetItemData(instanceName);
-                    if (item == null)
-                        continue;
-                    itemCount++;
-                    if (IsInBackpack(instanceName))
-                        _slots.Add(CreateSlot(FavoriteSlotKind.Item, item, instanceName));
-                }
-
-                var currencyItem = _vmCacheService.TryGetItemData(currency);
-                if (currencyItem != null && GetBackpackAmount(currency) > 0)
-                    _slots.Add(CreateSlot(FavoriteSlotKind.Currency, currencyItem, currency));
+                var item = _vmCacheService.TryGetItemData(instanceName);
+                if (item == null)
+                    continue;
+                itemCount++;
+                if (IsInBackpack(instanceName))
+                    _slots.Add(CreateSlot(FavoriteSlotKind.Item, item, instanceName));
             }
 
-            if (spells.Count < MaxSpells || weaponCount < MaxWeapons ||
-                IsItemSlotsEnabled && itemCount < MaxItems)
+            var currencyItem = _vmCacheService.TryGetItemData(currency);
+            if (currencyItem != null && GetBackpackAmount(currency) > 0)
+                _slots.Add(CreateSlot(FavoriteSlotKind.Currency, currencyItem, currency));
+
+            if (spells.Count < MaxSpells || weaponCount < MaxWeapons || itemCount < MaxItems)
                 _slots.Add(CreateSlot(FavoriteSlotKind.Empty, null, null));
 
             return _slots;

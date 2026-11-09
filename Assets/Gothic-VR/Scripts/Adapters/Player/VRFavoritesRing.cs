@@ -37,8 +37,7 @@ namespace Gothic.VR.Adapters.Player
     /// - Open/close: both hands empty and raised above the head, both triggers held (VrFavoritesGestureDomain).
     ///   Loading a game closes it.
     /// - A carousel around the player at eye level, the slot looked at selected: at most 8 spells; the
-    ///   equipped melee weapon and bow/crossbow (Gothic's one of each); with
-    ///   EnableRingItemSlots up to 3 favorite items (a torch, a key, potions, food) and the trade currency
+    ///   equipped melee weapon and bow/crossbow (Gothic's one of each); up to 3 favorite items (a torch, a key, potions, food) and the trade currency
     ///   (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE). The front spell shows its effect after PreviewSeconds (like
     ///   Gothic), the slot a hand is near grows and shows its name and how many are left in the backpack.
     /// - Grip near a spell: it goes into that hand (ready to cast) and the ring closes. Weapons and items are the real
