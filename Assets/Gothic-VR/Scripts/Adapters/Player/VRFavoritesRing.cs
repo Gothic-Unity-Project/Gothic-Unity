@@ -2,24 +2,19 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Adapters.UI;
-using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
-using Gothic.Core.Models.Vob;
-using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
-using Gothic.Core.Services.Meshes;
-using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
-using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Adapters.Vob.VobItem;
+using Gothic.VR.Domain.Player;
+using Gothic.VR.Models.FavoritesRing;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -36,12 +31,13 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// DeveloperConfig.EnableVrSpellRing + the "spellRing" option (Immersion menu): the favorites ring - Gothic's spell
     /// selection (hold the magic key, the equipped runes/scrolls circle the hero) in VR, plus the equipped weapons,
-    /// favorite items and the money.
-    /// - Open/close: both hands empty and raised above the head, both triggers held for _gestureSeconds. Loading a game
-    ///   closes it.
-    /// - A carousel around the player at eye level, the slot looked at selected: at most _maxSpells (8) spells; with
+    /// favorite items and the money. What it holds and the put-in rules are VrFavoritesService's; this shows it and
+    /// handles the hands. Its slot visuals are VRFavoritesRingSlotViews.
+    /// - Open/close: both hands empty and raised above the head, both triggers held (VrFavoritesGestureDomain).
+    ///   Loading a game closes it.
+    /// - A carousel around the player at eye level, the slot looked at selected: at most 8 spells; with
     ///   DeveloperConfig.EnableRingWeaponSlots the equipped melee weapon and bow/crossbow (Gothic's one of each); with
-    ///   EnableRingItemSlots up to _maxItems (3) favorite items (a torch, a key, potions, food) and the trade currency
+    ///   EnableRingItemSlots up to 3 favorite items (a torch, a key, potions, food) and the trade currency
     ///   (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE). The front spell shows its effect after _previewSeconds (like
     ///   Gothic), the slot a hand is near grows and shows its name and how many are left in the backpack.
     /// - Grip near a spell: it goes into that hand (ready to cast) and the ring closes. Weapons and items are the real
@@ -54,54 +50,21 @@ namespace Gothic.VR.Adapters.Player
     ///   kind it replaces it), anything else becomes a favorite item; at its own slot it just goes back into the
     ///   backpack.
     /// Only what is in the backpack shows - an equipped weapon in a holster, in a hand or dropped doesn't.
-    /// The spells are the hero's equipped runes/scrolls (ITEM_KAT_RUNE) in equip order, the weapons his equipped
-    /// ITEM_KAT_NF / ITEM_KAT_FF (also from the start, a script or a save) - saved with the inventory; the favorite
-    /// items are NpcProperties.FavoriteItems - not saved yet (a save section with main's save/load).
     /// </summary>
     public class VRFavoritesRing : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VobService _vobService;
-        [Inject] private readonly MeshService _meshService;
-        [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
-        [Inject] private readonly FightService _fightService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
-        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
+        [Inject] private readonly VrFavoritesService _favoritesService;
 
-        private const int _maxSpells = 8;
-        private const int _maxWeapons = 2;
-        private const int _maxItems = 3;
-        private const string _g1Currency = "ItMiNugget";
-        private const string _focusNameCanvas = "NameCanvas";
-        private const float _gestureSeconds = 1f;
-        // A broken gesture shorter than this (s) keeps the hold time.
-        private const float _gestureGraceSeconds = 0.3f;
-        // Meters the hands must be above the eyes for the gesture.
-        private const float _gestureHeightAboveEyes = 0.1f;
         private const float _previewSeconds = 1f;
         private const float _ringRadius = 0.28f;
-        private const float _spellSize = 0.09f;
-        private const float _spellModelTilt = -90f;
-        // The effect's radius in the slot, a share of the rune's size.
-        private const float _effectFitShare = 0.7f;
-        // The rune behind its effect / the effect while a hand is at it.
-        private const float _previewModelAlpha = 0.5f;
-        private const float _previewEffectHoverAlpha = 0.5f;
-        private static readonly int _baseColorProperty = Shader.PropertyToID("_BaseColor");
-        private static readonly int _colorProperty = Shader.PropertyToID("_Color");
-        private static readonly int _cutoffProperty = Shader.PropertyToID("_Cutoff");
-        // Weapons stand upright (blade up) and are longer than the runes.
-        private const float _weaponSize = 0.16f;
-        private const float _itemSize = 0.1f;
         private const float _hoverScale = 1.4f;
         private const float _hoverDistance = 0.09f;
         // A held item closer than this to a slot (any part of it - a sword's blade, not its grip in the hand).
@@ -124,18 +87,14 @@ namespace Gothic.VR.Adapters.Player
         private const float _transferEndDistance = 0.15f;
         // A weapon taken out of the ring and let go: after this it's in the backpack, a holster or on the ground.
         private const float _takenWeaponCheckSeconds = 0.5f;
-        private static readonly Color _emptySlotColor = new(0.6f, 0.6f, 0.6f, 1f);
 
-        private readonly List<Slot> _slots = new();
+        private readonly List<FavoritesRingSlotView> _slots = new();
         // The direct grabbers of both hands (IVrRig.HandGrabbers).
         private readonly List<IVrGrabber> _hands = new();
+        private VRFavoritesRingSlotViews _slotViews;
         private IVrRig _rig;
         private bool _isTeleportLocked;
         private bool _isOpen;
-        private float _gestureTime;
-        private float _gestureBrokenTime;
-        private bool _isGestureLatched;
-        private int _gestureHapticStep;
 
         private float _ringAngle;
         private bool _isDragging;
@@ -143,109 +102,34 @@ namespace Gothic.VR.Adapters.Player
         private VrHandSide _dragHand;
         private Vector3 _dragStartLocal;
         private float _dragStartAngle;
-        private Slot _pressedSlot;
+        private FavoritesRingSlotView _pressedSlot;
 
-        private Slot _hovered;
-        private Slot _front;
+        private FavoritesRingSlotView _hovered;
+        private FavoritesRingSlotView _front;
         private float _frontSince;
         private TextMeshPro _label;
         // The selected (front) slot's name - always shown.
         private TextMeshPro _frontLabel;
-        private Material _emptySlotMaterial;
-        private string _lastRejection;
 
         // Per hand (0 left, 1 right): the slot the held item touched last, and when.
-        private readonly PutInCandidate[] _putInCandidates = new PutInCandidate[2];
-        private PutInCandidate _pendingPutIn;
-        private Transfer _transfer;
-        private TakenWeapon _takenWeapon;
-
-        private enum SlotKind
-        {
-            Empty,
-            Spell,
-            Melee,
-            Ranged,
-            Item,
-            Currency
-        }
-
-        private class Slot
-        {
-            public SlotKind Kind;
-            public ItemInstance Item; // null = the empty slot to put into
-            public string InstanceName;
-            // How many are in the backpack (not in a hand or holster).
-            public int Amount;
-            public GameObject Root;
-            public GameObject Model;
-            // VRFocus's hover name of a real item.
-            public GameObject FocusName;
-            public GameObject Effect;
-            public bool HasNoEffect;
-            // The materials of its effect with their own alpha, and the
-            // look shown (-1 none yet, 0 rune only, 1 effect in front, 2 effect while hovered).
-            public List<(Material Material, Color Color)> EffectMaterials;
-            public int PreviewState = -1;
-            public float Angle;
-
-            // Weapons and items: the real item, shrunk into the slot until a hand grabs it.
-            public VobContainer Container;
-            public VrInteractable Grabbable;
-            public Transform LoaderParent;
-            public Vector3 LoaderScale;
-            public int IgnoredColliderCount;
-            public float TakenTime = -1f;
-
-            public bool IsReal => Kind is SlotKind.Melee or SlotKind.Ranged or SlotKind.Item or SlotKind.Currency;
-        }
-
-        private class PutInCandidate
-        {
-            public VobContainer Container;
-            public ItemInstance Item;
-            public string InstanceName;
-            public SlotKind Kind;
-            public Slot Target;
-            public string Action;
-            public ItemInstance Replaced;
-            public float Time;
-            public VrHandSide Side;
-            public VrInteractable Grabbable;
-        }
-
-        /// <summary>
-        /// A weapon taken out of the ring, until it was let go.
-        /// </summary>
-        private class TakenWeapon
-        {
-            public VrInteractable Grabbable;
-            public ItemInstance Item;
-            public string InstanceName;
-            public SlotKind Kind;
-            public float ReleasedTime = -1f;
-        }
-
-        private class Transfer
-        {
-            public Slot Slot;
-            public VobContainer Held;
-            public VrHandSide Side;
-            public float StartTime;
-            public float Carry;
-        }
+        private readonly FavoritesRingPutInCandidate[] _putInCandidates = new FavoritesRingPutInCandidate[2];
+        private FavoritesRingPutInCandidate _pendingPutIn;
+        private FavoritesRingTransfer _transfer;
+        private FavoritesRingTakenWeapon _takenWeapon;
 
         public bool IsOpen => _isOpen;
 
         private void Awake()
         {
             this.Inject();
+            _slotViews = gameObject.AddComponent<VRFavoritesRingSlotViews>();
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
         }
 
         private void Start()
         {
             _rig = _vrPlayerService.VRContextInteractionService?.Rig;
+            _slotViews.Rig = _rig;
             if (_rig == null)
             {
                 Logger.LogWarning("[FavoritesRing] No VR rig - ring items can't be grabbed.", LogCat.VR);
@@ -285,9 +169,6 @@ namespace Gothic.VR.Adapters.Player
         private float _nextOptionCheckTime;
         private bool _isOptionOn;
 
-        private bool IsWeaponSlotsEnabled => _configService.Dev.EnableRingWeaponSlots;
-        private bool IsItemSlotsEnabled => _configService.Dev.EnableRingItemSlots;
-
         private void Update()
         {
             if (!IsEnabled() || _playerService.HeroContainer == null)
@@ -302,7 +183,7 @@ namespace Gothic.VR.Adapters.Player
             if (!_isOpen)
                 return;
             // A dialog, a knockout or a transformation while it's open: it stayed open with teleport locked.
-            if (IsHeroBusy())
+            if (_favoritesService.IsHeroBusy())
             {
                 Close("the hero is busy");
                 return;
@@ -323,76 +204,17 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Both hands empty and above the eyes, both triggers held: after _gestureSeconds the ring opens/closes.
-        /// The triggers have to be let go before the next toggle.
+        /// The open/close gesture (VrFavoritesService.TickGesture) toggles the ring.
         /// </summary>
         private void UpdateGesture()
         {
             var head = Camera.main != null ? Camera.main.transform : null;
-            var left = _vrPlayerService.GetHandModelGo(VrHandSide.Left);
-            var right = _vrPlayerService.GetHandModelGo(VrHandSide.Right);
-            var leftTrigger = _vrInput.GetButton(VrHandSide.Left, VrButton.Trigger).IsActive;
-            var rightTrigger = _vrInput.GetButton(VrHandSide.Right, VrButton.Trigger).IsActive;
-
-            if (!leftTrigger || !rightTrigger)
-                _isGestureLatched = false;
-
-            var isGesture = head != null && left != null && right != null && leftTrigger && rightTrigger &&
-                            _vrPlayerService.GrabbedItemLeft == null && _vrPlayerService.GrabbedItemRight == null &&
-                            !VRFavoritesRingSpell.IsReadiedIn(VrHandSide.Left) &&
-                            !VRFavoritesRingSpell.IsReadiedIn(VrHandSide.Right) &&
-                            left.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
-                            right.transform.position.y > head.position.y + _gestureHeightAboveEyes &&
-                            !IsHeroBusy();
-            if (_isGestureLatched)
-            {
-                _gestureTime = 0f;
-                _gestureHapticStep = 0;
+            if (!_favoritesService.TickGesture(head))
                 return;
-            }
-
-            // A hand dipping below the eyes or a trigger flickering for a moment
-            // doesn't start the hold again - it took much longer than _gestureSeconds.
-            if (!isGesture)
-            {
-                _gestureBrokenTime += Time.deltaTime;
-                if (_gestureBrokenTime > _gestureGraceSeconds)
-                {
-                    _gestureTime = 0f;
-                    _gestureHapticStep = 0;
-                }
-                return;
-            }
-
-            _gestureBrokenTime = 0f;
-            _gestureTime += Time.deltaTime;
-            var step = Mathf.FloorToInt(_gestureTime / _gestureSeconds * 3f);
-            if (step > _gestureHapticStep && step < 3)
-            {
-                _gestureHapticStep = step;
-                _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Info);
-                _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Info);
-            }
-            if (_gestureTime < _gestureSeconds)
-                return;
-
-            _isGestureLatched = true;
-            _gestureTime = 0f;
-            _gestureHapticStep = 0;
-            _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Success);
-            _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Success);
             if (_isOpen)
                 Close("gesture");
             else
                 Open(head);
-        }
-
-        private bool IsHeroBusy()
-        {
-            var bodyState = _playerService.HeroContainer.Props.BodyState;
-            // Transformed: a monster has no spells (only VRSpellTransformPuppet's attack).
-            return bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
-                   _gameStateService.Dialogs.IsInDialog || _vrSpellTransformService.IsTransformed;
         }
 
         private void Open(Transform head)
@@ -410,9 +232,10 @@ namespace Gothic.VR.Adapters.Player
             _ringAngle = 0f;
             LockTeleport(true);
             Rebuild();
-            Logger.Log($"[FavoritesRing] Opened with {_slots.Count(s => s.Kind == SlotKind.Spell)} spell(s), " +
-                       $"{_slots.Count(s => s.Kind is SlotKind.Melee or SlotKind.Ranged)} weapon(s), " +
-                       $"{_slots.Count(s => s.Kind is SlotKind.Item or SlotKind.Currency)} item(s)", LogCat.VR);
+            Logger.Log($"[FavoritesRing] Opened with {_slots.Count(s => s.Kind == FavoriteSlotKind.Spell)} spell(s), " +
+                       $"{_slots.Count(s => s.IsWeapon)} weapon(s), " +
+                       $"{_slots.Count(s => s.Kind is FavoriteSlotKind.Item or FavoriteSlotKind.Currency)} item(s)",
+                LogCat.VR);
         }
 
         /// <summary>
@@ -457,67 +280,14 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The hero's equipped spells (runes and scrolls) in equip order, his equipped melee weapon and bow/crossbow,
-        /// his favorite items and money - those in the backpack - plus the empty slot while something is missing.
+        /// The ring's contents (VrFavoritesService.BuildSlots), each shown in its slot.
         /// </summary>
         private void Rebuild()
         {
             var previousFront = _front?.InstanceName;
             ClearSlots();
-
-            var vm = _gameStateService.GothicVm;
-            var hero = _playerService.HeroContainer;
-            var equipped = hero.Props.EquippedItems;
-            var spells = equipped.Where(i => GetKind(i) == SlotKind.Spell).Take(_maxSpells).ToList();
-            foreach (var spell in spells)
-                _slots.Add(CreateSlot(SlotKind.Spell, spell, vm.GetSymbolByIndex(spell.Index)?.Name));
-
-            var weaponCount = 0;
-            if (IsWeaponSlotsEnabled)
-            {
-                foreach (var kind in new[] { SlotKind.Melee, SlotKind.Ranged })
-                {
-                    // The last equipped one (Gothic: one of each). Several were left equipped before (the ring didn't
-                    // take the old one off) - the others come off now.
-                    var weapon = equipped.LastOrDefault(i => GetKind(i) == kind);
-                    foreach (var extra in equipped.Where(i => GetKind(i) == kind && i != weapon).ToList())
-                    {
-                        Logger.Log($"[FavoritesRing] {extra.Name} was equipped next to {weapon?.Name} - taken off",
-                            LogCat.VR);
-                        _npcInventoryService.UnequipItemWithEffects(hero.Instance, extra);
-                    }
-                    var instanceName = weapon != null ? vm.GetSymbolByIndex(weapon.Index)?.Name : null;
-                    if (instanceName == null || !IsInBackpack(instanceName))
-                        continue;
-                    _slots.Add(CreateSlot(kind, weapon, instanceName));
-                    weaponCount++;
-                }
-            }
-
-            var itemCount = 0;
-            if (IsItemSlotsEnabled)
-            {
-                var currency = GetCurrency();
-                // Used up, sold or dropped: no longer a favorite. The money has its own slot.
-                hero.Props.FavoriteItems.RemoveAll(name => GetAmount(name) <= 0 || IsSame(name, currency));
-                foreach (var instanceName in hero.Props.FavoriteItems.Take(_maxItems))
-                {
-                    var item = _vmCacheService.TryGetItemData(instanceName);
-                    if (item == null)
-                        continue;
-                    itemCount++;
-                    if (IsInBackpack(instanceName))
-                        _slots.Add(CreateSlot(SlotKind.Item, item, instanceName));
-                }
-
-                var currencyItem = _vmCacheService.TryGetItemData(currency);
-                if (currencyItem != null && GetBackpackAmount(currency) > 0)
-                    _slots.Add(CreateSlot(SlotKind.Currency, currencyItem, currency));
-            }
-
-            if (spells.Count < _maxSpells || IsWeaponSlotsEnabled && weaponCount < _maxWeapons ||
-                IsItemSlotsEnabled && itemCount < _maxItems)
-                _slots.Add(CreateSlot(SlotKind.Empty, null, null));
+            foreach (var content in _favoritesService.BuildSlots())
+                _slots.Add(_slotViews.Create(content, transform));
 
             var step = 360f / _slots.Count;
             for (var i = 0; i < _slots.Count; i++)
@@ -531,29 +301,6 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// An equipped weapon taken out (held, in a holster, dropped) isn't in the backpack - showing it made a copy
-        /// of it with every grab. Rockefeller's start (Mroczne Tajemnice) equips weapons he doesn't carry.
-        /// </summary>
-        private bool IsInBackpack(string instanceName)
-        {
-            var amount = GetBackpackAmount(instanceName);
-            if (amount > 0)
-                return true;
-            Logger.Log($"[FavoritesRing] {instanceName} isn't in the backpack (inventory {GetAmount(instanceName)}, " +
-                       $"backpack {amount}: held, in a holster or gone) - not shown", LogCat.VR);
-            return false;
-        }
-
-        /// <summary>
-        /// G2 (and mods): TRADE_CURRENCY_INSTANCE; G1 has none - ore (like TradeService).
-        /// </summary>
-        private string GetCurrency()
-        {
-            var currency = _gameStateService.GothicVm?.GetSymbolByName("TRADE_CURRENCY_INSTANCE")?.GetString(0);
-            return string.IsNullOrEmpty(currency) ? _g1Currency : currency;
-        }
-
-        /// <summary>
         /// Runes are all called "Runa"/"Rune" - the spell is their description, like in the backpack.
         /// </summary>
         public static string GetSpellName(ItemInstance item)
@@ -561,149 +308,10 @@ namespace Gothic.VR.Adapters.Player
             return string.IsNullOrEmpty(item?.Description) ? item?.Name : item.Description;
         }
 
-        private static string GetSlotName(Slot slot)
+        private static string GetSlotName(FavoritesRingSlotView slot)
         {
-            var name = slot.Kind == SlotKind.Spell ? GetSpellName(slot.Item) : slot.Item?.Name;
+            var name = slot.Kind == FavoriteSlotKind.Spell ? GetSpellName(slot.Item) : slot.Item?.Name;
             return slot.Amount > 1 ? $"{name} ({slot.Amount})" : name;
-        }
-
-        /// <summary>
-        /// Which ring slot an item belongs into: runes/scrolls, melee weapons (ITEM_KAT_NF), bows/crossbows
-        /// (ITEM_KAT_FF), the money or any other item.
-        /// </summary>
-        private SlotKind GetKind(ItemInstance item, string instanceName = null)
-        {
-            if (item == null)
-                return SlotKind.Empty;
-            if (instanceName != null && IsSame(instanceName, GetCurrency()))
-                return SlotKind.Currency;
-            return (VmGothicEnums.ItemFlags)item.MainFlag switch
-            {
-                VmGothicEnums.ItemFlags.ItemKatRune => SlotKind.Spell,
-                VmGothicEnums.ItemFlags.ItemKatNf => SlotKind.Melee,
-                VmGothicEnums.ItemFlags.ItemKatFf => SlotKind.Ranged,
-                _ => SlotKind.Item
-            };
-        }
-
-        /// <summary>
-        /// How many the hero has - held ones and those in a holster count too, like everywhere in VR.
-        /// </summary>
-        private int GetAmount(string instanceName)
-        {
-            var item = _vmCacheService.TryGetItemData(instanceName);
-            if (item == null)
-                return 0;
-            var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();
-            return _playerService.GetInventory(category)
-                .Where(i => i.Name.EqualsIgnoreCase(instanceName))
-                .Sum(i => i.Amount);
-        }
-
-        /// <summary>
-        /// How many are in the backpack: the inventory without those in the hands and holsters (IsHeldByPlayer). The
-        /// backpack's own sockets are player sockets too (the page shown) - those are in it.
-        /// </summary>
-        private int GetBackpackAmount(string instanceName)
-        {
-            var amount = GetAmount(instanceName);
-            foreach (var container in _multiTypeCacheService.VobCache)
-            {
-                if (container is not { IsHeldByPlayer: true } || container.Vob is not IItem item ||
-                    container.Go != null && container.Go.GetComponentInParent<VRBackpack>() != null)
-                    continue;
-                var name = !string.IsNullOrEmpty(item.Instance) ? item.Instance : item.Name;
-                if (IsSame(name, instanceName))
-                    amount -= Mathf.Max(1, item.Amount);
-            }
-            return amount;
-        }
-
-        private Slot CreateSlot(SlotKind kind, ItemInstance item, string instanceName)
-        {
-            var root = new GameObject(item != null ? $"{kind} {instanceName}" : "Favorite (empty)");
-            root.transform.SetParent(transform, false);
-            var slot = new Slot
-            {
-                Kind = kind,
-                Item = item,
-                InstanceName = instanceName,
-                Amount = instanceName != null ? GetBackpackAmount(instanceName) : 0,
-                Root = root
-            };
-
-            if (item == null)
-            {
-                slot.Model = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                slot.Model.name = "Empty";
-                Destroy(slot.Model.GetComponent<Collider>());
-                slot.Model.transform.SetParent(root.transform, false);
-                slot.Model.transform.localScale = Vector3.one * (_spellSize * 0.5f);
-                _emptySlotMaterial ??= CreateEmptySlotMaterial();
-                slot.Model.GetComponent<MeshRenderer>().sharedMaterial = _emptySlotMaterial;
-                return slot;
-            }
-
-            if (slot.IsReal && TryCreateRealItem(slot))
-                return slot;
-
-            // Spells (an invisible rune goes into the hand, VRFavoritesRingSpell) - and a real item that failed.
-            slot.Model = new GameObject("Model");
-            slot.Model.transform.SetParent(root.transform, false);
-            _vobService.CreateItemMesh(item.Index, slot.Model);
-            foreach (var collider in slot.Model.GetComponentsInChildren<Collider>(true))
-                Destroy(collider);
-            // Runes and scrolls lie flat - stood up, their picture faces the player.
-            slot.Model.transform.localRotation = Quaternion.Euler(_spellModelTilt, 0f, 0f);
-            FitSize(slot.Model, _spellSize);
-            return slot;
-        }
-
-        /// <summary>
-        /// The weapon/item itself, kinematic and shrunk into the slot: a hand grabs it like out of a backpack socket
-        /// (the backend's own grab, at the grip for weapons) - not from afar, without VRFocus's name (the ring shows its
-        /// own).
-        /// It doesn't touch the hands or the hero's body until grabbed.
-        /// </summary>
-        private bool TryCreateRealItem(Slot slot)
-        {
-            var container = CreateItem(slot.InstanceName);
-            var grabbable = container?.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
-            if (grabbable == null)
-            {
-                if (container != null)
-                    _vobService.RemoveWorldItem(container);
-                Logger.LogWarning($"[FavoritesRing] {slot.InstanceName}: no grabbable item created", LogCat.VR);
-                return false;
-            }
-
-            var rigidbody = grabbable.GetComponent<Rigidbody>();
-            if (rigidbody != null)
-                rigidbody.isKinematic = true;
-            grabbable.IsDistanceGrabbable = false;
-            slot.FocusName = container.Go.FindChildRecursively(_focusNameCanvas);
-
-            var loader = container.Go.transform;
-            slot.LoaderParent = loader.parent;
-            slot.LoaderScale = loader.localScale;
-            loader.SetParent(slot.Root.transform, false);
-            loader.localPosition = Vector3.zero;
-            loader.localRotation = Quaternion.identity;
-            if (slot.Kind is SlotKind.Melee or SlotKind.Ranged)
-            {
-                StandUpright(container.Go);
-                FitSize(container.Go, _weaponSize);
-            }
-            else
-            {
-                FitSize(container.Go, _itemSize);
-            }
-
-            slot.Container = container;
-            slot.Grabbable = grabbable;
-            slot.Model = container.Go;
-            UpdateBodyCollisions(slot);
-            return true;
         }
 
         /// <summary>
@@ -721,92 +329,6 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
-        /// <summary>
-        /// The hands' and the hero's solid colliders ignore a ring item - also the colliders a weapon builds after
-        /// being created (its fitted hitboxes). Once grabbed the backend handles the hands (and restores them on
-        /// release), VRVobItem the body.
-        /// </summary>
-        private void UpdateBodyCollisions(Slot slot)
-        {
-            var itemColliders = slot.Container.Go.GetComponentsInChildren<Collider>(true);
-            if (itemColliders.Length == slot.IgnoredColliderCount)
-                return;
-            slot.IgnoredColliderCount = itemColliders.Length;
-
-            if (_rig == null)
-                return;
-            var bodyColliders = new List<Collider> { _rig.CharacterController };
-            // Not the hands' triggers - the backend finds what a hand can grab with them.
-            bodyColliders.AddRange(_rig.GetHandColliders(VrHandSide.Left));
-            bodyColliders.AddRange(_rig.GetHandColliders(VrHandSide.Right));
-            foreach (var bodyCollider in bodyColliders)
-            {
-                if (bodyCollider == null)
-                    continue;
-                foreach (var itemCollider in itemColliders)
-                    Physics.IgnoreCollision(bodyCollider, itemCollider, true);
-            }
-        }
-
-        private static Material CreateEmptySlotMaterial()
-        {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.SetColor("_BaseColor", _emptySlotColor);
-            return material;
-        }
-
-        /// <summary>
-        /// A weapon's longest axis points up, its grip (the mesh's origin) down - spinning, it doesn't sweep through
-        /// the neighbouring slots.
-        /// </summary>
-        private static void StandUpright(GameObject model)
-        {
-            model.transform.rotation = Quaternion.identity;
-            if (!TryGetBounds(model, out var bounds))
-                return;
-
-            var size = bounds.size;
-            var rotation = size.x >= size.y && size.x >= size.z ? Quaternion.Euler(0f, 0f, 90f)
-                : size.z >= size.y ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.identity;
-            model.transform.localRotation = rotation;
-
-            if (TryGetBounds(model, out bounds) && model.transform.position.y > bounds.center.y)
-                model.transform.localRotation = Quaternion.Euler(180f, 0f, 0f) * rotation;
-        }
-
-        /// <summary>
-        /// Runes, scrolls, weapons and items have different sizes - each fills its slot size.
-        /// </summary>
-        private static void FitSize(GameObject model, float size)
-        {
-            if (!TryGetBounds(model, out var bounds))
-                return;
-            var largest = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
-            if (largest > 0.0001f)
-                model.transform.localScale *= size / largest;
-
-            // Centered on the slot (the mesh pivot isn't its center).
-            if (TryGetBounds(model, out bounds))
-                model.transform.position += model.transform.parent.position - bounds.center;
-        }
-
-        /// <summary>
-        /// The meshes only - a weapon's swing trail or a bow's string reach to the world's origin.
-        /// </summary>
-        private static bool TryGetBounds(GameObject model, out Bounds bounds)
-        {
-            bounds = default;
-            var renderers = model.GetComponentsInChildren<Renderer>(true)
-                .Where(r => r is MeshRenderer or SkinnedMeshRenderer)
-                .ToArray();
-            if (renderers.Length == 0)
-                return false;
-            bounds = renderers[0].bounds;
-            foreach (var renderer in renderers)
-                bounds.Encapsulate(renderer.bounds);
-            return true;
-        }
-
         private void ClearSlots()
         {
             // The labels hang at a slot - they'd go with it.
@@ -820,13 +342,9 @@ namespace Gothic.VR.Adapters.Player
             _hovered = null;
             _front = null;
             foreach (var slot in _slots)
-            {
-                if (slot.Container != null)
-                    _vobService.RemoveWorldItem(slot.Container);
-                if (slot.Root != null)
-                    Destroy(slot.Root);
-            }
+                _slotViews.Remove(slot);
             _slots.Clear();
+            _favoritesService.ClearSlots();
         }
 
         private Quaternion _aroundPlayerRotation = Quaternion.identity;
@@ -856,7 +374,6 @@ namespace Gothic.VR.Adapters.Player
         private const float _minSpinVelocity = 5f;
         private const float _stopSpinVelocity = 20f;
         private const float _minDragAxisDistance = 0.1f;
-
 
         /// <summary>
         /// DeveloperConfig.EnableRingZoom: the right stick up/down (mouse wheel) makes the ring bigger/smaller - it moves
@@ -917,7 +434,7 @@ namespace Gothic.VR.Adapters.Player
             }
 
             var putInTarget = _putInCandidates.FirstOrDefault(c => c != null)?.Target;
-            Slot front = null;
+            FavoritesRingSlotView front = null;
             var frontDistance = float.MaxValue;
             foreach (var slot in _slots)
             {
@@ -929,7 +446,7 @@ namespace Gothic.VR.Adapters.Player
                 if (slot.Item != null)
                     slot.Root.transform.localRotation = Quaternion.Euler(0f, Time.time * _spinSpeed, 0f);
                 if (slot.Container != null && slot.TakenTime < 0f)
-                    UpdateBodyCollisions(slot);
+                    _slotViews.UpdateBodyCollisions(slot);
 
                 var distance = GetHeadAngle(slot);
                 if (distance < frontDistance)
@@ -950,7 +467,7 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// Degrees between where the head looks and the slot (flat, seen from the head).
         /// </summary>
-        private float GetHeadAngle(Slot slot)
+        private float GetHeadAngle(FavoritesRingSlotView slot)
         {
             var head = Camera.main != null ? Camera.main.transform : null;
             if (head == null)
@@ -964,7 +481,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateHover()
         {
-            Slot hovered = null;
+            FavoritesRingSlotView hovered = null;
             var hoveredSide = VrHandSide.Right;
             var best = _hoverDistance * RingScale;
             foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
@@ -996,7 +513,7 @@ namespace Gothic.VR.Adapters.Player
             }
 
             // Weapons and items are grabbed by the backend itself (OnBeforeGrabbed).
-            if (_hovered != null && _hovered.Kind == SlotKind.Spell && !_isDragging &&
+            if (_hovered != null && _hovered.Kind == FavoriteSlotKind.Spell && !_isDragging &&
                 _vrInput.GetButton(hoveredSide, VrButton.Grip).IsJustActivated)
                 TakeSpell(_hovered, hoveredSide);
         }
@@ -1021,7 +538,7 @@ namespace Gothic.VR.Adapters.Player
             ShowLabel(ref _label, "FavoriteName", _hovered != _front ? _hovered : null);
         }
 
-        private void ShowLabel(ref TextMeshPro label, string labelName, Slot slot)
+        private void ShowLabel(ref TextMeshPro label, string labelName, FavoritesRingSlotView slot)
         {
             if (slot == null)
             {
@@ -1044,7 +561,8 @@ namespace Gothic.VR.Adapters.Player
             label.gameObject.SetActive(true);
             label.text = GetSlotName(slot);
             label.transform.SetParent(slot.Root.transform, false);
-            var height = slot.Kind is SlotKind.Melee or SlotKind.Ranged ? _weaponSize * 0.6f : _spellSize;
+            var height = slot.IsWeapon ? VRFavoritesRingSlotViews.WeaponSize * 0.6f
+                : VRFavoritesRingSlotViews.SpellSize;
             label.transform.localPosition = Vector3.up * (height * 0.9f);
             // Its world size grows with the ring, not with the slot's hover scale.
             label.transform.localScale = Vector3.one * (_labelWorldScale * RingScale /
@@ -1060,81 +578,13 @@ namespace Gothic.VR.Adapters.Player
         {
             foreach (var slot in _slots)
             {
-                if (slot.Kind != SlotKind.Spell || slot.Item == null || slot.Root == null)
+                if (slot.Kind != FavoriteSlotKind.Spell || slot.Item == null || slot.Root == null)
                     continue;
                 var isEffect = slot == _front && !_isDragging && Time.time - _frontSince >= _previewSeconds;
                 var state = !isEffect ? 0 : slot == _hovered ? 2 : 1;
                 if (state != slot.PreviewState)
-                    SetPreview(slot, state);
+                    _slotViews.SetPreview(slot, state);
             }
-        }
-
-        private void SetPreview(Slot slot, int state)
-        {
-            slot.PreviewState = state;
-            if (state > 0 && slot.Effect == null && !slot.HasNoEffect)
-            {
-                slot.Effect = CreateSpellEffect(slot.Item, slot.Root);
-                slot.HasNoEffect = slot.Effect == null;
-            }
-
-            var isEffect = state > 0 && slot.Effect != null;
-            if (slot.Effect != null)
-                slot.Effect.SetActive(isEffect);
-            if (slot.Model == null)
-                return;
-
-            slot.Model.SetActive(true);
-            if (isEffect && state == 1)
-                _dynamicMaterialService.SetDynamicValue(slot.Model, Constants.ShaderPropertyTransparency,
-                    _previewModelAlpha);
-            else
-                _dynamicMaterialService.ResetDynamicValue(slot.Model, Constants.ShaderPropertyTransparency,
-                    Constants.ShaderPropertyTransparencyDefault);
-            if (isEffect)
-                SetEffectAlpha(slot, state == 2 ? _previewEffectHoverAlpha : 1f);
-        }
-
-        /// <summary>
-        /// The effect's own materials (instanced once) with their alpha scaled - particles blend by it.
-        /// </summary>
-        private static void SetEffectAlpha(Slot slot, float alpha)
-        {
-            if (slot.EffectMaterials == null)
-            {
-                slot.EffectMaterials = new List<(Material, Color)>();
-                foreach (var renderer in slot.Effect.GetComponentsInChildren<Renderer>(true))
-                {
-                    foreach (var material in renderer.materials)
-                    {
-                        var property = material.HasProperty(_baseColorProperty) ? _baseColorProperty
-                            : material.HasProperty(_colorProperty) ? _colorProperty : -1;
-                        if (property < 0)
-                            continue;
-                        // The ring's own copies: no alpha test - at half alpha the particles (mostly below 50 %
-                        // already) fell under its 0.5 cutoff and the whole effect vanished while a hand was at it.
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        if (material.HasProperty(_cutoffProperty))
-                            material.SetFloat(_cutoffProperty, 0f);
-                        slot.EffectMaterials.Add((material, material.GetColor(property)));
-                    }
-                }
-            }
-
-            foreach (var (material, color) in slot.EffectMaterials)
-            {
-                if (material == null)
-                    continue;
-                var property = material.HasProperty(_baseColorProperty) ? _baseColorProperty : _colorProperty;
-                material.SetColor(property, new Color(color.r, color.g, color.b, color.a * alpha));
-            }
-        }
-
-        private GameObject CreateSpellEffect(ItemInstance item, GameObject parent)
-        {
-            // Gothic's motion, the whole effect fitted into the slot.
-            return VRSpellEffect.Create(item, parent, _gameStateService.GothicVm, _vmCacheService, _meshService,
-                true, _spellSize * _effectFitShare);
         }
 
         /// <summary>
@@ -1206,7 +656,8 @@ namespace Gothic.VR.Adapters.Player
         private bool IsAboveHead(Vector3 position)
         {
             var head = Camera.main;
-            return head != null && position.y > head.transform.position.y + _gestureHeightAboveEyes;
+            return head != null &&
+                   position.y > head.transform.position.y + VrFavoritesGestureDomain.GestureHeightAboveEyes;
         }
 
         /// <summary>
@@ -1215,7 +666,7 @@ namespace Gothic.VR.Adapters.Player
         /// does nothing - with a VRRuneCaster casting with that hand only. The spell stays in the inventory (equipped),
         /// like Gothic's readied spell. A trigger click of the other hand puts it away (VRFavoritesRingSpell).
         /// </summary>
-        private void TakeSpell(Slot slot, VrHandSide side)
+        private void TakeSpell(FavoritesRingSlotView slot, VrHandSide side)
         {
             var handModel = _vrPlayerService.GetHandModelGo(side);
             if (handModel == null || string.IsNullOrEmpty(slot.InstanceName))
@@ -1226,7 +677,7 @@ namespace Gothic.VR.Adapters.Player
             foreach (var oldSpell in handModel.GetComponentsInChildren<VRFavoritesRingSpell>())
                 oldSpell.Replace();
 
-            var container = CreateItem(slot.InstanceName);
+            var container = _vobService.CreateItem(slot.InstanceName, 1);
             var grabbable = container?.Go != null ? container.Go.GetComponentInChildren<VrInteractable>() : null;
             if (grabbable == null)
             {
@@ -1295,13 +746,12 @@ namespace Gothic.VR.Adapters.Player
             _vobMeshCullingService.AddCullingEntry(container);
             // Not into the world's VOB list: a held item isn't part of it (PlayerService.PickUpItem/DropItem). Added
             // here, it depended on the backend's event order whether it was saved twice (world + inventory).
-            _playerService.RemoveItem(slot.InstanceName, 1);
-            slot.Amount--;
+            _favoritesService.TakeOutOne(slot.Content);
 
             Logger.Log($"[FavoritesRing] {slot.Item.Name} taken into the hand ({slot.Amount} left)", LogCat.VR);
-            if (slot.Kind is SlotKind.Melee or SlotKind.Ranged)
+            if (slot.IsWeapon)
             {
-                _takenWeapon = new TakenWeapon
+                _takenWeapon = new FavoritesRingTakenWeapon
                 {
                     Grabbable = grabbable,
                     Item = slot.Item,
@@ -1309,9 +759,10 @@ namespace Gothic.VR.Adapters.Player
                     Kind = slot.Kind
                 };
             }
-            if (slot.Kind is SlotKind.Item or SlotKind.Currency && slot.Amount > 0 && args.IsHandOrDistance)
+            if (slot.Kind is FavoriteSlotKind.Item or FavoriteSlotKind.Currency && slot.Amount > 0 &&
+                args.IsHandOrDistance)
             {
-                _transfer = new Transfer
+                _transfer = new FavoritesRingTransfer
                 {
                     Slot = slot,
                     Held = container,
@@ -1364,7 +815,7 @@ namespace Gothic.VR.Adapters.Player
 
             _transfer.Carry -= count;
             held.VobAs<IItem>().Amount += count;
-            _transfer.Slot.Amount -= count;
+            _transfer.Slot.Content.Amount -= count;
             _hapticsService.Vibrate(_transfer.Side, VrHapticPreset.Info);
             UpdateLabels();
             return true;
@@ -1387,28 +838,13 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
-        private VobContainer CreateItem(string instanceName)
+        private void Unequip(FavoritesRingSlotView slot, VrHandSide side)
         {
-            return _vobService.CreateItem(new Item
-            {
-                Name = instanceName,
-                Visual = new VisualMesh(),
-                Instance = instanceName,
-                Amount = 1
-            });
-        }
-
-        private void Unequip(Slot slot, VrHandSide side)
-        {
-            if (slot.Item == null || slot.Kind == SlotKind.Currency)
+            if (!_favoritesService.TakeOff(slot.Content))
                 return;
-            if (slot.Kind == SlotKind.Item)
-                _playerService.HeroContainer.Props.FavoriteItems.Remove(slot.InstanceName);
-            else
-                _npcInventoryService.UnequipItemWithEffects(_playerService.HeroContainer.Instance, slot.Item);
             _hapticsService.Vibrate(side, VrHapticPreset.Warning);
             Logger.Log($"[FavoritesRing] {GetSlotName(slot)} " +
-                       (slot.Kind == SlotKind.Item ? "taken off the ring" : "unequipped"), LogCat.VR);
+                       (slot.Kind == FavoriteSlotKind.Item ? "taken off the ring" : "unequipped"), LogCat.VR);
             Rebuild();
         }
 
@@ -1433,12 +869,14 @@ namespace Gothic.VR.Adapters.Player
 
                 var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
                 var item = _vmCacheService.TryGetItemData(instanceName);
-                var kind = GetKind(item, instanceName);
+                var kind = _favoritesService.GetKind(item, instanceName);
                 var target = _slots
                     .Where(s => s.TakenTime < 0f && IsNear(held, s, _putInDistance * RingScale))
-                    .OrderBy(s => IsSame(s.InstanceName, instanceName) ? 0 : s.Kind == kind ? 1 : 2)
+                    .OrderBy(s => VrFavoritesService.IsSame(s.InstanceName, instanceName) ? 0
+                        : s.Kind == kind ? 1 : 2)
                     .FirstOrDefault();
-                if (target == null || !TryPutIn(item, instanceName, kind, target, out var action, out var replaced))
+                if (target == null || !_favoritesService.TryPutIn(item, instanceName, kind, target.Content,
+                        out var action, out var replaced))
                 {
                     ExpirePutInCandidate(index);
                     continue;
@@ -1446,7 +884,7 @@ namespace Gothic.VR.Adapters.Player
 
                 if (_putInCandidates[index]?.Target != target)
                     _hapticsService.Vibrate(side, VrHapticPreset.Info);
-                _putInCandidates[index] = new PutInCandidate
+                _putInCandidates[index] = new FavoritesRingPutInCandidate
                 {
                     Container = container,
                     Item = item,
@@ -1485,18 +923,8 @@ namespace Gothic.VR.Adapters.Player
             }
 
             _takenWeapon = null;
-            var hero = _playerService.HeroContainer;
             var isGone = taken.Grabbable == null || taken.Grabbable.GetComponentInParent<VRBackpack>() != null;
-            var isInBackpack = isGone && GetBackpackAmount(taken.InstanceName) > 0;
-            var isEquipped = _npcInventoryService.IsEquipped(hero.Instance, taken.InstanceName);
-            if (isInBackpack && !isEquipped)
-            {
-                foreach (var other in hero.Props.EquippedItems.Where(i => GetKind(i) == taken.Kind).ToList())
-                    _npcInventoryService.UnequipItemWithEffects(hero.Instance, other);
-                _npcInventoryService.EquipItemWithEffects(hero.Instance, taken.Item);
-            }
-            if (isInBackpack)
-                Logger.Log($"[FavoritesRing] {taken.Item.Name} back in the backpack - stays equipped", LogCat.VR);
+            _favoritesService.KeepTakenWeaponEquipped(taken.Item, taken.InstanceName, taken.Kind, isGone);
         }
 
         /// <summary>
@@ -1522,12 +950,8 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The let go item into the backpack - like VRItemUser.Equip:
-        /// - At its own slot: just back into the backpack.
-        /// - A rune/scroll into the empty slot (below 8): equipped.
-        /// - A weapon into the empty slot or onto the equipped one of its kind, which it replaces (Gothic: one melee
-        ///   weapon, one bow/crossbow): equipped - if the hero meets its requirements, else the engine's message.
-        /// - Anything else into the empty slot (below 3): a favorite item.
+        /// The let go item into the backpack, as VrFavoritesService.TryPutIn decided when it touched the slot
+        /// (VrFavoritesService.PutIn).
         /// </summary>
         private void UpdatePendingPutIn()
         {
@@ -1543,125 +967,21 @@ namespace Gothic.VR.Adapters.Player
             }
 
             var vobItem = putIn.Container.VobAs<IItem>();
-            _playerService.AddItem(putIn.InstanceName, Mathf.Max(1, vobItem.Amount));
-            var hero = _playerService.HeroContainer;
-            if (putIn.Action == "equipped" && putIn.Kind is SlotKind.Melee or SlotKind.Ranged)
-            {
-                // Gothic: one melee weapon, one bow/crossbow - all others of the kind come off (the ring's one, and
-                // any left from before: several bows stayed equipped, the backpack showed [E] on each in turn).
-                foreach (var other in hero.Props.EquippedItems.Where(i => GetKind(i) == putIn.Kind).ToList())
-                    _npcInventoryService.UnequipItemWithEffects(hero.Instance, other);
-            }
-            else if (putIn.Replaced != null)
-            {
-                _npcInventoryService.UnequipItemWithEffects(hero.Instance, putIn.Replaced);
-            }
-            if (putIn.Action == "equipped")
-                _npcInventoryService.EquipItemWithEffects(hero.Instance, putIn.Item);
-            else if (putIn.Action == "a favorite")
-                hero.Props.FavoriteItems.Add(putIn.InstanceName);
+            _favoritesService.PutIn(putIn.Item, putIn.InstanceName, putIn.Kind, Mathf.Max(1, vobItem.Amount),
+                putIn.Action, putIn.Replaced);
             _vobService.RemoveWorldItem(putIn.Container);
 
             _hapticsService.Vibrate(putIn.Side, VrHapticPreset.Success);
-            var name = putIn.Kind == SlotKind.Spell ? GetSpellName(putIn.Item) : putIn.Item.Name;
+            var name = putIn.Kind == FavoriteSlotKind.Spell ? GetSpellName(putIn.Item) : putIn.Item.Name;
             var instead = putIn.Replaced != null ? $" instead of {putIn.Replaced.Name}" : "";
             Logger.Log($"[FavoritesRing] {name} {putIn.Action}{instead}", LogCat.VR);
             Rebuild();
         }
 
-        // The item whose "can't use" message was shown - TryPutIn runs every frame while it's held near the ring.
-        private ItemInstance _lastMessageItem;
-
-        private bool CheckOnce(bool isAllowed, ItemInstance item)
-        {
-            if (!isAllowed)
-                _lastMessageItem = item;
-            return isAllowed;
-        }
-
-        /// <summary>
-        /// What letting go of the held item at the target slot does - false (with the reason logged once) if it
-        /// can't go in there.
-        /// </summary>
-        private bool TryPutIn(ItemInstance item, string instanceName, SlotKind kind, Slot target, out string action,
-            out ItemInstance replaced)
-        {
-            action = null;
-            replaced = null;
-            string rejection = null;
-            var isMessageShown = !ReferenceEquals(item, _lastMessageItem);
-            var hero = _playerService.HeroContainer;
-            var isInRing = _slots.Any(s => IsSame(s.InstanceName, instanceName)) ||
-                           hero.Props.FavoriteItems.Any(i => IsSame(i, instanceName));
-            if (item == null)
-                rejection = "unknown item";
-            else if (IsSame(target.InstanceName, instanceName) ||
-                     target.Kind == SlotKind.Empty && (isInRing || kind == SlotKind.Currency))
-                // Its own slot - or another one of it (its slot shows already), or the money.
-                action = "back into the backpack";
-            else if (target.Kind != SlotKind.Empty &&
-                     !(target.Kind == kind && kind is SlotKind.Melee or SlotKind.Ranged))
-                rejection = $"a {kind} doesn't go onto a {target.Kind}";
-
-            if (rejection == null && action == null)
-            {
-                switch (kind)
-                {
-                    case SlotKind.Spell when _slots.Count(s => s.Kind == SlotKind.Spell) >= _maxSpells:
-                        rejection = "8 spells already";
-                        break;
-                    case SlotKind.Spell when !CheckOnce(_fightService.CheckHeroRuneCircle(item, isMessageShown), item):
-                        rejection = "magic circle too low (EnableRuneCircleRequirement)";
-                        break;
-                    case SlotKind.Spell:
-                        action = "equipped";
-                        break;
-                    case SlotKind.Melee or SlotKind.Ranged when !IsWeaponSlotsEnabled:
-                        rejection = "weapon slots off (EnableRingWeaponSlots)";
-                        break;
-                    case SlotKind.Melee or SlotKind.Ranged when
-                        !CheckOnce(_fightService.CheckHeroWeaponRequirement(item, isMessageShown), item):
-                        rejection = "requirements not met";
-                        break;
-                    case SlotKind.Melee or SlotKind.Ranged:
-                        action = "equipped";
-                        replaced = _slots.FirstOrDefault(s => s.Kind == kind)?.Item;
-                        break;
-                    case SlotKind.Item when !IsItemSlotsEnabled:
-                        rejection = "item slots off (EnableRingItemSlots)";
-                        break;
-                    case SlotKind.Item when hero.Props.FavoriteItems.Count >= _maxItems:
-                        rejection = "3 favorite items already";
-                        break;
-                    case SlotKind.Item:
-                        action = "a favorite";
-                        break;
-                }
-            }
-
-            if (rejection == null)
-            {
-                _lastRejection = null;
-                return action != null;
-            }
-            var message = $"{instanceName} into {target.Kind} {target.InstanceName}: {rejection}";
-            if (message != _lastRejection)
-            {
-                _lastRejection = message;
-                Logger.Log($"[FavoritesRing] Not put in - {message}", LogCat.VR);
-            }
-            return false;
-        }
-
-        private static bool IsSame(string instanceName, string other)
-        {
-            return string.Equals(instanceName, other, System.StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
         /// Any part of the held item at the slot - a sword is put in with its blade, its grip stays in the hand.
         /// </summary>
-        private static bool IsNear(GameObject held, Slot slot, float distance)
+        private static bool IsNear(GameObject held, FavoritesRingSlotView slot, float distance)
         {
             if (slot.Root == null)
                 return false;

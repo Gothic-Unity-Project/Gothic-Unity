@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRFavoritesRing, VRFavoritesRingSpell (VR); ItemInstanceExtension.GetEquipConflicts (applied in EquipDomain), PlayerService.DropItem, PlayerInventoryOwner, NpcProperties.FavoriteItems (Core); DeveloperConfig EnableVrSpellRing, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
+- Technical details: VrFavoritesService with VrFavoritesPutInDomain and VrFavoritesGestureDomain (contents, put-in rules, favorite items, gesture), VRFavoritesRing and VRFavoritesRingSlotViews (visuals, hands), VRFavoritesRingSpell, models in Models/FavoritesRing (VR); ItemInstanceExtension.GetEquipConflicts (applied in EquipDomain), PlayerService.DropItem/GetItemAmount, PlayerInventoryOwner, TradeService.CurrencyName (Core); DeveloperConfig EnableVrSpellRing, EnableRingWeaponSlots, EnableRingItemSlots, EnableRingZoom
 
 ## Context
 
@@ -26,5 +26,5 @@ In Gothic, holding the magic key shows the equipped runes and scrolls in a circl
 ## Consequences
 
 - The favorite items aren't saved yet. A save section comes with main's save/load at the final rebase.
-- `VRFavoritesRing` is 1,700 lines. It should be split into a `VrFavoritesService` (contents, put-in rules, the favorites and their save section) and gesture, carousel and slot-view adapters. The put-in should use `VrDropZone`. This is a follow-up.
+- The rules live in `VrFavoritesService` (VR), which also owns the hero's favorite items. `VRFavoritesRing` (about 1,000 lines) still holds the carousel, hover, grab and put-in handling; splitting it further and putting in via `VrDropZone` is a follow-up.
 - Opening the ring scans the VOB cache per slot. Caching it and measuring on Quest is a follow-up.

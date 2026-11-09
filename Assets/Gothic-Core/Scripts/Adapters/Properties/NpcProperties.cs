@@ -56,10 +56,6 @@ namespace Gothic.Core.Adapters.Properties
 
         // AI topics
 
-        // DeveloperConfig.EnableRingItemSlots: the hero's favorite (not equippable) items in the VR favorites ring -
-        // Daedalus symbol names. Not saved yet (main's save/load gets a section with the final rebase).
-        public List<string> FavoriteItems = new();
-
         public NpcInstance EnemyNpc;
         public NpcInstance TargetNpc;
         // Until when (Time.time) this NPC - the hero - counts as starting a
