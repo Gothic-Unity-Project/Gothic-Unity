@@ -12,6 +12,7 @@ using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Logger = Gothic.Core.Logging.Logger;
@@ -20,7 +21,7 @@ namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
     /// The transformed hero's body (VRTransformService): a monster NPC without AI that follows the VR player.
-    /// - Layer PlayerPuppet: the VR (and spectator) camera don't render it, only the small PiP camera does - its picture
+    /// - Layer TransformPuppet: the VR (and spectator) camera don't render it, only the small PiP camera does - its picture
     ///   is an orb in the casting hand. No colliders, not in the NPC cache (no perception, focus, saving).
     /// - Animations from the player's movement (idle / walk / run), attack = swing (or trigger) of the free hand - the MDS sound
     ///   events of these animations are the only thing the player hears of the body.
@@ -38,7 +39,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly Gothic.Core.Manager.AudioService _audioService;
 
-        private const int _puppetLayer = 13; // PlayerPuppet
         private const float _walkSpeed = 0.2f;
         private const float _runSpeed = 1.6f;
         private const float _attackReach = 1.8f;
@@ -141,6 +141,7 @@ namespace Gothic.VR.Adapters.Player
         private Bounds _puppetBounds;
 
         private Camera _pipCamera;
+        private readonly List<Camera> _hiddenFromCameras = new();
         private RenderTexture _pipTexture;
         private GameObject _orb;
         private Material _orbMaterial;
@@ -158,7 +159,7 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// Transform back: the monster leaves the world (NpcService.DespawnRuntimeNpc, also if it was never built),
-        /// camera height and PiP are undone.
+        /// camera height, PiP and camera culling are undone.
         /// </summary>
         public void Release()
         {
@@ -183,6 +184,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_orb);
             if (_pipCamera != null)
                 Destroy(_pipCamera.gameObject);
+            ShowOnVrCameras();
             Destroy(gameObject);
         }
 
@@ -314,7 +316,7 @@ namespace Gothic.VR.Adapters.Player
             _monster.Instance.NoFocus = 1;
 
             foreach (var child in _monster.Go.GetComponentsInChildren<Transform>(true))
-                child.gameObject.layer = _puppetLayer;
+                child.gameObject.layer = Constants.TransformPuppetLayer;
             foreach (var collider in _monster.Go.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
             foreach (var body in _monster.Go.GetComponentsInChildren<Rigidbody>(true))
@@ -345,10 +347,27 @@ namespace Gothic.VR.Adapters.Player
             return bounds;
         }
 
-        private static void HideFromVrCameras()
+        private void HideFromVrCameras()
         {
+            var layerBit = 1 << Constants.TransformPuppetLayer;
             foreach (var camera in Camera.allCameras)
-                camera.cullingMask &= ~(1 << _puppetLayer);
+            {
+                if ((camera.cullingMask & layerBit) == 0)
+                    continue;
+                camera.cullingMask &= ~layerBit;
+                _hiddenFromCameras.Add(camera);
+            }
+        }
+
+        private void ShowOnVrCameras()
+        {
+            var layerBit = 1 << Constants.TransformPuppetLayer;
+            foreach (var camera in _hiddenFromCameras)
+            {
+                if (camera != null)
+                    camera.cullingMask |= layerBit;
+            }
+            _hiddenFromCameras.Clear();
         }
 
         /// <summary>
@@ -825,7 +844,7 @@ namespace Gothic.VR.Adapters.Player
 
             var cameraGo = new GameObject("_TransformPipCamera");
             _pipCamera = cameraGo.AddComponent<Camera>();
-            _pipCamera.cullingMask = 1 << _puppetLayer;
+            _pipCamera.cullingMask = 1 << Constants.TransformPuppetLayer;
             _pipCamera.clearFlags = CameraClearFlags.SolidColor;
             _pipCamera.backgroundColor = new Color(0.05f, 0.03f, 0.08f, 1f);
             _pipCamera.fieldOfView = _pipFov;
