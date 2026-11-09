@@ -2,6 +2,7 @@ using System;
 using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
+using Gothic.Core.Services;
 
 namespace Gothic.Core.Extensions
 {
@@ -41,12 +42,35 @@ namespace Gothic.Core.Extensions
             return state != null && state.StartsWith(DaedalusConst.ZsMagicFreeze, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static readonly string[] _sleepStates = { "ZS_SLEEP", "ZS_MAGICSLEEP", "ZS_BABE_SLEEP", "ZS_SLEEPER" };
+        private static GameStateService _gameStateService;
+
         /// <summary>
-        /// A true human (guild below GIL_SEPERATOR_HUM, G1 and G2) - not a monster or an orc.
+        /// A true human - not a monster or an orc. Like the scripts' C_NpcIsHuman: guild below GIL_SEPERATOR_HUM, the
+        /// value the loaded scripts define (GameStateService.GuildSeparatorHuman, read once per VM by BootstrapDomain -
+        /// a mod may move it). Before DI is up (EditMode tests) G1's/G2's 16.
         /// </summary>
         public static bool IsHuman(this NpcContainer npc)
         {
-            return npc.Instance.Guild < (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
+            _gameStateService ??= ReflexProjectInstaller.DIContainer?.Resolve<GameStateService>();
+            var separator = _gameStateService?.GuildSeparatorHuman ?? (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
+            return npc.Instance.Guild < separator;
+        }
+
+        /// <summary>
+        /// Asleep in bed (ZS_Sleep, G1's ZS_Babe_Sleep/ZS_Sleeper) or by the sleep spell (ZS_MagicSleep).
+        /// </summary>
+        public static bool IsAsleep(this NpcContainer npc)
+        {
+            var state = npc?.Vob?.CurrentStateName;
+            if (state == null)
+                return false;
+            foreach (var sleepState in _sleepStates)
+            {
+                if (state.Equals(sleepState, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

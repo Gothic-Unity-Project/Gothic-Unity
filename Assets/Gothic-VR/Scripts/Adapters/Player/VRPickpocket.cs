@@ -1,0 +1,703 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Gothic.Core;
+using Gothic.Core.Domain.Inventory;
+using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Manager;
+using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
+using Gothic.VR.Services;
+using Gothic.VR.Interaction.Models;
+using Gothic.VR.Interaction.Components;
+using Gothic.VR.Interaction.Ports;
+using Reflex.Attributes;
+using UnityEngine;
+using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
+
+namespace Gothic.VR.Adapters.Player
+{
+    /// <summary>
+    /// Pickpocketing in VR (rules in PickpocketService). Any VR backend (IVrRig hands, VrInteractable).
+    /// - Sneaking, humans nearby who can't see the hero show a purse (a small copy of the backpack) on their right
+    ///   hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
+    /// - G1 (always on, needs the talent): grip on the purse opens the victim's pockets as a backpack in that hand
+    ///   (his items without what he wears or wields). The other hand takes items out - each one can get the hero
+    ///   caught. Caught (a roll, or the victim sees the hero while he robs him): the backpack is gone, the victim gets
+    ///   PERC_CATCHTHIEF, witnesses PERC_ASSESSTHEFT. Letting go of the backpack or walking away closes the pockets.
+    /// - G2 (Gothic.ini pickpocketPurse, on by default): the purse is the NPC's pickpocket dialog option - it shows
+    ///   exactly when the dialog would offer it, a grip on it chooses it (B_Beklauen: gold or caught) and it is gone.
+    /// Runtime only - the stolen items/gold are in the inventories, the script's aivar on the NPC; both are saved.
+    /// </summary>
+    public class VRPickpocket : MonoBehaviour
+    {
+        private static readonly VrHandSide[] _handSides = { VrHandSide.Left, VrHandSide.Right };
+        private static readonly int _emissionColorId = Shader.PropertyToID("_EmissionColor");
+        [Inject] private readonly PickpocketService _pickpocketService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRPickpocketService _vrPickpocketService;
+        [Inject] private readonly IVrInput _vrInput;
+        [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly AudioService _audioService;
+        [Inject] private readonly ConfigService _configService;
+
+        // The active backend's backpack prefab (VRBackpack.PrefabPath).
+        private static string _backpackPrefabPath => VRBackpack.PrefabPath;
+        private const string _backpackBodyName = "BackPack-Body";
+        private const string _pelvisBoneName = "BIP01 PELVIS";
+        private const float _scanInterval = 0.25f;
+        private const float _purseRange = 3f;
+        private const int _maxPurses = 3;
+        private const float _purseSize = 0.14f;
+        // A big reach: the NPC's body (armor) is in the way of the hand.
+        private const float _hoverDistance = 0.2f;
+        private const float _hoverScale = 1.3f;
+        private const float _pelvisSideOffset = 0.18f;
+        // Hanging out of the hip towards the back (in the body it couldn't be reached) - tried out on Lukis and Ghorri.
+        private static readonly Vector3 _purseOffset = new(0f, 0f, -0.1f);
+        private static readonly Quaternion _purseRotation = Quaternion.Euler(-90f, 0f, 90f);
+        // Meters above a sleeping NPC's pelvis (lying in bed, the hip is under the blanket).
+        private const float _sleepingPurseHeight = 0.3f;
+        private const float _robRange = 2.5f;
+        private const float _caughtCooldown = 30f;
+        private const float _pulseSpeed = 3f;
+        private static readonly Color _glowColor = new(1f, 0.75f, 0.2f);
+
+        private readonly Dictionary<NpcContainer, Purse> _purses = new();
+        private readonly Dictionary<NpcContainer, float> _caughtUntil = new();
+        private readonly Dictionary<NpcContainer, List<Collider>> _passThroughSleepers = new();
+        private float _nextScan;
+        // Reused by every scan tick - no allocations.
+        private readonly HashSet<NpcContainer> _sleepersInRange = new();
+        private readonly List<NpcContainer> _victims = new();
+        private readonly List<float> _victimDistances = new();
+        private readonly List<NpcContainer> _npcBuffer = new();
+        private readonly List<Collider> _colliderBuffer = new();
+        private Mesh _purseMesh;
+        private Material _purseMaterial;
+        private Purse _hovered;
+        private VrHandSide _hoveredSide;
+
+        private NpcContainer _victim;
+        private PickpocketInventoryOwner _pockets;
+        private VRBackpack _backpack;
+        private GameObject _backpackRoot;
+        private VrInteractable _backpackGrabbable;
+        private bool _isCaught;
+        // Gothic.ini pickpocketPurse (G2 only), refreshed on PlayerPrefUpdated.
+        private bool _isG2OptionOn;
+
+        private class Purse
+        {
+            public NpcContainer Npc;
+            public GameObject Go;
+            public Transform SwordSlot;
+            public Transform Pelvis;
+            public Material Material;
+        }
+
+        public bool IsRobbing => _victim != null;
+
+        // G1's purse is the engine's steal window (always on), G2's a view of its dialog the player may switch off.
+        private bool IsPurseEnabled => _pickpocketService.IsEnabled && (_pickpocketService.IsGothic1 || _isG2OptionOn);
+
+        private void Awake()
+        {
+            this.Inject();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            ReadOption();
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+        }
+
+        private void ReadOption()
+        {
+            // No Gothic.ini before a game was picked (profile menu).
+            _isG2OptionOn = _configService.Gothic != null &&
+                            _configService.Gothic.GetInt(VRConstants.IniNames.PickpocketPurse,
+                                VRConstants.PickpocketPurseDefaultValue) == 1;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.PickpocketPurse)
+                ReadOption();
+        }
+
+        private void Update()
+        {
+            if (Time.time >= _nextScan)
+            {
+                _nextScan = Time.time + _scanInterval;
+                ScanNpcs();
+            }
+
+            if (IsRobbing)
+            {
+                UpdateRobbery();
+                return;
+            }
+
+            if (!IsPurseEnabled || !_pickpocketService.CanHeroSteal())
+            {
+                ClearPurses("hero doesn't sneak or purses are off");
+                return;
+            }
+
+            UpdatePurses();
+            UpdateHover();
+        }
+
+        /// <summary>
+        /// One pass over all NPCs per scan tick (no allocations, buffers are reused):
+        /// - Sneaking, the hands and the player's body pass through sleeping NPCs nearby - reaching for the purse of
+        ///   a sleeper in bed bumped into him and pushed the player away. Not while pickpocketing is off.
+        /// - The nearest robbable NPCs (max _maxPurses) show a purse.
+        /// </summary>
+        private void ScanNpcs()
+        {
+            var hero = _pickpocketService.Hero;
+            var hasHero = hero?.Go != null;
+            var isEnabled = IsPurseEnabled;
+            var wantSleepers = isEnabled && hasHero && hero.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
+            var wantVictims = isEnabled && hasHero && !IsRobbing && _pickpocketService.CanHeroSteal();
+
+            _sleepersInRange.Clear();
+            _victims.Clear();
+            _victimDistances.Clear();
+
+            if (wantSleepers || wantVictims)
+            {
+                var heroPosition = hero.Go.transform.position;
+                var npcs = _multiTypeCacheService.NpcCache;
+                for (var i = 0; i < npcs.Count; i++)
+                {
+                    var npc = npcs[i];
+                    if (npc?.Go == null || !npc.Go.activeInHierarchy || npc == hero)
+                        continue;
+                    var sqrDistance = (npc.Go.transform.position - heroPosition).sqrMagnitude;
+                    if (sqrDistance > _purseRange * _purseRange)
+                        continue;
+
+                    if (wantSleepers && npc.IsAsleep())
+                        _sleepersInRange.Add(npc);
+                    if (wantVictims && !IsCoolingDown(npc) && _pickpocketService.CanBeRobbed(npc))
+                        InsertVictim(npc, sqrDistance);
+                }
+            }
+
+            ApplySleeperPassThrough();
+            if (wantVictims)
+                ApplyPurses();
+        }
+
+        /// <summary>
+        /// Keeps _victims sorted by distance (nearest first), at most _maxPurses long.
+        /// </summary>
+        private void InsertVictim(NpcContainer npc, float sqrDistance)
+        {
+            var index = _victims.Count;
+            while (index > 0 && _victimDistances[index - 1] > sqrDistance)
+                index--;
+            if (index >= _maxPurses)
+                return;
+
+            _victims.Insert(index, npc);
+            _victimDistances.Insert(index, sqrDistance);
+            if (_victims.Count > _maxPurses)
+            {
+                _victims.RemoveAt(_maxPurses);
+                _victimDistances.RemoveAt(_maxPurses);
+            }
+        }
+
+        private void ApplySleeperPassThrough()
+        {
+            if (_passThroughSleepers.Count > 0)
+            {
+                _npcBuffer.Clear();
+                foreach (var npc in _passThroughSleepers.Keys)
+                {
+                    if (!_sleepersInRange.Contains(npc))
+                        _npcBuffer.Add(npc);
+                }
+
+                foreach (var npc in _npcBuffer)
+                {
+                    SetSleeperPassThrough(_passThroughSleepers[npc], false);
+                    _passThroughSleepers.Remove(npc);
+                    Logger.Log($"[Pickpocket] Hands collide with sleeping {npc.Go?.name} again", LogCat.VR);
+                }
+            }
+
+            foreach (var npc in _sleepersInRange)
+            {
+                if (_passThroughSleepers.ContainsKey(npc))
+                    continue;
+
+                npc.Go.GetComponentsInChildren(true, _colliderBuffer);
+                var colliders = new List<Collider>(_colliderBuffer.Count);
+                foreach (var npcCollider in _colliderBuffer)
+                {
+                    if (!npcCollider.isTrigger)
+                        colliders.Add(npcCollider);
+                }
+                _colliderBuffer.Clear();
+
+                _passThroughSleepers[npc] = colliders;
+                SetSleeperPassThrough(colliders, true);
+                Logger.Log($"[Pickpocket] Hands pass through sleeping {npc.Go.name} ({colliders.Count} collider(s))",
+                    LogCat.VR);
+            }
+        }
+
+        private void SetSleeperPassThrough(List<Collider> colliders, bool isIgnored)
+        {
+            var hands = _vrPlayerService.VRContextInteractionService?.PhysicsHands;
+            if (hands != null)
+            {
+                foreach (var hand in hands)
+                    hand?.IgnoreCollisions(colliders, isIgnored);
+            }
+
+            var controller = Rig?.CharacterController;
+            if (controller == null)
+                return;
+            foreach (var npcCollider in colliders)
+            {
+                if (npcCollider != null)
+                    Physics.IgnoreCollision(controller, npcCollider, isIgnored);
+            }
+        }
+
+        private void ApplyPurses()
+        {
+            if (_purses.Count > 0)
+            {
+                _npcBuffer.Clear();
+                foreach (var npc in _purses.Keys)
+                {
+                    if (!_victims.Contains(npc))
+                        _npcBuffer.Add(npc);
+                }
+                foreach (var npc in _npcBuffer)
+                    RemovePurse(npc, "out of range or can't be robbed now");
+            }
+
+            foreach (var npc in _victims)
+            {
+                if (!_purses.ContainsKey(npc))
+                    AddPurse(npc);
+            }
+        }
+
+        private bool IsCoolingDown(NpcContainer npc)
+        {
+            return _caughtUntil.TryGetValue(npc, out var until) && Time.time < until;
+        }
+
+        private void AddPurse(NpcContainer npc)
+        {
+            if (!TryLoadPurseLook())
+                return;
+
+            var go = new GameObject($"Purse_{npc.Instance.GetName(NpcNameSlot.Slot0)}");
+            var model = new GameObject("Model");
+            model.transform.SetParent(go.transform, false);
+            model.AddComponent<MeshFilter>().sharedMesh = _purseMesh;
+            var material = new Material(_purseMaterial);
+            material.EnableKeyword("_EMISSION");
+            model.AddComponent<MeshRenderer>().sharedMaterial = material;
+            model.transform.localRotation = _purseRotation;
+            FitSize(model, _purseSize);
+            model.transform.localPosition += _purseOffset;
+
+            _purses[npc] = new Purse
+            {
+                Npc = npc,
+                Go = go,
+                SwordSlot = npc.Go.FindChildRecursively(Gothic.Core.Const.Constants.SlotSword)?.transform,
+                Pelvis = npc.Go.FindChildRecursively(_pelvisBoneName)?.transform,
+                Material = material
+            };
+            Logger.Log($"[Pickpocket] Purse shown on {go.name}", LogCat.VR);
+        }
+
+        private void RemovePurse(NpcContainer npc, string reason)
+        {
+            if (!_purses.Remove(npc, out var purse))
+                return;
+            Logger.LogEditor($"[Pickpocket] Purse hidden on {purse.Go?.name}: {reason}", LogCat.VR);
+            if (purse == _hovered)
+                _hovered = null;
+            if (purse.Go != null)
+                Destroy(purse.Go);
+            if (purse.Material != null)
+                Destroy(purse.Material);
+        }
+
+        private void ClearPurses(string reason)
+        {
+            if (_purses.Count == 0)
+                return;
+
+            _npcBuffer.Clear();
+            _npcBuffer.AddRange(_purses.Keys);
+            foreach (var npc in _npcBuffer)
+                RemovePurse(npc, reason);
+        }
+
+        /// <summary>
+        /// The backpack's own mesh and material, made small - the purse.
+        /// </summary>
+        private bool TryLoadPurseLook()
+        {
+            if (_purseMesh != null)
+                return true;
+
+            var prefab = Resources.Load<GameObject>(_backpackPrefabPath);
+            var body = prefab != null ? prefab.FindChildRecursively(_backpackBodyName) : null;
+            var mesh = body != null ? body.GetComponent<MeshFilter>()?.sharedMesh : null;
+            var material = body != null ? body.GetComponent<MeshRenderer>()?.sharedMaterial : null;
+            if (mesh == null || material == null)
+            {
+                Logger.LogWarning($"[Pickpocket] No {_backpackBodyName} mesh in {_backpackPrefabPath} - no purses.",
+                    LogCat.VR);
+                return false;
+            }
+            _purseMesh = mesh;
+            _purseMaterial = material;
+            return true;
+        }
+
+        private static void FitSize(GameObject model, float size)
+        {
+            var renderer = model.GetComponent<Renderer>();
+            var largest = Mathf.Max(renderer.bounds.size.x, renderer.bounds.size.y, renderer.bounds.size.z);
+            if (largest > 0.0001f)
+                model.transform.localScale *= size / largest;
+            model.transform.position += model.transform.parent.position - renderer.bounds.center;
+        }
+
+        /// <summary>
+        /// Right hip: the sword slot (left hip) mirrored on the NPC's middle plane, or beside the pelvis.
+        /// </summary>
+        private void UpdatePurses()
+        {
+            var pulse = 0.35f + 0.25f * (1f + Mathf.Sin(Time.time * _pulseSpeed));
+            foreach (var purse in _purses.Values)
+            {
+                if (purse.Go == null || purse.Npc.Go == null)
+                    continue;
+
+                var root = purse.Npc.Go.transform;
+                Vector3 position;
+                // Lying in bed the body isn't upright - the hip mirrored on the
+                // root's middle plane was inside the bed, the purse couldn't be seen. Above the pelvis instead.
+                if (purse.Pelvis != null && purse.Npc.IsAsleep())
+                    position = purse.Pelvis.position + Vector3.up * _sleepingPurseHeight;
+                else if (purse.SwordSlot != null)
+                {
+                    var slot = purse.SwordSlot.position;
+                    position = slot - 2f * Vector3.Dot(slot - root.position, root.right) * root.right;
+                }
+                else if (purse.Pelvis != null)
+                    position = purse.Pelvis.position + root.right * _pelvisSideOffset;
+                else
+                    position = root.position + Vector3.up * 0.9f + root.right * _pelvisSideOffset;
+
+                purse.Go.transform.SetPositionAndRotation(position, root.rotation);
+                var isHovered = purse == _hovered;
+                purse.Go.transform.localScale = Vector3.one * (isHovered ? _hoverScale : 1f);
+                purse.Material.SetColor(_emissionColorId, _glowColor * (isHovered ? 1.2f : pulse));
+            }
+        }
+
+        private void UpdateHover()
+        {
+            Purse hovered = null;
+            var hoveredSide = VrHandSide.Right;
+            var best = _hoverDistance;
+            foreach (var side in _handSides)
+            {
+                if (!IsHandFree(side))
+                    continue;
+                var hand = _vrPlayerService.GetHandModelGo(side);
+                if (hand == null)
+                    continue;
+                foreach (var purse in _purses.Values)
+                {
+                    if (purse.Go == null)
+                        continue;
+                    var distance = Vector3.Distance(hand.transform.position, purse.Go.transform.position);
+                    if (distance >= best)
+                        continue;
+                    best = distance;
+                    hovered = purse;
+                    hoveredSide = side;
+                }
+            }
+
+            if (hovered != _hovered)
+            {
+                _hovered = hovered;
+                _hoveredSide = hoveredSide;
+                if (hovered != null)
+                    _hapticsService.Vibrate(hoveredSide, VrHapticPreset.Info);
+            }
+
+            if (_hovered == null)
+                return;
+
+            // The same grip grabs the NPC (VRNpc: talk) - not while a hand is at his purse.
+            _vrPickpocketService.BlockTalk(_hovered.Npc);
+            if (!_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
+                return;
+            if (_pickpocketService.IsGothic1)
+                StartRobbery(_hovered.Npc, _hoveredSide);
+            else
+                StealGold(_hovered.Npc, _hoveredSide);
+        }
+
+        /// <summary>
+        /// G2: the grip is the dialog's "pickpocket" choice - B_Beklauen gives the gold (and XP, sound) or the NPC
+        /// attacks. The purse is gone either way: robbed once is enough (the script's aivar), caught cools down.
+        /// </summary>
+        private void StealGold(NpcContainer victim, VrHandSide side)
+        {
+            RemovePurse(victim, "grabbed");
+            var isSuccess = false;
+            try
+            {
+                isSuccess = _pickpocketService.StealGold(victim);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Pickpocket] Stealing from {victim.Instance.GetName(NpcNameSlot.Slot0)} failed: {e}",
+                    LogCat.VR);
+            }
+
+            if (!isSuccess)
+                _caughtUntil[victim] = Time.time + _caughtCooldown;
+            _hapticsService.Vibrate(side, isSuccess ? VrHapticPreset.Success : VrHapticPreset.Error);
+            _nextScan = 0f;
+        }
+
+        /// <summary>
+        /// Nothing in the hand - or the NPC itself (his VrInteractable takes the grip at his hip, VRNpc lets go again).
+        /// </summary>
+        private bool IsHandFree(VrHandSide side)
+        {
+            var target = GetHandGrabber(side)?.Held;
+            return target == null || target.GetComponentInParent<VRNpc>() != null;
+        }
+
+        private IVrRig Rig => _vrPlayerService.VRContextInteractionService?.Rig;
+
+        private IVrGrabber GetHandGrabber(VrHandSide side)
+        {
+            var rig = Rig;
+            if (rig == null)
+                return null;
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand != null && hand.HandSide == side)
+                    return hand;
+            }
+            return null;
+        }
+
+        private void StartRobbery(NpcContainer victim, VrHandSide side)
+        {
+            var hand = GetHandGrabber(side);
+            var handModel = _vrPlayerService.GetHandModelGo(side);
+            if (hand == null || handModel == null)
+            {
+                Logger.LogWarning($"[Pickpocket] No {side} hand to open the pockets with.", LogCat.VR);
+                return;
+            }
+
+            if (hand.Held != null)
+                hand.ForceRelease();
+
+            var handTransform = handModel.transform;
+            var victimName = victim.Instance.GetName(NpcNameSlot.Slot0);
+            _backpack = VRBackpack.SpawnCopy(handTransform.position + handTransform.forward * 0.1f,
+                handTransform.rotation, $"Pockets_{victimName}", out _backpackRoot);
+            if (_backpack == null)
+            {
+                Logger.LogWarning($"[Pickpocket] {victimName}'s pockets couldn't be opened (no backpack prefab).",
+                    LogCat.VR);
+                return;
+            }
+
+            ClearPurses("robbing");
+            _victim = victim;
+            _vrPickpocketService.RobbedNpc = victim;
+            _isCaught = false;
+            _pockets = new PickpocketInventoryOwner(victim);
+            _pockets.ItemTaken += OnItemTaken;
+            _backpack.SetContainerOwner(_pockets);
+            _backpackGrabbable = VrInteractable.Find(_backpack);
+            StartCoroutine(PutPocketsIntoHand(side, victimName, handTransform.position));
+        }
+
+        /// <summary>
+        /// A frame later: a backend may make a freshly spawned prefab grabbable only in its Start (XRI).
+        /// </summary>
+        private IEnumerator PutPocketsIntoHand(VrHandSide side, string victimName, Vector3 soundPosition)
+        {
+            yield return null;
+            var rig = Rig;
+            if (_backpackGrabbable == null || rig == null || !IsRobbing ||
+                !rig.TryGrabIntoHand(side, _backpackGrabbable))
+            {
+                Logger.LogWarning($"[Pickpocket] The pockets of {victimName} couldn't be put into the hand - closed.",
+                    LogCat.VR);
+                EndRobbery();
+                yield break;
+            }
+            _backpackGrabbable.Released += OnBackpackReleased;
+
+            var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, soundPosition);
+            _hapticsService.Vibrate(side, VrHapticPreset.Success);
+            Logger.Log($"[Pickpocket] Robbing {victimName}", LogCat.VR);
+        }
+
+        private void OnItemTaken(string itemInstanceName, int amount)
+        {
+            if (_isCaught || _victim == null)
+                return;
+
+            Logger.Log($"[Pickpocket] Took {amount}x {itemInstanceName} from " +
+                       $"{_victim.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.VR);
+            if (_victim.IsAsleep())
+            {
+                Logger.Log("[Pickpocket] The victim sleeps - no roll", LogCat.VR);
+                return;
+            }
+
+            // Inside the socket event - the backpack goes in the next Update.
+            if (_pickpocketService.RollCaught())
+                _isCaught = true;
+        }
+
+        private void OnBackpackReleased(VrGrabArgs args)
+        {
+            if (!args.IsHandOrDistance)
+                return;
+            if (!_isCaught && _victim != null)
+                Logger.Log("[Pickpocket] Backpack let go - pockets closed", LogCat.VR);
+            // Not inside the release itself: the backend still works on the interactable.
+            StartCoroutine(EndRobberyNextFrame());
+        }
+
+        private IEnumerator EndRobberyNextFrame()
+        {
+            yield return null;
+            if (IsRobbing)
+                EndRobbery();
+        }
+
+        private void UpdateRobbery()
+        {
+            var isAsleep = _victim.IsAsleep();
+            if (_victim?.Go == null || !_victim.Go.activeInHierarchy ||
+                (!isAsleep && _victim.IsDown()))
+            {
+                EndRobbery();
+                return;
+            }
+
+            var hero = _pickpocketService.Hero;
+            if (!_isCaught && !isAsleep && hero?.Instance != null &&
+                _npcHelperService.CanSeeNpc(_victim.Instance, hero.Instance, false))
+            {
+                Logger.Log($"[Pickpocket] {_victim.Instance.GetName(NpcNameSlot.Slot0)} sees the hero robbing him",
+                    LogCat.VR);
+                _isCaught = true;
+            }
+
+            if (_isCaught)
+            {
+                Caught();
+                return;
+            }
+
+            if (hero?.Go != null &&
+                (hero.Go.transform.position - _victim.Go.transform.position).sqrMagnitude > _robRange * _robRange)
+            {
+                Logger.Log("[Pickpocket] Walked away - pockets closed", LogCat.VR);
+                EndRobbery();
+            }
+        }
+
+        private void Caught()
+        {
+            var victim = _victim;
+            _caughtUntil[victim] = Time.time + _caughtCooldown;
+            foreach (var side in _handSides)
+                _hapticsService.Vibrate(side, VrHapticPreset.Error);
+            try
+            {
+                _pickpocketService.CatchThief(victim);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Pickpocket] Catching the thief failed: {e}", LogCat.Npc);
+            }
+            finally
+            {
+                // A throwing script mustn't catch the hero again every frame.
+                EndRobbery();
+            }
+        }
+
+        private void EndRobbery()
+        {
+            if (_pockets != null)
+                _pockets.ItemTaken -= OnItemTaken;
+            if (_backpackGrabbable != null)
+            {
+                _backpackGrabbable.Released -= OnBackpackReleased;
+                if (_backpackGrabbable.IsHeld)
+                    _backpackGrabbable.ForceRelease();
+            }
+            if (_backpack != null)
+                _backpack.Despawn(_backpackRoot);
+            else if (_backpackRoot != null)
+                Destroy(_backpackRoot);
+
+            _victim = null;
+            _vrPickpocketService.RobbedNpc = null;
+            _pockets = null;
+            _backpack = null;
+            _backpackRoot = null;
+            _backpackGrabbable = null;
+            _isCaught = false;
+            _nextScan = 0f;
+        }
+
+        private void OnDisable()
+        {
+            if (IsRobbing)
+                EndRobbery();
+            ClearPurses("disabled");
+        }
+    }
+}

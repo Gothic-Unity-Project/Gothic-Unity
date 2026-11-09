@@ -279,6 +279,11 @@ namespace Gothic.VR.Services
                 _heroFallMode = null;
         }
 
+        /// <summary>
+        /// The VR hero body lies or stands up (VrHeroDownPose) - crouching isn't sneaking meanwhile (VRHeroMovement).
+        /// </summary>
+        public bool IsHeroBodyDown { get; set; }
+
         public GameObject GrabbedItemLeft;
         public GameObject GrabbedItemRight;
 

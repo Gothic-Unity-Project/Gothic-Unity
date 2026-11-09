@@ -37,6 +37,7 @@ namespace Gothic.VR
             containerBuilder.AddSingleton(typeof(VRCarriedItemsSaveService));
             containerBuilder.AddSingleton(typeof(VRHeroBlockService));
             containerBuilder.AddSingleton(typeof(VrFavoritesService));
+            containerBuilder.AddSingleton(typeof(VRPickpocketService));
         }
     }
 }

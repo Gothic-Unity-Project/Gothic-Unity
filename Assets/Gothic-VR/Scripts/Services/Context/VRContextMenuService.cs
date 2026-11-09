@@ -170,6 +170,11 @@ namespace Gothic.VR.Services.Context
                     "Both hands up + both triggers: equipped spells and weapons"),
                 CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
                     VRConstants.FavoritesRingDefaultValue)));
+            // Off = G2's pickpocketing is only its dialog (G1's purse stays, it is the engine's steal window).
+            rows.Add((CreateToggleLabel(gameMenu, "PICKPOCKET_PURSE", "Pickpocket purse",
+                    "G2: sneaking, a purse to grab on whom you could pickpocket"),
+                CreateToggleChoice(gameMenu, "PICKPOCKET_PURSE", VRConstants.IniNames.PickpocketPurse,
+                    VRConstants.PickpocketPurseDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

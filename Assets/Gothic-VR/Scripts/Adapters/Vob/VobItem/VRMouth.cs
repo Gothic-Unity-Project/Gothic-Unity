@@ -15,6 +15,7 @@ using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
 using Gothic.Core.Services.World;
@@ -71,6 +72,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var go = other.gameObject;
 
             if (!TryGetItemToEat(go, out var item))
+                return;
+
+            // Unpaid trader goods (trade counter) can't be eaten, drunk or smoked.
+            if (VRTradeGoods.IsUnpaid(go.transform))
                 return;
 
             // Resolve root before grace-period check so the same object is tracked and removed.

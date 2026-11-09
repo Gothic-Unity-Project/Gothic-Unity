@@ -10,10 +10,12 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction;
@@ -48,6 +50,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly StackSplitService _stackSplitService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
@@ -223,16 +226,28 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return held != null && TryMerge(hand, held, isGrabbed, otherContainer, otherItem, isOtherGrabbed);
         }
 
+        /// <summary>
+        /// The trader whose unpaid goods this is (trade counter), null for the hero's own items.
+        /// </summary>
+        private static NpcContainer GetUnpaidTrader(VobContainer container)
+        {
+            return VRTradeGoods.GetUnpaid(container.Go.transform)?.Trader;
+        }
+
         private bool TryStartSplit(IVrGrabber emptyHand, VrHandSide side, VobContainer source, IItem item,
             bool isSourceGrabbed)
         {
             if (!_stackSplitService.CanSplit(item.Amount))
                 return false;
 
+            // A piece of unpaid trader goods is unpaid trader goods too (buy 3 of his 10 arrows).
             var palm = GetPalm(emptyHand);
-            var piece = SpawnPiece(item, palm.position, palm.rotation);
+            var piece = SpawnPiece(item, GetUnpaidTrader(source), palm.position, palm.rotation);
             if (piece == null)
                 return false;
+            // Taking a piece off a stack lying in the world is taking from that stack: it can be theft (PERC_ASSESSTHEFT,
+            // once per stack).
+            _heroPerceptionService.OnHeroTookItem(source.Vob);
             PutIntoPalm(emptyHand, piece);
 
             item.Amount--;
@@ -260,8 +275,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 if (item == null || !_stackSplitService.CanSplit(item.Amount))
                     continue;
 
+                // A trader's goods stay his unpaid goods in the hand.
                 var palm = GetPalm(hand);
-                var piece = SpawnPiece(item, palm.position, palm.rotation);
+                var piece = SpawnPiece(item, backpack.Trader, palm.position, palm.rotation);
                 if (piece == null)
                     return false;
                 PutIntoPalm(hand, piece);
@@ -296,7 +312,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (socket == null)
                 return false;
 
-            var piece = SpawnPiece(item, socket.Transform.position,
+            var piece = SpawnPiece(item, GetUnpaidTrader(source), socket.Transform.position,
                 socket.Transform.rotation);
             if (piece == null)
                 return false;
@@ -422,6 +438,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var sourceItem = source?.VobAs<IItem>();
             if (sourceItem == null || source == target || source.Go.GetComponentInChildren<VRRuneCaster>() != null)
+                return false;
+
+            // Own items join own items, a trader's unpaid goods only his unpaid goods.
+            if (GetUnpaidTrader(source) != GetUnpaidTrader(target))
                 return false;
 
             var instanceName = sourceItem.GetSymbolName();
@@ -576,7 +596,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 rigidbody.isKinematic = isKinematic;
         }
 
-        private VobContainer SpawnPiece(IItem item, Vector3 position, Quaternion rotation)
+        private VobContainer SpawnPiece(IItem item, NpcContainer unpaidTrader, Vector3 position, Quaternion rotation)
         {
             var instanceName = item.GetSymbolName();
             var piece = _vobService.CreateItem(new Item
@@ -588,6 +608,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             });
             if (piece?.Go == null)
                 return null;
+
+            if (unpaidTrader != null)
+                piece.Go.AddComponent<VRTradeGoods>().Init(unpaidTrader);
 
             piece.Go.transform.SetPositionAndRotation(position, rotation);
             SetKinematic(piece, false);

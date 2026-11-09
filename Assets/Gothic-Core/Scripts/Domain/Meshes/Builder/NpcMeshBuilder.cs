@@ -103,9 +103,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
         
         /// <summary>
-        /// Gothic stores a pre-baked collision AABB in the MDH file.
-        /// A single BoxCollider on the root GO matches Gothic's approach: the box is
-        /// static relative to the NPC's feet and is never deformed by animations.
+        /// Gothic stores a pre-baked collision AABB in the MDH file - the hitbox's fallback. The hitbox then follows the
+        /// animated body (NpcBodyBounds), measured here while the bones are still in their rest pose.
         /// </summary>
         private void CreateBodyAabbCollider()
         {
@@ -116,7 +115,11 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var bounds = Mdh.CollisionBoundingBox.ToUnityBounds();
             var hitbox = RootGo.GetComponentInChildren<NpcHitboxColliderAdapter>();
             if (hitbox != null)
+            {
+                // The MDH box stays only if the body can't be measured (no bones or skinned mesh).
                 hitbox.SetDimension(bounds);
+                hitbox.FollowBody(RootGo);
+            }
             else if (_isHitboxExpected)
                 Logger.LogWarning($"[NpcMeshBuilder] No NpcHitboxColliderAdapter below '{RootGo.name}' - " +
                                   "the NPC has no hitbox.", LogCat.Npc);

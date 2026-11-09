@@ -17,6 +17,7 @@ namespace Gothic.Core.Services.Npc
     /// <summary>
     /// What the engine tells the NPCs about the hero on its own (OpenGothic: Npc/MoveAlgo/Interactive):
     /// - PERC_ASSESSUSEMOB when the hero uses a mob (opens a chest or door, tries a lock),
+    /// - PERC_ASSESSQUIETSOUND for his footsteps - not while sneaking,
     /// - PERC_ASSESSENTERROOM when he walks into another portal room (RoomService),
     /// - PERC_ASSESSTHEFT when he takes an item that lay in the world.
     /// The Daedalus scripts decide what the NPCs do with it (owner's chest, whose hut, ...).
@@ -28,6 +29,13 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly RoomService _roomService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmCacheService _vmCacheService;
+
+        private const float _walkStepInterval = 0.55f;
+        private const float _runStepInterval = 0.35f;
+        private float _nextStepTime;
+        // Where the last heard step was: standing still (a run lingers 1.5 s, a teleport counts as one) makes no step.
+        private Vector3 _lastStepPosition;
+        private const float _minStepDistance = 0.3f;
 
         private const float _roomCheckInterval = 0.25f;
         // A new room counts after this many checks in a row - standing on a doorstep flipped in and out.
@@ -46,7 +54,7 @@ namespace Gothic.Core.Services.Npc
         public IInteractiveObject HeroDetectedMob { get; private set; }
 
         /// <summary>
-        /// Snd_IsSourceNpc / Npc_CanSeeSource: who made the last noise (the hero's steps come with the movement PR).
+        /// Snd_IsSourceNpc / Npc_CanSeeSource: who made the last noise.
         /// </summary>
         public NpcContainer SoundSourceNpc { get; private set; }
 
@@ -65,6 +73,7 @@ namespace Gothic.Core.Services.Npc
 
         public void Update()
         {
+            UpdateFootsteps();
             if (Time.time < _nextRoomCheckTime)
                 return;
             _nextRoomCheckTime = Time.time + _roomCheckInterval;
@@ -204,6 +213,36 @@ namespace Gothic.Core.Services.Npc
                 _worldItemIds.Add(vob.Id);
             else
                 _insertedWorldItems.Add(vob);
+        }
+
+        /// <summary>
+        /// Like OpenGothic: every footstep is a quiet sound unless the hero sneaks (BS_SNEAK). G1's B_AssessQuietSound
+        /// only reacts to noises with an item (Npc_GetDistToItem), so there footsteps stay without effect - as in the engine.
+        /// </summary>
+        private void UpdateFootsteps()
+        {
+            if (_gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
+                return;
+            var hero = heroInstance.GetUserData();
+            if (hero?.Props == null)
+                return;
+
+            var bodyState = hero.Props.BodyState;
+            if (bodyState is not (VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun))
+                return;
+            if (Time.time < _nextStepTime || hero.Go == null)
+                return;
+            var position = GetFeetPosition(hero.Go);
+            var moved = new Vector2(position.x - _lastStepPosition.x, position.z - _lastStepPosition.z).magnitude;
+            if (moved < _minStepDistance)
+                return;
+            _lastStepPosition = position;
+            _nextStepTime = Time.time + (bodyState == VmGothicEnums.BodyState.BsRun ? _runStepInterval : _walkStepInterval);
+
+            // No item makes this noise: NpcAiService delivers it without one (a stale 'item' made NPCs walk to it).
+            SoundSourceNpc = hero;
+            _npcAiService.BroadcastPassivePerception(hero, VmGothicEnums.PerceptionType.AssessQuietSound,
+                hero.Instance, hero.Instance);
         }
 
         /// <summary>

@@ -12,8 +12,10 @@ using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
+using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Adapters.UI;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -32,6 +34,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -97,6 +100,8 @@ namespace Gothic.VR.Services.Context
             _vrCinemaService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
+            // Items held in a hand don't pay (VRContextTradeService opens the counter).
+            GlobalEventDispatcher.TradeStarted.AddListener(_ => _tradeService.GetHeldAmount = GetHeldAmount);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLoadingSceneLoaded);
             GlobalEventDispatcher.GothicInisInitialized.AddListener(() =>
             {
@@ -212,6 +217,13 @@ namespace Gothic.VR.Services.Context
             // The favorites ring, in the player's space - it moves with him. The "favoritesRing" option switches it.
             var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
             favoritesRing.transform.SetParent(_player.transform, false);
+
+            // Purses on the hips of NPCs who can't see the sneaking hero (G1; G2: option pickpocketPurse).
+            var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+            pickpocket.transform.SetParent(_player.transform, false);
+
+            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
+            _player.gameObject.AddComponent<VRHeroMovement>();
 
             // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
             var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
@@ -451,6 +463,20 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
+        /// How many of an item the hands hold (TradeService: held currency doesn't pay).
+        /// </summary>
+        private int GetHeldAmount(string instanceName)
+        {
+            var amount = 0;
+            foreach (var container in _vrPlayerService.HeldItems)
+            {
+                if (container.Vob is IItem item && item.GetSymbolName().EqualsIgnoreCase(instanceName))
+                    amount += Mathf.Max(1, item.Amount);
+            }
+            return amount;
+        }
+
+        /// <summary>
         /// Like putting the held items into the backpack (VRPlayerService.StoreHeldItem).
         /// </summary>
         public void StoreHeldItemsInBackpack()
@@ -470,6 +496,14 @@ namespace Gothic.VR.Services.Context
                 {
                     Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",
                         LogCat.VR);
+                    continue;
+                }
+
+                // Unpaid trader goods aren't the hero's: let go, they go back to the trader (VRTradeGoods).
+                if (VRTradeGoods.IsUnpaid(interactable))
+                {
+                    interactable.ForceRelease();
+                    Logger.Log($"[Teleport] {hand.HandSide}: unpaid trader goods let go", LogCat.VR);
                     continue;
                 }
 

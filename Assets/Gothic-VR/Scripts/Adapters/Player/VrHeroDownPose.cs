@@ -365,6 +365,7 @@ namespace Gothic.VR.Adapters.Player
             _downStartEyeHeight = _headBone.position.y + _neckBelowEyes * standingScale - feetY;
             _bodyBones = null;
             SetHandsThroughFloor(true);
+            _vrPlayerService.IsHeroBodyDown = true;
             if (_isDead)
             {
                 _downPhase = DownPhase.Dead;
@@ -406,6 +407,7 @@ namespace Gothic.VR.Adapters.Player
             _downPhase = DownPhase.None;
             SetBodyShown(true);
             SetHandsThroughFloor(false);
+            _vrPlayerService.IsHeroBodyDown = false;
             _downAnimation = null;
             _downAnimations.Clear();
             if (IsRigAlive())

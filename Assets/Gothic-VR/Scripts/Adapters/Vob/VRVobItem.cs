@@ -2,6 +2,7 @@
 using System.Collections;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
+using Gothic.VR.Adapters.Trade;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
@@ -267,6 +268,10 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         private void ConsumeDocument()
         {
+            // Unpaid trader goods (trade counter) can be read, but not used up.
+            if (VRTradeGoods.IsUnpaid(this))
+                return;
+
             var container = GetComponentInParent<VobLoader>()?.Container;
             if (container?.Vob is not ZenKit.Vobs.IItem vobItem)
                 return;
