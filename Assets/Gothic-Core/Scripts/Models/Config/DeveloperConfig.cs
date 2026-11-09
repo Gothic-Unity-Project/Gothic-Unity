@@ -317,10 +317,6 @@ namespace Gothic.Core.Models.Config
                  "(untouched).")]
         public bool EnableG2VrPickpocket = true;
 
-        [Tooltip("VR: NPC bodies never come closer than 1 m to the VR hero's head - their models went into the camera " +
-                 "and pushed the hands with the held weapon. Position only, the AI isn't changed.")]
-        public bool EnableHeroPersonalSpace = true;
-
 
         /**
          * ##########

@@ -14,7 +14,6 @@ using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Marvin;
-using Gothic.VR.Adapters.Npc;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.Trade;
 using Gothic.VR.Adapters.UI;
@@ -142,8 +141,6 @@ namespace Gothic.VR.Services.Context
 
             // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
-            // DeveloperConfig.EnableHeroPersonalSpace (checked at runtime): NPC bodies stay out of the camera.
-            new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<HeroPersonalSpace>();
         }
 
         private void OnLoadingSceneLoaded()

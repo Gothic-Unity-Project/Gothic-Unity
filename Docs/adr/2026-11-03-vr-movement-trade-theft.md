@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket, EnableHeroPersonalSpace
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket
 
 ## Context
 
@@ -32,12 +32,17 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
    - The chance to get caught is G1's talent value, and in G2 100 - dexterity (5-90).
    - Sleepers can't catch you.
    - G2 gets the purse too, on top of its dialog (`EnableG2VrPickpocket`). It skips the dialog's one-time check and its XP, which is a deliberate choice, and the flag switches it off.
-6. **NPC bodies stay out of the camera** (`EnableHeroPersonalSpace`, 1 m), position only, not for humans who can be talked to. Only NPCs within 12 m are checked, from a list rebuilt every 0.25 s.
+6. **No personal space: NPC bodies may come into the camera.** A personal space (`HeroPersonalSpace`, NPCs pushed 1 m away from the hero's head) was tried and removed again:
+   - in a fight the NPC hits first anyway, before its body reaches the camera;
+   - leaning into an NPC is the player's choice;
+   - moving NPC transforms behind the AI's back fought its movement.
+
+   It can come back as a Gothic.ini comfort option if playtests show monster heads in the camera.
 7. **The speed potion is a factor on one base speed (and sneaking caps the run speed at the move speed).** Swimming or a transformation setting speeds in between becomes the new base.
 
 ## Consequences
 
-- `NpcBodyBounds` also shapes the combat hitbox, and it's attached by the personal space. Giving it to the NPC's own setup is a follow-up.
+- `NpcBodyBounds` shapes the combat hitbox. It was attached by the personal space; the NPC's own setup attaches it now (next change).
 - After a load, the world item list is built from the saved world: items the hero dropped can be theft once.
 - The speed potion and an open trade aren't saved.
 - Unpaid goods in the hero's hand count as his inventory while held (Daedalus `Npc_HasItems` sees them); letting go anywhere but the counter or the trader's goods gives them back.

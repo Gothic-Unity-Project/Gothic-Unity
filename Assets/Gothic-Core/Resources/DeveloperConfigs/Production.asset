@@ -78,7 +78,6 @@ MonoBehaviour:
   EnableHeroHands: 1
   NpcLootMode: 1
   EnableG2VrPickpocket: 1
-  EnableHeroPersonalSpace: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
