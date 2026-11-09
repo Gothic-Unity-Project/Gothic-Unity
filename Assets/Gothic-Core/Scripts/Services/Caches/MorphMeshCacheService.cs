@@ -167,10 +167,11 @@ namespace Gothic.Core.Services.Caches
         private const float _positionMatchScale = 10000f;
 
         /// <summary>
-        /// The frames of a morph animation for the given vertices of a Unity
-        /// mesh (rest pose + the animation's offsets). The vertices are matched to the morph mesh by position - the
-        /// mapping of TryGetMorphData() only exists if the mesh was built from the morph mesh first: a bow (or
-        /// crossbow) built once without it (welded, cached) never had one and never bent.
+        /// The frames of a morph animation for the given vertices of a Unity mesh (rest pose + the animation's
+        /// offsets). One source of frames per mesh: if the mesh was built from the morph mesh (its vertex mapping
+        /// exists, same vertex count), these are the frames of TryGetMorphData(). Only otherwise the vertices are
+        /// matched to the morph mesh by position - a bow (or crossbow) built once without it (welded, cached) never had
+        /// a mapping and never bent.
         /// </summary>
         [CanBeNull]
         public List<Vector3[]> TryGetMorphDataForVertices(string mmbName, string animationName, Vector3[] unityVertices)
@@ -188,6 +189,13 @@ namespace Gothic.Core.Services.Caches
             {
                 _animationMorphsByVertices[preparedKey] = null;
                 return null;
+            }
+
+            if (IsSameAsMappedMesh(mmbName, unityVertices))
+            {
+                var mappedFrames = TryGetMorphData(mmbName, animationName);
+                _animationMorphsByVertices[preparedKey] = mappedFrames;
+                return mappedFrames;
             }
 
             var positions = mmb.Mesh.Positions;
@@ -242,6 +250,18 @@ namespace Gothic.Core.Services.Caches
                        $"{matched}/{unityVertices.Length} vertices matched by position", LogCat.Mesh);
             _animationMorphsByVertices[preparedKey] = frames;
             return frames;
+        }
+
+        /// <summary>
+        /// The vertices are the ones the morph mesh was built into (its vertex mapping exists): same count, same ends.
+        /// </summary>
+        private bool IsSameAsMappedMesh(string mmbName, Vector3[] unityVertices)
+        {
+            var preparedKey = GetPreparedKey(mmbName);
+            return _vertexMapping.ContainsKey(preparedKey) &&
+                   _unityVertices.TryGetValue(preparedKey, out var mappedVertices) &&
+                   mappedVertices.Length == unityVertices.Length &&
+                   mappedVertices[0] == unityVertices[0] && mappedVertices[^1] == unityVertices[^1];
         }
 
         public string GetPreparedKey(string key)

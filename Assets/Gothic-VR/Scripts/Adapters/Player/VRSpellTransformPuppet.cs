@@ -1,11 +1,12 @@
 using Gothic.Core;
+using Gothic.Core.Adapters.Animations;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
@@ -13,6 +14,7 @@ using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Logger = Gothic.Core.Logging.Logger;
@@ -20,40 +22,37 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// The transformed hero's body (VRTransformService): a monster NPC without AI that follows the VR player.
-    /// - Layer PlayerPuppet: the VR (and spectator) camera don't render it, only the small PiP camera does - its picture
+    /// The transformed hero's body (VRSpellTransformService): a monster NPC without AI that follows the VR player.
+    /// - Layer TransformPuppet: the VR (and spectator) camera don't render it, only the small PiP camera does - its picture
     ///   is an orb in the casting hand. No colliders, not in the NPC cache (no perception, focus, saving).
     /// - Animations from the player's movement (idle / walk / run), attack = swing (or trigger) of the free hand - the MDS sound
     ///   events of these animations are the only thing the player hears of the body.
     /// - The VR camera goes down to the monster's eye height (IVrRig.CameraYOffset).
     /// - Trigger of the orb hand (empty or holding the transformation scroll) = transform back.
     /// </summary>
-    public class VRTransformPuppet : MonoBehaviour
+    public class VRSpellTransformPuppet : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly AnimationService _animationService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcWaterService _npcWaterService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Manager.AudioService _audioService;
+        [Inject] private readonly AudioService _audioService;
 
-        private const int _puppetLayer = 13; // PlayerPuppet
         private const float _walkSpeed = 0.2f;
         private const float _runSpeed = 1.6f;
         private const float _attackReach = 1.8f;
         private const float _attackHitDelay = 0.35f;
+        private const float _attackAngle = 60f;
         // A swing of the free hand (like a sword) bites/claws - the other hand holds the spell orb.
         private const float _attackSwingSpeed = 3f;
         private Vector3 _lastAttackHandPosition;
         private bool _hasLastAttackHandPosition;
-        private const float _parkingDepth = -10000f;
         // Some monster instances can't be built (G1 Lurker: no visual set) - don't stay transformed into nothing.
         private const float _setupTimeoutSeconds = 5f;
         private float _setupDeadline;
-        private GameObject _loaderGo;
 
         // Standing still: the monster's random routine animations (MDS r_Roam1-3 = scratching, pecking, digging, ...
         // and t_Perception) now and then, like ZS_MM_* routines.
@@ -72,9 +71,11 @@ namespace Gothic.VR.Adapters.Player
         private const string _runAttackAnimation = "T_FISTATTACKMOVE";
         // Moving more backwards than this (share of the speed) plays the backwards walk instead of a moonwalk.
         private const float _backwardsShare = 0.5f;
-        private readonly System.Collections.Generic.Dictionary<string, string> _moveAnimations = new();
-        private readonly System.Collections.Generic.Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
+        private readonly Dictionary<string, string> _moveAnimations = new();
+        private readonly Dictionary<VmGothicEnums.WalkMode, bool> _supportedWalkModes = new();
         private VmGothicEnums.WalkMode? _specialWalkMode;
+        // Situations (idle, move, ...) without an animation name - warned once each, not per frame.
+        private readonly HashSet<string> _missingAnimationWarnings = new();
 
         // PiP: camera above and to the side, whole body in the picture (see research-2026-10-03.md).
         private const int _pipResolution = 256;
@@ -85,7 +86,7 @@ namespace Gothic.VR.Adapters.Player
         private const float _orbSize = 0.12f;
         private const float _orbHandOffset = 0.1f;
 
-        private VRTransformService _transformService;
+        private VRSpellTransformService _transformService;
         private NpcContainer _monster;
         private VrHandSide _orbHand;
         private bool _isReady;
@@ -142,26 +143,25 @@ namespace Gothic.VR.Adapters.Player
         private Bounds _puppetBounds;
 
         private Camera _pipCamera;
+        private readonly List<Camera> _hiddenFromCameras = new();
         private RenderTexture _pipTexture;
         private GameObject _orb;
         private Material _orbMaterial;
 
 
-        public void Init(VRTransformService transformService, NpcContainer monster, GameObject loaderGo,
-            VrHandSide castingHand)
+        public void Init(VRSpellTransformService transformService, NpcContainer monster, VrHandSide castingHand)
         {
             gameObject.Inject();
             _transformService = transformService;
             _monster = monster;
-            _loaderGo = loaderGo;
             _setupDeadline = Time.time + _setupTimeoutSeconds;
             _orbHand = castingHand;
             _rig = _contextInteractionService.GetCurrentPlayerController()?.GetComponent<IVrRig>();
         }
 
         /// <summary>
-        /// Transform back: the puppet is parked far below the world (NPC culling disables it - it can't be removed from
-        /// the culling group), camera height and PiP are undone.
+        /// Transform back: the monster leaves the world (NpcService.DespawnRuntimeNpc, also if it was never built),
+        /// camera height, PiP and camera culling are undone.
         /// </summary>
         public void Release()
         {
@@ -177,16 +177,8 @@ namespace Gothic.VR.Adapters.Player
                 _rig?.SetGrabbingEnabled(true);
 
             if (_monster?.Go != null)
-            {
-                _monster.Go.transform.position = new Vector3(0f, _parkingDepth, 0f);
                 _monster.PrefabProps?.AnimationSystem?.StopAllAnimations();
-            }
-            else if (_loaderGo != null)
-            {
-                // Never built: park the lazy loader, so culling doesn't try to build it again next to the player.
-                _loaderGo.transform.position = new Vector3(0f, _parkingDepth, 0f);
-            }
-            _multiTypeCacheService.NpcCache.Remove(_monster);
+            _npcService.DespawnRuntimeNpc(_monster);
 
             if (_pipTexture != null)
                 _pipTexture.Release();
@@ -194,6 +186,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_orb);
             if (_pipCamera != null)
                 Destroy(_pipCamera.gameObject);
+            ShowOnVrCameras();
             Destroy(gameObject);
         }
 
@@ -234,7 +227,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // Body under the head, facing where the head looks.
-            var head = Camera.main != null ? Camera.main.transform : null;
+            var head = _rig.Head;
             var feetY = _rig.Root.position.y;
             var x = head != null ? head.position.x : _rig.Root.position.x;
             var z = head != null ? head.position.z : _rig.Root.position.z;
@@ -317,7 +310,7 @@ namespace Gothic.VR.Adapters.Player
             if (_monster.Go == null || animationSystem == null || animationSystem.RestRootHeight <= 0f)
                 return;
 
-            _multiTypeCacheService.NpcCache.Remove(_monster);
+            _npcService.DetachFromWorldNpcs(_monster);
             if (_monster.PrefabProps.AiHandler != null)
                 _monster.PrefabProps.AiHandler.enabled = false;
             _monster.Props.Perceptions.Clear();
@@ -325,7 +318,7 @@ namespace Gothic.VR.Adapters.Player
             _monster.Instance.NoFocus = 1;
 
             foreach (var child in _monster.Go.GetComponentsInChildren<Transform>(true))
-                child.gameObject.layer = _puppetLayer;
+                child.gameObject.layer = Constants.TransformPuppetLayer;
             foreach (var collider in _monster.Go.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
             foreach (var body in _monster.Go.GetComponentsInChildren<Rigidbody>(true))
@@ -356,10 +349,27 @@ namespace Gothic.VR.Adapters.Player
             return bounds;
         }
 
-        private static void HideFromVrCameras()
+        private void HideFromVrCameras()
         {
+            var layerBit = 1 << Constants.TransformPuppetLayer;
             foreach (var camera in Camera.allCameras)
-                camera.cullingMask &= ~(1 << _puppetLayer);
+            {
+                if ((camera.cullingMask & layerBit) == 0)
+                    continue;
+                camera.cullingMask &= ~layerBit;
+                _hiddenFromCameras.Add(camera);
+            }
+        }
+
+        private void ShowOnVrCameras()
+        {
+            var layerBit = 1 << Constants.TransformPuppetLayer;
+            foreach (var camera in _hiddenFromCameras)
+            {
+                if (camera != null)
+                    camera.cullingMask |= layerBit;
+            }
+            _hiddenFromCameras.Clear();
         }
 
         /// <summary>
@@ -367,7 +377,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void LowerCamera()
         {
-            if (_rig == null || Camera.main == null)
+            if (_rig == null || _rig.Head == null)
                 return;
 
             var feetY = _monster.Go.transform.position.y - _monster.PrefabProps.AnimationSystem.RestRootHeight;
@@ -381,7 +391,7 @@ namespace Gothic.VR.Adapters.Player
                 }
             }
 
-            var currentEyeHeight = Camera.main.transform.position.y - _rig.Root.position.y;
+            var currentEyeHeight = _rig.Head.position.y - _rig.Root.position.y;
             var rig = _rig;
             _originalCameraYOffset = rig.CameraYOffset;
             _eyeHeight = Mathf.Clamp(eyeHeight, 0.2f, 3f);
@@ -421,6 +431,7 @@ namespace Gothic.VR.Adapters.Player
                 _monster.Vob.AiHuman.WalkMode = (int)VmGothicEnums.WalkMode.Walk;
 
             string animation;
+            string situation;
             // Jumping/falling (the player isn't on the ground): the monster's fall animation.
             var isOnLand = !IsInWater() && _waterDepth <= 0f;
             var fall = _rig != null && !_rig.IsGrounded && isOnLand
@@ -430,6 +441,7 @@ namespace Gothic.VR.Adapters.Player
             {
                 StopIdleVariation(animationSystem);
                 animation = fall;
+                situation = "fall";
             }
             else if (speed < _walkSpeed && Mathf.Abs(_yawSpeed) >= _turnAnimationSpeed && _specialWalkMode == null)
             {
@@ -437,6 +449,7 @@ namespace Gothic.VR.Adapters.Player
                 animation = _animationService.GetAnimationName(_yawSpeed < 0f
                     ? VmGothicEnums.AnimationType.RotL
                     : VmGothicEnums.AnimationType.RotR, _monster);
+                situation = "turn";
             }
             else if (speed < _walkSpeed)
             {
@@ -446,11 +459,22 @@ namespace Gothic.VR.Adapters.Player
                 if (_waterDepth > 0f)
                     StopIdleVariation(animationSystem);
                 animation = _animationService.GetAnimationName(VmGothicEnums.AnimationType.Idle, _monster);
+                situation = "idle";
             }
             else
             {
                 StopIdleVariation(animationSystem);
                 animation = GetMoveAnimation(velocity, speed);
+                situation = "move";
+            }
+
+            // No name for this situation (a missing track itself is logged once by AnimationSystem.PlayAnimation).
+            if (string.IsNullOrEmpty(animation))
+            {
+                if (_missingAnimationWarnings.Add(situation))
+                    Logger.LogWarning($"[VRTransform] {_monster.Props.MdsNameBase} has no {situation} animation " +
+                                      "- the puppet keeps its current one.", LogCat.VR);
+                return;
             }
 
             if (animation == _currentAnimation && animationSystem.IsPlaying(animation))
@@ -578,7 +602,7 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// True while a random idle animation plays (the normal idle waits).
         /// </summary>
-        private bool UpdateIdleVariation(Gothic.Core.Adapters.Animations.AnimationSystem animationSystem)
+        private bool UpdateIdleVariation(AnimationSystem animationSystem)
         {
             if (_idleVariation != null)
             {
@@ -607,7 +631,7 @@ namespace Gothic.VR.Adapters.Player
             return true;
         }
 
-        private void StopIdleVariation(Gothic.Core.Adapters.Animations.AnimationSystem animationSystem)
+        private void StopIdleVariation(AnimationSystem animationSystem)
         {
             _nextIdleVariation = 0f;
             if (_idleVariation == null)
@@ -665,9 +689,7 @@ namespace Gothic.VR.Adapters.Player
 
             // In the player's own space - running and turning (snap/smooth turn) move the hands too. The simulator's hands
             // hang on the camera - there the camera's space (mouse look moved them).
-            var space = _vrInput.IsSimulator && Camera.main != null
-                ? Camera.main.transform
-                : _rig != null ? _rig.Root : null;
+            var space = _rig == null ? null : _vrInput.IsSimulator && _rig.Head != null ? _rig.Head : _rig.Root;
             var position = space != null ? space.InverseTransformPoint(hand.transform.position) : hand.transform.position;
             var isSwing = _hasLastAttackHandPosition &&
                           Vector3.Distance(position, _lastAttackHandPosition) / Time.deltaTime >= _attackSwingSpeed;
@@ -678,28 +700,12 @@ namespace Gothic.VR.Adapters.Player
 
         private void TryHit()
         {
+            // The puppet itself isn't among the world's NPCs any more (DetachFromWorldNpcs).
             var hero = _npcService.GetHeroContainer();
-            var origin = _monster.Go.transform.position;
-            var forward = _monster.Go.transform.forward;
-            NpcContainer best = null;
-            var bestDistance = _attackReach;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
-            {
-                if (npc == hero || npc == _monster || npc?.Go == null || !npc.Go.activeInHierarchy)
-                    continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead)
-                    continue;
-
-                var toNpc = npc.Go.transform.position - origin;
-                toNpc.y = 0f;
-                if (toNpc.magnitude > bestDistance || Vector3.Angle(forward, toNpc) > 60f)
-                    continue;
-                bestDistance = toNpc.magnitude;
-                best = npc;
-            }
-
+            var best = _npcService.GetClosestNpcInFront(_monster.Go.transform.position, _monster.Go.transform.forward,
+                _attackReach, _attackAngle);
             if (best != null)
-                GlobalEventDispatcher.FightHit.Invoke(hero, best, best.Go.transform.position);
+                GlobalEventDispatcher.FightHit.Invoke(hero, best, best.Go.transform.position, null);
         }
 
         private void UpdateTransformBackInput()
@@ -840,7 +846,7 @@ namespace Gothic.VR.Adapters.Player
 
             var cameraGo = new GameObject("_TransformPipCamera");
             _pipCamera = cameraGo.AddComponent<Camera>();
-            _pipCamera.cullingMask = 1 << _puppetLayer;
+            _pipCamera.cullingMask = 1 << Constants.TransformPuppetLayer;
             _pipCamera.clearFlags = CameraClearFlags.SolidColor;
             _pipCamera.backgroundColor = new Color(0.05f, 0.03f, 0.08f, 1f);
             _pipCamera.fieldOfView = _pipFov;
@@ -854,7 +860,7 @@ namespace Gothic.VR.Adapters.Player
             _orb = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _orb.name = "_TransformOrb";
             Destroy(_orb.GetComponent<Collider>());
-            var shader = Gothic.Core.Const.Constants.ShaderUnlit;
+            var shader = Constants.ShaderUnlit;
             _orbMaterial = new Material(shader) { mainTexture = _pipTexture };
             _orb.GetComponent<MeshRenderer>().sharedMaterial = _orbMaterial;
             _orb.transform.localScale = Vector3.one * _orbSize;
@@ -878,10 +884,11 @@ namespace Gothic.VR.Adapters.Player
             _pipCamera.transform.LookAt(center);
 
             var hand = _vrPlayerService.GetHandModelGo(_orbHand);
-            if (hand == null || _orb == null || Camera.main == null)
+            var head = _rig?.Head;
+            if (hand == null || _orb == null || head == null)
                 return;
             _orb.transform.position = hand.transform.position + Vector3.up * _orbHandOffset;
-            _orb.transform.rotation = Quaternion.LookRotation(_orb.transform.position - Camera.main.transform.position);
+            _orb.transform.rotation = Quaternion.LookRotation(_orb.transform.position - head.position);
         }
 
         private void OnDestroy()

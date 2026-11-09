@@ -1,12 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties.Vobs;
-using Gothic.Core.Adapters.UI.StatusBars;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
+using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -14,8 +13,12 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Services;
 using Gothic.VR.Interaction.Models;
@@ -25,6 +28,7 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ZenKit.Daedalus;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Vob.VobItem
@@ -33,16 +37,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// Added dynamically to a rune/scroll GO when dual-grabbed.
     /// Right trigger (or R on WASD) casts via Spell_ProcessMana() — Daedalus handles all spell logic.
     /// Targeting: raycast from rune forward axis to set vm.GlobalOther before each Spell_ProcessMana call.
-    /// Telekinesis: 2-trigger system — trigger 1 extends ForceGrab range, trigger 2 pulls hovered item.
+    /// Workers: VRSpellFx (effects, lights, sounds), VRSpellThrow (throwable spells), VRTelekinesisSpell.
+    /// Map: Docs/vr-magic.md.
     /// </summary>
     public class VRRuneCaster : MonoBehaviour
     {
-        // spells_params.d constants
-        private const int _splSendcast = 2;
-        private const int _splSendstop = 3;
-        private const int _splNextlevel = 4;
         private const string _chainLightningName = "Chainlightning";
-        // DeveloperConfig.EnableVrChainLightning: the lightning while it's invested.
+        // The lightning while it's invested.
         private VRChainLightning _chainLightning;
 
         // Raycast range for NPC targeting
@@ -52,59 +53,35 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly AudioService _audioService;
-        [Inject] private readonly MeshService _meshService;
-        [Inject] private readonly ParticleService _particleService;
-        [Inject] private readonly UnityMonoService _unityMonoService;
-        [Inject] private readonly StationaryLightsService _stationaryLightsService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly NpcAiService _npcAiService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly VRTransformService _vrTransformService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly VobService _vobService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
         private const string _transformName = "Transform";
-        // VISUALFX effects at the body/hand while charging and when cast.
-        private readonly System.Collections.Generic.List<GameObject> _bodyFxGos = new();
-        private const float _bodyFxHeight = 1f; // BIP01 above the feet
-        private const float _bodyFxFadeSeconds = 2f;
-        // A body effect with a downward offset ends this far above the ground.
-        private const float _groundFxClearance = 0.05f;
-        // DeveloperConfig.EnableVisualFxLights: the light while charging, and the cast's flash.
-        private Gothic.Core.Services.Meshes.IVisualFxLight _investLight;
-        private int _bodyInvestLevel;
-        private const float _castLightSeconds = 0.3f;
-        private const float _castLightFadeSeconds = 1.5f;
-
-        private const string _telekinesisName = "Telekinesis";
-        private const float _telekinesisRange = 5000f;
-
         private const string _lightName = "Light";
-        private const float _lightRange = 6f;
-        private const float _lightIntensity = 1.5f;
-        private const float _lightDurationSeconds = 90f;
-        private static readonly Color _lightColor = new(1f, 0.85f, 0.6f);
 
         private ItemInstance _item;
+        // Workers (created in Start): effects/sounds, throwing (throwable spells only), telekinesis (that spell only).
+        private VRSpellFx _fx;
+        private VRSpellThrow _throw;
+        private VRTelekinesisSpell _telekinesis;
         private bool _isCasting;
 
-        // DeveloperConfig.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
+        // VRConstants.Magic.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
         // its effects in the hand until the minimum time is over.
         private float _castStartTime;
         private bool _isSendcastPending;
         private bool _castThisGrab;
         private int _manaInvested;
         private NpcContainer _spellTarget;
-        private StatusBarAdapter _manaBar;
-        private AudioSource _investAudioSource;
-        private bool _telekinesisPrepped;
         private bool _isTargeting; // combat spells: trigger 1 pressed, waiting for target + trigger 2
         private VrHandSide _runeHandSide;
-        private GameObject _spellVfxGo;
         public bool IsTargetingActive => _isTargeting;
 
         /// <summary>
@@ -130,9 +107,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         public bool IsBusy => _isTargeting || _isCasting;
 
-        // Throwable spells (DeveloperConfig.EnableThrowableSpells) - see vr-ranged-spells-plan.md section 3.
-        public bool IsThrowable => _throwCastKey != null;
-        private ParticleEffectEmitKeyInstance _throwCastKey;
+        // Throwable spells (Immersion option "throwableSpells") - see vr-ranged-spells-plan.md section 3.
+        public bool IsThrowable => _throw != null;
         private bool _isThrowCharged;
         private VrHandSide _throwHandSide;
         // Invest level (Spell_ProcessMana returned SPL_NEXTLEVEL, Fireball at 1/2/4 of 5 mana): like the engine the
@@ -140,32 +116,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // plays its sound (MFX_Fireball_invest1..4) and its emCreateFXID burst; the charge also grows a bit.
         private int _investLevel;
         private const float _investLevelScale = 0.25f;
-        private const int _maxInvestLevel = 4;
-        // Throw speed: the spell's own speed (emtrjeasevel) scaled by the swing - a lazy flick is slow.
-        private const float _maxSwingFactor = 1.5f;
-        private float _throwSpeedFactor = 1f;
-        private readonly Queue<(float time, Vector3 position)> _handSamples = new();
-        private const float _handVelocityWindow = 0.1f;
-
-        // What the swing of the last throw gives the projectile.
-        private float _throwGravityScale;
-        private bool _isThrowHoming = true;
-        private const float _minHomingSwingFactor = 0.5f;
-        private const float _minThrowDirectionSpeed = 0.2f;
-        private const float _droppedSpellSpeed = 0.1f;
-        private const float _homingConeDegrees = 12f;
-        private const float _homingDegreesPerSecond = 90f;
-        private const float _defaultThrowRange = 30f;
-        private const float _collideFxSeconds = 3f;
         private float _manaTickTimer;
         private const float _manaTickInterval = 0.5f; // seconds per mana invested; tunes cast speed
 
         private void Awake()
         {
             this.Inject();
-            _investAudioSource = gameObject.AddComponent<AudioSource>();
-            _investAudioSource.loop = true;
-            _investAudioSource.spatialBlend = 1f;
         }
 
         private void Start()
@@ -188,8 +144,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // Readied rune == FMODE_MAGIC for Daedalus (B_AssessFighter checks Npc_IsInFightMode + Npc_GetActiveSpellCat).
             _vrWeaponService.SetRuneReadied(true);
 
-            if (_configService.Dev.EnableThrowableSpells)
-                _throwCastKey = GetThrowableCastKey(_item.Spell);
+            var mfxName = GetSpellMfxName(_item.Spell);
+            _fx = new VRSpellFx(gameObject, mfxName).Inject();
+            var throwCastKey = IsIniOn(VRConstants.IniNames.ThrowableSpells, VRConstants.ThrowableSpellsDefaultValue)
+                ? VRSpellThrow.GetCastKey(_vmCacheService, mfxName)
+                : null;
+            if (throwCastKey != null)
+                _throw = new VRSpellThrow(throwCastKey, mfxName, _item.Spell, _fx).Inject();
+            if (string.Equals(mfxName, VRTelekinesisSpell.SpellName, StringComparison.OrdinalIgnoreCase))
+                _telekinesis = new VRTelekinesisSpell(_fx).Inject();
 
             // The throwing hand (grip + trigger) can't grab the rune.
             if (IsThrowable && !RingHand.HasValue && TryGetComponent<VrInteractable>(out var interactable) && !interactable.IsOneHandOnly)
@@ -225,12 +188,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isCasting = false;
             StopChainLightning();
 
-            DestroySpellVfx();
-            DestroyBodyFx();
-            StopInvestSound();
-            if (_investAudioSource != null)
-                Destroy(_investAudioSource);
-            _vrPlayerService.TelekinesisDeactivated -= OnTelekinesisEnded;
+            _telekinesis?.Dispose();
+            _fx?.Dispose();
 
             // If rune is still held by one hand, telekinesis stays active so the freed hand can grab.
             // If both hands released, reset range immediately.
@@ -248,10 +207,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_item == null || _castThisGrab) return;
 
             // No casting while knocked out, asleep or frozen (HeroSpellStateDomain).
-            var heroForState = _npcService.GetHeroContainer();
-            if (heroForState?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious ||
-                heroForState?.Vob.CurrentStateName is Gothic.Core.Domain.Npc.HeroSpellStateDomain.SleepStateName
-                    or "ZS_MAGICFREEZE")
+            if (HeroSpellStateDomain.IsCastBlocked(_npcService.GetHeroContainer()))
                 return;
 
             bool triggered;
@@ -261,8 +217,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 triggered = _vrInput.GetButton(CastHand, VrButton.Trigger)
                     .IsJustActivated;
 
-            // Transformed: the orb hand's trigger transforms back (VRTransformPuppet) - no second transformation.
-            if (_vrTransformService.IsTransformed && IsTransformSpell())
+            // Transformed: the orb hand's trigger transforms back (VRSpellTransformPuppet) - no second transformation.
+            if (_vrSpellTransformService.IsTransformed && IsTransformSpell())
                 return;
 
             // A rune of a higher circle than the hero's doesn't cast - a
@@ -279,10 +235,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             // Telekinesis uses a 2-trigger system and skips Daedalus entirely.
-            if (IsTelekinesisSpell())
+            if (_telekinesis != null)
             {
-                if (triggered)
-                    HandleTelekinesisInput();
+                if (triggered && _telekinesis.OnTrigger())
+                    _castThisGrab = true;
                 return;
             }
 
@@ -302,14 +258,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (_isSendcastPending)
             {
-                if (Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+                if (Time.time - _castStartTime < VRConstants.Magic.MinSpellCastSeconds)
                     return;
                 _isSendcastPending = false;
                 FinalizeCast(applyEffect: true);
                 return;
             }
 
-            // DeveloperConfig.EnableTwoHandSpellCharge: a charged spell grows only while both hands are together.
+            // Immersion option "twoHandSpellCharge": a charged spell grows only while both hands are together.
             if (!IsChargeAllowed())
                 return;
 
@@ -320,9 +276,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 StopChainLightning();
                 Logger.Log("[VRRuneCaster] Out of mana — spell cancelled", LogCat.VR);
-                StopInvestSound();
-                DestroySpellVfx();
-                DestroyBodyFx();
+                _fx.StopInvestSound();
+                _fx.DestroyHandVfx();
+                _fx.DestroyBodyFx();
                 _isCasting = false;
                 _castThisGrab = true;
                 // Targeting stayed on: NPC grabs were ignored and the rune hand kept its long distance grab.
@@ -331,29 +287,29 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            // DeveloperConfig.EnableVrChainLightning: every level the lightning jumps on.
-            if (result == _splNextlevel)
+            // Every level the lightning jumps on.
+            if (result == DaedalusConst.SplNextLevel)
             {
                 _chainLightning?.AddLink();
-                NextBodyInvestLevel();
+                _fx.NextBodyInvestLevel();
             }
 
             // Ready at once (instant spell): its effects stay in the hand for the minimum cast time first.
-            if (result == _splSendcast && Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+            if (result == DaedalusConst.SplSendCast && Time.time - _castStartTime < VRConstants.Magic.MinSpellCastSeconds)
             {
                 _isSendcastPending = true;
                 return;
             }
 
-            if (result == _splSendcast || result == _splSendstop)
+            if (result == DaedalusConst.SplSendCast || result == DaedalusConst.SplSendStop)
             {
                 Logger.Log($"[VRRuneCaster] result={result} after {_manaInvested} ticks — spell fired", LogCat.VR);
                 // The script refused on the first tick (no valid target, e.g. Shrink on a human): nothing happens, the
                 // mana comes back (G1 takes it per tick before asking the script). Later, SENDSTOP ends a spell that
                 // worked (G1 Heal at full HP, Pyrokinesis on a dead victim) - its mana stays spent like the engine.
-                if (result == _splSendstop && _manaInvested <= 1)
+                if (result == DaedalusConst.SplSendStop && _manaInvested <= 1)
                     RefundInvestedMana();
-                FinalizeCast(applyEffect: result == _splSendcast);
+                FinalizeCast(applyEffect: result == DaedalusConst.SplSendCast);
             }
         }
 
@@ -369,7 +325,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _manaTickTimer = GetManaTickInterval();
             _isChargeWaitLogged = false;
 
-            SpawnInvestFx(true);
+            _fx.SpawnInvestFx(true);
             TryBeginChainLightning();
 
             // Like the engine: NPCs notice the casting (B_AssessCaster -> reacts to offensive spells only).
@@ -397,8 +353,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 var isRuneLeft = _vrPlayerService.GrabbedItemLeft == gameObject;
                 _runeHandSide = RingHand ?? (isRuneLeft ? VrHandSide.Left : VrHandSide.Right);
                 _vrPlayerService.ActivateSpellTargeting(_runeHandSide, _targetRange);
-                StartInvestSound(_item.Spell);
-                SpawnSpellVfx();
+                _fx.HandSide = _runeHandSide;
+                _fx.StartInvestSound();
+                _fx.SpawnHandVfx(_runeHandSide);
                 StartCasting();
                 return;
             }
@@ -418,6 +375,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             FinalizeCast(applyEffect: true);
         }
 
+        private bool IsIniOn(string iniName, int defaultValue)
+        {
+            return _configService.Gothic == null || _configService.Gothic.GetInt(iniName, defaultValue) == 1;
+        }
+
         private bool IsCastButtonReleased()
         {
             if (_vrInput.IsSimulator)
@@ -426,13 +388,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableTwoHandSpellCharge: like a kamehameha - a charged spell (fireball, fire rain, wind
+        /// Immersion option "twoHandSpellCharge": like a kamehameha - a charged spell (fireball, fire rain, wind
         /// fist, ...) invests mana only while the other hand is next to the casting one; apart, the charge waits (a
         /// pulse reminds). VR only - the simulator moves one hand at a time.
         /// </summary>
         private bool IsChargeAllowed()
         {
-            if (!_configService.Dev.EnableTwoHandSpellCharge || _vrInput.IsSimulator ||
+            if (!IsIniOn(VRConstants.IniNames.TwoHandSpellCharge, VRConstants.TwoHandSpellChargeDefaultValue) ||
+                _vrInput.IsSimulator ||
                 !SpellConst.ChargeEffectNames.Contains(GetSpellMfxName(_item.Spell) ?? string.Empty))
                 return true;
 
@@ -455,7 +418,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return false;
         }
 
-        // DeveloperConfig.EnableTwoHandSpellCharge: the hands' distance (m) that still counts as together.
+        // Immersion option "twoHandSpellCharge": the hands' distance (m) that still counts as together.
         private const float _twoHandChargeDistance = 0.3f;
         private bool _isChargeWaitLogged;
 
@@ -496,32 +459,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (vm.GetSymbolByName("Spell_ProcessMana_Release") == null)
                 return true;
 
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
             int result;
-            try
-            {
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
                 result = vm.Call<int, int>("Spell_ProcessMana_Release", _manaInvested);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
-            }
             Logger.Log($"[VRRuneCaster] Spell_ProcessMana_Release({_manaInvested}) = {result}", LogCat.VR);
-            return result == _splSendcast;
+            return result == DaedalusConst.SplSendCast;
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrChainLightning: G1's chain lightning zaps the NPC in front of the eyes, then jumps on
+        /// G1's chain lightning zaps the NPC in front of the eyes, then jumps on
         /// every invest level (VRChainLightning) - it was a one-time hit on everyone around.
         /// </summary>
         private void TryBeginChainLightning()
         {
-            if (!_configService.Dev.EnableVrChainLightning || _chainLightning != null ||
-                !string.Equals(GetSpellMfxName(_item.Spell), _chainLightningName, System.StringComparison.OrdinalIgnoreCase))
+            if (_chainLightning != null ||
+                !string.Equals(GetSpellMfxName(_item.Spell), _chainLightningName, StringComparison.OrdinalIgnoreCase))
                 return;
 
             _chainLightning = gameObject.AddComponent<VRChainLightning>();
@@ -547,9 +499,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             StopChainLightning();
             Logger.Log($"[VRRuneCaster] Spell {_item.Spell} cancelled ({reason}) after {_manaInvested} mana", LogCat.VR);
-            StopInvestSound();
-            DestroySpellVfx();
-            DestroyBodyFx();
+            _fx.StopInvestSound();
+            _fx.DestroyHandVfx();
+            _fx.DestroyBodyFx();
             _isCasting = false;
             _isSendcastPending = false;
             _manaInvested = 0;
@@ -588,6 +540,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             result = 0;
             var hero = _npcService.GetHeroContainer();
+            if (hero == null)
+            {
+                Logger.LogWarning("[VRRuneCaster] No hero while casting - spell stopped", LogCat.VR);
+                return false;
+            }
             var currentMana = hero.Vob.GetAttribute((int)NpcAttribute.Mana);
             if (currentMana <= 0)
                 return false;
@@ -596,31 +553,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // taking it here too left too little for Spell_Logic's check (SPL_SENDSTOP, nothing fired, mana gone).
             if (!IsScriptPaidSpell())
             {
-                hero.Vob.SetAttribute((int)NpcAttribute.Mana, currentMana - 1);
-                // Keep the NpcInstance in sync too — SyncHeroInstanceToVob() (called elsewhere e.g. on XP
-                // grant) blindly copies every attribute FROM the instance INTO Vob, so a Vob-only write here
-                // would get silently reverted the next time that runs (this was the "mana snaps back" bug).
-                hero.Instance.SetAttribute(NpcAttribute.Mana, currentMana - 1);
-                RefreshManaFill();
+                // Vob and instance both (NpcService.SetAttribute) - a vob-only write was reverted by the next
+                // SyncHeroInstanceToVob() (the "mana snaps back" bug).
+                _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1);
             }
 
             var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
-            try
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
             {
                 ++_manaInvested;
                 // Summons can't be shrunk (the script only checks for a monster) - refused like an invalid target.
                 result = IsShrinkOnSummon()
-                    ? _splSendstop
+                    ? DaedalusConst.SplSendStop
                     : vm.Call<int, int>("Spell_ProcessMana", _manaInvested);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
             }
             SyncManaFromInstance(hero);
             return true;
@@ -629,20 +574,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool IsShrinkOnSummon()
         {
             return _spellTarget?.SummonedBy != null &&
-                   string.Equals(GetSpellMfxName(_item.Spell), "Shrink", System.StringComparison.OrdinalIgnoreCase);
+                   string.Equals(GetSpellMfxName(_item.Spell), "Shrink", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
         /// The scripts take mana on the instance (G2 Spell_Logic_Trf*, ChargeFireball per level, Spell_Cast_*): the VOB
         /// (mana bar, the next tick's check) follows. Before, the next tick wrote VOB - 1 and undid the script's cost.
         /// </summary>
-        private void SyncManaFromInstance(Gothic.Core.Models.Container.NpcContainer hero)
+        private void SyncManaFromInstance(NpcContainer hero)
         {
             var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
                 return;
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
-            RefreshManaFill();
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
         }
 
         /// <summary>
@@ -655,9 +599,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, mana);
-            hero.Instance.SetAttribute(NpcAttribute.Mana, mana);
-            RefreshManaFill();
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana);
             Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
             _manaInvested = 0;
         }
@@ -688,30 +630,23 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            var oldSelf = vm.GlobalSelf;
-            var oldOther = vm.GlobalOther;
-            vm.GlobalSelf = vm.GlobalHero;
-            vm.GlobalOther = _spellTarget?.Instance ?? vm.GlobalHero;
-            try
+            using (new VmGlobalsScope(vm, vm.GlobalHero, _spellTarget?.Instance ?? vm.GlobalHero, vm.GlobalVictim))
             {
-                if (castSymbol.Size == 1)
-                    vm.Call(castSymbol.Index, Mathf.Max(1, _investLevel));
-                else
-                    vm.Call(castSymbol.Index);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalOther = oldOther;
+                try
+                {
+                    if (castSymbol.Size == 1)
+                        vm.Call(castSymbol.Index, Mathf.Max(1, _investLevel));
+                    else
+                        vm.Call(castSymbol.Index);
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning($"[VRRuneCaster] Spell_Cast_{mfxName} failed: {e.Message}", LogCat.VR);
+                }
             }
 
             // The script changed the instance's mana - the vob (mana bar, saves) follows.
-            hero.Vob.SetAttribute((int)NpcAttribute.Mana, hero.Instance.GetAttribute(NpcAttribute.Mana));
-            RefreshManaFill();
+            SyncManaFromInstance(hero);
         }
 
         /// <summary>
@@ -723,14 +658,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // The chain lightning did its work while invested (ZS_Zapped) - nothing more on the cast.
             if (StopChainLightning())
                 applyEffect = false;
-            StopInvestSound();
-            DestroySpellVfx();
-            DestroyBodyFx();
-            PlayCastSound(_item.Spell);
+            _fx.StopInvestSound();
+            _fx.DestroyHandVfx();
+            _fx.DestroyBodyFx();
+            _fx.PlayCastSound();
             var isScrollKept = false;
             if (applyEffect)
             {
-                SpawnCastFx();
+                _fx.SpawnCastFx(_spellTarget);
                 InvokeSpellCast();
             }
 
@@ -743,24 +678,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 // we implement directly rather than routing through Spell_ProcessMana/ASSESSMAGIC.
                 if (mfxName == _lightName)
                 {
-                    ToggleLightSpell();
+                    _fx.ToggleLightSpell();
                 }
                 // Spell_Logic_Trf_X: Npc_SetActiveSpellInfo(self, <monster>) right before SPL_SENDCAST.
-                else if (mfxName == _transformName && _configService.Dev.EnableVrTransformations)
+                else if (mfxName == _transformName)
                 {
                     var caster = _npcService.GetHeroContainer();
                     if (caster != null && caster.ActiveSpellInfo > 1)
                     {
                         var monster = caster.ActiveSpellInfo;
-                        var isTransformed = _vrTransformService.Transform(monster, _runeHandSide);
+                        var isTransformed = _vrSpellTransformService.Transform(monster, _runeHandSide);
                         caster.ActiveSpellInfo = 0;
                         // The script's monster has no visual - the
                         // one the spell is named after (SPL_TRF_LURKER -> LURKER).
                         if (!isTransformed)
                         {
-                            var named = _vrTransformService.GetSpellNamedMonster(_item.Spell);
+                            var named = _vrSpellTransformService.GetSpellNamedMonster(_item.Spell);
                             if (named >= 0 && named != monster)
-                                isTransformed = _vrTransformService.Transform(named, _runeHandSide);
+                                isTransformed = _vrSpellTransformService.Transform(named, _runeHandSide);
                         }
                         // No monster to become (no visual) - the
                         // scroll stays and the mana comes back.
@@ -775,7 +710,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 {
                     // Per level like the engine (OpenGothic damage_per_level * level) - per mana tick a held
                     // charge spell did thousands.
-                    var spellDmg = GetSpellDamage(_item.Spell) * Mathf.Clamp(_bodyInvestLevel, 1, _maxInvestLevel);
+                    var spellDmg = GetSpellDamage(_item.Spell) * Mathf.Clamp(_fx.BodyInvestLevel, 1, VRSpellFx.MaxInvestLevel);
                     var hero = _npcService.GetHeroContainer();
                     var isAoe = mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName);
                     // Summons have no target like the engine
@@ -792,9 +727,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                         // fans out to everyone in range of the caster.
                         GlobalEventDispatcher.SpellHit.Invoke(hero, _spellTarget, _spellTarget.Go.transform.position, spellDmg);
                         // Not thrown - the hit effect (emFXCollDyn_S: ice block, fear, ...) appears on the target.
-                        SpawnCollideFx(_meshService, _vmCacheService, _audioService, _particleService,
-                            _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmFxCollDynS, _manaInvested,
-                            _spellTarget.Go.transform.position, Vector3.zero);
+                        _fx.SpawnCollideFx(_vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmFxCollDynS,
+                            _manaInvested, _spellTarget.Go.transform.position, Vector3.zero);
                     }
                     else if (isAoe)
                     {
@@ -818,29 +752,33 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableScrollUseOption + the "scrollsSingleUse" option (Immersion, on by default): like Gothic a
+        /// The "scrollsSingleUse" option (Immersion, on by default): like Gothic a
         /// scroll (a spell item with ITEM_MULTI - runes have none) is used up by its cast. A held scroll stack loses one
         /// (the last one is gone from the hand), a scroll from the favorites ring one from the backpack (the last one
         /// unequips it, VRFavoritesRingSpell puts the hand's spell away). Scrolls were cast forever.
         /// </summary>
         private void TryUseUpScroll()
         {
-            if (!_configService.Dev.EnableScrollUseOption || _item == null ||
+            if (_item == null ||
                 ((VmGothicEnums.ItemFlags)_item.Flags & VmGothicEnums.ItemFlags.ItemMulti) == 0 ||
                 _configService.Gothic == null ||
                 _configService.Gothic.GetInt(VRConstants.IniNames.ScrollsSingleUse, 1) != 1)
                 return;
 
             var container = GetComponentInParent<VobLoader>()?.Container;
-            var vobItem = container?.VobAs<ZenKit.Vobs.IItem>();
+            var vobItem = container?.VobAs<IItem>();
             if (vobItem == null)
+            {
+                Logger.LogWarning($"[VRRuneCaster] Scroll {_item.Description} has no item vob - not used up",
+                    LogCat.VR);
                 return;
-            var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
+            }
+            var instanceName = vobItem.GetSymbolName();
 
             // The ring's spell is an invisible item outside the inventory - the scroll comes out of the backpack.
             if (RingHand.HasValue)
             {
-                new Gothic.Core.Domain.Inventory.PlayerInventoryOwner().Remove(instanceName, 1);
+                _inventoryTransferService.GetHeroOwner().Remove(instanceName, 1);
                 Logger.Log($"[VRRuneCaster] Scroll {_item.Description} used up (favorites ring)", LogCat.VR);
                 return;
             }
@@ -860,345 +798,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// Light has no Daedalus-side effect to invoke — it's a hardcoded engine toggle in the
-        /// original game too. State lives on the hero NpcContainer (not this component) so the light
-        /// survives ungrabbing the rune; casting Light again is what turns it back off.
-        /// </summary>
-        private void ToggleLightSpell()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null) return;
-
-            if (hero.ActiveLightGo != null)
-            {
-                Destroy(hero.ActiveLightGo);
-                hero.ActiveLightGo = null;
-                _stationaryLightsService.ClearDynamicLight();
-                Logger.Log("[VRRuneCaster] Light spell OFF", LogCat.VR);
-                return;
-            }
-
-            var lightGo = new GameObject("SpellLight");
-            lightGo.transform.SetParent(hero.Go.transform, false);
-            lightGo.transform.localPosition = new Vector3(0f, 1.6f, 0f); // roughly head height
-
-            // StationaryLight (not a plain Light) so the world's baked-lighting shader — which never
-            // samples ordinary Unity/URP realtime lights, only its own static per-renderer index array
-            // — also picks this up via the one slot reserved for a runtime-moving light. The attached
-            // Light component (added by [RequireComponent]) still covers items/hands/NPCs normally.
-            var stationaryLight = lightGo.AddComponent<StationaryLight>();
-            stationaryLight.Inject();
-            stationaryLight.Type = LightType.Point;
-            stationaryLight.Color = _lightColor;
-            stationaryLight.Range = _lightRange;
-            stationaryLight.Intensity = _lightIntensity;
-            stationaryLight.Index = _stationaryLightsService.DynamicLightIndex;
-            stationaryLight.Init();
-
-            _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo);
-
-            hero.ActiveLightGo = lightGo;
-            Logger.Log("[VRRuneCaster] Light spell ON", LogCat.VR);
-            _unityMonoService.StartCoroutine(AutoTurnOffLight(hero, lightGo));
-            _unityMonoService.StartCoroutine(DriveDynamicLight(lightGo, stationaryLight));
-        }
-
-        /// <summary>
-        /// Periodically pushes the light's current (moving-with-the-player) world position into the
-        /// global shader arrays and re-gathers nearby renderers, so the world-lighting effect actually
-        /// follows the player instead of staying fixed at the cast position. Not done every frame —
-        /// each update re-uploads the whole global light array — a few times a second is plenty for a
-        /// walking-speed light.
-        /// </summary>
-        private IEnumerator DriveDynamicLight(GameObject lightGo, StationaryLight stationaryLight)
-        {
-            var linearColor = _lightColor.linear;
-
-            while (lightGo != null)
-            {
-                _stationaryLightsService.UpdateDynamicLight(lightGo.transform.position, _lightRange, linearColor);
-                stationaryLight.Refresh();
-                // Immersion setting "Light refresh" (Low/Medium/High).
-                yield return new WaitForSeconds(_stationaryLightsService.MovingLightRefreshSeconds);
-            }
-        }
-
-        /// <summary>
-        /// Compares against the current ActiveLightGo (not a cancelled-coroutine flag) so it's a no-op
-        /// if the player already toggled the light off — or back on again — before this fires.
-        /// </summary>
-        private IEnumerator AutoTurnOffLight(NpcContainer hero, GameObject lightGo)
-        {
-            yield return new WaitForSeconds(_lightDurationSeconds);
-            if (hero.ActiveLightGo != lightGo) yield break;
-
-            Destroy(lightGo);
-            hero.ActiveLightGo = null;
-            _stationaryLightsService.ClearDynamicLight();
-            Logger.Log("[VRRuneCaster] Light spell expired", LogCat.VR);
-        }
-
-        private void SpawnSpellVfx() => SpawnSpellVfx(_runeHandSide);
-
-        private void SpawnSpellVfx(VrHandSide handSide, string pfxNameOverride = null)
-        {
-            DestroySpellVfx();
-            var mfxName = GetSpellMfxName(_item.Spell);
-            if (mfxName == null) return;
-            var handGo = _vrPlayerService.GetHandModelGo(handSide);
-            if (handGo == null) return;
-            var pfxName = pfxNameOverride ?? $"MFX_{mfxName.ToUpper()}_INIT";
-            var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
-            // The spell's own VISUALFX visual before the generic fallbacks: MFX_ICEWAVE_INIT doesn't exist, spellFX_Icewave
-            // uses MFX_IceCUBE_INIT (a fireball was shown in the hand).
-            if (pfxLeaf == null && pfxNameOverride == null)
-            {
-                var ownVisuals = new[]
-                {
-                    _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.VisNameS,
-                    _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_INIT")?.VisNameS,
-                    // Chain lightning's hand effect is the one its
-                    // VISUALFX creates (MFX_Lightning_Origin) - a fireball was shown.
-                    Adapters.Player.VRSpellEffect.GetCreatedVisual(_vmCacheService, mfxName)
-                };
-                foreach (var visName in ownVisuals)
-                {
-                    if (string.IsNullOrEmpty(visName))
-                        continue;
-                    pfxName = visName;
-                    pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
-                    if (pfxLeaf != null)
-                        break;
-                }
-            }
-            if (pfxLeaf == null)
-            {
-                pfxName = "MFX_FIREBALL_INIT";
-                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
-            }
-            if (pfxLeaf == null)
-            {
-                pfxName = "MFX_FIREBOLT_INIT";
-                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
-            }
-
-            if (pfxLeaf != null)
-            {
-                // Build() returns pfxGo (child of RootGo). Store RootGo so DestroySpellVfx
-                // cleans up the whole tree, not just the inner leaf.
-                var parent = pfxLeaf.transform.parent;
-                _spellVfxGo = (parent != null && parent.gameObject != handGo) ? parent.gameObject : pfxLeaf;
-
-                // All systems loop: the effect stays in the hand as long as the spell is charged (it vanished before).
-                // With Gothic's own motion and emission.
-                Adapters.Player.VRSpellEffect.PrepareHeldEffect(_spellVfxGo, isGothicMotion: true);
-                var parentName = _spellVfxGo.transform.parent != null ? _spellVfxGo.transform.parent.name : "none";
-                Logger.Log($"[VRRuneCaster] spell VFX '{pfxName}' on {parentName}", LogCat.VR);
-            }
-        }
-
-        /// <summary>
-        /// VISUALFX effects while charging - emFXInvestOrigin_S on the body (teleport:
-        /// MFX_TELEPORT_INVEST + its ring, fire rain: INVESTGLOW) and the first invest key (transformation: ORIGIN in the
-        /// hand + GLOW around it). They stay until the spell is cast or cancelled.
-        /// </summary>
-        private void SpawnInvestFx(bool isHandKeyUsed)
-        {
-            var mfxName = GetSpellMfxName(_item.Spell);
-            if (mfxName == null)
-                return;
-
-            SpawnFxChain(_vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmFxInvestOriginS, true);
-
-            var investKey = _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_INVEST_1");
-            // Throwables swap the hand effect per invest level themselves (NextInvestLevel).
-            if (isHandKeyUsed && !string.IsNullOrEmpty(investKey?.VisNameS))
-                SpawnSpellVfx(_runeHandSide, investKey.VisNameS);
-            SpawnFxChain(investKey?.EmCreateFxId, true);
-
-            _bodyInvestLevel = 1;
-            CreateInvestLight(mfxName, investKey);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: the spell's light while charging, at the body (OpenGothic: the spell
-        /// effect's light with the INVEST key) - the key's lightPresetName or the spell's, the key's lightRange
-        /// (summoning: 0 while held, 4 m from the first level). Gone with the other charging effects.
-        /// </summary>
-        private void CreateInvestLight(string mfxName, ParticleEffectEmitKeyInstance investKey)
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null)
-                return;
-            var preset = !string.IsNullOrEmpty(investKey?.LightPresetName)
-                ? investKey.LightPresetName
-                : _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.LightPresetName;
-            var range = investKey != null && investKey.LightRange > 0f ? investKey.LightRange / 100f : -1f;
-            _investLight = _particleService.CreateVisualFxLight(preset, hero.Go.transform,
-                hero.Go.transform.position + Vector3.up * _bodyFxHeight, range);
-            if (_investLight == null)
-                return;
-            _bodyFxGos.Add(_investLight.Go);
-            Logger.Log($"[VRRuneCaster] Spell light {preset} while charging ({range:F1} m)", LogCat.VR);
-        }
-
-        /// <summary>
-        /// SPL_NEXTLEVEL of a spell charged at the body (summoning, fire rain): like the engine's next INVEST key -
-        /// its lightRange, its emCreateFXID (summoning's third level: FX_EarthQuake). Throwables: NextInvestLevel.
-        /// </summary>
-        private void NextBodyInvestLevel()
-        {
-            if (IsThrowable || _bodyInvestLevel >= _maxInvestLevel)
-                return;
-            _bodyInvestLevel++;
-            var mfxName = GetSpellMfxName(_item.Spell);
-            var levelKey = _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_INVEST_{_bodyInvestLevel}");
-            if (levelKey == null)
-                return;
-            if (levelKey.LightRange > 0f)
-                _investLight?.SetRange(levelKey.LightRange / 100f);
-            SpawnFxChain(levelKey.EmCreateFxId, true);
-            Logger.Log($"[VRRuneCaster] {mfxName} charge level {_bodyInvestLevel}", LogCat.VR);
-        }
-
-        /// <summary>
-        /// The CAST key's emCreateFXID: fire rain around the caster, teleport flash, transformation cloud.
-        /// </summary>
-        private void SpawnCastFx()
-        {
-            var mfxName = GetSpellMfxName(_item.Spell);
-            if (mfxName == null)
-                return;
-            var castKey = _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_CAST");
-            SpawnFxChain(castKey?.EmCreateFxId, false);
-            SpawnCastLight(mfxName, castKey);
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: the spell's light flashes when it's cast (OpenGothic: the spell effect
-        /// with the CAST key and its light) - summoning's red REDAMBIENCE around the caster. Thrown spells carry
-        /// their own light on the projectile.
-        /// </summary>
-        private void SpawnCastLight(string mfxName, ParticleEffectEmitKeyInstance castKey)
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (IsThrowable || hero?.Go == null)
-                return;
-            var preset = !string.IsNullOrEmpty(castKey?.LightPresetName)
-                ? castKey.LightPresetName
-                : _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.LightPresetName;
-            var range = castKey != null && castKey.LightRange > 0f ? castKey.LightRange / 100f : -1f;
-            var light = _particleService.CreateVisualFxLight(preset, null,
-                hero.Go.transform.position + Vector3.up * _bodyFxHeight, range);
-            light?.FadeOut(_castLightFadeSeconds, _castLightSeconds);
-        }
-
-        /// <summary>
-        /// One VISUALFX instance (+ its emFXCreate_S chain, ParticleService): at the hand for ZS_*HAND origins, otherwise
-        /// at the body (BIP01, about hip height). Charging effects stay (looping, following), cast effects end on their
-        /// own. The spell's own cast sound already plays (PlayCastSound).
-        /// </summary>
-        private void SpawnFxChain(string fxName, bool isWhileInvesting)
-        {
-            var fx = string.IsNullOrEmpty(fxName) ? null : _vmCacheService.TryGetVfxData(fxName);
-            if (fx == null)
-                return;
-
-            var hero = _npcService.GetHeroContainer();
-            var isHandOrigin = fx.EmTrjOriginNode != null &&
-                               fx.EmTrjOriginNode.Contains("HAND", System.StringComparison.OrdinalIgnoreCase);
-            // The spell comes from the throwing hand (throwables), otherwise from the rune hand.
-            var handGo = _vrPlayerService.GetHandModelGo(IsThrowable ? _throwHandSide : _runeHandSide);
-            // An aimed spell's cast effect appears at its victim (fear: the face above the target, not the caster).
-            var target = !isWhileInvesting && _spellTarget?.Go != null ? _spellTarget.Go.transform : null;
-            // Area spells spread from the caster, wherever the VR hand is (ice wave, fire rain).
-            var mfxName = GetSpellMfxName(_item.Spell);
-            var isAreaSpell = !isWhileInvesting && mfxName != null && SpellConst.AoeEffectNames.Contains(mfxName);
-            Transform origin;
-            if (target != null)
-                origin = target;
-            else if (isHandOrigin && handGo != null && !isAreaSpell)
-                origin = handGo.transform;
-            else if (hero?.Go != null)
-                origin = hero.Go.transform;
-            else
-                return;
-
-            var position = origin == handGo?.transform || origin == target
-                ? origin.position
-                : origin.position + Vector3.up * GetBodyFxHeight(fx.VisNameS);
-            // shpType MESH effects glow on the VR body (teleport silhouette).
-            var bodyMesh = FindFirstObjectByType<Gothic.VR.Adapters.Player.VRHeroBody>()?.BodyRenderer;
-            var created = _particleService.PlayVisualFx(fxName, position, isWhileInvesting ? origin : null,
-                isWhileInvesting, $"MFX_{mfxName}_Cast", bodyMesh);
-            if (isWhileInvesting)
-                _bodyFxGos.AddRange(created);
-            var at = target != null ? "target" : isHandOrigin ? "hand" : "body";
-            Logger.Log($"[VRRuneCaster] Spell FX {fxName} at {at} ({created.Count} PFX)", LogCat.VR);
-        }
-
-        /// <summary>
-        /// Gothic places body effects at BIP01 (about hip height) - one shifted
-        /// down by its PFX (summoning's fire ring: shpOffsetVec_s "0 -120 0") is lifted so it lies on the ground.
-        /// </summary>
-        private float GetBodyFxHeight(string pfxName)
-        {
-            if (string.IsNullOrEmpty(pfxName))
-                return _bodyFxHeight;
-            var offset = _vmCacheService.TryGetPfxData(pfxName)?.ShpOffsetVecS?
-                .Split((char[])null, System.StringSplitOptions.RemoveEmptyEntries);
-            if (offset == null || offset.Length < 2 ||
-                !float.TryParse(offset[1], System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var offsetY) || offsetY >= 0f)
-                return _bodyFxHeight;
-            return Mathf.Max(_bodyFxHeight, -offsetY / 100f + _groundFxClearance);
-        }
-
-        private void DestroyBodyFx()
-        {
-            _investLight = null;
-            foreach (var fxGo in _bodyFxGos)
-            {
-                if (fxGo == null)
-                    continue;
-                foreach (var fxLight in fxGo.GetComponentsInChildren<Gothic.Core.Adapters.Vob.VisualFxLight>(true))
-                    fxLight.FadeOut(_bodyFxFadeSeconds);
-                foreach (var ps in fxGo.GetComponentsInChildren<ParticleSystem>(true))
-                    ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-                Destroy(fxGo, _bodyFxFadeSeconds);
-            }
-            _bodyFxGos.Clear();
-        }
-
-        private void DestroySpellVfx()
-        {
-            if (_spellVfxGo == null) return;
-            Destroy(_spellVfxGo);
-            _spellVfxGo = null;
-        }
-
-        /// <summary>
-        /// Projectile spells are thrown: the VISUALFX CAST key flies to a target (emtrjmode_s TARGET) with a speed and
-        /// collision - Firebolt, Fireball, Thunderbolt, Icecube, ... (G2/mod spells automatically). Null = cast as before.
-        /// </summary>
-        private ParticleEffectEmitKeyInstance GetThrowableCastKey(int spellId)
-        {
-            var mfxName = GetSpellMfxName(spellId);
-            if (mfxName == null)
-                return null;
-
-            var castKey = _vmCacheService.TryGetVfxEmitKey($"spellFX_{mfxName}_KEY_CAST");
-            var isThrowable = castKey != null &&
-                              castKey.EmTrjModeS.Contains("TARGET", System.StringComparison.OrdinalIgnoreCase) &&
-                              castKey.EmTrjEaseVel > 0f && castKey.EmCheckCollision != 0;
-
-            Logger.Log($"[VRRuneCaster] spellFX_{mfxName}: throwable={isThrowable} " +
-                       $"(trj={castKey?.EmTrjModeS ?? "-"}, vel={castKey?.EmTrjEaseVel ?? 0}, " +
-                       $"coll={castKey?.EmCheckCollision ?? 0}, vis={castKey?.VisNameS ?? "-"})", LogCat.VR);
-            return isThrowable ? castKey : null;
-        }
-
-        /// <summary>
         /// Throwable spells: the rune is held in one hand, the other (empty) hand holds its trigger to charge (spell PFX
         /// in that palm, one mana per tick, growing with each invest level), swings and releases to throw it.
         /// Max charge (SPL_SENDCAST) waits in the hand instead of firing. Letting go of the rune cancels the spell.
@@ -1214,7 +813,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            TrackHandPosition(handSide);
+            _throw.TrackHand(handSide);
 
             var isWasd = _vrInput.IsSimulator;
             var button = isWasd ? default : _vrInput.GetButton(handSide, VrButton.Trigger);
@@ -1246,15 +845,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            if (result == _splSendstop)
+            if (result == DaedalusConst.SplSendStop)
             {
                 CancelThrow("SPL_SENDSTOP");
             }
-            else if (result == _splNextlevel)
+            else if (result == DaedalusConst.SplNextLevel)
             {
                 NextInvestLevel();
             }
-            else if (result == _splSendcast)
+            else if (result == DaedalusConst.SplSendCast)
             {
                 _isThrowCharged = true;
                 Logger.Log($"[VRRuneCaster] Throw fully charged at level {_manaInvested}", LogCat.VR);
@@ -1303,6 +902,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void StartThrowCharge(VrHandSide handSide)
         {
             _throwHandSide = handSide;
+            _fx.HandSide = handSide;
             _runeHandSide = RingHand ?? (handSide == VrHandSide.Left ? VrHandSide.Right : VrHandSide.Left);
             _isCasting = true;
             _isThrowCharged = false;
@@ -1312,12 +912,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _manaTickTimer = GetManaTickInterval(); // first mana right away
 
             // Spamming the trigger: whatever the last charge left in the hand goes first - effects stacked up.
-            DestroySpellVfx();
-            DestroyBodyFx();
+            _fx.DestroyHandVfx();
+            _fx.DestroyBodyFx();
 
-            StartInvestSound(_item.Spell);
-            SpawnSpellVfx(handSide);
-            SpawnInvestFx(false);
+            _fx.StartInvestSound();
+            _fx.SpawnHandVfx(handSide);
+            _fx.SpawnInvestFx(false);
 
             _npcAiService.SendHeroCasterPerception();
             Logger.Log($"[VRRuneCaster] Charging throwable spell {_item.Spell} ({_item.Name}) in {handSide} hand", LogCat.VR);
@@ -1328,7 +928,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void NextInvestLevel()
         {
-            if (_investLevel >= _maxInvestLevel)
+            if (_investLevel >= VRSpellFx.MaxInvestLevel)
                 return;
 
             _investLevel++;
@@ -1337,56 +937,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // The level's own effect in the hand (falls back to the current one if the key has none).
             if (!string.IsNullOrEmpty(levelKey?.VisNameS))
-                SpawnSpellVfx(_throwHandSide, levelKey.VisNameS);
-            if (_spellVfxGo != null)
-                _spellVfxGo.transform.localScale = Vector3.one * (1f + _investLevelScale * _investLevel);
+                _fx.SpawnHandVfx(_throwHandSide, levelKey.VisNameS);
+            if (_fx.HandVfx != null)
+                _fx.HandVfx.transform.localScale = Vector3.one * (1f + _investLevelScale * _investLevel);
 
             // The level's charge sound loops while charging (sfxIsAmbient), the burst plays once.
-            if (!string.IsNullOrEmpty(levelKey?.SfxId))
-            {
-                var clip = _audioService.GetRandomSoundClip(levelKey.SfxId);
-                if (clip != null)
-                {
-                    _investAudioSource.clip = clip;
-                    _investAudioSource.Play();
-                }
-            }
-            SpawnInvestBurst(levelKey?.EmCreateFxId);
+            _fx.PlayInvestLevelSound(levelKey?.SfxId);
+            _fx.SpawnInvestBurst(levelKey?.EmCreateFxId);
 
             _hapticsService.Vibrate(_throwHandSide, VrHapticPreset.Info);
             Logger.Log($"[VRRuneCaster] {mfxName} invest level {_investLevel} (mana {_manaInvested})", LogCat.VR);
         }
 
-        /// <summary>
-        /// emCreateFXID of an invest key (spellFX_Fireball_InVEST_BLAST1..4): a one-shot burst in the hand.
-        /// </summary>
-        private void SpawnInvestBurst(string fxId)
-        {
-            if (string.IsNullOrEmpty(fxId))
-                return;
-
-            var fx = _vmCacheService.TryGetVfxData(fxId);
-            var handGo = _vrPlayerService.GetHandModelGo(_throwHandSide);
-            if (fx == null || handGo == null)
-                return;
-
-            if (!string.IsNullOrEmpty(fx.VisNameS))
-            {
-                var pfxGo = _meshService.CreateVobPfx(fx.VisNameS, handGo.transform.position, handGo.transform.rotation,
-                    destroyAfterPlay: true);
-                if (pfxGo != null)
-                    Destroy(pfxGo.transform.parent != null ? pfxGo.transform.parent.gameObject : pfxGo, _collideFxSeconds);
-            }
-            if (!string.IsNullOrEmpty(fx.SfxId))
-                PlayOneShot(fx.SfxId);
-        }
-
         private void CancelThrow(string reason)
         {
             Logger.Log($"[VRRuneCaster] Throw cancelled ({reason}) at level {_manaInvested}", LogCat.VR);
-            StopInvestSound();
-            DestroySpellVfx();
-            DestroyBodyFx();
+            _fx.StopInvestSound();
+            _fx.DestroyHandVfx();
+            _fx.DestroyBodyFx();
             _isCasting = false;
             _isThrowCharged = false;
         }
@@ -1417,292 +985,29 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            var handVelocity = isWasd ? Vector3.zero : GetHandVelocity();
-            Vector3 direction;
-            if (!isWasd)
-            {
-                // Thrown like a ball out of the hand - the swing gives direction,
-                // speed and how straight it flies. A full swing flies straight like in Gothic, half a swing arcs, no
-                // swing drops it from the hand. Only a real throw homes on NPCs and hit targets (and then ignores the
-                // gravity). Before it flew where the camera looked, slowly but straight, even without moving the hand.
-                // DeveloperConfig.SpellThrowFullSwingSpeed: the hand speed of a full throw - a light flick was a strong one.
-                var swingFactor = Mathf.Clamp(handVelocity.magnitude / _configService.Dev.SpellThrowFullSwingSpeed, 0f,
-                    _maxSwingFactor);
-                direction = handVelocity.magnitude >= _minThrowDirectionSpeed ? handVelocity.normalized : Vector3.down;
-                _throwSpeedFactor = swingFactor;
-                _throwGravityScale = Mathf.Clamp01(1f - swingFactor);
-                _isThrowHoming = swingFactor >= _minHomingSwingFactor;
-                Logger.Log($"[VRRuneCaster] Throw: hand {handVelocity.magnitude:F1} m/s, swing {swingFactor:F2}, " +
-                           $"gravity {_throwGravityScale:F2}, homing {_isThrowHoming}", LogCat.VR);
-            }
-            else
-            {
-                // The simulator can't swing: where you look, at full speed.
-                direction = Camera.main != null ? Camera.main.transform.forward : handGo.transform.forward;
-                _throwSpeedFactor = 1f;
-                _throwGravityScale = 0f;
-                _isThrowHoming = true;
-            }
-            if (direction.sqrMagnitude < 0.01f)
-                direction = handGo.transform.forward;
+            var direction = _throw.Aim(handGo, isWasd);
 
-            StopInvestSound();
-            PlayCastSound(_item.Spell);
+            _fx.StopInvestSound();
+            _fx.PlayCastSound();
 
             var origin = handGo.transform.position + direction * 0.15f;
             // Per level like the engine (castLevel + 1): per mana tick a held fireball did thousands.
-            SpawnSpellProjectile(origin, direction, Mathf.Clamp(_investLevel + 1, 1, _maxInvestLevel));
+            var level = Mathf.Clamp(_investLevel + 1, 1, VRSpellFx.MaxInvestLevel);
+            _throw.Throw(origin, direction, level, _investLevel, GetSpellDamage(_item.Spell) * level);
             InvokeSpellCast();
             // A thrown scroll is used up like a cast one - Firebolt/Fireball scrolls were thrown forever.
             TryUseUpScroll();
 
             // The charging effects (hand/body, looping) end with the throw - only a cancel removed them before, so
             // every throw left its fire in the hand and the next charge added more.
-            DestroyBodyFx();
+            _fx.DestroyBodyFx();
 
             _isCasting = false;
             _isThrowCharged = false;
         }
 
-        private void TrackHandPosition(VrHandSide handSide)
-        {
-            var handGo = _vrPlayerService.GetHandModelGo(handSide);
-            if (handGo == null)
-                return;
-
-            _handSamples.Enqueue((Time.time, handGo.transform.position));
-            while (_handSamples.Count > 2 && Time.time - _handSamples.Peek().time > _handVelocityWindow)
-                _handSamples.Dequeue();
-        }
-
-        private Vector3 GetHandVelocity()
-        {
-            if (_handSamples.Count < 2)
-                return Vector3.zero;
-
-            var oldest = _handSamples.Peek();
-            var newest = _handSamples.Last();
-            var deltaTime = newest.time - oldest.time;
-            return deltaTime > 0f ? (newest.position - oldest.position) / deltaTime : Vector3.zero;
-        }
-
-        private void SpawnSpellProjectile(Vector3 origin, Vector3 direction, int level)
-        {
-            var hero = _npcService.GetHeroContainer();
-            var mfxName = GetSpellMfxName(_item.Spell);
-            var damage = GetSpellDamage(_item.Spell) * level;
-            var investLevel = _investLevel;
-            // DeveloperConfig.SpellThrowSpeedMultiplier: the spell's own speed (emTrjEaseVel) felt too fast in VR.
-            var speed = _throwCastKey.EmTrjEaseVel / 100f * _throwSpeedFactor * _configService.Dev.SpellThrowSpeedMultiplier;
-            var range = GetThrowRange(mfxName);
-
-            var projectileGo = new GameObject($"SpellProjectile ({mfxName})");
-            projectileGo.transform.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
-
-            // The charge the player saw in the hand is what flies (with its invest level size).
-            GameObject pfx = null;
-            if (_spellVfxGo != null)
-            {
-                _spellVfxGo.transform.SetParent(projectileGo.transform, false);
-                _spellVfxGo.transform.localPosition = Vector3.zero;
-                pfx = _spellVfxGo;
-                _spellVfxGo = null;
-            }
-            else
-            {
-                var castPfxName = string.IsNullOrEmpty(_throwCastKey.VisNameS) ? $"MFX_{mfxName}_INIT" : _throwCastKey.VisNameS;
-                pfx = _meshService.CreateVobPfx(castPfxName, parent: projectileGo);
-            }
-            if (pfx != null)
-            {
-                foreach (var particles in projectileGo.GetComponentsInChildren<ParticleSystem>(true))
-                {
-                    var main = particles.main;
-                    main.loop = true;
-                    particles.Play();
-                }
-            }
-
-            var light = projectileGo.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.range = 3f;
-            light.intensity = 2f;
-            light.color = GetSpellLightColor(mfxName);
-
-            var homingTarget = _isThrowHoming ? FindHomingTarget(hero, origin, direction, range) : null;
-            var projectile = projectileGo.AddComponent<Projectile>();
-            projectile.Owner = hero;
-            projectile.Velocity = direction * Mathf.Max(speed, _droppedSpellSpeed);
-            projectile.UseGravity = _throwGravityScale > 0f;
-            projectile.GravityScale = _throwGravityScale;
-            projectile.AllowAutoAim = _isThrowHoming;
-            projectile.Radius = 0.15f;
-            projectile.MaxDistance = range;
-            projectile.HomingTarget = homingTarget;
-            projectile.HomingDegreesPerSecond = _homingDegreesPerSecond;
-
-            // Captured: the rune (and this component) can be gone before the spell lands.
-            var meshService = _meshService;
-            var vmCacheService = _vmCacheService;
-            var audioService = _audioService;
-            var particleService = _particleService;
-            var baseFx = vmCacheService.TryGetVfxData($"spellFX_{mfxName}");
-            var spellId = _item.Spell;
-
-            projectile.OnNpcHit = (npc, position, normal) =>
-            {
-                Logger.Log($"[VRRuneCaster] {mfxName} hit {npc.Instance.GetName(NpcNameSlot.Slot0)} (level {level}, dmg {damage})", LogCat.VR);
-                // FightService reads the spell from the caster's ActiveSpell (fire, AOE, damage type): it was the
-                // Light spell (0) once the rune was let go before the fireball landed - no fire.
-                var activeSpell = hero.ActiveSpell;
-                hero.ActiveSpell = spellId;
-                GlobalEventDispatcher.SpellHit.Invoke(hero, npc, position, damage);
-                hero.ActiveSpell = activeSpell;
-                SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollDynS, investLevel, position, normal);
-                Destroy(projectileGo);
-            };
-            projectile.OnWorldHit = (position, normal) =>
-            {
-                SpawnCollideFx(meshService, vmCacheService, audioService, particleService, baseFx?.EmFxCollStatS, investLevel, position, normal);
-                // A fire storm on the ground: its burning area still damages the NPCs around (FightService).
-                if (mfxName != null && SpellConst.SpreadEffectNames.Contains(mfxName))
-                {
-                    var activeSpell = hero.ActiveSpell;
-                    hero.ActiveSpell = spellId;
-                    GlobalEventDispatcher.SpellSpreadHit.Invoke(hero, position, damage);
-                    hero.ActiveSpell = activeSpell;
-                }
-                Destroy(projectileGo);
-            };
-            projectile.OnExpired = () => Destroy(projectileGo);
-
-            Logger.Log($"[VRRuneCaster] Threw {mfxName} damage level {level} invest level {investLevel} at {speed:F1} m/s, " +
-                       $"homing={homingTarget?.Instance?.GetName(NpcNameSlot.Slot0) ?? "none"}", LogCat.VR);
-        }
-
-        /// <summary>
-        /// Collision effect of the spell (emFXCollDyn_S on NPCs, emFXCollStat_S on the world) - per invest level if it
-        /// has keys (spellFX_Fireball_COLLIDE_KEY_INVEST_1..4).
-        /// </summary>
-        private static void SpawnCollideFx(MeshService meshService, VmCacheService vmCacheService,
-            AudioService audioService, ParticleService particleService, string fxName, int level, Vector3 position,
-            Vector3 normal)
-        {
-            if (string.IsNullOrEmpty(fxName))
-                return;
-
-            var levelKey = vmCacheService.TryGetVfxEmitKey($"{fxName}_KEY_INVEST_{Mathf.Clamp(level, 1, 4)}");
-            var fx = vmCacheService.TryGetVfxData(fxName);
-            var pfxName = !string.IsNullOrEmpty(levelKey?.VisNameS) ? levelKey.VisNameS : fx?.VisNameS;
-            var sfxName = !string.IsNullOrEmpty(levelKey?.SfxId) ? levelKey.SfxId : fx?.SfxId;
-
-            if (!string.IsNullOrEmpty(pfxName))
-            {
-                var rotation = normal.sqrMagnitude > 0f ? Quaternion.LookRotation(normal) : Quaternion.identity;
-                var pfxGo = meshService.CreateVobPfx(pfxName, position, rotation, destroyAfterPlay: true);
-                if (pfxGo != null)
-                {
-                    var root = pfxGo.transform.parent != null ? pfxGo.transform.parent.gameObject : pfxGo;
-                    Destroy(root, _collideFxSeconds);
-                }
-            }
-
-            if (!string.IsNullOrEmpty(sfxName))
-            {
-                var clip = audioService.GetRandomSoundClip(sfxName);
-                if (clip != null)
-                    AudioSource.PlayClipAtPoint(clip, position);
-            }
-
-            // emFXCreate_S of the collide effect (e.g. fire storm: SPREAD -> burning area).
-            if (!string.IsNullOrEmpty(fx?.EmFxCreateS))
-                particleService.PlayVisualFx(fx.EmFxCreateS, position);
-        }
-
-        /// <summary>
-        /// Gothic's TARGET trajectory homes on the focus NPC. VR: the living NPC closest to the throw direction
-        /// within a small cone - helps without taking the aiming away.
-        /// </summary>
-        private NpcContainer FindHomingTarget(NpcContainer hero, Vector3 origin, Vector3 direction, float range)
-        {
-            NpcContainer best = null;
-            var bestAngle = _homingConeDegrees;
-            foreach (var npc in _multiTypeCacheService.NpcCache)
-            {
-                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy)
-                    continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
-                    continue;
-
-                var toNpc = npc.Go.transform.position + Vector3.up * 0.4f - origin;
-                if (toNpc.magnitude > range)
-                    continue;
-
-                var angle = Vector3.Angle(direction, toNpc);
-                if (angle >= bestAngle)
-                    continue;
-
-                bestAngle = angle;
-                best = npc;
-            }
-            return best;
-        }
-
-        private float GetThrowRange(string mfxName)
-        {
-            var targetRange = _vmCacheService.TryGetVfxData($"spellFX_{mfxName}")?.EmTrjTargetRange ?? 0f;
-            // emTrjTargetRange is in meters in VISUALFX (Fireball: 20).
-            return targetRange > 0f ? Mathf.Max(targetRange, _defaultThrowRange) : _defaultThrowRange;
-        }
-
-        private static Color GetSpellLightColor(string mfxName)
-        {
-            if (mfxName == null)
-                return new Color(1f, 0.6f, 0.3f);
-            if (mfxName.Contains("Ice", System.StringComparison.OrdinalIgnoreCase))
-                return new Color(0.6f, 0.8f, 1f);
-            if (mfxName.Contains("Thunder", System.StringComparison.OrdinalIgnoreCase) ||
-                mfxName.Contains("Zap", System.StringComparison.OrdinalIgnoreCase) ||
-                mfxName.Contains("Lightning", System.StringComparison.OrdinalIgnoreCase))
-                return new Color(0.7f, 0.7f, 1f);
-            if (mfxName.Contains("Death", System.StringComparison.OrdinalIgnoreCase))
-                return new Color(0.5f, 1f, 0.5f);
-            return new Color(1f, 0.6f, 0.3f);
-        }
-
         private bool IsTransformSpell() =>
-            string.Equals(GetSpellMfxName(_item.Spell), _transformName, System.StringComparison.OrdinalIgnoreCase);
-
-        private bool IsTelekinesisSpell() =>
-            string.Equals(GetSpellMfxName(_item.Spell), _telekinesisName, System.StringComparison.OrdinalIgnoreCase);
-
-        private void HandleTelekinesisInput()
-        {
-            if (!_telekinesisPrepped)
-            {
-                // Trigger 1: extend ForceGrab range so VRFocus highlights far items, loop SFX
-                _telekinesisPrepped = true;
-                Logger.Log("[VRRuneCaster] Telekinesis PREP — ForceGrab range extended, aim and trigger to pull", LogCat.VR);
-                StartInvestSound(_item.Spell);
-                _vrPlayerService.TelekinesisDeactivated += OnTelekinesisEnded;
-                _vrPlayerService.ActivateTelekinesis(_telekinesisRange);
-            }
-            else
-            {
-                // Trigger 2: pull whatever the ForceGrabber is hovering (SFX stops via Grabbed event)
-                Logger.Log("[VRRuneCaster] Telekinesis PULL", LogCat.VR);
-                PlayCastSound(_item.Spell);
-                _vrPlayerService.TryTelekinesisGrab();
-                _castThisGrab = true;
-            }
-        }
-
-        private void OnTelekinesisEnded()
-        {
-            Logger.Log("[VRRuneCaster] Telekinesis ended — stopping SFX", LogCat.VR);
-            StopInvestSound();
-            _vrPlayerService.TelekinesisDeactivated -= OnTelekinesisEnded;
-        }
+            string.Equals(GetSpellMfxName(_item.Spell), _transformName, StringComparison.OrdinalIgnoreCase);
 
         private void UpdateSpellTarget()
         {
@@ -1716,7 +1021,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 var name = _spellTarget?.Instance?.GetName(NpcNameSlot.Slot0) ?? "none";
                 Logger.Log($"[VRRuneCaster] Target → {name}", LogCat.VR);
-                if (_spellTarget != null) PlayOneShot("TMAG_INIT");
+                if (_spellTarget != null) _fx.PlayOneShot("TMAG_INIT");
             }
         }
 
@@ -1727,80 +1032,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private string GetSpellMfxName(int spellId)
         {
-            if (spellId < 0) return null;
-            var sym = _gameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            if (sym == null) return null;
-            var name = sym.GetString((ushort)spellId);
-            return string.IsNullOrEmpty(name) ? null : name;
+            return _vmCacheService.TryGetSpellMfxName(spellId, out var mfxName) ? mfxName : null;
         }
 
-        private void StartInvestSound(int spellId)
-        {
-            var mfxName = GetSpellMfxName(spellId);
-            if (mfxName == null) return;
-            var clip = _audioService.GetRandomSoundClip($"MFX_{mfxName}_Invest");
-            if (clip == null) return;
-            _investAudioSource.clip = clip;
-            _investAudioSource.Play();
-        }
+        // The bar follows the mana itself (NpcAttributeChanged from NpcService.SetAttribute).
+        private static void ShowManaBar() => GlobalEventDispatcher.HeroManaBarRequested.Invoke(true);
 
-        private void StopInvestSound()
-        {
-            if (_investAudioSource.isPlaying)
-                _investAudioSource.Stop();
-        }
-
-        private void PlayCastSound(int spellId)
-        {
-            var mfxName = GetSpellMfxName(spellId);
-            if (mfxName == null) return;
-            var sfxName = $"MFX_{mfxName}_Cast";
-            var clip = _audioService.GetRandomSoundClip(sfxName);
-            if (clip == null)
-                clip = _audioService.GetRandomSoundClip("MFX_Thunderbolt_Cast"); // fallback for spells with no dedicated cast SFX
-            if (clip != null)
-                AudioSource.PlayClipAtPoint(clip, transform.position);
-        }
-
-        private void PlayOneShot(string sfxName)
-        {
-            var clip = _audioService.GetRandomSoundClip(sfxName);
-            if (clip != null)
-                AudioSource.PlayClipAtPoint(clip, transform.position);
-        }
-
-        private void ShowManaBar()
-        {
-            _manaBar = FindManaBar();
-            if (_manaBar == null) return;
-            RefreshManaFill();
-            if (_manaBar != null)
-                _manaBar.FadeIn();
-        }
-
-        private void HideManaBar()
-        {
-            if (_manaBar != null)
-                _manaBar.FadeOut();
-        }
-
-        private void RefreshManaFill()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero == null || _manaBar == null) return;
-            var mana = hero.Vob.GetAttribute((int)NpcAttribute.Mana);
-            var manaMax = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
-            if (manaMax > 0)
-                _manaBar.SetFillAmount(mana, manaMax);
-        }
-
-        private StatusBarAdapter FindManaBar()
-        {
-            var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null) return null;
-            return hero.Go
-                .GetComponentsInChildren<StatusBarAdapter>(includeInactive: true)
-                .FirstOrDefault(b => b.Type == StatusBarAdapter.StatusType.Mana);
-        }
+        private static void HideManaBar() => GlobalEventDispatcher.HeroManaBarRequested.Invoke(false);
     }
 }

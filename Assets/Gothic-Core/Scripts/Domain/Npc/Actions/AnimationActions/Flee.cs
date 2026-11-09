@@ -6,7 +6,7 @@ using UnityEngine.AI;
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
-    /// AI_Flee (DeveloperConfig.EnableAiFlee): runs a few meters away from the enemy (Action.Instance0) - ZS_Flee_Loop
+    /// AI_Flee: runs a few meters away from the enemy (Action.Instance0) - ZS_Flee_Loop
     /// issues it again every loop, so the NPC keeps running while the fear lasts. Without it, scared NPCs stood still.
     /// </summary>
     public class Flee : AbstractWalkAnimationAction2

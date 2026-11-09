@@ -8,9 +8,12 @@ using Gothic.Core.Models.Vm;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Player;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
-using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
@@ -30,18 +33,19 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DocService _docService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly Gothic.Core.Services.Caches.ResourceCacheService _resourceCacheService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
+        [Inject] private readonly VobService _vobService;
+        [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (one hand lets go),
         // not while it's still in front of the player.
         private bool _isConsumedOnDocClose;
         [Inject] private readonly MarvinService _marvinService;
-        [Inject] private readonly Gothic.Core.Services.Npc.FightService _fightService;
+        [Inject] private readonly FightService _fightService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly VRRangedService _vrRangedService;
 
         [SerializeField] private VRVobItemProperties _vrProperties;
         [SerializeField] private Rigidbody _rigidbody;
@@ -54,6 +58,9 @@ namespace Gothic.VR.Adapters.Vob
         private VrInteractable _interactable;
         private Coroutine _reEnableCollisionRoutine;
 
+        // Added on the first grab of a bow/crossbow and kept on the item (switched by SetRangedWeaponHeld).
+        private VobItem.IVrHoldable _rangedWeapon;
+        private bool _isRangedWeaponChecked;
 
         private struct OverlapCheckData
         {
@@ -144,7 +151,7 @@ namespace Gothic.VR.Adapters.Vob
             TryShowWeaponRequirement();
 
             // One hand is enough for ranged weapons.
-            TryPrepareRangedWeapon();
+            SetRangedWeaponHeld(true);
 
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
@@ -188,15 +195,9 @@ namespace Gothic.VR.Adapters.Vob
             _vobMeshCullingService?.StopTrackVobPositionUpdates(gameObject);
             _vrPlayerService.UnsetGrab(args);
 
-            // Bows/crossbows shoot as long as any hand holds them. Removed immediately: a release + grab in the same
-            // frame (holster -> hand, hand -> hand) found the component still pending destruction and added no new
-            // one - the bow ended up without its string.
-            var isStillHeld = _vrPlayerService.GrabbedItemLeft == gameObject ||
-                              _vrPlayerService.GrabbedItemRight == gameObject;
-            if (!isStillHeld && TryGetComponent<VobItem.VRCrossbow>(out var crossbow))
-                DestroyImmediate(crossbow);
-            if (!isStillHeld && TryGetComponent<VobItem.VRBow>(out var bow))
-                DestroyImmediate(bow);
+            // Bows/crossbows shoot as long as any hand holds them (UnsetGrab above already forgot this hand).
+            if (!_vrPlayerService.IsHeldInHand(_interactable))
+                SetRangedWeaponHeld(false);
 
             if (_vrPlayerService.IsDualGrabbed)
                 return;
@@ -251,28 +252,13 @@ namespace Gothic.VR.Adapters.Vob
             if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
                 gameObject.AddComponent<Adapters.Vob.VobItem.VRDocViewer>();
 
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            vm.GlobalSelf = vm.GlobalHero;
-            _docService.PendingItemGo = gameObject;
-            try
-            {
-                vm.Call(onStateIndex);
-                Logger.Log($"[VRVobItem] Called on_state[0] for doc item {item.Name}", LogCat.VR);
+            var hero = _gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance;
+            if (!_docService.ShowItemDocument(hero, item, gameObject))
+                return;
 
-                // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
-                if (Adapters.Vob.VobItem.VRItemUser.IsConsumedOnUse(item, _resourceCacheService))
-                    _isConsumedOnDocClose = true;
-            }
-            catch (Exception e)
-            {
-                Logger.LogError($"[VRVobItem] on_state[0] failed for {item.Name}: {e.Message}", LogCat.VR);
-                _docService.PendingItemGo = null;
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-            }
+            // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
+            if (_itemUseService.IsConsumedOnUse(item))
+                _isConsumedOnDocClose = true;
         }
 
         /// <summary>
@@ -301,7 +287,6 @@ namespace Gothic.VR.Adapters.Vob
             _vobService.RemoveWorldItem(container);
         }
 
-
         /// <summary>
         /// Runes and scrolls (ITEM_KAT_RUNE) held with both hands cast (VRRuneCaster).
         /// </summary>
@@ -316,24 +301,29 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrCrossbow / EnableVrBows: ranged weapons shoot while held.
+        /// Ranged weapons shoot while a hand holds them (VRRangedService.AddRangedWeapon). The component is added on the
+        /// first grab and stays on the item - a release and a grab in the same frame (hand -> hand, holster -> hand)
+        /// only switch it off and on again. Its first setup waits for its own next Update (not in this grab event).
         /// </summary>
-        private void TryPrepareRangedWeapon()
+        private void SetRangedWeaponHeld(bool isHeld)
         {
-            if (GetComponent<VobItem.VRCrossbow>() != null || GetComponent<VobItem.VRBow>() != null)
+            if (isHeld)
+                TryAddRangedWeapon();
+
+            _rangedWeapon?.SetHeld(isHeld);
+        }
+
+        private void TryAddRangedWeapon()
+        {
+            if (_isRangedWeaponChecked)
                 return;
 
-            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
-            if (!item.IsRangedWeapon())
+            var item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null)
                 return;
+            _isRangedWeaponChecked = true;
 
-            if (item.IsCrossbow())
-            {
-                if (_configService.Dev.EnableVrCrossbow)
-                    gameObject.AddComponent<VobItem.VRCrossbow>();
-            }
-            else if (_configService.Dev.EnableVrBows)
-                gameObject.AddComponent<VobItem.VRBow>();
+            _rangedWeapon = _vrRangedService.AddRangedWeapon(gameObject, item);
         }
 
         /// <summary>
@@ -344,7 +334,7 @@ namespace Gothic.VR.Adapters.Vob
         {
             var item = GetComponentInParent<VobLoader>()?.Container
                 .PropsAs<VobItemProperties2>()?.Instance;
-            if (!VobItem.VRItemUser.IsUsable(item, _configService.Dev.EnableEquipItems))
+            if (!_itemUseService.IsUsable(item))
                 return;
 
             if (GetComponent<VobItem.VRItemUser>() == null)

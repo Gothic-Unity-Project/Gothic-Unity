@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -23,6 +24,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
@@ -30,10 +32,10 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
         [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
@@ -91,6 +93,7 @@ namespace Gothic.VR.Services.Context
             this.Inject();
 
             _vrWeaponService.Init();
+            _vrHeldItemSyncService.Init();
             _vrCinemaService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
@@ -131,7 +134,7 @@ namespace Gothic.VR.Services.Context
                                     "found. No VR hero body.", LogCat.VR);
             }
 
-            // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+            // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
         }
 
@@ -199,12 +202,10 @@ namespace Gothic.VR.Services.Context
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
-            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
-            if (developerConfig.EnableBackpackEquipToggle)
-            {
-                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
-                equipToggle.transform.SetParent(_player.transform, false);
-            }
+            // A trigger click at a worn item in the backpack equips it.
+            var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+            equipToggle.transform.SetParent(_player.transform, false);
+
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
@@ -215,12 +216,9 @@ namespace Gothic.VR.Services.Context
                 favoritesRing.transform.SetParent(_player.transform, false);
             }
 
-            // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
-            if (developerConfig.EnableVrHeroBlock)
-            {
-                var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
-                heroBlock.transform.SetParent(_player.transform, false);
-            }
+            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
+            var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+            heroBlock.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
             // Searched inside our player only: other players are destroyed at the end of this frame.
@@ -456,8 +454,7 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
-        /// the world item.
+        /// Like putting the held items into the backpack (VRPlayerService.StoreHeldItem).
         /// </summary>
         public void StoreHeldItemsInBackpack()
         {
@@ -470,19 +467,20 @@ namespace Gothic.VR.Services.Context
                 var interactable = hand.Held;
                 if (interactable == null || !stored.Add(interactable))
                     continue;
-                var container = interactable.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
-                var item = container?.VobAs<ZenKit.Vobs.IItem>();
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.Vob as IItem;
                 if (item == null)
+                {
+                    Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",
+                        LogCat.VR);
                     continue;
-
-                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
-                interactable.ForceRelease();
+                }
 
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);
-                _playerService.AddItem(instanceName, amount);
-                _vobService.RemoveWorldItem(container);
-                Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack", LogCat.VR);
+                if (_vrPlayerService.StoreHeldItem(container))
+                    Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack",
+                        LogCat.VR);
             }
         }
 

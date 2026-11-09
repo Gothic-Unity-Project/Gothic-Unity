@@ -14,6 +14,8 @@ namespace Gothic.Core.Domain.Inventory
 {
     /// <summary>
     /// The hero's inventory (VR backpack). Items held in the VR hands count as inventory too (VRPlayerService).
+    /// Every change fires GlobalEventDispatcher.NpcInventoryChanged(hero) like NpcInventoryOwner, so the backpack
+    /// refreshes. Handed out by InventoryTransferService.
     /// </summary>
     public class PlayerInventoryOwner : IInventoryOwner
     {
@@ -38,12 +40,14 @@ namespace Gothic.Core.Domain.Inventory
         public void Add(string itemInstanceName, int amount)
         {
             _playerService.AddItem(itemInstanceName, amount);
+            GlobalEventDispatcher.NpcInventoryChanged.Invoke(Npc);
         }
 
         public void Remove(string itemInstanceName, int amount)
         {
             _playerService.RemoveItem(itemInstanceName, amount);
             UnequipIfLastOneTakenOut(itemInstanceName);
+            GlobalEventDispatcher.NpcInventoryChanged.Invoke(Npc);
         }
 
         public bool IsEquipped(string itemInstanceName)

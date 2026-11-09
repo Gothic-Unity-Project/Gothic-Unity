@@ -25,7 +25,6 @@ namespace Gothic.Core.Domain.Npc
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly ContextMeleeDamageRuleService _meleeDamageRule;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PlayerService _playerService;
 
         private int? _minimalDamage;
@@ -36,10 +35,11 @@ namespace Gothic.Core.Domain.Npc
         /// <summary>
         /// The hit takes the target's hit points. Returns true if they are gone - the caller decides: knocked out or
         /// dead. A spell or projectile passes its damage (damageOverride) - only the protection of its type
-        /// (overrideProtectionIndex) is taken off.
+        /// (overrideProtectionIndex) is taken off. heroWeapon: the weapon of the hero's melee hit (FightHit), null for
+        /// fists - NPCs hit with their equipped weapon.
         /// </summary>
         public bool ApplyHit(NpcContainer attacker, NpcContainer target, int? damageOverride = null,
-            int overrideProtectionIndex = (int)DamageType.Fire)
+            int overrideProtectionIndex = (int)DamageType.Fire, ItemInstance heroWeapon = null)
         {
             var hitPoints = target.Vob.GetAttribute((int)NpcAttribute.HitPoints);
             var maxHP = target.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
@@ -55,7 +55,7 @@ namespace Gothic.Core.Domain.Npc
             }
             else
             {
-                damage = CalculateMeleeDamage(attacker, target, out isImmune);
+                damage = CalculateMeleeDamage(attacker, target, heroWeapon, out isImmune);
             }
 
             // Like the engine, a hit never does less than NPC_MINIMAL_DAMAGE (Balancing.d, G1: 1) unless the target is
@@ -69,25 +69,7 @@ namespace Gothic.Core.Domain.Npc
                 damage = 1;
             _isRequirementCapped = false;
 
-            // Dev cheats: hero one-hit kill / knockout.
-            if (attacker.Instance.IsHero(_gameStateService.GothicVm))
-            {
-                if (_configService.Dev.EnableOneHitKill)
-                    damage = maxHP;
-                else if (_configService.Dev.EnableOneHitKnockout)
-                    damage = Mathf.Max(0, hitPoints - 1);
-            }
-
-            // Magic and ranged never one-shot humanoids or the hero - they always survive with 1 HP, a follow-up hit
-            // knocks them out. Monsters take full damage. DeveloperConfig.EnableRangedKnockoutOption replaces this
-            // (FightService.OnHit: kill or knock out by the option).
-            var attackerMode = (VmGothicEnums.WeaponState)attacker.Vob.FightMode;
-            var isMagicOrRanged = attackerMode is VmGothicEnums.WeaponState.Mage or VmGothicEnums.WeaponState.Bow
-                or VmGothicEnums.WeaponState.CBow;
             var isTargetHero = target.Instance.IsHero(_gameStateService.GothicVm);
-            if (!_configService.Dev.EnableRangedKnockoutOption && isMagicOrRanged && (isTargetHero || target.IsHuman()))
-                damage = Mathf.Min(damage, Mathf.Max(1, hitPoints - 1));
-
             // NPC_FLAG_IMMORTAL: take no damage, but combat still plays out normally. Marvin's god mode for the hero
             // likewise (the script flag is left alone - AI reads it).
             if (((int)target.Instance.Flags & FightConst.NpcFlagImmortal) != 0 || (isTargetHero && _playerService.IsGodMode))
@@ -109,6 +91,21 @@ namespace Gothic.Core.Domain.Npc
             _npcService.SetAttribute(target, NpcAttribute.HitPoints, hitPoints);
 
             return hitPoints <= 0;
+        }
+
+        /// <summary>
+        /// The protection (PROT_*) index of a damage type mask (DAM_*): its lowest bit, blunt without one. Spells and
+        /// projectiles pass it to ApplyHit.
+        /// </summary>
+        public static int GetProtectionIndex(int damageTypeMask)
+        {
+            for (var i = 0; i < 8; i++)
+            {
+                if ((damageTypeMask & (1 << i)) != 0)
+                    return i;
+            }
+
+            return (int)DamageType.Blunt;
         }
 
         /// <summary>
@@ -149,18 +146,22 @@ namespace Gothic.Core.Domain.Npc
         /// damageTotal - the target's protection of that type; immune types (protection -1) are left out.
         /// The dice roll's meaning and the formula of one type are the game version's (IMeleeDamageRule).
         /// </summary>
-        /// The hero's weapon is the one in his VR hand (Props.MeleeHitWeapon) - it isn't equipped in VR, he hit with
-        /// his strength alone (Lukis in heavy armor took 30 instead of 80). Swung without its requirements
+        /// The hero's weapon is the one the hit carries (FightHit: the one in his VR hand) - it isn't equipped in VR,
+        /// he hit with his strength alone (an NPC in heavy armor took 30 instead of 80). Swung without its requirements
         /// (cond_atr/cond_value, e.g. 50 strength), every hit does only 1 damage.
-        private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, out bool isImmune)
+        private int CalculateMeleeDamage(NpcContainer attacker, NpcContainer target, ItemInstance heroWeapon,
+            out bool isImmune)
         {
             var isHeroAttacker = attacker.Instance.IsHero(_gameStateService.GothicVm);
-            var weapon = isHeroAttacker
-                ? attacker.Props.MeleeHitWeapon
-                : _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
-            // In fist mode the engine hits with the fist, not the sword in the belt.
-            if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
+            // The hero: the hit's weapon decides, not his FightMode - in VR one hand can punch while the other holds a
+            // sword (FightMode W1H). NPCs: in fist mode the engine hits with the fist, not the sword in the belt.
+            ItemInstance weapon;
+            if (isHeroAttacker)
+                weapon = heroWeapon.IsMeleeWeapon() ? heroWeapon : null;
+            else if ((VmGothicEnums.WeaponState)attacker.Vob.FightMode == VmGothicEnums.WeaponState.Fist)
                 weapon = null;
+            else
+                weapon = _npcHelperService.ExtNpcGetEquippedMeleeWeapon(attacker.Instance);
 
             var mask = weapon?.DamageType ?? attacker.Instance.DamageType;
             if (mask == 0)

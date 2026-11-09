@@ -75,7 +75,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly FightService _fightService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
-        [Inject] private readonly VRTransformService _vrTransformService;
+        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
 
         private const int _maxSpells = 8;
         private const int _maxWeapons = 2;
@@ -390,9 +390,9 @@ namespace Gothic.VR.Adapters.Player
         private bool IsHeroBusy()
         {
             var bodyState = _playerService.HeroContainer.Props.BodyState;
-            // Transformed: a monster has no spells (only VRTransformPuppet's attack).
+            // Transformed: a monster has no spells (only VRSpellTransformPuppet's attack).
             return bodyState is VmGothicEnums.BodyState.BsUnconscious or VmGothicEnums.BodyState.BsDead ||
-                   _gameStateService.Dialogs.IsInDialog || _vrTransformService.IsTransformed;
+                   _gameStateService.Dialogs.IsInDialog || _vrSpellTransformService.IsTransformed;
         }
 
         private void Open(Transform head)

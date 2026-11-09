@@ -5,6 +5,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Npc;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -19,6 +20,8 @@ namespace Gothic.Core.Adapters.Vob
     /// </summary>
     public class Projectile : MonoBehaviour, IProjectile
     {
+        [Inject] private readonly NpcService _npcService;
+
         public NpcContainer Owner;
         public Vector3 Velocity;
         public bool UseGravity;
@@ -47,15 +50,11 @@ namespace Gothic.Core.Adapters.Vob
         Vector3 IProjectile.Velocity { get => Velocity; set => Velocity = value; }
         bool IProjectile.UseGravity { get => UseGravity; set => UseGravity = value; }
         float IProjectile.MaxDistance { get => MaxDistance; set => MaxDistance = value; }
+        float IProjectile.Radius { get => Radius; set => Radius = value; }
+        bool IProjectile.AllowAutoAim { get => AllowAutoAim; set => AllowAutoAim = value; }
         Action<NpcContainer, Vector3, Vector3> IProjectile.OnNpcHit { get => OnNpcHit; set => OnNpcHit = value; }
         Action<Vector3, Vector3> IProjectile.OnWorldHit { get => OnWorldHit; set => OnWorldHit = value; }
         Action IProjectile.OnExpired { get => OnExpired; set => OnExpired = value; }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            ProjectileFactory.Create = go => go.AddComponent<Projectile>();
-        }
 
         private const float _homingTargetHeight = 0.4f;
         private static readonly RaycastHit[] _hits = new RaycastHit[16];
@@ -149,7 +148,7 @@ namespace Gothic.Core.Adapters.Vob
         /// Once, at the start of the flight: without an NPC to home on, the closest hit-reactive VOB within a small cone
         /// (G2 Irdorath's bridge targets: invisible, the engine focuses them with a bow drawn).
         /// </summary>
-        private bool IsHoming => HomingDegreesPerSecond > 0f && (_homingVobTarget != null || HomingTarget?.Go != null);
+        private bool IsHoming => (HomingDegreesPerSecond > 0f && (_homingVobTarget != null || HomingTarget?.Go != null));
 
         private void TryAutoAimAtDamageTarget()
         {
@@ -157,7 +156,6 @@ namespace Gothic.Core.Adapters.Vob
             if (!AllowAutoAim || HomingTarget != null || Velocity.sqrMagnitude < 0.01f)
                 return;
 
-            var config = Gothic.Core.ReflexProjectInstaller.DIContainer.Resolve<Gothic.Core.Services.Config.ConfigService>();
             _homingVobTarget = DamageTargets.FindInCone(transform.position, Velocity, _autoAimConeDegrees, MaxDistance);
             if (_homingVobTarget == null)
                 return;
@@ -180,10 +178,13 @@ namespace Gothic.Core.Adapters.Vob
                 return;
             }
 
-            if (HomingTarget?.Go == null || HomingDegreesPerSecond <= 0f)
+            if (HomingTarget?.Go == null)
                 return;
 
             var targetPos = HomingTarget.Go.transform.position + Vector3.up * _homingTargetHeight;
+            if (HomingDegreesPerSecond <= 0f)
+                return;
+
             var toTarget = targetPos - transform.position;
             if (toTarget.sqrMagnitude < 0.01f)
                 return;
@@ -202,7 +203,7 @@ namespace Gothic.Core.Adapters.Vob
                 return _heroTarget;
             _isHeroTargetChecked = true;
 
-            var hero = ReflexProjectInstaller.DIContainer.Resolve<NpcService>().GetHeroContainer();
+            var hero = _npcService.GetHeroContainer();
             _heroTarget = hero != null && hero != Owner ? hero : null;
             return _heroTarget;
         }

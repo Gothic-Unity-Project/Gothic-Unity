@@ -39,6 +39,13 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.FightWindowAttack.AddListener(OnFightWindowAttack);
             GlobalEventDispatcher.FightWindowCombo.AddListener(OnFightWindowCombo);
             GlobalEventDispatcher.FightWindowComboFailed.AddListener(OnFightWindowComboFailed);
+            GlobalEventDispatcher.HeroBlockStarted.AddListener(OnHeroBlockStarted);
+            GlobalEventDispatcher.HeroBlockedHit.AddListener(OnHeroBlockedHit);
+            GlobalEventDispatcher.FistSwung.AddListener(OnFistSwung);
+            GlobalEventDispatcher.FistPunchLanded.AddListener(OnFistPunchLanded);
+            GlobalEventDispatcher.StabStuck.AddListener(OnStabStuck);
+            GlobalEventDispatcher.StabHeld.AddListener(OnStabHeld);
+            GlobalEventDispatcher.StabFinished.AddListener(OnStabFinished);
 
             // Lock picking
             GlobalEventDispatcher.LockPickComboWrong.AddListener(OnLockPickComboWrong);
@@ -62,6 +69,13 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.FightWindowAttack.RemoveListener(OnFightWindowAttack);
             GlobalEventDispatcher.FightWindowCombo.RemoveListener(OnFightWindowCombo);
             GlobalEventDispatcher.FightWindowComboFailed.RemoveListener(OnFightWindowComboFailed);
+            GlobalEventDispatcher.HeroBlockStarted.RemoveListener(OnHeroBlockStarted);
+            GlobalEventDispatcher.HeroBlockedHit.RemoveListener(OnHeroBlockedHit);
+            GlobalEventDispatcher.FistSwung.RemoveListener(OnFistSwung);
+            GlobalEventDispatcher.FistPunchLanded.RemoveListener(OnFistPunchLanded);
+            GlobalEventDispatcher.StabStuck.RemoveListener(OnStabStuck);
+            GlobalEventDispatcher.StabHeld.RemoveListener(OnStabHeld);
+            GlobalEventDispatcher.StabFinished.RemoveListener(OnStabFinished);
 
             GlobalEventDispatcher.LockPickComboWrong.RemoveListener(OnLockPickComboWrong);
             GlobalEventDispatcher.LockPickComboBroken.RemoveListener(OnLockPickComboBroken);
@@ -85,6 +99,21 @@ namespace Gothic.VR.Services
         // Attack window passed
         private void OnFightWindowComboFailed(NpcContainer combatant) =>
             AttackVibration(combatant, VrHapticPreset.Error);
+
+        // Blocking holds the weapon with both hands
+        private void OnHeroBlockStarted() => BothHandsVibration(VrHapticPreset.Info);
+
+        private void OnHeroBlockedHit(NpcContainer attacker) => BothHandsVibration(VrHapticPreset.Warning);
+
+        private void OnFistSwung(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.FistSwing);
+
+        private void OnFistPunchLanded(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.FistHit);
+
+        private void OnStabStuck(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Info);
+
+        private void OnStabHeld(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Info);
+
+        private void OnStabFinished(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Success);
 
         private void OnLockPickComboWrong(VobContainer lockPick, VobContainer target, int handSide) =>
             Vibrate((VrHandSide)handSide, VrHapticPreset.Warning);
@@ -137,13 +166,18 @@ namespace Gothic.VR.Services
 
             if (handSide == GlobalEventDispatcher.HandSide.Both)
             {
-                Vibrate(VrHandSide.Left, preset);
-                Vibrate(VrHandSide.Right, preset);
+                BothHandsVibration(preset);
             }
             else if (handSide.TryToVrHandSide(out var vrHandSide))
             {
                 Vibrate(vrHandSide, preset);
             }
+        }
+
+        private void BothHandsVibration(VrHapticPreset preset)
+        {
+            Vibrate(VrHandSide.Left, preset);
+            Vibrate(VrHandSide.Right, preset);
         }
 
         public void Vibrate(VrHandSide handSide, VrHapticPreset preset)

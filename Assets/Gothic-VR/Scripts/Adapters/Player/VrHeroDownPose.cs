@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core;
-using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Models;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
@@ -18,19 +17,19 @@ using Object = UnityEngine.Object;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// Immersion option "Fall with the body" (ini heroFallCamera, on by default): knocked out (HeroKnockedOut), dead
-    /// (HeroDied) or put to sleep by a spell (HeroSpellStateChanged, T_STAND_2_VICTIM_SLE / T_VICTIM_SLE_2_STAND,
-    /// DeveloperConfig.EnableHeroSleepBody) the body falls on its
-    /// back (T_STAND_2_WOUNDEDB, S_WOUNDEDB / T_DEADB, S_DEADB) and stands up again (HeroRecovered:
-    /// T_WOUNDEDB_2_STAND). The camera follows the animated head down and up - only its height (IVrRig.CameraYOffset,
+    /// Accessibility option heroFallMode "move with the body" (VRPlayerService.HeroFallMode, the default): knocked out
+    /// (HeroKnockedOut) or dead (HeroDied) the body falls on its back (T_STAND_2_WOUNDEDB, S_WOUNDEDB / T_DEADB,
+    /// S_DEADB) and stands up again (HeroRecovered: T_WOUNDEDB_2_STAND); put to sleep (HeroFellAsleep) it lies down
+    /// like ZS_MagicSleep (T_STAND_2_VICTIM_SLE, S_VICTIM_SLE) and gets up on HeroWokeUp (T_VICTIM_SLE_2_STAND).
+    /// The camera follows the animated head down and up - only its height (IVrRig.CameraYOffset,
     /// like a transformation); the body lies out from under it, so the view never moves sideways and where you look
     /// stays yours. It only follows the hero's events: FightService decides death and the locks, VRPlayer opens the
-    /// death menu. Owns VRPlayerService.IsFallCameraOnHeroBody (true while a body can fall with the camera).
+    /// death menu. Tells VRPlayerService whether a body that can fall exists (SetHeroFallBody); "blink" leaves the
+    /// view to VrKnockoutView.
     /// Worker of VRHeroBody (new().Inject(), Initialize, Bind, Dispose).
     /// </summary>
     public class VrHeroDownPose
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly NpcService _npcService;
 
@@ -38,6 +37,7 @@ namespace Gothic.VR.Adapters.Player
         {
             None,
             Knockout,
+            Asleep,
             Dead,
             Rising
         }
@@ -48,7 +48,7 @@ namespace Gothic.VR.Adapters.Player
         private const string _dead = "S_DEADB";
         private const string _woundedToDead = "T_WOUNDEDB_2_DEADB";
         private const string _woundedToStand = "T_WOUNDEDB_2_STAND";
-        // DeveloperConfig.EnableHeroSleepBody: put to sleep by a spell like an NPC's ZS_MagicSleep.
+        // ZS_MagicSleep's animations.
         private const string _standToSleep = "T_STAND_2_VICTIM_SLE";
         private const string _sleep = "S_VICTIM_SLE";
         private const string _sleepToStand = "T_VICTIM_SLE_2_STAND";
@@ -60,9 +60,11 @@ namespace Gothic.VR.Adapters.Player
         private readonly Action _solveArms;
 
         private DownPhase _downPhase;
-        // The hero's state from the events (HeroKnockedOut, HeroRecovered, HeroDied, LoadGameStart).
+        // The hero's state from the events (HeroKnockedOut, HeroRecovered, HeroDied, HeroFellAsleep, HeroWokeUp,
+        // LoadGameStart).
         private bool _isKnockedOut;
         private bool _isDead;
+        private bool _isAsleep;
         // The hands' physics before the hero went down.
         private readonly Dictionary<VrPhysicsHand, bool> _physicalBeforeDown = new();
         private readonly Queue<string> _downAnimations = new();
@@ -72,10 +74,6 @@ namespace Gothic.VR.Adapters.Player
         private float _downStartEyeHeight = -1f;
         private bool _isMenuOpen;
         private bool _isEnabled = true;
-        private bool _isOptionOn = true;
-        // A sleep spell (HeroSpellStateChanged), and whether the body lies because of it (not a knockout).
-        private bool _isAsleep;
-        private bool _isSleepDown;
         private Transform[] _bodyBones;
 
         private GameObject _body;
@@ -99,18 +97,16 @@ namespace Gothic.VR.Adapters.Player
             var bodyState = _npcService.GetHeroContainer()?.Props?.BodyState;
             _isDead = bodyState == VmGothicEnums.BodyState.BsDead;
             _isKnockedOut = bodyState == VmGothicEnums.BodyState.BsUnconscious;
-            _isAsleep = _configService.Dev.EnableHeroSleepBody &&
-                        _npcService.GetHeroContainer()?.Vob?.CurrentStateName == HeroSpellStateDomain.SleepStateName;
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.AddListener(OnHeroRecovered);
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+            GlobalEventDispatcher.HeroFellAsleep.AddListener(OnHeroFellAsleep);
+            GlobalEventDispatcher.HeroWokeUp.AddListener(OnHeroWokeUp);
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.AddListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.AddListener(OnMenuClosed);
-            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
-            GlobalEventDispatcher.HeroSpellStateChanged.AddListener(OnHeroSpellStateChanged);
-            ReadOption();
+            UpdateFallCameraOwner();
         }
 
         public void Dispose()
@@ -118,14 +114,14 @@ namespace Gothic.VR.Adapters.Player
             GlobalEventDispatcher.HeroKnockedOut.RemoveListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.RemoveListener(OnHeroRecovered);
             GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
+            GlobalEventDispatcher.HeroFellAsleep.RemoveListener(OnHeroFellAsleep);
+            GlobalEventDispatcher.HeroWokeUp.RemoveListener(OnHeroWokeUp);
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
             GlobalEventDispatcher.MenuOpened.RemoveListener(OnMenuOpened);
             GlobalEventDispatcher.MenuClosed.RemoveListener(OnMenuClosed);
-            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
-            GlobalEventDispatcher.HeroSpellStateChanged.RemoveListener(OnHeroSpellStateChanged);
             EndDown();
             _body = null;
-            _vrPlayerService.IsFallCameraOnHeroBody = false;
+            _vrPlayerService.SetHeroFallBody(false);
         }
 
         /// <summary>
@@ -154,36 +150,15 @@ namespace Gothic.VR.Adapters.Player
             UpdateFallCameraOwner();
         }
 
-        private void OnPlayerPrefUpdated(string key, object value)
-        {
-            if (key == VRConstants.IniNames.HeroFallCamera)
-                ReadOption();
-        }
-
-        private void ReadOption()
-        {
-            _isOptionOn = _configService.Gothic == null ||
-                          _configService.Gothic.GetInt(VRConstants.IniNames.HeroFallCamera,
-                              VRConstants.HeroFallCameraDefaultValue) == 1;
-            UpdateFallCameraOwner();
-        }
-
         private void UpdateFallCameraOwner()
         {
-            _vrPlayerService.IsFallCameraOnHeroBody = _isEnabled && _isOptionOn && _body != null &&
-                                                      _animator != null && _animator.IsValid && _headBone != null;
+            _vrPlayerService.SetHeroFallBody(_isEnabled && _body != null && _animator != null && _animator.IsValid &&
+                                             _headBone != null);
         }
 
         private void OnHeroKnockedOut(NpcContainer hero)
         {
             _isKnockedOut = true;
-            // Knocked out in his sleep: he gets up like from a knockout.
-            _isSleepDown = false;
-        }
-
-        private void OnHeroSpellStateChanged(NpcContainer hero, string stateName)
-        {
-            _isAsleep = _configService.Dev.EnableHeroSleepBody && stateName == HeroSpellStateDomain.SleepStateName;
         }
 
         private void OnHeroRecovered()
@@ -194,6 +169,16 @@ namespace Gothic.VR.Adapters.Player
         private void OnHeroDied(NpcContainer killer)
         {
             _isDead = true;
+        }
+
+        private void OnHeroFellAsleep(NpcContainer hero)
+        {
+            _isAsleep = true;
+        }
+
+        private void OnHeroWokeUp()
+        {
+            _isAsleep = false;
         }
 
         private void OnLoadGameStart()
@@ -227,7 +212,7 @@ namespace Gothic.VR.Adapters.Player
                 EndDown();
                 return false;
             }
-            if (!_isOptionOn || _body == null || _animator == null ||
+            if (_vrPlayerService.HeroFallMode != VrHeroFallMode.MoveWithBody || _body == null || _animator == null ||
                 !_animator.IsValid || _headBone == null || standingScale <= 0f)
             {
                 EndDown();
@@ -249,15 +234,20 @@ namespace Gothic.VR.Adapters.Player
                     SetDownAnimations(_standToDead, _dead);
                 _downPhase = DownPhase.Dead;
             }
-            else if (!_isDead && _isKnockedOut && _downPhase == DownPhase.Rising)
+            // Knocked out while asleep (the hit woke him) or while getting up.
+            else if (!_isDead && _isKnockedOut && _downPhase is DownPhase.Rising or DownPhase.Asleep)
             {
                 SetDownAnimations(_standToWounded, _wounded);
                 _downPhase = DownPhase.Knockout;
             }
-            else if (!isDown && _downPhase == DownPhase.Knockout)
+            else if (!_isDead && !_isKnockedOut && _isAsleep && _downPhase == DownPhase.Rising)
             {
-                SetDownAnimations(_isSleepDown ? _sleepToStand : _woundedToStand);
-                _isSleepDown = false;
+                SetDownAnimations(_standToSleep, _sleep);
+                _downPhase = DownPhase.Asleep;
+            }
+            else if (!isDown && _downPhase is DownPhase.Knockout or DownPhase.Asleep)
+            {
+                SetDownAnimations(_downPhase == DownPhase.Asleep ? _sleepToStand : _woundedToStand);
                 _downPhase = DownPhase.Rising;
             }
 
@@ -312,7 +302,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Lying on the floor (knocked out, dead), the hands follow
+        /// Lying on the floor (knocked out, dead, asleep), the hands follow
         /// the controllers without physics - the physical hands bounced on the floor and shook the lying body.
         /// </summary>
         private void SetHandsThroughFloor(bool isDown)
@@ -359,7 +349,8 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB). The camera's
+        /// Knocked out he falls wounded (T_STAND_2_WOUNDEDB), dead straight from standing (T_DEADB), asleep like
+        /// ZS_MagicSleep (T_STAND_2_VICTIM_SLE). The camera's
         /// start height is the standing pose of the frame before: the first frame of a fall can already be low
         /// (T_DEADB), then the camera never went down.
         /// </summary>
@@ -379,20 +370,17 @@ namespace Gothic.VR.Adapters.Player
                 _downPhase = DownPhase.Dead;
                 SetDownAnimations(_standToDead, _dead);
             }
-            else if (_isAsleep && !_isKnockedOut)
-            {
-                // Asleep the body lies like a knocked out one, with the victim's sleep animations.
-                _downPhase = DownPhase.Knockout;
-                _isSleepDown = true;
-                SetDownAnimations(_standToSleep, _sleep);
-            }
-            else
+            else if (_isKnockedOut)
             {
                 _downPhase = DownPhase.Knockout;
                 SetDownAnimations(_standToWounded, _wounded);
             }
-            Logger.Log($"[VRHeroBody] Hero down{(_isSleepDown ? " (asleep)" : "")} - body falls, camera follows its " +
-                       "head", LogCat.VR);
+            else
+            {
+                _downPhase = DownPhase.Asleep;
+                SetDownAnimations(_standToSleep, _sleep);
+            }
+            Logger.Log("[VRHeroBody] Hero down - body falls, camera follows its head", LogCat.VR);
         }
 
         private void SetDownAnimations(string first, string second = null)
@@ -416,7 +404,6 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             _downPhase = DownPhase.None;
-            _isSleepDown = false;
             SetBodyShown(true);
             SetHandsThroughFloor(false);
             _downAnimation = null;

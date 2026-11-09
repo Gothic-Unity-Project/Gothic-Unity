@@ -30,15 +30,14 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly NpcHelperService _npcHelperService;
-        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
+        [Inject] private readonly ContextRangedCombatService _contextRangedCombatService;
+        [Inject] private readonly IProjectileFactory _projectileFactory;
 
         // OpenGothic DynamicWorld::bulletSpeed (3 cm/ms).
         public const float ProjectileSpeed = 30f;
         private const float _stuckInNpcSeconds = 20f;
         private const float _maxDistance = 120f;
         // G1 / G2 names - only used when a weapon has no munition set.
-        private static readonly string[] _fallbackArrows = { "ItAmArrow", "ItRw_Arrow" };
-        private static readonly string[] _fallbackBolts = { "ItAmBolt", "ItRw_Bolt" };
 
 
         /// <summary>
@@ -53,8 +52,9 @@ namespace Gothic.Core.Services.Npc
             if (munition != null)
                 return munition;
 
-            var isCrossbow = ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
-            foreach (var name in isCrossbow ? _fallbackBolts : _fallbackArrows)
+            var isCrossbow = weapon.IsCrossbow();
+            var fallbacks = isCrossbow ? DaedalusConst.FallbackBoltInstances : DaedalusConst.FallbackArrowInstances;
+            foreach (var name in fallbacks)
             {
                 if (_gameStateService.GothicVm.GetSymbolByName(name) != null)
                     return _vmCacheService.TryGetItemData(name);
@@ -115,7 +115,7 @@ namespace Gothic.Core.Services.Npc
                 visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             }
 
-            var projectile = ProjectileFactory.Create(projectileGo);
+            var projectile = _projectileFactory.Create(projectileGo);
             projectile.Owner = shooter;
             projectile.Velocity = direction * speed;
             projectile.UseGravity = true;
@@ -174,8 +174,6 @@ namespace Gothic.Core.Services.Npc
 
         // OpenGothic constants.h: hit chance falls from 100% at the shooter to the NPC's chance at the reference
         // range, then to 0 at the max range (DamageCalculator::rangeDamageValue).
-        private const float _referenceRangeG1 = 20f;
-        private const float _referenceRangeG2 = 15f;
         private const float _maxRange = 45f;
         // A miss passes the target this far from its center (m) - visibly, not through the body.
         private const float _missMinOffset = 0.7f;
@@ -249,7 +247,7 @@ namespace Gothic.Core.Services.Npc
             var horizontal = new Vector3(targetPoint.x - origin.x, 0f, targetPoint.z - origin.z).magnitude;
             var flightTime = Mathf.Max(horizontal / ProjectileSpeed, 0.01f);
             const float radius = 0.05f;
-            const int mask = 1 << 0; // Default layer: world and solid VOBs
+            var mask = 1 << Constants.DefaultLayer; // Default layer: world and solid VOBs
 
             var previous = origin;
             for (var i = 1; i <= _shotPathSegments; i++)
@@ -283,7 +281,7 @@ namespace Gothic.Core.Services.Npc
             {
                 var stepOrigin = origin + right * (side * _strafeTestDistance);
                 // The step itself must be possible (no wall right next to him).
-                if (Physics.Linecast(origin, stepOrigin, 1 << 0, QueryTriggerInteraction.Ignore))
+                if (Physics.Linecast(origin, stepOrigin, 1 << Constants.DefaultLayer, QueryTriggerInteraction.Ignore))
                     continue;
                 if (IsShotPathClear(stepOrigin, targetPoint))
                     return side;
@@ -323,8 +321,8 @@ namespace Gothic.Core.Services.Npc
 
         private static Vector3 GetShotOrigin(NpcContainer shooter)
         {
-            var hand = shooter.Go.FindChildRecursively("ZS_RIGHTHAND") ??
-                       shooter.Go.FindChildRecursively("BIP01 R HAND");
+            var hand = shooter.Go.FindChildRecursively(Constants.SlotRightHand) ??
+                       shooter.Go.FindChildRecursively(Constants.Animations.RightHandBoneName);
             var forward = shooter.Go.transform.forward;
             var position = hand != null
                 ? hand.transform.position
@@ -351,22 +349,10 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private float GetHitChance(NpcContainer shooter, ItemInstance weapon, float distance)
         {
-            float chance;
-            if (_contextGameVersionService.IsGothic2())
-            {
-                var isCrossbow = weapon != null &&
-                                 ((VmGothicEnums.ItemFlags)weapon.Flags).HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow);
-                var talentName = isCrossbow ? "NPC_TALENT_CROSSBOW" : "NPC_TALENT_BOW";
-                var talent = _gameStateService.GothicVm.GetSymbolByName(talentName)?.GetInt(0) ?? (isCrossbow ? 4 : 3);
-                chance = shooter.Vob.GetHitChance(talent) / 100f;
-            }
-            else
-            {
-                chance = shooter.Vob.GetAttribute((int)NpcAttribute.Dexterity) / 100f;
-            }
+            var chance = _contextRangedCombatService.GetHitChance(shooter, weapon);
             chance = Mathf.Clamp01(chance);
 
-            var referenceRange = _contextGameVersionService.IsGothic2() ? _referenceRangeG2 : _referenceRangeG1;
+            var referenceRange = _contextRangedCombatService.HitChanceReferenceRange;
             if (distance < referenceRange)
                 return Mathf.Lerp(1f, chance, distance / referenceRange);
             if (distance < _maxRange)

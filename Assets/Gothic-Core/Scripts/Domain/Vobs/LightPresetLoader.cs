@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Gothic.Core.Domain.Vobs
 {
     /// <summary>
-    /// DeveloperConfig.EnableVisualFxLights: Gothic's light presets (LIGHTPRESETS.ZEN, an ASCII archive of
+    /// Gothic's light presets (LIGHTPRESETS.ZEN, an ASCII archive of
     /// zCVobLightPreset) - a VISUALFX lightPresetName (REDAMBIENCE, CATACLYSM, ...) is one of them, like OpenGothic's
     /// LightGroup::findPreset.
     /// </summary>

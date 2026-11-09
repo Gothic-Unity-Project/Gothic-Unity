@@ -2,6 +2,7 @@ using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -50,7 +51,7 @@ namespace Gothic.VR.Adapters.Player
         private const int _discSegments = 48;
         private const int _discRings = 12;
 
-        private ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         private IVrRig _rig;
         private Material _materialInstance;
         private MeshRenderer _renderer;
@@ -69,7 +70,6 @@ namespace Gothic.VR.Adapters.Player
 
         private void Start()
         {
-            _configService = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
             _rig = GetComponentInParent<IVrRig>(true);
             if (_rig == null)
                 Logger.LogWarning($"[VrMoveVignette] No IVrRig above {name} - no vignette.", LogCat.VR);

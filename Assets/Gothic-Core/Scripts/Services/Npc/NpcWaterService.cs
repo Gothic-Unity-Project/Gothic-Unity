@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Npc;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -25,7 +26,6 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly ConfigService _configService;
 
-        private const int _flyOverWaterHint = 999999;
         private const float _rayHeight = 50f;
         private const float _bridgeTolerance = 0.3f;
         // Swimmers: the hips this part of the rest root height below the surface - the head stays above water.
@@ -40,6 +40,28 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<NpcContainer> _loggedBarriers = new();
         private readonly HashSet<NpcContainer> _loggedSwimHeights = new();
 
+        public void Init()
+        {
+            GlobalEventDispatcher.StoreWorldStateStart.AddListener(OnStoreWorldState);
+            GlobalEventDispatcher.UnloadGameStart.AddListener(ClearNpcState);
+        }
+
+        /// <summary>
+        /// The NPCs of a world are destroyed when we leave it (isSaving == false) or unload the game. Their entries
+        /// would stay in the sets for the whole session otherwise.
+        /// </summary>
+        private void OnStoreWorldState(bool isSaving)
+        {
+            if (!isSaving)
+                ClearNpcState();
+        }
+
+        private void ClearNpcState()
+        {
+            _hoveringOverWater.Clear();
+            _loggedBarriers.Clear();
+            _loggedSwimHeights.Clear();
+        }
 
         /// <summary>
         /// Called by AnimationSystem with this frame's root motion. Returns the corrected movement: no horizontal
@@ -214,7 +236,7 @@ namespace Gothic.Core.Services.Npc
                 chestCm = guildValues.GetWaterDepthChest((int)VmGothicEnums.Guild.GIL_HUMAN);
             }
 
-            isFlying = kneeCm == _flyOverWaterHint && chestCm == _flyOverWaterHint;
+            isFlying = NpcFallDomain.IsFlyer(kneeCm, chestCm);
             knee = kneeCm / 100f;
             chest = chestCm / 100f;
         }
@@ -225,8 +247,9 @@ namespace Gothic.Core.Services.Npc
             if (_hasSwimAnimations.TryGetValue(mdsBase, out var hasSwim))
                 return hasSwim;
 
-            hasSwim = _animationService.GetTrack("S_SWIM", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null &&
-                      _animationService.GetTrack("S_SWIMF", npc.Props.MdsNameBase, npc.Props.MdsNameOverlay) != null;
+            var overlay = npc.Props.MdsNameOverlay;
+            hasSwim = _animationService.GetTrack(DaedalusConst.AniSwim, npc.Props.MdsNameBase, overlay) != null &&
+                      _animationService.GetTrack(DaedalusConst.AniSwimForward, npc.Props.MdsNameBase, overlay) != null;
             _hasSwimAnimations[mdsBase] = hasSwim;
             return hasSwim;
         }

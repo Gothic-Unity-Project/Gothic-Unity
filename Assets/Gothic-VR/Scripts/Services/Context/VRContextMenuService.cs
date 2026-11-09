@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
+using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
@@ -21,7 +22,7 @@ namespace Gothic.VR.Services.Context
     public class VRContextMenuService : IContextMenuService
     {
         [Inject] private readonly LocalizationService _localizationService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmService _vmService;
 
         private const int _rowsPerPage = 6;
@@ -33,8 +34,8 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         public void UpdateMainMenu(AbstractMenuInstance mainMenu)
         {
-            // G2's focus box/highlight and Gothic 1 key controls: VR uses neither, their rows hold the controller
-            // options (AddControlOptions). Flat keeps them. The menus are built after this call.
+            // G2's focus box/highlight and Gothic 1 key controls: VR uses neither. Flat keeps them. The menus are
+            // built after this call.
             _vmService.DisableGothicMenuSettings(
                 "MENUITEM_GAME_FIGHTFOCUS", "MENUITEM_GAME_FIGHTFOCUS_CHOICE",
                 "MENUITEM_GAME_INTERACTFOCUS", "MENUITEM_GAME_INTERACTFOCUS_CHOICE",
@@ -57,7 +58,25 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_LEDGE_CLIMB_MODE", "ledgeClimbMode"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_LEDGE_CLIMB_MODE",
                         "ledgeClimbMode", VRConstants.IniNames.LedgeClimbMode, VRConstants.IniSectionAccessibility,
-                        VRConstants.LedgeClimbModeDefaultValue)));
+                        VRConstants.LedgeClimbModeDefaultValue)),
+                // Knocked out, dead, asleep: the view goes down with the hero's body or fades (VrHeroFallMode).
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HERO_FALL_MODE", "heroFallMode"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_HERO_FALL_MODE",
+                        "heroFallMode", VRConstants.IniNames.HeroFallMode, VRConstants.IniSectionAccessibility,
+                        VRConstants.HeroFallModeDefaultValue)),
+                // The controller layout (VrControlLayout) - the VR counterpart of Gothic's key bindings.
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_CONTROLLER_HAND", "controllerHand"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_CONTROLLER_HAND",
+                        "controllerHand", VRConstants.IniNames.ControllerHand, VRConstants.IniSectionControls,
+                        VRConstants.ControllerHandDefaultValue)),
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_JUMP_BUTTON", "jumpButton"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_JUMP_BUTTON", "jumpButton",
+                        VRConstants.IniNames.JumpButton, VRConstants.IniSectionControls,
+                        VRConstants.JumpButtonDefaultValue)),
+                (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_MENU_BUTTON", "menuButton"),
+                    CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_MENU_BUTTON", "menuButton",
+                        VRConstants.IniNames.MenuButton, VRConstants.IniSectionControls,
+                        VRConstants.MenuButtonDefaultValue)));
             vrAccessibilityMenu.Items.Add(CreateAccessibilityBackButton(mainMenu));
 
             // VR hides all of the game menu but its subtitles option: the subtitles' text size and the color vision go
@@ -67,7 +86,6 @@ namespace Gothic.VR.Services.Context
             gameMenu.FindMenuItem("MENUITEM_GAME_BACK", out var gameBackIndex);
             if (gameBackIndex < 0)
                 gameBackIndex = gameMenu.Items.Count;
-            AddControlOptions(gameMenu, gameBackIndex, menuStartY, menuDY);
             gameMenu.Items.Insert(gameBackIndex, AtPosY(CreateOptionChoice(gameMenu,
                 "MENUITEM_GOTHIC_OPT_GAME_COLOR_VISION", "colorVision", VRConstants.IniNames.ColorVision,
                 VRConstants.IniSectionImmersion, VRConstants.ColorVisionDefaultValue), menuStartY + menuDY * 2));
@@ -96,34 +114,56 @@ namespace Gothic.VR.Services.Context
                 (CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette"),
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
                         VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
-                        VRConstants.MoveVignetteDefaultValue))
+                        VRConstants.MoveVignetteDefaultValue)),
+                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP", "Item details",
+                        "Backpack in one hand, item in the other shows its text"),
+                    CreateToggleChoice(gameMenu, "ITEM_DETAILS_POPUP", VRConstants.IniNames.ItemDetailsPopup,
+                        VRConstants.ItemDetailsPopupDefaultValue)),
+                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM", "Backpack vacuum",
+                        "The open backpack pulls in nearby items"),
+                    CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
+                        VRConstants.BackpackVacuumDefaultValue)),
+                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
+                        "A loot backpack shows an X that takes everything"),
+                    CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
+                        VRConstants.LootTakeAllDefaultValue)),
+                (CreateToggleLabel(gameMenu, "HERO_BLOCK", "Blocking",
+                        "Both hands on a melee weapon, both triggers held: parry"),
+                    CreateToggleChoice(gameMenu, "HERO_BLOCK", VRConstants.IniNames.HeroBlock,
+                        VRConstants.HeroBlockDefaultValue)),
+                // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
+                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
+                    CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
+                        Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
                 rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
                     CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
                         VRConstants.HeroHandsDefaultValue)));
-            // The camera falls with the VR hero body when he's knocked out or dies - off: the view fades instead.
-            if (_configService.Dev.EnableVrHeroBody)
-                rows.Add((CreateToggleLabel(gameMenu, "HERO_FALL_CAMERA", "Fall with the body",
-                        "Knocked out, the view goes down with the hero"),
-                    CreateToggleChoice(gameMenu, "HERO_FALL_CAMERA", VRConstants.IniNames.HeroFallCamera,
-                        VRConstants.HeroFallCameraDefaultValue)));
-            // DeveloperConfig.EnableVrStabFinish: off = any hit finishes an unconscious NPC off.
-            if (_configService.Dev.EnableVrStabFinish)
-                rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
-                        "Stab and hold the blade in to finish off (off: any hit)"),
-                    CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish, 1)));
-            // DeveloperConfig.EnableVrCrossbowManualReload: off = a crossbow reloads by itself.
-            if (_configService.Dev.EnableVrCrossbow && _configService.Dev.EnableVrCrossbowManualReload)
-                rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
-                        "Pull the string to reload (off: automatic)"),
-                    CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload, 1)));
-            // DeveloperConfig.EnableScrollUseOption: off = scrolls are cast forever.
-            if (_configService.Dev.EnableScrollUseOption)
-                rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
-                        "A cast uses the scroll up (Gothic)"),
-                    CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
+            rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
+                    "Stab and hold the blade in to finish off (off: any hit)"),
+                CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
+                    VRConstants.StabFinishDefaultValue)));
+            // Off = a crossbow reloads by itself.
+            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
+                    "Pull the string to reload (off: automatic)"),
+                CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
+                    VRConstants.CrossbowReloadDefaultValue)));
+            // Off = scrolls are cast forever.
+            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
+                    "A cast uses the scroll up (Gothic)"),
+                CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
+            // Off = projectile spells are cast like all others.
+            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "Thrown spells",
+                    "Swing and let go to throw projectile spells"),
+                CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
+                    VRConstants.ThrowableSpellsDefaultValue)));
+            // Off = one hand is enough to charge a spell.
+            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE", "Two-hand charge",
+                    "Charged spells grow only with both hands together"),
+                CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
+                    VRConstants.TwoHandSpellChargeDefaultValue)));
             // DeveloperConfig.EnableVrSpellRing: Gesture (both hands up, both triggers) or Off.
             if (_configService.Dev.EnableVrSpellRing)
             {
@@ -212,7 +252,7 @@ namespace Gothic.VR.Services.Context
         }
 
         private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
-            int defaultValue = 0)
+            int defaultValue = 0, string iniSection = VRConstants.IniSectionImmersion)
         {
             // Gothic's own subtitles choice gives the "no|yes" values in the game's language.
             var subtitlesChoice = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES_CHOICE", out _);
@@ -221,33 +261,9 @@ namespace Gothic.VR.Services.Context
             item.SetUserFloat(3, defaultValue); // 0 = off, 1 = on if no INI value exists.
             item.SetText(0, subtitlesChoice?.GetText(0) ?? "Off|On");
             item.OnChgSetOption = iniName;
-            item.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+            item.OnChgSetOptionSection = iniSection;
 
             return item;
-        }
-
-        /// <summary>
-        /// The controller layout (VrControlLayout) in rows 3 to 5 of the game menu, where Gothic has its mouse
-        /// settings - the VR counterpart of its key bindings. Inserted before the rows above, which go to the same
-        /// index.
-        /// </summary>
-        private void AddControlOptions(AbstractMenuInstance gameMenu, int index, int menuStartY, int menuDY)
-        {
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
-                "menuButton", VRConstants.IniNames.MenuButton, VRConstants.IniSectionControls,
-                VRConstants.MenuButtonDefaultValue), menuStartY + menuDY * 5));
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_MENU_BUTTON",
-                "menuButton"), menuStartY + menuDY * 5));
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
-                "jumpButton", VRConstants.IniNames.JumpButton, VRConstants.IniSectionControls,
-                VRConstants.JumpButtonDefaultValue), menuStartY + menuDY * 4));
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_JUMP_BUTTON",
-                "jumpButton"), menuStartY + menuDY * 4));
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
-                "controllerHand", VRConstants.IniNames.ControllerHand, VRConstants.IniSectionControls,
-                VRConstants.ControllerHandDefaultValue), menuStartY + menuDY * 3));
-            gameMenu.Items.Insert(index, AtPosY(CreateOptionLabel(gameMenu, "MENUITEM_GOTHIC_OPT_GAME_CONTROLLER_HAND",
-                "controllerHand"), menuStartY + menuDY * 3));
         }
 
         /// <summary>

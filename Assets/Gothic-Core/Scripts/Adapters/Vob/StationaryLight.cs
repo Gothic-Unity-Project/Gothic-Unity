@@ -209,7 +209,7 @@ namespace Gothic.Core.Adapters.Vob
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a pooled light that changes (a spell's animated light preset) - new
+        /// A pooled light that changes (a spell's animated light preset) - new
         /// color, range and position into its slot.
         /// </summary>
         public void UpdateRuntime(Color color, float range)
