@@ -77,14 +77,6 @@ MonoBehaviour:
   EnableVrHeroBody: 1
   EnableHeroHands: 1
   NpcLootMode: 1
-  EnableThrowableSpells: 1
-  EnableTwoHandSpellCharge: 1
-  EnableVrTransformations: 1
-  EnableScrollUseOption: 1
-  MinSpellCastSeconds: 2
-  SpellThrowSpeedMultiplier: 1.25
-  SpellThrowFullSwingSpeed: 6
-  EnableVrChainLightning: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
