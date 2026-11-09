@@ -192,6 +192,24 @@ namespace Gothic.VR
         }
 
         /// <summary>
+        /// VR magic tunables: instant spells (VRRuneCaster) and thrown spells (VRSpellThrow).
+        /// </summary>
+        public static class Magic
+        {
+            // Seconds an instant spell (G2 summons, fire rain, transformations, heal...) glows in the hand before it
+            // goes off - to enjoy the effects. 0 = at once like the engine. Throwable spells aren't affected.
+            public const float MinSpellCastSeconds = 2f;
+
+            // Speed of thrown spells relative to the spell's own speed (VISUALFX emTrjEaseVel) - 1 = engine speed;
+            // 1.25 felt right in VR (a full swing at 1 was a little weak).
+            public const float SpellThrowSpeedMultiplier = 1.25f;
+
+            // Hand speed (m/s) of a full spell throw. Slower swings throw weaker and arc down - at 3 m/s a light flick
+            // was already a strong throw.
+            public const float SpellThrowFullSwingSpeed = 6f;
+        }
+
+        /// <summary>
         /// VR swim values. Deliberately not the guild's water depths (GetWaterDepthKnee/Chest from Daedalus): those
         /// decide whether the hero walks, wades or swims (VRSwimDive). The values here only decide how the VR hero body
         /// looks in the water (VrHeroSwimPose) and how far VRSwimDive looks for the surface.

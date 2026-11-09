@@ -322,20 +322,6 @@ namespace Gothic.Core.Models.Config
                  "ones) grow only while both hands are together (30 cm) - a kamehameha. Apart, the charge waits.")]
         public bool EnableTwoHandSpellCharge = true;
 
-        [Tooltip("Seconds an instant spell (G2 summons, fire rain, transformations, heal...) glows in the hand before " +
-                 "it goes off - to enjoy the effects. 0 = at once like the engine. Throwable spells aren't affected.")]
-        public float MinSpellCastSeconds = 2f;
-
-        [Tooltip("Speed of thrown spells relative to the spell's own speed (VISUALFX emTrjEaseVel) - 1 = engine " +
-                 "speed; 1.25 felt right in VR (a full swing at 1 was a little weak).")]
-        [Range(0.1f, 2f)]
-        public float SpellThrowSpeedMultiplier = 1.25f;
-
-        [Tooltip("Hand speed (m/s) of a full spell throw. Slower swings throw weaker and arc down - at 3 m/s a light " +
-                 "flick was already a strong throw.")]
-        [Range(1f, 12f)]
-        public float SpellThrowFullSwingSpeed = 6f;
-
         /**
          * ##########
          * Misc

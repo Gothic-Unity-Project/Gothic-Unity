@@ -25,9 +25,9 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `StatusBarAdapter` (Core adapter) | the hero's mana bar: shows on `HeroManaBarRequested`, follows `NpcAttributeChanged` |
 
 Constants: `DaedalusConst` (`SplSendCast`/`SplSendStop`/`SplNextLevel`, `ZsMagicFreeze`, `SpellFxInstanceNames`),
-`SpellConst` (AOE, summon, charge and spread spell names). Tunables: `DeveloperConfig` (`MinSpellCastSeconds`,
-`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed` and the feature switches), the Immersion option
-"Single-use scrolls" (Gothic.ini `scrollsSingleUse`) in `VRConstants`.
+`SpellConst` (AOE, summon, charge and spread spell names). Tunables: `VRConstants.Magic` (`MinSpellCastSeconds`,
+`SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`), `DeveloperConfig` (the feature switches), the Immersion
+option "Single-use scrolls" (Gothic.ini `scrollsSingleUse`) in `VRConstants`.
 
 ## Data flow of one cast
 

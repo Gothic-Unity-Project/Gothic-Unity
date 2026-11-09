@@ -68,7 +68,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private VRTelekinesisSpell _telekinesis;
         private bool _isCasting;
 
-        // DeveloperConfig.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
+        // VRConstants.Magic.MinSpellCastSeconds: an instant spell (G2 summons, fire rain, transformations) waits with
         // its effects in the hand until the minimum time is over.
         private float _castStartTime;
         private bool _isSendcastPending;
@@ -253,7 +253,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (_isSendcastPending)
             {
-                if (Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+                if (Time.time - _castStartTime < VRConstants.Magic.MinSpellCastSeconds)
                     return;
                 _isSendcastPending = false;
                 FinalizeCast(applyEffect: true);
@@ -290,7 +290,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             // Ready at once (instant spell): its effects stay in the hand for the minimum cast time first.
-            if (result == DaedalusConst.SplSendCast && Time.time - _castStartTime < _configService.Dev.MinSpellCastSeconds)
+            if (result == DaedalusConst.SplSendCast && Time.time - _castStartTime < VRConstants.Magic.MinSpellCastSeconds)
             {
                 _isSendcastPending = true;
                 return;

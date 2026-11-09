@@ -8,7 +8,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
@@ -32,7 +31,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
-        [Inject] private readonly ConfigService _configService;
 
         // Throw speed: the spell's own speed (emtrjeasevel) scaled by the swing - a lazy flick is slow.
         private const float _maxSwingFactor = 1.5f;
@@ -113,9 +111,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (!isWasd)
             {
                 var handVelocity = GetHandVelocity();
-                // DeveloperConfig.SpellThrowFullSwingSpeed: the hand speed of a full throw - a light flick was a
-                // strong one.
-                var swingFactor = Mathf.Clamp(handVelocity.magnitude / _configService.Dev.SpellThrowFullSwingSpeed, 0f,
+                var swingFactor = Mathf.Clamp(handVelocity.magnitude / VRConstants.Magic.SpellThrowFullSwingSpeed, 0f,
                     _maxSwingFactor);
                 direction = handVelocity.magnitude >= _minThrowDirectionSpeed ? handVelocity.normalized : Vector3.down;
                 _speedFactor = swingFactor;
@@ -144,8 +140,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var hero = _npcService.GetHeroContainer();
             var mfxName = _mfxName;
-            // DeveloperConfig.SpellThrowSpeedMultiplier: the spell's own speed (emTrjEaseVel) felt too fast in VR.
-            var speed = _castKey.EmTrjEaseVel / 100f * _speedFactor * _configService.Dev.SpellThrowSpeedMultiplier;
+            var speed = _castKey.EmTrjEaseVel / 100f * _speedFactor * VRConstants.Magic.SpellThrowSpeedMultiplier;
             var range = GetThrowRange(mfxName);
 
             var projectileGo = new GameObject($"SpellProjectile ({mfxName})");
