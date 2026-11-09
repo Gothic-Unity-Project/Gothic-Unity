@@ -77,10 +77,6 @@ MonoBehaviour:
   EnableVrHeroBody: 1
   EnableHeroHands: 1
   NpcLootMode: 1
-  EnableVrSpellRing: 1
-  EnableRingWeaponSlots: 1
-  EnableRingItemSlots: 1
-  EnableRingZoom: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1
