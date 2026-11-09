@@ -25,7 +25,7 @@ namespace Gothic.VR.Services
     /// The favorites ring: what the VR favorites ring holds and what putting into / taking out of it
     /// does (VRFavoritesRing shows it).
     /// - The slots: the hero's equipped spells (runes/scrolls, ITEM_KAT_RUNE) in equip order, his equipped melee weapon
-    ///   and bow/crossbow (EnableRingWeaponSlots), his favorite items and the trade currency (EnableRingItemSlots) -
+    ///   and bow/crossbow, his favorite items and the trade currency (EnableRingItemSlots) -
     ///   those in the backpack - plus the empty slot while something is missing.
     /// - The favorite items: the hero's, as Daedalus symbol names. Not saved yet (a save section with main's
     ///   save/load); a new hero (new game, loaded game) starts without.
@@ -55,7 +55,6 @@ namespace Gothic.VR.Services
         private VrFavoritesPutInDomain _putInDomain;
         private VrFavoritesGestureDomain _gestureDomain;
 
-        public bool IsWeaponSlotsEnabled => _configService.Dev.EnableRingWeaponSlots;
         public bool IsItemSlotsEnabled => _configService.Dev.EnableRingItemSlots;
 
         /// <summary>
@@ -134,18 +133,15 @@ namespace Gothic.VR.Services
                 _slots.Add(CreateSlot(FavoriteSlotKind.Spell, spell, vm.GetSymbolByIndex(spell.Index)?.Name));
 
             var weaponCount = 0;
-            if (IsWeaponSlotsEnabled)
+            foreach (var kind in new[] { FavoriteSlotKind.Melee, FavoriteSlotKind.Ranged })
             {
-                foreach (var kind in new[] { FavoriteSlotKind.Melee, FavoriteSlotKind.Ranged })
-                {
-                    // The last equipped one (Gothic: one of each - EquipDomain keeps it so, this only shows it).
-                    var weapon = equipped.LastOrDefault(i => GetKind(i) == kind);
-                    var instanceName = weapon != null ? vm.GetSymbolByIndex(weapon.Index)?.Name : null;
-                    if (instanceName == null || !IsInBackpack(instanceName))
-                        continue;
-                    _slots.Add(CreateSlot(kind, weapon, instanceName));
-                    weaponCount++;
-                }
+                // The last equipped one (Gothic: one of each - EquipDomain keeps it so, this only shows it).
+                var weapon = equipped.LastOrDefault(i => GetKind(i) == kind);
+                var instanceName = weapon != null ? vm.GetSymbolByIndex(weapon.Index)?.Name : null;
+                if (instanceName == null || !IsInBackpack(instanceName))
+                    continue;
+                _slots.Add(CreateSlot(kind, weapon, instanceName));
+                weaponCount++;
             }
 
             var itemCount = 0;
@@ -169,7 +165,7 @@ namespace Gothic.VR.Services
                     _slots.Add(CreateSlot(FavoriteSlotKind.Currency, currencyItem, currency));
             }
 
-            if (spells.Count < MaxSpells || IsWeaponSlotsEnabled && weaponCount < MaxWeapons ||
+            if (spells.Count < MaxSpells || weaponCount < MaxWeapons ||
                 IsItemSlotsEnabled && itemCount < MaxItems)
                 _slots.Add(CreateSlot(FavoriteSlotKind.Empty, null, null));
 

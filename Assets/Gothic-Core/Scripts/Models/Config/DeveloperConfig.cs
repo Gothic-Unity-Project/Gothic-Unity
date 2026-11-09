@@ -313,11 +313,6 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Favorites Ring", true)]
-        [Tooltip("VR: The favorites ring also holds the equipped melee weapon and bow/crossbow - at most 8 spells + 2 " +
-                 "weapons. Grip takes the weapon into the hand, a weapon held into the empty slot (or onto the " +
-                 "equipped one of its kind) is equipped, a trigger click unequips.")]
-        public bool EnableRingWeaponSlots = true;
-
         [Tooltip("VR: The favorites ring also holds up to 3 favorite items (a torch, a key, potions, food) and the " +
                  "money (G1 ore, G2 gold) - let go at its empty slot to put one in, grabbed out one at a time (grip " +
                  "held at a stack takes more and more), a trigger click takes one off the ring. Not saved yet.")]

@@ -66,10 +66,6 @@ namespace Gothic.VR.Domain.Player
                         action = FavoritesPutInAction.Equipped;
                         break;
                     case FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged when
-                        !_configService.Dev.EnableRingWeaponSlots:
-                        rejection = "weapon slots off (EnableRingWeaponSlots)";
-                        break;
-                    case FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged when
                         !CheckOnce(_fightService.CheckHeroWeaponRequirement(item, isMessageShown), item):
                         rejection = "requirements not met";
                         break;
