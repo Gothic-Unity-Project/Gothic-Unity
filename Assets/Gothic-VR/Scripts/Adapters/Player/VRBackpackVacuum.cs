@@ -254,9 +254,10 @@ namespace Gothic.VR.Adapters.Player
 
         private bool IsPullable(VrInteractable item)
         {
-            // Held, socketed (holster, backpack slot, loot panel, chest), part of the backpack itself or shown in the
-            // favorites ring (still in the inventory).
-            if (item.IsHeld || item.transform.IsChildOf(transform))
+            // Held, socketed (holster, backpack slot, loot panel, chest), part of the backpack itself or shown by an
+            // inventory display like the favorites ring (still in the inventory).
+            if (item.IsHeld || item.transform.IsChildOf(transform) ||
+                item.GetComponentInParent<VRInventoryDisplay>() != null)
                 return false;
 
             var container = item.GetComponentInParent<VobLoader>()?.Container;

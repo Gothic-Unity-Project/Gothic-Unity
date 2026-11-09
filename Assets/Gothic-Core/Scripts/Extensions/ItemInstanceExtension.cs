@@ -97,6 +97,16 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// Weapons (ITEM_KAT_NF, ITEM_KAT_FF) stay equipped outside the backpack, like Gothic: they come off when
+        /// dropped, not when taken into a hand or holster. Everything else comes off with the last one leaving the
+        /// inventory.
+        /// </summary>
+        public static bool StaysEquippedOutsideBackpack(this ItemInstance item)
+        {
+            return item.IsMeleeWeapon() || item.IsRangedWeapon();
+        }
+
+        /// <summary>
         /// The equipped items that have to leave their slot before this item can be equipped.
         /// </summary>
         public static IEnumerable<ItemInstance> GetEquipConflicts(this ItemInstance item,
@@ -112,6 +122,13 @@ namespace Gothic.Core.Extensions
             if (((ItemFlags)item.Flags & ItemFlags.ItemBelt) != 0)
                 return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemBelt) != 0);
 
+            // One melee weapon and one bow/crossbow (Gothic's slots) - several stayed equipped (the backpack showed [E]
+            // on each in turn).
+            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatNf) != 0);
+            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatFf) != 0)
+                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatFf) != 0);
+
             if (((ItemFlags)item.Flags & ItemFlags.ItemRing) != 0)
             {
                 // Two ring slots: free the oldest one only when both are taken.
@@ -120,6 +137,14 @@ namespace Gothic.Core.Extensions
             }
 
             return Enumerable.Empty<ItemInstance>();
+        }
+
+        /// <summary>
+        /// Runes are all called "Runa"/"Rune" - the spell is their description, like in the backpack.
+        /// </summary>
+        public static string GetSpellName(this ItemInstance item)
+        {
+            return string.IsNullOrEmpty(item?.Description) ? item?.Name : item.Description;
         }
     }
 }

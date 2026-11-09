@@ -209,6 +209,10 @@ namespace Gothic.VR.Services.Context
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
+            // The favorites ring, in the player's space - it moves with him. The "favoritesRing" option switches it.
+            var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
+            favoritesRing.transform.SetParent(_player.transform, false);
+
             // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
             var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
             heroBlock.transform.SetParent(_player.transform, false);

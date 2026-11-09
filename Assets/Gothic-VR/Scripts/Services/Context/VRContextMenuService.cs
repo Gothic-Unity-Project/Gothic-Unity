@@ -50,6 +50,7 @@ namespace Gothic.VR.Services.Context
             AddOptionRows(vrAccessibilityMenu,
                 (CreateSitStandLabel(gameMenu), CreateSitStandChoicebox(gameMenu)),
                 (CreateHeightOffsetLabel(gameMenu), CreateHeightOffsetSlider(gameMenu)),
+                (CreateFavoritesRingZoomLabel(gameMenu), CreateFavoritesRingZoomSlider(gameMenu)),
                 (CreateMoveDirectionLabel(gameMenu), CreateMoveDirectionChoicebox(gameMenu)),
                 (CreateRotationTypeLabel(gameMenu), CreateRotationTypeChoicebox(gameMenu)),
                 (CreateSmoothRotationSpeedLabel(gameMenu), CreateSmoothRotationSpeedSlider(gameMenu)),
@@ -164,6 +165,11 @@ namespace Gothic.VR.Services.Context
                     "Charged spells grow only with both hands together"),
                 CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
                     VRConstants.TwoHandSpellChargeDefaultValue)));
+            // Off = the favorites ring (both hands up, both triggers) doesn't open.
+            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "Favorites ring",
+                    "Both hands up + both triggers: equipped spells and weapons"),
+                CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
+                    VRConstants.FavoritesRingDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 
@@ -352,6 +358,34 @@ namespace Gothic.VR.Services.Context
             heightOffsetSetting.IsAppliedOnRelease = true;
 
             return heightOffsetSetting;
+        }
+
+        // Plain English like the Immersion toggles: no localization entries yet.
+        private AbstractMenuItemInstance CreateFavoritesRingZoomLabel(AbstractMenuInstance gameMenu)
+        {
+            var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
+            var zoomLabel =
+                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_FAVORITES_RING_ZOOM", subtitlesLabel);
+
+            zoomLabel.SetText(0, "Favorites ring size");
+            zoomLabel.SetText(1, "How far the favorites ring is from you (right stick while it is open)");
+
+            return zoomLabel;
+        }
+
+        private AbstractMenuItemInstance CreateFavoritesRingZoomSlider(AbstractMenuInstance gameMenu)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var zoomSetting = new MutableMenuItemInstance(
+                "MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_FAVORITES_RING_ZOOM_SLIDER", mouseSlider);
+
+            // Default value if no INI value exists: the slider's 0...1 of the normal size.
+            zoomSetting.SetUserFloat(3, VRConstants.FavoritesRing.ZoomToIni(VRConstants.FavoritesRingZoomDefaultValue));
+            zoomSetting.SetUserFloat(0, VRConstants.FavoritesRingZoomSettingAmount);
+            zoomSetting.OnChgSetOption = VRConstants.IniNames.FavoritesRingZoom;
+            zoomSetting.OnChgSetOptionSection = VRConstants.IniSectionAccessibility;
+
+            return zoomSetting;
         }
 
         private AbstractMenuItemInstance CreateMoveDirectionLabel(AbstractMenuInstance gameMenu)
