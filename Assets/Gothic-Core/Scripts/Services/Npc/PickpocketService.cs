@@ -65,8 +65,6 @@ namespace Gothic.Core.Services.Npc
         }
 
         private const string _talentSymbol = "NPC_TALENT_PICKPOCKET";
-        private const string _humanSeparatorSymbol = "GIL_SEPERATOR_HUM";
-        private static readonly string[] _sleepStates = { "ZS_SLEEP", "ZS_MAGICSLEEP", "ZS_BABE_SLEEP", "ZS_SLEEPER" };
 
         // No game picked yet (profile menu): no VM and no game version.
         public bool IsEnabled => _configService.Dev.EnableVrPickpocket && _configService.Gothic != null &&
@@ -97,32 +95,15 @@ namespace Gothic.Core.Services.Npc
                 return false;
             if (npc.PrefabProps != null && npc.PrefabProps.IsHero())
                 return false;
-            if (npc.Instance.Guild >= GetHumanSeparator())
+            if (!npc.IsHuman())
                 return false;
-            if (IsAsleep(npc))
+            if (npc.IsAsleep())
                 return true;
             if (npc.IsDown())
                 return false;
             if ((VmGothicEnums.WeaponState)npc.Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
                 return false;
             return !_npcHelperService.CanSeeNpc(npc.Instance, hero.Instance, false);
-        }
-
-        /// <summary>
-        /// Asleep in bed (ZS_Sleep, G1's ZS_Babe_Sleep/ZS_Sleeper) or by the
-        /// sleep spell (ZS_MagicSleep) - can be robbed and doesn't notice it (no sight check, no roll).
-        /// </summary>
-        public bool IsAsleep(NpcContainer npc)
-        {
-            var state = npc?.Vob?.CurrentStateName;
-            if (state == null)
-                return false;
-            foreach (var sleepState in _sleepStates)
-            {
-                if (state.Equals(sleepState, System.StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-            return false;
         }
 
         /// <summary>
@@ -188,12 +169,6 @@ namespace Gothic.Core.Services.Npc
         private int GetTalentId()
         {
             return _gameStateService.GothicVm.GetSymbolByName(_talentSymbol)?.GetInt(0) ?? 6;
-        }
-
-        private int GetHumanSeparator()
-        {
-            return _gameStateService.GothicVm.GetSymbolByName(_humanSeparatorSymbol)?.GetInt(0) ??
-                   (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM;
         }
     }
 }

@@ -147,7 +147,7 @@ namespace Gothic.VR.Adapters.Player
                     .Where(npc => npc?.Go != null && npc.Go.activeInHierarchy && npc != hero &&
                                   (npc.Go.transform.position - heroPosition).sqrMagnitude <=
                                   _purseRange * _purseRange &&
-                                  _pickpocketService.IsAsleep(npc))
+                                  npc.IsAsleep())
                     .ToList()
                 : new List<NpcContainer>();
 
@@ -305,7 +305,7 @@ namespace Gothic.VR.Adapters.Player
                 Vector3 position;
                 // Lying in bed the body isn't upright - the hip mirrored on the
                 // root's middle plane was inside the bed, the purse couldn't be seen. Above the pelvis instead.
-                if (purse.Pelvis != null && _pickpocketService.IsAsleep(purse.Npc))
+                if (purse.Pelvis != null && purse.Npc.IsAsleep())
                     position = purse.Pelvis.position + Vector3.up * _sleepingPurseHeight;
                 else if (purse.SwordSlot != null)
                 {
@@ -456,7 +456,7 @@ namespace Gothic.VR.Adapters.Player
 
             Logger.Log($"[Pickpocket] Took {amount}x {itemInstanceName} from " +
                        $"{_victim.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.VR);
-            if (_pickpocketService.IsAsleep(_victim))
+            if (_victim.IsAsleep())
             {
                 Logger.Log("[Pickpocket] The victim sleeps - no roll", LogCat.VR);
                 return;
@@ -486,7 +486,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateRobbery()
         {
-            var isAsleep = _pickpocketService.IsAsleep(_victim);
+            var isAsleep = _victim.IsAsleep();
             if (_victim?.Go == null || !_victim.Go.activeInHierarchy ||
                 (!isAsleep && _victim.IsDown()))
             {

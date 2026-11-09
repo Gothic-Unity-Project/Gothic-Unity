@@ -18,7 +18,6 @@ namespace Gothic.VR.Adapters.Npc
     {
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Npc.PickpocketService _pickpocketService;
 
         private const float _radius = 1.0f;
         private const float _maxHeightDifference = 2f;
@@ -54,8 +53,7 @@ namespace Gothic.VR.Adapters.Npc
 
         private static bool IsTalkableHuman(Gothic.Core.Models.Container.NpcContainer npc)
         {
-            return npc.Instance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM &&
-                   (VmGothicEnums.WeaponState)npc.Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon;
+            return npc.IsHuman() && (VmGothicEnums.WeaponState)npc.Vob.FightMode == VmGothicEnums.WeaponState.NoWeapon;
         }
 
         private void LateUpdate()
@@ -81,7 +79,7 @@ namespace Gothic.VR.Adapters.Npc
                 if (IsTalkableHuman(npc))
                     continue;
                 // A sleeper stays in his bed while the hero robs him.
-                if (_pickpocketService.IsAsleep(npc))
+                if (npc.IsAsleep())
                     continue;
 
                 var bodyBounds = NpcBodyBounds.Get(npc);
