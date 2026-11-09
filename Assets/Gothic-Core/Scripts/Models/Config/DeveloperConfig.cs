@@ -308,18 +308,6 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
-         * Favorites Ring
-         * ##########
-         */
-
-        [Foldout("Favorites Ring", true)]
-        [Tooltip("VR: While the favorites ring is open the right stick up/down (simulator: mouse wheel) makes it " +
-                 "bigger or smaller (x0.5-x2) - like the menu's distance. Kept for the session.")]
-        public bool EnableRingZoom = true;
-
-
-        /**
-         * ##########
          * Misc
          * ##########
          */

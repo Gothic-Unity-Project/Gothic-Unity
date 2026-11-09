@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Gothic.VR
 {
     public static class VRConstants
@@ -12,6 +14,10 @@ namespace Gothic.VR
             public const string SnapRotationAmount = "snapRotationAmount";
             public const string SmoothRotationSpeed = "smoothRotationSpeed";
             public const string SmoothSpectator = "smoothSpectator";
+
+            // The favorites ring's size: a 0...1 slider value like heightOffset, MinRingZoom...MaxRingZoom (set with
+            // the right stick while the ring is open, or in the menu).
+            public const string FavoritesRingZoom = "favoritesRingZoom";
 
             // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
             public const string LedgeClimbMode = "ledgeClimbMode";
@@ -93,6 +99,10 @@ namespace Gothic.VR
         public const int HeightOffsetSettingAmount = 40;
         public const float HeightOffsetMaxMeters = 1f;
         public const float HeightOffsetDefaultValue = 0.5f;
+
+        // Favorites ring zoom: the ring's radius factor (1 = normal), 30 slider steps of 0.05 (Min to MaxRingZoom).
+        public const float FavoritesRingZoomDefaultValue = 1f;
+        public const int FavoritesRingZoomSettingAmount = 30;
 
         public const int PhysicalHandsDefaultValue = 1;
 
@@ -338,7 +348,7 @@ namespace Gothic.VR
             // Meters the ring hangs below the eyes.
             public const float AroundPlayerBelowEyes = 0.25f;
 
-            // Zoom limits and speed (EnableRingZoom).
+            // Zoom limits and speed (ini favoritesRingZoom).
             public const float MinRingZoom = 0.5f;
 
             public const float MaxRingZoom = 2f;
@@ -346,6 +356,12 @@ namespace Gothic.VR
             public const float RingZoomSpeed = 1f;
 
             public const float RingZoomPerWheelNotch = 0.05f;
+
+            // The ini value (slider, 0...1) of a zoom factor and back.
+            public static float ZoomToIni(float zoom) => Mathf.InverseLerp(MinRingZoom, MaxRingZoom, zoom);
+
+            public static float IniToZoom(float iniValue) =>
+                Mathf.Lerp(MinRingZoom, MaxRingZoom, Mathf.Clamp01(iniValue));
 
             // Stick deflection below this doesn't zoom.
             public const float ZoomStickDeadZone = 0.2f;

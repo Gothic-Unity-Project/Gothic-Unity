@@ -148,12 +148,40 @@ namespace Gothic.VR.Adapters.Player
             // No Gothic.ini before a game was picked (profile menu).
             _isOptionOn = _configService.Gothic != null &&
                           _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
+            ReadZoom();
+        }
+
+        private void ReadZoom()
+        {
+            // The player is zooming right now: his value counts.
+            if (_isZoomDirty)
+                return;
+            _ringZoom = _configService.Gothic == null
+                ? VRConstants.FavoritesRingZoomDefaultValue
+                : RingConstants.IniToZoom(_configService.Gothic.GetFloat(VRConstants.IniNames.FavoritesRingZoom,
+                    RingConstants.ZoomToIni(VRConstants.FavoritesRingZoomDefaultValue)));
+        }
+
+        /// <summary>
+        /// The zoom goes into Gothic.ini (Accessibility menu: "Favorites ring size") - once the stick is released or
+        /// the ring closes, not every frame.
+        /// </summary>
+        private void PersistZoom()
+        {
+            if (!_isZoomDirty)
+                return;
+            _isZoomDirty = false;
+            _configService.Gothic?.SetFloat(VRConstants.IniSectionAccessibility, VRConstants.IniNames.FavoritesRingZoom,
+                RingConstants.ZoomToIni(_ringZoom));
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
         {
             if (key == VRConstants.IniNames.SpellRing)
                 ReadOption();
+            // The menu's slider - or our own write (PersistZoom), which arrives with the value we have.
+            else if (key == VRConstants.IniNames.FavoritesRingZoom)
+                ReadZoom();
         }
 
         private void Update()
@@ -236,7 +264,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableRingZoom: the right stick zooms the ring - pushed forward it aimed the thumbstick
+        /// The right stick zooms the ring - pushed forward it aimed the thumbstick
         /// teleport as well (XRI). A teleport enabled by others meanwhile stays enabled.
         /// </summary>
         private void LockTeleport(bool isLocked)
@@ -245,7 +273,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
             if (isLocked)
             {
-                if (!_configService.Dev.EnableRingZoom || !_rig.TeleportEnabled)
+                if (!_rig.TeleportEnabled)
                     return;
                 _rig.TeleportEnabled = false;
                 _isTeleportLocked = true;
@@ -260,6 +288,7 @@ namespace Gothic.VR.Adapters.Player
         private void Close(string reason)
         {
             _isOpen = false;
+            PersistZoom();
             LockTeleport(false);
             _isDragging = false;
             _isTriggerDown = false;
@@ -339,13 +368,14 @@ namespace Gothic.VR.Adapters.Player
         private Quaternion _aroundPlayerRotation = Quaternion.identity;
         private const float RingScale = RingConstants.AroundPlayerScale;
 
-        // DeveloperConfig.EnableRingZoom: the ring's radius - the slots come closer or move away, keeping their size
-        // (scaling the whole ring grew the slots too).
-        private float RingRadius => RingConstants.RingRadius * (_configService.Dev.EnableRingZoom ? _ringZoom : 1f);
+        // The ring's radius - the slots come closer or move away, keeping their size (scaling the whole ring grew the
+        // slots too).
+        private float RingRadius => RingConstants.RingRadius * _ringZoom;
 
-        // DeveloperConfig.EnableRingZoom: the ring's radius, changed with the right stick (simulator: mouse wheel) like
-        // the menu's distance - kept for the session.
-        private static float _ringZoom = 1f;
+        // The ring's radius factor, changed with the right stick (simulator: mouse wheel) - the player preference
+        // favoritesRingZoom in Gothic.ini.
+        private float _ringZoom = VRConstants.FavoritesRingZoomDefaultValue;
+        private bool _isZoomDirty;
 
         // A carousel - let go while turning it, it spins on and slows down; a
         // trigger press stops it. Degrees per second, the drag's last speed.
@@ -355,14 +385,11 @@ namespace Gothic.VR.Adapters.Player
         private float _dragStartHandAngle;
 
         /// <summary>
-        /// DeveloperConfig.EnableRingZoom: the right stick up/down (mouse wheel) makes the ring bigger/smaller - it moves
-        /// away from or towards the eyes with its slots.
+        /// The right stick up/down (mouse wheel) makes the ring bigger/smaller - it moves away from or towards the eyes
+        /// with its slots.
         /// </summary>
         private void UpdateZoom()
         {
-            if (!_configService.Dev.EnableRingZoom)
-                return;
-
             var change = 0f;
             if (_vrInput.IsSimulator)
             {
@@ -379,9 +406,14 @@ namespace Gothic.VR.Adapters.Player
                     change = stick.y * RingConstants.RingZoomSpeed * Time.deltaTime;
             }
             if (Mathf.Approximately(change, 0f))
+            {
+                // The stick is released (or the wheel stands still): save what was set.
+                PersistZoom();
                 return;
+            }
 
             _ringZoom = Mathf.Clamp(_ringZoom + change, RingConstants.MinRingZoom, RingConstants.MaxRingZoom);
+            _isZoomDirty = true;
         }
 
         /// <summary>
