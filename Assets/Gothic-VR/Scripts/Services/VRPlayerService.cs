@@ -45,7 +45,17 @@ namespace Gothic.VR.Services
         public VRPlayerService()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            // The world's objects are gone: nothing held in them any more.
+            GlobalEventDispatcher.UnloadGameStart.AddListener(_heldItems.Clear);
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(_heldItems.Clear);
         }
+
+        /// <summary>
+        /// The items in a hand right now (VobContainer.IsHeldByPlayer) - kept instead of scanning every VOB. Added on
+        /// grab, removed on release, when the object is destroyed (ForgetPlayerCollision) and with the world.
+        /// </summary>
+        public IReadOnlyCollection<VobContainer> HeldItems => _heldItems;
+        private readonly HashSet<VobContainer> _heldItems = new();
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
@@ -326,6 +336,7 @@ namespace Gothic.VR.Services
             // Every item in a hand is the hero's (inventory): NPCs neither detect nor take it.
             var container = grabbable.GetComponentInParent<VobLoader>().Container;
             container.IsHeldByPlayer = true;
+            _heldItems.Add(container);
 
             // If we grabbed the element with second hand, return.
             if (IsDualGrabbed)
@@ -367,6 +378,8 @@ namespace Gothic.VR.Services
             // Still the hero's while the other hand holds it.
             var container = grabbable.GetComponentInParent<VobLoader>().Container;
             container.IsHeldByPlayer = IsHeldInHand(grabbable);
+            if (!container.IsHeldByPlayer)
+                _heldItems.Remove(container);
 
             // If we removed one hand from our item.
             if (dualGrabPrev)
@@ -431,6 +444,9 @@ namespace Gothic.VR.Services
         public void ForgetPlayerCollision(VrInteractable grabbable)
         {
             _grabbers.Remove(grabbable);
+            var container = grabbable != null ? grabbable.GetComponentInParent<VobLoader>()?.Container : null;
+            if (container != null)
+                _heldItems.Remove(container);
         }
 
         /// <summary>

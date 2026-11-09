@@ -5,7 +5,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
@@ -42,7 +41,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
 
@@ -240,7 +239,7 @@ namespace Gothic.VR.Services
         public int GetBackpackAmount(string instanceName)
         {
             var amount = _playerService.GetItemAmount(instanceName);
-            foreach (var container in _multiTypeCacheService.VobCache)
+            foreach (var container in _vrPlayerService.HeldItems)
             {
                 if (container is not { IsHeldByPlayer: true } || container.Vob is not IItem item ||
                     container.Go != null && container.Go.GetComponentInParent<VRBackpack>() != null)
