@@ -25,6 +25,7 @@ using UnityEngine;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
+using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -38,14 +39,14 @@ namespace Gothic.VR.Adapters.Player
     /// - A carousel around the player at eye level, the slot looked at selected: at most 8 spells; with
     ///   DeveloperConfig.EnableRingWeaponSlots the equipped melee weapon and bow/crossbow (Gothic's one of each); with
     ///   EnableRingItemSlots up to 3 favorite items (a torch, a key, potions, food) and the trade currency
-    ///   (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE). The front spell shows its effect after _previewSeconds (like
+    ///   (G1 ore, G2 gold: TRADE_CURRENCY_INSTANCE). The front spell shows its effect after PreviewSeconds (like
     ///   Gothic), the slot a hand is near grows and shows its name and how many are left in the backpack.
     /// - Grip near a spell: it goes into that hand (ready to cast) and the ring closes. Weapons and items are the real
     ///   items: grabbed like out of a socket (not from afar) - one of them. Grip held at the slot of a stack for
-    ///   _transferDelaySeconds takes more and more of it into the hand; moving the hand away closes the ring.
+    ///   TransferDelaySeconds takes more and more of it into the hand; moving the hand away closes the ring.
     /// - Trigger held + moving the hand sideways turns the carousel; a trigger click (released without moving) on a
     ///   spell or weapon unequips it, on an item takes it off the ring - it stays in the backpack.
-    /// - Let go of a held item at a slot (within _putInGraceSeconds after it touched it): a rune/scroll into the empty
+    /// - Let go of a held item at a slot (within PutInGraceSeconds after it touched it): a rune/scroll into the empty
     ///   slot is equipped (like armor: it goes into the backpack with [E]), a weapon too (onto the equipped one of its
     ///   kind it replaces it), anything else becomes a favorite item; at its own slot it just goes back into the
     ///   backpack.
@@ -63,30 +64,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly VrFavoritesService _favoritesService;
 
-        private const float _previewSeconds = 1f;
-        private const float _ringRadius = 0.28f;
-        private const float _hoverScale = 1.4f;
-        private const float _hoverDistance = 0.09f;
-        // A held item closer than this to a slot (any part of it - a sword's blade, not its grip in the hand).
-        private const float _putInDistance = 0.1f;
-        // Let go this long after the held item touched a slot still puts it in.
-        private const float _putInGraceSeconds = 0.2f;
-        private const float _dragStartDistance = 0.03f;
-        private const float _spinSpeed = 30f;
-        private const float _labelWorldScale = 0.013f;
-        // The ring circles the player at eye level, 2.2 times the size (radius
-        // ~0.6 m) - the slot looked at is the selected one.
-        private const float _aroundPlayerScale = 2.2f;
-        // An item grabbed out of the ring that no hand ended up holding after this goes back.
-        private const float _takeTimeoutSeconds = 1f;
-        // Stacks: grip held at the slot this long takes more - first _transferStartRate per second, doubling every
-        // second. The hand this far from the slot ends it.
-        private const float _transferDelaySeconds = 1.5f;
-        private const float _transferStartRate = 2f;
-        private const float _transferMaxRate = 500f;
-        private const float _transferEndDistance = 0.15f;
-        // A weapon taken out of the ring and let go: after this it's in the backpack, a holster or on the ground.
-        private const float _takenWeaponCheckSeconds = 0.5f;
 
         private readonly List<FavoritesRingSlotView> _slots = new();
         // The direct grabbers of both hands (IVrRig.HandGrabbers).
@@ -223,7 +200,7 @@ namespace Gothic.VR.Adapters.Player
             forward = forward.sqrMagnitude < 0.01f ? Vector3.forward : forward.normalized;
             // The player stands in its middle, a little below the eyes (at eye level it hid the view); turned around,
             // the first slot is in front of him.
-            transform.SetPositionAndRotation(head.position + Vector3.down * _aroundPlayerBelowEyes,
+            transform.SetPositionAndRotation(head.position + Vector3.down * RingConstants.AroundPlayerBelowEyes,
                 Quaternion.LookRotation(-forward, Vector3.up));
             _aroundPlayerRotation = transform.rotation;
             transform.localScale = Vector3.one * RingScale;
@@ -348,21 +325,15 @@ namespace Gothic.VR.Adapters.Player
         }
 
         private Quaternion _aroundPlayerRotation = Quaternion.identity;
-        private const float _aroundPlayerBelowEyes = 0.25f;
-        private const float RingScale = _aroundPlayerScale;
+        private const float RingScale = RingConstants.AroundPlayerScale;
 
         // DeveloperConfig.EnableRingZoom: the ring's radius - the slots come closer or move away, keeping their size
         // (scaling the whole ring grew the slots too).
-        private float RingRadius => _ringRadius * (_configService.Dev.EnableRingZoom ? _ringZoom : 1f);
+        private float RingRadius => RingConstants.RingRadius * (_configService.Dev.EnableRingZoom ? _ringZoom : 1f);
 
         // DeveloperConfig.EnableRingZoom: the ring's radius, changed with the right stick (simulator: mouse wheel) like
         // the menu's distance - kept for the session.
         private static float _ringZoom = 1f;
-        private const float _minRingZoom = 0.5f;
-        private const float _maxRingZoom = 2f;
-        private const float _ringZoomSpeed = 1f;
-        private const float _ringZoomPerWheelNotch = 0.05f;
-        private const float _zoomStickDeadZone = 0.2f;
 
         // A carousel - let go while turning it, it spins on and slows down; a
         // trigger press stops it. Degrees per second, the drag's last speed.
@@ -370,10 +341,6 @@ namespace Gothic.VR.Adapters.Player
         private float _lastDragAngle;
         private bool _isSpinStoppedByPress;
         private float _dragStartHandAngle;
-        private const float _spinDamping = 1.5f;
-        private const float _minSpinVelocity = 5f;
-        private const float _stopSpinVelocity = 20f;
-        private const float _minDragAxisDistance = 0.1f;
 
         /// <summary>
         /// DeveloperConfig.EnableRingZoom: the right stick up/down (mouse wheel) makes the ring bigger/smaller - it moves
@@ -391,18 +358,18 @@ namespace Gothic.VR.Adapters.Player
                 // A notch is 120 or 1 depending on the Input System's scroll setting - the direction counts.
                 var scroll = mouse != null ? mouse.scroll.ReadValue().y : 0f;
                 if (!Mathf.Approximately(scroll, 0f))
-                    change = Mathf.Sign(scroll) * _ringZoomPerWheelNotch;
+                    change = Mathf.Sign(scroll) * RingConstants.RingZoomPerWheelNotch;
             }
             else
             {
                 var stick = _vrInput.GetThumbstick(VrHandSide.Right);
-                if (Mathf.Abs(stick.y) >= _zoomStickDeadZone)
-                    change = stick.y * _ringZoomSpeed * Time.deltaTime;
+                if (Mathf.Abs(stick.y) >= RingConstants.ZoomStickDeadZone)
+                    change = stick.y * RingConstants.RingZoomSpeed * Time.deltaTime;
             }
             if (Mathf.Approximately(change, 0f))
                 return;
 
-            _ringZoom = Mathf.Clamp(_ringZoom + change, _minRingZoom, _maxRingZoom);
+            _ringZoom = Mathf.Clamp(_ringZoom + change, RingConstants.MinRingZoom, RingConstants.MaxRingZoom);
         }
 
         /// <summary>
@@ -428,8 +395,8 @@ namespace Gothic.VR.Adapters.Player
             if (!_isDragging)
             {
                 _ringAngle += _spinVelocity * Time.deltaTime;
-                _spinVelocity *= Mathf.Exp(-_spinDamping * Time.deltaTime);
-                if (Mathf.Abs(_spinVelocity) < _minSpinVelocity)
+                _spinVelocity *= Mathf.Exp(-RingConstants.SpinDamping * Time.deltaTime);
+                if (Mathf.Abs(_spinVelocity) < RingConstants.MinSpinVelocity)
                     _spinVelocity = 0f;
             }
 
@@ -442,9 +409,9 @@ namespace Gothic.VR.Adapters.Player
                 slot.Root.transform.localPosition = new Vector3(Mathf.Sin(angle) * RingRadius, 0f,
                     -Mathf.Cos(angle) * RingRadius);
                 var isHighlighted = slot == _hovered || slot == putInTarget;
-                slot.Root.transform.localScale = Vector3.one * (isHighlighted ? _hoverScale : 1f);
+                slot.Root.transform.localScale = Vector3.one * (isHighlighted ? RingConstants.HoverScale : 1f);
                 if (slot.Item != null)
-                    slot.Root.transform.localRotation = Quaternion.Euler(0f, Time.time * _spinSpeed, 0f);
+                    slot.Root.transform.localRotation = Quaternion.Euler(0f, Time.time * RingConstants.SpinSpeed, 0f);
                 if (slot.Container != null && slot.TakenTime < 0f)
                     _slotViews.UpdateBodyCollisions(slot);
 
@@ -483,7 +450,7 @@ namespace Gothic.VR.Adapters.Player
         {
             FavoritesRingSlotView hovered = null;
             var hoveredSide = VrHandSide.Right;
-            var best = _hoverDistance * RingScale;
+            var best = RingConstants.HoverDistance * RingScale;
             foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
             {
                 if (!IsHandFree(side))
@@ -561,16 +528,16 @@ namespace Gothic.VR.Adapters.Player
             label.gameObject.SetActive(true);
             label.text = GetSlotName(slot);
             label.transform.SetParent(slot.Root.transform, false);
-            var height = slot.IsWeapon ? VRFavoritesRingSlotViews.WeaponSize * 0.6f
-                : VRFavoritesRingSlotViews.SpellSize;
+            var height = slot.IsWeapon ? RingConstants.WeaponSize * 0.6f
+                : RingConstants.SpellSize;
             label.transform.localPosition = Vector3.up * (height * 0.9f);
             // Its world size grows with the ring, not with the slot's hover scale.
-            label.transform.localScale = Vector3.one * (_labelWorldScale * RingScale /
+            label.transform.localScale = Vector3.one * (RingConstants.LabelWorldScale * RingScale /
                                                         Mathf.Max(0.0001f, slot.Root.transform.lossyScale.x));
         }
 
         /// <summary>
-        /// Like Gothic: the front spell shows its rune/scroll first, after _previewSeconds its effect too. The rune
+        /// Like Gothic: the front spell shows its rune/scroll first, after PreviewSeconds its effect too. The rune
         /// stays, half transparent behind its effect (some effects are huge and hid which rune it is); a hand at it
         /// turns it around: the rune whole, the effect half. Weapons and items stay as they are.
         /// </summary>
@@ -580,7 +547,8 @@ namespace Gothic.VR.Adapters.Player
             {
                 if (slot.Kind != FavoriteSlotKind.Spell || slot.Item == null || slot.Root == null)
                     continue;
-                var isEffect = slot == _front && !_isDragging && Time.time - _frontSince >= _previewSeconds;
+                var isEffect = slot == _front && !_isDragging &&
+                               Time.time - _frontSince >= RingConstants.PreviewSeconds;
                 var state = !isEffect ? 0 : slot == _hovered ? 2 : 1;
                 if (state != slot.PreviewState)
                     _slotViews.SetPreview(slot, state);
@@ -611,7 +579,7 @@ namespace Gothic.VR.Adapters.Player
                     _lastDragAngle = _ringAngle;
                     _pressedSlot = _hovered;
                     // A press grabs the spinning carousel - it stops, nothing is unequipped by that click.
-                    _isSpinStoppedByPress = Mathf.Abs(_spinVelocity) >= _stopSpinVelocity;
+                    _isSpinStoppedByPress = Mathf.Abs(_spinVelocity) >= RingConstants.StopSpinVelocity;
                     _spinVelocity = 0f;
                     return;
                 }
@@ -639,10 +607,10 @@ namespace Gothic.VR.Adapters.Player
             // The hand turns the ring around its axis - the slot under the hand goes with it, whichever way the player
             // faces (sideways in the ring's own space was mirrored behind him).
             var axisDistance = new Vector2(local.x, local.z).magnitude * RingScale;
-            if (axisDistance < _minDragAxisDistance)
+            if (axisDistance < RingConstants.MinDragAxisDistance)
                 return;
             var deltaAngle = Mathf.DeltaAngle(_dragStartHandAngle, GetHandAngle(local));
-            if (!_isDragging && Mathf.Abs(deltaAngle) * Mathf.Deg2Rad * axisDistance >= _dragStartDistance)
+            if (!_isDragging && Mathf.Abs(deltaAngle) * Mathf.Deg2Rad * axisDistance >= RingConstants.DragStartDistance)
                 _isDragging = true;
             if (!_isDragging)
                 return;
@@ -657,7 +625,7 @@ namespace Gothic.VR.Adapters.Player
         {
             var head = Camera.main;
             return head != null &&
-                   position.y > head.transform.position.y + VrFavoritesGestureDomain.GestureHeightAboveEyes;
+                   position.y > head.transform.position.y + RingConstants.GestureHeightAboveEyes;
         }
 
         /// <summary>
@@ -779,7 +747,7 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// True while a stack is being taken (the rest of the ring waits).
         /// A stack's first one is in the hand: the ring stays while the hand stays at the slot. Grip held for
-        /// _transferDelaySeconds moves more of the stack into the hand - faster and faster. The held stack counts in
+        /// TransferDelaySeconds moves more of the stack into the hand - faster and faster. The held stack counts in
         /// the inventory already (held items do), so only its amount grows. Moving the hand away (or letting go) ends
         /// it.
         /// </summary>
@@ -794,7 +762,7 @@ namespace Gothic.VR.Adapters.Player
                          GetHeld(_transfer.Side).GetComponentInParent<VobLoader>()?.Container == held;
             if (hand == null || !isHeld || _transfer.Slot.Root == null ||
                 Vector3.Distance(hand.transform.position, _transfer.Slot.Root.transform.position) >
-                _transferEndDistance * RingScale)
+                RingConstants.TransferEndDistance * RingScale)
             {
                 Logger.Log($"[FavoritesRing] {_transfer.Slot.Item.Name}: {held?.VobAs<IItem>()?.Amount ?? 0} taken " +
                            $"({_transfer.Slot.Amount} left)", LogCat.VR);
@@ -803,11 +771,12 @@ namespace Gothic.VR.Adapters.Player
             }
 
             // The rest of the ring waits meanwhile.
-            var heldTime = Time.time - _transfer.StartTime - _transferDelaySeconds;
+            var heldTime = Time.time - _transfer.StartTime - RingConstants.TransferDelaySeconds;
             if (heldTime < 0f || _transfer.Slot.Amount <= 0)
                 return true;
 
-            var rate = Mathf.Min(_transferMaxRate, _transferStartRate * Mathf.Pow(2f, heldTime));
+            var rate = Mathf.Min(RingConstants.TransferMaxRate,
+                RingConstants.TransferStartRate * Mathf.Pow(2f, heldTime));
             _transfer.Carry += rate * Time.deltaTime;
             var count = Mathf.Min(Mathf.FloorToInt(_transfer.Carry), _transfer.Slot.Amount);
             if (count <= 0)
@@ -829,7 +798,7 @@ namespace Gothic.VR.Adapters.Player
             foreach (var slot in _slots)
             {
                 if (slot.Container == null || slot.TakenTime < 0f ||
-                    Time.time - slot.TakenTime < _takeTimeoutSeconds || slot.Grabbable.IsHeld)
+                    Time.time - slot.TakenTime < RingConstants.TakeTimeoutSeconds || slot.Grabbable.IsHeld)
                     continue;
                 Logger.LogWarning($"[FavoritesRing] {slot.InstanceName}: grab didn't finish - back into the ring",
                     LogCat.VR);
@@ -871,7 +840,7 @@ namespace Gothic.VR.Adapters.Player
                 var item = _vmCacheService.TryGetItemData(instanceName);
                 var kind = _favoritesService.GetKind(item, instanceName);
                 var target = _slots
-                    .Where(s => s.TakenTime < 0f && IsNear(held, s, _putInDistance * RingScale))
+                    .Where(s => s.TakenTime < 0f && IsNear(held, s, RingConstants.PutInDistance * RingScale))
                     .OrderBy(s => VrFavoritesService.IsSame(s.InstanceName, instanceName) ? 0
                         : s.Kind == kind ? 1 : 2)
                     .FirstOrDefault();
@@ -901,7 +870,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void ExpirePutInCandidate(int index)
         {
-            if (_putInCandidates[index] != null && Time.time - _putInCandidates[index].Time > _putInGraceSeconds)
+            if (_putInCandidates[index] != null &&
+                Time.time - _putInCandidates[index].Time > RingConstants.PutInGraceSeconds)
                 _putInCandidates[index] = null;
         }
 
@@ -913,7 +883,8 @@ namespace Gothic.VR.Adapters.Player
         private void UpdateTakenWeapon()
         {
             var taken = _takenWeapon;
-            if (taken == null || taken.ReleasedTime < 0f || Time.time - taken.ReleasedTime < _takenWeaponCheckSeconds)
+            if (taken == null || taken.ReleasedTime < 0f ||
+                Time.time - taken.ReleasedTime < RingConstants.TakenWeaponCheckSeconds)
                 return;
             if (taken.Grabbable != null && taken.Grabbable.IsHeld)
             {
@@ -928,7 +899,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Let go of an item at a slot (within _putInGraceSeconds): it goes in next frame - after the backend and
+        /// Let go of an item at a slot (within PutInGraceSeconds): it goes in next frame - after the backend and
         /// VRVobItem handled the release (the held item left the inventory count).
         /// </summary>
         private void OnReleased(VrGrabArgs args)
@@ -942,7 +913,7 @@ namespace Gothic.VR.Adapters.Player
             var index = args.HandSide == VrHandSide.Left ? 0 : 1;
             var candidate = _putInCandidates[index];
             _putInCandidates[index] = null;
-            if (candidate == null || Time.time - candidate.Time > _putInGraceSeconds ||
+            if (candidate == null || Time.time - candidate.Time > RingConstants.PutInGraceSeconds ||
                 grabbable.GetComponentInParent<VobLoader>()?.Container != candidate.Container)
                 return;
             candidate.Grabbable = grabbable;
@@ -974,7 +945,7 @@ namespace Gothic.VR.Adapters.Player
             _hapticsService.Vibrate(putIn.Side, VrHapticPreset.Success);
             var name = putIn.Kind == FavoriteSlotKind.Spell ? GetSpellName(putIn.Item) : putIn.Item.Name;
             var instead = putIn.Replaced != null ? $" instead of {putIn.Replaced.Name}" : "";
-            Logger.Log($"[FavoritesRing] {name} {putIn.Action}{instead}", LogCat.VR);
+            Logger.Log($"[FavoritesRing] {name} {putIn.Action.ToLogText()}{instead}", LogCat.VR);
             Rebuild();
         }
 

@@ -33,9 +33,9 @@ namespace Gothic.VR.Domain.Player
         /// </summary>
         public bool TryPutIn(ItemInstance item, string instanceName, FavoriteSlotKind kind, FavoriteSlot target,
             IReadOnlyList<FavoriteSlot> slots, IReadOnlyList<string> favoriteItems, int maxSpells, int maxItems,
-            out string action, out ItemInstance replaced)
+            out FavoritesPutInAction action, out ItemInstance replaced)
         {
-            action = null;
+            action = FavoritesPutInAction.None;
             replaced = null;
             string rejection = null;
             var isMessageShown = !ReferenceEquals(item, _lastMessageItem);
@@ -46,12 +46,12 @@ namespace Gothic.VR.Domain.Player
             else if (IsSame(target.InstanceName, instanceName) ||
                      target.Kind == FavoriteSlotKind.Empty && (isInRing || kind == FavoriteSlotKind.Currency))
                 // Its own slot - or another one of it (its slot shows already), or the money.
-                action = "back into the backpack";
+                action = FavoritesPutInAction.BackIntoBackpack;
             else if (target.Kind != FavoriteSlotKind.Empty &&
                      !(target.Kind == kind && kind is FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged))
                 rejection = $"a {kind} doesn't go onto a {target.Kind}";
 
-            if (rejection == null && action == null)
+            if (rejection == null && action == FavoritesPutInAction.None)
             {
                 switch (kind)
                 {
@@ -63,7 +63,7 @@ namespace Gothic.VR.Domain.Player
                         rejection = "magic circle too low (EnableRuneCircleRequirement)";
                         break;
                     case FavoriteSlotKind.Spell:
-                        action = "equipped";
+                        action = FavoritesPutInAction.Equipped;
                         break;
                     case FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged when
                         !_configService.Dev.EnableRingWeaponSlots:
@@ -74,7 +74,7 @@ namespace Gothic.VR.Domain.Player
                         rejection = "requirements not met";
                         break;
                     case FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged:
-                        action = "equipped";
+                        action = FavoritesPutInAction.Equipped;
                         replaced = slots.FirstOrDefault(s => s.Kind == kind)?.Item;
                         break;
                     case FavoriteSlotKind.Item when !_configService.Dev.EnableRingItemSlots:
@@ -84,7 +84,7 @@ namespace Gothic.VR.Domain.Player
                         rejection = "3 favorite items already";
                         break;
                     case FavoriteSlotKind.Item:
-                        action = "a favorite";
+                        action = FavoritesPutInAction.Favorite;
                         break;
                 }
             }
@@ -92,7 +92,7 @@ namespace Gothic.VR.Domain.Player
             if (rejection == null)
             {
                 _lastRejection = null;
-                return action != null;
+                return action != FavoritesPutInAction.None;
             }
             var message = $"{instanceName} into {target.Kind} {target.InstanceName}: {rejection}";
             if (message != _lastRejection)

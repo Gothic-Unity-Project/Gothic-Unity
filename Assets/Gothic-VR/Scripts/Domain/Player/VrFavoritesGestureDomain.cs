@@ -3,22 +3,18 @@ using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using UnityEngine;
+using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
     /// The favorites ring's open/close gesture, owned by VrFavoritesService: both hands empty and above the eyes, both
-    /// triggers held for _gestureSeconds (a haptic tick per third). The triggers have to be let go before the next
+    /// triggers held for GestureSeconds (a haptic tick per third). The triggers have to be let go before the next
     /// toggle.
     /// </summary>
     public class VrFavoritesGestureDomain
     {
-        // Meters the hands must be above the eyes for the gesture.
-        public const float GestureHeightAboveEyes = 0.1f;
 
-        private const float _gestureSeconds = 1f;
-        // A broken gesture shorter than this (s) keeps the hold time.
-        private const float _gestureGraceSeconds = 0.3f;
 
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
@@ -46,8 +42,8 @@ namespace Gothic.VR.Domain.Player
 
             var isGesture = head != null && left != null && right != null && leftTrigger && rightTrigger &&
                             _vrPlayerService.GrabbedItemLeft == null && _vrPlayerService.GrabbedItemRight == null &&
-                            left.transform.position.y > head.position.y + GestureHeightAboveEyes &&
-                            right.transform.position.y > head.position.y + GestureHeightAboveEyes &&
+                            left.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes &&
+                            right.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes &&
                             !isBlocked;
             if (_isGestureLatched)
             {
@@ -57,11 +53,11 @@ namespace Gothic.VR.Domain.Player
             }
 
             // A hand dipping below the eyes or a trigger flickering for a moment
-            // doesn't start the hold again - it took much longer than _gestureSeconds.
+            // doesn't start the hold again - it took much longer than GestureSeconds.
             if (!isGesture)
             {
                 _gestureBrokenTime += Time.deltaTime;
-                if (_gestureBrokenTime > _gestureGraceSeconds)
+                if (_gestureBrokenTime > RingConstants.GestureGraceSeconds)
                 {
                     _gestureTime = 0f;
                     _gestureHapticStep = 0;
@@ -71,14 +67,14 @@ namespace Gothic.VR.Domain.Player
 
             _gestureBrokenTime = 0f;
             _gestureTime += Time.deltaTime;
-            var step = Mathf.FloorToInt(_gestureTime / _gestureSeconds * 3f);
+            var step = Mathf.FloorToInt(_gestureTime / RingConstants.GestureSeconds * 3f);
             if (step > _gestureHapticStep && step < 3)
             {
                 _gestureHapticStep = step;
                 _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Info);
                 _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Info);
             }
-            if (_gestureTime < _gestureSeconds)
+            if (_gestureTime < RingConstants.GestureSeconds)
                 return false;
 
             _isGestureLatched = true;

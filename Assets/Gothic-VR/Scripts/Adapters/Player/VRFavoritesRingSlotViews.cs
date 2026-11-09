@@ -15,6 +15,7 @@ using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -24,9 +25,6 @@ namespace Gothic.VR.Adapters.Player
     /// </summary>
     public class VRFavoritesRingSlotViews : MonoBehaviour
     {
-        public const float SpellSize = 0.09f;
-        // Weapons stand upright (blade up) and are longer than the runes.
-        public const float WeaponSize = 0.16f;
 
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly GameStateService _gameStateService;
@@ -36,12 +34,6 @@ namespace Gothic.VR.Adapters.Player
 
         private const string _focusNameCanvas = "NameCanvas";
         private const float _spellModelTilt = -90f;
-        // The effect's radius in the slot, a share of the rune's size.
-        private const float _effectFitShare = 0.7f;
-        // The rune behind its effect / the effect while a hand is at it.
-        private const float _previewModelAlpha = 0.5f;
-        private const float _previewEffectHoverAlpha = 0.5f;
-        private const float _itemSize = 0.1f;
         private static readonly int _baseColorProperty = Shader.PropertyToID("_BaseColor");
         private static readonly int _colorProperty = Shader.PropertyToID("_Color");
         private static readonly int _cutoffProperty = Shader.PropertyToID("_Cutoff");
@@ -76,7 +68,7 @@ namespace Gothic.VR.Adapters.Player
                 slot.Model.name = "Empty";
                 Destroy(slot.Model.GetComponent<Collider>());
                 slot.Model.transform.SetParent(root.transform, false);
-                slot.Model.transform.localScale = Vector3.one * (SpellSize * 0.5f);
+                slot.Model.transform.localScale = Vector3.one * (RingConstants.SpellSize * 0.5f);
                 _emptySlotMaterial ??= CreateEmptySlotMaterial();
                 slot.Model.GetComponent<MeshRenderer>().sharedMaterial = _emptySlotMaterial;
                 return slot;
@@ -93,7 +85,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(collider);
             // Runes and scrolls lie flat - stood up, their picture faces the player.
             slot.Model.transform.localRotation = Quaternion.Euler(_spellModelTilt, 0f, 0f);
-            FitSize(slot.Model, SpellSize);
+            FitSize(slot.Model, RingConstants.SpellSize);
             return slot;
         }
 
@@ -138,11 +130,11 @@ namespace Gothic.VR.Adapters.Player
             if (slot.IsWeapon)
             {
                 StandUpright(container.Go);
-                FitSize(container.Go, WeaponSize);
+                FitSize(container.Go, RingConstants.WeaponSize);
             }
             else
             {
-                FitSize(container.Go, _itemSize);
+                FitSize(container.Go, RingConstants.ItemSize);
             }
 
             slot.Container = container;
@@ -181,7 +173,7 @@ namespace Gothic.VR.Adapters.Player
 
         private static Material CreateEmptySlotMaterial()
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            var material = new Material(Constants.ShaderUnlit);
             material.SetColor("_BaseColor", _emptySlotColor);
             return material;
         }
@@ -260,12 +252,12 @@ namespace Gothic.VR.Adapters.Player
             slot.Model.SetActive(true);
             if (isEffect && state == 1)
                 _dynamicMaterialService.SetDynamicValue(slot.Model, Constants.ShaderPropertyTransparency,
-                    _previewModelAlpha);
+                    RingConstants.PreviewModelAlpha);
             else
                 _dynamicMaterialService.ResetDynamicValue(slot.Model, Constants.ShaderPropertyTransparency,
                     Constants.ShaderPropertyTransparencyDefault);
             if (isEffect)
-                SetEffectAlpha(slot, state == 2 ? _previewEffectHoverAlpha : 1f);
+                SetEffectAlpha(slot, state == 2 ? RingConstants.PreviewEffectHoverAlpha : 1f);
         }
 
         /// <summary>
@@ -307,7 +299,7 @@ namespace Gothic.VR.Adapters.Player
         {
             // Gothic's motion, the whole effect fitted into the slot.
             return VRSpellEffect.Create(item, parent, _gameStateService.GothicVm, _vmCacheService, _meshService,
-                true, SpellSize * _effectFitShare);
+                true, RingConstants.SpellSize * RingConstants.EffectFitShare);
         }
     }
 }

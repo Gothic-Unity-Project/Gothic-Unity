@@ -269,5 +269,118 @@ namespace Gothic.VR
             // is still found when the player is a bit deeper than chest deep.
             public const float WaterSurfaceRayBuffer = 2f;
         }
+
+        /// <summary>
+        /// The VR favorites ring (VRFavoritesRing, its slot views and spells, VrFavoritesGestureDomain): sizes in
+        /// meters, times in seconds. Self-tuned for VR.
+        /// </summary>
+        public static class FavoritesRing
+        {
+            // Meters the hands must be above the eyes for the gesture.
+            public const float GestureHeightAboveEyes = 0.1f;
+
+            // Seconds both triggers are held for the open/close gesture.
+            public const float GestureSeconds = 1f;
+
+            // A broken gesture shorter than this (s) keeps the hold time.
+            public const float GestureGraceSeconds = 0.3f;
+
+            // Seconds the front spell rests before its effect preview shows.
+            public const float PreviewSeconds = 1f;
+
+            // The ring's radius (m) before zoom and the around-player scale.
+            public const float RingRadius = 0.28f;
+
+            // Scale of the slot a hand is at.
+            public const float HoverScale = 1.4f;
+
+            // Meters a hand may be from a slot to hover it.
+            public const float HoverDistance = 0.09f;
+
+            // A held item closer than this to a slot (any part of it - a sword's blade, not its grip in the hand).
+            public const float PutInDistance = 0.1f;
+
+            // Let go this long after the held item touched a slot still puts it in.
+            public const float PutInGraceSeconds = 0.2f;
+
+            // Meters a hand moves with the trigger held before it turns the carousel.
+            public const float DragStartDistance = 0.03f;
+
+            // Degrees per second the carousel turns when stepped.
+            public const float SpinSpeed = 30f;
+
+            // World scale of a slot's name label.
+            public const float LabelWorldScale = 0.013f;
+
+            // The ring circles the player at eye level, 2.2 times the size (radius
+            // ~0.6 m) - the slot looked at is the selected one.
+            public const float AroundPlayerScale = 2.2f;
+
+            // An item grabbed out of the ring that no hand ended up holding after this goes back.
+            public const float TakeTimeoutSeconds = 1f;
+
+            // Stacks: grip held at the slot this long takes more - first TransferStartRate per second, doubling every
+            // second. The hand this far from the slot ends it.
+            public const float TransferDelaySeconds = 1.5f;
+
+            // Stack transfer: items per second at the start.
+            public const float TransferStartRate = 2f;
+
+            // Stack transfer: items per second at most.
+            public const float TransferMaxRate = 500f;
+
+            // Stack transfer: ends when the hand is this far (m) from the slot.
+            public const float TransferEndDistance = 0.15f;
+
+            // A weapon taken out of the ring and let go: after this it's in the backpack, a holster or on the ground.
+            public const float TakenWeaponCheckSeconds = 0.5f;
+
+            // Meters the ring hangs below the eyes.
+            public const float AroundPlayerBelowEyes = 0.25f;
+
+            // Zoom limits and speed (EnableRingZoom).
+            public const float MinRingZoom = 0.5f;
+
+            public const float MaxRingZoom = 2f;
+
+            public const float RingZoomSpeed = 1f;
+
+            public const float RingZoomPerWheelNotch = 0.05f;
+
+            // Stick deflection below this doesn't zoom.
+            public const float ZoomStickDeadZone = 0.2f;
+
+            // Carousel: how fast a spin slows down.
+            public const float SpinDamping = 1.5f;
+
+            // Carousel: slower spins (degrees/s) stop at once.
+            public const float MinSpinVelocity = 5f;
+
+            // Carousel: a drag faster than this (degrees/s) keeps spinning when let go.
+            public const float StopSpinVelocity = 20f;
+
+            // Carousel: a hand closer than this (m) to the ring's axis can't drag it.
+            public const float MinDragAxisDistance = 0.1f;
+
+            // Seconds a trigger press of the other hand may last to count as a click.
+            public const float ClickSeconds = 0.6f;
+
+            // Size (m) of a slot's rune/scroll.
+            public const float SpellSize = 0.09f;
+
+            // Weapons stand upright (blade up) and are longer than the runes.
+            public const float WeaponSize = 0.16f;
+
+            // The effect's radius in the slot, a share of the rune's size.
+            public const float EffectFitShare = 0.7f;
+
+            // The rune behind its effect / the effect while a hand is at it.
+            public const float PreviewModelAlpha = 0.5f;
+
+            public const float PreviewEffectHoverAlpha = 0.5f;
+
+            // Size (m) of a favorite item in its slot.
+            public const float ItemSize = 0.1f;
+        }
     }
 }

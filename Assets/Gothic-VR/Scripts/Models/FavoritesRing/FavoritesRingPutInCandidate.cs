@@ -15,7 +15,7 @@ namespace Gothic.VR.Models.FavoritesRing
         public string InstanceName;
         public FavoriteSlotKind Kind;
         public FavoritesRingSlotView Target;
-        public string Action;
+        public FavoritesPutInAction Action;
         public ItemInstance Replaced;
         public float Time;
         public VrHandSide Side;

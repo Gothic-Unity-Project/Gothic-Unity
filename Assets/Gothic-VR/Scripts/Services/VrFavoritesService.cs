@@ -256,7 +256,7 @@ namespace Gothic.VR.Services
         /// can't go in there. Checked against the slots of the last BuildSlots.
         /// </summary>
         public bool TryPutIn(ItemInstance item, string instanceName, FavoriteSlotKind kind, FavoriteSlot target,
-            out string action, out ItemInstance replaced)
+            out FavoritesPutInAction action, out ItemInstance replaced)
         {
             _putInDomain ??= new VrFavoritesPutInDomain().Inject();
             return _putInDomain.TryPutIn(item, instanceName, kind, target, _slots, FavoriteItems, MaxSpells, MaxItems,
@@ -268,12 +268,12 @@ namespace Gothic.VR.Services
         /// equipped (a weapon replaces the equipped one of its kind), anything else becomes a favorite - or it just
         /// goes back.
         /// </summary>
-        public void PutIn(ItemInstance item, string instanceName, FavoriteSlotKind kind, int amount, string action,
-            ItemInstance replaced)
+        public void PutIn(ItemInstance item, string instanceName, FavoriteSlotKind kind, int amount,
+            FavoritesPutInAction action, ItemInstance replaced)
         {
             _playerService.AddItem(instanceName, amount);
             var hero = _playerService.HeroContainer;
-            if (action == "equipped" && kind is FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged)
+            if (action == FavoritesPutInAction.Equipped && kind is FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged)
             {
                 // Gothic: one melee weapon, one bow/crossbow - all others of the kind come off (the ring's one, and
                 // any left from before: several bows stayed equipped, the backpack showed [E] on each in turn).
@@ -284,9 +284,9 @@ namespace Gothic.VR.Services
             {
                 _npcInventoryService.UnequipItemWithEffects(hero.Instance, replaced);
             }
-            if (action == "equipped")
+            if (action == FavoritesPutInAction.Equipped)
                 _npcInventoryService.EquipItemWithEffects(hero.Instance, item);
-            else if (action == "a favorite")
+            else if (action == FavoritesPutInAction.Favorite)
                 AddFavorite(instanceName);
         }
 

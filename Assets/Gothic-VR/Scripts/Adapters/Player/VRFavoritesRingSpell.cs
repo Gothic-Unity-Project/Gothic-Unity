@@ -17,6 +17,7 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -40,8 +41,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VrFavoritesService _favoritesService;
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
-        // Seconds a trigger press of the other hand may last to count as a click.
-        private const float _clickSeconds = 0.6f;
 
         private ItemInstance _item;
         private VrHandSide _hand;
@@ -124,7 +123,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The other hand - empty - clicks its trigger (press and release within _clickSeconds).
+        /// The other hand - empty - clicks its trigger (press and release within ClickSeconds).
         /// </summary>
         private void UpdatePutAwayClick()
         {
@@ -143,7 +142,7 @@ namespace Gothic.VR.Adapters.Player
             if (!trigger.IsJustDeactivated || _otherTriggerDownTime < 0f)
                 return;
 
-            var isClick = Time.time - _otherTriggerDownTime <= _clickSeconds;
+            var isClick = Time.time - _otherTriggerDownTime <= RingConstants.ClickSeconds;
             _otherTriggerDownTime = -1f;
             if (isClick)
                 PutAway("trigger click of the other hand");
