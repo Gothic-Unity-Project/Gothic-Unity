@@ -184,7 +184,7 @@ namespace Gothic.Core.Const
         // Items inside a VR slot (holster, backpack, chest). Collides with nothing (hands, body, ground check), only
         // the hands' near grab finds it.
         public static LayerMask VobItemSocketedLayer = LayerMask.NameToLayer("VobItemSocketed");
-        // The transformed hero's body (VRTransformPuppet), rendered only by the transformation PiP camera. Collides
+        // The transformed hero's body (VRSpellTransformPuppet), rendered only by the transformation PiP camera. Collides
         // with nothing.
         public static LayerMask TransformPuppetLayer = LayerMask.NameToLayer("TransformPuppet");
 

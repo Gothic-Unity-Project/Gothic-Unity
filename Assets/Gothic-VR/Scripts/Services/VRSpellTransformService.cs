@@ -28,7 +28,7 @@ namespace Gothic.VR.Services
     /// Lives in the VR scene scope: Reflex disposes it with the scene, which removes the listeners from the static
     /// events - a reloaded VR scene would transform back twice otherwise.
     /// </summary>
-    public class VRTransformService : System.IDisposable
+    public class VRSpellTransformService : System.IDisposable
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
@@ -36,14 +36,14 @@ namespace Gothic.VR.Services
 
         private const string _transformSpellPrefix = "SPL_TRF_";
 
-        private VRTransformPuppet _puppet;
+        private VRSpellTransformPuppet _puppet;
 
         // Not the puppet's Unity null: it's destroyed with the world scene, the guild must still come back.
         private bool _isTransformed;
         public bool IsTransformed => _isTransformed;
 
 
-        public VRTransformService()
+        public VRSpellTransformService()
         {
             // Leaving the world transformed (level change, loading a save) kept the monster's guild for good -
             // camps attacked - and the rig's camera height, speed and no-grab.
@@ -94,7 +94,7 @@ namespace Gothic.VR.Services
             // Scripts see the hero as the monster (its guild) - Core's rule, the puppet and camera are VR's.
             _npcService.TransformHero(monster);
 
-            _puppet = new GameObject("_TransformPuppet").AddComponent<VRTransformPuppet>();
+            _puppet = new GameObject("_TransformPuppet").AddComponent<VRSpellTransformPuppet>();
             _isTransformed = true;
             _puppet.Init(this, monster, castingHand);
 

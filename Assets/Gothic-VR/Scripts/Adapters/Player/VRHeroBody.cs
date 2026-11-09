@@ -37,7 +37,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly VRTransformService _vrTransformService;
+        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly VRUiOnTopService _uiOnTopService;
 
@@ -193,8 +193,8 @@ namespace Gothic.VR.Adapters.Player
             if (_body == null)
                 return;
 
-            // Hidden while the hero is transformed (VRTransformService) - the transformation's puppet is the body then.
-            var isVisible = !_vrTransformService.IsTransformed;
+            // Hidden while the hero is transformed (VRSpellTransformService) - the transformation's puppet is the body then.
+            var isVisible = !_vrSpellTransformService.IsTransformed;
             foreach (var bodyRenderer in _renderers)
             {
                 if (bodyRenderer != null && bodyRenderer.enabled != isVisible)

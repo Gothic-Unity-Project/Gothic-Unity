@@ -20,7 +20,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// The transformed hero's body (VRTransformService): a monster NPC without AI that follows the VR player.
+    /// The transformed hero's body (VRSpellTransformService): a monster NPC without AI that follows the VR player.
     /// - Layer TransformPuppet: the VR (and spectator) camera don't render it, only the small PiP camera does - its picture
     ///   is an orb in the casting hand. No colliders, not in the NPC cache (no perception, focus, saving).
     /// - Animations from the player's movement (idle / walk / run), attack = swing (or trigger) of the free hand - the MDS sound
@@ -28,7 +28,7 @@ namespace Gothic.VR.Adapters.Player
     /// - The VR camera goes down to the monster's eye height (IVrRig.CameraYOffset).
     /// - Trigger of the orb hand (empty or holding the transformation scroll) = transform back.
     /// </summary>
-    public class VRTransformPuppet : MonoBehaviour
+    public class VRSpellTransformPuppet : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
@@ -84,7 +84,7 @@ namespace Gothic.VR.Adapters.Player
         private const float _orbSize = 0.12f;
         private const float _orbHandOffset = 0.1f;
 
-        private VRTransformService _transformService;
+        private VRSpellTransformService _transformService;
         private NpcContainer _monster;
         private VrHandSide _orbHand;
         private bool _isReady;
@@ -147,7 +147,7 @@ namespace Gothic.VR.Adapters.Player
         private Material _orbMaterial;
 
 
-        public void Init(VRTransformService transformService, NpcContainer monster, VrHandSide castingHand)
+        public void Init(VRSpellTransformService transformService, NpcContainer monster, VrHandSide castingHand)
         {
             gameObject.Inject();
             _transformService = transformService;

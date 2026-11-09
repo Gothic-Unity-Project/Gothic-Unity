@@ -53,7 +53,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VrHapticsService _hapticsService;
-        [Inject] private readonly VRTransformService _vrTransformService;
+        [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
         [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
         [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
         [Inject] private readonly FightService _fightService;
@@ -212,8 +212,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 triggered = _vrInput.GetButton(CastHand, VrButton.Trigger)
                     .IsJustActivated;
 
-            // Transformed: the orb hand's trigger transforms back (VRTransformPuppet) - no second transformation.
-            if (_vrTransformService.IsTransformed && IsTransformSpell())
+            // Transformed: the orb hand's trigger transforms back (VRSpellTransformPuppet) - no second transformation.
+            if (_vrSpellTransformService.IsTransformed && IsTransformSpell())
                 return;
 
             // A rune of a higher circle than the hero's doesn't cast - a
@@ -682,15 +682,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     if (caster != null && caster.ActiveSpellInfo > 1)
                     {
                         var monster = caster.ActiveSpellInfo;
-                        var isTransformed = _vrTransformService.Transform(monster, _runeHandSide);
+                        var isTransformed = _vrSpellTransformService.Transform(monster, _runeHandSide);
                         caster.ActiveSpellInfo = 0;
                         // The script's monster has no visual - the
                         // one the spell is named after (SPL_TRF_LURKER -> LURKER).
                         if (!isTransformed)
                         {
-                            var named = _vrTransformService.GetSpellNamedMonster(_item.Spell);
+                            var named = _vrSpellTransformService.GetSpellNamedMonster(_item.Spell);
                             if (named >= 0 && named != monster)
-                                isTransformed = _vrTransformService.Transform(named, _runeHandSide);
+                                isTransformed = _vrSpellTransformService.Transform(named, _runeHandSide);
                         }
                         // No monster to become (no visual) - the
                         // scroll stays and the mana comes back.
