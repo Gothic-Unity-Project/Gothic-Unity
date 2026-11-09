@@ -150,11 +150,10 @@ namespace Gothic.VR.Services.Context
                     "Pull the string to reload (off: automatic)"),
                 CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
                     VRConstants.CrossbowReloadDefaultValue)));
-            // DeveloperConfig.EnableScrollUseOption: off = scrolls are cast forever.
-            if (_configService.Dev.EnableScrollUseOption)
-                rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
-                        "A cast uses the scroll up (Gothic)"),
-                    CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
+            // Off = scrolls are cast forever.
+            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
+                    "A cast uses the scroll up (Gothic)"),
+                CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 

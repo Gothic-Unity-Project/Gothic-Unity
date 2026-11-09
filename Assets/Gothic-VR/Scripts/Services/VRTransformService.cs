@@ -3,7 +3,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
@@ -16,7 +15,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableVrTransformations): transformation scrolls (Trf_Wolf, Trf_Scavenger, ...).
+    /// Transformation scrolls (Trf_Wolf, Trf_Scavenger, ...).
     /// The spell's Spell_Logic_Trf_X calls Npc_SetActiveSpellInfo(self, monsterInstance) and returns SPL_SENDCAST - then
     /// the hero becomes that monster:
     /// - the monster is spawned like any NPC but without AI, collisions, focus or perception ("puppet"), follows the
@@ -33,7 +32,6 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameStateService _gameStateService;
 
         private const string _transformSpellPrefix = "SPL_TRF_";
@@ -62,7 +60,7 @@ namespace Gothic.VR.Services
         /// <returns>False if the hero wasn't transformed (the scroll isn't used up then).</returns>
         public bool Transform(int monsterInstanceIndex, VrHandSide castingHand)
         {
-            if (!_configService.Dev.EnableVrTransformations || IsTransformed)
+            if (IsTransformed)
                 return false;
 
             var hero = _npcService.GetHeroContainer();

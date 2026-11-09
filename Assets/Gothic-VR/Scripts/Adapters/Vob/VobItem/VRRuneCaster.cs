@@ -38,7 +38,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRRuneCaster : MonoBehaviour
     {
         private const string _chainLightningName = "Chainlightning";
-        // DeveloperConfig.EnableVrChainLightning: the lightning while it's invested.
+        // The lightning while it's invested.
         private VRChainLightning _chainLightning;
 
         // Raycast range for NPC targeting
@@ -282,7 +282,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            // DeveloperConfig.EnableVrChainLightning: every level the lightning jumps on.
+            // Every level the lightning jumps on.
             if (result == DaedalusConst.SplNextLevel)
             {
                 _chainLightning?.AddLink();
@@ -456,12 +456,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVrChainLightning: G1's chain lightning zaps the NPC in front of the eyes, then jumps on
+        /// G1's chain lightning zaps the NPC in front of the eyes, then jumps on
         /// every invest level (VRChainLightning) - it was a one-time hit on everyone around.
         /// </summary>
         private void TryBeginChainLightning()
         {
-            if (!_configService.Dev.EnableVrChainLightning || _chainLightning != null ||
+            if (_chainLightning != null ||
                 !string.Equals(GetSpellMfxName(_item.Spell), _chainLightningName, System.StringComparison.OrdinalIgnoreCase))
                 return;
 
@@ -670,7 +670,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     _fx.ToggleLightSpell();
                 }
                 // Spell_Logic_Trf_X: Npc_SetActiveSpellInfo(self, <monster>) right before SPL_SENDCAST.
-                else if (mfxName == _transformName && _configService.Dev.EnableVrTransformations)
+                else if (mfxName == _transformName)
                 {
                     var caster = _npcService.GetHeroContainer();
                     if (caster != null && caster.ActiveSpellInfo > 1)
@@ -741,14 +741,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableScrollUseOption + the "scrollsSingleUse" option (Immersion, on by default): like Gothic a
+        /// The "scrollsSingleUse" option (Immersion, on by default): like Gothic a
         /// scroll (a spell item with ITEM_MULTI - runes have none) is used up by its cast. A held scroll stack loses one
         /// (the last one is gone from the hand), a scroll from the favorites ring one from the backpack (the last one
         /// unequips it, VRFavoritesRingSpell puts the hand's spell away). Scrolls were cast forever.
         /// </summary>
         private void TryUseUpScroll()
         {
-            if (!_configService.Dev.EnableScrollUseOption || _item == null ||
+            if (_item == null ||
                 ((VmGothicEnums.ItemFlags)_item.Flags & VmGothicEnums.ItemFlags.ItemMulti) == 0 ||
                 _configService.Gothic == null ||
                 _configService.Gothic.GetInt(VRConstants.IniNames.ScrollsSingleUse, 1) != 1)

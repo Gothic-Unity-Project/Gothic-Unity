@@ -16,7 +16,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrChainLightning: G1's chain lightning while the hero holds it (VRRuneCaster invests).
+    /// G1's chain lightning while the hero holds it (VRRuneCaster invests).
     /// - The first invest level (after time_per_mana, 0.75 s of charging): the NPC most directly in front of the eyes
     ///   (TARGET_COLLECT range 15 m) is zapped - a lightning from the rune hand to him.
     /// - Every _levelsPerJump levels (Spell_Logic_ChainLightning returns SPL_NEXTLEVEL every time_per_mana) the lightning

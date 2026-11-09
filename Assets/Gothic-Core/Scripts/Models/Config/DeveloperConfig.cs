@@ -322,16 +322,6 @@ namespace Gothic.Core.Models.Config
                  "ones) grow only while both hands are together (30 cm) - a kamehameha. Apart, the charge waits.")]
         public bool EnableTwoHandSpellCharge = true;
 
-        [Tooltip("VR: Transformation scrolls - the hero becomes the monster. It follows the player without AI " +
-                 "(walk/run/attack sounds), the VR camera goes down to its eyes, the hero's guild is the monster's. The " +
-                 "casting hand holds an orb with a live picture of the body; its trigger transforms back. The other " +
-                 "trigger attacks.")]
-        public bool EnableVrTransformations = true;
-
-        [Tooltip("Immersion option \"Single-use scrolls\" (ini scrollsSingleUse, on by default): a scroll's cast " +
-                 "uses it up like in Gothic. Off: scrolls are cast forever.")]
-        public bool EnableScrollUseOption = true;
-
         [Tooltip("Seconds an instant spell (G2 summons, fire rain, transformations, heal...) glows in the hand before " +
                  "it goes off - to enjoy the effects. 0 = at once like the engine. Throwable spells aren't affected.")]
         public float MinSpellCastSeconds = 2f;
@@ -345,11 +335,6 @@ namespace Gothic.Core.Models.Config
                  "flick was already a strong throw.")]
         [Range(1f, 12f)]
         public float SpellThrowFullSwingSpeed = 6f;
-
-        [Tooltip("G1 chain lightning like the engine - the NPC in front of the eyes is zapped (ZS_Zapped hurts him " +
-                 "every second), every invest level it jumps on to the nearest NPC, with nobody left it zaps the hero. " +
-                 "The release frees them (PERC_ASSESSSTOPMAGIC). Before: one hit on everyone around.")]
-        public bool EnableVrChainLightning = true;
 
         /**
          * ##########

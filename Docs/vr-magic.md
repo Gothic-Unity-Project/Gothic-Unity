@@ -15,7 +15,7 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `VRSpellFx` (worker of the caster) | what a spell looks and sounds like: the effect in the hand, charging effects and light at the body, cast effects and light, collision effects, invest/cast sounds, the Light spell |
 | `VRSpellThrow` (worker of the caster) | throwable spells: hand velocity, the swing's direction/speed/gravity/homing, the flying `Projectile` and its hits |
 | `VRTelekinesisSpell` (worker of the caster) | Telekinesis: trigger 1 extends the distance grab, trigger 2 pulls (no Daedalus, no mana) |
-| `VRChainLightning` (VR adapter) | G1's chain lightning while invested (`EnableVrChainLightning`) |
+| `VRChainLightning` (VR adapter) | G1's chain lightning while invested |
 | `VRTransformService` (VR) / `VRTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
 | `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), telekinesis range |
 | `VRWeaponService` (VR) | a readied rune is `WeaponState.Mage` for the NPCs (`SetRuneReadied`) |
