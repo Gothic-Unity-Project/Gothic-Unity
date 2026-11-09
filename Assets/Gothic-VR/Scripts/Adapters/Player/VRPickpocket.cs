@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -23,15 +24,16 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// Pickpocketing in VR (rules in PickpocketService - G1, and G2 in addition to
-    /// the dialog with EnableG2VrPickpocket). Any VR backend (IVrRig hands, VrInteractable).
-    /// - Sneaking with the talent, humans nearby who can't see the hero show a purse (a small copy of the backpack) on
-    ///   their right hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
-    /// - Grip on the purse: the victim's pockets open as a backpack in that hand (his items without what he wears or
-    ///   wields). The other hand takes items out - each one can get the hero caught.
-    /// - Caught (a roll, or the victim sees the hero while he robs him): the backpack is gone, the victim gets
+    /// Pickpocketing in VR (rules in PickpocketService). Any VR backend (IVrRig hands, VrInteractable).
+    /// - Sneaking, humans nearby who can't see the hero show a purse (a small copy of the backpack) on their right
+    ///   hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
+    /// - G1 (always on, needs the talent): grip on the purse opens the victim's pockets as a backpack in that hand
+    ///   (his items without what he wears or wields). The other hand takes items out - each one can get the hero
+    ///   caught. Caught (a roll, or the victim sees the hero while he robs him): the backpack is gone, the victim gets
     ///   PERC_CATCHTHIEF, witnesses PERC_ASSESSTHEFT. Letting go of the backpack or walking away closes the pockets.
-    /// Runtime only - the stolen items are in the inventories, which are saved.
+    /// - G2 (Gothic.ini pickpocketPurse, on by default): the purse is the NPC's pickpocket dialog option - it shows
+    ///   exactly when the dialog would offer it, a grip on it chooses it (B_Beklauen: gold or caught) and it is gone.
+    /// Runtime only - the stolen items/gold are in the inventories, the script's aivar on the NPC; both are saved.
     /// </summary>
     public class VRPickpocket : MonoBehaviour
     {
@@ -90,6 +92,8 @@ namespace Gothic.VR.Adapters.Player
         private GameObject _backpackRoot;
         private VrInteractable _backpackGrabbable;
         private bool _isCaught;
+        // Gothic.ini pickpocketPurse (G2 only), refreshed on PlayerPrefUpdated.
+        private bool _isG2OptionOn;
 
         private class Purse
         {
@@ -102,9 +106,35 @@ namespace Gothic.VR.Adapters.Player
 
         public bool IsRobbing => _victim != null;
 
+        // G1's purse is the engine's steal window (always on), G2's a view of its dialog the player may switch off.
+        private bool IsPurseEnabled => _pickpocketService.IsEnabled && (_pickpocketService.IsGothic1 || _isG2OptionOn);
+
         private void Awake()
         {
             this.Inject();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            ReadOption();
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+        }
+
+        private void ReadOption()
+        {
+            // No Gothic.ini before a game was picked (profile menu).
+            _isG2OptionOn = _configService.Gothic != null &&
+                            _configService.Gothic.GetInt(VRConstants.IniNames.PickpocketPurse,
+                                VRConstants.PickpocketPurseDefaultValue) == 1;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.PickpocketPurse)
+                ReadOption();
         }
 
         private void Update()
@@ -121,9 +151,9 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-            if (!_pickpocketService.IsEnabled || !_pickpocketService.CanHeroSteal())
+            if (!IsPurseEnabled || !_pickpocketService.CanHeroSteal())
             {
-                ClearPurses();
+                ClearPurses("hero doesn't sneak or purses are off");
                 return;
             }
 
@@ -141,7 +171,7 @@ namespace Gothic.VR.Adapters.Player
         {
             var hero = _pickpocketService.Hero;
             var hasHero = hero?.Go != null;
-            var isEnabled = _pickpocketService.IsEnabled;
+            var isEnabled = IsPurseEnabled;
             var wantSleepers = isEnabled && hasHero && hero.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
             var wantVictims = isEnabled && hasHero && !IsRobbing && _pickpocketService.CanHeroSteal();
 
@@ -264,7 +294,7 @@ namespace Gothic.VR.Adapters.Player
                         _npcBuffer.Add(npc);
                 }
                 foreach (var npc in _npcBuffer)
-                    RemovePurse(npc);
+                    RemovePurse(npc, "out of range or can't be robbed now");
             }
 
             foreach (var npc in _victims)
@@ -306,10 +336,11 @@ namespace Gothic.VR.Adapters.Player
             Logger.Log($"[Pickpocket] Purse shown on {go.name}", LogCat.VR);
         }
 
-        private void RemovePurse(NpcContainer npc)
+        private void RemovePurse(NpcContainer npc, string reason)
         {
             if (!_purses.Remove(npc, out var purse))
                 return;
+            Logger.LogEditor($"[Pickpocket] Purse hidden on {purse.Go?.name}: {reason}", LogCat.VR);
             if (purse == _hovered)
                 _hovered = null;
             if (purse.Go != null)
@@ -318,7 +349,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(purse.Material);
         }
 
-        private void ClearPurses()
+        private void ClearPurses(string reason)
         {
             if (_purses.Count == 0)
                 return;
@@ -326,7 +357,7 @@ namespace Gothic.VR.Adapters.Player
             _npcBuffer.Clear();
             _npcBuffer.AddRange(_purses.Keys);
             foreach (var npc in _npcBuffer)
-                RemovePurse(npc);
+                RemovePurse(npc, reason);
         }
 
         /// <summary>
@@ -433,8 +464,36 @@ namespace Gothic.VR.Adapters.Player
 
             // The same grip grabs the NPC (VRNpc: talk) - not while a hand is at his purse.
             _vrPickpocketService.BlockTalk(_hovered.Npc);
-            if (_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
+            if (!_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
+                return;
+            if (_pickpocketService.IsGothic1)
                 StartRobbery(_hovered.Npc, _hoveredSide);
+            else
+                StealGold(_hovered.Npc, _hoveredSide);
+        }
+
+        /// <summary>
+        /// G2: the grip is the dialog's "pickpocket" choice - B_Beklauen gives the gold (and XP, sound) or the NPC
+        /// attacks. The purse is gone either way: robbed once is enough (the script's aivar), caught cools down.
+        /// </summary>
+        private void StealGold(NpcContainer victim, VrHandSide side)
+        {
+            RemovePurse(victim, "grabbed");
+            var isSuccess = false;
+            try
+            {
+                isSuccess = _pickpocketService.StealGold(victim);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Pickpocket] Stealing from {victim.Instance.GetName(NpcNameSlot.Slot0)} failed: {e}",
+                    LogCat.VR);
+            }
+
+            if (!isSuccess)
+                _caughtUntil[victim] = Time.time + _caughtCooldown;
+            _hapticsService.Vibrate(side, isSuccess ? VrHapticPreset.Success : VrHapticPreset.Error);
+            _nextScan = 0f;
         }
 
         /// <summary>
@@ -485,7 +544,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-            ClearPurses();
+            ClearPurses("robbing");
             _victim = victim;
             _vrPickpocketService.RobbedNpc = victim;
             _isCaught = false;
@@ -638,7 +697,7 @@ namespace Gothic.VR.Adapters.Player
         {
             if (IsRobbing)
                 EndRobbery();
-            ClearPurses();
+            ClearPurses("disabled");
         }
     }
 }

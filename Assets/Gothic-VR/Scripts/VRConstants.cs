@@ -48,6 +48,9 @@ namespace Gothic.VR
             public const string TwoHandSpellCharge = "twoHandSpellCharge";
             // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
             public const string FavoritesRing = "favoritesRing";
+            // 1 = G2: sneaking, NPCs whose pickpocket dialog option would show carry a purse; grabbing it is that
+            // option (default), 0 = G2 only has the dialog. G1's purse is the engine's steal window, always on.
+            public const string PickpocketPurse = "pickpocketPurse";
             // VrLedgeHint: 0 = off (hand half closes and ticks), 1 = glow (and a strip on the lip glows).
             public const string LedgeHints = "ledgeHints";
 
@@ -105,6 +108,8 @@ namespace Gothic.VR
         public const int FavoritesRingZoomSettingAmount = 30;
 
         public const int FavoritesRingDefaultValue = 1;
+
+        public const int PickpocketPurseDefaultValue = 1;
 
         public const int PhysicalHandsDefaultValue = 1;
 
