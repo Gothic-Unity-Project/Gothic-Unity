@@ -138,15 +138,8 @@ namespace Gothic.VR.Services
             {
                 foreach (var kind in new[] { FavoriteSlotKind.Melee, FavoriteSlotKind.Ranged })
                 {
-                    // The last equipped one (Gothic: one of each). Several were left equipped before (the ring didn't
-                    // take the old one off) - the others come off now.
+                    // The last equipped one (Gothic: one of each - EquipDomain keeps it so, this only shows it).
                     var weapon = equipped.LastOrDefault(i => GetKind(i) == kind);
-                    foreach (var extra in equipped.Where(i => GetKind(i) == kind && i != weapon).ToList())
-                    {
-                        Logger.Log($"[FavoritesRing] {extra.Name} was equipped next to {weapon?.Name} - taken off",
-                            LogCat.VR);
-                        _npcInventoryService.UnequipItemWithEffects(hero.Instance, extra);
-                    }
                     var instanceName = weapon != null ? vm.GetSymbolByIndex(weapon.Index)?.Name : null;
                     if (instanceName == null || !IsInBackpack(instanceName))
                         continue;
@@ -274,17 +267,9 @@ namespace Gothic.VR.Services
         {
             _playerService.AddItem(instanceName, amount);
             var hero = _playerService.HeroContainer;
-            if (action == FavoritesPutInAction.Equipped && kind is FavoriteSlotKind.Melee or FavoriteSlotKind.Ranged)
-            {
-                // Gothic: one melee weapon, one bow/crossbow - all others of the kind come off (the ring's one, and
-                // any left from before: several bows stayed equipped, the backpack showed [E] on each in turn).
-                foreach (var other in hero.Props.EquippedItems.Where(i => GetKind(i) == kind).ToList())
-                    _npcInventoryService.UnequipItemWithEffects(hero.Instance, other);
-            }
-            else if (replaced != null)
-            {
+            // A weapon needs no Replaced: EquipDomain takes the equipped one of its kind off when equipping.
+            if (replaced != null)
                 _npcInventoryService.UnequipItemWithEffects(hero.Instance, replaced);
-            }
             if (action == FavoritesPutInAction.Equipped)
                 _npcInventoryService.EquipItemWithEffects(hero.Instance, item);
             else if (action == FavoritesPutInAction.Favorite)
@@ -328,11 +313,7 @@ namespace Gothic.VR.Services
             var isInBackpack = isGone && GetBackpackAmount(instanceName) > 0;
             var isEquipped = _npcInventoryService.IsEquipped(hero.Instance, instanceName);
             if (isInBackpack && !isEquipped)
-            {
-                foreach (var other in hero.Props.EquippedItems.Where(i => GetKind(i) == kind).ToList())
-                    _npcInventoryService.UnequipItemWithEffects(hero.Instance, other);
                 _npcInventoryService.EquipItemWithEffects(hero.Instance, item);
-            }
             if (isInBackpack)
                 Logger.Log($"[FavoritesRing] {item.Name} back in the backpack - stays equipped", LogCat.VR);
         }
