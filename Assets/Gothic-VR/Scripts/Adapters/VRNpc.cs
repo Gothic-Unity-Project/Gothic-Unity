@@ -82,7 +82,7 @@ namespace Gothic.VR.Adapters
                 return;
             }
 
-            // DeveloperConfig.EnableVrPickpocket: the grip was for the purse on his hip (or his pockets are open) - a talk
+            // Pickpocketing: the grip was for the purse on his hip (or his pockets are open) - a talk
             // made the pockets vanish from the hand.
             if (_vrPickpocketService.IsTalkBlocked(_npcData))
             {

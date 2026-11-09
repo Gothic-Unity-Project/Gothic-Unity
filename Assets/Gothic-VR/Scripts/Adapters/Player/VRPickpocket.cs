@@ -24,7 +24,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: pickpocketing in VR (rules in PickpocketService - G1, and G2 in addition to
+    /// Pickpocketing in VR (rules in PickpocketService - G1, and G2 in addition to
     /// the dialog with EnableG2VrPickpocket). Any VR backend (IVrRig hands, VrInteractable).
     /// - Sneaking with the talent, humans nearby who can't see the hero show a purse (a small copy of the backpack) on
     ///   their right hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.

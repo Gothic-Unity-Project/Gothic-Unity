@@ -313,11 +313,8 @@ namespace Gothic.Core.Models.Config
          */
 
         [Foldout("Movement and Pickpocket", true)]
-        [Tooltip("VR: G1 pickpocketing - the engine's steal window. Sneak up to an NPC who can't see you, a purse on his " +
-                 "hip opens his pockets; each item can get the hero caught (100 - dexterity %, 5-90).")]
-        public bool EnableVrPickpocket = true;
-
-        [Tooltip("VR: The purse (EnableVrPickpocket) in G2 too, in addition to the pickpocket dialog (untouched).")]
+        [Tooltip("VR: The pickpocket purse in G2 too (G1 always has it), in addition to the pickpocket dialog " +
+                 "(untouched).")]
         public bool EnableG2VrPickpocket = true;
 
         [Tooltip("VR: NPC bodies never come closer than 1 m to the VR hero's head - their models went into the camera " +

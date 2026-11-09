@@ -12,7 +12,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Services.Npc
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: G1's pickpocketing (the engine's steal window - G2 does it in dialogs,
+    /// G1's pickpocketing (always on) (the engine's steal window - G2 does it in dialogs,
     /// DIA_*_PICKPOCKET). The hero with NPC_TALENT_PICKPOCKET sneaks up to a human who can't see him and takes items
     /// from his pockets. Every item taken can get him caught: the talent value is the chance (Npc_Default 90, each
     /// level -40 by B_GiveSkill: 50 trained, 10 master - Fingers: "only as a master you take something without him
@@ -43,8 +43,7 @@ namespace Gothic.Core.Services.Npc
         private const string _talentSymbol = "NPC_TALENT_PICKPOCKET";
 
         // No game picked yet (profile menu): no VM and no game version.
-        public bool IsEnabled => _configService.Dev.EnableVrPickpocket && _configService.Gothic != null &&
-                                 _gameStateService.GothicVm != null &&
+        public bool IsEnabled => _configService.Gothic != null && _gameStateService.GothicVm != null &&
                                  (IsGothic1 || _configService.Dev.EnableG2VrPickpocket);
 
         public NpcContainer Hero => (_gameStateService.GothicVm?.GlobalHero as NpcInstance)?.GetUserData();

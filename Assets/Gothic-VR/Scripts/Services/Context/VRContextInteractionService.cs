@@ -221,12 +221,9 @@ namespace Gothic.VR.Services.Context
             var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
             favoritesRing.transform.SetParent(_player.transform, false);
 
-            // DeveloperConfig.EnableVrPickpocket: purses on the hips of NPCs who can't see the sneaking hero (G1).
-            if (developerConfig.EnableVrPickpocket)
-            {
-                var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
-                pickpocket.transform.SetParent(_player.transform, false);
-            }
+            // Purses on the hips of NPCs who can't see the sneaking hero (G1; G2 with EnableG2VrPickpocket).
+            var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+            pickpocket.transform.SetParent(_player.transform, false);
 
             // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
             _player.gameObject.AddComponent<VRHeroMovement>();

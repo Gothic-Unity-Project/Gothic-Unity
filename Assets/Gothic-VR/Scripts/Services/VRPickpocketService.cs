@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: the VR hand state of pickpocketing (rules in PickpocketService). The grip at
+    /// The VR hand state of pickpocketing (rules in PickpocketService). The grip at
     /// the NPC's purse also grabs the NPC himself (VRNpc: talk) - VRPickpocket marks the NPC here, VRNpc asks before
     /// it starts a talk.
     /// </summary>

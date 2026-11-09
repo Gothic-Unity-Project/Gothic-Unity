@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableVrPickpocket, EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
 
 ## Context
 
@@ -26,6 +26,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
    - the offers go back when the trade ends: closed, the dialog ends, or the world is left (saving is blocked in a dialog);
    - unpaid goods stay the trader's until OK, and currency held in a hand doesn't pay.
 5. **Pickpocketing in VR:**
+   - G1 pickpocketing is always on (no flag).
    - A purse on the hip of a human who can't see the sneaking hero opens his pockets.
    - The chance to get caught is G1's talent value, and in G2 100 - dexterity (5-90).
    - Sleepers can't catch you.
