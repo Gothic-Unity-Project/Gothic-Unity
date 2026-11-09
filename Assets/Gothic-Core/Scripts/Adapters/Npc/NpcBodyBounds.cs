@@ -10,7 +10,8 @@ namespace Gothic.Core.Adapters.Npc
     /// The NPC's body as a box in its root's space (yaw only), following the animation: the bones' current positions
     /// plus the skin around them. It shapes the weapon hitbox - on the root bone BIP01 alone (for a shadowbeast at its
     /// hind legs, the head 2 m in front) the rotated, sideways hitbox missed the whole front.
-    /// Only updated near the camera (fights, talking); further away the last box stays.
+    /// Added and calibrated when the NPC's body is built (NpcHitboxColliderAdapter.FollowBody). It follows the
+    /// animation only near the camera (fights, talking); further away the last box stays.
     /// </summary>
     public class NpcBodyBounds : MonoBehaviour
     {
@@ -20,15 +21,58 @@ namespace Gothic.Core.Adapters.Npc
         private const float _maxPadding = 1f;
         private const float _hitboxPadding = 0.1f;
 
+        // Shared by all NPCs: Camera.main once per scene instead of per NPC and tick.
+        private static Transform _cameraTransform;
+
         private Transform[] _bones;
         private Vector3 _paddingMin;
         private Vector3 _paddingMax;
-        private bool _isCalibrated;
         private float _nextUpdateTime;
+        private NpcHitboxColliderAdapter _hitboxAdapter;
         private BoxCollider _hitbox;
 
         // The whole body (with arms) in the NPC root's space.
         private Bounds _body;
+
+        /// <summary>
+        /// The skin around the bones, per side. Called right after the body mesh is built: the bones are in their rest
+        /// pose, and a skinned mesh's vertices are that rest pose in the root's space (its bind poses are relative to
+        /// the root). So the mesh's own bounds are enough - no BakeMesh, no vertex read.
+        /// Disables itself if the NPC has no bones or skinned mesh (the MDH box stays).
+        /// </summary>
+        public void Calibrate(NpcHitboxColliderAdapter hitboxAdapter)
+        {
+            _hitboxAdapter = hitboxAdapter;
+            CollectBones();
+
+            var meshMin = Vector3.positiveInfinity;
+            var meshMax = Vector3.negativeInfinity;
+            foreach (var skinnedRenderer in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var mesh = skinnedRenderer.sharedMesh;
+                if (mesh == null)
+                    continue;
+                var meshBounds = mesh.bounds;
+                meshMin = Vector3.Min(meshMin, meshBounds.min);
+                meshMax = Vector3.Max(meshMax, meshBounds.max);
+            }
+
+            if (_bones.Length == 0 || float.IsInfinity(meshMin.x))
+            {
+                enabled = false;
+                return;
+            }
+
+            var bones = GetBoneBounds();
+            _paddingMin = Clamp(bones.min - meshMin);
+            _paddingMax = Clamp(meshMax - bones.max);
+            enabled = true;
+
+            UpdateBounds();
+            UpdateHitbox();
+            Logger.LogEditor($"[BodyBounds] {transform.parent?.name}: body {_body.min:F2}..{_body.max:F2}, skin " +
+                             $"{_paddingMin:F2}/{_paddingMax:F2}", LogCat.Npc);
+        }
 
         private void LateUpdate()
         {
@@ -36,16 +80,14 @@ namespace Gothic.Core.Adapters.Npc
                 return;
             _nextUpdateTime = Time.time + _updateInterval;
 
-            var cam = Camera.main;
-            if (cam != null && (cam.transform.position - transform.position).sqrMagnitude > _updateDistance * _updateDistance)
-                return;
-
-            if (_bones == null)
-                CollectBones();
-            if (_bones.Length == 0)
-                return;
-
-            if (!_isCalibrated && !TryCalibrate())
+            if (_cameraTransform == null)
+            {
+                var cam = Camera.main;
+                if (cam != null)
+                    _cameraTransform = cam.transform;
+            }
+            if (_cameraTransform != null &&
+                (_cameraTransform.position - transform.position).sqrMagnitude > _updateDistance * _updateDistance)
                 return;
 
             UpdateBounds();
@@ -62,45 +104,6 @@ namespace Gothic.Core.Adapters.Npc
             }
 
             _bones = bones.ToArray();
-        }
-
-        /// <summary>
-        /// The skin around the bones, per side: the skinned mesh in its current pose against the bones' box.
-        /// </summary>
-        private bool TryCalibrate()
-        {
-            var renderers = GetComponentsInChildren<SkinnedMeshRenderer>();
-            if (renderers.Length == 0)
-                return false;
-
-            var meshMin = Vector3.positiveInfinity;
-            var meshMax = Vector3.negativeInfinity;
-            var bakedMesh = new Mesh();
-            foreach (var skinnedRenderer in renderers)
-            {
-                skinnedRenderer.BakeMesh(bakedMesh, true);
-                var rendererTransform = skinnedRenderer.transform;
-                foreach (var vertex in bakedMesh.vertices)
-                {
-                    var local = transform.InverseTransformPoint(rendererTransform.TransformPoint(vertex));
-                    meshMin = Vector3.Min(meshMin, local);
-                    meshMax = Vector3.Max(meshMax, local);
-                }
-            }
-            Destroy(bakedMesh);
-
-            if (float.IsInfinity(meshMin.x))
-                return false;
-
-            var bones = GetBoneBounds();
-            _paddingMin = Clamp(bones.min - meshMin);
-            _paddingMax = Clamp(meshMax - bones.max);
-            _isCalibrated = true;
-
-            UpdateBounds();
-            Logger.Log($"[BodyBounds] {transform.parent?.name}: body {_body.min:F2}..{_body.max:F2}, skin " +
-                       $"{_paddingMin:F2}/{_paddingMax:F2}", LogCat.Npc);
-            return true;
         }
 
         private static Vector3 Clamp(Vector3 padding)
@@ -143,12 +146,12 @@ namespace Gothic.Core.Adapters.Npc
         {
             if (_hitbox == null)
             {
-                var adapter = GetComponentInChildren<NpcHitboxColliderAdapter>(true);
-                if (adapter == null || !adapter.TryGetComponent(out _hitbox))
+                if (_hitboxAdapter == null || !_hitboxAdapter.TryGetComponent(out _hitbox))
                     return;
-                adapter.transform.SetParent(transform, false);
-                adapter.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-                adapter.transform.localScale = Vector3.one;
+                var hitboxTransform = _hitboxAdapter.transform;
+                hitboxTransform.SetParent(transform, false);
+                hitboxTransform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                hitboxTransform.localScale = Vector3.one;
             }
 
             _hitbox.center = _body.center;

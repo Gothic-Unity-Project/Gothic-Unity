@@ -42,7 +42,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
 
 ## Consequences
 
-- `NpcBodyBounds` shapes the combat hitbox. It was attached by the personal space; the NPC's own setup attaches it now (next change).
+- `NpcBodyBounds` shapes the combat hitbox of every NPC with one. It's added when the NPC's body is built and measured there in the rest pose (the mesh's own bounds, no BakeMesh). It follows the animation within 12 m of the camera; further away the last box stays.
 - After a load, the world item list is built from the saved world: items the hero dropped can be theft once.
 - The speed potion and an open trade aren't saved.
 - Unpaid goods in the hero's hand count as his inventory while held (Daedalus `Npc_HasItems` sees them); letting go anywhere but the counter or the trader's goods gives them back.
