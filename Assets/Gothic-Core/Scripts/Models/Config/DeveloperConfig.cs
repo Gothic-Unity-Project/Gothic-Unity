@@ -308,18 +308,6 @@ namespace Gothic.Core.Models.Config
 
         /**
          * ##########
-         * Movement and Pickpocket
-         * ##########
-         */
-
-        [Foldout("Movement and Pickpocket", true)]
-        [Tooltip("VR: The pickpocket purse in G2 too (G1 always has it), in addition to the pickpocket dialog " +
-                 "(untouched).")]
-        public bool EnableG2VrPickpocket = true;
-
-
-        /**
-         * ##########
          * Misc
          * ##########
          */

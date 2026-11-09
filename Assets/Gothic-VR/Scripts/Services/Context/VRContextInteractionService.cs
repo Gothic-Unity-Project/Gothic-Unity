@@ -218,7 +218,7 @@ namespace Gothic.VR.Services.Context
             var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
             favoritesRing.transform.SetParent(_player.transform, false);
 
-            // Purses on the hips of NPCs who can't see the sneaking hero (G1; G2 with EnableG2VrPickpocket).
+            // Purses on the hips of NPCs who can't see the sneaking hero (G1; G2: option pickpocketPurse).
             var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
             pickpocket.transform.SetParent(_player.transform, false);
 
