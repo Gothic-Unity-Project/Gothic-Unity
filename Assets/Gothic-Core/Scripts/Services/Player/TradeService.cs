@@ -60,6 +60,18 @@ namespace Gothic.Core.Services.Player
         public bool IsTrading => Trader != null;
 
         /// <summary>
+        /// Instance name of the money item (G1 ore, G2 gold).
+        /// </summary>
+        public string CurrencyName
+        {
+            get
+            {
+                ReadScriptValues();
+                return _currencyName;
+            }
+        }
+
+        /// <summary>
         /// The offers of the trade counter, null while nobody trades.
         /// </summary>
         public TradeSession Current { get; private set; }

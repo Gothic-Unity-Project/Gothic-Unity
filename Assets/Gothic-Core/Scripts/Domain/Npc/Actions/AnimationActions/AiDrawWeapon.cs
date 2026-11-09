@@ -43,7 +43,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         /// </summary>
         private bool IsDialogContinuing()
         {
-            return Props.AnimationQueue.Any(action => action is Output or OutputSvm or StopProcessInfos);
+            return Props.HasQueued(action => action is Output or OutputSvm or StopProcessInfos);
         }
 
         public override void Start()
@@ -105,9 +105,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
         private void SpawnSpellVfx()
         {
-            var mfxSym = GameStateService.GothicVm.GetSymbolByName("spellFXInstanceNames");
-            var mfxName = mfxSym?.GetString((ushort)NpcContainer.ActiveSpell);
-            if (string.IsNullOrEmpty(mfxName))
+            if (!VmCacheService.TryGetSpellMfxName(NpcContainer.ActiveSpell, out var mfxName))
                 return;
             var handGo = NpcGo.FindChildRecursively(Constants.SlotRightHand);
             if (handGo == null)
@@ -164,12 +162,11 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (weapon == null)
                 return VmGothicEnums.WeaponState.Fist;
 
-            var flags = (VmGothicEnums.ItemFlags)weapon.Flags;
-
+            // GetEquippedWeapon() only returns an ITEM_KAT_FF item for a ranged draw, so this is Bow or CBow.
             if (_isRangedRequested)
-                return flags.HasFlag(VmGothicEnums.ItemFlags.ItemCrossbow)
-                    ? VmGothicEnums.WeaponState.CBow
-                    : VmGothicEnums.WeaponState.Bow;
+                return weapon.GetRangedWeaponState();
+
+            var flags = (VmGothicEnums.ItemFlags)weapon.Flags;
 
             return flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdAxe) || flags.HasFlag(VmGothicEnums.ItemFlags.Item2HdSwd)
                 ? VmGothicEnums.WeaponState.W2H

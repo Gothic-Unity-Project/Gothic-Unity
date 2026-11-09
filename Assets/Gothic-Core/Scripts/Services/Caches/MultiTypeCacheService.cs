@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Extensions;
 using TMPro;
@@ -43,6 +44,12 @@ namespace Gothic.Core.Services.Caches
         /// </summary>
         public Dictionary<Color32, Material> UntexturedMaterials = new();
 
+        /// <summary>
+        /// Colliders of items without pre-cached ones, calculated from their mesh once per mesh name
+        /// (VobItemColliderBuilder). An empty list: nothing could be fitted or sliced, the item gets a capsule.
+        /// </summary>
+        public Dictionary<string, List<VobItemColliderCacheCreatorDomain.Data>> ItemColliders = new();
+
 
         public void Init()
         {
@@ -59,6 +66,7 @@ namespace Gothic.Core.Services.Caches
             Meshes.Clear();
             AudioClips.Clear();
             UntexturedMaterials.Clear();
+            ItemColliders.Clear();
             NpcCache.Clear();
             VobCache.Clear();
         }

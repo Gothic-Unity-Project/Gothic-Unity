@@ -3,9 +3,11 @@ using System.IO;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Doc;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services
@@ -13,13 +15,40 @@ namespace Gothic.Core.Services
     public class DocService
     {
         [Inject] private readonly SaveGameService _saveGameService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
+        [Inject] private readonly ItemUseService _itemUseService;
+
+        // G1 world map (WORLD.ZEN) edges in Gothic cm: x = left, y = top, z = right, w = bottom. G1 maps have no
+        // Doc_SetLevelCoords - fit by two spots in VR (start, Swamp Camp). All 0 = the world mesh bounds.
+        private static readonly Vector4 _g1WorldMapBounds = new(-84056f, 67222f, 84451f, -61217f);
 
         private readonly Dictionary<int, DocModel> _docs = new();
         private int _nextId = 1;
 
-        // Set by VR/Flat adapter before calling on_state[0] so Doc_Show knows which GO to attach to.
-        public GameObject PendingItemGo;
+        // The item GO the document belongs to - only while ShowItemDocument runs the item's on_state[0].
+        private GameObject _pendingItemGo;
+
+        public DocService()
+        {
+            // Docs belong to the world they were created in - the viewers hold their own DocModel.
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() => _docs.Clear());
+        }
+
+        /// <summary>
+        /// Reads a document item: runs its on_state[0] (Doc_Create, Doc_Print*, Doc_Show) and Doc_Show attaches the
+        /// document to itemGo. Returns false if the item has no use function or the call failed.
+        /// </summary>
+        public bool ShowItemDocument(NpcInstance npc, ItemInstance item, GameObject itemGo)
+        {
+            _pendingItemGo = itemGo;
+            try
+            {
+                return _itemUseService.UseItem(npc, item);
+            }
+            finally
+            {
+                _pendingItemGo = null;
+            }
+        }
 
         public int CreateDoc()
         {
@@ -102,9 +131,12 @@ namespace Gothic.Core.Services
                 Logger.LogWarning($"[DocService] Doc_Show: doc id={id} not found", LogCat.Npc);
                 return;
             }
-            Logger.Log($"[DocService] Doc_Show id={id}, pages={doc.Pages.Count}, itemGo={PendingItemGo?.name}", LogCat.Npc);
-            GlobalEventDispatcher.DocShow.Invoke(doc, PendingItemGo);
-            PendingItemGo = null;
+            Logger.Log($"[DocService] Doc_Show id={id}, pages={doc.Pages.Count}, itemGo={_pendingItemGo?.name}",
+                LogCat.Npc);
+            // Shown docs are done - the viewer keeps the DocModel itself.
+            _docs.Remove(id);
+            GlobalEventDispatcher.DocShow.Invoke(doc, _pendingItemGo);
+            _pendingItemGo = null;
         }
 
         public void SetLevel(int id, string level)
@@ -152,8 +184,8 @@ namespace Gothic.Core.Services
             }
 
             // G1 maps set no coords and the world mesh's bounds don't match the drawing (the hero was ~12% off) -
-            // calibrated edges per world from the config (left, top, right, bottom in cm).
-            var calibrated = _configService.Dev.G1WorldMapBounds;
+            // calibrated edges of the G1 world (left, top, right, bottom in cm).
+            var calibrated = _g1WorldMapBounds;
             if (doc.Level != null && Path.GetFileName(doc.Level.Replace('\\', '/')).EqualsIgnoreCase("WORLD.ZEN") &&
                 calibrated.x != calibrated.z && calibrated.y != calibrated.w)
             {

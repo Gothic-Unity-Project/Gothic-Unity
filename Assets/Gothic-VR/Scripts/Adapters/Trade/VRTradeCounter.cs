@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core;
+using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -9,7 +10,6 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Trade;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Const;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.Player;
@@ -43,7 +43,6 @@ namespace Gothic.VR.Adapters.Trade
         [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly AudioService _audioService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
         [Inject] private readonly VRPlayerService _vrPlayerService;
@@ -139,8 +138,7 @@ namespace Gothic.VR.Adapters.Trade
             CreateTexts();
             CreateButtons();
             // Like an open backpack: hovering the slots (and the goods lying here) shows the item's details.
-            if (_configService.Dev.EnableItemDetailsPopup)
-                gameObject.AddComponent<VRItemDetailsPopup>();
+            gameObject.AddComponent<VRItemDetailsPopup>();
 
             GlobalEventDispatcher.TradeOfferChanged.AddListener(OnOfferChanged);
             GlobalEventDispatcher.TradeCommitted.AddListener(OnCommitted);
@@ -355,7 +353,7 @@ namespace Gothic.VR.Adapters.Trade
             textGo.transform.localScale = Vector3.one * 0.02f;
 
             var text = textGo.AddComponent<TextMeshPro>();
-            Gothic.VR.Adapters.UI.VRGothicText.Apply(text);
+            GothicText.Apply(text);
             text.fontSize = _textFontSize;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.NoWrap;
@@ -420,7 +418,7 @@ namespace Gothic.VR.Adapters.Trade
             var text = textGo.AddComponent<TextMeshProUGUI>();
             // Gothic's font has no arrows.
             if (isGothicFont)
-                Gothic.VR.Adapters.UI.VRGothicText.Apply(text);
+                GothicText.Apply(text);
             else
                 text.font = Resources.Load<TMP_FontAsset>(_arrowFontPath);
             text.text = label;

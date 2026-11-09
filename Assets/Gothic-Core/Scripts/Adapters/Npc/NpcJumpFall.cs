@@ -3,9 +3,10 @@ using Gothic.Core.Domain.Npc;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Movement;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
-using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Movement;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
@@ -24,13 +25,16 @@ namespace Gothic.Core.Adapters.Npc
     /// Lives on the NPC (added on demand), not in an AI action: ZS_Attack_Loop clears the AI queue every ~2 s, an action
     /// would leave the NPC hanging in the air.
     /// Not saved - a loaded NPC stands on the ground anyway.
+    /// The rules live elsewhere: climbing values and the ledge probe in LedgeService, falling in NpcFallDomain.
+    /// Disabled while nothing happens (standing, far from the hero); Get/Wake enable it again when the NPC walks, attacks,
+    /// is hit or pushed.
     /// </summary>
     public class NpcJumpFall : MonoBehaviour, INpcJumpFall
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AnimationService _animationService;
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
+        [Inject] private readonly LedgeService _ledgeService;
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
 
         private const float _gravity = 9.81f;
@@ -38,18 +42,11 @@ namespace Gothic.Core.Adapters.Npc
         private const float _deepFallHeight = 2f;
         private const float _outOfWorldFallHeight = 100f;
         private const float _groundProbeExtra = 0.1f;
-        private const float _ledgeProbeDistance = 0.8f;
-        private const float _ledgeStepIn = 0.35f;
         private const float _climbMinSeconds = 0.6f;
         private const float _climbMaxSeconds = 2f;
         private const float _climbRisePart = 0.65f;
-        private const float _defaultStepHeight = 0.6f;
-        private const float _defaultJumpLow = 1.05f;
-        private const float _defaultJumpMid = 2.05f;
-        private const int _protFallIndex = 7; // PROT_FALL / DAM_INDEX_FALL
         private const float _ladderSpeed = 1.5f;
         private const float _ladderExtraSeconds = 0.6f;
-        private const float _dropProbeDistance = 1f;
         // HUMANS.MDS: one climb cycle t_Ladder_S0_2_S1 (frames 15-45), down = the same played backwards (aliases R).
         private static readonly string[] _ladderUp = { "T_LADDER_STAND_2_S0", "T_LADDER_S0_2_S1", "T_LADDER_S1_2_STAND" };
         private static readonly string[] _ladderDown = { "T_LADDER_STAND_2_S1", "T_LADDER_S1_2_S0", "T_LADDER_S0_2_STAND" };
@@ -57,6 +54,8 @@ namespace Gothic.Core.Adapters.Npc
         private const float _ladderMetersPerCycle = 1.2f;
         // Unloaded vobs (bridges, platforms) far from the hero have no colliders yet - nobody falls through them there.
         private const float _fallCheckMaxHeroDistance = 40f;
+        // Standing (or far from the hero) this long: the component sleeps until Get/Wake.
+        private const float _sleepAfterIdleSeconds = 1f;
 
         private enum State
         {
@@ -70,13 +69,14 @@ namespace Gothic.Core.Adapters.Npc
         private State _state;
         private Vector3 _previousPosition;
         private bool _hasPreviousPosition;
+        private float _idleTime;
 
         // Falling
         private Vector3 _fallVelocityH;
         private float _fallVelocityY;
         private float _fallStartFeetY;
         private string _fallAnimName;
-        // DeveloperConfig.EnableWindfistThrow: thrown by a spell - lands lying and gets up.
+        // Thrown by a spell - lands lying and gets up.
         private bool _isThrown;
 
         // Landing / climbing: a sequence of animations played one after another.
@@ -105,12 +105,6 @@ namespace Gothic.Core.Adapters.Npc
 
         public bool IsBusy => _state != State.None;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            NpcJumpFallExtension.Factory = Get;
-        }
-
         public static NpcJumpFall Get(NpcContainer npc)
         {
             if (npc?.Go == null)
@@ -119,7 +113,24 @@ namespace Gothic.Core.Adapters.Npc
             if (!npc.Go.TryGetComponent<NpcJumpFall>(out var jumpFall))
                 jumpFall = npc.Go.AddComponent<NpcJumpFall>();
             jumpFall._npc = npc;
+            jumpFall.WakeUp();
             return jumpFall;
+        }
+
+        /// <summary>
+        /// Something moved the NPC (a hit, a push): check for a fall again. Never adds the component.
+        /// </summary>
+        public static void Wake(GameObject npcGo)
+        {
+            if (npcGo != null && npcGo.TryGetComponent<NpcJumpFall>(out var jumpFall))
+                jumpFall.WakeUp();
+        }
+
+        private void WakeUp()
+        {
+            _idleTime = 0f;
+            if (!enabled)
+                enabled = true;
         }
 
         private void Awake()
@@ -135,7 +146,10 @@ namespace Gothic.Core.Adapters.Npc
             switch (_state)
             {
                 case State.None:
-                    CheckFall();
+                    if (CheckFall())
+                        _idleTime = 0f;
+                    else if ((_idleTime += Time.deltaTime) >= _sleepAfterIdleSeconds)
+                        enabled = false;
                     break;
                 case State.Falling:
                     TickFall();
@@ -155,47 +169,34 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         private float RestHeight => _npc.PrefabProps.AnimationSystem.RestRootHeight;
-        private int Guild => _npc.Instance.Guild <= (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM
-            ? (int)VmGothicEnums.Guild.GIL_HUMAN
-            : _npc.Instance.Guild;
+        private int Guild => _npc.Instance.GetValuesGuild();
 
-        private float StepHeight => GuildCm(_gameStateService.GuildValues?.GetStepHeight(Guild), _defaultStepHeight);
-        private float JumpLowHeight => GuildCm(_gameStateService.GuildValues?.GetJumpLowHeight(Guild), _defaultJumpLow);
-        private float JumpMidHeight => GuildCm(_gameStateService.GuildValues?.GetJumpMidHeight(Guild), _defaultJumpMid);
+        private LedgeRules Rules => _ledgeService.GetRules(Guild);
 
-        private static float GuildCm(int? cm, float fallback) => cm is > 0 and < 10000 ? cm.Value / 100f : fallback;
+        private bool CanMove() => NpcFallDomain.CanMove(_gameStateService.GuildValues, _npc);
 
-        private bool CanMove()
-        {
-            var bodyState = _npc.Props.BodyState;
-            if (bodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious
-                or VmGothicEnums.BodyState.BsSwim or VmGothicEnums.BodyState.BsDive)
-                return false;
-
-            // Flying monsters (both water depths 999999) and NPCs in water don't fall.
-            var guildValues = _gameStateService.GuildValues;
-            if (guildValues != null && guildValues.GetWaterDepthChest(Guild) >= 999999)
-                return false;
-            return _npc.Vob?.AiHuman == null || _npc.Vob.AiHuman.WaterLevel == (int)ZenGineConst.WaterLevel.Normal;
-        }
-
-        private void CheckFall()
+        /// <summary>
+        /// Walked off a ledge: start falling. False if the NPC stands still or isn't checked (far from the hero,
+        /// swimming, dead...) - then the component may go to sleep.
+        /// </summary>
+        private bool CheckFall()
         {
             if (!_hasPreviousPosition || RestHeight <= 0f || !CanMove() || !IsNearHero())
-                return;
+                return false;
 
             // Only NPCs that move walk off a ledge (an idle NPC on a vob that isn't loaded yet must not drop).
             var moved = transform.position - _previousPosition;
             moved.y = 0f;
             if (moved.sqrMagnitude < 0.0001f)
-                return;
+                return false;
 
-            var probe = RestHeight + StepHeight + _groundProbeExtra;
+            var probe = RestHeight + Rules.StepHeight + _groundProbeExtra;
             if (Physics.Raycast(transform.position, Vector3.down, probe, 1 << Constants.DefaultLayer,
                     QueryTriggerInteraction.Ignore))
-                return;
+                return true;
 
             StartFall(moved / Mathf.Max(Time.deltaTime, 0.001f));
+            return true;
         }
 
         private bool IsNearHero()
@@ -208,6 +209,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private void StartFall(Vector3 velocityH)
         {
+            enabled = true;
             _state = State.Falling;
             _fallVelocityH = Vector3.ClampMagnitude(velocityH, _maxFallSpeedH);
             _fallVelocityY = 0f;
@@ -223,7 +225,7 @@ namespace Gothic.Core.Adapters.Npc
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableWindfistThrow: Windfist/Stormfist (DAM_FLY, OpenGothic MoveAlgo::accessDamFly) throw the
+        /// Windfist/Stormfist (DAM_FLY, OpenGothic MoveAlgo::accessDamFly) throw the
         /// NPC away - it flies with the given speed, lands lying (T_FALL_2_FALLEN) and gets up (T_FALLEN_2_STAND).
         /// Landing lower than it started hurts like any fall (off a ledge into the depth).
         /// </summary>
@@ -297,27 +299,10 @@ namespace Gothic.Core.Adapters.Npc
                 ? new[] { "T_FALL_2_FALLEN", "T_FALLEN_2_STAND" }
                 : new[] { "T_FALLDN_2_STAND" });
 
-            ApplyFallDamage(height);
-            Logger.Log($"[NpcJumpFall] {_npc.Go.name} landed after {height:F1} m.", LogCat.Ai);
-        }
-
-        /// <summary>
-        /// Engine: FALLDOWN_DAMAGE HP for every meter above FALLDOWN_HEIGHT (cm), minus PROT_FALL.
-        /// </summary>
-        private void ApplyFallDamage(float height)
-        {
-            var guildValues = _gameStateService.GuildValues;
-            if (guildValues == null)
-                return;
-
-            var safeHeight = guildValues.GetFallDownHeight(Guild) / 100f;
-            var damagePerMeter = guildValues.GetFallDownDamage(Guild);
-            if (safeHeight <= 0f || damagePerMeter <= 0 || height <= safeHeight)
-                return;
-
-            var damage = Mathf.RoundToInt((height - safeHeight) * damagePerMeter) - _npc.Vob.GetProtection(_protFallIndex);
+            var damage = NpcFallDomain.GetFallDamage(_gameStateService.GuildValues, _npc, height);
             if (damage > 0)
                 GlobalEventDispatcher.FallDamage.Invoke(_npc, damage);
+            Logger.Log($"[NpcJumpFall] {_npc.Go.name} landed after {height:F1} m.", LogCat.Ai);
         }
 
         /// <summary>
@@ -333,41 +318,20 @@ namespace Gothic.Core.Adapters.Npc
                 return false;
             direction.Normalize();
 
-            var mask = 1 << Constants.DefaultLayer;
-            var feetY = transform.position.y - RestHeight;
             var position = transform.position;
-            var stepHeight = StepHeight;
-            var jumpMid = JumpMidHeight;
-
-            // 1. Something blocks the way above step height.
-            var kneeOrigin = new Vector3(position.x, feetY + stepHeight + 0.05f, position.z);
-            if (!Physics.Raycast(kneeOrigin, direction, out var wallHit, _ledgeProbeDistance, mask, QueryTriggerInteraction.Ignore))
+            var ledge = _ledgeService.ProbeNpcClimb(position, RestHeight, direction, Rules);
+            if (ledge.Band is not (LedgeBand.Low or LedgeBand.Mid))
                 return false;
 
-            // 2. Its top is reachable.
-            var topProbe = wallHit.point + direction * _ledgeStepIn;
-            topProbe.y = feetY + jumpMid + 0.3f;
-            if (!Physics.Raycast(topProbe, Vector3.down, out var topHit, jumpMid + 0.3f - stepHeight, mask,
-                    QueryTriggerInteraction.Ignore))
-                return false;
-
-            var height = topHit.point.y - feetY;
-            if (height <= stepHeight || height > jumpMid || topHit.normal.y < 0.7f)
-                return false;
-
-            // 3. Room to stand up there.
-            if (Physics.Raycast(topHit.point + Vector3.up * 0.05f, Vector3.up, RestHeight * 1.8f, mask,
-                    QueryTriggerInteraction.Ignore))
-                return false;
-
-            var sequence = height <= JumpLowHeight
+            var sequence = ledge.Band == LedgeBand.Low
                 ? new[] { "T_STAND_2_JUMPUPLOW", "S_JUMPUPLOW", "T_JUMPUPLOW_2_STAND" }
                 : new[] { "T_STAND_2_JUMPUPMID", "S_JUMPUPMID", "T_JUMPUPMID_2_STAND" };
             if (!HasTrack(sequence[0]))
                 return false;
 
+            var height = ledge.Height;
             _climbFrom = position;
-            _climbTo = topHit.point + Vector3.up * RestHeight;
+            _climbTo = ledge.StandPoint + Vector3.up * RestHeight;
             _physicsService.DisablePhysicsForNpc(_npc.PrefabProps);
             _npc.PrefabProps.AnimationSystem.StopAllAnimations();
             transform.rotation = Quaternion.LookRotation(direction);
@@ -446,20 +410,8 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         public bool IsSafeDropAhead(Vector3 direction)
         {
-            if (RestHeight <= 0f)
-                return false;
-
-            direction.y = 0f;
-            if (direction.sqrMagnitude < 0.0001f)
-                return false;
-
-            var safeHeight = (_gameStateService.GuildValues?.GetFallDownHeight(Guild) ?? 0) / 100f;
-            if (safeHeight <= 0f)
-                return false;
-
-            var origin = transform.position + direction.normalized * _dropProbeDistance;
-            return Physics.Raycast(origin, Vector3.down, RestHeight + safeHeight, 1 << Constants.DefaultLayer,
-                QueryTriggerInteraction.Ignore);
+            return NpcFallDomain.IsSafeDropAhead(_gameStateService.GuildValues, _npc, transform.position, RestHeight,
+                direction);
         }
 
         private void TickClimb()
@@ -596,6 +548,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private void StartSequence(State state, string[] animations)
         {
+            enabled = true;
             _state = state;
             _sequence = animations;
             _sequenceDurations = new float[animations.Length];

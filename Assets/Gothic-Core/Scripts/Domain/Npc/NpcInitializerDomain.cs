@@ -447,7 +447,7 @@ namespace Gothic.Core.Domain.Npc
                 ? props.MdhNameBase
                 : props.MdhNameOverlay;
             _meshService.CreateNpc(newNpc.name, props.MdmName, mdhName, props.BodyData,
-                finalSpawnPos, lazyRot, lazyLoadGo, newNpc);
+                finalSpawnPos, lazyRot, lazyLoadGo, newNpc, isHitboxExpected: true);
 
             // We don't need specific locations of initial LazyLoading GO anymore.
             lazyLoadGo.transform.SetPositionAndRotation(default, default);

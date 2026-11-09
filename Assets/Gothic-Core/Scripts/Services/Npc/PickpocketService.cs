@@ -101,7 +101,7 @@ namespace Gothic.Core.Services.Npc
                 return false;
             if (IsAsleep(npc))
                 return true;
-            if (NpcHelperService.IsDown(npc))
+            if (npc.IsDown())
                 return false;
             if ((VmGothicEnums.WeaponState)npc.Vob.FightMode != VmGothicEnums.WeaponState.NoWeapon)
                 return false;

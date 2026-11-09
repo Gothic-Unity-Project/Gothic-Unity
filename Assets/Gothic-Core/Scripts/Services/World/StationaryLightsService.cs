@@ -199,8 +199,7 @@ namespace Gothic.Core.Services.World
         public int DynamicLightIndex { get; private set; } = -1;
 
         /// <summary>
-        /// DeveloperConfig.EnableWorldLightmaps: the current world's light mapped polygons show Gothic's lightmaps
-        /// (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
+        /// The current world's light mapped polygons show Gothic's lightmaps (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
         /// </summary>
         public bool HasWorldLightmaps { get; set; }
 
@@ -239,7 +238,7 @@ namespace Gothic.Core.Services.World
         public void SetLightmapCells(Dictionary<long, Unity.Mathematics.float4> cells, bool isMostlyLightmapped)
         {
             _lightmapCells.Clear();
-            var brightness = _configService.Dev.WorldLightmapBrightness;
+            var brightness = GetLightmapBrightness();
             _isMostlyLightmapped = isMostlyLightmapped;
             var total = new Vector3();
             var totalCount = 0f;
@@ -261,13 +260,25 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVobWorldLight: a VOB in a light mapped area (cave, mine, house) takes the lightmap light
+        /// Gothic.ini's zVidBrightness (menu: Video > Brightness, 0..1, vanilla 0.5 = neutral) as a factor on the
+        /// lightmap light, 0.25..4 (2^((v - 0.5) * 4)). The engine's tonemapping pass (OpenGothic Renderer::drawTonemapping)
+        /// shifts the whole frame; this is the part of it we can reach without a post-process pass. Read when a world loads.
+        /// </summary>
+        private float GetLightmapBrightness()
+        {
+            var value = _configService.Gothic?.GetFloat(Constants.IniNames.VideoBrightness,
+                Constants.IniNames.VideoBrightnessDefaultValue) ?? Constants.IniNames.VideoBrightnessDefaultValue;
+            return Mathf.Pow(2f, (Mathf.Clamp01(value) - 0.5f) * 4f);
+        }
+
+        /// <summary>
+        /// A VOB in a light mapped area (cave, mine, house) takes the lightmap light
         /// of the world around it - like the engine's VOB lighting from the static light. Stairs, stones and scaffolds in
         /// the Old Mine shone like the day next to the dark walls.
         /// </summary>
         public void ApplyWorldLight(GameObject vobGo)
         {
-            if (!_configService.Dev.EnableVobWorldLight || vobGo == null)
+            if (vobGo == null)
                 return;
             if (_lightmapCells.Count == 0)
             {
@@ -489,7 +500,7 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a pooled light changed (StationaryLight.UpdateRuntime) - its slot gets
+        /// A pooled light changed (StationaryLight.UpdateRuntime) - its slot gets
         /// the new values with the next upload; without a slot it competes with the others at the next rebalance.
         /// </summary>
         public void UpdatePooledLight(StationaryLight light)

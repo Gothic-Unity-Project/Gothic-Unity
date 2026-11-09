@@ -488,7 +488,7 @@ namespace Gothic.VR.Adapters.Player
         {
             var isAsleep = _pickpocketService.IsAsleep(_victim);
             if (_victim?.Go == null || !_victim.Go.activeInHierarchy ||
-                (!isAsleep && NpcHelperService.IsDown(_victim)))
+                (!isAsleep && _victim.IsDown()))
             {
                 EndRobbery();
                 return;

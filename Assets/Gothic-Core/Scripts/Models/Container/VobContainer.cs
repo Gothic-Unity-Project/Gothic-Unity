@@ -14,7 +14,8 @@ namespace Gothic.Core.Models.Container
     public class VobContainer
     {
         /// <summary>
-        /// The player holds it (in a hand) - set by the platform module (VR grab/release).
+        /// The player holds it in a hand - any item, not only weapons: it is his (inventory), so NPCs neither detect
+        /// nor take it (Wld_DetectItem, AI_TakeItem). Set by the platform module on grab/release.
         /// </summary>
         public bool IsHeldByPlayer;
 
@@ -134,9 +135,7 @@ namespace Gothic.Core.Models.Container
         /// </summary>
         public bool IsMeleeWeapon()
         {
-            var item = GetItemInstance();
-            return item != null &&
-                   ((VmGothicEnums.ItemFlags)item.MainFlag & VmGothicEnums.ItemFlags.ItemKatNf) != 0;
+            return GetItemInstance().IsMeleeWeapon();
         }
 
         /// <summary>

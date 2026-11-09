@@ -28,7 +28,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly GroundSoundService _groundSoundService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
-        // DeveloperConfig.EnableFootstepSounds: the hero's own steps - Gothic's RUN_<ground> every stride of the way
+        // Gothic.ini footstepSounds: the hero's own steps - Gothic's RUN_<ground> every stride of the way
         // walked (the VR body plays no step events; a timer stepped on while the run state lingered after a tap).
         // Sneaking with the talent is silent.
         private const string _stepSound = "RUN";
@@ -252,7 +252,7 @@ namespace Gothic.VR.Adapters.Player
         private void UpdateHeroFootsteps()
         {
             // DeveloperConfig.EnableHeroBodySounds: the animated body steps itself.
-            if (!_configService.Dev.EnableFootstepSounds || VRHeroBody.IsBodySounding ||
+            if (!_groundSoundService.IsEnabled || VRHeroBody.IsBodySounding ||
                 _gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
                 return;
             if (!_rig.IsGrounded)

@@ -1,12 +1,15 @@
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
@@ -28,7 +31,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
-    /// V1 (DeveloperConfig.EnableStackSplit), the split button is the trigger (T in the simulator):
+    /// V1, the split button is the trigger (T in the simulator):
     /// - empty hand near a stack held by the other hand, its button held: pieces jump into it, faster and faster.
     ///   They lie in the hand without holding grip (kinematic at the palm, not grabbed - a forced HVR grab flung the
     ///   physics hand away): grip grabs them normally, letting go drops them.
@@ -44,19 +47,22 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     public class VRStackSplitter : MonoBehaviour
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly Gothic.VR.Interaction.Ports.IVrInput _vrInput;
+        [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly StackSplitService _stackSplitService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
-        [Inject] private readonly Gothic.Core.Services.Meshes.DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private const float _maxHandDistance = 0.3f;
         private const float _maxSocketDistance = 0.3f;
         private const float _maxBackpackStackDistance = 0.15f;
         private const float _mergeLabelSeconds = 1.5f;
+        // Resources path (VR context first) of the name + amount label over split stacks.
+        private const string _labelPrefabPath = "Prefabs/UI/StackLabel";
 
         private IVrRig _rig;
         private IVrGrabber _leftHand;
@@ -81,8 +87,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// Name + amount over the stacks being split/merged/fed - the hover label (VRFocus) isn't shown while held.
+        /// The stack's VRFocus and Renderer are looked up once, not every frame (looked up again while missing).
         /// </summary>
-        private readonly Dictionary<VobContainer, TextMeshPro> _labels = new();
+        private readonly Dictionary<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)> _labels =
+            new();
+        private readonly List<KeyValuePair<VobContainer, (TextMeshPro Label, VRFocus Focus, Renderer Renderer)>>
+            _labelBuffer = new();
+        private Camera _camera;
 
         /// <summary>
         /// Pieces lying in a hand without grip: not grabbed, so not counted as inventory (a world item).
@@ -96,9 +107,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Update()
         {
-            if (!_stackSplitService.IsEnabled)
-                return;
-
             if (_leftHand == null || _rightHand == null)
                 FindHands();
             if (_leftHand == null || _rightHand == null)
@@ -246,7 +254,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             TakeFromSource(item, isSourceGrabbed);
 
             Begin(side, source, isSourceGrabbed, piece, null);
-            Logger.Log($"[StackSplit] {GetInstanceName(item)}: 1 piece taken, {item.Amount} left", LogCat.VR);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken, {item.Amount} left", LogCat.VR);
             return true;
         }
 
@@ -258,6 +266,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (hand.Held != null || GetHeld(hand, out _) != null || !IsSplitPressed(side))
                 return false;
 
+            // IsSplitPressed is true on the press frame only, so the search runs once per button press.
             foreach (var backpack in FindObjectsByType<VRBackpack>(FindObjectsSortMode.None))
             {
                 var stackGrabbable = backpack.FindStackNear(GetPalm(hand).position, _maxBackpackStackDistance);
@@ -276,9 +285,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 item.Amount--;
                 _sourceBackpack = backpack;
                 _piecesFromBackpack = 1;
-                _backpackItemName = GetInstanceName(item);
+                _backpackItemName = item.GetSymbolName();
                 Begin(side, source, false, piece, null);
-                Logger.Log($"[StackSplit] {GetInstanceName(item)}: 1 piece taken out of {backpack.name}", LogCat.VR);
+                Logger.Log($"[StackSplit] {item.GetSymbolName()}: 1 piece taken out of {backpack.name}", LogCat.VR);
                 return true;
             }
             return false;
@@ -313,7 +322,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             TakeFromSource(item, true);
 
             Begin(side, source, true, piece, socket);
-            Logger.Log($"[StackSplit] {GetInstanceName(item)}: feeding {socket.Transform.name}", LogCat.VR);
+            Logger.Log($"[StackSplit] {item.GetSymbolName()}: feeding {socket.Transform.name}", LogCat.VR);
             return true;
         }
 
@@ -324,11 +333,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             IVrSocket nearest = null;
             var nearestDistance = _maxSocketDistance;
-            foreach (var behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            foreach (var slot in VrSocketSlot.Instances)
             {
-                if (behaviour is not IVrSocket socket || socket.IsOccupied || socket.IsShoulder ||
-                    !behaviour.isActiveAndEnabled ||
-                    (behaviour is VrSocketSlot slot && (!slot.HasActiveBackend || !slot.Accepts(stackGrabbable))))
+                IVrSocket socket = slot;
+                if (socket.IsOccupied || socket.IsShoulder || !slot.HasActiveBackend || !slot.Accepts(stackGrabbable))
                     continue;
                 var distance = Vector3.Distance(socket.Transform.position, stackGrabbable.transform.position);
                 if (distance > nearestDistance)
@@ -346,7 +354,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void TakeFromSource(IItem sourceItem, bool isSourceGrabbed)
         {
             if (isSourceGrabbed)
-                _playerService.RemoveItem(GetInstanceName(sourceItem), 1);
+                _playerService.RemoveItem(sourceItem.GetSymbolName(), 1);
         }
 
         private void Begin(VrHandSide side, VobContainer source, bool isSourceGrabbed, VobContainer piece,
@@ -436,20 +444,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (GetUnpaidTrader(source) != GetUnpaidTrader(target))
                 return false;
 
-            var instanceName = GetInstanceName(sourceItem);
-            if (!instanceName.EqualsIgnoreCase(GetInstanceName(targetItem)))
+            var instanceName = sourceItem.GetSymbolName();
+            if (!instanceName.EqualsIgnoreCase(targetItem.GetSymbolName()))
                 return false;
 
-            // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again.
             var amount = Mathf.Max(1, sourceItem.Amount);
             _palmPieces.Remove(hand);
-            if (isSourceGrabbed)
-                hand.ForceRelease();
             targetItem.Amount += amount;
-            if (isTargetGrabbed)
-                _playerService.AddItem(instanceName, amount);
 
-            _vobService.RemoveWorldItem(source);
+            // A grabbed stack leaves the inventory when let go; a grabbed target takes the amount in again - like
+            // putting the source into the backpack.
+            if (isTargetGrabbed)
+                _vrPlayerService.StoreHeldItem(source);
+            else
+            {
+                if (isSourceGrabbed)
+                    hand.ForceRelease();
+                _vobService.RemoveWorldItem(source);
+            }
+
             StartCoroutine(ShowLabelBriefly(target));
             Logger.Log($"[StackSplit] {instanceName}: {amount} joined, now {targetItem.Amount}", LogCat.VR);
             return true;
@@ -469,8 +482,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (!isPinned)
             {
-                if (_labels.Remove(container, out var oldLabel) && oldLabel != null)
-                    Destroy(oldLabel.gameObject);
+                if (_labels.Remove(container, out var oldEntry) && oldEntry.Label != null)
+                    Destroy(oldEntry.Label.gameObject);
                 _dynamicMaterialService.ResetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
                     Constants.ShaderPropertyFocusBrightnessDefault);
                 return;
@@ -483,23 +496,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _dynamicMaterialService.SetDynamicValue(container.Go, Constants.ShaderPropertyFocusBrightness,
                 Constants.ShaderPropertyFocusBrightnessValue);
 
-            var labelGo = new GameObject("StackLabel");
-            // About the size of the hover name (VRFocus).
-            labelGo.transform.localScale = Vector3.one * 0.06f;
-            var label = labelGo.AddComponent<TextMeshPro>();
-            Gothic.VR.Adapters.UI.VRGothicText.Apply(label);
-            label.fontSize = 12;
-            label.alignment = TextAlignmentOptions.Center;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            label.color = Color.white;
-            _labels[container] = label;
+            // White, centered, about the size of the hover name (VRFocus) - Gothic's font sprites come at runtime.
+            var labelGo = _resourceCacheService.TryGetPrefabObject(_labelPrefabPath, "StackLabel");
+            if (labelGo == null)
+                return;
+            var label = labelGo.GetComponent<TextMeshPro>();
+            GothicText.Apply(label);
+            _labels[container] = (label, container.Go.GetComponentInChildren<VRFocus>(),
+                container.Go.GetComponentInChildren<Renderer>());
             RefreshLabel(container);
         }
 
         private void RefreshLabel(VobContainer container)
         {
-            if (container?.Go != null && _labels.TryGetValue(container, out var label) && label != null)
-                label.text = container.Props.GetFocusName();
+            if (container?.Go != null && _labels.TryGetValue(container, out var entry) && entry.Label != null)
+                entry.Label.text = container.Props.GetFocusName();
         }
 
         /// <summary>
@@ -510,9 +521,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_labels.Count == 0)
                 return;
 
-            var camera = Camera.main;
-            foreach (var (container, label) in new List<KeyValuePair<VobContainer, TextMeshPro>>(_labels))
+            if (_camera == null)
+                _camera = Camera.main;
+            var camera = _camera;
+            _labelBuffer.Clear();
+            _labelBuffer.AddRange(_labels);
+            foreach (var (container, entry) in _labelBuffer)
             {
+                var label = entry.Label;
                 if (container?.Go == null || label == null)
                 {
                     if (label != null)
@@ -521,11 +537,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     continue;
                 }
 
+                // Destroyed or not there yet (e.g. a mesh loaded later): looked up again.
+                var focus = entry.Focus;
+                var renderer = entry.Renderer;
+                if (focus == null || renderer == null)
+                {
+                    if (focus == null)
+                        focus = container.Go.GetComponentInChildren<VRFocus>();
+                    if (renderer == null)
+                        renderer = container.Go.GetComponentInChildren<Renderer>();
+                    _labels[container] = (label, focus, renderer);
+                }
+
                 // The hover name shows the amount already (VRFocus refreshes it) - no second label.
-                var focus = container.Go.GetComponentInChildren<VRFocus>();
                 label.gameObject.SetActive(focus == null || !focus.IsNameShown);
 
-                var renderer = container.Go.GetComponentInChildren<Renderer>();
                 var top = renderer != null
                     ? new Vector3(renderer.bounds.center.x, renderer.bounds.max.y, renderer.bounds.center.z)
                     : container.Go.transform.position;
@@ -537,10 +563,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void OnDestroy()
         {
-            foreach (var label in _labels.Values)
+            foreach (var entry in _labels.Values)
             {
-                if (label != null)
-                    Destroy(label.gameObject);
+                if (entry.Label != null)
+                    Destroy(entry.Label.gameObject);
             }
             _labels.Clear();
         }
@@ -572,7 +598,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private VobContainer SpawnPiece(IItem item, NpcContainer unpaidTrader, Vector3 position, Quaternion rotation)
         {
-            var instanceName = GetInstanceName(item);
+            var instanceName = item.GetSymbolName();
             var piece = _vobService.CreateItem(new Item
             {
                 Name = instanceName,
@@ -692,11 +718,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 _palmPieces.Remove(hand);
                 LetGoOfPalm(entry.Piece, isCollisionRestored: true);
             }
-        }
-
-        private static string GetInstanceName(IItem item)
-        {
-            return item.GetSymbolName();
         }
     }
 }

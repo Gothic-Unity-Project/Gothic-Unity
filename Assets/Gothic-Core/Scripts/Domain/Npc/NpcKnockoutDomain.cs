@@ -224,7 +224,7 @@ namespace Gothic.Core.Domain.Npc
 
         private bool IsPartyMember(NpcContainer npc)
         {
-            var sym = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
+            var sym = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.AivMmPartyMember);
             if (sym == null) return false;
             var aivIndex = sym.GetInt(0);
             return npc.Instance.GetAiVar(aivIndex) == 1;

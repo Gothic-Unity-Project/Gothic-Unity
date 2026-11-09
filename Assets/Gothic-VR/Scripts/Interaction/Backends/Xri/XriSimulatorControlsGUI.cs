@@ -13,7 +13,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     public class XriSimulatorControlsGUI : MonoBehaviour
     {
         private const string _bodyKeys =
-            "Walk (left stick) -> W/A/S/D, sprint -> F\n" +
+            "Walk (left stick) -> W/A/S/D, run -> hold Shift (or F)\n" +
             "Look -> hold right mouse + move\n" +
             "Jump -> Space, Crouch -> X, Menu -> Esc\n" +
             "Snap turn -> J/L (right stick), I/K = stick up/down\n" +

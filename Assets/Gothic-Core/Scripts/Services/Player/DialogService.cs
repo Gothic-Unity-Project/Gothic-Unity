@@ -48,8 +48,8 @@ namespace Gothic.Core.Manager
         // An NPC farther away doesn't open its dialog. The engine allows 20 m (OpenGothic AI_ProcessInfos) - in VR that
         // was far too wide, Bloodwyn talked to the hero from across the yard.
         private const float _startMaxDistance = 8f;
-        // Room-scale steps around the spot where the hero stood when the dialog opened - free up to the soft radius,
-        // slowed down to a stop at the radius.
+        // Steps (stick or room-scale) around the spot where the hero stood when the dialog opened - free up to the soft
+        // radius, slowed down to a stop at the radius.
         private const float _pinSoftRadius = 0.3f;
         private const float _pinRadius = 0.75f;
         // Held back a little inside the edge, so the hero isn't held right at the stop distance.
@@ -138,8 +138,9 @@ namespace Gothic.Core.Manager
                 npcContainer.PrefabProps.AnimationHeadHandler.StartDialogLookAt(
                     _npcService.GetHeroContainer().PrefabProps.Head);
 
-            // On every (re)open, as something else may have unlocked the player in between.
-            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Walking);
+            // On every (re)open, as something else may have unlocked the player in between. Only teleport is off: the
+            // hero walks (stick or room-scale) inside the pin radius, HoldHero slows him down at its edge.
+            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Teleport);
 
             if (initialDialogStarting)
             {

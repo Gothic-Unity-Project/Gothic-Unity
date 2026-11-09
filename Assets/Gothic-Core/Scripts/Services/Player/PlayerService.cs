@@ -143,6 +143,19 @@ namespace Gothic.Core.Services.Player
         }
 
         /// <summary>
+        /// How many of the item (INSTANCE name, case-insensitive) the hero has in the inventory.
+        /// </summary>
+        public int GetItemAmount(string symbolName)
+        {
+            var item = _vmCacheService.TryGetItemData(symbolName);
+            if (item == null || HeroContainer == null)
+                return 0;
+
+            var category = ((VmGothicEnums.ItemFlags)item.MainFlag).ToInventoryCategory();
+            return GetInventory(category).Where(i => i.Name.EqualsIgnoreCase(symbolName)).Sum(i => i.Amount);
+        }
+
+        /// <summary>
         /// Like Gothic, an equipped item comes off when the last one leaves the inventory (dropped into the world).
         /// </summary>
         private void UnequipIfNoneLeft(VobContainer item)
@@ -152,8 +165,7 @@ namespace Gothic.Core.Services.Player
             if (instance == null || symbolName == null || HeroContainer == null ||
                 !_npcInventoryService.IsEquipped(HeroContainer.Instance, symbolName))
                 return;
-            var category = ((VmGothicEnums.ItemFlags)instance.MainFlag).ToInventoryCategory();
-            if (GetInventory(category).Any(i => i.Name.EqualsIgnoreCase(symbolName) && i.Amount > 0))
+            if (GetItemAmount(symbolName) > 0)
                 return;
             _npcInventoryService.UnequipItemWithEffects(HeroContainer.Instance, instance);
             Logger.Log($"[PlayerService] {instance.Name} dropped - no longer equipped", LogCat.Vob);
