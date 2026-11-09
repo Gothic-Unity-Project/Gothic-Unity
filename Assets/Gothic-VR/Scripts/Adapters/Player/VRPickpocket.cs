@@ -42,6 +42,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRPickpocketService _vrPickpocketService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly AudioService _audioService;
@@ -361,13 +362,13 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // The same grip grabs the NPC (VRNpc: talk) - not while a hand is at his purse.
-            _pickpocketService.BlockTalk(_hovered.Npc);
+            _vrPickpocketService.BlockTalk(_hovered.Npc);
             if (_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
                 StartRobbery(_hovered.Npc, _hoveredSide);
         }
 
         /// <summary>
-        /// Nothing in the hand - or the NPC itself (HVR grabs him with the grip at his hip, VRNpc lets go again).
+        /// Nothing in the hand - or the NPC itself (his VrInteractable takes the grip at his hip, VRNpc lets go again).
         /// </summary>
         private bool IsHandFree(VrHandSide side)
         {
@@ -416,7 +417,7 @@ namespace Gothic.VR.Adapters.Player
 
             ClearPurses();
             _victim = victim;
-            _pickpocketService.RobbedNpc = victim;
+            _vrPickpocketService.RobbedNpc = victim;
             _isCaught = false;
             _pockets = new PickpocketInventoryOwner(victim);
             _pockets.ItemTaken += OnItemTaken;
@@ -554,7 +555,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_backpackRoot);
 
             _victim = null;
-            _pickpocketService.RobbedNpc = null;
+            _vrPickpocketService.RobbedNpc = null;
             _pockets = null;
             _backpack = null;
             _backpackRoot = null;

@@ -40,30 +40,6 @@ namespace Gothic.Core.Services.Npc
 
         private bool IsGothic1 => _contextGameVersionService.IsGothic1();
 
-        // Seconds a hand that was near the purse can't start a talk with its NPC (HVR grabs the NPC with the same grip).
-        private const float _talkBlockSeconds = 1f;
-        private NpcContainer _talkBlockedNpc;
-        private float _talkBlockedUntil;
-
-        /// <summary>
-        /// The NPC being robbed right now (VR: his pockets are open).
-        /// </summary>
-        public NpcContainer RobbedNpc { get; set; }
-
-        /// <summary>
-        /// A hand is at the NPC's purse: a grip there is for the purse, not for talking to him.
-        /// </summary>
-        public void BlockTalk(NpcContainer npc)
-        {
-            _talkBlockedNpc = npc;
-            _talkBlockedUntil = Time.time + _talkBlockSeconds;
-        }
-
-        public bool IsTalkBlocked(NpcContainer npc)
-        {
-            return npc != null && (npc == RobbedNpc || (npc == _talkBlockedNpc && Time.time < _talkBlockedUntil));
-        }
-
         private const string _talentSymbol = "NPC_TALENT_PICKPOCKET";
 
         // No game picked yet (profile menu): no VM and no game version.

@@ -28,7 +28,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly PhysicsService _physicsService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
-        [Inject] private readonly PickpocketService _pickpocketService;
+        [Inject] private readonly VRPickpocketService _vrPickpocketService;
 
         private NpcContainer _npcData;
         private VRNpcLoot _npcLoot;
@@ -84,7 +84,7 @@ namespace Gothic.VR.Adapters
 
             // DeveloperConfig.EnableVrPickpocket: the grip was for the purse on his hip (or his pockets are open) - a talk
             // made the pockets vanish from the hand.
-            if (_pickpocketService.IsTalkBlocked(_npcData))
+            if (_vrPickpocketService.IsTalkBlocked(_npcData))
             {
                 Logger.Log($"[VRNpc] Grab on '{_npcData.Instance.GetName(NpcNameSlot.Slot0)}' ignored - pickpocketing",
                     LogCat.VR);
