@@ -100,7 +100,11 @@ namespace Gothic.VR.Adapters.Player
         {
             this.Inject();
             _slotViews = gameObject.AddComponent<VRFavoritesRingSlotViews>();
+            gameObject.AddComponent<VRInventoryDisplay>();
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            ReadOption();
         }
 
         private void Start()
@@ -129,26 +133,27 @@ namespace Gothic.VR.Adapters.Player
                 Close("game loading");
         }
 
-        private bool IsEnabled()
+        // DeveloperConfig.EnableVrSpellRing and the menu's "spellRing" option (Gothic.ini, refreshed on
+        // PlayerPrefUpdated).
+        private bool IsEnabled => _configService.Dev.EnableVrSpellRing && _isOptionOn;
+        private bool _isOptionOn;
+
+        private void ReadOption()
         {
-            if (Time.unscaledTime >= _nextOptionCheckTime)
-            {
-                _nextOptionCheckTime = Time.unscaledTime + _optionCheckSeconds;
-                // No Gothic.ini before a game was picked (profile menu).
-                _isOptionOn = _configService.Gothic != null &&
-                              _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
-            }
-            return _configService.Dev.EnableVrSpellRing && _isOptionOn;
+            // No Gothic.ini before a game was picked (profile menu).
+            _isOptionOn = _configService.Gothic != null &&
+                          _configService.Gothic.GetInt(VRConstants.IniNames.SpellRing, 1) == 1;
         }
 
-        // The "spellRing" option, read once a second.
-        private const float _optionCheckSeconds = 1f;
-        private float _nextOptionCheckTime;
-        private bool _isOptionOn;
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.SpellRing)
+                ReadOption();
+        }
 
         private void Update()
         {
-            if (!IsEnabled() || _playerService.HeroContainer == null)
+            if (!IsEnabled || _playerService.HeroContainer == null)
             {
                 if (_isOpen)
                     Close("disabled");
@@ -277,17 +282,9 @@ namespace Gothic.VR.Adapters.Player
             _hovered = null;
         }
 
-        /// <summary>
-        /// Runes are all called "Runa"/"Rune" - the spell is their description, like in the backpack.
-        /// </summary>
-        public static string GetSpellName(ItemInstance item)
-        {
-            return string.IsNullOrEmpty(item?.Description) ? item?.Name : item.Description;
-        }
-
         private static string GetSlotName(FavoritesRingSlotView slot)
         {
-            var name = slot.Kind == FavoriteSlotKind.Spell ? GetSpellName(slot.Item) : slot.Item?.Name;
+            var name = slot.Kind == FavoriteSlotKind.Spell ? slot.Item.GetSpellName() : slot.Item?.Name;
             return slot.Amount > 1 ? $"{name} ({slot.Amount})" : name;
         }
 
@@ -671,7 +668,7 @@ namespace Gothic.VR.Adapters.Player
             grabbable.gameObject.AddComponent<VRFavoritesRingSpell>().Init(slot.Item, side, container, caster);
 
             _hapticsService.Vibrate(side, VrHapticPreset.Success);
-            Logger.Log($"[FavoritesRing] {GetSpellName(slot.Item)} taken into the {side} hand", LogCat.VR);
+            Logger.Log($"[FavoritesRing] {slot.Item.GetSpellName()} taken into the {side} hand", LogCat.VR);
             Close("spell taken");
         }
 
@@ -943,7 +940,7 @@ namespace Gothic.VR.Adapters.Player
             _vobService.RemoveWorldItem(putIn.Container);
 
             _hapticsService.Vibrate(putIn.Side, VrHapticPreset.Success);
-            var name = putIn.Kind == FavoriteSlotKind.Spell ? GetSpellName(putIn.Item) : putIn.Item.Name;
+            var name = putIn.Kind == FavoriteSlotKind.Spell ? putIn.Item.GetSpellName() : putIn.Item.Name;
             var instead = putIn.Replaced != null ? $" instead of {putIn.Replaced.Name}" : "";
             Logger.Log($"[FavoritesRing] {name} {putIn.Action.ToLogText()}{instead}", LogCat.VR);
             Rebuild();
@@ -970,6 +967,8 @@ namespace Gothic.VR.Adapters.Player
         private void OnDestroy()
         {
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
             LockTeleport(false);
             foreach (var hand in _hands)
             {

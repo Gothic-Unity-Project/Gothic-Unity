@@ -138,5 +138,13 @@ namespace Gothic.Core.Extensions
 
             return Enumerable.Empty<ItemInstance>();
         }
+
+        /// <summary>
+        /// Runes are all called "Runa"/"Rune" - the spell is their description, like in the backpack.
+        /// </summary>
+        public static string GetSpellName(this ItemInstance item)
+        {
+            return string.IsNullOrEmpty(item?.Description) ? item?.Name : item.Description;
+        }
     }
 }

@@ -164,7 +164,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_effect);
             _effect = null;
             _hapticsService.Vibrate(_hand, VrHapticPreset.Info);
-            Logger.Log($"[FavoritesRing] {VRFavoritesRing.GetSpellName(_item)} put away ({reason})", LogCat.VR);
+            Logger.Log($"[FavoritesRing] {_item.GetSpellName()} put away ({reason})", LogCat.VR);
 
             // Destroys this GameObject with its VRRuneCaster (magic mode off).
             if (_container != null)
