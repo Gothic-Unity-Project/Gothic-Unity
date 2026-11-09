@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket, EnableHeroPersonalSpace, EnableSneakSlowSprint
+- Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter), HeroPersonalSpace (VR adapter); HeroPerceptionService, TradeService, PickpocketService, TradePricing (Core); DeveloperConfig EnableG2VrPickpocket, EnableHeroPersonalSpace
 
 ## Context
 
@@ -12,7 +12,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
 
 1. **The hero's body state comes from his movement,** like the engine:
    - walking and running come from the speed;
-   - crouching is sneaking, but only with the sneak talent (OpenGothic `Npc::canSneak`);
+   - crouching is sneaking, but only with the sneak talent (OpenGothic `Npc::canSneak`). Like vanilla Gothic there is no sprint while sneaking: the sprint input does nothing, the hero moves at sneak speed and stays BS_SNEAK;
    - running stays on for 1.5 s, and a teleport counts as running, so `ZS_Attack_Loop` can give up a chase. The steps NPCs hear only come with real movement (like the engine's step events), not from a lingering run;
    - swimming and diving are BS_SWIM and BS_DIVE.
 
@@ -32,7 +32,7 @@ The scripts read the hero's body state (BS_WALK/RUN/SNEAK/SWIM), hear his steps 
    - Sleepers can't catch you.
    - G2 gets the purse too, on top of its dialog (`EnableG2VrPickpocket`). It skips the dialog's one-time check and its XP, which is a deliberate choice, and the flag switches it off.
 6. **NPC bodies stay out of the camera** (`EnableHeroPersonalSpace`, 1 m), position only, not for humans who can be talked to. Only NPCs within 12 m are checked, from a list rebuilt every 0.25 s.
-7. **The speed potion and the slow sneak sprint are factors on one base speed.** Swimming or a transformation setting speeds in between becomes the new base.
+7. **The speed potion is a factor on one base speed (and sneaking caps the run speed at the move speed).** Swimming or a transformation setting speeds in between becomes the new base.
 
 ## Consequences
 

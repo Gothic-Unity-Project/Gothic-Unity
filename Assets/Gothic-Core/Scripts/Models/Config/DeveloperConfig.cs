@@ -321,10 +321,6 @@ namespace Gothic.Core.Models.Config
                  "and pushed the hands with the held weapon. Position only, the AI isn't changed.")]
         public bool EnableHeroPersonalSpace = true;
 
-        [Tooltip("VR (opinion): Sprinting while sneaking (crouched, BS_SNEAK) is half as fast - a full sprint behind an " +
-                 "NPC's back looked silly.")]
-        public bool EnableSneakSlowSprint = true;
-
         [Tooltip("VR: The VR hero body's animations sound like an NPC's - its steps (*eventSFXGrnd, by the ground " +
                  "below) come from its walk/run animations. Off (or without the animated body): a step every stride " +
                  "walked.")]

@@ -79,7 +79,6 @@ MonoBehaviour:
   NpcLootMode: 1
   EnableG2VrPickpocket: 1
   EnableHeroPersonalSpace: 1
-  EnableSneakSlowSprint: 1
   EnableHeroBodySounds: 1
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
