@@ -85,6 +85,13 @@ namespace Gothic.VR.Adapters.Player
         private FavoritesRingSlotView _front;
         private float _frontSince;
         private TextMeshPro _label;
+        // What the labels show now (slot, amount) - the text is set when it changes, not every frame.
+        private (FavoritesRingSlotView Slot, int Amount) _labelKey;
+        private (FavoritesRingSlotView Slot, int Amount) _frontLabelKey;
+        // The camera's transform, found again when the camera is gone (a scene change).
+        private Transform _head;
+        private static readonly VrHandSide[] _sides = { VrHandSide.Left, VrHandSide.Right };
+        private static readonly List<Collider> _colliderBuffer = new();
         // The selected (front) slot's name - always shown.
         private TextMeshPro _frontLabel;
 
@@ -188,9 +195,19 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// The open/close gesture (VrFavoritesService.TickGesture) toggles the ring.
         /// </summary>
+        private Transform GetHead()
+        {
+            if (_head == null)
+            {
+                var mainCamera = Camera.main;
+                _head = mainCamera != null ? mainCamera.transform : null;
+            }
+            return _head;
+        }
+
         private void UpdateGesture()
         {
-            var head = Camera.main != null ? Camera.main.transform : null;
+            var head = GetHead();
             if (!_favoritesService.TickGesture(head))
                 return;
             if (_isOpen)
@@ -397,7 +414,8 @@ namespace Gothic.VR.Adapters.Player
                     _spinVelocity = 0f;
             }
 
-            var putInTarget = _putInCandidates.FirstOrDefault(c => c != null)?.Target;
+            var putInTarget = _putInCandidates[0]?.Target ?? _putInCandidates[1]?.Target;
+            var head = GetHead();
             FavoritesRingSlotView front = null;
             var frontDistance = float.MaxValue;
             foreach (var slot in _slots)
@@ -412,7 +430,7 @@ namespace Gothic.VR.Adapters.Player
                 if (slot.Container != null && slot.TakenTime < 0f)
                     _slotViews.UpdateBodyCollisions(slot);
 
-                var distance = GetHeadAngle(slot);
+                var distance = GetHeadAngle(slot, head);
                 if (distance < frontDistance)
                 {
                     frontDistance = distance;
@@ -431,9 +449,8 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// Degrees between where the head looks and the slot (flat, seen from the head).
         /// </summary>
-        private float GetHeadAngle(FavoritesRingSlotView slot)
+        private static float GetHeadAngle(FavoritesRingSlotView slot, Transform head)
         {
-            var head = Camera.main != null ? Camera.main.transform : null;
             if (head == null)
                 return float.MaxValue;
             var look = Vector3.ProjectOnPlane(head.forward, Vector3.up);
@@ -448,7 +465,7 @@ namespace Gothic.VR.Adapters.Player
             FavoritesRingSlotView hovered = null;
             var hoveredSide = VrHandSide.Right;
             var best = RingConstants.HoverDistance * RingScale;
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _sides)
             {
                 if (!IsHandFree(side))
                     continue;
@@ -498,16 +515,19 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void UpdateLabels()
         {
-            ShowLabel(ref _frontLabel, "FavoriteSelectedName", _front?.Item != null ? _front : null);
-            ShowLabel(ref _label, "FavoriteName", _hovered != _front ? _hovered : null);
+            ShowLabel(ref _frontLabel, ref _frontLabelKey, "FavoriteSelectedName",
+                _front?.Item != null ? _front : null);
+            ShowLabel(ref _label, ref _labelKey, "FavoriteName", _hovered != _front ? _hovered : null);
         }
 
-        private void ShowLabel(ref TextMeshPro label, string labelName, FavoritesRingSlotView slot)
+        private void ShowLabel(ref TextMeshPro label, ref (FavoritesRingSlotView Slot, int Amount) key,
+            string labelName, FavoritesRingSlotView slot)
         {
             if (slot == null)
             {
                 if (label != null)
                     label.gameObject.SetActive(false);
+                key = default;
                 return;
             }
 
@@ -520,10 +540,15 @@ namespace Gothic.VR.Adapters.Player
                 label.alignment = TextAlignmentOptions.Center;
                 label.textWrappingMode = TextWrappingModes.NoWrap;
                 labelGo.AddComponent<VRBillboard>();
+                key = default;
             }
 
             label.gameObject.SetActive(true);
-            label.text = GetSlotName(slot);
+            if (key.Slot != slot || key.Amount != slot.Amount)
+            {
+                label.text = GetSlotName(slot);
+                key = (slot, slot.Amount);
+            }
             label.transform.SetParent(slot.Root.transform, false);
             var height = slot.IsWeapon ? RingConstants.WeaponSize * 0.6f
                 : RingConstants.SpellSize;
@@ -560,7 +585,7 @@ namespace Gothic.VR.Adapters.Player
         {
             if (!_isTriggerDown)
             {
-                foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+                foreach (var side in _sides)
                 {
                     if (!IsHandFree(side) || !_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated)
                         continue;
@@ -620,9 +645,8 @@ namespace Gothic.VR.Adapters.Player
 
         private bool IsAboveHead(Vector3 position)
         {
-            var head = Camera.main;
-            return head != null &&
-                   position.y > head.transform.position.y + RingConstants.GestureHeightAboveEyes;
+            var head = GetHead();
+            return head != null && position.y > head.position.y + RingConstants.GestureHeightAboveEyes;
         }
 
         /// <summary>
@@ -821,7 +845,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void UpdatePutInCandidates()
         {
-            foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
+            foreach (var side in _sides)
             {
                 var index = side == VrHandSide.Left ? 0 : 1;
                 var held = GetHeld(side);
@@ -836,11 +860,7 @@ namespace Gothic.VR.Adapters.Player
                 var instanceName = !string.IsNullOrEmpty(vobItem.Instance) ? vobItem.Instance : vobItem.Name;
                 var item = _vmCacheService.TryGetItemData(instanceName);
                 var kind = _favoritesService.GetKind(item, instanceName);
-                var target = _slots
-                    .Where(s => s.TakenTime < 0f && IsNear(held, s, RingConstants.PutInDistance * RingScale))
-                    .OrderBy(s => VrFavoritesService.IsSame(s.InstanceName, instanceName) ? 0
-                        : s.Kind == kind ? 1 : 2)
-                    .FirstOrDefault();
+                var target = FindPutInTarget(held, instanceName, kind);
                 if (target == null || !_favoritesService.TryPutIn(item, instanceName, kind, target.Content,
                         out var action, out var replaced))
                 {
@@ -848,21 +868,48 @@ namespace Gothic.VR.Adapters.Player
                     continue;
                 }
 
-                if (_putInCandidates[index]?.Target != target)
-                    _hapticsService.Vibrate(side, VrHapticPreset.Info);
-                _putInCandidates[index] = new FavoritesRingPutInCandidate
+                // One object per touch, updated while it lasts (OnReleased hands it on).
+                var candidate = _putInCandidates[index];
+                if (candidate == null)
                 {
-                    Container = container,
-                    Item = item,
-                    InstanceName = instanceName,
-                    Kind = kind,
-                    Target = target,
-                    Action = action,
-                    Replaced = replaced,
-                    Time = Time.time,
-                    Side = side
-                };
+                    candidate = new FavoritesRingPutInCandidate();
+                    _putInCandidates[index] = candidate;
+                }
+                if (candidate.Target != target)
+                    _hapticsService.Vibrate(side, VrHapticPreset.Info);
+                candidate.Container = container;
+                candidate.Item = item;
+                candidate.InstanceName = instanceName;
+                candidate.Kind = kind;
+                candidate.Target = target;
+                candidate.Action = action;
+                candidate.Replaced = replaced;
+                candidate.Time = Time.time;
+                candidate.Side = side;
             }
+        }
+
+        /// <summary>
+        /// The slot the held item touches: its own slot first, then one of its kind, then any other.
+        /// </summary>
+        private FavoritesRingSlotView FindPutInTarget(GameObject held, string instanceName, FavoriteSlotKind kind)
+        {
+            FavoritesRingSlotView target = null;
+            var targetRank = int.MaxValue;
+            var distance = RingConstants.PutInDistance * RingScale;
+            foreach (var slot in _slots)
+            {
+                if (slot.TakenTime >= 0f)
+                    continue;
+                var rank = VrFavoritesService.IsSame(slot.InstanceName, instanceName) ? 0
+                    : slot.Kind == kind ? 1 : 2;
+                if (rank < targetRank && IsNear(held, slot, distance))
+                {
+                    target = slot;
+                    targetRank = rank;
+                }
+            }
+            return target;
         }
 
         private void ExpirePutInCandidate(int index)
@@ -954,7 +1001,8 @@ namespace Gothic.VR.Adapters.Player
             if (slot.Root == null)
                 return false;
             var position = slot.Root.transform.position;
-            foreach (var collider in held.GetComponentsInChildren<Collider>())
+            held.GetComponentsInChildren(_colliderBuffer);
+            foreach (var collider in _colliderBuffer)
             {
                 if (!collider.enabled || collider.isTrigger)
                     continue;

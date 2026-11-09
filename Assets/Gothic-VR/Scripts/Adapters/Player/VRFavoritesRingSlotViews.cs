@@ -39,6 +39,8 @@ namespace Gothic.VR.Adapters.Player
         private static readonly int _cutoffProperty = Shader.PropertyToID("_Cutoff");
         private static readonly Color _emptySlotColor = new(0.6f, 0.6f, 0.6f, 1f);
 
+        private static readonly List<Collider> _colliderBuffer = new();
+
         private Material _emptySlotMaterial;
 
         /// <summary>
@@ -151,10 +153,16 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         public void UpdateBodyCollisions(FavoritesRingSlotView slot)
         {
-            var itemColliders = slot.Container.Go.GetComponentsInChildren<Collider>(true);
-            if (itemColliders.Length == slot.IgnoredColliderCount)
+            // A weapon builds its hitboxes after it was created - looked for now and then, not every frame.
+            if (Time.time < slot.NextColliderCheckTime)
                 return;
-            slot.IgnoredColliderCount = itemColliders.Length;
+            slot.NextColliderCheckTime = Time.time + RingConstants.ColliderCheckSeconds;
+
+            var itemColliders = _colliderBuffer;
+            slot.Container.Go.GetComponentsInChildren(true, itemColliders);
+            if (itemColliders.Count == slot.IgnoredColliderCount)
+                return;
+            slot.IgnoredColliderCount = itemColliders.Count;
 
             if (Rig == null)
                 return;

@@ -30,6 +30,7 @@ namespace Gothic.VR.Models.FavoritesRing
         public Transform LoaderParent;
         public Vector3 LoaderScale;
         public int IgnoredColliderCount;
+        public float NextColliderCheckTime;
         public float TakenTime = -1f;
 
         public FavoriteSlotKind Kind => Content.Kind;

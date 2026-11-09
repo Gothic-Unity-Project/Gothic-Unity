@@ -381,6 +381,9 @@ namespace Gothic.VR
 
             // Size (m) of a favorite item in its slot.
             public const float ItemSize = 0.1f;
+
+            // Seconds between looks for the colliders a real weapon/item in a slot has built (they ignore the body).
+            public const float ColliderCheckSeconds = 0.5f;
         }
     }
 }
