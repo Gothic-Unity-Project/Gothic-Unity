@@ -60,7 +60,8 @@ namespace Gothic.Core.Adapters.Npc
                 npc.PrefabProps == null || npc.PrefabProps.IsHero())
                 return;
 
-            FloatingHitNumber.Spawn(GetSpawnPosition(npc), amount, "HP");
+            FloatingHitNumber.Spawn(GetSpawnPosition(npc), amount, "HP",
+                FloatingHitNumber.GetSizeScale(_configService));
         }
 
         private Vector3 GetSpawnPosition(NpcContainer npc)

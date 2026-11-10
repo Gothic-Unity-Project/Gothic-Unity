@@ -58,7 +58,17 @@ namespace Gothic.VR.Adapters.UI
         [Tooltip("Width of the screen in meters. The height follows the video's aspect ratio.")] [SerializeField]
         private float _screenWidth = 3.2f;
 
+        [Tooltip("The spectator camera (the monitor/stream view, VRSpectatorCamera) of the same player - it would " +
+                 "keep showing the world, without the screen.")]
+        [SerializeField]
+        private Camera _spectatorCamera;
+
+        [Tooltip("The player of the same player prefab - locked while a video plays.")] [SerializeField]
+        private VRPlayer _player;
+
         [Inject] private readonly ContextInteractionService _contextInteractionService;
+        [Inject] private readonly LocalizationService _localizationService;
+        [Inject] private readonly IVrInput _vrInput;
 
         private readonly Queue<string> _queue = new();
 
@@ -66,18 +76,17 @@ namespace Gothic.VR.Adapters.UI
         private int _savedCullingMask;
         private CameraClearFlags _savedClearFlags;
         private Color _savedBackground;
-        // The spectator camera (the monitor/stream view) - it kept showing the world, without the screen.
-        private readonly List<(Camera camera, int cullingMask, CameraClearFlags clearFlags, Color background)>
-            _savedSpectatorCameras = new();
+        private bool _isSpectatorCameraDarkened;
+        private int _savedSpectatorCullingMask;
+        private CameraClearFlags _savedSpectatorClearFlags;
+        private Color _savedSpectatorBackground;
         private float _savedTimeScale = 1f;
 
         private GameObject _skipHint;
         private TMP_Text _skipHintText;
         private float _skipHintStartTime;
 
-        private VRPlayer _player;
         private IVrRig _rig;
-        private IVrInput _vrInput;
         private bool _savedCanCrouch;
         private bool _savedCanJump;
         private bool _savedMenuButtonEnabled;
@@ -173,7 +182,7 @@ namespace Gothic.VR.Adapters.UI
             _camera.cullingMask = 1 << Constants.UILayer;
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Color.black;
-            DarkenSpectatorCameras();
+            DarkenSpectatorCamera();
             AudioListener.pause = true;
             _savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
@@ -204,7 +213,7 @@ namespace Gothic.VR.Adapters.UI
 
             var text = _skipHint.AddComponent<TextMeshPro>();
             GothicText.Apply(text);
-            var localized = ReflexProjectInstaller.DIContainer.Resolve<LocalizationService>().GetText("cinema.skip");
+            var localized = _localizationService.GetText("cinema.skip");
             text.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
                 ? _skipHintFallback
                 : localized);
@@ -246,35 +255,33 @@ namespace Gothic.VR.Adapters.UI
 
         /// <summary>
         /// The monitor shows VRSpectatorCamera, not the VR camera - the same dark room there, or OBS/the monitor showed
-        /// the world without the video.
+        /// the world without the video. It's switched off on Android and with the Device Simulator.
         /// </summary>
-        private void DarkenSpectatorCameras()
+        private void DarkenSpectatorCamera()
         {
-            _savedSpectatorCameras.Clear();
-            foreach (var spectator in FindObjectsByType<VRSpectatorCamera>(FindObjectsSortMode.None))
-            {
-                if (!spectator.TryGetComponent<Camera>(out var spectatorCamera) || spectatorCamera == _camera)
-                    continue;
+            _isSpectatorCameraDarkened = false;
+            if (_spectatorCamera == null || !_spectatorCamera.gameObject.activeInHierarchy ||
+                _spectatorCamera == _camera)
+                return;
 
-                _savedSpectatorCameras.Add((spectatorCamera, spectatorCamera.cullingMask, spectatorCamera.clearFlags,
-                    spectatorCamera.backgroundColor));
-                spectatorCamera.cullingMask = 1 << Constants.UILayer;
-                spectatorCamera.clearFlags = CameraClearFlags.SolidColor;
-                spectatorCamera.backgroundColor = Color.black;
-            }
+            _savedSpectatorCullingMask = _spectatorCamera.cullingMask;
+            _savedSpectatorClearFlags = _spectatorCamera.clearFlags;
+            _savedSpectatorBackground = _spectatorCamera.backgroundColor;
+            _spectatorCamera.cullingMask = 1 << Constants.UILayer;
+            _spectatorCamera.clearFlags = CameraClearFlags.SolidColor;
+            _spectatorCamera.backgroundColor = Color.black;
+            _isSpectatorCameraDarkened = true;
         }
 
-        private void RestoreSpectatorCameras()
+        private void RestoreSpectatorCamera()
         {
-            foreach (var (spectatorCamera, cullingMask, clearFlags, background) in _savedSpectatorCameras)
-            {
-                if (spectatorCamera == null)
-                    continue;
-                spectatorCamera.cullingMask = cullingMask;
-                spectatorCamera.clearFlags = clearFlags;
-                spectatorCamera.backgroundColor = background;
-            }
-            _savedSpectatorCameras.Clear();
+            if (!_isSpectatorCameraDarkened || _spectatorCamera == null)
+                return;
+
+            _spectatorCamera.cullingMask = _savedSpectatorCullingMask;
+            _spectatorCamera.clearFlags = _savedSpectatorClearFlags;
+            _spectatorCamera.backgroundColor = _savedSpectatorBackground;
+            _isSpectatorCameraDarkened = false;
         }
 
         private void Update()
@@ -296,7 +303,6 @@ namespace Gothic.VR.Adapters.UI
             if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
                 return true;
 
-            _vrInput ??= ReflexProjectInstaller.DIContainer.Resolve<IVrInput>();
             foreach (var side in new[] { VrHandSide.Left, VrHandSide.Right })
             {
                 if (_vrInput.GetButton(side, VrButton.Trigger).IsJustActivated ||
@@ -332,7 +338,7 @@ namespace Gothic.VR.Adapters.UI
         private void RestoreWorld()
         {
             RestoreCamera();
-            RestoreSpectatorCameras();
+            RestoreSpectatorCamera();
             UnlockPlayer();
             AudioListener.pause = false;
             Time.timeScale = _savedTimeScale;
@@ -356,13 +362,8 @@ namespace Gothic.VR.Adapters.UI
         /// </summary>
         private void LockPlayer()
         {
-            // The cinema is inactive until the first video - no Awake to cache it in before.
-            // It's a sibling of the rig inside the player prefab, not a child of the VRPlayer.
-            if (_player == null)
-            {
-                _player = transform.root.GetComponentInChildren<VRPlayer>(true);
-                _rig = _player == null ? null : _player.GetComponent<IVrRig>();
-            }
+            if (_rig == null && _player != null)
+                _rig = _player.GetComponent<IVrRig>();
             if (_player == null || _rig == null)
                 return;
 

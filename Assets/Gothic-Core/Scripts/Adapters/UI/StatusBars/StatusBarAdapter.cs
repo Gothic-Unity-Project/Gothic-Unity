@@ -356,7 +356,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
             var barHeight = top - bottom;
             var anchor = canvasRect.TransformPoint(new Vector3(right + barHeight * 0.5f, (top + bottom) / 2f, 0f));
-            FloatingUiHitNumber.Spawn(canvasRect, anchor, barHeight, amount, unit);
+            FloatingUiHitNumber.Spawn(canvasRect, anchor, barHeight, amount, unit,
+                FloatingHitNumber.GetSizeScale(_configService));
         }
 
         private void OnPlayerPrefUpdated(string key, object value)

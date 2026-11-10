@@ -24,19 +24,20 @@ namespace Gothic.Core.Adapters.UI
         /// <param name="canvas">The bar's canvas - the text lives there unrotated, reading the right way round.</param>
         /// <param name="anchorWorldPosition">Where the number starts (e.g. right of the bar), in world space.</param>
         /// <param name="barHeight">The bar's height in canvas units - sizes the text.</param>
+        /// <param name="sizeScale">FloatingHitNumber.GetSizeScale.</param>
         public static void Spawn(RectTransform canvas, Vector3 anchorWorldPosition, float barHeight, int amount,
-            string unit)
+            string unit, float sizeScale)
         {
             var go = new GameObject($"UiHitNumber {amount} {unit}", typeof(RectTransform));
             go.layer = canvas.gameObject.layer;
             go.transform.SetParent(canvas, false);
-            go.AddComponent<FloatingUiHitNumber>().Init(canvas, anchorWorldPosition, barHeight, amount, unit);
+            go.AddComponent<FloatingUiHitNumber>().Init(canvas, anchorWorldPosition, barHeight, amount, unit,
+                sizeScale);
         }
 
-        private void Init(RectTransform canvas, Vector3 anchorWorldPosition, float barHeight, int amount, string unit)
+        private void Init(RectTransform canvas, Vector3 anchorWorldPosition, float barHeight, int amount, string unit,
+            float sizeScale)
         {
-            var sizeScale = FloatingHitNumber.GetSizeScale();
-
             _rect = (RectTransform)transform;
             _rect.pivot = new Vector2(0f, 0.5f);
             _rect.sizeDelta = new Vector2(barHeight * 10f, barHeight * 2f * sizeScale);

@@ -26,20 +26,20 @@ namespace Gothic.Core.Adapters.UI
         private Vector3 _startPosition;
         private float _elapsed;
 
-        public static void Spawn(Vector3 position, int amount, string unit)
+        /// <param name="sizeScale">GetSizeScale - read by the caller, which has the ConfigService.</param>
+        public static void Spawn(Vector3 position, int amount, string unit, float sizeScale)
         {
             var go = new GameObject($"HitNumber {amount} {unit}");
             go.transform.position = position;
-            go.transform.localScale = Vector3.one * (_scale * GetSizeScale());
+            go.transform.localScale = Vector3.one * (_scale * sizeScale);
             go.AddComponent<FloatingHitNumber>().Init(amount, unit);
         }
 
         /// <summary>
         /// Slider "hitNumbersSize" in our settings menu: 1 (smallest, default) ... HitNumbersMaxScale.
         /// </summary>
-        public static float GetSizeScale()
+        public static float GetSizeScale(ConfigService configService)
         {
-            var configService = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
             var size = Mathf.Clamp01(configService.GetGothicOption(Constants.IniNames.HitNumbersSize, 0f));
             return Mathf.Lerp(1f, Constants.IniNames.HitNumbersMaxScale, size);
         }

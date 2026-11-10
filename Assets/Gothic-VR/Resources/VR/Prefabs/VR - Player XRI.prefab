@@ -4827,6 +4827,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8261726400638187788, guid: a36530f2971b4164aa6624c0e1d5d427, type: 3}
+      propertyPath: _player
+      value: 
+      objectReference: {fileID: 6562940717087433017}
+    - target: {fileID: 8261726400638187788, guid: a36530f2971b4164aa6624c0e1d5d427, type: 3}
+      propertyPath: _spectatorCamera
+      value: 
+      objectReference: {fileID: 5806260974420883386}
     - target: {fileID: 8552309156735478297, guid: a36530f2971b4164aa6624c0e1d5d427, type: 3}
       propertyPath: m_Name
       value: Cinema

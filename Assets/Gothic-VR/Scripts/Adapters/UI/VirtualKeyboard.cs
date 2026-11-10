@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.UI;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.UI;
+using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -41,6 +43,9 @@ namespace Gothic.VR.Adapters.UI
         [SerializeField] private Button _backspaceButton;
         [SerializeField] private Button _submitButton;
         [SerializeField] private Button _cancelButton;
+
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly IVrUiPointers _uiPointers;
 
         private static VirtualKeyboard _current;
 
@@ -100,6 +105,9 @@ namespace Gothic.VR.Adapters.UI
             return _current;
         }
 
+        // Created from its prefab at runtime, outside a scene scope's injection pass.
+        private void Awake() => this.Inject();
+
         private void Init(VirtualKeyboardOptions options)
         {
             _onSubmit = options.OnSubmit;
@@ -154,12 +162,12 @@ namespace Gothic.VR.Adapters.UI
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
 
             // DeveloperConfig.EnableUiGrabBars: following an anchor (Marvin), it's moved with the anchor's bar.
-            if (!_hasFollowTarget && ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableUiGrabBars)
+            if (!_hasFollowTarget && _configService.Dev.EnableUiGrabBars)
                 VRGrabBar.Create((RectTransform)transform, transform);
 
             RefreshDisplay();
             // A canvas created at runtime: the UI laser only hits registered canvases.
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().RegisterCanvas(GetComponent<Canvas>());
+            _uiPointers.RegisterCanvas(GetComponent<Canvas>());
             RaisePointerLines();
             Logger.Log("[VirtualKeyboard] Shown", LogCat.Ui);
         }
@@ -400,7 +408,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
             _isClosed = true;
 
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().UnregisterCanvas(GetComponent<Canvas>());
+            _uiPointers.UnregisterCanvas(GetComponent<Canvas>());
             if (_current == this)
                 _current = null;
             _onSubmit = null;
@@ -431,7 +439,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
 
             var order = GetComponent<Canvas>().sortingOrder + 1;
-            var lines = ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().GetPointerLines(cam.transform.root);
+            var lines = _uiPointers.GetPointerLines(cam.transform.root);
             foreach (var line in lines)
             {
                 if (line.sortingOrder >= order)
