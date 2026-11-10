@@ -18,7 +18,7 @@ namespace Gothic.Core.Adapters.Npc
     /// "-X HP" / "+X HP" above an NPC's head whenever its hit points change - from any source going through
     /// NpcService.SetAttribute (melee, spells, arrows, potions, scripts). The hero's are next to his bar
     /// (StatusBarAdapter). Option "hitNumbers" in our settings menu (Gothic.ini, off by default). One per world scene
-    /// (next to WorldScene in DefaultWorld.unity); the numbers are pooled below it.
+    /// (added by WorldScene.Init); the numbers are pooled below it.
     /// </summary>
     public class NpcHitNumbers : MonoBehaviour
     {

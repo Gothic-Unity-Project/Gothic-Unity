@@ -130,7 +130,6 @@ GameObject:
   - component: {fileID: 1781062262}
   - component: {fileID: 1781062264}
   - component: {fileID: 1781062265}
-  - component: {fileID: 1781062266}
   m_Layer: 0
   m_Name: Bootstrap
   m_TagString: Untagged
@@ -177,18 +176,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 680b1af722e248b1b0130ce4eb9e66f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1781062266
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1781062260}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 68ae35bfa0ace62418f189391b924b57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Gothic.Core::Gothic.Core.Adapters.Npc.NpcHitNumbers
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
