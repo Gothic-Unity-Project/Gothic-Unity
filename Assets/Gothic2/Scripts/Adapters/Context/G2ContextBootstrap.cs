@@ -17,6 +17,7 @@ namespace Gothic.G2.Adapters.Context
     {
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly ContextMeleeDamageRuleService _contextMeleeDamageRuleService;
+        [Inject] private readonly ContextRangedCombatService _contextRangedCombatService;
 
 
         protected override void RegisterControlModule(Controls controls)
@@ -31,6 +32,7 @@ namespace Gothic.G2.Adapters.Context
 
             _contextGameVersionService.SetImpl(new G2ContextService().Inject());
             _contextMeleeDamageRuleService.SetImpl(new G2MeleeDamageRule().Inject());
+            _contextRangedCombatService.SetImpl(new G2RangedCombatService().Inject());
         }
     }
 }

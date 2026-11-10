@@ -22,6 +22,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         [SerializeField] private StatusType _statusType;
         public StatusType Type => _statusType;
         private Coroutine _fadeCoroutine;
+        private bool _isFadingIn;
         [SerializeField] private bool _isPlayer;
         [SerializeField] private Image _background;
         [SerializeField] private Image _statusValue;
@@ -56,6 +57,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         private void OnDestroy()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+            GlobalEventDispatcher.HeroManaBarRequested.RemoveListener(OnHeroManaBarRequested);
         }
 
         private void Awake()
@@ -82,6 +84,10 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                     // Videos (new game intro, chapter videos) are watched without the bar.
                     GlobalEventDispatcher.PlayVideo.AddListener(OnPlayVideo);
                     GlobalEventDispatcher.VideoPlaybackFinished.AddListener(OnVideoPlaybackFinished);
+                }
+                else if (_statusType == StatusType.Mana)
+                {
+                    GlobalEventDispatcher.HeroManaBarRequested.AddListener(OnHeroManaBarRequested);
                 }
             }
             else
@@ -126,12 +132,12 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         }
 
         /// <summary>
-        /// Health (and the hero's mana numbers) follow NpcAttributeChanged while enabled. Culled NPCs are disabled -
+        /// Health and mana (and the hero's numbers) follow NpcAttributeChanged while enabled. Culled NPCs are disabled -
         /// they refresh when re-enabled.
         /// </summary>
         private void OnEnable()
         {
-            if (!HasNumbers)
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.AddListener(OnNpcAttributeChanged);
@@ -142,7 +148,9 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnDisable()
         {
-            if (!HasNumbers)
+            FinishFade();
+
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.RemoveListener(OnNpcAttributeChanged);
@@ -151,10 +159,10 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnNpcAttributeChanged(NpcContainer npc, NpcAttribute attribute)
         {
-            var isMine = _statusType == StatusType.Health
+            var isShownAttribute = _statusType == StatusType.Health
                 ? attribute is NpcAttribute.HitPoints or NpcAttribute.HitPointsMax
                 : attribute is NpcAttribute.Mana or NpcAttribute.ManaMax;
-            if (!isMine || npc != GetOwner())
+            if (!isShownAttribute || npc != GetOwner())
                 return;
 
             Refresh();
@@ -169,6 +177,19 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                 return;
 
             ShowHeroHitNumber(amount, attribute == NpcAttribute.Mana ? FloatingHitNumber.ManaUnit : "HP");
+        }
+
+        private void OnHeroManaBarRequested(bool isShown)
+        {
+            if (isShown)
+            {
+                Refresh();
+                FadeIn();
+            }
+            else
+            {
+                FadeOut();
+            }
         }
 
         private void OnWorldSceneLoaded()
@@ -199,7 +220,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         }
 
         /// <summary>
-        /// Health: the fill and the numbers. The hero's mana bar: only the numbers - whoever shows it sets the fill.
+        /// The fill and - health bars and the hero's mana bar - the numbers.
         /// </summary>
         private void Refresh()
         {
@@ -211,14 +232,21 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             {
                 _numbersValue = owner.Vob.GetAttribute((int)NpcAttribute.HitPoints);
                 _numbersMax = owner.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
-                SetFillAmount(_numbersValue, _numbersMax);
             }
-            else
+            else if (_statusType == StatusType.Mana)
             {
                 _numbersValue = owner.Vob.GetAttribute((int)NpcAttribute.Mana);
                 _numbersMax = owner.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             }
-            UpdateNumbers();
+            else
+            {
+                return;
+            }
+
+            if (_numbersMax > 0)
+                SetFillAmount(_numbersValue, _numbersMax);
+            if (HasNumbers)
+                UpdateNumbers();
         }
 
         /// <summary>
@@ -391,23 +419,36 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                 _numbers.enabled = _isNumbersShown;
         }
 
-        /// <summary>
-        /// VRRuneCaster: the hero's mana bar shows while a spell is charged.
-        /// </summary>
-        public void FadeIn(float duration = 0.25f)
+        private void FadeIn(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(0f, 1f, duration, enable: true));
         }
 
-        public void FadeOut(float duration = 0.25f)
+        private void FadeOut(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));
         }
 
+        /// <summary>
+        /// Disabled mid-fade, Unity stops the routine - the bar jumps to the fade's end instead of staying half visible.
+        /// </summary>
+        private void FinishFade()
+        {
+            if (_fadeCoroutine == null)
+                return;
+
+            StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = null;
+            SetAlpha(_isFadingIn ? 1f : 0f);
+            if (!_isFadingIn)
+                DisableBar();
+        }
+
         private IEnumerator FadeRoutine(float from, float to, float duration, bool enable)
         {
+            _isFadingIn = enable;
             if (enable)
                 EnableBar();
 
@@ -423,6 +464,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
             if (!enable)
                 DisableBar();
+            _fadeCoroutine = null;
         }
 
         private void SetAlpha(float alpha)

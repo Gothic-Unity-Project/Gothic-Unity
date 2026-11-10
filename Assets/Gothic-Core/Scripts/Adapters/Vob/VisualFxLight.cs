@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Gothic.Core.Adapters.Vob
 {
     /// <summary>
-    /// DeveloperConfig.EnableVisualFxLights: the light of a VISUALFX (lightPresetName: summoning's red REDAMBIENCE,
+    /// The light of a VISUALFX (lightPresetName: summoning's red REDAMBIENCE,
     /// fire rain's CATACLYSM) like OpenGothic's Effect::setupLight - the preset's color and range animations, a key's
     /// lightRange instead of the preset's range (summoning: 0 while held, 4 m while charging). A pooled
     /// StationaryLight, so the world shader lights the ground around it too. It follows its parent.
@@ -13,8 +13,6 @@ namespace Gothic.Core.Adapters.Vob
     [RequireComponent(typeof(StationaryLight))]
     public class VisualFxLight : MonoBehaviour, IVisualFxLight
     {
-        public GameObject Go => gameObject;
-
         // CATACLYSM is 200 m - the world shader's lights are meant for a room or a camp, not the whole valley.
         private const float _maxRangeMeters = 20f;
         private const float _updateSeconds = 0.1f;
@@ -29,12 +27,6 @@ namespace Gothic.Core.Adapters.Vob
         private float _fadeSeconds;
         private float _nextUpdate;
         private Vector3 _gatheredAt;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RegisterFactory()
-        {
-            VisualFxLightFactory.Create = Create;
-        }
 
         public static VisualFxLight Create(Transform parent, Vector3 position, LightPresetLoader.LightPreset preset,
             float rangeMeters)
@@ -78,7 +70,8 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void FadeOut(float seconds, float delay = 0f)
         {
-            if (_fadeStart >= 0f)
+            // Already gone (its parent was destroyed) or fading.
+            if (this == null || _fadeStart >= 0f)
                 return;
             _fadeStart = Time.time + Mathf.Max(0f, delay);
             _fadeSeconds = Mathf.Max(0.01f, seconds);

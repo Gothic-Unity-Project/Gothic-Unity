@@ -7,7 +7,7 @@ using ZenKit.Daedalus;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrSpellRing: a spell's effect as it looks in a hand (like VRRuneCaster.SpawnSpellVfx):
+    /// The favorites ring: a spell's effect as it looks in a hand (like VRRuneCaster.SpawnSpellVfx):
     /// MFX_[NAME]_INIT, else the spell's VISUALFX visual. Looping, kept small. For the ring's preview and the spell
     /// taken into a hand.
     /// </summary>

@@ -339,6 +339,18 @@ MonoBehaviour:
     m_Key: cinema.skip
     m_Metadata:
       m_Items: []
+  - m_Id: 191288694340444160
+    m_Key: menuitem.heroFallMode.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Key: menuitem.heroFallMode.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Key: menuitem.heroFallMode.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

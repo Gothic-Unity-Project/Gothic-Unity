@@ -1,5 +1,5 @@
 using Gothic.Core;
-using System.Linq;
+using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -17,11 +17,12 @@ using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
+using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrSpellRing: the spell taken out of the favorites ring - an invisible rune riding on one hand (not
+    /// The favorites ring: the spell taken out of the favorites ring - an invisible rune riding on one hand (not
     /// grabbed, the grip does nothing), cast by that hand (VRRuneCaster.RingHand). The spell stays in the inventory.
     /// - The hand shows the spell's effect while it isn't aiming/charging (then VRRuneCaster shows its own).
     /// - A trigger click of the other, empty hand puts it away. So does grabbing something with the spell hand, being
@@ -37,10 +38,9 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly VrHapticsService _hapticsService;
+        [Inject] private readonly VrFavoritesService _favoritesService;
         [Inject] private readonly Gothic.Core.Services.Config.ConfigService _configService;
 
-        // Seconds a trigger press of the other hand may last to count as a click.
-        private const float _clickSeconds = 0.6f;
 
         private ItemInstance _item;
         private VrHandSide _hand;
@@ -58,18 +58,14 @@ namespace Gothic.VR.Adapters.Player
             this.Inject();
         }
 
-        // A readied ring spell per hand (left, right) - the ring's open gesture needs empty hands.
-        private static readonly bool[] _isReadied = new bool[2];
-
-        public static bool IsReadiedIn(VrHandSide side) => _isReadied[(int)side];
-
         public void Init(ItemInstance item, VrHandSide hand, VobContainer container, VRRuneCaster caster)
         {
             _item = item;
             _hand = hand;
             _container = container;
             _caster = caster;
-            _isReadied[(int)hand] = true;
+            // The ring's open gesture needs empty hands.
+            _favoritesService.SetReadied(hand, true);
             // Loading a game or leaving the world puts it away like Gothic's readied spell - it kept the old VM item.
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLeavingWorld);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(OnLeavingWorld);
@@ -99,7 +95,7 @@ namespace Gothic.VR.Adapters.Player
 
             // The last scroll was used up (VRRuneCaster, single-use scrolls) or the spell taken off in the backpack.
             var hero = _playerService.HeroContainer;
-            if (hero != null && _item != null && !hero.Props.EquippedItems.Any(i => i.Index == _item.Index))
+            if (hero != null && _item != null && !IsEquipped(hero.Props.EquippedItems))
             {
                 PutAway("no longer equipped (last scroll used up)");
                 return;
@@ -107,6 +103,17 @@ namespace Gothic.VR.Adapters.Player
 
             UpdateEffect();
             UpdatePutAwayClick();
+        }
+
+        // No LINQ: asked every frame while the spell is readied.
+        private bool IsEquipped(List<ItemInstance> equippedItems)
+        {
+            for (var i = 0; i < equippedItems.Count; i++)
+            {
+                if (equippedItems[i].Index == _item.Index)
+                    return true;
+            }
+            return false;
         }
 
         private void UpdateEffect()
@@ -127,7 +134,7 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The other hand - empty - clicks its trigger (press and release within _clickSeconds).
+        /// The other hand - empty - clicks its trigger (press and release within ClickSeconds).
         /// </summary>
         private void UpdatePutAwayClick()
         {
@@ -146,7 +153,7 @@ namespace Gothic.VR.Adapters.Player
             if (!trigger.IsJustDeactivated || _otherTriggerDownTime < 0f)
                 return;
 
-            var isClick = Time.time - _otherTriggerDownTime <= _clickSeconds;
+            var isClick = Time.time - _otherTriggerDownTime <= RingConstants.ClickSeconds;
             _otherTriggerDownTime = -1f;
             if (isClick)
                 PutAway("trigger click of the other hand");
@@ -168,7 +175,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_effect);
             _effect = null;
             _hapticsService.Vibrate(_hand, VrHapticPreset.Info);
-            Logger.Log($"[FavoritesRing] {VRFavoritesRing.GetSpellName(_item)} put away ({reason})", LogCat.VR);
+            Logger.Log($"[FavoritesRing] {_item.GetSpellName()} put away ({reason})", LogCat.VR);
 
             // Destroys this GameObject with its VRRuneCaster (magic mode off).
             if (_container != null)
@@ -179,7 +186,7 @@ namespace Gothic.VR.Adapters.Player
 
         private void OnDestroy()
         {
-            _isReadied[(int)_hand] = false;
+            _favoritesService?.SetReadied(_hand, false);
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLeavingWorld);
             GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(OnLeavingWorld);
             if (_effect != null)

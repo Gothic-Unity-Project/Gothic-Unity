@@ -1,3 +1,4 @@
+using Gothic.Core.Const;
 using Gothic.Core.Models.Movement;
 using UnityEngine;
 
@@ -39,6 +40,18 @@ namespace Gothic.Core.Domain.Movement
         private const float _edgeSearchStep = 0.1f;
         private const float _edgeSearchMax = 2f;
         private const float _clearance = 0.05f;
+
+        /// <summary>
+        /// NPC climb: a wall is searched this far in front of the NPC, its top this far behind the wall.
+        /// </summary>
+        private const float _npcWallDistance = 0.8f;
+        private const float _npcTopStepIn = 0.35f;
+
+        /// <summary>
+        /// NPC climb: the top must be flatter than this (normal.y) and have this much headroom (times rest height).
+        /// </summary>
+        private const float _npcMinTopNormalY = 0.7f;
+        private const float _npcHeadroomFactor = 1.8f;
 
         /// <summary>
         /// The jump probe: what Gothic's jump does with a body at feet looking along forward.
@@ -198,6 +211,56 @@ namespace Gothic.Core.Domain.Movement
             }
 
             return LedgeInfo.NoLedge;
+        }
+
+        /// <summary>
+        /// NPC climb (chasing NPCs, NpcJumpFall): a ledge in front between STEP_HEIGHT and JUMPMID_HEIGHT that NPCs
+        /// climb with JumpUpLow (up to JUMPLOW_HEIGHT, Band Low) or JumpUpMid (Band Mid). Unlike ProbeAhead it uses
+        /// plain rays from the NPC root (no capsule of the body) and no hang (High): NPC models only have the
+        /// JumpUpLow/JumpUpMid animations. position is the root, restHeight its height above the feet. TopPoint and
+        /// StandPoint are the point on top.
+        /// </summary>
+        public LedgeInfo ProbeNpcClimb(Vector3 position, float restHeight, Vector3 direction, LedgeRules rules)
+        {
+            direction = Flatten(direction);
+            if (direction == Vector3.zero)
+                return LedgeInfo.NoLedge;
+
+            var mask = 1 << Constants.DefaultLayer;
+            var feetY = position.y - restHeight;
+
+            // 1. Something blocks the way above step height.
+            var kneeOrigin = new Vector3(position.x, feetY + rules.StepHeight + _clearance, position.z);
+            if (!Physics.Raycast(kneeOrigin, direction, out var wallHit, _npcWallDistance, mask,
+                    QueryTriggerInteraction.Ignore))
+                return LedgeInfo.NoLedge;
+
+            // 2. Its top is reachable.
+            var topProbe = wallHit.point + direction * _npcTopStepIn;
+            topProbe.y = feetY + rules.JumpMidHeight + 0.3f;
+            if (!Physics.Raycast(topProbe, Vector3.down, out var topHit, rules.JumpMidHeight + 0.3f - rules.StepHeight,
+                    mask, QueryTriggerInteraction.Ignore))
+                return LedgeInfo.NoLedge;
+
+            var height = topHit.point.y - feetY;
+            if (height <= rules.StepHeight || height > rules.JumpMidHeight || topHit.normal.y < _npcMinTopNormalY)
+                return LedgeInfo.NoLedge;
+
+            // 3. Room to stand up there.
+            if (Physics.Raycast(topHit.point + Vector3.up * _clearance, Vector3.up, restHeight * _npcHeadroomFactor,
+                    mask, QueryTriggerInteraction.Ignore))
+                return LedgeInfo.NoLedge;
+
+            return new LedgeInfo
+            {
+                Band = height <= rules.JumpLowHeight ? LedgeBand.Low : LedgeBand.Mid,
+                TopPoint = topHit.point,
+                StandPoint = topHit.point,
+                EdgePoint = new Vector3(wallHit.point.x, topHit.point.y, wallHit.point.z),
+                WallNormal = -direction,
+                EdgeDirection = Vector3.Cross(Vector3.up, -direction),
+                Height = height
+            };
         }
 
         private static LedgeBand Classify(float height, LedgeRules rules)

@@ -59,6 +59,7 @@ namespace Gothic.Core.Services.Npc
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
         private readonly NpcInitializerDomain _initializerDomain = new NpcInitializerDomain().Inject();
+        private readonly HeroTransformDomain _heroTransformDomain = new HeroTransformDomain().Inject();
 
 
         private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
@@ -323,20 +324,76 @@ namespace Gothic.Core.Services.Npc
 
             var removed = _multiTypeCacheService.NpcCache.Where(i => i.Instance.Index == instanceId).ToList();
             foreach (var npc in removed)
-            {
-                var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
-                _multiTypeCacheService.NpcCache.Remove(npc);
-                // The NPC's GameObject normally lives under its lazy-load root - destroy it too if it doesn't.
-                if (npc.Go != null && (lazyLoadRoot == null || !npc.Go.transform.IsChildOf(lazyLoadRoot.transform)))
-                    Object.Destroy(npc.Go);
-                if (lazyLoadRoot != null)
-                    Object.Destroy(lazyLoadRoot);
-            }
+                RemoveFromWorld(npc);
 
             if (removed.Count == 0)
                 Logger.LogWarning($"[Wld_RemoveNpc] instance={instanceId} isn't in the world", LogCat.Npc);
             else
                 Logger.Log($"[Wld_RemoveNpc] instance={instanceId} - removed {removed.Count} NPC(s)", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// An NPC spawned at runtime (SpawnNpcRuntime) leaves the world again: cache, culling and scene - also if it
+        /// was never built or already detached (DetachFromWorldNpcs).
+        /// </summary>
+        public void DespawnRuntimeNpc(NpcContainer npc)
+        {
+            if (npc?.Instance == null)
+                return;
+            if (npc == GetHeroContainer())
+            {
+                Logger.LogWarning("[DespawnRuntimeNpc] The hero can't be despawned - skipped", LogCat.Npc);
+                return;
+            }
+
+            RemoveFromWorld(npc);
+            Logger.Log($"[DespawnRuntimeNpc] '{npc.Instance.GetName(NpcNameSlot.Slot0)}' removed", LogCat.Npc);
+        }
+
+        /// <summary>
+        /// The NPC stays in the scene (culling still builds and shows it), but the world doesn't know it any more: no
+        /// perception, focus, fight target or saving. Remove it later with DespawnRuntimeNpc.
+        /// </summary>
+        public void DetachFromWorldNpcs(NpcContainer npc)
+        {
+            _multiTypeCacheService.NpcCache.Remove(npc);
+        }
+
+        /// <summary>
+        /// The closest active, living NPC (not the hero) in a horizontal cone in front of origin. Null if there's none.
+        /// </summary>
+        public NpcContainer GetClosestNpcInFront(Vector3 origin, Vector3 forward, float maxDistance, float maxAngle)
+        {
+            var hero = GetHeroContainer();
+            NpcContainer best = null;
+            var bestDistance = maxDistance;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy)
+                    continue;
+                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead)
+                    continue;
+
+                var toNpc = npc.Go.transform.position - origin;
+                toNpc.y = 0f;
+                var distance = toNpc.magnitude;
+                if (distance > bestDistance || Vector3.Angle(forward, toNpc) > maxAngle)
+                    continue;
+                bestDistance = distance;
+                best = npc;
+            }
+            return best;
+        }
+
+        private void RemoveFromWorld(NpcContainer npc)
+        {
+            var lazyLoadRoot = _npcMeshCullingService.RemoveCullingEntry(npc.Instance);
+            _multiTypeCacheService.NpcCache.Remove(npc);
+            // The NPC's GameObject normally lives under its lazy-load root - destroy it too if it doesn't.
+            if (npc.Go != null && (lazyLoadRoot == null || !npc.Go.transform.IsChildOf(lazyLoadRoot.transform)))
+                Object.Destroy(npc.Go);
+            if (lazyLoadRoot != null)
+                Object.Destroy(lazyLoadRoot);
         }
 
         public NpcInstance ExtHlpGetNpc(int instanceId)
@@ -437,6 +494,19 @@ namespace Gothic.Core.Services.Npc
             npc.Instance.Lp = lp;
         }
 
+        /// <summary>
+        /// Transformation scroll: scripts see the hero as the monster (its guild). The body is the platform's.
+        /// </summary>
+        public void TransformHero(NpcContainer monster)
+        {
+            _heroTransformDomain.Transform(GetHeroContainer(), monster);
+        }
+
+        public void TransformHeroBack()
+        {
+            _heroTransformDomain.TransformBack(GetHeroContainer());
+        }
+
         public NpcContainer GetHeroContainer()
         {
             // Hero doesn't exist yet in menus / during boot (e.g. the player's health bar asks for it there).
@@ -520,6 +590,15 @@ namespace Gothic.Core.Services.Npc
             if (vobNpc.IsRestored)
             {
                 _saveGameService.InitNpcInstanceFromSave(npcData, () => _vm.InitInstance(heroInstance));
+
+                // Saved while a sleep/freeze spell held the hero: nothing ends that state after loading, casters
+                // would see him asleep forever (HeroSpellStateDomain). The hero runs no states.
+                if (HeroSpellStateDomain.IsSpellState(vobNpc.CurrentStateName))
+                {
+                    Logger.Log($"[NpcService] Hero loaded in {vobNpc.CurrentStateName} - state cleared", LogCat.Npc);
+                    vobNpc.CurrentStateIndex = 0;
+                    vobNpc.CurrentStateName = string.Empty;
+                }
             }
             else
             {

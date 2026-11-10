@@ -21,26 +21,6 @@ namespace Gothic.Core.Extensions
     {
 
         /// <summary>
-        /// A ranged weapon (ITEM_KAT_FF: bows and crossbows).
-        /// </summary>
-        public static bool IsRangedWeapon(this ItemInstance item)
-        {
-            return item != null &&
-                   ((Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags)item.MainFlag &
-                    Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags.ItemKatFf) != 0;
-        }
-
-        /// <summary>
-        /// A crossbow (ITEM_CROSSBOW) - a ranged weapon that isn't one is a bow.
-        /// </summary>
-        public static bool IsCrossbow(this ItemInstance item)
-        {
-            return item != null &&
-                   ((Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags)item.Flags &
-                    Gothic.Core.Models.Vm.VmGothicEnums.ItemFlags.ItemCrossbow) != 0;
-        }
-
-        /// <summary>
         /// The item's instance symbol (e.g. ITMW_1H_SWORD) - a world item's vob name isn't always its symbol (mods, items
         /// placed in the world file). Inventory calls (CreateInvItems, Npc_RemoveInvItems) need the symbol.
         /// </summary>
@@ -103,6 +83,33 @@ namespace Gothic.Core.Extensions
             var visualName = vob?.Visual?.Name;
             return !string.IsNullOrEmpty(visualName) &&
                    visualName.StartsWith("BED", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// oCMobLockable's fields: doors and chests are both lockable, but ZenKit has no common interface for them.
+        /// Returns false if the vob is neither.
+        /// </summary>
+        public static bool TryGetLock([CanBeNull] this IVirtualObject vob, out bool isLocked, out string key,
+            out string pickString)
+        {
+            switch (vob)
+            {
+                case IDoor door:
+                    isLocked = door.IsLocked;
+                    key = door.Key;
+                    pickString = door.PickString;
+                    return true;
+                case IContainer container:
+                    isLocked = container.IsLocked;
+                    key = container.Key;
+                    pickString = container.PickString;
+                    return true;
+                default:
+                    isLocked = false;
+                    key = null;
+                    pickString = null;
+                    return false;
+            }
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gothic.Core;
+using Gothic.Core.Adapters.UI;
 using Gothic.Core.Adapters.Video;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -202,7 +203,7 @@ namespace Gothic.VR.Adapters.UI
             _skipHint.transform.localScale = Vector3.one * _skipHintScale;
 
             var text = _skipHint.AddComponent<TextMeshPro>();
-            VRGothicText.Apply(text);
+            GothicText.Apply(text);
             var localized = ReflexProjectInstaller.DIContainer.Resolve<LocalizationService>().GetText("cinema.skip");
             text.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
                 ? _skipHintFallback

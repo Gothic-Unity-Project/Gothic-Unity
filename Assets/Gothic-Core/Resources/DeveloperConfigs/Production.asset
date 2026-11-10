@@ -42,6 +42,8 @@ MonoBehaviour:
   SaveSlotToLoad: 0
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
+  EnableUiGrabBars: 1
+  EnableEndingReturnsToMenu: 1
   SpeedUpLoading: 0
   SkipVideos: 0
   EnableVOBs: 1
@@ -85,72 +87,7 @@ MonoBehaviour:
   TimeSpeedMultiplier: 1
   EnableVrHeroBody: 1
   EnableHeroHands: 1
-  EnableEquipItems: 1
-  EnableBackpackEquipToggle: 1
-  EnableItemDetailsPopup: 1
-  EnableBackpackVacuum: 1
-  BackpackVacuumRadius: 1.2
-  BackpackVacuumStoreSeconds: 3
-  BackpackShoulderGrabScale: 4
   NpcLootMode: 1
-  NpcLootBackpackTimeout: 20
-  EnableLootTakeAll: 1
-  EnableStackSplit: 1
-  StackSplitRepeatDelay: 0.45
-  StackSplitAcceleration: 0.8
-  EnableSmoking: 1
-  SmokePuffs: 4
-  SmokeStartDelay: 1.5
-  G1WorldMapBounds: {x: -84056, y: 67222, z: 84451, w: -61217}
-  EnableNpcRangedCombat: 1
-  RangedKnockoutByDefault: 0
-  EnableVrStabFinish: 1
-  EnableVrFists: 1
-  EnableVrBows: 1
-  EnableVrCrossbow: 1
-  EnableVrCrossbowManualReload: 1
-  EnableThrowableSpells: 1
-  EnableTwoHandSpellCharge: 1
-  EnableVrTransformations: 1
-  EnableScrollUseOption: 1
-  EnableVrSpellRing: 1
-  EnableRingWeaponSlots: 1
-  EnableRingItemSlots: 1
-  EnableRingZoom: 1
-  EnableVrPickpocket: 1
-  EnableG2VrPickpocket: 1
-  EnableHeroPersonalSpace: 1
-  EnableSneakSlowSprint: 1
-  MinSpellCastSeconds: 2
-  SpellThrowSpeedMultiplier: 1.25
-  SpellThrowFullSwingSpeed: 6
-  EnableHeroSleepBody: 1
-  EnableNpcNavMesh: 1
-  EnableVobWorldLight: 1
-  WorldLightmapBrightness: 1
-  EnableHeroSpellStates: 1
-  EnableVrChainLightning: 1
-  EnableWindfistThrow: 1
-  EnableRoutinePerceptionReset: 1
-  EnableProclaimFromAfar: 1
-  EnableAnimationPfx: 1
-  EnableVisualFxLights: 1
-  EnableVisualFxEarthquake: 1
-  EnableFootstepSounds: 1
-  EnableHeroBodySounds: 1
-  EnableUiGrabBars: 1
-  EnableEndingReturnsToMenu: 1
-  EnableHeroDeath: 1
-  EnableKillerXpOnly: 1
-  EnableOneHitKill: 0
-  EnableOneHitKnockout: 0
-  EnableRangedKnockoutOption: 1
-  EnableVrHeroBlock: 1
-  NpcAttackArrivalThreshold: 0.2
-  NpcDialogStopDistance: 1.3
-  NpcSpellHoming: 0.2
-  RangedCombatRangeMultiplier: 0.8
-  SummonSpawnRangeMultiplier: 0.8
   EnableWorldMesh: 1
   EnableBarrierVisual: 1
   CompressStaticCacheFiles: 1

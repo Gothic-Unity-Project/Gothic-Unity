@@ -15,7 +15,7 @@ namespace Gothic.VR.Adapters.Player
     /// VobItem layer with the mobs' interaction parts (a torch holder's torch, beds, anvils), so no layer can split
     /// them: every item collider coming near the backpack's solid colliders (its hull and the items shown in its
     /// sockets) ignores them, pair by pair. Its sockets' triggers stay untouched (putting an item in still works).
-    /// Added at runtime by VRBackpack.
+    /// On the backpack prefab next to VRBackpack.
     /// </summary>
     public class VRBackpackItemPassThrough : MonoBehaviour
     {

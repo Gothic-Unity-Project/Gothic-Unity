@@ -214,7 +214,8 @@ namespace Gothic.VR.Domain.Player
         }
 
         /// <summary>
-        /// Samples of an earlier hold (a throw, the weapon flying into the hand on a grab) started the next swing at once.
+        /// Samples of an earlier hold (a throw, the weapon flying into the hand on a grab) started the next swing at
+        /// once.
         /// </summary>
         private void ClearVelocityHistory()
         {
@@ -461,11 +462,15 @@ namespace Gothic.VR.Domain.Player
             _hasDroppedBelowThreshold = false;
             _hasReturnedToThreshold = false;
 
-            // Which speeds made this a swing - a trembling hand played the swing sound and effect (to be tuned from it).
-            Logger.Log($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s >= {_attackVelocityThreshold:0.00} " +
-                       $"(samples {string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; weapon body " +
-                       $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, player {_characterController.velocity.magnitude:0.00})",
-                LogCat.VR);
+            // Which speeds made this a swing - a trembling hand played the swing sound and effect (to be tuned from
+            // it). Built inside the call: LogEditor is stripped in release, its arguments then cost nothing.
+            Logger.LogEditor($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s " +
+                             $">= {_attackVelocityThreshold:0.00} " +
+                             $"(samples " +
+                             $"{string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; " +
+                             $"weapon body " +
+                             $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, " +
+                             $"player {_characterController.velocity.magnitude:0.00})", LogCat.VR);
 
             // If no sound is set, ignore playing it and mark it as "played".
             _soundPlayed = _swingSwordSound == null;
@@ -474,10 +479,7 @@ namespace Gothic.VR.Domain.Player
 
             // The swing is the hero's "prehit" - NPCs can parry or jump back.
             if (GetOwner()?.PrefabProps?.IsHero() == true)
-            {
-                var isMeleeWeapon = WeaponVobContainer?.IsMeleeWeapon() == true;
-                GlobalEventDispatcher.HeroMeleeSwing.Invoke(isMeleeWeapon ? WeaponVobContainer.GetItemInstance()!.Material : -1);
-            }
+                GlobalEventDispatcher.HeroMeleeSwing.Invoke();
         }
 
         private bool CheckIfComboWindowFailed()

@@ -31,7 +31,7 @@ namespace Gothic.Core.Const
         };
 
         /// <summary>
-        /// DeveloperConfig.EnableWindfistThrow: DAM_FLY spells that throw their victims away.
+        /// DAM_FLY spells that throw their victims away.
         /// </summary>
         public static readonly HashSet<string> ThrowEffectNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -39,7 +39,7 @@ namespace Gothic.Core.Const
         };
 
         /// <summary>
-        /// DeveloperConfig.EnableTwoHandSpellCharge: spells charged in levels (Spell_ProcessMana returns SPL_NEXTLEVEL)
+        /// Spells charged in levels (Spell_ProcessMana returns SPL_NEXTLEVEL)
         /// - G1's fireball/fire storm/thunderball/wind fist/storm fist/fire rain, G2's charged ones.
         /// </summary>
         public static readonly HashSet<string> ChargeEffectNames = new(StringComparer.OrdinalIgnoreCase)

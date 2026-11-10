@@ -10,6 +10,9 @@ namespace Gothic.Core.Services.Culling
     {
         private NpcMeshCullingDomain _npcDomain => Domain as NpcMeshCullingDomain;
 
+        private readonly List<NpcContainer> _awakeNpcs = new();
+        private int _awakeFrame = -1;
+
 
         public NpcMeshCullingService()
         {
@@ -39,11 +42,20 @@ namespace Gothic.Core.Services.Culling
         }
 
         /// <summary>
-        /// The NPCs that are awake (in visible range) into result, which the caller keeps (no allocation).
+        /// The NPCs that are awake (in visible range), without the hero. One snapshot per frame shared by all callers
+        /// (perception ticks, fight lookups) - no allocation, no scan of the whole world. Read only, don't keep it.
         /// </summary>
-        public void CollectAwakeNpcs(List<NpcContainer> result)
+        public IReadOnlyList<NpcContainer> AwakeNpcs
         {
-            _npcDomain.CollectAwakeNpcs(result);
+            get
+            {
+                if (_awakeFrame != Time.frameCount)
+                {
+                    _awakeFrame = Time.frameCount;
+                    _npcDomain.CollectAwakeNpcs(_awakeNpcs);
+                }
+                return _awakeNpcs;
+            }
         }
 
         public void Update()
@@ -64,11 +76,6 @@ namespace Gothic.Core.Services.Culling
         public List<NpcContainer> GetVisibleNpcs()
         {
             return _npcDomain.GetVisibleNpcs();
-        }
-
-        public IEnumerable<NpcContainer> GetAllNpcContainers()
-        {
-            return _npcDomain.GetAllNpcContainers();
         }
     }
 }

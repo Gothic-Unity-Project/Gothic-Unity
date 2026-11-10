@@ -2,6 +2,7 @@ using Gothic.Core.Models.Npc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
@@ -36,10 +37,17 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly PhysicsService _physicsService;
         [Inject] private readonly ConfigService _configService;
 
-        private readonly HeroSpellStateDomain _heroSpellStateDomain = new HeroSpellStateDomain().Inject();
+        // ExecuteAssessEnemy log de-duplication: the last logged enemy and result per NPC (one log per change).
+        private readonly ConditionalWeakTable<NpcInstance, AssessEnemyLog> _lastLoggedAssessEnemy = new();
 
-        // Reused by UpdateEnemyNpc() on every perception tick.
-        private readonly List<NpcContainer> _awakeNpcs = new();
+        private class AssessEnemyLog
+        {
+            public NpcInstance Enemy;
+            public bool? Result;
+        }
+
+        private readonly HeroSpellStateDomain _heroSpellStateDomain = new HeroSpellStateDomain().Inject();
+        private readonly NpcTargetSelectionDomain _targetSelectionDomain;
 
         // Passive perceptions of this frame, delivered to the NPCs around the sender in their next AI update.
         private readonly List<(VmGothicEnums.PerceptionType Type, Vector3 Position, NpcContainer Sender,
@@ -49,10 +57,18 @@ namespace Gothic.Core.Services.Npc
         private int _deliveryFrame = -1;
 
 
+        public NpcAiService()
+        {
+            // Gets its owner instead of injecting it: NpcAiService isn't resolvable while it is being constructed.
+            _targetSelectionDomain = new NpcTargetSelectionDomain(this).Inject();
+        }
+
         public void Init()
         {
             // Perceptions not delivered yet belong to the NPCs of the world they were sent in.
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearPassivePerceptions);
+            GlobalEventDispatcher.LoadGameStart.AddListener(_heroSpellStateDomain.Reset);
+            GlobalEventDispatcher.UnloadGameStart.AddListener(_heroSpellStateDomain.Reset);
         }
 
         private void ClearPassivePerceptions()
@@ -99,9 +115,11 @@ namespace Gothic.Core.Services.Npc
 
         private void LogAssessEnemy(NpcProperties properties, NpcInstance self, NpcInstance enemy, bool isAccepted)
         {
-            if (properties.LastLoggedAssessEnemy.Enemy == enemy && properties.LastLoggedAssessEnemy.Result == isAccepted)
+            var last = _lastLoggedAssessEnemy.GetOrCreateValue(self);
+            if (last.Enemy == enemy && last.Result == isAccepted)
                 return;
-            properties.LastLoggedAssessEnemy = (enemy, isAccepted);
+            last.Enemy = enemy;
+            last.Result = isAccepted;
 
             var selfGo = self.GetUserData()?.Go;
             var enemyGo = enemy.GetUserData()?.Go;
@@ -125,7 +143,7 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Call an NPC Perception (active like Assess_Player or passive like Assess_Talk are possible).
-        /// Returns null when it didn't run (not set, disabled, knocked out, chase cooldown, an exception), otherwise
+        /// Returns null when it didn't run (not set, disabled, knocked out, an exception), otherwise
         /// the script's answer: an int function's value (G2 B_AssessEnemy returns FALSE to reject), true for void.
         /// </summary>
         public bool? ExecutePerception(VmGothicEnums.PerceptionType type, NpcProperties properties, NpcInstance self,
@@ -145,13 +163,10 @@ namespace Gothic.Core.Services.Npc
             // A knocked out NPC senses nothing but magic until he stands up
             // (ZS_Unconscious only enables PERC_ASSESSMAGIC) - also in the frames before ZS_Unconscious starts.
             if (type != VmGothicEnums.PerceptionType.AssessMagic &&
-                NpcHelperService.IsKnockedOut(self?.GetUserData()))
+                (self?.GetUserData()).IsKnockedOut())
             {
                 return null;
             }
-
-            if (IsHeroChaseCoolingDown(type, properties, self, other))
-                return null;
 
             // Like the engine, other and victim are this perception's, null included (VmGlobalsScope). Disposing
             // the scope ensures a throwing perception function doesn't leave the globals polluted for every
@@ -259,7 +274,7 @@ namespace Gothic.Core.Services.Npc
         {
             // A knocked out NPC lies on the ground: nobody notices him by sight (no enemy, no fighter).
             var otherContainer = other?.GetUserData();
-            if (otherContainer?.Props?.IsKnockedOut == true)
+            if (otherContainer.IsKnockedOut())
                 return false;
 
             // A seated NPC looks the way its body faces - NpcHelperService.CanSeeNpc.
@@ -437,9 +452,8 @@ namespace Gothic.Core.Services.Npc
             if (container?.Go == null || target?.Go == null)
                 return;
 
-            var finishDistance = (_gameStateService.GothicVm.GetSymbolByName("NPC_ATTACK_FINISH_DISTANCE")?.GetInt(0) ??
-                                  _defaultFinishDistanceCm) / 100f;
-            if (Vector3.Distance(container.Go.transform.position, target.Go.transform.position) > finishDistance)
+            if (Vector3.Distance(container.Go.transform.position, target.Go.transform.position) >
+                GetFinishDistanceMeters())
                 ExtAiGoToNpc(self, other);
             ExtAiTurnToNpc(self, other);
             if ((VmGothicEnums.WeaponState)container.Vob.FightMode is not (VmGothicEnums.WeaponState.W1H or
@@ -450,6 +464,15 @@ namespace Gothic.Core.Services.Npc
         }
 
         private const int _defaultFinishDistanceCm = 180;
+
+        /// <summary>
+        /// NPC_ATTACK_FINISH_DISTANCE - how close a finishing move is done (the NPCs' and the hero's).
+        /// </summary>
+        public float GetFinishDistanceMeters()
+        {
+            return (_gameStateService.GothicVm?.GetSymbolByName(DaedalusConst.NpcAttackFinishDistance)?.GetInt(0) ??
+                    _defaultFinishDistanceCm) / 100f;
+        }
 
         public void ExtAiGoToNpc(NpcInstance self, NpcInstance other)
         {
@@ -476,9 +499,9 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <param name="isScriptCall">False for state changes of the engine itself (knockout): like the engine, the old
-        /// state's _End isn't called and the queue doesn't wait for dialog lines (EnableQueuedStateEnd).</param>
+        /// state's _End isn't called and the queue doesn't wait for dialog lines.</param>
         /// <summary>
-        /// DeveloperConfig.EnableHeroSpellStates: the sleep/freeze state a spell puts the hero in (HeroSpellStateDomain).
+        /// The sleep/freeze state a spell puts the hero in (HeroSpellStateDomain).
         /// </summary>
         public void ApplyHeroSpellState(NpcContainer hero, string mfxName)
         {
@@ -493,12 +516,12 @@ namespace Gothic.Core.Services.Npc
 
             var container = npc.GetUserData();
 
-            // DeveloperConfig.EnableHeroSpellStates: G2's Spell_Logic_Sleep puts its victim to sleep itself
+            // G2's Spell_Logic_Sleep puts its victim to sleep itself
             // (AI_StartState(other, ZS_MagicSleep)) - the hero runs no states, it was queued and never happened.
-            if (_configService.Dev.EnableHeroSpellStates && container?.Vob != null && container.Vob.Player)
+            if (container?.Vob != null && container.Vob.Player)
             {
                 var stateName = _gameStateService.GothicVm.GetSymbolByIndex(action)?.Name;
-                if (stateName is "ZS_MAGICSLEEP" or "ZS_MAGICFREEZE")
+                if (HeroSpellStateDomain.IsSpellState(stateName))
                 {
                     // The hero's own spell without a target - the
                     // script's other was the hero himself (OpenGothic: no other, nothing happens), Sleep cast past Ignaz
@@ -539,8 +562,7 @@ namespace Gothic.Core.Services.Npc
                     Logger.Log($"[ExtAiStartState] {npc.GetName(NpcNameSlot.Slot0)}: queued after the dialog's lines",
                         LogCat.Ai);
                 }
-                else if (!container.Props.AnimationQueue.OfType<UndrawWeapon>().Any() &&
-                         !container.Props.AnimationQueue.OfType<StandUp>().Any())
+                else if (!container.Props.HasQueued<UndrawWeapon>() && !container.Props.HasQueued<StandUp>())
                 {
                     container.PrefabProps?.AiHandler?.ClearState(false);
                 }
@@ -550,13 +572,13 @@ namespace Gothic.Core.Services.Npc
                 container.Props.StateEnd = 0;
                 container.Props.CurrentWayPoint = null;
 
-                if (container.Props.AnimationQueue.OfType<UndrawWeapon>().Any())
+                if (container.Props.HasQueued<UndrawWeapon>())
                 {
                     // UndrawWeapon is already queued (B_RemoveWeapon in ZS_Attack_End).
                     // Let it play the sheath animation; StartState enqueued below will follow it.
                     Logger.LogWarning($"[ExtAiStartState] pending UndrawWeapon — deferring state clear so sheath plays", LogCat.Fight);
                 }
-                else if (container.Props.AnimationQueue.OfType<StandUp>().Any())
+                else if (container.Props.HasQueued<StandUp>())
                 {
                     // StandUp was just enqueued (e.g. AI_StandUp in ZS_Unconscious_End before AI_StartState).
                     // Don't clear the queue — let the standup animation play; StartState follows it.
@@ -578,8 +600,7 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private static bool IsTalking(NpcContainer container)
         {
-            return container.Props.AnimationQueue.Any(i =>
-                i is Output or OutputSvm or StartProcessInfos or StopProcessInfos);
+            return container.Props.HasQueued(i => i is Output or OutputSvm or StartProcessInfos or StopProcessInfos);
         }
 
         public void ExtAiLookAt(NpcInstance npc, string wayPointName)
@@ -813,7 +834,7 @@ namespace Gothic.Core.Services.Npc
             // running or queued (e.g. ZS_SitAround_End: AI_UseMob(BENCH, -1)).
             var props = container.Props;
             var isBackTransitionPending = props.CurrentAction is UseMob { IsStopUsingMob: true } ||
-                                          props.AnimationQueue.OfType<UseMob>().Any(u => u.IsStopUsingMob);
+                                          props.HasQueued(i => i is UseMob { IsStopUsingMob: true });
             if (container.IsUsingMob() && !isBackTransitionPending)
             {
                 var scheme = container.PrefabProps.CurrentInteractable.Props.GetVisualScheme();
@@ -998,7 +1019,8 @@ namespace Gothic.Core.Services.Npc
         private bool IsChasingRunningHero(NpcProperties props)
         {
             if (_zsAttackLoopIndex == -2)
-                _zsAttackLoopIndex = _gameStateService.GothicVm.GetSymbolByName("ZS_ATTACK_LOOP")?.Index ?? -1;
+                _zsAttackLoopIndex = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.ZsAttackLoop)?.Index
+                                     ?? -1;
             if (_zsAttackLoopIndex < 0 || props.StateLoop != _zsAttackLoopIndex)
                 return false;
 
@@ -1063,48 +1085,6 @@ namespace Gothic.Core.Services.Npc
         private readonly HashSet<int> _sneakIgnoringGuards = new();
         private const float _caughtHeroDistance = 4f;
         private HashSet<int> _attackLoopIndices;
-
-        /// <summary>
-        /// An attack loop on the hero ended (he got away: too far, or ran too
-        /// long - often right next to the NPC, which is as fast as him) - remember when.
-        /// </summary>
-        public void RememberHeroChaseGivenUp(NpcInstance npc, NpcProperties props, string stateName)
-        {
-            if (stateName == null ||
-                !stateName.Contains("ATTACK", System.StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
-            if (hero == null || props.TargetNpc == null || props.TargetNpc.Index != hero.Index)
-                return;
-            // The hero knocked down or dead isn't an escape.
-            var heroState = hero.GetUserData()?.Props.BodyState;
-            if (heroState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
-                return;
-
-            props.HeroChaseGivenUpTime = Time.time;
-            Logger.Log($"[ChaseCooldown] {npc.GetName(NpcNameSlot.Slot0)} gave up the hero - no re-aggro for " +
-                       $"{_chaseCooldownSeconds:F0} s unless he attacks", LogCat.Ai);
-        }
-
-        /// <summary>
-        /// Vanilla has no hysteresis: after giving up, PERC_ASSESSENEMY / a comrade's PERC_ASSESSWARN within the 20 m
-        /// senses range starts the fight again at once - the NPC gave up and came back endlessly. After giving up it
-        /// ignores the hero for a while; hitting it (PERC_ASSESSDAMAGE) still starts a fight.
-        /// </summary>
-        private bool IsHeroChaseCoolingDown(VmGothicEnums.PerceptionType type, NpcProperties props, NpcInstance self,
-            NpcInstance other)
-        {
-            if (type is not (VmGothicEnums.PerceptionType.AssessEnemy or VmGothicEnums.PerceptionType.AssessWarn))
-                return false;
-            if (Time.time - props.HeroChaseGivenUpTime > _chaseCooldownSeconds)
-                return false;
-
-            var hero = _gameStateService.GothicVm.GlobalHero as NpcInstance;
-            return hero != null && other != null && other.Index == hero.Index;
-        }
-
-        private const float _chaseCooldownSeconds = 5f;
 
         public void ExtNpcSetStateTime(NpcInstance npc, int seconds)
         {
@@ -1174,10 +1154,11 @@ namespace Gothic.Core.Services.Npc
                 return 0;
 
             Vector3 npc2Pos;
-            // If hero: use camera position (VR head position is most accurate)
-            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index)
+            // If hero: use camera position (VR head position is most accurate). No camera (scene switch): his body.
+            var camera = Camera.main;
+            if (npc2.Index == _gameStateService.GothicVm.GlobalHero?.Index && camera != null)
             {
-                npc2Pos = Camera.main!.transform.position;
+                npc2Pos = camera.transform.position;
             }
             else
             {
@@ -1232,13 +1213,6 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiReadyRangedWeapon(NpcInstance npc)
         {
-            if (!_configService.Dev.EnableNpcRangedCombat)
-            {
-                // Ranged combat disabled - draw melee instead so the NPC doesn't stand empty-handed.
-                ExtAiDrawWeapon(npc);
-                return;
-            }
-
             var container = npc.GetUserData();
             // int0 == 1 --> DrawWeapon picks the equipped ranged weapon instead of the melee one.
             container.Props.AnimationQueue.Enqueue(new DrawWeapon(new AnimationAction(int0: 1), container));
@@ -1353,16 +1327,6 @@ namespace Gothic.Core.Services.Npc
             return item.Owner == npc.Index;
         }
 
-        // Shared by every auto target-acquisition heuristic below — a party member (summon/ally) should
-        // never be picked up as a new/replacement target by these, only ever by the deliberate combat
-        // flow (ActivatePartyMemberAttack) that mirrors the hero's own target.
-        private bool IsPartyMember(NpcInstance npc)
-        {
-            var partySymbol = _gameStateService.GothicVm.GetSymbolByName("AIV_MM_PARTYMEMBER");
-            if (partySymbol == null) return false;
-            return npc.GetAiVar(partySymbol.GetInt(0)) == 1;
-        }
-
         public VmGothicEnums.Attitude ExtGetAttitude(NpcInstance self, NpcInstance other)
         {
             var npc1 = self.GetUserData();
@@ -1432,7 +1396,9 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtSetTarget(NpcInstance npc, NpcInstance target)
         {
-            var props = npc.GetUserData().Props;
+            var props = npc.GetUserData()?.Props;
+            if (props == null)
+                return;
             props.TargetNpc = target;
             // Engine: the target is the enemy AI_Attack fights (berzerk picks another NPC).
             if (target != null)
@@ -1441,78 +1407,7 @@ namespace Gothic.Core.Services.Npc
 
         public int ExtGetNextTarget(NpcInstance npc)
         {
-            var selfNpc = npc.GetUserData();
-            var selfPosition = selfNpc.Go.transform.position;
-
-            NpcContainer closestEnemy = null;
-            var closestSqrDist = float.MaxValue;
-
-            var sensesRangeMeters = npc.SensesRange / 100f;
-            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
-
-            var enemyOverrideAivar = _gameStateService.GothicVm.GetSymbolByName("AIV_ENEMYOVERRIDE")?.GetInt(0) ?? -1;
-
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                if (candidate.Props == null || candidate.Go == null)
-                    continue;
-                if (candidate.Instance.Index == npc.Index)
-                    continue;
-                if (NpcHelperService.IsDown(candidate))
-                    continue;
-
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
-                    continue;
-
-                // Party members (summons/allies) are never a valid auto-acquired target, full stop —
-                // not even "unless they already provoked me." That carve-out used to check whether
-                // self's OWN target field already pointed at the candidate, which is trivially true
-                // once something else has already (wrongly) force-switched onto them, so it let a
-                // summon get picked right back up as "next target" after the bug that put it there in
-                // the first place. NPCs should always re-focus the hero (the real aggressor), not a
-                // summon that's just piling on damage alongside them.
-                if (IsPartyMember(candidate.Instance))
-                    continue;
-
-                // Same-guild NPCs are never a valid auto-acquired target — vanilla never exercises
-                // Npc_GetNextTarget() against a fellow guild member, so an under-specified guild-attitude
-                // entry (or a leftover personal attitude flag) resolving to Hostile between two guards
-                // has no vanilla behavior to fall back on. Safety net regardless of the attitude table.
-                if (candidate.Instance.Guild == npc.Guild)
-                    continue;
-
-                // A summon never targets its own summoner, even when their guilds differ (e.g. a
-                // SkeletonMage is GIL_DEMON so it "flies" instead of wading, but its GIL_SKELETON
-                // summons don't share that guild) — see NpcContainer.SummonedBy.
-                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index)
-                    continue;
-
-                if (ExtGetAttitude(npc, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
-                    continue;
-
-                // DeveloperConfig.EnableEnemyOverrideNextTarget (G2): AIV_EnemyOverride NPCs (the bandits on the road
-                // below Xardas' tower) leave the guild-hostile hero alone until he talks to them (B_AssessEnemy skips
-                // them). After killing a wolf, ZS_Attack_Loop's Npc_GetNextTarget picked the bystanding hero.
-                if (enemyOverrideAivar >= 0 && candidate.PrefabProps != null && candidate.PrefabProps.IsHero() &&
-                    npc.GetAiVar(enemyOverrideAivar) != 0)
-                    continue;
-
-                closestSqrDist = sqrDist;
-                closestEnemy = candidate;
-            }
-
-            if (closestEnemy == null)
-            {
-                Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)}: no next target", LogCat.Fight);
-                return 0;
-            }
-
-            selfNpc.Props.TargetNpc = closestEnemy.Instance;
-            selfNpc.Props.EnemyNpc = closestEnemy.Instance;
-            _gameStateService.GothicVm.GlobalOther = closestEnemy.Instance;
-            Logger.Log($"[GetNextTarget] {npc.GetName(NpcNameSlot.Slot0)} → {closestEnemy.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.Fight);
-            return 1;
+            return _targetSelectionDomain.FindNextTarget(npc);
         }
 
         /// <summary>
@@ -1595,7 +1490,7 @@ namespace Gothic.Core.Services.Npc
                 return;
             if (receiver.PrefabProps != null && receiver.PrefabProps.IsHero())
                 return;
-            if (receiver.Props.IsDown)
+            if (receiver.IsDown())
                 return;
 
             var position = receiver.Go.transform.position;
@@ -1666,7 +1561,7 @@ namespace Gothic.Core.Services.Npc
 
         private bool IsFriendlyNonHumanWarner(NpcContainer receiver, NpcInstance warner, NpcInstance threat)
         {
-            return warner != null && threat != null && warner.Guild > (int)VmGothicEnums.Guild.GIL_SEPERATOR_HUM &&
+            return warner != null && threat != null && warner.Guild > _gameStateService.GuildSeparatorHuman &&
                    ExtGetAttitude(receiver.Instance, warner) == VmGothicEnums.Attitude.Friendly;
         }
 
@@ -1706,279 +1601,19 @@ namespace Gothic.Core.Services.Npc
         
 
         /// <summary>
-        /// PERC_ASSESSBODY's other: the closest dead NPC the NPC senses (senses_range, sight/hearing like enemies).
+        /// PERC_ASSESSBODY's other: the closest dead NPC the NPC senses - see NpcTargetSelectionDomain.
         /// </summary>
         public NpcInstance FindClosestSensedBody(NpcInstance self)
         {
-            var selfNpc = self.GetUserData();
-            if (selfNpc?.Go == null)
-                return null;
-
-            var selfPosition = selfNpc.Go.transform.position;
-            var sensesRangeMeters = self.SensesRange / 100f;
-            var closestSqrDist = sensesRangeMeters * sensesRangeMeters;
-            NpcContainer closest = null;
-
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                if (candidate == selfNpc || candidate.Props == null || candidate.Go == null) continue;
-                if (!candidate.Props.IsDead) continue;
-
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist > closestSqrDist) continue;
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, false)) continue;
-
-                closestSqrDist = sqrDist;
-                closest = candidate;
-            }
-
-            return closest?.Instance;
+            return _targetSelectionDomain.FindClosestSensedBody(self);
         }
 
+        /// <summary>
+        /// PERC_ASSESSENEMY's target: keeps a still valid enemy, else the closest hostile one sensed.
+        /// </summary>
         public void UpdateEnemyNpc(NpcInstance self)
         {
-            var selfNpc = self.GetUserData();
-            var selfPosition = selfNpc.Go.transform.position;
-
-            var sensesRangeMeters = self.SensesRange / 100f;
-            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
-
-            // Keep the current target if it's still a valid hostile, instead of re-scanning "closest
-            // hostile" completely from scratch every tick. Without this, any momentary crossover in
-            // relative distance between two similarly-far candidates flips the target — and once
-            // flipped, the NPC's already-active combat state just keeps pursuing the new one, with no
-            // way back. Confirmed via logs: scavengers that first reacted to the hero permanently
-            // switched to attacking a nearby bystander NPC once it became marginally closer, and never
-            // reconsidered even though the hero (the actual provoker) stayed just as close.
-            var currentTarget = selfNpc.Props.EnemyNpc;
-            if (currentTarget != null)
-            {
-                var currentTargetNpc = currentTarget.GetUserData();
-                // Unconscious excluded too, not just dead — an incapacitated target isn't an ongoing
-                // fight to keep confirming every tick (matches ExtGetNextTarget, which already
-                // excludes both states).
-                var stillValid = currentTargetNpc != null &&
-                                  currentTargetNpc.Go != null &&
-                                  !NpcHelperService.IsDown(currentTargetNpc) &&
-                                  currentTarget.Guild != self.Guild &&
-                                  !IsPartyMember(currentTarget) &&
-                                  (selfNpc.SummonedBy == null || selfNpc.SummonedBy.Index != currentTarget.Index) &&
-                                  ExtGetAttitude(self, currentTarget) == VmGothicEnums.Attitude.Hostile &&
-                                  (currentTargetNpc.Go.transform.position - selfPosition).sqrMagnitude <= sensesRangeSqr &&
-                                  _npcHelperService.CanSenseNpc(self, currentTarget, true);
-                if (stillValid)
-                {
-                    selfNpc.Props.TargetNpc = currentTarget;
-                    return;
-                }
-            }
-
-            NpcContainer closestEnemy = null;
-            var closestSqrDist = float.MaxValue;
-
-            // Only the hero and the NPCs that are awake: asleep NPCs are far away and frozen. Scanning every NPC of
-            // the world on each perception made crowded places stutter (Old Camp: 52 awake of 992).
-            var hero = _gameStateService.GothicVm.GetHeroContainer();
-            if (hero != null && IsCloserEnemy(selfNpc, selfPosition, hero, sensesRangeSqr, ref closestSqrDist))
-                closestEnemy = hero;
-
-            _npcMeshCullingService.CollectAwakeNpcs(_awakeNpcs);
-            foreach (var candidate in _awakeNpcs)
-            {
-                if (IsCloserEnemy(selfNpc, selfPosition, candidate, sensesRangeSqr, ref closestSqrDist))
-                    closestEnemy = candidate;
-            }
-
-            // Mirror into TargetNpc too (consumed by ZS_Attack_Loop's Npc_GetTarget()). Must also be
-            // cleared to null when no hostile is found — otherwise a stale TargetNpc (e.g. hero, from
-            // before this NPC's attitude was changed to Friendly/Neutral) keeps being picked up by the
-            // Daedalus loop forever since Npc_GetTarget() never re-checks attitude itself.
-            selfNpc.Props.EnemyNpc = closestEnemy?.Instance;
-            selfNpc.Props.TargetNpc = closestEnemy?.Instance;
-        }
-
-        /// <summary>
-        /// The candidate is a hostile NPC self senses, closer than the closest one so far (which it then becomes).
-        /// </summary>
-        private bool IsCloserEnemy(NpcContainer selfNpc, Vector3 selfPosition, NpcContainer candidate,
-            float sensesRangeSqr, ref float closestSqrDist)
-        {
-            var self = selfNpc.Instance;
-
-            // Fast-fail checks in order of cheapest first
-            if (candidate.Props == null || candidate.Go == null)
-                return false;
-
-            if (candidate.Instance.Index == self.Index)
-                return false;
-
-            // Corpses aren't enemies, and neither is someone currently knocked out.
-            if (NpcHelperService.IsDown(candidate))
-                return false;
-
-            // Range and closest-so-far gates before the expensive attitude and senses checks
-            // (senses may include a line-of-sight raycast for see-only monsters).
-            var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-            if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist)
-                return false;
-
-            // Safety net regardless of the guild-attitude table — see ExtGetNextTarget.
-            if (candidate.Instance.Guild == self.Guild)
-                return false;
-
-            // Party members (summons/allies) never a valid auto-acquired target — see ExtGetNextTarget.
-            if (IsPartyMember(candidate.Instance))
-                return false;
-
-            // A summon never targets its own summoner — see ExtGetNextTarget / NpcContainer.SummonedBy.
-            if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index)
-                return false;
-
-            if (ExtGetAttitude(self, candidate.Instance) != VmGothicEnums.Attitude.Hostile)
-                return false;
-
-            // Hearing/smell detect through walls (matches vanilla — e.g. a sleeping molerat wakes
-            // to nearby footsteps without seeing the source); only SENSE_SEE requires LOS+FOV.
-            // CanSenseNpc(freeLOS=true) handles that split internally.
-            if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true))
-                return false;
-
-            closestSqrDist = sqrDist;
-            return true;
-        }
-        /// <summary>
-        /// Switches focus to a nearby NPC/monster that is actively fighting >self< (has self as their
-        /// own TargetNpc/EnemyNpc), even when self's current target is hostile-by-guild-table but out of
-        /// sight (e.g. the hero heard through a wall). This covers companions (Cavalorn) and monsters
-        /// (wolves) engaging in melee, whose guild relation to self isn't marked Hostile in the guild
-        /// table. Unlike <see cref="UpdateEnemyNpc"/>, this is NOT gated behind PERC_ASSESSENEMY being
-        /// registered — combat states like ZS_Attack don't register that perception at all, so without
-        /// this NPCs already locked onto the hero would never notice someone else engaging them in melee.
-        /// </summary>
-        public void UpdateActiveAttackerTarget(NpcInstance self)
-        {
-            var selfNpc = self.GetUserData();
-            if (selfNpc?.Go == null)
-                return;
-
-            // Keep the current target if it's still alive and visible — avoids thrashing away from a
-            // valid fight once LOS to it is (re)established.
-            var currentTarget = selfNpc.Props.TargetNpc;
-            if (currentTarget != null)
-            {
-                var currentTargetNpc = currentTarget.GetUserData();
-                if (currentTargetNpc != null &&
-                    currentTargetNpc.Props.BodyState != VmGothicEnums.BodyState.BsDead &&
-                    ExtNpcCanSeeNpc(self, currentTarget, false))
-                    return;
-            }
-
-            var selfPosition = selfNpc.Go.transform.position;
-            var sensesRangeMeters = self.SensesRange / 100f;
-            var sensesRangeSqr = sensesRangeMeters * sensesRangeMeters;
-
-            NpcContainer attacker = null;
-            var closestSqrDist = float.MaxValue;
-
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                if (candidate.Props == null || candidate.Go == null) continue;
-                if (candidate.Instance.Index == self.Index) continue;
-                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
-
-                // Candidate must currently be fighting self (has self as their own target/enemy).
-                var targetIdx = candidate.Props.TargetNpc?.Index ?? -1;
-                var enemyIdx = candidate.Props.EnemyNpc?.Index ?? -1;
-                if (targetIdx != self.Index && enemyIdx != self.Index) continue;
-
-                // Never auto-switch onto someone explicitly Friendly to self (e.g. an NPC the player
-                // pacified/saved earlier) even if a stale target reference points at self. Same-guild
-                // is excluded unconditionally too — safety net regardless of the guild-attitude table.
-                // Party members excluded unconditionally as well, even though the precondition above
-                // already means one is "actively fighting self" — a summon landing incidental hits on
-                // an NPC that's really fighting the hero shouldn't steal that NPC's focus (see ExtGetNextTarget).
-                if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
-                if (candidate.Instance.Guild == self.Guild) continue;
-                if (IsPartyMember(candidate.Instance)) continue;
-                // A summon never targets its own summoner — see ExtGetNextTarget / NpcContainer.SummonedBy.
-                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index) continue;
-
-                var sqrDist = (candidate.Go.transform.position - selfPosition).sqrMagnitude;
-                if (sqrDist > sensesRangeSqr || sqrDist >= closestSqrDist) continue;
-                // Hearing/smell detect through walls, matching the "heard through a wall" case this
-                // method is meant to cover (see doc comment above) — only SENSE_SEE requires LOS+FOV.
-                if (!_npcHelperService.CanSenseNpc(self, candidate.Instance, true)) continue;
-
-                closestSqrDist = sqrDist;
-                attacker = candidate;
-            }
-
-            if (attacker == null)
-                return;
-
-            selfNpc.Props.EnemyNpc = attacker.Instance;
-            selfNpc.Props.TargetNpc = attacker.Instance;
-        }
-
-        // B_AssessFighter.d has "if (!Npc_IsPlayer(other)) return" — so vanilla Daedalus never
-        // makes NPCs react to an armed non-player NPC approaching them. We add that missing
-        // NPC→NPC armed-threat detection here: if an NPC with drawn weapon is actively engaged
-        // in combat (TargetNpc set) and visible within ~4m, self enters ZS_AssessFighter just
-        // as it would if the player had drawn a weapon nearby.
-        public void CheckForArmedNpcThreat(NpcInstance self)
-        {
-            var selfNpc = self.GetUserData();
-            if (selfNpc?.Go == null) return;
-
-            const float threatRangeMeters = 4f; // slightly beyond HAI_DIST_MELEE (~3m)
-            var selfPos = selfNpc.Go.transform.position;
-
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
-            {
-                if (candidate.Props == null || candidate.Go == null) continue;
-                if (candidate.Instance.Index == self.Index) continue;
-                if (candidate.Props.BodyState == VmGothicEnums.BodyState.BsDead) continue;
-                // The hero is Daedalus' job (PERC_ASSESSFIGHTER, its warnings escalate). With the hero's fight target
-                // still set after a hit, this restarted ZS_AssessFighter every tick - the first warning forever.
-                if (candidate.PrefabProps != null && candidate.PrefabProps.IsHero()) continue;
-
-                var weaponState = (VmGothicEnums.WeaponState)candidate.Vob.FightMode;
-                if (weaponState == VmGothicEnums.WeaponState.NoWeapon ||
-                    weaponState == VmGothicEnums.WeaponState.Fist) continue;
-
-                // Only react to NPCs actively engaged in combat, not patrol NPCs holding ranged weapons.
-                if (candidate.Props.TargetNpc == null) continue;
-
-                if (Vector3.Distance(selfPos, candidate.Go.transform.position) > threatRangeMeters) continue;
-
-                // Mirror B_AssessFighter: ignore friendly NPCs (e.g. allies training), react to all others.
-                // Same-guild excluded unconditionally too — this mechanic has no vanilla precedent for
-                // guild-mates fighting each other, so don't rely solely on the guild-attitude table for it.
-                // Party members excluded too — a summon actively fighting nearby shouldn't itself read as
-                // an "armed threat" to bystanders; they should still only ever focus the hero.
-                if (ExtGetAttitude(self, candidate.Instance) == VmGothicEnums.Attitude.Friendly) continue;
-                if (candidate.Instance.Guild == self.Guild) continue;
-                if (IsPartyMember(candidate.Instance)) continue;
-                // A summon never treats its own summoner as an armed threat — see ExtGetNextTarget / NpcContainer.SummonedBy.
-                if (selfNpc.SummonedBy != null && selfNpc.SummonedBy.Index == candidate.Instance.Index) continue;
-
-                if (!ExtNpcCanSeeNpc(self, candidate.Instance, false)) continue;
-
-                var zsAssessFighterSym = _gameStateService.GothicVm.GetSymbolByName("ZS_AssessFighter");
-                if (zsAssessFighterSym == null) return;
-                // Already sizing someone up - restarting the state would reset its warnings.
-                if (selfNpc.Vob.CurrentStateName?.StartsWithIgnoreCase("ZS_ASSESSFIGHTER") == true) return;
-
-                selfNpc.Props.EnemyNpc = candidate.Instance;
-                selfNpc.Props.TargetNpc = candidate.Instance;
-                Logger.Log($"[NpcAiService] {self.GetName(NpcNameSlot.Slot0)} reacts to armed {candidate.Instance.GetName(NpcNameSlot.Slot0)} — ZS_AssessFighter", LogCat.Fight);
-
-                var oldOther = _gameStateService.GothicVm.GlobalOther;
-                _gameStateService.GothicVm.GlobalOther = candidate.Instance;
-                ExtAiStartState(self, zsAssessFighterSym.Index, false, "");
-                _gameStateService.GothicVm.GlobalOther = oldOther;
-                break;
-            }
+            _targetSelectionDomain.UpdateEnemyNpc(self);
         }
 
         /// <summary>
@@ -2037,10 +1672,11 @@ namespace Gothic.Core.Services.Npc
             var notified = 0;
             notifiedNpcs = new List<string>();
 
-            foreach (var candidate in _multiTypeCacheService.NpcCache)
+            var awakeNpcs = _npcMeshCullingService.AwakeNpcs;
+            foreach (var candidate in awakeNpcs)
             {
                 if (candidate == hero || candidate.Props == null) continue;
-                if (NpcHelperService.IsDown(candidate)) continue;
+                if (candidate.IsDown()) continue;
                 // Culled NPCs don't perceive anything.
                 if (candidate.Go == null || !candidate.Go.activeInHierarchy) continue;
                 if (!candidate.Props.Perceptions.TryGetValue(perception, out var perceptionFunction) || perceptionFunction < 0) continue;
