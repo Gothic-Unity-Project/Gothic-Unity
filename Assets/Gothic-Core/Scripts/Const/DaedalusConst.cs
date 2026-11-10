@@ -62,6 +62,10 @@ namespace Gothic.Core.Const
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";
 
+        // Vanilla G1/G2 END entries of a dialog: nr = 999, description = DIALOG_ENDE.
+        public const int DialogExitInfoNr = 999;
+        public const string DialogExitDescription = "DIALOG_ENDE";
+
         // Spell_ProcessMana / Spell_ProcessMana_Release return values (spells_params.d SPL_*).
         public const int SplSendCast = 2;
         public const int SplSendStop = 3;
