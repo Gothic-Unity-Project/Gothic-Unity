@@ -8,19 +8,23 @@ using Logger = Gothic.Core.Logging.Logger;
 using UnityEditor;
 #endif
 
-namespace Gothic.Core.Domain
+namespace Gothic.Core.Services.Game
 {
     /// <summary>
-    /// "Restart game" from our settings menu: a fresh start that shows the game profile list again (if enabled).
+    /// Restarts or quits the game process - "Restart game" from our settings menu and the end of the game
+    /// (GameEndingService). A restart is a fresh start that shows the game profile list again (if enabled).
     /// Editor: stops Play mode and enters it again. Standalone: starts the exe again and quits this one.
     /// The game can't switch Gothic version/mod in place - ZenKit, the VM and caches are set up once per start.
     /// </summary>
-    public static class GameRestartDomain
+    public class GameLifecycleService
     {
         private const string _dataFolderSuffix = "_Data";
 #if UNITY_EDITOR
         private const string _replayKey = "Gothic.RestartGame.EnterPlayMode";
 
+        /// <summary>
+        /// Editor hook (static, outside DI): enters Play mode again once Restart() stopped it.
+        /// </summary>
         [InitializeOnLoadMethod]
         private static void RegisterEditorReplay()
         {
@@ -37,9 +41,9 @@ namespace Gothic.Core.Domain
         }
 #endif
 
-        public static void Restart()
+        public void Restart()
         {
-            Logger.Log("Restarting the game (settings menu).", LogCat.Loading);
+            Logger.Log("Restarting the game.", LogCat.Loading);
 #if UNITY_EDITOR
             SessionState.SetBool(_replayKey, true);
             EditorApplication.isPlaying = false;
@@ -80,12 +84,12 @@ namespace Gothic.Core.Domain
         /// <summary>
         /// A headset app can't start itself again (Quest, Pico) - the menu hides "Restart game" there.
         /// </summary>
-        public static bool IsRestartPossible => !Application.isMobilePlatform;
+        public bool IsRestartPossible => !Application.isMobilePlatform;
 
         /// <summary>
         /// Closes the game. Editor: stops Play mode.
         /// </summary>
-        public static void Quit()
+        public void Quit()
         {
 #if UNITY_EDITOR
             EditorApplication.isPlaying = false;

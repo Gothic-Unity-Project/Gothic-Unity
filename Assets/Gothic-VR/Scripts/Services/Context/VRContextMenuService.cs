@@ -4,12 +4,12 @@ using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
 using Gothic.Services.UI;
 using Gothic.Core;
 using Gothic.Core.Const;
-using Gothic.Core.Domain;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
@@ -25,6 +25,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly LocalizationService _localizationService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmService _vmService;
+        [Inject] private readonly GameLifecycleService _gameLifecycleService;
 
         private const int _rowsPerPage = 6;
         
@@ -189,7 +190,7 @@ namespace Gothic.VR.Services.Context
                     "G2: sneaking, a purse to grab on whom you could pickpocket"),
                 CreateToggleChoice(gameMenu, "PICKPOCKET_PURSE", VRConstants.IniNames.PickpocketPurse,
                     VRConstants.PickpocketPurseDefaultValue)));
-            if (GameRestartDomain.IsRestartPossible)
+            if (_gameLifecycleService.IsRestartPossible)
                 rows.Add((CreateRestartButton(mainMenu), null));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
@@ -310,7 +311,7 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Starts the game again (GameRestartDomain) - e.g. to pick another game profile.
+        /// Starts the game again (GameLifecycleService) - e.g. to pick another game profile.
         /// </summary>
         private MutableMenuItemInstance CreateRestartButton(AbstractMenuInstance mainMenu)
         {
