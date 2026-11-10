@@ -72,7 +72,7 @@ namespace Gothic.Core.Domain.Npc
             var isTargetHero = target.Instance.IsHero(_gameStateService.GothicVm);
             // NPC_FLAG_IMMORTAL: take no damage, but combat still plays out normally. Marvin's god mode for the hero
             // likewise (the script flag is left alone - AI reads it).
-            if (((int)target.Instance.Flags & FightConst.NpcFlagImmortal) != 0 || (isTargetHero && _playerService.IsGodMode))
+            if (target.Instance.IsImmortal() || (isTargetHero && _playerService.IsGodMode))
             {
                 Logger.Log($"[FightService] {target.Instance.GetName(NpcNameSlot.Slot0)} is immortal — 0 damage",
                     LogCat.Npc);

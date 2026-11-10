@@ -1,7 +1,11 @@
 using Gothic.Core.Creator;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.UI;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
@@ -21,6 +25,7 @@ namespace Gothic.Core.Domain.Marvin
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly GameTimeService _gameTimeService;
+        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
@@ -31,6 +36,15 @@ namespace Gothic.Core.Domain.Marvin
         private const int _manaMaxPerLevelCheat = 100;
         private const int _maxSpawnedNpcs = 10;
         private const float _spawnDistance = 2f;
+        private const float _blinkDistance = 4f;
+        private const float _blinkFloorSearchHeight = 3f;
+        // Vanilla Marvin K lifts the hero a bit too: he lands instead of ending up in a slope or step.
+        private const float _blinkUp = 1f;
+        private const float _killMaxAngle = 15f;
+        private const float _killMaxDistance = 30f;
+        private const string _messageFont = "FONT_OLD_20_WHITE.TGA";
+        private const int _messagePos = 2;
+        private const float _messageSeconds = 2f;
 
         /// <summary>
         /// Hit points and mana to the maximum.
@@ -146,6 +160,123 @@ namespace Gothic.Core.Domain.Marvin
             _gameTimeService.SetTime(hour, minute);
             Logger.Log($"[MarvinCheatDomain] Time set to {hour:D2}:{minute:D2}", LogCat.Ui);
             return true;
+        }
+
+        /// <summary>
+        /// Hits (melee, arrows, spells) and falls don't hurt the hero. Toggles; the state shows as a screen message.
+        /// </summary>
+        public bool ToggleGodMode()
+        {
+            _playerService.IsGodMode = !_playerService.IsGodMode;
+            var state = _playerService.IsGodMode ? "ON" : "OFF";
+            GlobalEventDispatcher.PrintScreen.Invoke(
+                new PrintScreenMessage($"God mode {state}", _messagePos, _messagePos, _messageFont, _messageSeconds));
+            Logger.Log($"[MarvinCheatDomain] God mode {state}", LogCat.Ui);
+            return true;
+        }
+
+        /// <summary>
+        /// Like Gothic's Marvin key K: 4 m forward where the hero looks and a bit up, through doors and walls. The
+        /// floor below the target is searched from a bit above, otherwise the height stays. Measured from the head,
+        /// not the player's root: in VR the head is off the rig's origin (room scale, turning) and the rig is turned
+        /// so the head - not the origin - faces the destination rotation (XRI TargetUpAndForward), so the view's own
+        /// yaw is passed and the view doesn't turn.
+        /// </summary>
+        public bool BlinkForward()
+        {
+            var player = _contextInteractionService.GetCurrentPlayerController();
+            var cam = Camera.main;
+            if (player == null || cam == null)
+            {
+                Logger.LogWarning("[MarvinCheatDomain] Blink: no player or camera", LogCat.Ui);
+                return false;
+            }
+
+            var forward = cam.transform.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.0001f)
+                forward = player.transform.forward;
+            forward.y = 0f;
+            forward.Normalize();
+
+            // The ground below the head (the spot a teleport puts there), at the feet's height.
+            var start = cam.transform.position;
+            start.y = player.transform.position.y;
+
+            var target = start + forward * _blinkDistance;
+            if (Physics.Raycast(target + Vector3.up * _blinkFloorSearchHeight, Vector3.down, out var hit,
+                    _blinkFloorSearchHeight * 2f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                target.y = hit.point.y;
+            target.y += _blinkUp;
+
+            _contextInteractionService.TeleportPlayerTo(target, Quaternion.LookRotation(forward, Vector3.up));
+            Logger.Log($"[MarvinCheatDomain] Blink {_blinkDistance:F0} m forward, {_blinkUp:F0} m up to {target}",
+                LogCat.Ui);
+            return true;
+        }
+
+        /// <summary>
+        /// Like Gothic's Marvin "kill" (OpenGothic C_Kill): the focus NPC loses all
+        /// its hit points and dies (never unconscious), unless it's immortal (NPC_FLAG_IMMORTAL, e.g. Diego). The focus
+        /// is the NPC a hand pointed at last (PlayerService.FocusNpc), without one the NPC closest to the view's center
+        /// within _killMaxAngle and _killMaxDistance.
+        /// </summary>
+        public bool KillFocusNpc()
+        {
+            var cam = Camera.main;
+            var hero = _npcService.GetHeroContainer();
+            if (cam == null)
+                return false;
+
+            // The focus first (the NPC a hand pointed at last - VRFocus), the view's center only without one: typing on
+            // the Marvin panel, you look at the panel.
+            var focus = _playerService.FocusNpc;
+            var target = focus?.Go != null && focus != hero && focus.Instance != null && !focus.Props.IsDead
+                ? focus
+                : FindNpcInViewCenter(cam.transform, hero);
+
+            if (target == null)
+            {
+                Logger.Log("[MarvinCheatDomain] Kill: no NPC in focus", LogCat.Ui);
+                return false;
+            }
+
+            var name = target.Instance.GetName(NpcNameSlot.Slot0);
+            // Like OpenGothic (Marvin C_Kill: changeAttribute(ATR_HITPOINTS, -max) on the focus NPC, which an immortal
+            // one ignores) - nothing happens, no message.
+            if (target.Instance.IsImmortal())
+            {
+                Logger.Log($"[MarvinCheatDomain] Kill: {name} is immortal", LogCat.Ui);
+                return true;
+            }
+
+            GlobalEventDispatcher.CheatKill.Invoke(target);
+            Logger.Log($"[MarvinCheatDomain] Kill: {name}", LogCat.Ui);
+            return true;
+        }
+
+        /// <summary>
+        /// The living NPC closest to the view's center, within _killMaxAngle and _killMaxDistance.
+        /// </summary>
+        private NpcContainer FindNpcInViewCenter(Transform cam, NpcContainer hero)
+        {
+            NpcContainer target = null;
+            var bestAngle = _killMaxAngle;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy || npc.Instance == null ||
+                    npc.Props.IsDead)
+                    continue;
+                var toNpc = npc.Go.transform.position + Vector3.up - cam.position;
+                if (toNpc.magnitude > _killMaxDistance)
+                    continue;
+                var angle = Vector3.Angle(cam.forward, toNpc);
+                if (angle >= bestAngle)
+                    continue;
+                bestAngle = angle;
+                target = npc;
+            }
+            return target;
         }
 
         private static int GetHeroAttribute(NpcContainer hero, NpcAttribute attribute)

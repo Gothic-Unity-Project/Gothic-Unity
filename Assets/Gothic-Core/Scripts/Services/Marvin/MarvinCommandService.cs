@@ -29,8 +29,9 @@ namespace Gothic.Core.Services.Marvin
         private MarvinCommandParserDomain _parser;
         private MarvinClosedSetValue _waypointValue;
         private MarvinClosedSetValue _guildValue;
-        private MarvinClosedSetValue _instanceValue;
-        private HashSet<string> _itemNames = new(StringComparer.Ordinal);
+        // Items with an optional amount, NPCs without (an NPC name asked for an amount on the keyboard).
+        private MarvinClosedSetValue _itemValue;
+        private MarvinClosedSetValue _npcValue;
 
         /// <summary>Normalized, most recent first. Session only.</summary>
         public IReadOnlyList<string> RecentCommands => _recentCommands;
@@ -144,7 +145,8 @@ namespace Gothic.Core.Services.Marvin
             _waypointValue = new MarvinClosedSetValue("<WAYPOINT>",
                 () => new MarvinPrefixIndex(_gameStateService.WayPoints.Keys));
             _guildValue = new MarvinClosedSetValue("<GUILD>", CreateGuildIndex);
-            _instanceValue = new MarvinClosedSetValue("<INSTANCE>", CreateInstanceIndex);
+            _itemValue = new MarvinClosedSetValue("<ITEM>", () => CreateInstanceIndex("C_Item"));
+            _npcValue = new MarvinClosedSetValue("<NPC>", () => CreateInstanceIndex("C_NPC"));
 
             var root = new MarvinCommandNode();
 
@@ -153,14 +155,22 @@ namespace Gothic.Core.Services.Marvin
             cheat.Add("level").Describe("Hero gains 5 levels").Runs(_ => _cheatDomain.AddLevels());
             cheat.Add("guild").Describe("Change the hero's guild")
                 .Add(_guildValue).Runs(values => _cheatDomain.SetGuild(values[0]));
+            cheat.Add("god").Describe("Hits and falls don't hurt the hero (toggle)")
+                .Runs(_ => _cheatDomain.ToggleGodMode());
+            root.Add("goto").Add("forward").Describe("4 m forward where you look and 1 m up, through walls")
+                .Runs(_ => _cheatDomain.BlinkForward());
+
+            root.Add("kill").Describe("The NPC you look at dies (not immortal ones)")
+                .Runs(_ => _cheatDomain.KillFocusNpc());
 
             root.Add("goto").Add("waypoint").Describe("Teleport to a waypoint")
                 .Add(_waypointValue).Runs(values => _cheatDomain.TeleportToWaypoint(values[0]));
 
-            var insert = root.Add("insert").Describe("Item into the inventory or NPC in front of the hero")
-                .Add(_instanceValue).Runs(values => Insert(values[0], 1));
-            insert.Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
-                .Runs(values => Insert(values[0], int.Parse(values[1])));
+            var insert = root.Add("insert").Describe("Item into the inventory or NPC in front of the hero");
+            insert.Add(_itemValue).Runs(values => _cheatDomain.Insert(values[0], 1, true))
+                .Add(new MarvinNumberValue("<AMOUNT>", 1, _maxAmount))
+                .Runs(values => _cheatDomain.Insert(values[0], int.Parse(values[1]), true));
+            insert.Add(_npcValue).Runs(values => _cheatDomain.Insert(values[0], 1, false));
 
             root.Add("set").Add("time").Describe("Set the game time")
                 .Add(new MarvinNumberValue("<HOUR>", 0, 23))
@@ -170,28 +180,11 @@ namespace Gothic.Core.Services.Marvin
             return root;
         }
 
-        private bool Insert(string instanceName, int amount)
+        private MarvinPrefixIndex CreateInstanceIndex(string className)
         {
-            // Resolve the candidates first, as _itemNames is filled while creating them.
-            _instanceValue.GetCandidates();
-            return _cheatDomain.Insert(instanceName, amount, _itemNames.Contains(instanceName));
-        }
-
-        private MarvinPrefixIndex CreateInstanceIndex()
-        {
-            var vm = _gameStateService.GothicVm;
             var names = new List<string>();
-            _itemNames = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (var symbol in vm.GetInstanceSymbols("C_Item"))
-            {
-                _itemNames.Add(symbol.Name.ToUpperInvariant());
+            foreach (var symbol in _gameStateService.GothicVm.GetInstanceSymbols(className))
                 names.Add(symbol.Name);
-            }
-
-            foreach (var symbol in vm.GetInstanceSymbols("C_NPC"))
-                names.Add(symbol.Name);
-
             return new MarvinPrefixIndex(names);
         }
 
@@ -225,7 +218,8 @@ namespace Gothic.Core.Services.Marvin
         private void InvalidateVmCandidates()
         {
             _guildValue?.Invalidate();
-            _instanceValue?.Invalidate();
+            _itemValue?.Invalidate();
+            _npcValue?.Invalidate();
         }
     }
 }

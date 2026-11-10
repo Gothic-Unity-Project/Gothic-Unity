@@ -135,7 +135,18 @@ namespace Gothic.VR.Services.Context
                 // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
                 (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
                     CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
-                        Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound))
+                        Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound)),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers", "-X HP / +X MANA over NPC heads"),
+                    CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers)),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
+                    "Size of the -X HP / +X MANA numbers"), CreateHitNumbersSizeSlider(gameMenu)),
+                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers", "HP/MAX on health bars"),
+                    CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
+                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "Walk in dialogs",
+                    "Move around while talking - walking away ends the dialog"),
+                    CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
+                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
+                    "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -223,8 +234,8 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// One row per option (label + value). Gothic's menus fit _rowsPerPage rows, further rows go on the next page,
-        /// which the menu shows with up/down arrows.
+        /// One row per option (label + value, a button has no value). Gothic's menus fit _rowsPerPage rows, further
+        /// rows go on the next page, which the menu shows with up/down arrows.
         /// </summary>
         private void AddOptionRows(AbstractMenuInstance menu,
             params (AbstractMenuItemInstance label, AbstractMenuItemInstance value)[] rows)
@@ -234,6 +245,8 @@ namespace Gothic.VR.Services.Context
                 var posY = _vmService.MenuStartY + _vmService.MenuDY * (i % _rowsPerPage);
                 foreach (var item in new[] { rows[i].label, rows[i].value })
                 {
+                    if (item == null)
+                        continue;
                     item.PosY = posY;
                     item.Page = i / _rowsPerPage;
                     menu.Items.Add(item);
@@ -267,6 +280,28 @@ namespace Gothic.VR.Services.Context
             item.OnChgSetOptionSection = iniSection;
 
             return item;
+        }
+
+        private MutableMenuItemInstance CreateLightRefreshChoice(AbstractMenuInstance gameMenu)
+        {
+            var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh);
+            item.SetText(0, "Low|Medium|High");
+            return item;
+        }
+
+        private AbstractMenuItemInstance CreateHitNumbersSizeSlider(AbstractMenuInstance gameMenu)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var slider = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_HIT_NUMBERS_SIZE_SLIDER",
+                mouseSlider);
+
+            slider.SetUserFloat(0, VRConstants.SmoothRotationSettingAmount); // Steps.
+            // Default = smallest. AbstractMenu turns a default of exactly 0 into 1 (full), hence the tiny value.
+            slider.SetUserFloat(3, 0.0001f);
+            slider.OnChgSetOption = Constants.IniNames.HitNumbersSize;
+            slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return slider;
         }
 
         /// <summary>

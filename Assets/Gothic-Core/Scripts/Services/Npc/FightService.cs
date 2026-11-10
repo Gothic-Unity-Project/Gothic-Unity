@@ -178,8 +178,7 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             var hitPoints = npc.Vob.GetAttribute((int)NpcAttribute.HitPoints) - damage;
-            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, hitPoints);
-            npc.Instance.SetAttribute(NpcAttribute.HitPoints, hitPoints);
+            _npcService.SetAttribute(npc, NpcAttribute.HitPoints, hitPoints);
             Logger.Log($"[FightService] {npc.Instance.GetName(NpcNameSlot.Slot0)} fall damage {damage} -> HP {hitPoints}", LogCat.Fight);
 
             if (hitPoints > 0)
@@ -196,8 +195,7 @@ namespace Gothic.Core.Services.Npc
             if (npc?.Vob == null || npc.Props.BodyState == VmGothicEnums.BodyState.BsDead)
                 return;
 
-            npc.Vob.SetAttribute((int)NpcAttribute.HitPoints, 0);
-            npc.Instance.SetAttribute(NpcAttribute.HitPoints, 0);
+            _npcService.SetAttribute(npc, NpcAttribute.HitPoints, 0);
             Kill(npc, npc);
         }
 

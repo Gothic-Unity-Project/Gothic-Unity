@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Const;
 using Gothic.Core.Creator;
@@ -52,6 +53,10 @@ namespace Gothic.Core.Adapters.Scenes
 
         public void Init()
         {
+            // "-X HP" over NPC heads (option "hitNumbers"). Added in code: the baked world scenes
+            // (com.gothic.core.binaries) only carry WorldScene - DefaultWorld.unity is just the fallback.
+            gameObject.AddComponent<NpcHitNumbers>();
+
 #pragma warning disable CS4014 // Do not wait. We want to update player movement (VR) and camera view (progress bar)
             LoadWorldContentAsync();
 #pragma warning restore CS4014

@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Doc;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Trade;
 using Gothic.Core.Models.UI;
 using UnityEngine;
@@ -110,6 +111,11 @@ namespace Gothic.Core
         /// An attribute was written via NpcService.SetAttribute or synced from the instance (SyncHeroInstanceToVob).
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcAttribute> NpcAttributeChanged = new();
+
+        /// <summary>
+        /// The same write via NpcService.SetAttribute, with the amount it changed by (not 0) and why - hit numbers.
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcAttribute, int, AttributeChangeCause> NpcAttributeAmountChanged = new();
 
         /// <summary>
         /// The hero's mana bar fades in (true) or out (false) - VR: while a rune or scroll is readied (VRRuneCaster).

@@ -3,14 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Properties;
-using Gothic.Core.Const;
+using Gothic.Core.Domain.Dialog;
 using Gothic.Core.Domain.Npc.Actions;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Dialog;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Context;
@@ -32,7 +31,6 @@ namespace Gothic.Core.Manager
         [Inject] private readonly ContextDialogService _contextDialogService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly SaveGameService _saveGameService;
-        [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly TradeService _tradeService;
 
@@ -45,21 +43,7 @@ namespace Gothic.Core.Manager
         private const float _heroQueueActionTimeout = 30f;
         private bool _isHeroQueueRunning;
 
-        // An NPC farther away doesn't open its dialog. The engine allows 20 m (OpenGothic AI_ProcessInfos) - in VR that
-        // was far too wide, Bloodwyn talked to the hero from across the yard.
-        private const float _startMaxDistance = 8f;
-        // Steps (stick or room-scale) around the spot where the hero stood when the dialog opened - free up to the soft
-        // radius, slowed down to a stop at the radius.
-        private const float _pinSoftRadius = 0.3f;
-        private const float _pinRadius = 0.75f;
-        // Held back a little inside the edge, so the hero isn't held right at the stop distance.
-        private const float _holdEdgeMargin = 0.2f;
-        // The hero can't be held inside (falling, climbing, teleported, blocked by a wall) - the dialog ends after
-        // being outside this long, or at once when this far beyond the edge.
-        private const float _holdGiveUpSeconds = 1f;
-        private const float _holdGiveUpOvershoot = 2f;
-
-        private Coroutine _heroHold;
+        private readonly DialogHeroHoldDomain _heroHoldDomain = new DialogHeroHoldDomain().Inject();
 
         /// <summary>
         /// TextToSpeech toggle. So that the hero isn't repeating what we said already.
@@ -103,16 +87,20 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void StartDialog(NpcContainer npcContainer, bool initialDialogStarting)
         {
+            var isFreeMovement = _heroHoldDomain.IsFreeMovementOn();
+
             // A dialog closed in between (e.g. the NPC drew its weapon) isn't reopened by the NPC's queued
             // StartProcessInfos after its info function.
             if (!initialDialogStarting && !_gameStateService.Dialogs.IsInDialog)
                 return;
 
-            // ...and it doesn't start at all when the hero is too far away.
-            if (initialDialogStarting && !IsHeroCloseEnoughToStart(npcContainer))
+            // ...and it doesn't start at all when the hero is too far away. Pinned (default): 8 m.
+            // Free movement: the hero has to be inside the bubble to read the dialog box - come closer.
+            if (initialDialogStarting && !_heroHoldDomain.IsHeroCloseEnoughToStart(npcContainer, isFreeMovement))
             {
                 Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero farther than " +
-                           $"{_startMaxDistance} m - dialog not started", LogCat.Dialog);
+                           $"{_heroHoldDomain.GetStartMaxDistance(isFreeMovement)} m - dialog not started",
+                    LogCat.Dialog);
                 // Not the cleanup of a dialog with someone else that is going on.
                 if (!_gameStateService.Dialogs.IsInDialog || _gameStateService.Dialogs.CurrentDialogNpc == npcContainer)
                     StopDialog(npcContainer);
@@ -130,7 +118,8 @@ namespace Gothic.Core.Manager
             _gameStateService.Dialogs.IsInDialog = true;
             _gameStateService.Dialogs.CurrentDialogNpc = npcContainer;
 
-            // Mob dialogs have the hero as dialog partner - no head to follow.
+            // Mob dialogs have the hero as dialog partner - no head to follow and (free movement) no bubble around
+            // itself.
             var isMobDialog = IsMobDialog(npcContainer);
 
             // The NPC follows the hero with its head (hero's Head is the camera). Daedalus' own AI_LookAtNpc wins.
@@ -138,21 +127,16 @@ namespace Gothic.Core.Manager
                 npcContainer.PrefabProps.AnimationHeadHandler.StartDialogLookAt(
                     _npcService.GetHeroContainer().PrefabProps.Head);
 
-            // On every (re)open, as something else may have unlocked the player in between. Only teleport is off: the
-            // hero walks (stick or room-scale) inside the pin radius, HoldHero slows him down at its edge.
-            _contextInteractionService.LockPlayer(PlayerLocks.Dialog, PlayerControls.Teleport);
-
-            if (initialDialogStarting)
-            {
-                StopHeroHold();
-                _heroHold = _unityMonoService.StartCoroutine(HoldHero(npcContainer));
-            }
+            _heroHoldDomain.Hold(npcContainer, isFreeMovement, initialDialogStarting, isMobDialog,
+                MainSelectionClicked, StopDialog);
 
             // We are already inside a sub-dialog
             if (_gameStateService.Dialogs.CurrentOptions.Any())
             {
                 _contextDialogService.FillDialog(npcContainer.Instance, _gameStateService.Dialogs.CurrentOptions);
                 _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
+                _gameStateService.Dialogs.IsChoosing = true;
+                _gameStateService.Dialogs.ExitInfo = null;
             }
             // There is at least one important entry, the NPC wants to talk to the hero about.
             else if (initialDialogStarting && TryGetImportant(npcContainer, out var infoInstance))
@@ -194,6 +178,8 @@ namespace Gothic.Core.Manager
 
                 _contextDialogService.FillDialog(npcContainer.Instance, selectableDialogs);
                 _contextDialogService.ShowDialog(GetDialogGo(npcContainer));
+                _gameStateService.Dialogs.IsChoosing = true;
+                _gameStateService.Dialogs.ExitInfo = _heroHoldDomain.FindExitInfo(selectableDialogs);
             }
         }
 
@@ -572,13 +558,13 @@ namespace Gothic.Core.Manager
             _gameStateService.Dialogs.IsInDialog = false;
             _gameStateService.Dialogs.WasPlayerInitiated = false;
             _gameStateService.Dialogs.CurrentDialogNpc = null;
-            StopHeroHold();
+            _gameStateService.Dialogs.IsChoosing = false;
+            _gameStateService.Dialogs.ExitInfo = null;
+            _heroHoldDomain.Release();
 
             // Only ends the dialog's look-at. One started by Daedalus (e.g. sitting NPCs) stays.
             if (npc.PrefabProps?.AnimationHeadHandler != null)
                 npc.PrefabProps.AnimationHeadHandler.StopDialogLookAt();
-
-            _contextInteractionService.UnlockPlayer(PlayerLocks.Dialog);
 
             _contextDialogService.HideDialog();
             _contextDialogService.EndDialog();
@@ -594,114 +580,6 @@ namespace Gothic.Core.Manager
             _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.HideSubtitles();
             if (npc.Go != null)
                 npc.PrefabProps.NpcSubtitles.HideSubtitles();
-        }
-
-        /// <summary>
-        /// Within 8 m (the engine: 20 m, OpenGothic AI_ProcessInfos).
-        /// </summary>
-        private bool IsHeroCloseEnoughToStart(NpcContainer npcContainer)
-        {
-            if (npcContainer.Go == null || !TryGetHeroPosition(out var heroPosition))
-                return true;
-
-            return Vector3.Distance(heroPosition, npcContainer.Go.transform.position) <= _startMaxDistance;
-        }
-
-        /// <summary>
-        /// The ground point under the hero's head (the camera): a physical step moves it, turning doesn't. The same
-        /// point KeepPlayerWithin holds.
-        /// </summary>
-        private bool TryGetHeroPosition(out Vector3 position)
-        {
-            position = Vector3.zero;
-            var hero = _npcService.GetHeroContainer();
-            if (hero?.Go == null)
-                return false;
-
-            position = hero.Go.transform.position;
-            var head = hero.PrefabProps?.Head;
-            if (head != null)
-            {
-                position.x = head.position.x;
-                position.z = head.position.z;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// The hold is a cylinder: horizontal distance like KeepPlayerWithin (a ramp mustn't count), plus a height cap
-        /// (upper floor, cliff, ladder).
-        /// </summary>
-        private bool IsHeroWithin(Vector3 center, float radius, out float horizontalDistance)
-        {
-            horizontalDistance = 0f;
-            if (!TryGetHeroPosition(out var heroPosition))
-                return true;
-
-            var offset = heroPosition - center;
-            var heightDifference = Mathf.Abs(offset.y);
-            offset.y = 0f;
-            horizontalDistance = offset.magnitude;
-
-            return horizontalDistance <= radius && heightDifference <= Constants.DialogMaxHeightDifference;
-        }
-
-        /// <summary>
-        /// Holds the hero while the dialog is open, at the spot where he stood when it opened - like the engine, the
-        /// player can't walk away. If the hero can't be held (falling, climbing, teleported, blocked), the dialog ends.
-        /// </summary>
-        private IEnumerator HoldHero(NpcContainer npcContainer)
-        {
-            if (!TryGetHeroPosition(out var pinPoint))
-            {
-                Logger.LogWarning($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: no hero position " +
-                                  "- the hero isn't held during the dialog", LogCat.Dialog);
-                _heroHold = null;
-                yield break;
-            }
-
-            var dialogs = _gameStateService.Dialogs;
-            var outsideSeconds = 0f;
-            while (dialogs.IsInDialog && dialogs.CurrentDialogNpc == npcContainer)
-            {
-                if (IsHeroWithin(pinPoint, _pinRadius, out var horizontalDistance))
-                {
-                    outsideSeconds = 0f;
-
-                    // Slows the hero down before the edge, so the hold doesn't kick in as a hard stop.
-                    KeepHeroWithin(pinPoint);
-                }
-                else
-                {
-                    outsideSeconds += Time.deltaTime;
-                    var overshoot = horizontalDistance - _pinRadius;
-                    if (outsideSeconds > _holdGiveUpSeconds || overshoot > _holdGiveUpOvershoot)
-                    {
-                        Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: hero can't be " +
-                                   "held - closing the dialog", LogCat.Dialog);
-                        StopDialog(npcContainer);
-                        yield break;
-                    }
-
-                    KeepHeroWithin(pinPoint);
-                }
-                yield return null;
-            }
-            _heroHold = null;
-        }
-
-        private void KeepHeroWithin(Vector3 center)
-        {
-            _contextInteractionService.KeepPlayerWithin(center, _pinSoftRadius, _pinRadius - _holdEdgeMargin);
-        }
-
-        private void StopHeroHold()
-        {
-            if (_heroHold == null)
-                return;
-
-            _unityMonoService.StopCoroutine(_heroHold);
-            _heroHold = null;
         }
 
         /// <summary>
@@ -726,6 +604,8 @@ namespace Gothic.Core.Manager
         private void CallInformation(NpcContainer npcContainer, int information, bool isTrade = false)
         {
             _contextDialogService.HideDialog();
+            _gameStateService.Dialogs.IsChoosing = false;
+            _gameStateService.Dialogs.ExitInfo = null;
 
             // Like the engine (OpenGothic GameScript::exec), the chosen choice leaves the list before its function
             // runs: a teacher's "+5"/"+1" function clears the choices and adds both again - removing the chosen one

@@ -9,6 +9,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Movement;
@@ -57,6 +58,8 @@ namespace Gothic.Core
 
             containerBuilder.AddSingleton(typeof(BootstrapService));
             containerBuilder.AddSingleton(typeof(GameStateService));
+            containerBuilder.AddSingleton(typeof(GameLifecycleService));
+            containerBuilder.AddSingleton(typeof(GameEndingService));
             
             containerBuilder.AddSingleton(typeof(UnityMonoService));
             containerBuilder.AddSingleton(typeof(ConfigService));

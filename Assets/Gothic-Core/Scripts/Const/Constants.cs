@@ -15,6 +15,15 @@ namespace Gothic.Core.Const
         {
             // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
             public const string LightRefresh = "lightRefresh";
+            // 1 = "-X HP" numbers over NPC heads and next to the hero's bar, 0 = off (default).
+            public const string HitNumbers = "hitNumbers";
+            // 1 = "HP/MAX" on health bars (and "MANA/MAX" on the hero's mana bar), 0 = off (default).
+            public const string HealthNumbers = "healthNumbers";
+            // Slider 0...1 for the "-X HP" numbers: 0 = smallest (default size), 1 = HitNumbersMaxScale times bigger.
+            public const string HitNumbersSize = "hitNumbersSize";
+            public const float HitNumbersMaxScale = 3f;
+            // 1 = the hero walks around in a dialog (5 m bubble, walking away ends it), 0 = pinned (default).
+            public const string DialogFreeMovement = "dialogFreeMovement";
 
             // 1 = the animations' ground sounds play (footsteps, GroundSoundService), 0 = off. In Gothic's own [SOUND]
             // section like zWindEnabled in [ENGINE]: footsteps play in VR and Flat.
@@ -43,6 +52,7 @@ namespace Gothic.Core.Const
         public static class Animations
         {
             public const string RootBoneName = "BIP01";
+            public const string HeadBoneName = "BIP01 HEAD";
             public const string RightHandBoneName = "BIP01 R HAND";
 
             // Model script (.mds) of all human NPCs, hero included.
@@ -213,6 +223,11 @@ namespace Gothic.Core.Const
         public const float NpcDestinationReachedThreshold = 0.6f;
         public const float NpcRotationSpeed = 500f;
 
+        // Immersion option dialogFreeMovement: meters between hero and NPC for starting and keeping a dialog.
+        public const float DialogFreeMovementRadius = 5f;
+        // Immersion option dialogFreeMovement: meters between hero and NPC from which walking away slows down
+        // until it stops at DialogFreeMovementRadius.
+        public const float DialogSlowDownDistance = 3f;
         // Max height difference (floor, cliff, ladder) to where the hero is held during a dialog.
         public const float DialogMaxHeightDifference = 3f;
         

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
@@ -18,6 +19,7 @@ namespace Gothic.Core.Extensions
 {
     public static class ZenKitExtension
     {
+
         /// <summary>
         /// The item's instance symbol (e.g. ITMW_1H_SWORD) - a world item's vob name isn't always its symbol (mods, items
         /// placed in the world file). Inventory calls (CreateInvItems, Npc_RemoveInvItems) need the symbol.
@@ -146,6 +148,14 @@ namespace Gothic.Core.Extensions
                 // Fallback
                 return vob.Name;
             }
+        }
+
+        /// <summary>
+        /// NPC_FLAG_IMMORTAL: takes no damage, Marvin's kill doesn't work (e.g. Diego in G1).
+        /// </summary>
+        public static bool IsImmortal(this NpcInstance npc)
+        {
+            return ((int)npc.Flags & FightConst.NpcFlagImmortal) != 0;
         }
 
         /// <summary>

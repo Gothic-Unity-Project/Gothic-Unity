@@ -40,7 +40,8 @@ namespace Gothic.Core.Services.Audio
         private Dictionary<int, string> _transparentTextures;
         private readonly Dictionary<Mesh, (int[] Triangles, List<Vector4> Uvs)> _meshData = new();
         private string _worldName;
-        // Gothic.ini footstepSounds, read on first use and again when the menu changes it.
+        // Gothic.ini footstepSounds, read on first use and again when the menu changes it. Stays unset while Gothic.ini
+        // isn't loaded (the player scene runs before a game was picked): the default would stick otherwise.
         private bool? _isEnabled;
 
         public GroundSoundService()
@@ -52,8 +53,20 @@ namespace Gothic.Core.Services.Audio
         /// <summary>
         /// The player's footsteps option: the animations' ground sounds play (AnimationSystem) or are skipped.
         /// </summary>
-        public bool IsEnabled => _isEnabled ??= _configService.Gothic.GetInt(Constants.IniNames.FootstepSounds,
-            Constants.IniNames.FootstepSoundsDefaultValue) == 1;
+        public bool IsEnabled
+        {
+            get
+            {
+                if (_isEnabled.HasValue)
+                    return _isEnabled.Value;
+
+                var isOn = _configService.IsGothicOptionOn(Constants.IniNames.FootstepSounds,
+                    Constants.IniNames.FootstepSoundsDefaultValue == 1);
+                if (_configService.Gothic != null)
+                    _isEnabled = isOn;
+                return isOn;
+            }
+        }
 
         private void OnPlayerPrefUpdated(string key, object value)
         {

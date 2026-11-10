@@ -1,11 +1,14 @@
+using System;
 using System.Linq;
+using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services;
-using Gothic.Core.Const;
 using JetBrains.Annotations;
 using MyBox;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Model.UI.Menu
 {
@@ -29,7 +32,17 @@ namespace Gothic.Core.Model.UI.Menu
             // first empty entry dropped every item after it (all status menu talent rows except the first).
             for (var i = 0; i < _maxMenuItems; i++)
             {
-                var itemName = _menuInstance.GetItem(i);
+                string itemName;
+                try
+                {
+                    itemName = _menuInstance.GetItem(i);
+                }
+                catch (Exception e)
+                {
+                    // Past the array's end - the usual end of a menu with fewer items.
+                    Logger.LogEditor($"[MenuInstanceAdapter] {Name}: no item {i} - {e.Message}", LogCat.Ui);
+                    break;
+                }
 
                 if (itemName.IsNullOrEmpty())
                     continue;

@@ -470,11 +470,16 @@ namespace Gothic.Core.Services.Npc
         /// The engine keeps these values in one place (oCNpc), we have two: scripts read the instance, C# the vob.
         /// Every C# write goes through these setters, so both stay equal.
         /// </summary>
-        public void SetAttribute(NpcContainer npc, NpcAttribute attribute, int value)
+        /// <param name="cause">Why it changed - carried by NpcAttributeAmountChanged, listeners filter on it.</param>
+        public void SetAttribute(NpcContainer npc, NpcAttribute attribute, int value,
+            AttributeChangeCause cause = AttributeChangeCause.Default)
         {
+            var amount = value - npc.Vob.GetAttribute((int)attribute);
             npc.Vob.SetAttribute((int)attribute, value);
             npc.Instance.SetAttribute(attribute, value);
             GlobalEventDispatcher.NpcAttributeChanged.Invoke(npc, attribute);
+            if (amount != 0)
+                GlobalEventDispatcher.NpcAttributeAmountChanged.Invoke(npc, attribute, amount, cause);
         }
 
         public void SetLevel(NpcContainer npc, int level)

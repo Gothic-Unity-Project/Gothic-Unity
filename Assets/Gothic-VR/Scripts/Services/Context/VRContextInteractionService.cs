@@ -40,6 +40,7 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly VRWeaponService _vrWeaponService;
         [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
+        [Inject] private readonly VRMarvinPanelService _vrMarvinPanelService;
         [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly IVrInput _vrInput;
@@ -66,7 +67,6 @@ namespace Gothic.VR.Services.Context
         private IVrRig _rig;
         private VRPlayer _player;
         private float _defaultStepOffset;
-        private GameObject _marvinRoot;
         private int _keepWithinLastFrame = -1;
         private Vector3 _keepWithinLastPosition;
         private VrPhysicsHand[] _physicsHands = System.Array.Empty<VrPhysicsHand>();
@@ -98,6 +98,7 @@ namespace Gothic.VR.Services.Context
             _vrWeaponService.Init();
             _vrHeldItemSyncService.Init();
             _vrCinemaService.Init();
+            _vrMarvinPanelService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             // Items held in a hand don't pay (VRContextTradeService opens the counter).
@@ -115,7 +116,6 @@ namespace Gothic.VR.Services.Context
             // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
             // place (or vanished) and the hero stayed in magic mode. Not on scene teleports (loads).
             GlobalEventDispatcher.HeroScriptTeleporting.AddListener(StoreHeldItemsInBackpack);
-            GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.MarvinLogoPoked.AddListener(OnMarvinLogoPoked);
         }
 
@@ -230,17 +230,10 @@ namespace Gothic.VR.Services.Context
             heroBlock.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
-            // Searched inside our player only: other players are destroyed at the end of this frame.
-            _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
-            _marvinRoot.SetActive(_marvinService.IsMarvinMode);
+            _vrMarvinPanelService.Setup(playerRoot, _player.transform);
 
             // PrintScreen() messages in front of the camera
             activeScene.GetComponentInChildren<VRPrintScreen>(true)!.Init();
-        }
-
-        private void OnMarvinModeChanged(bool isActive)
-        {
-            _marvinRoot.SetActive(isActive);
         }
 
         /// <summary>
@@ -379,7 +372,8 @@ namespace Gothic.VR.Services.Context
 
         public GameObject GetCurrentPlayerController()
         {
-            return _player.gameObject;
+            // Null once the player is destroyed (a restart) - not a MissingReferenceException for the caller.
+            return _player != null ? _player.gameObject : null;
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 using Gothic.Core.Adapters.UI;
 using Gothic.Core.Manager;
+using Gothic.VR.Adapters.UI;
 using Reflex.Attributes;
 using UnityEngine;
 
@@ -16,6 +17,12 @@ namespace Gothic.VR.Adapters.Marvin
         [SerializeField] private GameObject _tabLogs;
         [SerializeField] private GameObject _tabMarvin;
         [SerializeField] private GameObject _tabInspector;
+
+        [Tooltip("The bar at the panel's lower right corner, inactive until VRMarvinPanelService sets it up.")]
+        [SerializeField]
+        private VRGrabBar _grabBar;
+
+        public VRGrabBar GrabBar => _grabBar;
 
         private void Start()
         {
