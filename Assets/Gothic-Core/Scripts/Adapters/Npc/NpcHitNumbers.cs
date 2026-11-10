@@ -4,9 +4,11 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Pool;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -15,17 +17,20 @@ namespace Gothic.Core.Adapters.Npc
     /// <summary>
     /// "-X HP" / "+X HP" above an NPC's head whenever its hit points change - from any source going through
     /// NpcService.SetAttribute (melee, spells, arrows, potions, scripts). The hero's are next to his bar
-    /// (StatusBarAdapter). Option "hitNumbers" in our settings menu (Gothic.ini, off by default). One per world scene.
+    /// (StatusBarAdapter). Option "hitNumbers" in our settings menu (Gothic.ini, off by default). One per world scene
+    /// (next to WorldScene in DefaultWorld.unity); the numbers are pooled below it.
     /// </summary>
     public class NpcHitNumbers : MonoBehaviour
     {
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private const float _aboveHead = 0.3f;
         private const float _fallbackHeight = 2f;
 
         private bool _isEnabled;
         private bool _isHeadMissingLogged;
+        private ObjectPool<FloatingHitNumber> _pool;
 
         private void Awake()
         {
@@ -60,8 +65,9 @@ namespace Gothic.Core.Adapters.Npc
                 npc.PrefabProps == null || npc.PrefabProps.IsHero())
                 return;
 
-            FloatingHitNumber.Spawn(GetSpawnPosition(npc), amount, "HP",
-                FloatingHitNumber.GetSizeScale(_configService));
+            // Created on the first hit: Gothic's font only exists after the game booted.
+            _pool ??= FloatingHitNumber.CreatePool(_resourceCacheService, gameObject);
+            _pool.Get().Show(GetSpawnPosition(npc), amount, "HP", FloatingHitNumber.GetSizeScale(_configService));
         }
 
         private Vector3 GetSpawnPosition(NpcContainer npc)

@@ -1,38 +1,64 @@
 using Gothic.Core.Const;
+using Gothic.Core.Models.Caches;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace Gothic.Core.Adapters.UI
 {
     /// <summary>
-    /// One "-12 HP" / "+5 MANA" number: rises a bit, always faces the camera, fades out and destroys itself.
+    /// One "-12 HP" / "+5 MANA" number: rises a bit, always faces the camera, fades out and goes back to its pool.
     /// Stays where it was spawned (doesn't follow the NPC), like TF2 damage numbers.
+    /// Prefab PrefabType.HitNumber (text settings), pooled by its spawner (CreatePool) - no new GameObject per hit.
     /// </summary>
     public class FloatingHitNumber : MonoBehaviour
     {
         private const float _lifetime = 1.3f;
         private const float _riseDistance = 0.45f;
         private const float _scale = 0.03f;
-        private const float _fontSize = 20f;
+        private const int _poolCapacity = 4;
+        private const int _poolMaxSize = 16;
 
         private static readonly Color _damageColor = new(1f, 0.25f, 0.2f);
         private static readonly Color _healColor = new(0.35f, 1f, 0.35f);
         private static readonly Color _manaColor = new(0.35f, 0.6f, 1f);
         public const string ManaUnit = "MANA";
 
+        [Tooltip("The number's text (font size, alignment). Gothic's font is applied at runtime.")] [SerializeField]
         private TextMeshPro _text;
+
+        private IObjectPool<FloatingHitNumber> _pool;
         private Camera _camera;
         private Vector3 _startPosition;
         private float _elapsed;
 
-        /// <param name="sizeScale">GetSizeScale - read by the caller, which has the ConfigService.</param>
-        public static void Spawn(Vector3 position, int amount, string unit, float sizeScale)
+        /// <summary>
+        /// The numbers live below parent (destroyed with it). Created on demand, Gothic's font applied once.
+        /// </summary>
+        public static ObjectPool<FloatingHitNumber> CreatePool(ResourceCacheService resourceCacheService,
+            GameObject parent)
         {
-            var go = new GameObject($"HitNumber {amount} {unit}");
-            go.transform.position = position;
-            go.transform.localScale = Vector3.one * (_scale * sizeScale);
-            go.AddComponent<FloatingHitNumber>().Init(amount, unit);
+            ObjectPool<FloatingHitNumber> pool = null;
+            pool = new ObjectPool<FloatingHitNumber>(
+                () =>
+                {
+                    var number = resourceCacheService.TryGetPrefabObject(PrefabType.HitNumber, parent: parent)
+                        .GetComponent<FloatingHitNumber>();
+                    number._pool = pool;
+                    GothicText.Apply(number._text, isTinted: true);
+                    return number;
+                },
+                number => number.gameObject.SetActive(true),
+                number => number.gameObject.SetActive(false),
+                number =>
+                {
+                    if (number != null)
+                        Destroy(number.gameObject);
+                },
+                false, _poolCapacity, _poolMaxSize);
+            return pool;
         }
 
         /// <summary>
@@ -56,17 +82,20 @@ namespace Gothic.Core.Adapters.UI
 
         public static string GetText(int amount, string unit) => amount > 0 ? $"+{amount} {unit}" : $"{amount} {unit}";
 
-        private void Init(int amount, string unit)
+        /// <summary>
+        /// Starts a number taken from the pool (CreatePool).
+        /// </summary>
+        /// <param name="sizeScale">GetSizeScale - read by the caller, which has the ConfigService.</param>
+        public void Show(Vector3 position, int amount, string unit, float sizeScale)
         {
-            _startPosition = transform.position;
+            transform.position = position;
+            transform.localScale = Vector3.one * (_scale * sizeScale);
+            _startPosition = position;
+            _elapsed = 0f;
 
-            _text = gameObject.AddComponent<TextMeshPro>();
-            GothicText.Apply(_text, isTinted: true);
             _text.text = GetText(amount, unit);
+            // Full alpha again - the color's alpha is 1.
             _text.color = GetColor(amount, unit);
-            _text.fontSize = _fontSize;
-            _text.alignment = TextAlignmentOptions.Center;
-            _text.textWrappingMode = TextWrappingModes.NoWrap;
 
             FaceCamera();
         }
@@ -77,7 +106,7 @@ namespace Gothic.Core.Adapters.UI
             var t = _elapsed / _lifetime;
             if (t >= 1f)
             {
-                Destroy(gameObject);
+                _pool.Release(this);
                 return;
             }
 

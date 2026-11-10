@@ -3,7 +3,6 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Adapters.Marvin;
-using Gothic.VR.Adapters.UI;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -20,7 +19,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly ConfigService _configService;
 
-        private GameObject _marvinRoot;
+        private MarvinRootHandler _marvinRoot;
 
         public void Init()
         {
@@ -33,7 +32,7 @@ namespace Gothic.VR.Services
         /// </summary>
         public void Setup(GameObject playerRoot, Transform playerSpace)
         {
-            _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
+            _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!;
             if (_configService.Dev.EnableUiGrabBars)
                 AddGrabBar(playerSpace);
             ApplyVisibility();
@@ -52,7 +51,9 @@ namespace Gothic.VR.Services
             var dockedRotation = panel.localRotation;
             var dockedScale = panel.localScale;
 
-            var bar = VRGrabBar.Create((RectTransform)panel, panel, true,
+            // Its prefab places it where the panel meets its keyboard (KeyboardAnchor below the panel): one bar for
+            // both.
+            _marvinRoot.GrabBar.Setup(panel,
                 () =>
                 {
                     if (panel.parent != playerSpace)
@@ -67,11 +68,6 @@ namespace Gothic.VR.Services
                     Logger.Log("[VRMarvinPanelService] Marvin panel docked to the hand", LogCat.VR);
                 },
                 true);
-
-            // Centered where the panel meets its keyboard (KeyboardAnchor below the panel) - one bar for both.
-            var barRect = (RectTransform)bar.transform;
-            barRect.anchorMin = barRect.anchorMax = new Vector2(1f, 0f);
-            barRect.sizeDelta = new Vector2(barRect.sizeDelta.x, ((RectTransform)panel).rect.height);
         }
 
         /// <summary>
@@ -83,9 +79,9 @@ namespace Gothic.VR.Services
                 return;
 
             var isShown = _marvinService.IsMarvinMode;
-            if (_marvinRoot.activeSelf == isShown)
+            if (_marvinRoot.gameObject.activeSelf == isShown)
                 return;
-            _marvinRoot.SetActive(isShown);
+            _marvinRoot.gameObject.SetActive(isShown);
             Logger.Log($"[VRMarvinPanelService] Marvin panel {(isShown ? "shown" : "hidden")}", LogCat.VR);
         }
     }

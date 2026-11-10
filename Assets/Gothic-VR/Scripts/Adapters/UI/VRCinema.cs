@@ -34,7 +34,6 @@ namespace Gothic.VR.Adapters.UI
     {
         private const float _skipInputDelay = 0.5f;
         private const float _skipHintGap = 0.2f;
-        private const float _skipHintScale = 0.2f;
         private const float _skipHintAlpha = 0.6f;
         private const float _skipHintFadeDelay = 0.5f;
         private const float _skipHintFadeSeconds = 1f;
@@ -51,6 +50,11 @@ namespace Gothic.VR.Adapters.UI
 
         [Tooltip("Audio of the video. Plays while the world's audio is paused.")] [SerializeField]
         private AudioSource _audioSource;
+
+        [Tooltip("\"(Trigger) skip\" under the screen's right corner (UI layer, pivot at its right edge). Gothic's " +
+                 "font and the localized word are set on the first video.")]
+        [SerializeField]
+        private TMP_Text _skipHintText;
 
         [Tooltip("Distance of the screen in front of the head in meters.")] [SerializeField]
         private float _screenDistance = 3f;
@@ -82,8 +86,7 @@ namespace Gothic.VR.Adapters.UI
         private Color _savedSpectatorBackground;
         private float _savedTimeScale = 1f;
 
-        private GameObject _skipHint;
-        private TMP_Text _skipHintText;
+        private bool _isSkipHintPrepared;
         private float _skipHintStartTime;
 
         private IVrRig _rig;
@@ -195,34 +198,22 @@ namespace Gothic.VR.Adapters.UI
             // The world is paused via AudioListener.pause - the video's own source ignores it. Not serialized by Unity.
             _audioSource.ignoreListenerPause = true;
 
-            if (_skipHint == null)
-                CreateSkipHint();
+            if (!_isSkipHintPrepared)
+                PrepareSkipHint();
             return true;
         }
 
         /// <summary>
-        /// "(Trigger) skip" under the screen's right corner - the word from the
-        /// Gothic-UI table (key cinema.skip), in the dark room's UI layer.
+        /// The word from the Gothic-UI table (key cinema.skip) in Gothic's font - both exist only after the boot.
         /// </summary>
-        private void CreateSkipHint()
+        private void PrepareSkipHint()
         {
-            _skipHint = new GameObject("_CinemaSkipHint");
-            _skipHint.layer = Constants.UILayer;
-            _skipHint.transform.SetParent(transform, false);
-            _skipHint.transform.localScale = Vector3.one * _skipHintScale;
-
-            var text = _skipHint.AddComponent<TextMeshPro>();
-            GothicText.Apply(text);
+            GothicText.Apply(_skipHintText);
             var localized = _localizationService.GetText("cinema.skip");
-            text.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
+            _skipHintText.text = _skipHintButton + (string.IsNullOrEmpty(localized) || localized.Contains("cinema.skip")
                 ? _skipHintFallback
                 : localized);
-            text.fontSize = 12;
-            text.alignment = TextAlignmentOptions.Right;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            // Pivot at the right edge, so the text ends at the screen's corner.
-            text.rectTransform.pivot = new Vector2(1f, 0.5f);
-            _skipHintText = text;
+            _isSkipHintPrepared = true;
             ResetSkipHintFade();
         }
 
@@ -237,14 +228,14 @@ namespace Gothic.VR.Adapters.UI
 
         private void LateUpdate()
         {
-            if (!_isRunning || _skipHint == null)
+            if (!_isRunning || !_isSkipHintPrepared)
                 return;
 
             // Under the screen's right corner, its right edge in line with the screen's.
             var screenTransform = _screen.transform;
             var corner = screenTransform.position + screenTransform.right * (screenTransform.lossyScale.x / 2f) -
                          Vector3.up * (screenTransform.lossyScale.y / 2f + _skipHintGap);
-            _skipHint.transform.SetPositionAndRotation(corner, screenTransform.rotation);
+            _skipHintText.transform.SetPositionAndRotation(corner, screenTransform.rotation);
 
             var progress = Mathf.Clamp01((Time.unscaledTime - _skipHintStartTime - _skipHintFadeDelay) /
                                          _skipHintFadeSeconds);
