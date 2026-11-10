@@ -6,7 +6,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.UI;
 using Reflex.Attributes;
@@ -45,11 +44,10 @@ namespace Gothic.VR.Adapters.UI
         private Button _clearButton;
         [SerializeField] private Button _submitButton;
         [SerializeField] private Button _cancelButton;
-        [Tooltip("DeveloperConfig.EnableUiGrabBars: the bar under the keyboard (inactive until Setup).")]
+        [Tooltip("The bar under the keyboard (inactive until Setup).")]
         [SerializeField]
         private VRGrabBar _grabBar;
 
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly IVrUiPointers _uiPointers;
 
         private static VirtualKeyboard _current;
@@ -163,8 +161,8 @@ namespace Gothic.VR.Adapters.UI
             // The optional rows changed - recalculate the panel size before the laser sees it.
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
 
-            // DeveloperConfig.EnableUiGrabBars: following an anchor (Marvin), it's moved with the anchor's bar.
-            if (!_hasFollowTarget && _configService.Dev.EnableUiGrabBars)
+            // Following an anchor (Marvin), it's moved with the anchor's bar.
+            if (!_hasFollowTarget)
                 _grabBar.Setup(transform);
 
             RefreshDisplay();

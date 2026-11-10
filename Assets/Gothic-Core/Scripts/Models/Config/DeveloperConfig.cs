@@ -124,15 +124,6 @@ namespace Gothic.Core.Models.Config
         [ConditionalField(useMethod: true, method: nameof(SaveSlotFieldCondition), inverse: true)]
         public string SpawnAtWaypoint = string.Empty;
 
-        [Tooltip("VR: The Marvin panel and the on-screen keyboard (save names, Marvin) have a bar at their side like " +
-                 "SteamVR's windows - reach it, hold the grip and move them. The Marvin panel then floats where you " +
-                 "put it and lazily follows your head; released above the left hand it docks back there.")]
-        public bool EnableUiGrabBars = true;
-
-        [Tooltip("After the ending's videos (G1 ExitGame after the Sleeper, G2 ExitSession after the captain's 'It's " +
-                 "over') the game restarts to the main menu / game profiles. Off: it closes.")]
-        public bool EnableEndingReturnsToMenu = true;
-
         [Separator("Debug")]
         [Tooltip("Ignore frame skipping during loading.")]
         public bool SpeedUpLoading;

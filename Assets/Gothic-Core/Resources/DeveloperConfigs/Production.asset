@@ -33,8 +33,6 @@ MonoBehaviour:
   SaveSlotToLoad: 0
   PreselectWorldToSpawn: 0
   SpawnAtWaypoint: 
-  EnableUiGrabBars: 1
-  EnableEndingReturnsToMenu: 1
   SpeedUpLoading: 0
   SkipVideos: 0
   EnableVOBs: 1

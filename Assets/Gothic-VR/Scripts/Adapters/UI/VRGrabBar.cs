@@ -15,9 +15,8 @@ using Object = UnityEngine.Object;
 namespace Gothic.VR.Adapters.UI
 {
     /// <summary>
-    /// DeveloperConfig.EnableUiGrabBars: a bar at a world canvas like SteamVR's windows - reach it with a hand, hold
-    /// the grip and the target moves (and turns) with that hand until the grip is released. An inactive child of the
-    /// canvas in its prefab, outside its rect and ignored by its layout group - Setup turns it on. Optional dock:
+    /// A bar at a world canvas like SteamVR's windows - reach it with a hand, hold the grip and the target moves (and
+    /// turns) with that hand until the grip is released. An inactive child of the canvas in its prefab, outside its rect and ignored by its layout group - Setup turns it on. Optional dock:
     /// while grabbed a sphere floats above a dock anchor (the left hand) - released in it, onDock is called (put the
     /// target back there). Optional head follow: released outside the dock, the target floats in the air at its spot
     /// relative to the head and lazily follows it (turns after it only once the head looked away further, then

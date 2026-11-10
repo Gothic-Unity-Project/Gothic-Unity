@@ -1,6 +1,5 @@
 using System;
 using Gothic.Core.Logging;
-using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -8,13 +7,12 @@ namespace Gothic.Core.Services.Game
 {
     /// <summary>
     /// The end of the game: ExitGame (G1, after the Sleeper) / ExitSession (G2) - once the queued videos (Extro,
-    /// Credits) are over, quit or restart (DeveloperConfig.EnableEndingReturnsToMenu). Right away if no video plays.
+    /// Credits) are over, back to the main menu / game profiles (a restart). Right away if no video plays.
     /// The platform that plays videos tells whether one is running (SetVideoRunningCheck); without one (Flat) the
     /// game ends right away.
     /// </summary>
     public class GameEndingService
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameLifecycleService _gameLifecycleService;
 
         private Func<bool> _isVideoRunning;
@@ -57,17 +55,10 @@ namespace Gothic.Core.Services.Game
 
         private void EndGame()
         {
-            // DeveloperConfig.EnableEndingReturnsToMenu: after the ending's videos and credits back to the start (game
-            // profiles / main menu) like the engine's ExitSession - the game just closed.
-            if (_configService.Dev.EnableEndingReturnsToMenu)
-            {
-                Logger.Log("Game ended (ExitGame/ExitSession) - back to the main menu.", LogCat.Loading);
-                _gameLifecycleService.Restart();
-                return;
-            }
-
-            Logger.Log("Game ended (ExitGame/ExitSession) - quitting.", LogCat.Loading);
-            _gameLifecycleService.Quit();
+            // After the ending's videos and credits back to the start (game profiles / main menu) like the engine's
+            // ExitSession. Where a restart isn't possible (Quest, Pico), Restart() quits.
+            Logger.Log("Game ended (ExitGame/ExitSession) - back to the main menu.", LogCat.Loading);
+            _gameLifecycleService.Restart();
         }
     }
 }

@@ -18,8 +18,7 @@ namespace Gothic.VR.Adapters.Marvin
         [SerializeField] private GameObject _tabMarvin;
         [SerializeField] private GameObject _tabInspector;
 
-        [Tooltip("DeveloperConfig.EnableUiGrabBars: the bar at the panel's lower right corner, inactive until " +
-                 "VRMarvinPanelService sets it up.")]
+        [Tooltip("The bar at the panel's lower right corner, inactive until VRMarvinPanelService sets it up.")]
         [SerializeField]
         private VRGrabBar _grabBar;
 

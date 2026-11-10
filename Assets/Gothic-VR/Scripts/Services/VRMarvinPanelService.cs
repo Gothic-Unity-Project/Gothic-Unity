@@ -1,7 +1,6 @@
 using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Adapters.Marvin;
 using Reflex.Attributes;
 using UnityEngine;
@@ -11,13 +10,11 @@ namespace Gothic.VR.Services
 {
     /// <summary>
     /// The Marvin panel of the VR player (MarvinRootHandler, docked at the left hand): shown while Marvin mode is on
-    /// (MarvinService is the only owner of that state) and, with DeveloperConfig.EnableUiGrabBars, movable by its
-    /// grab bar and docked back to the hand.
+    /// (MarvinService is the only owner of that state), movable by its grab bar and docked back to the hand.
     /// </summary>
     public class VRMarvinPanelService
     {
         [Inject] private readonly MarvinService _marvinService;
-        [Inject] private readonly ConfigService _configService;
 
         private MarvinRootHandler _marvinRoot;
 
@@ -33,13 +30,12 @@ namespace Gothic.VR.Services
         public void Setup(GameObject playerRoot, Transform playerSpace)
         {
             _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!;
-            if (_configService.Dev.EnableUiGrabBars)
-                AddGrabBar(playerSpace);
+            AddGrabBar(playerSpace);
             ApplyVisibility();
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableUiGrabBars: grabbed, the Marvin panel leaves the left hand and floats where it's put
+        /// Grabbed, the Marvin panel leaves the left hand and floats where it's put
         /// (it lazily follows the head) - one element with its keyboard (it follows the panel's KeyboardAnchor), so the
         /// bar is upright at the side. Released in the sphere above the left hand, it docks back.
         /// </summary>
