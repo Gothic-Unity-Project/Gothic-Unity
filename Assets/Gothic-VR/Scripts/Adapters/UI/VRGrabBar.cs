@@ -336,7 +336,7 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// Hidden while held (e.g. the Marvin option turned off): let go without docking - reparenting an object
+        /// Hidden while held (e.g. Marvin mode turned off): let go without docking - reparenting an object
         /// that is being deactivated throws.
         /// </summary>
         private void OnDisable()
