@@ -38,6 +38,8 @@ namespace Gothic.Core.Domain.Marvin
         private const float _spawnDistance = 2f;
         private const float _blinkDistance = 4f;
         private const float _blinkFloorSearchHeight = 3f;
+        // Vanilla Marvin K lifts the hero a bit too: he lands instead of ending up in a slope or step.
+        private const float _blinkUp = 1f;
         private const float _killMaxAngle = 15f;
         private const float _killMaxDistance = 30f;
         private const string _messageFont = "FONT_OLD_20_WHITE.TGA";
@@ -174,9 +176,11 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// Like Gothic's Marvin key K: 4 m forward where the hero looks, only
-        /// horizontally (through doors and walls). The floor below the target is searched from a bit above, otherwise
-        /// the height stays.
+        /// Like Gothic's Marvin key K: 4 m forward where the hero looks and a bit up, through doors and walls. The
+        /// floor below the target is searched from a bit above, otherwise the height stays. Measured from the head,
+        /// not the player's root: in VR the head is off the rig's origin (room scale, turning) and the rig is turned
+        /// so the head - not the origin - faces the destination rotation (XRI TargetUpAndForward), so the view's own
+        /// yaw is passed and the view doesn't turn.
         /// </summary>
         public bool BlinkForward()
         {
@@ -195,13 +199,19 @@ namespace Gothic.Core.Domain.Marvin
             forward.y = 0f;
             forward.Normalize();
 
-            var target = player.transform.position + forward * _blinkDistance;
+            // The ground below the head (the spot a teleport puts there), at the feet's height.
+            var start = cam.transform.position;
+            start.y = player.transform.position.y;
+
+            var target = start + forward * _blinkDistance;
             if (Physics.Raycast(target + Vector3.up * _blinkFloorSearchHeight, Vector3.down, out var hit,
                     _blinkFloorSearchHeight * 2f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
                 target.y = hit.point.y;
+            target.y += _blinkUp;
 
-            _contextInteractionService.TeleportPlayerTo(target, player.transform.rotation);
-            Logger.Log($"[MarvinCheatDomain] Blink {_blinkDistance:F0} m forward to {target}", LogCat.Ui);
+            _contextInteractionService.TeleportPlayerTo(target, Quaternion.LookRotation(forward, Vector3.up));
+            Logger.Log($"[MarvinCheatDomain] Blink {_blinkDistance:F0} m forward, {_blinkUp:F0} m up to {target}",
+                LogCat.Ui);
             return true;
         }
 

@@ -157,7 +157,7 @@ namespace Gothic.Core.Services.Marvin
                 .Add(_guildValue).Runs(values => _cheatDomain.SetGuild(values[0]));
             cheat.Add("god").Describe("Hits and falls don't hurt the hero (toggle)")
                 .Runs(_ => _cheatDomain.ToggleGodMode());
-            root.Add("goto").Add("forward").Describe("4 m forward where you look, through walls")
+            root.Add("goto").Add("forward").Describe("4 m forward where you look and 1 m up, through walls")
                 .Runs(_ => _cheatDomain.BlinkForward());
 
             root.Add("kill").Describe("The NPC you look at dies (not immortal ones)")
