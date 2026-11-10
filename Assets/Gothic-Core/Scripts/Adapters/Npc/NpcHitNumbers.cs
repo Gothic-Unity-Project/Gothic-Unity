@@ -42,7 +42,7 @@ namespace Gothic.Core.Adapters.Npc
 
         private bool IsOptionOn()
         {
-            return _configService.Gothic != null && _configService.Gothic.GetInt(Constants.IniNames.HitNumbers, 0) == 1;
+            return _configService.IsGothicOptionOn(Constants.IniNames.HitNumbers);
         }
 
         private void OnPlayerPrefUpdated(string key, object value)

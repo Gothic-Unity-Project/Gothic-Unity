@@ -63,6 +63,7 @@ namespace Gothic.VR.Adapters.UI
         private Vector3 _grabPositionOffset;
         private Quaternion _grabRotationOffset;
 
+        private bool _isHovered;
         private bool _isFollowing;
         private bool _isFollowTurning;
         private float _followYaw;
@@ -159,8 +160,11 @@ namespace Gothic.VR.Adapters.UI
             }
 
             var isHovered = false;
-            foreach (var hand in rig.HandGrabbers)
+            // Indexed, not foreach: HandGrabbers is an IReadOnlyList, foreach would box an enumerator every frame.
+            var hands = rig.HandGrabbers;
+            for (var i = 0; i < hands.Count; i++)
             {
+                var hand = hands[i];
                 // A hand holding something (sword, rune) doesn't grab the bar.
                 if (hand == null || hand.Held != null || !IsInReach(GetHandPosition(hand.HandSide)))
                     continue;
@@ -171,7 +175,11 @@ namespace Gothic.VR.Adapters.UI
                     return;
                 }
             }
-            _image.color = isHovered ? _hoverColor : _color;
+            if (_isHovered != isHovered)
+            {
+                _isHovered = isHovered;
+                _image.color = isHovered ? _hoverColor : _color;
+            }
 
             if (_isFollowing)
                 UpdateHeadFollow();
@@ -229,6 +237,7 @@ namespace Gothic.VR.Adapters.UI
                        (isDocked ? " in the dock" : ""), LogCat.Ui);
             _grabTransform = null;
             _image.color = _color;
+            _isHovered = false;
             if (_dockSphere != null)
                 _dockSphere.SetActive(false);
             if (isDocked)
@@ -336,6 +345,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
             _grabTransform = null;
             _image.color = _color;
+            _isHovered = false;
             if (_dockSphere != null)
                 _dockSphere.SetActive(false);
         }

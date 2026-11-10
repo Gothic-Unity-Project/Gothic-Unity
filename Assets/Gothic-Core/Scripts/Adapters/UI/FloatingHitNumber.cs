@@ -39,10 +39,8 @@ namespace Gothic.Core.Adapters.UI
         /// </summary>
         public static float GetSizeScale()
         {
-            var gothicIni = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Gothic;
-            var size = gothicIni == null
-                ? 0f
-                : Mathf.Clamp01(gothicIni.GetFloat(Constants.IniNames.HitNumbersSize, 0f));
+            var configService = ReflexProjectInstaller.DIContainer.Resolve<ConfigService>();
+            var size = Mathf.Clamp01(configService.GetGothicOption(Constants.IniNames.HitNumbersSize, 0f));
             return Mathf.Lerp(1f, Constants.IniNames.HitNumbersMaxScale, size);
         }
 

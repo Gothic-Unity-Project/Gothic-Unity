@@ -255,8 +255,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// </summary>
         private void UpdateNumbers()
         {
-            _isNumbersShown = _configService.Gothic != null &&
-                              _configService.Gothic.GetInt(Constants.IniNames.HealthNumbers, 0) == 1;
+            _isNumbersShown = _configService.IsGothicOptionOn(Constants.IniNames.HealthNumbers);
             if (_isNumbersShown && _numbers == null)
                 _numbers = CreateNumbersText();
             if (_numbers == null)
@@ -327,7 +326,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// </summary>
         private void ShowHeroHitNumber(int amount, string unit)
         {
-            if (_configService.Gothic == null || _configService.Gothic.GetInt(Constants.IniNames.HitNumbers, 0) != 1 ||
+            if (!_configService.IsGothicOptionOn(Constants.IniNames.HitNumbers) ||
                 !_background.enabled)
                 return;
 

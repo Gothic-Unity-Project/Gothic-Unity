@@ -621,8 +621,7 @@ namespace Gothic.Core.Manager
         /// </summary>
         private bool IsFreeMovementOn()
         {
-            return _configService.Gothic != null &&
-                   _configService.Gothic.GetInt(Constants.IniNames.DialogFreeMovement, 0) == 1;
+            return _configService.IsGothicOptionOn(Constants.IniNames.DialogFreeMovement);
         }
 
         /// <summary>
