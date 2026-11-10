@@ -38,4 +38,4 @@ Committing doesn't make a review outdated, changing code does.
    - `opus` - crosses layers or services, Daedalus/save-load semantics, DI wiring, or needs a design decision
    Give the agent the finding number, the report text and the relevant files; tell it to follow `CLAUDE.md`, keep
    the change to that finding and **commit once done** (style from the `commit-pr` skill, one commit per finding,
-   no push). Independent fixes may run in parallel unless they touch the same files. Afterwards run a new review.
+   no push). Independent fixes may run in parallel unless they touch the same files.
