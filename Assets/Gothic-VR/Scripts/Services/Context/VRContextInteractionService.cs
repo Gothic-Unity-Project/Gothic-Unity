@@ -141,8 +141,6 @@ namespace Gothic.VR.Services.Context
 
             // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
-            // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): fell out -> back.
-            new UnityEngine.GameObject("_MarvinFallRescue").AddComponent<MarvinFallRescue>();
         }
 
         private void OnLoadingSceneLoaded()

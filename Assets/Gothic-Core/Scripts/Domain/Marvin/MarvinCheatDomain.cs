@@ -211,7 +211,7 @@ namespace Gothic.Core.Domain.Marvin
         /// <summary>
         /// DeveloperConfig.EnableMarvinBlink - like Gothic's Marvin key K: 4 m forward where the hero looks, only
         /// horizontally (through doors and walls). The floor below the target is searched from a bit above, otherwise
-        /// the height stays. Falling out: MarvinFallRescue.
+        /// the height stays.
         /// </summary>
         public bool BlinkForward()
         {

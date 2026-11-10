@@ -77,10 +77,6 @@ namespace Gothic.Core.Models.Config
                  "dies - not immortal ones (e.g. Diego).")]
         public bool EnableMarvinKill = true;
 
-        [Tooltip("Marvin mode only: no floor below the hero for 2 s (fell out of the world) - back to the last spot " +
-                 "stood on, else to the world's START point.")]
-        public bool EnableMarvinFallRescue = true;
-
         [Tooltip("Marvin command 'team irdorath': Daedalus symbols of NPCs spawned at once in front of the hero, " +
                  "comma separated. E.g. PC_THIEF_DI, PC_FIGHTER_DI, PC_MAGE_DI, PC_PSIONIC_DI, SLD_801_TORLOF_DI. " +
                  "Leave empty to hide the command.")]

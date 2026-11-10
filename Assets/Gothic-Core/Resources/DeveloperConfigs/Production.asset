@@ -23,7 +23,6 @@ MonoBehaviour:
   EnableMarvinGodMode: 1
   EnableMarvinBlink: 1
   EnableMarvinKill: 1
-  EnableMarvinFallRescue: 1
   MarvinFriendsNpcSymbols: 
   MarvinCheatFriendsNpcSymbols: 
   MarvinStartCommands: 
