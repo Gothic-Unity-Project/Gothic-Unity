@@ -66,40 +66,6 @@ namespace Gothic.Core.Models.Config
         [Tooltip("Start with Marvin mode on (shortcut). Without it, Marvin mode can still be activated in game.")]
         public bool PreselectMarvinMode;
 
-        [Tooltip("Marvin command 'cheat god': hits (melee, arrows, spells) and falls don't hurt the hero (toggle).")]
-        public bool EnableMarvinGodMode = true;
-
-        [Tooltip("Marvin command 'goto forward' (Gothic's Marvin key K): 4 m forward where the hero looks, " +
-                 "horizontally only - through doors and walls.")]
-        public bool EnableMarvinBlink = true;
-
-        [Tooltip("Marvin command 'kill' like Gothic's: the NPC a hand pointed at last (or the one you look at) " +
-                 "dies - not immortal ones (e.g. Diego).")]
-        public bool EnableMarvinKill = true;
-
-        [Tooltip("Marvin command 'team irdorath': Daedalus symbols of NPCs spawned at once in front of the hero, " +
-                 "comma separated. E.g. PC_THIEF_DI, PC_FIGHTER_DI, PC_MAGE_DI, PC_PSIONIC_DI, SLD_801_TORLOF_DI. " +
-                 "Leave empty to hide the command.")]
-        public string MarvinFriendsNpcSymbols = string.Empty;
-
-        [Tooltip("Marvin command 'team helpers': Daedalus symbols of NPCs spawned at once, comma separated - the " +
-                 "scripts' test helpers SH (story helper) and CH (character helper). Leave empty to hide the command.")]
-        public string MarvinCheatFriendsNpcSymbols = string.Empty;
-
-        [Tooltip("Marvin console commands in its recent list from the start, separated by ';' (e.g. 'cheat god; goto " +
-                 "forward'). Only shown for one click, not run. Leave empty for none.")]
-        public string MarvinStartCommands = string.Empty;
-
-        [Tooltip("Items for the Marvin command 'give items', comma separated, optional amount: " +
-                 "ITRU_FIREBOLT, ITSC_ICEBOLT:3, ITPO_MANA_03:5. Leave empty to hide the command.")]
-        [TextArea(2, 6)]
-        public string MarvinGiveItems = string.Empty;
-
-        [Tooltip("Marvin command 'bind <NAME>': named command lists, one per line, commands separated by ';': " +
-                 "'test_1 = goto waypoint OCR_ARENABATTLE_TRAIN; insert ITMW_1H_SWORD_01'. Leave empty to hide it.")]
-        [TextArea(3, 12)]
-        public string MarvinBinds = string.Empty;
-
         
         /**
          * ##########

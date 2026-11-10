@@ -35,7 +35,7 @@ namespace Gothic.Core.Services.Player
 
         /// <summary>
         /// Marvin's focus like Gothic's: the NPC last pointed at (VR: hovered with a hand - VRFocus), kept until
-        /// another one is or the world changes. Only set with DeveloperConfig.EnableMarvinKill, for its "kill".
+        /// another one is or the world changes. Used by its "kill".
         /// </summary>
         public NpcContainer FocusNpc;
         public NpcContainer HeroContainer { get; private set; }

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Gothic.Core.Creator;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -31,7 +29,6 @@ namespace Gothic.Core.Domain.Marvin
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
-        [Inject] private readonly VmCacheService _vmCacheService;
 
         private const int _levelsPerLevelCheat = 5;
         private const int _learnPointsPerLevel = 10;
@@ -41,8 +38,6 @@ namespace Gothic.Core.Domain.Marvin
         private const float _spawnDistance = 2f;
         private const float _blinkDistance = 4f;
         private const float _blinkFloorSearchHeight = 3f;
-        private const float _groupDistance = 2.5f;
-        private const float _groupArcDegrees = 120f;
         private const float _killMaxAngle = 15f;
         private const float _killMaxDistance = 30f;
         private const string _messageFont = "FONT_OLD_20_WHITE.TGA";
@@ -122,35 +117,6 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.MarvinGiveItems: the whole list into the hero's inventory ("ITRU_FIREBOLT, ITPO_MANA_03:5")
-        /// - test kits for G2, where the scripts' test heroes (PC_Rockefeller) break the story. Unknown items are
-        /// skipped.
-        /// </summary>
-        public bool GiveItems(string itemList)
-        {
-            var given = 0;
-            foreach (var entry in itemList.Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var parts = entry.Trim().Trim('\'').Split(':');
-                var name = parts[0].Trim();
-                if (name.Length == 0)
-                    continue;
-                var amount = parts.Length > 1 && int.TryParse(parts[1].Trim(), out var parsed) ? parsed : 1;
-                if (_vmCacheService.TryGetItemData(name) == null)
-                {
-                    Logger.LogWarning($"[MarvinCheatDomain] Give items: no item '{name}' - skipped", LogCat.Ui);
-                    continue;
-                }
-
-                _playerService.AddItem(name, Mathf.Max(1, amount));
-                given++;
-            }
-
-            Logger.Log($"[MarvinCheatDomain] Gave {given} item(s) from MarvinGiveItems", LogCat.Ui);
-            return given > 0;
-        }
-
-        /// <summary>
         /// Items go into the hero's inventory. NPCs are spawned in front of the hero.
         /// </summary>
         public bool Insert(string instanceName, int amount, bool isItem)
@@ -195,8 +161,7 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinGodMode: hits (melee, arrows, spells) and falls don't hurt the hero. Toggles;
-        /// the state shows as a screen message.
+        /// Hits (melee, arrows, spells) and falls don't hurt the hero. Toggles; the state shows as a screen message.
         /// </summary>
         public bool ToggleGodMode()
         {
@@ -209,7 +174,7 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinBlink - like Gothic's Marvin key K: 4 m forward where the hero looks, only
+        /// Like Gothic's Marvin key K: 4 m forward where the hero looks, only
         /// horizontally (through doors and walls). The floor below the target is searched from a bit above, otherwise
         /// the height stays.
         /// </summary>
@@ -241,7 +206,7 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableMarvinKill - like Gothic's Marvin "kill" (OpenGothic C_Kill): the focus NPC loses all
+        /// Like Gothic's Marvin "kill" (OpenGothic C_Kill): the focus NPC loses all
         /// its hit points and dies (never unconscious), unless it's immortal (NPC_FLAG_IMMORTAL, e.g. Diego). The focus
         /// is the NPC a hand pointed at last (PlayerService.FocusNpc), without one the NPC closest to the view's center
         /// within _killMaxAngle and _killMaxDistance.
@@ -302,44 +267,6 @@ namespace Gothic.Core.Domain.Marvin
                 target = npc;
             }
             return target;
-        }
-
-        /// <summary>
-        /// Spawns a group of NPCs on an arc in front of the hero, facing him: the Irdorath crew (DeveloperConfig
-        /// MarvinFriendsNpcSymbols) or the scripts' test helpers SH/CH (MarvinCheatFriendsNpcSymbols).
-        /// </summary>
-        public bool SpawnGroup(string groupName, string npcSymbols)
-        {
-            var heroGo = _npcService.GetHeroContainer()?.Go;
-            if (heroGo == null)
-            {
-                Logger.LogWarning($"[MarvinCheatDomain] {groupName}: hero GameObject not found", LogCat.Ui);
-                return false;
-            }
-
-            var names = new List<string>();
-            foreach (var entry in npcSymbols.Split(',', ';', '\n'))
-            {
-                var name = entry.Trim();
-                if (name.Length > 0)
-                    names.Add(name);
-            }
-
-            var forward = heroGo.transform.forward;
-            forward.y = 0f;
-            forward = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
-            var spawned = 0;
-            for (var i = 0; i < names.Count; i++)
-            {
-                var angle = names.Count > 1 ? -_groupArcDegrees / 2f + _groupArcDegrees * i / (names.Count - 1) : 0f;
-                var direction = Quaternion.Euler(0f, angle, 0f) * forward;
-                var position = heroGo.transform.position + direction * _groupDistance;
-                if (_npcService.SpawnNpcByName(names[i], position, Quaternion.LookRotation(-direction)))
-                    spawned++;
-            }
-
-            Logger.Log($"[MarvinCheatDomain] {groupName}: spawned {spawned}/{names.Count}", LogCat.Ui);
-            return spawned > 0;
         }
 
         private static int GetHeroAttribute(NpcContainer hero, NpcAttribute attribute)

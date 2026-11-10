@@ -20,14 +20,6 @@ MonoBehaviour:
   GameControls: 0
   EnableVRDeviceSimulator: 0
   PreselectMarvinMode: 0
-  EnableMarvinGodMode: 1
-  EnableMarvinBlink: 1
-  EnableMarvinKill: 1
-  MarvinFriendsNpcSymbols: 
-  MarvinCheatFriendsNpcSymbols: 
-  MarvinStartCommands: 
-  MarvinGiveItems: 
-  MarvinBinds: 
   EnableZSpyLogs: 0
   AllDebugChannels: 0
   ZSpyChannels:

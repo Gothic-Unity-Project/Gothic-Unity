@@ -101,7 +101,7 @@ namespace Gothic.VR.Adapters
         private void OnHoverEnter(VrGrabArgs _)
         {
             // The hero's focus (PlayerService.FocusNpc) - e.g. Marvin's "kill" hits the NPC the hand pointed at.
-            if (_isNpc && _configService.Dev.EnableMarvinKill)
+            if (_isNpc)
             {
                 var loader = GetComponentInParent<NpcLoader>();
                 if (loader != null && loader.Container != null)
