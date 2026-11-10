@@ -4,7 +4,6 @@ using Gothic.Core.Model.UI.Menu;
 using Gothic.Core.Model.UI.MenuItem;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
-using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Vm;
 using Gothic.Core.Services.World;
 using Gothic.Services.UI;
@@ -25,7 +24,6 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly LocalizationService _localizationService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmService _vmService;
-        [Inject] private readonly GameLifecycleService _gameLifecycleService;
 
         private const int _rowsPerPage = 6;
         
@@ -188,8 +186,6 @@ namespace Gothic.VR.Services.Context
                     "G2: sneaking, a purse to grab on whom you could pickpocket"),
                 CreateToggleChoice(gameMenu, "PICKPOCKET_PURSE", VRConstants.IniNames.PickpocketPurse,
                     VRConstants.PickpocketPurseDefaultValue)));
-            if (_gameLifecycleService.IsRestartPossible)
-                rows.Add((CreateRestartButton(mainMenu), null));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
             vrImmersionMenu.Items.Add(CreateImmersionBackButton(mainMenu));
 
@@ -306,23 +302,6 @@ namespace Gothic.VR.Services.Context
             slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
 
             return slider;
-        }
-
-        /// <summary>
-        /// Starts the game again (GameLifecycleService) - e.g. to pick another game profile.
-        /// </summary>
-        private MutableMenuItemInstance CreateRestartButton(AbstractMenuInstance mainMenu)
-        {
-            var someOptionsMenu = mainMenu.FindMenuRecursive("MENU_OPT_GRAPHICS");
-            var buttonReference = someOptionsMenu?.FindMenuItem("MENUITEM_GRA_BACK", out _);
-            var restartButton =
-                new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_RESTART", buttonReference);
-
-            restartButton.SetText(0, "Restart game");
-            restartButton.SetOnSelAction(0, MenuItemSelectAction.ExecuteCommand);
-            restartButton.SetOnSelActionS(0, VRConstants.MenuCommandRestartGame);
-
-            return restartButton;
         }
 
         /// <summary>

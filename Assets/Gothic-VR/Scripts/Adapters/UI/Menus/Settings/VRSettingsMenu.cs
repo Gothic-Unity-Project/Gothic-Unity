@@ -1,17 +1,13 @@
 using System;
 using Gothic.Core.Adapters.UI.Menus;
-using Gothic.Core.Services.Game;
-using Reflex.Attributes;
 
 namespace Gothic.VR.Adapters.UI.Menus.Settings
 {
     /// <summary>
-    /// Shared handlers of our VR settings menus (Accessibility, Immersion) - "Restart game" lands here.
+    /// Shared handlers of our VR settings menus (Accessibility, Immersion).
     /// </summary>
     public abstract class VRSettingsMenu : AbstractMenu
     {
-        [Inject] private readonly GameLifecycleService _gameLifecycleService;
-
         protected override void Undefined(string itemName, string commandName)
         {
             throw new NotImplementedException();
@@ -44,12 +40,6 @@ namespace Gothic.VR.Adapters.UI.Menus.Settings
 
         protected override void ExecuteCommand(string itemName, string commandName)
         {
-            if (commandName == VRConstants.MenuCommandRestartGame)
-            {
-                _gameLifecycleService.Restart();
-                return;
-            }
-
             throw new NotImplementedException();
         }
     }

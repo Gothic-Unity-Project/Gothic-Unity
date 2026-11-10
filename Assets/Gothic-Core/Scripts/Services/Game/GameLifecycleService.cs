@@ -11,8 +11,8 @@ using UnityEditor;
 namespace Gothic.Core.Services.Game
 {
     /// <summary>
-    /// Restarts or quits the game process - "Restart game" from our settings menu and the end of the game
-    /// (GameEndingService). A restart is a fresh start that shows the game profile list again (if enabled).
+    /// Restarts or quits the game process - used after the end of the game (GameEndingService).
+    /// A restart is a fresh start that shows the game profile list again (if enabled).
     /// Editor: stops Play mode and enters it again. Standalone: starts the exe again and quits this one.
     /// The game can't switch Gothic version/mod in place - ZenKit, the VM and caches are set up once per start.
     /// </summary>
@@ -48,7 +48,7 @@ namespace Gothic.Core.Services.Game
             SessionState.SetBool(_replayKey, true);
             EditorApplication.isPlaying = false;
 #else
-            if (!IsRestartPossible)
+            if (Application.isMobilePlatform)
             {
                 // A headset app can't start itself again - quitting is the closest we get.
                 Logger.LogWarning("Restart isn't possible on this platform - quitting instead.", LogCat.Loading);
@@ -80,11 +80,6 @@ namespace Gothic.Core.Services.Game
             Application.Quit();
 #endif
         }
-
-        /// <summary>
-        /// A headset app can't start itself again (Quest, Pico) - the menu hides "Restart game" there.
-        /// </summary>
-        public bool IsRestartPossible => !Application.isMobilePlatform;
 
         /// <summary>
         /// Closes the game. Editor: stops Play mode.

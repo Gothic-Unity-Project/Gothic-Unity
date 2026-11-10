@@ -84,7 +84,6 @@ namespace Gothic.VR
         public const string IniSectionAccessibility = "GOTHIC_VR_ACCESSIBILITY";
 
         public const string IniSectionImmersion = "GOTHIC_VR_IMMERSION";
-        public const string MenuCommandRestartGame = "RESTART_GAME";
 
         public const string IniSectionControls = "GOTHIC_VR_CONTROLS";
 
