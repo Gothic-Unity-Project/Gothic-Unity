@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -215,7 +216,7 @@ namespace Gothic.Core.Services.Vobs
                 return false;
 
             var scheme = mob.Visual.Name.Split('_')[0];
-            var mds = _resourceCacheService.TryGetModelScript("HUMANS", false);
+            var mds = _resourceCacheService.TryGetModelScript(Constants.Animations.HumanModelScript, false);
             var useAnim = mds?.Animations.FirstOrDefault(a => a.Name.EqualsIgnoreCase($"T_{scheme}_S0_2_S1"));
             if (useAnim == null || useAnim.EventTags.All(e => e.Type != EventType.ItemInsert))
                 return false;

@@ -4,6 +4,8 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -11,6 +13,7 @@ using Gothic.Core.Services.Player;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.UI;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
@@ -22,23 +25,29 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         [SerializeField] private StatusType _statusType;
         public StatusType Type => _statusType;
         private Coroutine _fadeCoroutine;
+        private bool _isFadingIn;
         [SerializeField] private bool _isPlayer;
         [SerializeField] private Image _background;
         [SerializeField] private Image _statusValue;
+
+        [Tooltip("\"HP/MAX\" / \"MANA/MAX\" (option \"healthNumbers\"), disabled until shown. NPC bars: above the " +
+                 "name in the focus NameCanvas (inside the bar it came out mirrored). The hero's bars: on the bar. " +
+                 "None on bars without numbers.")]
+        [SerializeField]
+        private TMP_Text _numbers;
 
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
-        private const string _nameTextName = "NameText";
-        private const float _textInFrontOfBar = -0.5f;
         private static readonly Vector3[] _corners = new Vector3[4];
 
         private NpcContainer _owner;
-        // "HP/MAX" (health bars) or "MANA/MAX" (the hero's mana bar) - option "healthNumbers".
-        private TMP_Text _numbers;
         private bool _isNumbersShown;
+        private bool _isNumbersFontApplied;
+        private ObjectPool<FloatingUiHitNumber> _hitNumberPool;
         private int _numbersValue;
         private int _numbersMax;
         private bool _isInWorld;
@@ -56,6 +65,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         private void OnDestroy()
         {
             GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+            GlobalEventDispatcher.HeroManaBarRequested.RemoveListener(OnHeroManaBarRequested);
         }
 
         private void Awake()
@@ -82,6 +92,10 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                     // Videos (new game intro, chapter videos) are watched without the bar.
                     GlobalEventDispatcher.PlayVideo.AddListener(OnPlayVideo);
                     GlobalEventDispatcher.VideoPlaybackFinished.AddListener(OnVideoPlaybackFinished);
+                }
+                else if (_statusType == StatusType.Mana)
+                {
+                    GlobalEventDispatcher.HeroManaBarRequested.AddListener(OnHeroManaBarRequested);
                 }
             }
             else
@@ -126,12 +140,12 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         }
 
         /// <summary>
-        /// Health (and the hero's mana numbers) follow NpcAttributeChanged while enabled. Culled NPCs are disabled -
+        /// Health and mana (and the hero's numbers) follow NpcAttributeChanged while enabled. Culled NPCs are disabled -
         /// they refresh when re-enabled.
         /// </summary>
         private void OnEnable()
         {
-            if (!HasNumbers)
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.AddListener(OnNpcAttributeChanged);
@@ -142,7 +156,9 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnDisable()
         {
-            if (!HasNumbers)
+            FinishFade();
+
+            if (_statusType == StatusType.Misc)
                 return;
 
             GlobalEventDispatcher.NpcAttributeChanged.RemoveListener(OnNpcAttributeChanged);
@@ -151,10 +167,10 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
         private void OnNpcAttributeChanged(NpcContainer npc, NpcAttribute attribute)
         {
-            var isMine = _statusType == StatusType.Health
+            var isShownAttribute = _statusType == StatusType.Health
                 ? attribute is NpcAttribute.HitPoints or NpcAttribute.HitPointsMax
                 : attribute is NpcAttribute.Mana or NpcAttribute.ManaMax;
-            if (!isMine || npc != GetOwner())
+            if (!isShownAttribute || npc != GetOwner())
                 return;
 
             Refresh();
@@ -163,12 +179,27 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// <summary>
         /// "-12 HP" / "+5 MANA" next to the hero's health bar (option "hitNumbers", like NpcHitNumbers over NPCs).
         /// </summary>
-        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount)
+        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount,
+            AttributeChangeCause cause)
         {
-            if (attribute is not (NpcAttribute.HitPoints or NpcAttribute.Mana) || npc != GetOwner())
+            if (cause != AttributeChangeCause.Default ||
+                attribute is not (NpcAttribute.HitPoints or NpcAttribute.Mana) || npc != GetOwner())
                 return;
 
             ShowHeroHitNumber(amount, attribute == NpcAttribute.Mana ? FloatingHitNumber.ManaUnit : "HP");
+        }
+
+        private void OnHeroManaBarRequested(bool isShown)
+        {
+            if (isShown)
+            {
+                Refresh();
+                FadeIn();
+            }
+            else
+            {
+                FadeOut();
+            }
         }
 
         private void OnWorldSceneLoaded()
@@ -199,7 +230,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         }
 
         /// <summary>
-        /// Health: the fill and the numbers. The hero's mana bar: only the numbers - whoever shows it sets the fill.
+        /// The fill and - health bars and the hero's mana bar - the numbers.
         /// </summary>
         private void Refresh()
         {
@@ -211,87 +242,43 @@ namespace Gothic.Core.Adapters.UI.StatusBars
             {
                 _numbersValue = owner.Vob.GetAttribute((int)NpcAttribute.HitPoints);
                 _numbersMax = owner.Vob.GetAttribute((int)NpcAttribute.HitPointsMax);
-                SetFillAmount(_numbersValue, _numbersMax);
             }
-            else
+            else if (_statusType == StatusType.Mana)
             {
                 _numbersValue = owner.Vob.GetAttribute((int)NpcAttribute.Mana);
                 _numbersMax = owner.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             }
-            UpdateNumbers();
+            else
+            {
+                return;
+            }
+
+            if (_numbersMax > 0)
+                SetFillAmount(_numbersValue, _numbersMax);
+            if (HasNumbers)
+                UpdateNumbers();
         }
 
         /// <summary>
         /// "HP/MAX" on the bar - option "healthNumbers" in our settings menu (Gothic.ini, off by default).
-        /// The text is created on first use: Gothic's font only exists after the game booted.
+        /// Gothic's font is applied on first use: it only exists after the game booted.
         /// </summary>
         private void UpdateNumbers()
         {
-            _isNumbersShown = _configService.Gothic != null &&
-                              _configService.Gothic.GetInt(Constants.IniNames.HealthNumbers, 0) == 1;
-            if (_isNumbersShown && _numbers == null)
-                _numbers = CreateNumbersText();
+            _isNumbersShown = _configService.IsGothicOptionOn(Constants.IniNames.HealthNumbers);
             if (_numbers == null)
                 return;
 
-            _numbers.text = $"{_numbersValue}/{_numbersMax}";
             _numbers.enabled = _isNumbersShown && _background.enabled;
-        }
+            if (!_isNumbersShown)
+                return;
 
-        /// <summary>
-        /// NPC bars sit in the focus NameCanvas next to the NPC's >NameText<: the numbers copy its layout and go right
-        /// above the name. (Not under the bar itself - its background is rotated 180 degrees, the text came out
-        /// mirrored.) The player's bars have no name - there the numbers fill the bar.
-        /// </summary>
-        private TMP_Text CreateNumbersText()
-        {
-            var textGo = new GameObject("HealthNumbers", typeof(RectTransform));
-            textGo.layer = gameObject.layer;
-            var rect = (RectTransform)textGo.transform;
-            var text = textGo.AddComponent<TextMeshProUGUI>();
-            GothicText.Apply(text);
-            text.alignment = TextAlignmentOptions.Center;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.raycastTarget = false;
-
-            var nameText = FindNameText();
-            if (nameText != null)
+            if (!_isNumbersFontApplied)
             {
-                var nameRect = (RectTransform)nameText.transform;
-                rect.SetParent(nameRect.parent, false);
-                rect.anchorMin = nameRect.anchorMin;
-                rect.anchorMax = nameRect.anchorMax;
-                rect.pivot = nameRect.pivot;
-                rect.sizeDelta = nameRect.sizeDelta;
-                rect.localRotation = nameRect.localRotation;
-                rect.localScale = nameRect.localScale;
-                rect.anchoredPosition = nameRect.anchoredPosition + Vector2.up * nameRect.rect.height;
-                text.fontSize = nameText.fontSize;
-                return text;
+                GothicText.Apply(_numbers);
+                _isNumbersFontApplied = true;
             }
-
-            rect.SetParent(_background.transform, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            // In front of the bar - on it, the text z-fought with the bar's own image.
-            rect.anchoredPosition3D = new Vector3(0f, 0f, _textInFrontOfBar);
-            text.enableAutoSizing = true;
-            text.fontSizeMin = 1f;
-            text.fontSizeMax = 200f;
-            return text;
-        }
-
-        private TMP_Text FindNameText()
-        {
-            for (var parent = transform.parent; parent != null; parent = parent.parent)
-            {
-                var nameTransform = parent.Find(_nameTextName);
-                if (nameTransform != null)
-                    return nameTransform.GetComponent<TMP_Text>();
-            }
-            return null;
+            _numbers.text = $"{_numbersValue}/{_numbersMax}";
         }
 
         /// <summary>
@@ -299,7 +286,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// </summary>
         private void ShowHeroHitNumber(int amount, string unit)
         {
-            if (_configService.Gothic == null || _configService.Gothic.GetInt(Constants.IniNames.HitNumbers, 0) != 1 ||
+            if (!_configService.IsGothicOptionOn(Constants.IniNames.HitNumbers) ||
                 !_background.enabled)
                 return;
 
@@ -326,7 +313,8 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
             var barHeight = top - bottom;
             var anchor = canvasRect.TransformPoint(new Vector3(right + barHeight * 0.5f, (top + bottom) / 2f, 0f));
-            FloatingUiHitNumber.Spawn(canvasRect, anchor, barHeight, amount, unit);
+            _hitNumberPool ??= FloatingUiHitNumber.CreatePool(_resourceCacheService, canvasRect);
+            _hitNumberPool.Get().Show(anchor, barHeight, amount, unit, FloatingHitNumber.GetSizeScale(_configService));
         }
 
         private void OnPlayerPrefUpdated(string key, object value)
@@ -391,23 +379,36 @@ namespace Gothic.Core.Adapters.UI.StatusBars
                 _numbers.enabled = _isNumbersShown;
         }
 
-        /// <summary>
-        /// VRRuneCaster: the hero's mana bar shows while a spell is charged.
-        /// </summary>
-        public void FadeIn(float duration = 0.25f)
+        private void FadeIn(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(0f, 1f, duration, enable: true));
         }
 
-        public void FadeOut(float duration = 0.25f)
+        private void FadeOut(float duration = 0.25f)
         {
             if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
             _fadeCoroutine = StartCoroutine(FadeRoutine(1f, 0f, duration, enable: false));
         }
 
+        /// <summary>
+        /// Disabled mid-fade, Unity stops the routine - the bar jumps to the fade's end instead of staying half visible.
+        /// </summary>
+        private void FinishFade()
+        {
+            if (_fadeCoroutine == null)
+                return;
+
+            StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = null;
+            SetAlpha(_isFadingIn ? 1f : 0f);
+            if (!_isFadingIn)
+                DisableBar();
+        }
+
         private IEnumerator FadeRoutine(float from, float to, float duration, bool enable)
         {
+            _isFadingIn = enable;
             if (enable)
                 EnableBar();
 
@@ -423,6 +424,7 @@ namespace Gothic.Core.Adapters.UI.StatusBars
 
             if (!enable)
                 DisableBar();
+            _fadeCoroutine = null;
         }
 
         private void SetAlpha(float alpha)

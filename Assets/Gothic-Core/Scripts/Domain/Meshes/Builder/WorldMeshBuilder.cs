@@ -348,7 +348,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 _worldLightmaps = null;
             }
             Shader.SetGlobalTexture(_worldLightmapsShaderId, _emptyLightmaps);
-            Shader.SetGlobalFloat(_worldLightmapBrightnessShaderId, _worldConfigService.Dev.WorldLightmapBrightness);
+            Shader.SetGlobalFloat(_worldLightmapBrightnessShaderId, _stationaryLightsService.GetLightmapBrightness());
             _stationaryLightsService.HasWorldLightmaps = false;
 
             var count = _mesh.LightMapCount;
@@ -462,7 +462,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVobWorldLight: the polygon's lightmap light at its center, summed into its cell - VOBs
+        /// The polygon's lightmap light at its center, summed into its cell - VOBs
         /// in light mapped areas take it (StationaryLightsService.ApplyWorldLight).
         /// </summary>
         private void AddLightmapCell(IPolygon polygon, IReadOnlyList<int> positionIndices,

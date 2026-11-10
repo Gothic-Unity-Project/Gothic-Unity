@@ -349,6 +349,19 @@ MonoBehaviour:
     m_Localized: "\xFCberspringen"
     m_Metadata:
       m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: "Held st\xFCrzt"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: "Bewusstlos, tot oder schlafend: die Sicht sinkt mit dem K\xF6rper
+      oder blendet (weniger Bewegung)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: "mit K\xF6rper|blenden"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

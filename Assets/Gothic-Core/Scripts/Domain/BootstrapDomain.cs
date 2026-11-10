@@ -247,15 +247,8 @@ namespace Gothic.Core.Domain
             var count = _gameStateService.GuildCount;
             var friendly = (int)VmGothicEnums.Attitude.Friendly;
             // From the scripts - G1 and G2 number their guilds differently.
-            var vm = _gameStateService.GothicVm;
-            var humanSeparator = vm.GetSymbolByName("GIL_SEPERATOR_HUM")?.GetInt(0) ?? -1;
-            var orcSeparator = vm.GetSymbolByName("GIL_SEPERATOR_ORC")?.GetInt(0) ?? -1;
-            if (humanSeparator < 0 || orcSeparator < 0)
-            {
-                Logger.LogWarning("GIL_SEPERATOR_HUM/ORC not found - monster guild attitudes stay hostile.", LogCat.Npc);
-                return;
-            }
-            var firstOrcGuild = orcSeparator + 1;
+            var humanSeparator = _gameStateService.GuildSeparatorHuman;
+            var firstOrcGuild = _gameStateService.GuildSeparatorOrc + 1;
 
             for (var guild = humanSeparator + 1; guild < count; guild++)
                 _gameStateService.GuildAttitudes[guild * count + guild] = friendly;
@@ -273,6 +266,17 @@ namespace Gothic.Core.Domain
 
             var tablesize = _gameStateService.GothicVm.GetSymbolByName(DaedalusConst.GuildHumanAttitudesSize);
             _gameStateService.GuildHumanCount = (int)(tablesize != null ? Math.Sqrt(tablesize.GetInt(0)) : 0);
+
+            var vm = _gameStateService.GothicVm;
+            var humanSeparator = vm.GetSymbolByName(DaedalusConst.GuildSeparatorHuman)?.GetInt(0);
+            var orcSeparator = vm.GetSymbolByName(DaedalusConst.GuildSeparatorOrc)?.GetInt(0);
+            if (humanSeparator.HasValue && orcSeparator.HasValue)
+            {
+                _gameStateService.GuildSeparatorHuman = humanSeparator.Value;
+                _gameStateService.GuildSeparatorOrc = orcSeparator.Value;
+            }
+            else
+                Logger.LogWarning("GIL_SEPERATOR_HUM/ORC not found - using G1's guild separators.", LogCat.Npc);
 
             _gameStateService.GuildAttitudes = new int[_gameStateService.GuildCount * _gameStateService.GuildCount];
             InitMonsterGuildAttitudes();

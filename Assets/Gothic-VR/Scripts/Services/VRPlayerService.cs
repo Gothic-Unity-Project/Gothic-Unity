@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
@@ -14,8 +16,9 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
-using Reflex.Attributes;
 using Gothic.VR.Interaction.Ports;
+using Gothic.VR.Models;
+using Reflex.Attributes;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Extensions;
 using UnityEngine;
@@ -32,9 +35,102 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly VobService _vobService;
+
+        // Gothic.ini heroFallMode, read on first use and again when the menu changes it.
+        private VrHeroFallMode? _heroFallMode;
+        private bool _hasHeroFallBody;
+
+        public VRPlayerService()
+        {
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            // The world's objects are gone: nothing held in them any more.
+            GlobalEventDispatcher.UnloadGameStart.AddListener(_heldItems.Clear);
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(_heldItems.Clear);
+        }
+
+        /// <summary>
+        /// The items in a hand right now (VobContainer.IsHeldByPlayer) - kept instead of scanning every VOB. Added on
+        /// grab, removed on release, when the object is destroyed (ForgetPlayerCollision) and with the world.
+        /// </summary>
+        public IReadOnlyCollection<VobContainer> HeldItems => _heldItems;
+        private readonly HashSet<VobContainer> _heldItems = new();
 
         public VRContextInteractionService VRContextInteractionService =>
             _contextInteractionService.GetImpl<VRContextInteractionService>();
+
+        /// <summary>
+        /// The player body of the active VR backend. null before the VR player is set up.
+        /// </summary>
+        public IVrRig Rig => VRContextInteractionService?.Rig;
+
+        /// <summary>
+        /// The direct grabbers of both hands (a distance grab ends in the hand too).
+        /// </summary>
+        public IEnumerable<IVrGrabber> GetHandGrabbers()
+        {
+            var rig = Rig;
+            return rig == null
+                ? Enumerable.Empty<IVrGrabber>()
+                : rig.HandGrabbers.Where(i => i.Kind == VrGrabberKind.Hand);
+        }
+
+        /// <summary>
+        /// The hand that holds the item right now - a direct grabber (Kind Hand), not a distance pull still flying it
+        /// in. No allocations: asked every physics step (stab finish).
+        /// </summary>
+        public bool TryGetHoldingHand(VrInteractable interactable, out IVrGrabber hand)
+        {
+            hand = null;
+            var rig = Rig;
+            if (interactable == null || rig == null)
+                return false;
+
+            var grabbers = rig.HandGrabbers;
+            for (var i = 0; i < grabbers.Count; i++)
+            {
+                if (grabbers[i].Kind != VrGrabberKind.Hand || grabbers[i].Held != interactable)
+                    continue;
+                hand = grabbers[i];
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The Gothic object (VOB, e.g. an item) the grabber holds. null: it holds nothing or no VOB.
+        /// </summary>
+        public VobContainer GetHeldContainer(IVrGrabber grabber)
+        {
+            var held = grabber?.Held;
+            return held != null ? held.GetComponentInParent<VobLoader>()?.Container : null;
+        }
+
+        /// <summary>
+        /// Puts an item from the hands into the hero's inventory - like putting it into the backpack - and removes the
+        /// world item. Also fine for an item that isn't (or no longer) held.
+        /// </summary>
+        /// <returns>false if the container isn't an item - nothing changed.</returns>
+        public bool StoreHeldItem(VobContainer container)
+        {
+            if (container?.Vob is not IItem item)
+            {
+                Logger.LogWarning($"[VRPlayerService] StoreHeldItem: {container?.Vob?.Name ?? "null"} is no item.",
+                    LogCat.VR);
+                return false;
+            }
+
+            // Items held in a hand already count as inventory (SetGrab/UnsetGrab). Release it first, which takes it out
+            // of the inventory again - otherwise AddItem() below would duplicate it (x1 -> x2 -> x4).
+            var interactable = container.Go != null ? container.Go.GetComponentInChildren<VrInteractable>(true) : null;
+            if (interactable != null && interactable.IsHeld)
+                interactable.ForceRelease();
+
+            _playerService.AddItem(item.GetSymbolName(), Mathf.Max(1, item.Amount));
+            _vobService.RemoveWorldItem(container);
+            return true;
+        }
 
         /// <summary>
         /// The backend's hand visual (the VR hand model) - VRHeroBody's arms reach for it.
@@ -51,13 +147,11 @@ namespace Gothic.VR.Services
 
         // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
         public bool IsTelekinesisActive { get; private set; }
-        public event System.Action TelekinesisDeactivated;
+        public event Action TelekinesisDeactivated;
 
         // Spell targeting state (combat spells - extends the rune hand's distance grab only).
         private VrHandSide _spellTargetingSide;
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
-
-        private IVrRig Rig => VRContextInteractionService?.Rig;
 
         /// <summary>
         /// Combat spells aim with the rune hand's distance grab (IVrRig.GetDistanceHovered), extended to the spell's
@@ -147,11 +241,43 @@ namespace Gothic.VR.Services
                 DeactivateTelekinesis();
         }
         /// <summary>
-        /// The one owner of the camera height while the hero is down (knocked out, dead): true while a VR hero body
-        /// that falls with its camera exists (VrHeroDownPose, option "Fall with the body") - VrKnockoutView lowers the
-        /// view itself only without it.
+        /// The player's choice when the game takes the hero's body down - knocked out, dead, asleep (Gothic.ini
+        /// [GOTHIC_VR_ACCESSIBILITY] heroFallMode). Its only reader; VrHeroDownPose and VrKnockoutView ask here.
         /// </summary>
-        public bool IsFallCameraOnHeroBody { get; set; }
+        public VrHeroFallMode HeroFallMode
+        {
+            get
+            {
+                if (_heroFallMode.HasValue)
+                    return _heroFallMode.Value;
+                if (_configService.Gothic == null)
+                    return (VrHeroFallMode)VRConstants.HeroFallModeDefaultValue;
+                _heroFallMode = (VrHeroFallMode)_configService.Gothic.GetInt(VRConstants.IniNames.HeroFallMode,
+                    VRConstants.HeroFallModeDefaultValue);
+                return _heroFallMode.Value;
+            }
+        }
+
+        /// <summary>
+        /// The one owner of the camera height while the hero is down (knocked out, dead, asleep): true while a VR hero
+        /// body that can fall with its camera exists and the player chose to move with it (HeroFallMode) -
+        /// VrKnockoutView lowers the view itself (blink) only without it.
+        /// </summary>
+        public bool IsFallCameraOnHeroBody => _hasHeroFallBody && HeroFallMode == VrHeroFallMode.MoveWithBody;
+
+        /// <summary>
+        /// Only VrHeroDownPose writes it (on Bind, SetEnabled, Dispose): a VR hero body exists that can lie down.
+        /// </summary>
+        public void SetHeroFallBody(bool hasBody)
+        {
+            _hasHeroFallBody = hasBody;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.HeroFallMode)
+                _heroFallMode = null;
+        }
 
         /// <summary>
         /// The VR hero body lies or stands up (VrHeroDownPose) - crouching isn't sneaking meanwhile (VRHeroMovement).
@@ -212,12 +338,16 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = grabbable.gameObject;
             }
 
+            // Every item in a hand is the hero's (inventory): NPCs neither detect nor take it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = true;
+            _heldItems.Add(container);
+
             // If we grabbed the element with second hand, return.
             if (IsDualGrabbed)
                 return;
 
             // Otherwise alter inventory count
-            var container = grabbable.GetComponentInParent<VobLoader>().Container;
             _playerService.PickUpItem(container);
         }
 
@@ -250,14 +380,19 @@ namespace Gothic.VR.Services
                 GrabbedItemRight = null;
             }
 
+            // Still the hero's while the other hand holds it.
+            var container = grabbable.GetComponentInParent<VobLoader>().Container;
+            container.IsHeldByPlayer = IsHeldInHand(grabbable);
+            if (!container.IsHeldByPlayer)
+                _heldItems.Remove(container);
+
             // If we removed one hand from our item.
             if (dualGrabPrev)
                 return;
 
             // Otherwise alter inventory count
             // Released into a socket (holster, backpack): The socket owns the item (inventory) already or next.
-            _playerService.DropItem(grabbable.GetComponentInParent<VobLoader>().Container,
-                keepOutOfWorld: IsSocketed(grabbable));
+            _playerService.DropItem(container, keepOutOfWorld: IsSocketed(grabbable));
         }
 
         /// <summary>
@@ -314,6 +449,9 @@ namespace Gothic.VR.Services
         public void ForgetPlayerCollision(VrInteractable grabbable)
         {
             _grabbers.Remove(grabbable);
+            var container = grabbable != null ? grabbable.GetComponentInParent<VobLoader>()?.Container : null;
+            if (container != null)
+                _heldItems.Remove(container);
         }
 
         /// <summary>

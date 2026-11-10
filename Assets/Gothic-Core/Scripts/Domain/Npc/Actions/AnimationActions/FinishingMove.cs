@@ -10,7 +10,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
     /// <summary>
-    /// DeveloperConfig.EnableEngineFinishingMove: AI_FinishingMove like the engine (OpenGothic Npc::finishingMove):
+    /// AI_FinishingMove like the engine (OpenGothic Npc::finishingMove):
     /// queued after walking to the unconscious target (NPC_ATTACK_FINISH_DISTANCE), turning and drawing a melee weapon -
     /// t_1hSFinish / t_2hSFinish is played and the target dies with the stab (the animation's hit frame, else its end).
     /// Not unconscious any more (stood up, already dead) or no melee weapon: nothing happens.
@@ -30,7 +30,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             var target = _target;
             var weaponState = (VmGothicEnums.WeaponState)Vob.FightMode;
-            if (target?.Go == null || !NpcHelperService.IsKnockedOut(target) ||
+            if (target?.Go == null || !target.IsKnockedOut() ||
                 weaponState is not (VmGothicEnums.WeaponState.W1H or VmGothicEnums.WeaponState.W2H))
             {
                 Logger.Log($"[FinishingMove] {NpcInstance.GetName(NpcNameSlot.Slot0)}: target not unconscious or no " +
@@ -87,7 +87,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             _hasKilled = true;
 
             var target = _target;
-            if (target == null || !NpcHelperService.IsKnockedOut(target))
+            if (target == null || !target.IsKnockedOut())
                 return;
             GlobalEventDispatcher.FightFinishingMove.Invoke(NpcContainer, target);
         }

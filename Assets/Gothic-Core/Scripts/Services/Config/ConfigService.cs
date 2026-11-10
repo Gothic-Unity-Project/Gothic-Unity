@@ -25,6 +25,23 @@ namespace Gothic.Core.Services.Config
         public GothicIniConfig Gothic { get; private set; }
         public GothicModIniConfig GothicMod { get; private set; }
 
+        /// <summary>
+        /// A Gothic.ini switch (1 = on). Null-safe: before Gothic.ini is loaded (a scene can run before the game
+        /// started) the default counts.
+        /// </summary>
+        public bool IsGothicOptionOn(string key, bool defaultValue = false)
+        {
+            return GetGothicOption(key, defaultValue ? 1 : 0) == 1;
+        }
+
+        /// <summary>
+        /// A Gothic.ini number. Null-safe: before Gothic.ini is loaded the fallback counts.
+        /// </summary>
+        public float GetGothicOption(string key, float fallback)
+        {
+            return Gothic == null ? fallback : Gothic.GetFloat(key, fallback);
+        }
+
         // The vanilla game's own ini; every other game ini in system/ is a mod installed into the game.
         private const string _vanillaGameIni = "GothicGame.ini";
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -11,6 +12,7 @@ using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Marvin;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Adapters.Trade;
@@ -24,6 +26,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Services.Context
@@ -31,12 +34,13 @@ namespace Gothic.VR.Services.Context
     public class VRContextInteractionService : IContextInteractionService
     {
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Gothic.Core.Services.Player.TradeService _tradeService;
-        [Inject] private readonly Gothic.Core.Services.Player.PlayerService _playerService;
-        [Inject] private readonly Gothic.Core.Services.Vobs.VobService _vobService;
+        [Inject] private readonly TradeService _tradeService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly VRHeldItemSyncService _vrHeldItemSyncService;
         [Inject] private readonly VRCinemaService _vrCinemaService;
+        [Inject] private readonly VRMarvinPanelService _vrMarvinPanelService;
         [Inject] private readonly VRGameViewFallbackService _vrGameViewFallbackService;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly IVrInput _vrInput;
@@ -63,7 +67,6 @@ namespace Gothic.VR.Services.Context
         private IVrRig _rig;
         private VRPlayer _player;
         private float _defaultStepOffset;
-        private GameObject _marvinRoot;
         private int _keepWithinLastFrame = -1;
         private Vector3 _keepWithinLastPosition;
         private VrPhysicsHand[] _physicsHands = System.Array.Empty<VrPhysicsHand>();
@@ -93,7 +96,9 @@ namespace Gothic.VR.Services.Context
             this.Inject();
 
             _vrWeaponService.Init();
+            _vrHeldItemSyncService.Init();
             _vrCinemaService.Init();
+            _vrMarvinPanelService.Init();
 
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             // Items held in a hand don't pay (VRContextTradeService opens the counter).
@@ -106,13 +111,11 @@ namespace Gothic.VR.Services.Context
                 ApplyHeightOffset();
                 ApplyPhysicalHands();
                 ApplyControlLayout();
-                ResetMarvinOption();
             });
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(PlayerPrefsUpdated);
             // A teleport spell: what the hands hold goes into the backpack first - a held rune stayed at the old
             // place (or vanished) and the hero stayed in magic mode. Not on scene teleports (loads).
             GlobalEventDispatcher.HeroScriptTeleporting.AddListener(StoreHeldItemsInBackpack);
-            GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.MarvinLogoPoked.AddListener(OnMarvinLogoPoked);
         }
 
@@ -136,12 +139,8 @@ namespace Gothic.VR.Services.Context
                                     "found. No VR hero body.", LogCat.VR);
             }
 
-            // DeveloperConfig.EnableStackSplit (checked at runtime): taking pieces off held stacks.
+            // Taking pieces off held stacks.
             new UnityEngine.GameObject("_VRStackSplitter").AddComponent<Gothic.VR.Adapters.Vob.VobItem.VRStackSplitter>();
-            // DeveloperConfig.EnableHeroPersonalSpace (checked at runtime): NPC bodies stay out of the camera.
-            new UnityEngine.GameObject("_HeroPersonalSpace").AddComponent<Gothic.Core.Adapters.Npc.HeroPersonalSpace>();
-            // DeveloperConfig.EnableMarvinFallRescue (checked at runtime, Marvin mode only): fell out -> back.
-            new UnityEngine.GameObject("_MarvinFallRescue").AddComponent<MarvinFallRescue>();
         }
 
         private void OnLoadingSceneLoaded()
@@ -208,138 +207,33 @@ namespace Gothic.VR.Services.Context
             // XRDeviceSimulator
             _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
 
-            // DeveloperConfig.EnableBackpackEquipToggle: a trigger click at a worn item in the backpack equips it.
-            if (developerConfig.EnableBackpackEquipToggle)
-            {
-                var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
-                equipToggle.transform.SetParent(_player.transform, false);
-            }
+            // A trigger click at a worn item in the backpack equips it.
+            var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
+            equipToggle.transform.SetParent(_player.transform, false);
+
             // Editor: Game view while the headset renders nothing
             _vrGameViewFallbackService.Init();
 
-            // DeveloperConfig.EnableVrSpellRing: the favorites ring, in the player's space - it moves with him.
-            if (developerConfig.EnableVrSpellRing)
-            {
-                var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
-                favoritesRing.transform.SetParent(_player.transform, false);
-            }
+            // The favorites ring, in the player's space - it moves with him. The "favoritesRing" option switches it.
+            var favoritesRing = new GameObject("_FavoritesRing").AddComponent<VRFavoritesRing>();
+            favoritesRing.transform.SetParent(_player.transform, false);
 
-            // DeveloperConfig.EnableVrPickpocket: purses on the hips of NPCs who can't see the sneaking hero (G1).
-            if (developerConfig.EnableVrPickpocket)
-            {
-                var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
-                pickpocket.transform.SetParent(_player.transform, false);
-            }
+            // Purses on the hips of NPCs who can't see the sneaking hero (G1; G2: option pickpocketPurse).
+            var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
+            pickpocket.transform.SetParent(_player.transform, false);
 
             // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
             _player.gameObject.AddComponent<VRHeroMovement>();
 
-            // DeveloperConfig.EnableVrHeroBlock: both hands on a melee weapon + both triggers = parry.
-            if (developerConfig.EnableVrHeroBlock)
-            {
-                var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
-                heroBlock.transform.SetParent(_player.transform, false);
-            }
+            // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).
+            var heroBlock = new GameObject("_HeroBlock").AddComponent<VRHeroBlock>();
+            heroBlock.transform.SetParent(_player.transform, false);
 
             // Marvin Mode
-            // Searched inside our player only: other players are destroyed at the end of this frame.
-            _marvinRoot = playerRoot.GetComponentInChildren<MarvinRootHandler>(true)!.gameObject;
-            if (developerConfig.EnableUiGrabBars)
-                AddMarvinGrabBar();
-            ApplyMarvinVisibility();
+            _vrMarvinPanelService.Setup(playerRoot, _player.transform);
 
             // PrintScreen() messages in front of the camera
             activeScene.GetComponentInChildren<VRPrintScreen>(true)!.Init();
-        }
-
-        /// <summary>
-        /// DeveloperConfig.EnableUiGrabBars: grabbed, the Marvin panel leaves the left hand and floats where it's put
-        /// (it lazily follows the head) - one element with its keyboard (it follows the panel's KeyboardAnchor), so the
-        /// bar is upright at the side. Released in the sphere above the left hand, it docks back.
-        /// </summary>
-        private void AddMarvinGrabBar()
-        {
-            var panel = _marvinRoot.transform;
-            var hand = panel.parent;
-            var dockedPosition = panel.localPosition;
-            var dockedRotation = panel.localRotation;
-            var dockedScale = panel.localScale;
-            var playerSpace = _player.transform;
-
-            var bar = VRGrabBar.Create((RectTransform)panel, panel, true,
-                () =>
-                {
-                    if (panel.parent != playerSpace)
-                        panel.SetParent(playerSpace, true);
-                },
-                hand,
-                () =>
-                {
-                    panel.SetParent(hand, false);
-                    panel.SetLocalPositionAndRotation(dockedPosition, dockedRotation);
-                    panel.localScale = dockedScale;
-                    Logger.Log("[VRContextInteractionService] Marvin panel docked to the hand", LogCat.VR);
-                },
-                true);
-
-            // Centered where the panel meets its keyboard (KeyboardAnchor below the panel) - one bar for both.
-            var barRect = (RectTransform)bar.transform;
-            barRect.anchorMin = barRect.anchorMax = new Vector2(1f, 0f);
-            barRect.sizeDelta = new Vector2(barRect.sizeDelta.x, ((RectTransform)panel).rect.height);
-        }
-
-        /// <summary>
-        /// Switched another way (the logo pokes) - the option shows it too.
-        /// </summary>
-        private void OnMarvinModeChanged(bool isActive)
-        {
-            var value = isActive ? 1 : 0;
-            if (_configService.Gothic != null && GetMarvinOption() != value)
-                _configService.Gothic.SetInt(VRConstants.IniSectionImmersion, VRConstants.IniNames.MarvinPanel, value);
-            ApplyMarvinVisibility();
-        }
-
-        /// <summary>
-        /// The Immersion option "Marvin" is off at every start: Marvin mode (its cheats and panel) has to be turned on
-        /// in the options each time. DeveloperConfig.PreselectMarvinMode (a developer's shortcut) starts with it on.
-        /// </summary>
-        private void ResetMarvinOption()
-        {
-            var value = _configService.Dev.PreselectMarvinMode ? 1 : 0;
-            if (GetMarvinOption() != value)
-                _configService.Gothic.SetInt(VRConstants.IniSectionImmersion, VRConstants.IniNames.MarvinPanel, value);
-            ApplyMarvinOption();
-        }
-
-        private int GetMarvinOption()
-        {
-            return _configService.Gothic.GetInt(VRConstants.IniNames.MarvinPanel, 0);
-        }
-
-        /// <summary>
-        /// The Immersion option "Marvin" is the switch of Marvin mode in VR (MarvinService).
-        /// </summary>
-        private void ApplyMarvinOption()
-        {
-            var isOn = GetMarvinOption() == 1;
-            if (_marvinService.IsMarvinMode != isOn)
-                _marvinService.SetMarvinMode(isOn);
-            ApplyMarvinVisibility();
-        }
-
-        /// <summary>
-        /// The Marvin panel shows while Marvin mode is on. The panel can't do it itself: it is inactive then.
-        /// </summary>
-        private void ApplyMarvinVisibility()
-        {
-            if (_marvinRoot == null)
-                return;
-
-            var isShown = _marvinService.IsMarvinMode;
-            if (_marvinRoot.activeSelf == isShown)
-                return;
-            _marvinRoot.SetActive(isShown);
-            Logger.Log($"[VRContextInteractionService] Marvin panel {(isShown ? "shown" : "hidden")}", LogCat.VR);
         }
 
         /// <summary>
@@ -385,10 +279,6 @@ namespace Gothic.VR.Services.Context
             else if (key == VRConstants.IniNames.PhysicalHands)
             {
                 ApplyPhysicalHands();
-            }
-            else if (key == VRConstants.IniNames.MarvinPanel)
-            {
-                ApplyMarvinOption();
             }
             else if (key == VRConstants.IniNames.ControllerHand ||
                      key == VRConstants.IniNames.JumpButton ||
@@ -571,25 +461,17 @@ namespace Gothic.VR.Services.Context
         /// </summary>
         private int GetHeldAmount(string instanceName)
         {
-            if (_rig == null)
-                return 0;
             var amount = 0;
-            var counted = new HashSet<VrInteractable>();
-            foreach (var hand in _rig.HandGrabbers)
+            foreach (var container in _vrPlayerService.HeldItems)
             {
-                if (hand.Kind != VrGrabberKind.Hand || hand.Held == null || !counted.Add(hand.Held))
-                    continue;
-                var item = hand.Held.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container
-                    ?.VobAs<ZenKit.Vobs.IItem>();
-                if (item != null && item.GetSymbolName().EqualsIgnoreCase(instanceName))
+                if (container.Vob is IItem item && item.GetSymbolName().EqualsIgnoreCase(instanceName))
                     amount += Mathf.Max(1, item.Amount);
             }
             return amount;
         }
 
         /// <summary>
-        /// Like putting the held items into the backpack (see VRItemUser.Equip): release, add to the inventory, remove
-        /// the world item.
+        /// Like putting the held items into the backpack (VRPlayerService.StoreHeldItem).
         /// </summary>
         public void StoreHeldItemsInBackpack()
         {
@@ -602,25 +484,28 @@ namespace Gothic.VR.Services.Context
                 var interactable = hand.Held;
                 if (interactable == null || !stored.Add(interactable))
                     continue;
-                var container = interactable.GetComponentInParent<Gothic.Core.Adapters.Vob.VobLoader>()?.Container;
-                var item = container?.VobAs<ZenKit.Vobs.IItem>();
+                var container = interactable.GetComponentInParent<VobLoader>()?.Container;
+                var item = container?.Vob as IItem;
                 if (item == null)
+                {
+                    Logger.LogWarning($"[Teleport] {hand.HandSide}: {interactable.name} is no item - stays in hand.",
+                        LogCat.VR);
                     continue;
+                }
 
-                // Items held in a hand already count as inventory - releasing takes them out again (no duplicates).
-                interactable.ForceRelease();
                 // Unpaid trader goods aren't the hero's: let go, they go back to the trader (VRTradeGoods).
                 if (VRTradeGoods.IsUnpaid(interactable))
                 {
+                    interactable.ForceRelease();
                     Logger.Log($"[Teleport] {hand.HandSide}: unpaid trader goods let go", LogCat.VR);
                     continue;
                 }
 
                 var instanceName = item.GetSymbolName();
                 var amount = Mathf.Max(1, item.Amount);
-                _playerService.AddItem(instanceName, amount);
-                _vobService.RemoveWorldItem(container);
-                Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack", LogCat.VR);
+                if (_vrPlayerService.StoreHeldItem(container))
+                    Logger.Log($"[Teleport] {hand.HandSide}: {instanceName} x{amount} put into the backpack",
+                        LogCat.VR);
             }
         }
 

@@ -11,6 +11,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
@@ -55,9 +56,12 @@ namespace Gothic.Core.Services
         [Inject] private readonly NpcRoutineService _npcRoutineService;
         [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly FightService _fightService;
+        [Inject] private readonly NpcBurnService _npcBurnService;
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
+        [Inject] private readonly NpcWaterService _npcWaterService;
         [Inject] private readonly ParticleService _particleService;
         [Inject] private readonly DialogService _dialogService;
+        [Inject] private readonly GameEndingService _gameEndingService;
         
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly StaticCacheService _staticCacheService;
@@ -108,10 +112,13 @@ namespace Gothic.Core.Services
             _npcRoutineService.Init();
             _npcAiService.Init();
             _fightService.Init();
+            _npcBurnService.Init();
             _npcNavMeshService.Init();
+            _npcWaterService.Init();
             _particleService.Init();
             _dialogService.Init();
             _saveGameService.Init();
+            _gameEndingService.Init();
         }
 
         /// <summary>

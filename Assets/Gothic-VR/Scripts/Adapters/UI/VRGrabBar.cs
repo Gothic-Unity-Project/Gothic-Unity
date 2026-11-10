@@ -15,13 +15,12 @@ using Object = UnityEngine.Object;
 namespace Gothic.VR.Adapters.UI
 {
     /// <summary>
-    /// DeveloperConfig.EnableUiGrabBars: a bar at a world canvas like SteamVR's windows - reach it with a hand, hold
-    /// the grip and the target moves (and turns) with that hand until the grip is released. Created at runtime under
-    /// the canvas, outside its rect and ignored by its layout group. Optional dock: while grabbed a sphere floats above
-    /// a dock anchor (the left hand) - released in it, onDock is called (put the target back there). Optional head
-    /// follow: released outside the dock, the target floats in the air at its spot relative to the head and lazily
-    /// follows it (turns after it only once the head looked away further, then glides) - not glued to it. Any VR
-    /// backend (IVrRig, IVrInput), see SetPorts.
+    /// A bar at a world canvas like SteamVR's windows - reach it with a hand, hold the grip and the target moves (and
+    /// turns) with that hand until the grip is released. An inactive child of the canvas in its prefab, outside its rect and ignored by its layout group - Setup turns it on. Optional dock:
+    /// while grabbed a sphere floats above a dock anchor (the left hand) - released in it, onDock is called (put the
+    /// target back there). Optional head follow: released outside the dock, the target floats in the air at its spot
+    /// relative to the head and lazily follows it (turns after it only once the head looked away further, then
+    /// glides) - not glued to it. Any VR backend (IVrRig, IVrInput), see SetPorts.
     /// </summary>
     public class VRGrabBar : MonoBehaviour
     {
@@ -29,8 +28,7 @@ namespace Gothic.VR.Adapters.UI
         private static readonly Color _hoverColor = new(1f, 1f, 1f, 0.7f);
         private static readonly Color _grabbedColor = new(1f, 0.85f, 0.4f, 0.9f);
 
-        // Bar length relative to the canvas side, thickness relative to the canvas width.
-        private const float _barLength = 0.4f;
+        // Thickness relative to the canvas width.
         private const float _barThickness = 0.035f;
         // Meters around the bar in which the hand grabs it.
         private const float _reach = 0.06f;
@@ -43,6 +41,17 @@ namespace Gothic.VR.Adapters.UI
         private const float _followStartAngle = 35f;
         private const float _followSettleAngle = 3f;
         private const float _followSharpness = 5f;
+
+        [Tooltip("The bar's image - grabbed by the hand, not clicked by the UI laser (no raycast target).")]
+        [SerializeField]
+        private Image _image;
+
+        [Tooltip("Along the canvas' right side instead of under it. Anchors and pivot are the prefab's.")]
+        [SerializeField]
+        private bool _isVertical;
+
+        [Tooltip("Length relative to the canvas side it runs along.")] [SerializeField] [Range(0f, 1f)]
+        private float _length = 0.4f;
 
         [Inject] private readonly IVrInput _input;
         [Inject] private readonly VrHapticsService _haptics;
@@ -57,12 +66,12 @@ namespace Gothic.VR.Adapters.UI
         private Action _onDock;
         private bool _isHeadFollow;
         private GameObject _dockSphere;
-        private Image _image;
         private Transform _grabTransform;
         private VrHandSide _grabSide;
         private Vector3 _grabPositionOffset;
         private Quaternion _grabRotationOffset;
 
+        private bool _isHovered;
         private bool _isFollowing;
         private bool _isFollowTurning;
         private float _followYaw;
@@ -90,49 +99,35 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// target: what moves (the canvas itself or e.g. the anchor it follows). isVertical: along the canvas' right
-        /// side instead of under it. onBeforeGrab: on every grab before the offset to the hand is taken (detach from a
-        /// parent here). dockAnchor + onDock: see the class. isHeadFollow: see the class.
+        /// Activates the bar (inactive in its prefab) and sizes it to its canvas (the parent), whose size can come from
+        /// a layout (VirtualKeyboard). target: what moves (the canvas itself or e.g. the anchor it follows).
+        /// onBeforeGrab: on every grab before the offset to the hand is taken (detach from a parent here).
+        /// dockAnchor + onDock: see the class. isHeadFollow: see the class.
         /// </summary>
-        public static VRGrabBar Create(RectTransform canvas, Transform target, bool isVertical = false,
-            Action onBeforeGrab = null, Transform dockAnchor = null, Action onDock = null, bool isHeadFollow = false)
+        public void Setup(Transform target, Action onBeforeGrab = null, Transform dockAnchor = null,
+            Action onDock = null, bool isHeadFollow = false)
         {
-            var size = canvas.rect.size;
+            _rect = (RectTransform)transform;
+            var size = ((RectTransform)_rect.parent).rect.size;
             var thickness = size.x * _barThickness;
-
-            var go = new GameObject("GrabBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
-                typeof(LayoutElement));
-            go.layer = canvas.gameObject.layer;
-            go.GetComponent<LayoutElement>().ignoreLayout = true;
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(canvas, false);
-            if (isVertical)
+            if (_isVertical)
             {
-                rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
-                rect.pivot = new Vector2(0f, 0.5f);
-                rect.sizeDelta = new Vector2(thickness, size.y * _barLength);
-                rect.anchoredPosition = new Vector2(thickness, 0f);
+                _rect.sizeDelta = new Vector2(thickness, size.y * _length);
+                _rect.anchoredPosition = new Vector2(thickness, 0f);
             }
             else
             {
-                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
-                rect.pivot = new Vector2(0.5f, 1f);
-                rect.sizeDelta = new Vector2(size.x * _barLength, thickness);
-                rect.anchoredPosition = new Vector2(0f, -thickness);
+                _rect.sizeDelta = new Vector2(size.x * _length, thickness);
+                _rect.anchoredPosition = new Vector2(0f, -thickness);
             }
 
-            var bar = go.AddComponent<VRGrabBar>();
-            bar._rect = rect;
-            bar._target = target;
-            bar._onBeforeGrab = onBeforeGrab;
-            bar._dockAnchor = dockAnchor;
-            bar._onDock = onDock;
-            bar._isHeadFollow = isHeadFollow;
-            bar._image = go.GetComponent<Image>();
-            bar._image.color = _color;
-            // Grabbed by the hand, not clicked by the UI laser.
-            bar._image.raycastTarget = false;
-            return bar;
+            _target = target;
+            _onBeforeGrab = onBeforeGrab;
+            _dockAnchor = dockAnchor;
+            _onDock = onDock;
+            _isHeadFollow = isHeadFollow;
+            _image.color = _color;
+            gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -159,8 +154,11 @@ namespace Gothic.VR.Adapters.UI
             }
 
             var isHovered = false;
-            foreach (var hand in rig.HandGrabbers)
+            // Indexed, not foreach: HandGrabbers is an IReadOnlyList, foreach would box an enumerator every frame.
+            var hands = rig.HandGrabbers;
+            for (var i = 0; i < hands.Count; i++)
             {
+                var hand = hands[i];
                 // A hand holding something (sword, rune) doesn't grab the bar.
                 if (hand == null || hand.Held != null || !IsInReach(GetHandPosition(hand.HandSide)))
                     continue;
@@ -171,7 +169,11 @@ namespace Gothic.VR.Adapters.UI
                     return;
                 }
             }
-            _image.color = isHovered ? _hoverColor : _color;
+            if (_isHovered != isHovered)
+            {
+                _isHovered = isHovered;
+                _image.color = isHovered ? _hoverColor : _color;
+            }
 
             if (_isFollowing)
                 UpdateHeadFollow();
@@ -229,6 +231,7 @@ namespace Gothic.VR.Adapters.UI
                        (isDocked ? " in the dock" : ""), LogCat.Ui);
             _grabTransform = null;
             _image.color = _color;
+            _isHovered = false;
             if (_dockSphere != null)
                 _dockSphere.SetActive(false);
             if (isDocked)
@@ -327,7 +330,7 @@ namespace Gothic.VR.Adapters.UI
         }
 
         /// <summary>
-        /// Hidden while held (e.g. the Marvin option turned off): let go without docking - reparenting an object
+        /// Hidden while held (e.g. Marvin mode turned off): let go without docking - reparenting an object
         /// that is being deactivated throws.
         /// </summary>
         private void OnDisable()
@@ -336,6 +339,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
             _grabTransform = null;
             _image.color = _color;
+            _isHovered = false;
             if (_dockSphere != null)
                 _dockSphere.SetActive(false);
         }

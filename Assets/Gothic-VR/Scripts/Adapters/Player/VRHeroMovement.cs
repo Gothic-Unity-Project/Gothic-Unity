@@ -5,7 +5,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Audio;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
 using Reflex.Attributes;
@@ -22,13 +21,12 @@ namespace Gothic.VR.Adapters.Player
     /// </summary>
     public class VRHeroMovement : MonoBehaviour
     {
-        [Inject] private readonly ConfigService _configService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly GroundSoundService _groundSoundService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
-        // DeveloperConfig.EnableFootstepSounds: the hero's own steps - Gothic's RUN_<ground> every stride of the way
+        // Gothic.ini footstepSounds: the hero's own steps - Gothic's RUN_<ground> every stride of the way
         // walked (the VR body plays no step events; a timer stepped on while the run state lingered after a tap).
         // Sneaking with the talent is silent.
         private const string _stepSound = "RUN";
@@ -56,11 +54,10 @@ namespace Gothic.VR.Adapters.Player
         private float _lastRunTime = float.MinValue;
         private Vector3 _lastBodyStatePosition;
 
-        // DeveloperConfig.EnableSneakSlowSprint: the run (sprint) speed while sneaking.
-        private const float _sneakSprintFactor = 0.5f;
-        private bool _isSneakSlowed;
+        // Like vanilla Gothic: no sprint while sneaking. The sprint input then moves at the plain move speed.
+        private bool _isSneaking;
 
-        // The speeds without the potion and the sneak sprint, and what we set last - one base, the factors on top (the
+        // The speeds without the potion and the sneak rule, and what we set last - one base, the factor on top (the
         // two undoing each other's values left the run speed wrong for good). Changed by someone else meanwhile
         // (swimming, a transformation): that's the new base.
         private bool _isSpeedModified;
@@ -68,8 +65,6 @@ namespace Gothic.VR.Adapters.Player
         private float _baseRunSpeed;
         private float _appliedMoveSpeed;
         private float _appliedRunSpeed;
-        private float _appliedMoveFactor = 1f;
-        private float _appliedRunFactor = 1f;
 
         // NPC_TALENT_SNEAK (G1/G2: 8) - read from the scripts.
         private const string _sneakTalentSymbol = "NPC_TALENT_SNEAK";
@@ -107,7 +102,7 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             UpdateHeroBodyState();
-            UpdateSneakSprint();
+            UpdateSneakSpeed();
             UpdateHeroFootsteps();
             UpdateSpeedBoost();
         }
@@ -119,21 +114,22 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableSneakSlowSprint: sprinting while sneaking (BS_SNEAK) runs at half the sprint speed -
-        /// sneaking up behind someone at full sprint looked silly.
+        /// No sprint while sneaking (BS_SNEAK), like vanilla Gothic: the sprint input does nothing, the hero moves at
+        /// sneak (move) speed. The body state stays BS_SNEAK (UpdateHeroBodyState), so it is no run for the footsteps
+        /// and the scripts.
         /// </summary>
-        private void UpdateSneakSprint()
+        private void UpdateSneakSpeed()
         {
-            _isSneakSlowed = _configService.Dev.EnableSneakSlowSprint && IsHeroSneaking();
+            _isSneaking = IsHeroSneaking();
             ApplySpeeds();
         }
 
         /// <summary>
-        /// The base speeds times the potion (move and run) and the sneak sprint (run).
+        /// The base speeds times the potion (move and run); sneaking caps the run speed at the move speed.
         /// </summary>
         private void ApplySpeeds()
         {
-            var isModified = _isSpeedBoosted || _isSneakSlowed;
+            var isModified = _isSpeedBoosted || _isSneaking;
             if (!_isSpeedModified && !isModified)
                 return;
 
@@ -147,17 +143,14 @@ namespace Gothic.VR.Adapters.Player
             {
                 // Someone else set speeds while ours were on: they are the new base, our factors go on top. VRSwimDive
                 // sets its plain speeds (the ones it found at the start, half in water) - divided by our factors, a
-                // potion through knee deep water left the hero a third slower, a sneak sprint twice as fast.
+                // potion through knee deep water left the hero a third slower, a sneak twice as fast.
                 _baseMoveSpeed = _rig.MoveSpeed;
                 _baseRunSpeed = _rig.RunSpeed;
             }
 
             var boost = _isSpeedBoosted ? _sprintSpeedFactor : 1f;
-            var sneak = _isSneakSlowed ? _sneakSprintFactor : 1f;
-            _appliedMoveFactor = boost;
-            _appliedRunFactor = boost * sneak;
-            _appliedMoveSpeed = _baseMoveSpeed * _appliedMoveFactor;
-            _appliedRunSpeed = _baseRunSpeed * _appliedRunFactor;
+            _appliedMoveSpeed = _baseMoveSpeed * boost;
+            _appliedRunSpeed = _isSneaking ? _appliedMoveSpeed : _baseRunSpeed * boost;
             _rig.MoveSpeed = _appliedMoveSpeed;
             _rig.RunSpeed = _appliedRunSpeed;
             _isSpeedModified = isModified;
@@ -251,8 +244,8 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateHeroFootsteps()
         {
-            // DeveloperConfig.EnableHeroBodySounds: the animated body steps itself.
-            if (!_configService.Dev.EnableFootstepSounds || VRHeroBody.IsBodySounding ||
+            // The animated body steps itself (the stride steps below are the fallback for a body without animations).
+            if (!_groundSoundService.IsEnabled || VRHeroBody.IsBodySounding ||
                 _gameStateService.GothicVm?.GlobalHero is not NpcInstance heroInstance)
                 return;
             if (!_rig.IsGrounded)

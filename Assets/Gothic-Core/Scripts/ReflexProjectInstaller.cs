@@ -1,4 +1,7 @@
+using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Creator;
+using Gothic.Core.Domain.Npc;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
@@ -6,6 +9,7 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Culling;
+using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Marvin;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Movement;
@@ -54,6 +58,8 @@ namespace Gothic.Core
 
             containerBuilder.AddSingleton(typeof(BootstrapService));
             containerBuilder.AddSingleton(typeof(GameStateService));
+            containerBuilder.AddSingleton(typeof(GameLifecycleService));
+            containerBuilder.AddSingleton(typeof(GameEndingService));
             
             containerBuilder.AddSingleton(typeof(UnityMonoService));
             containerBuilder.AddSingleton(typeof(ConfigService));
@@ -68,6 +74,8 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(ContextTradeService));
             containerBuilder.AddSingleton(typeof(ContextGameVersionService));
             containerBuilder.AddSingleton(typeof(ContextMeleeDamageRuleService));
+            containerBuilder.AddSingleton(typeof(ContextRangedCombatService));
+            containerBuilder.AddSingleton(typeof(ContextHeroBlockService));
 
             containerBuilder.AddSingleton(typeof(NpcMeshCullingService));
             containerBuilder.AddSingleton(typeof(VobMeshCullingService));
@@ -81,6 +89,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VobService));
             containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
+            containerBuilder.AddSingleton(typeof(MobLockService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
@@ -105,6 +114,15 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(Services.Audio.GroundSoundService));
             containerBuilder.AddSingleton(typeof(DocService));
             containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.StackSplitService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.ItemUseService));
+            containerBuilder.AddSingleton(typeof(Gothic.Core.Services.Inventory.InventoryTransferService));
+            containerBuilder.AddSingleton(typeof(NpcBurnService));
+
+            // Adapter factories: Services and Domain create these adapters through their Core interface only.
+            containerBuilder.AddSingleton(typeof(ProjectileFactory), typeof(IProjectileFactory));
+            containerBuilder.AddSingleton(typeof(VisualFxLightFactory), typeof(IVisualFxLightFactory));
+            containerBuilder.AddSingleton(typeof(NpcJumpFallFactory), typeof(INpcJumpFallFactory));
+            containerBuilder.AddSingleton(typeof(NpcBurnEffectFactory), typeof(INpcBurnEffectFactory));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

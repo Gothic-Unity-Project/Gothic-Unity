@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Const;
@@ -7,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Npc;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
@@ -20,9 +20,9 @@ namespace Gothic.Core.Services.Meshes
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly AudioService _audioService;
-        [Inject] private readonly Gothic.Core.Services.Config.ConfigService _npcSpellConfigService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-        [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly IProjectileFactory _projectileFactory;
+        [Inject] private readonly IVisualFxLightFactory _visualFxLightFactory;
 
         private const string _lightPresetsFile = "LIGHTPRESETS.ZEN";
         private const string _earthquakeVisual = "earthquake.eqk";
@@ -40,7 +40,8 @@ namespace Gothic.Core.Services.Meshes
         private const float _npcSpellHandHeight = 1.3f;
         private const float _npcSpellHandForward = 0.5f;
         private const float _npcSpellTargetHeight = 1f;
-        private const float _npcSpellHitRadius = 0.8f;
+        // Fallback hit widening (emTrjTargetRange, 20 cm for the firebolt) if the spell's FX has none.
+        private const float _npcSpellDefaultTargetRange = 0.2f;
         private const float _npcSpellFadeSeconds = 1f;
 
         public void Init()
@@ -53,8 +54,8 @@ namespace Gothic.Core.Services.Meshes
         /// <summary>
         /// Plays a VISUALFX instance (spellFX_*, VOB_*): its PFX upright at the position (following `follow` if set),
         /// its sound and its emFXCreate_S chain. One-shot effects end on their own; looping ones (isLooping) stay
-        /// until the caller destroys the returned roots. Its light preset glows with it (EnableVisualFxLights), camera
-        /// effects only rumble (FX_EarthQuake, EnableVisualFxEarthquake).
+        /// until the caller destroys the returned roots. Its light preset glows with it, camera
+        /// effects only play their sound (FX_EarthQuake).
         /// </summary>
         public List<GameObject> PlayVisualFx(string fxName, Vector3 position, Transform follow = null,
             bool isLooping = false, string skippedSfx = null, SkinnedMeshRenderer ownerMesh = null)
@@ -127,11 +128,11 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a light preset by name (LIGHTPRESETS.ZEN, read once).
+        /// A light preset by name (LIGHTPRESETS.ZEN, read once).
         /// </summary>
         public LightPresetLoader.LightPreset TryGetLightPreset(string presetName)
         {
-            if (string.IsNullOrEmpty(presetName) || !_npcSpellConfigService.Dev.EnableVisualFxLights)
+            if (string.IsNullOrEmpty(presetName))
                 return null;
             if (_lightPresets == null)
             {
@@ -145,14 +146,14 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// DeveloperConfig.EnableVisualFxLights: a VISUALFX's light (OpenGothic Effect::setupLight) - rangeMeters is a
+        /// A VISUALFX's light (OpenGothic Effect::setupLight) - rangeMeters is a
         /// key's lightRange, below 0 the preset's. Null without a preset.
         /// </summary>
         public IVisualFxLight CreateVisualFxLight(string presetName, Transform parent, Vector3 position,
             float rangeMeters = -1f)
         {
             var preset = TryGetLightPreset(presetName);
-            return preset == null ? null : VisualFxLightFactory.Create?.Invoke(parent, position, preset, rangeMeters);
+            return preset == null ? null : _visualFxLightFactory.Create(parent, position, preset, rangeMeters);
         }
 
         private void AddLight(string presetName, GameObject anchor, Vector3 position, bool isLooping)
@@ -165,29 +166,22 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// Camera effects (FX_*): DeveloperConfig.EnableVisualFxEarthquake - FX_EarthQuake (earthquake.eqk) plays its
-        /// sound and tells VR to rumble the controllers (no camera shake in VR) within its radius (userString[0],
-        /// cm) for its seconds (userString[1]). Time and screen effects (time.slw, screenblend.scx) are skipped.
+        /// Camera effects (FX_*): FX_EarthQuake (earthquake.eqk) plays its
+        /// sound (no camera shake in VR). Time and screen effects (time.slw, screenblend.scx) are skipped.
         /// </summary>
         private void PlayGlobalFx(string fxName, Vector3 position)
         {
             var fx = _vmCacheService.TryGetVfxData(fxName);
-            if (fx == null || !_npcSpellConfigService.Dev.EnableVisualFxEarthquake ||
+            if (fx == null ||
                 !_earthquakeVisual.Equals(fx.VisNameS, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            var radius = float.TryParse(fx.GetUserString(0), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var radiusCm) ? radiusCm / 100f : 10f;
-            var seconds = float.TryParse(fx.GetUserString(1), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 3f;
-            if (!string.IsNullOrEmpty(fx.SfxId))
-            {
-                var clip = _audioService.GetRandomSoundClip(fx.SfxId);
-                if (clip != null)
-                    AudioSource.PlayClipAtPoint(clip, position);
-            }
-            Logger.Log($"[VisualFx] {fxName}: earthquake {radius:F0} m, {seconds:F1} s", LogCat.Mesh);
-            GlobalEventDispatcher.VisualFxEarthquake.Invoke(position, radius, seconds);
+            if (string.IsNullOrEmpty(fx.SfxId))
+                return;
+            var clip = _audioService.GetRandomSoundClip(fx.SfxId);
+            if (clip != null)
+                AudioSource.PlayClipAtPoint(clip, position);
+            Logger.Log($"[VisualFx] {fxName}: earthquake sound", LogCat.Mesh);
         }
 
         private static float GetPlaySeconds(GameObject root)
@@ -242,8 +236,9 @@ namespace Gothic.Core.Services.Meshes
 
         /// <summary>
         /// What an NPC's spell looks like. A spell flying to its target (CAST key
-        /// emTrjMode_S TARGET: fire ball, ice block, Mroczne Tajemnice's crawler web) flies there as its PFX and hits
-        /// on arrival (onHit). Other spells (sleep, summoning) show their cast effect at the caster and hit at once.
+        /// emTrjMode_S TARGET: fire ball, ice block, Mroczne Tajemnice's crawler web) flies there as its PFX on a
+        /// Projectile (IProjectileFactory, like arrows) and hits on arrival (onHit). Other spells (sleep, summoning)
+        /// show their cast effect at the caster and hit at once.
         /// Before NPC spells hit invisibly the moment the cast animation reached its frame.
         /// Returns false when nothing flies - the caller hits at once.
         /// </summary>
@@ -287,15 +282,32 @@ namespace Gothic.Core.Services.Meshes
             }
 
             var speed = castKey.EmTrjEaseVel / 100f > 0f ? castKey.EmTrjEaseVel / 100f : _npcSpellDefaultSpeed;
-            // DeveloperConfig.NpcSpellHoming: a step aside dodges it.
-            var homing = _npcSpellConfigService.Dev.NpcSpellHoming;
-            _unityMonoService.StartCoroutine(FlyNpcSpell(flightGo.transform, target.Go.transform, speed, homing, () =>
+            var aimPoint = target.Go.transform.position + Vector3.up * _npcSpellTargetHeight;
+            var projectile = _projectileFactory.Create(flightGo);
+            projectile.Owner = caster;
+            projectile.Velocity = (aimPoint - origin).normalized * speed;
+            projectile.UseGravity = false;
+            projectile.AllowAutoAim = false;
+            // Like the engine (OpenGothic World::shootSpell): aimed once at the target, straight flight, no homing - the
+            // hit test is widened by the effect's emTrjTargetRange (cm).
+            var targetRange = baseFx?.EmTrjTargetRange ?? 0f;
+            projectile.Radius = targetRange > 0f ? targetRange / 100f : _npcSpellDefaultTargetRange;
+            projectile.MaxDistance = speed * _npcSpellMaxSeconds;
+            projectile.OnNpcHit = (npc, _, _) =>
             {
-                onHit?.Invoke();
-                // Area spells play it on everyone they reach (FightService).
-                if (!SpellConst.AoeEffectNames.Contains(mfxName))
-                    PlaySpellHitFx(mfxName, target);
-            }));
+                // Like the engine, it stops at the first body or wall; only its target is hit (SpellHitDomain).
+                if (npc == target)
+                {
+                    onHit?.Invoke();
+                    // Area spells play it on everyone they reach (FightService).
+                    if (!SpellConst.AoeEffectNames.Contains(mfxName))
+                        PlaySpellHitFx(mfxName, target);
+                }
+                FadeNpcSpell(flightGo);
+            };
+            projectile.OnWorldHit = (_, _) => FadeNpcSpell(flightGo);
+            projectile.OnExpired = () => FadeNpcSpell(flightGo);
+
             Logger.Log($"[NpcSpellFx] {caster.Instance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)} casts {mfxName} " +
                        $"({pfxName}, {speed:F1} m/s) at {target.Instance.GetName(ZenKit.Daedalus.NpcNameSlot.Slot0)}",
                 LogCat.Fight);
@@ -303,62 +315,16 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// The visible flight of an NPC's spell (its CAST key PFX) to the target. The hit happens when it reaches the
-        /// target (onArrive), like in the engine, not the moment the cast animation reaches its frame.
-        /// DeveloperConfig.NpcSpellHoming: how much it follows the target - at 0.2 it flies mostly to where the target
-        /// was at the cast, a step aside dodges it (it flies on and fades); fully homing nobody could dodge a crawler's web.
+        /// The spell's flight ended (hit, wall, too far): its particles stop emitting and fade out.
         /// </summary>
-        private IEnumerator FlyNpcSpell(Transform flight, Transform target, float speed, float homing, Action onArrive)
+        private void FadeNpcSpell(GameObject flightGo)
         {
-            var endTime = Time.time + _npcSpellMaxSeconds;
-            var castTargetPosition = target != null ? target.position + Vector3.up * _npcSpellTargetHeight : Vector3.zero;
-            var direction = (castTargetPosition - flight.position).normalized;
-            var isPastAimPoint = false;
-            var isHit = false;
+            if (flightGo == null)
+                return;
 
-            while (flight != null)
-            {
-                // The target is gone (despawned) or the spell flew too long: it fades out without a hit.
-                if (target == null || Time.time >= endTime)
-                    break;
-
-                var targetPosition = target.position + Vector3.up * _npcSpellTargetHeight;
-                if (Vector3.Distance(flight.position, targetPosition) <= _npcSpellHitRadius)
-                {
-                    isHit = true;
-                    break;
-                }
-
-                // Until it passes its aim point it steers to a mix of the cast position and the target's current one.
-                if (!isPastAimPoint)
-                {
-                    var aimPoint = Vector3.Lerp(castTargetPosition, targetPosition, Mathf.Clamp01(homing));
-                    var toAim = aimPoint - flight.position;
-                    if (Vector3.Dot(toAim, direction) <= 0f || toAim.magnitude <= speed * Time.deltaTime)
-                        isPastAimPoint = true;
-                    else
-                        direction = toAim.normalized;
-                }
-
-                flight.SetPositionAndRotation(flight.position + direction * (speed * Time.deltaTime),
-                    Quaternion.LookRotation(direction));
-                yield return null;
-            }
-
-            if (flight == null)
-                yield break;
-
-            try
-            {
-                if (isHit)
-                    onArrive?.Invoke();
-            }
-            finally
-            {
-                foreach (var particles in flight.GetComponentsInChildren<ParticleSystem>(true))
-                    particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-                UnityEngine.Object.Destroy(flight.gameObject, _npcSpellFadeSeconds);
-            }
+            foreach (var particles in flightGo.GetComponentsInChildren<ParticleSystem>(true))
+                particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            UnityEngine.Object.Destroy(flightGo, _npcSpellFadeSeconds);
         }
 
         private void EmitBlood(NpcContainer _, NpcContainer target, Vector3 position)

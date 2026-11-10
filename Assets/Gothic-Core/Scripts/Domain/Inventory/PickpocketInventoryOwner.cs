@@ -8,7 +8,7 @@ using Gothic.Core.Models.Vob;
 namespace Gothic.Core.Domain.Inventory
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: a robbed NPC's pockets - his items without what he wears or wields (the
+    /// A robbed NPC's pockets - his items without what he wears or wields (the
     /// engine's steal window). Every item taken out is reported (ItemTaken) - each one can get the thief caught.
     /// </summary>
     public class PickpocketInventoryOwner : IInventoryOwner

@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using Gothic.Core;
 using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -24,15 +24,16 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Player
 {
     /// <summary>
-    /// DeveloperConfig.EnableVrPickpocket: pickpocketing in VR (rules in PickpocketService - G1, and G2 in addition to
-    /// the dialog with EnableG2VrPickpocket). Any VR backend (IVrRig hands, VrInteractable).
-    /// - Sneaking with the talent, humans nearby who can't see the hero show a purse (a small copy of the backpack) on
-    ///   their right hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
-    /// - Grip on the purse: the victim's pockets open as a backpack in that hand (his items without what he wears or
-    ///   wields). The other hand takes items out - each one can get the hero caught.
-    /// - Caught (a roll, or the victim sees the hero while he robs him): the backpack is gone, the victim gets
+    /// Pickpocketing in VR (rules in PickpocketService). Any VR backend (IVrRig hands, VrInteractable).
+    /// - Sneaking, humans nearby who can't see the hero show a purse (a small copy of the backpack) on their right
+    ///   hip - opposite of the one-handed sword (ZS_SWORD mirrored). It glows; a hand near it lights it up.
+    /// - G1 (always on, needs the talent): grip on the purse opens the victim's pockets as a backpack in that hand
+    ///   (his items without what he wears or wields). The other hand takes items out - each one can get the hero
+    ///   caught. Caught (a roll, or the victim sees the hero while he robs him): the backpack is gone, the victim gets
     ///   PERC_CATCHTHIEF, witnesses PERC_ASSESSTHEFT. Letting go of the backpack or walking away closes the pockets.
-    /// Runtime only - the stolen items are in the inventories, which are saved.
+    /// - G2 (Gothic.ini pickpocketPurse, on by default): the purse is the NPC's pickpocket dialog option - it shows
+    ///   exactly when the dialog would offer it, a grip on it chooses it (B_Beklauen: gold or caught) and it is gone.
+    /// Runtime only - the stolen items/gold are in the inventories, the script's aivar on the NPC; both are saved.
     /// </summary>
     public class VRPickpocket : MonoBehaviour
     {
@@ -42,6 +43,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRPickpocketService _vrPickpocketService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly VrHapticsService _hapticsService;
         [Inject] private readonly AudioService _audioService;
@@ -72,8 +74,13 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<NpcContainer, Purse> _purses = new();
         private readonly Dictionary<NpcContainer, float> _caughtUntil = new();
         private readonly Dictionary<NpcContainer, List<Collider>> _passThroughSleepers = new();
-        private float _nextSleeperScan;
         private float _nextScan;
+        // Reused by every scan tick - no allocations.
+        private readonly HashSet<NpcContainer> _sleepersInRange = new();
+        private readonly List<NpcContainer> _victims = new();
+        private readonly List<float> _victimDistances = new();
+        private readonly List<NpcContainer> _npcBuffer = new();
+        private readonly List<Collider> _colliderBuffer = new();
         private Mesh _purseMesh;
         private Material _purseMaterial;
         private Purse _hovered;
@@ -85,6 +92,8 @@ namespace Gothic.VR.Adapters.Player
         private GameObject _backpackRoot;
         private VrInteractable _backpackGrabbable;
         private bool _isCaught;
+        // Gothic.ini pickpocketPurse (G2 only), refreshed on PlayerPrefUpdated.
+        private bool _isG2OptionOn;
 
         private class Purse
         {
@@ -97,17 +106,43 @@ namespace Gothic.VR.Adapters.Player
 
         public bool IsRobbing => _victim != null;
 
+        // G1's purse is the engine's steal window (always on), G2's a view of its dialog the player may switch off.
+        private bool IsPurseEnabled => _pickpocketService.IsEnabled && (_pickpocketService.IsGothic1 || _isG2OptionOn);
+
         private void Awake()
         {
             this.Inject();
+            GlobalEventDispatcher.GothicInisInitialized.AddListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+            ReadOption();
+        }
+
+        private void OnDestroy()
+        {
+            GlobalEventDispatcher.GothicInisInitialized.RemoveListener(ReadOption);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
+        }
+
+        private void ReadOption()
+        {
+            // No Gothic.ini before a game was picked (profile menu).
+            _isG2OptionOn = _configService.Gothic != null &&
+                            _configService.Gothic.GetInt(VRConstants.IniNames.PickpocketPurse,
+                                VRConstants.PickpocketPurseDefaultValue) == 1;
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == VRConstants.IniNames.PickpocketPurse)
+                ReadOption();
         }
 
         private void Update()
         {
-            if (Time.time >= _nextSleeperScan)
+            if (Time.time >= _nextScan)
             {
-                _nextSleeperScan = Time.time + _scanInterval;
-                UpdateSleeperPassThrough();
+                _nextScan = Time.time + _scanInterval;
+                ScanNpcs();
             }
 
             if (IsRobbing)
@@ -116,51 +151,112 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-            if (!_pickpocketService.IsEnabled || !_pickpocketService.CanHeroSteal())
+            if (!IsPurseEnabled || !_pickpocketService.CanHeroSteal())
             {
-                ClearPurses();
+                ClearPurses("hero doesn't sneak or purses are off");
                 return;
             }
 
-            if (Time.time >= _nextScan)
-            {
-                _nextScan = Time.time + _scanInterval;
-                Scan();
-            }
             UpdatePurses();
             UpdateHover();
         }
 
         /// <summary>
-        /// Sneaking, the hands and the player's body pass through sleeping
-        /// NPCs nearby - reaching for the purse of a sleeper in bed bumped into him and pushed the player away.
+        /// One pass over all NPCs per scan tick (no allocations, buffers are reused):
+        /// - Sneaking, the hands and the player's body pass through sleeping NPCs nearby - reaching for the purse of
+        ///   a sleeper in bed bumped into him and pushed the player away. Not while pickpocketing is off.
+        /// - The nearest robbable NPCs (max _maxPurses) show a purse.
         /// </summary>
-        private void UpdateSleeperPassThrough()
+        private void ScanNpcs()
         {
             var hero = _pickpocketService.Hero;
-            var isSneaking = hero?.Go != null &&
-                             hero.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
-            var heroPosition = isSneaking ? hero.Go.transform.position : Vector3.zero;
+            var hasHero = hero?.Go != null;
+            var isEnabled = IsPurseEnabled;
+            var wantSleepers = isEnabled && hasHero && hero.Props?.BodyState == VmGothicEnums.BodyState.BsSneak;
+            var wantVictims = isEnabled && hasHero && !IsRobbing && _pickpocketService.CanHeroSteal();
 
-            var sleepers = isSneaking
-                ? _multiTypeCacheService.NpcCache
-                    .Where(npc => npc?.Go != null && npc.Go.activeInHierarchy && npc != hero &&
-                                  (npc.Go.transform.position - heroPosition).sqrMagnitude <=
-                                  _purseRange * _purseRange &&
-                                  _pickpocketService.IsAsleep(npc))
-                    .ToList()
-                : new List<NpcContainer>();
+            _sleepersInRange.Clear();
+            _victims.Clear();
+            _victimDistances.Clear();
 
-            foreach (var npc in _passThroughSleepers.Keys.Where(npc => !sleepers.Contains(npc)).ToList())
+            if (wantSleepers || wantVictims)
             {
-                SetSleeperPassThrough(_passThroughSleepers[npc], false);
-                _passThroughSleepers.Remove(npc);
-                Logger.Log($"[Pickpocket] Hands collide with sleeping {npc.Go?.name} again", LogCat.VR);
+                var heroPosition = hero.Go.transform.position;
+                var npcs = _multiTypeCacheService.NpcCache;
+                for (var i = 0; i < npcs.Count; i++)
+                {
+                    var npc = npcs[i];
+                    if (npc?.Go == null || !npc.Go.activeInHierarchy || npc == hero)
+                        continue;
+                    var sqrDistance = (npc.Go.transform.position - heroPosition).sqrMagnitude;
+                    if (sqrDistance > _purseRange * _purseRange)
+                        continue;
+
+                    if (wantSleepers && npc.IsAsleep())
+                        _sleepersInRange.Add(npc);
+                    if (wantVictims && !IsCoolingDown(npc) && _pickpocketService.CanBeRobbed(npc))
+                        InsertVictim(npc, sqrDistance);
+                }
             }
 
-            foreach (var npc in sleepers.Where(npc => !_passThroughSleepers.ContainsKey(npc)))
+            ApplySleeperPassThrough();
+            if (wantVictims)
+                ApplyPurses();
+        }
+
+        /// <summary>
+        /// Keeps _victims sorted by distance (nearest first), at most _maxPurses long.
+        /// </summary>
+        private void InsertVictim(NpcContainer npc, float sqrDistance)
+        {
+            var index = _victims.Count;
+            while (index > 0 && _victimDistances[index - 1] > sqrDistance)
+                index--;
+            if (index >= _maxPurses)
+                return;
+
+            _victims.Insert(index, npc);
+            _victimDistances.Insert(index, sqrDistance);
+            if (_victims.Count > _maxPurses)
             {
-                var colliders = npc.Go.GetComponentsInChildren<Collider>(true).Where(c => !c.isTrigger).ToList();
+                _victims.RemoveAt(_maxPurses);
+                _victimDistances.RemoveAt(_maxPurses);
+            }
+        }
+
+        private void ApplySleeperPassThrough()
+        {
+            if (_passThroughSleepers.Count > 0)
+            {
+                _npcBuffer.Clear();
+                foreach (var npc in _passThroughSleepers.Keys)
+                {
+                    if (!_sleepersInRange.Contains(npc))
+                        _npcBuffer.Add(npc);
+                }
+
+                foreach (var npc in _npcBuffer)
+                {
+                    SetSleeperPassThrough(_passThroughSleepers[npc], false);
+                    _passThroughSleepers.Remove(npc);
+                    Logger.Log($"[Pickpocket] Hands collide with sleeping {npc.Go?.name} again", LogCat.VR);
+                }
+            }
+
+            foreach (var npc in _sleepersInRange)
+            {
+                if (_passThroughSleepers.ContainsKey(npc))
+                    continue;
+
+                npc.Go.GetComponentsInChildren(true, _colliderBuffer);
+                var colliders = new List<Collider>(_colliderBuffer.Count);
+                foreach (var npcCollider in _colliderBuffer)
+                {
+                    if (!npcCollider.isTrigger)
+                        colliders.Add(npcCollider);
+                }
+                _colliderBuffer.Clear();
+
                 _passThroughSleepers[npc] = colliders;
                 SetSleeperPassThrough(colliders, true);
                 Logger.Log($"[Pickpocket] Hands pass through sleeping {npc.Go.name} ({colliders.Count} collider(s))",
@@ -187,25 +283,25 @@ namespace Gothic.VR.Adapters.Player
             }
         }
 
-        private void Scan()
+        private void ApplyPurses()
         {
-            var hero = _pickpocketService.Hero;
-            if (hero?.Go == null)
-                return;
+            if (_purses.Count > 0)
+            {
+                _npcBuffer.Clear();
+                foreach (var npc in _purses.Keys)
+                {
+                    if (!_victims.Contains(npc))
+                        _npcBuffer.Add(npc);
+                }
+                foreach (var npc in _npcBuffer)
+                    RemovePurse(npc, "out of range or can't be robbed now");
+            }
 
-            var heroPosition = hero.Go.transform.position;
-            var victims = _multiTypeCacheService.NpcCache
-                .Where(npc => npc?.Go != null && npc.Go.activeInHierarchy &&
-                              (npc.Go.transform.position - heroPosition).sqrMagnitude <= _purseRange * _purseRange &&
-                              !IsCoolingDown(npc) && _pickpocketService.CanBeRobbed(npc))
-                .OrderBy(npc => (npc.Go.transform.position - heroPosition).sqrMagnitude)
-                .Take(_maxPurses)
-                .ToList();
-
-            foreach (var npc in _purses.Keys.Where(npc => !victims.Contains(npc)).ToList())
-                RemovePurse(npc);
-            foreach (var npc in victims.Where(npc => !_purses.ContainsKey(npc)))
-                AddPurse(npc);
+            foreach (var npc in _victims)
+            {
+                if (!_purses.ContainsKey(npc))
+                    AddPurse(npc);
+            }
         }
 
         private bool IsCoolingDown(NpcContainer npc)
@@ -240,10 +336,11 @@ namespace Gothic.VR.Adapters.Player
             Logger.Log($"[Pickpocket] Purse shown on {go.name}", LogCat.VR);
         }
 
-        private void RemovePurse(NpcContainer npc)
+        private void RemovePurse(NpcContainer npc, string reason)
         {
             if (!_purses.Remove(npc, out var purse))
                 return;
+            Logger.LogEditor($"[Pickpocket] Purse hidden on {purse.Go?.name}: {reason}", LogCat.VR);
             if (purse == _hovered)
                 _hovered = null;
             if (purse.Go != null)
@@ -252,10 +349,15 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(purse.Material);
         }
 
-        private void ClearPurses()
+        private void ClearPurses(string reason)
         {
-            foreach (var npc in _purses.Keys.ToList())
-                RemovePurse(npc);
+            if (_purses.Count == 0)
+                return;
+
+            _npcBuffer.Clear();
+            _npcBuffer.AddRange(_purses.Keys);
+            foreach (var npc in _npcBuffer)
+                RemovePurse(npc, reason);
         }
 
         /// <summary>
@@ -305,7 +407,7 @@ namespace Gothic.VR.Adapters.Player
                 Vector3 position;
                 // Lying in bed the body isn't upright - the hip mirrored on the
                 // root's middle plane was inside the bed, the purse couldn't be seen. Above the pelvis instead.
-                if (purse.Pelvis != null && _pickpocketService.IsAsleep(purse.Npc))
+                if (purse.Pelvis != null && purse.Npc.IsAsleep())
                     position = purse.Pelvis.position + Vector3.up * _sleepingPurseHeight;
                 else if (purse.SwordSlot != null)
                 {
@@ -361,13 +463,41 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // The same grip grabs the NPC (VRNpc: talk) - not while a hand is at his purse.
-            _pickpocketService.BlockTalk(_hovered.Npc);
-            if (_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
+            _vrPickpocketService.BlockTalk(_hovered.Npc);
+            if (!_vrInput.GetButton(_hoveredSide, VrButton.Grip).IsJustActivated)
+                return;
+            if (_pickpocketService.IsGothic1)
                 StartRobbery(_hovered.Npc, _hoveredSide);
+            else
+                StealGold(_hovered.Npc, _hoveredSide);
         }
 
         /// <summary>
-        /// Nothing in the hand - or the NPC itself (HVR grabs him with the grip at his hip, VRNpc lets go again).
+        /// G2: the grip is the dialog's "pickpocket" choice - B_Beklauen gives the gold (and XP, sound) or the NPC
+        /// attacks. The purse is gone either way: robbed once is enough (the script's aivar), caught cools down.
+        /// </summary>
+        private void StealGold(NpcContainer victim, VrHandSide side)
+        {
+            RemovePurse(victim, "grabbed");
+            var isSuccess = false;
+            try
+            {
+                isSuccess = _pickpocketService.StealGold(victim);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Pickpocket] Stealing from {victim.Instance.GetName(NpcNameSlot.Slot0)} failed: {e}",
+                    LogCat.VR);
+            }
+
+            if (!isSuccess)
+                _caughtUntil[victim] = Time.time + _caughtCooldown;
+            _hapticsService.Vibrate(side, isSuccess ? VrHapticPreset.Success : VrHapticPreset.Error);
+            _nextScan = 0f;
+        }
+
+        /// <summary>
+        /// Nothing in the hand - or the NPC itself (his VrInteractable takes the grip at his hip, VRNpc lets go again).
         /// </summary>
         private bool IsHandFree(VrHandSide side)
         {
@@ -414,9 +544,9 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-            ClearPurses();
+            ClearPurses("robbing");
             _victim = victim;
-            _pickpocketService.RobbedNpc = victim;
+            _vrPickpocketService.RobbedNpc = victim;
             _isCaught = false;
             _pockets = new PickpocketInventoryOwner(victim);
             _pockets.ItemTaken += OnItemTaken;
@@ -456,7 +586,7 @@ namespace Gothic.VR.Adapters.Player
 
             Logger.Log($"[Pickpocket] Took {amount}x {itemInstanceName} from " +
                        $"{_victim.Instance.GetName(NpcNameSlot.Slot0)}", LogCat.VR);
-            if (_pickpocketService.IsAsleep(_victim))
+            if (_victim.IsAsleep())
             {
                 Logger.Log("[Pickpocket] The victim sleeps - no roll", LogCat.VR);
                 return;
@@ -486,9 +616,9 @@ namespace Gothic.VR.Adapters.Player
 
         private void UpdateRobbery()
         {
-            var isAsleep = _pickpocketService.IsAsleep(_victim);
+            var isAsleep = _victim.IsAsleep();
             if (_victim?.Go == null || !_victim.Go.activeInHierarchy ||
-                (!isAsleep && NpcHelperService.IsDown(_victim)))
+                (!isAsleep && _victim.IsDown()))
             {
                 EndRobbery();
                 return;
@@ -554,7 +684,7 @@ namespace Gothic.VR.Adapters.Player
                 Destroy(_backpackRoot);
 
             _victim = null;
-            _pickpocketService.RobbedNpc = null;
+            _vrPickpocketService.RobbedNpc = null;
             _pockets = null;
             _backpack = null;
             _backpackRoot = null;
@@ -567,7 +697,7 @@ namespace Gothic.VR.Adapters.Player
         {
             if (IsRobbing)
                 EndRobbery();
-            ClearPurses();
+            ClearPurses("disabled");
         }
     }
 }

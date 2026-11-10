@@ -1,8 +1,7 @@
 using Gothic.Core;
-using Gothic.Core.Domain;
 using Gothic.Core.Logging;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Game;
 using Gothic.Core.Services.Player;
 using Gothic.VR.Adapters.Player;
 using Reflex.Attributes;
@@ -13,59 +12,19 @@ namespace Gothic.VR.Services
     /// <summary>
     /// Plays the videos of GlobalEventDispatcher.PlayVideo (PlayVideo/PlayVideoEx from scripts, logo videos) in a
     /// VRCinema. The cinema lives on the player (Cinema.prefab), several calls in a row (G1 ending: Extro + Credits)
-    /// are queued there.
+    /// are queued there. The end of the game (quit/restart after the videos) is GameEndingService's, the cinema only
+    /// tells it whether a video still runs.
     /// </summary>
     public class VRCinemaService
     {
         [Inject] private readonly VideoService _videoService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
-        [Inject] private readonly ConfigService _configService;
-
-        private bool _isQuitAfterVideos;
+        [Inject] private readonly GameEndingService _gameEndingService;
 
         public void Init()
         {
             GlobalEventDispatcher.PlayVideo.AddListener(Play);
-            GlobalEventDispatcher.ScriptExitGame.AddListener(QuitAfterVideos);
-            GlobalEventDispatcher.VideoPlaybackFinished.AddListener(OnVideoPlaybackFinished);
-        }
-
-        /// <summary>
-        /// ExitGame/ExitSession (ending): quit once the queued videos (Extro, Credits) are over - right away if none
-        /// play.
-        /// </summary>
-        private void QuitAfterVideos()
-        {
-            if (GetCinema()?.IsRunning == true)
-            {
-                _isQuitAfterVideos = true;
-                return;
-            }
-            Quit();
-        }
-
-        private void OnVideoPlaybackFinished()
-        {
-            // A queued video that couldn't be opened reports finished too - the next one still plays.
-            if (!_isQuitAfterVideos || GetCinema()?.IsRunning == true)
-                return;
-            _isQuitAfterVideos = false;
-            Quit();
-        }
-
-        private void Quit()
-        {
-            // DeveloperConfig.EnableEndingReturnsToMenu: after the ending's videos and credits back to the start (game
-            // profiles / main menu) like the engine's ExitSession - the game just closed.
-            if (_configService.Dev.EnableEndingReturnsToMenu)
-            {
-                Logger.Log("[VRCinema] Game ended (ExitGame/ExitSession) - back to the main menu.", LogCat.VR);
-                GameRestartDomain.Restart();
-                return;
-            }
-
-            Logger.Log("[VRCinema] Game ended (ExitGame/ExitSession) - quitting.", LogCat.VR);
-            GameRestartDomain.Quit();
+            _gameEndingService.SetVideoRunningCheck(() => GetCinema()?.IsRunning == true);
         }
 
         private Adapters.UI.VRCinema GetCinema()

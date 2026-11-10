@@ -75,7 +75,7 @@ including Flat. Your test and code review are the real gate.
 1. Unity Hub → *Add project from disk* → `Gothic-workspace/GU-split-integration` (contains all of Wave 1). It already
    has the `Assets/HurricaneVR` junction and your `GameSettings.dev.json`. The first import builds its own `Library/`.
 2. Assign your local DeveloperConfig to `GameManager` in the Bootstrap scene. **Don't commit the scene.** For the
-   Marvin tests, turn on `ActivateMarvinMode` and the cheats (see test 2 below).
+   Marvin tests, turn on `PreselectMarvinMode` and the cheats (see test 2 below).
 3. Have ready: G1, G2 NotR, and optionally Mroczne Tajemnice (G1 mod) and G2 New Balance (Ogg dubbing).
 4. Keep the Uber Console open (`Gothic > Debug > Uber Console`). Most tests also check that **no new exceptions or
    log spam** appear.
@@ -140,7 +140,6 @@ Things a ported slice left out on purpose that a later slice must add (in the la
 |---|---|---|
 | 14 | 07 | `adc2067a` "endings quit after the credits": the source's static `VRCinema.QuitAfterVideos` + `ScriptExitGame` event must become instance members of `VRCinemaService` / `VRCinema` (statics no longer exist). |
 | 13 | 07 | Bow-collider part of `9504e2c9` in `AbstractMeshBuilder`. |
-| 08 | 03 | Cheats `EnableOneHitKill` / `EnableOneHitKnockout` (+ Marvin buttons if any). |
 | 20 | 03 | Summon part of `aebea3c9`: `summonedBy` parameter of the runtime spawn, `NpcService.SpawnNpcRuntime` wrapper, `Wld_SpawnNpcRange`. |
 | 11 | 03 | `NpcRoutineService.RecalculateAllNpcRoutines` (time skip doesn't call it in 03). |
 | 08 | 01 | `523c277d` (`Vm.InitInstance` in `Wld_InsertNpc`, needs `IsZkInstanceInitialized` + attribute sync `cd88a122`; for dead-on-spawn NPCs like Nek). |
@@ -263,10 +262,10 @@ gives PRs that are neither one theme nor testable.
 These references between new components decide the order:
 
 ```
-VRRuneCaster (magic) ──► VRProjectile (ranged)          VRTransformPuppet ──► NpcWaterService (movement)
+VRRuneCaster (magic) ──► VRProjectile (ranged)          VRSpellTransformPuppet ──► NpcWaterService (movement)
         │──────────────► StationaryLightsService (light) NpcJumpFall ───────► NpcNavMeshService (movement)
         │──────────────► ParticleService (particles)     AttackPlayAni ─────► NpcNavMeshService, NpcWaterService
-        │──────────────► VRTransformService              HeroPerceptionService ◄── VRFocus, lock picking
+        │──────────────► VRSpellTransformService              HeroPerceptionService ◄── VRFocus, lock picking
         └──────────────► VRHeroBody (hero body)          RoomService ◄── WorldMeshBuilder, VmExternalDomain
 TradeSession / VRBackpack ──► IInventoryOwner (NPC loot)  MoverAdapter ◄── UseMob, VRWheelInteraction, VRPlayerService
 FightService ──► ParticleService (hit/blood FX)          VRTorch ──► StationaryLightsService
@@ -326,7 +325,7 @@ Each PR **adds only its own `DeveloperConfig` fields and `Production.asset` valu
 | **17** | **Stack splitting + backpack extras** | 15 | `VRStackSplitter` + `StackSplitService`, item details popup, backpack vacuum (the "TODO TEST ME" flags; decide whether they ship), quick slots keep scale | 1,300 |
 | **18** | **Equipment & VR hero body** | 9, 14 | Equip armor/amulets/rings, protection from scripts, NPCs change armor at runtime, helmets, color-only parts, `VRHeroBody` + animator + two-bone IK | 1,700 |
 | **19** | **Particles** | 9 | `VobPfxMeshBuilder`, `ParticleService`, `PfxShapeScaler`, animation PFX, `Wld_PlayEffect`, blood, full-rate loops, smoke alpha fix | 600 |
-| **20** | **Magic** | 6, 13, 18, 19 | `VRRuneCaster` (charging, invest levels, throwing, Light spell), NPC casters, spell hit, `Spell_ProcessMana`/`time_per_mana`/refunds, summons (spawn, run, ignore master), Shrink/model scale, `AI_UseItem`, teleport keeps held items, then **transformations** (`VRTransformPuppet`, `VRTransformService`; needs 12 for water). If too big, split into 20a casting/NPC casters/summons and 20b transformations. | 2,500 |
+| **20** | **Magic** | 6, 13, 18, 19 | `VRRuneCaster` (charging, invest levels, throwing, Light spell), NPC casters, spell hit, `Spell_ProcessMana`/`time_per_mana`/refunds, summons (spawn, run, ignore master), Shrink/model scale, `AI_UseItem`, teleport keeps held items, then **transformations** (`VRSpellTransformPuppet`, `VRSpellTransformService`; needs 12 for water). If too big, split into 20a casting/NPC casters/summons and 20b transformations. | 2,500 |
 
 ### Wave 5: last
 

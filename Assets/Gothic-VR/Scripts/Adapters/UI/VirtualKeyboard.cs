@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using Gothic.Core;
 using Gothic.Core.Adapters.UI;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.UI;
+using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -39,13 +40,17 @@ namespace Gothic.VR.Adapters.UI
         [SerializeField] private Button _shiftButton;
         [SerializeField] private Button _spaceButton;
         [SerializeField] private Button _backspaceButton;
+        [Tooltip("Empties the text at once (a save's name to overwrite).")] [SerializeField]
+        private Button _clearButton;
         [SerializeField] private Button _submitButton;
         [SerializeField] private Button _cancelButton;
+        [Tooltip("The bar under the keyboard (inactive until Setup).")]
+        [SerializeField]
+        private VRGrabBar _grabBar;
+
+        [Inject] private readonly IVrUiPointers _uiPointers;
 
         private static VirtualKeyboard _current;
-
-        private const string _clearLabel = "Clear";
-        private Button _clearButton;
 
         private string _text = string.Empty;
         private bool _isUpperCase;
@@ -100,6 +105,9 @@ namespace Gothic.VR.Adapters.UI
             return _current;
         }
 
+        // Created from its prefab at runtime, outside a scene scope's injection pass.
+        private void Awake() => this.Inject();
+
         private void Init(VirtualKeyboardOptions options)
         {
             _onSubmit = options.OnSubmit;
@@ -146,20 +154,20 @@ namespace Gothic.VR.Adapters.UI
             _shiftButton.onClick.AddListener(ToggleCase);
             _spaceButton.onClick.AddListener(() => Type(' '));
             _backspaceButton.onClick.AddListener(Backspace);
-            CreateClearButton();
+            _clearButton.onClick.AddListener(Clear);
             _submitButton.onClick.AddListener(Submit);
             _cancelButton.onClick.AddListener(Cancel);
 
             // The optional rows changed - recalculate the panel size before the laser sees it.
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
 
-            // DeveloperConfig.EnableUiGrabBars: following an anchor (Marvin), it's moved with the anchor's bar.
-            if (!_hasFollowTarget && ReflexProjectInstaller.DIContainer.Resolve<ConfigService>().Dev.EnableUiGrabBars)
-                VRGrabBar.Create((RectTransform)transform, transform);
+            // Following an anchor (Marvin), it's moved with the anchor's bar.
+            if (!_hasFollowTarget)
+                _grabBar.Setup(transform);
 
             RefreshDisplay();
             // A canvas created at runtime: the UI laser only hits registered canvases.
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().RegisterCanvas(GetComponent<Canvas>());
+            _uiPointers.RegisterCanvas(GetComponent<Canvas>());
             RaisePointerLines();
             Logger.Log("[VirtualKeyboard] Shown", LogCat.Ui);
         }
@@ -223,22 +231,6 @@ namespace Gothic.VR.Adapters.UI
             }
         }
 
-        /// <summary>
-        /// A copy of the backspace key between it and OK empties the text at
-        /// once (a save's name to overwrite).
-        /// </summary>
-        private void CreateClearButton()
-        {
-            var clear = Instantiate(_backspaceButton.gameObject, _backspaceButton.transform.parent);
-            clear.name = _clearLabel;
-            clear.transform.SetSiblingIndex(_backspaceButton.transform.GetSiblingIndex() + 1);
-            _clearButton = clear.GetComponent<Button>();
-            _clearButton.onClick = new Button.ButtonClickedEvent();
-            _clearButton.onClick.AddListener(Clear);
-            foreach (var label in clear.GetComponentsInChildren<TMP_Text>(true))
-                label.text = _clearLabel;
-        }
-
         private void Clear()
         {
             if (_text.Length == 0)
@@ -280,8 +272,7 @@ namespace Gothic.VR.Adapters.UI
 
             SetKeyInteractable(_spaceButton, _spaceLabel, IsKeyAllowed(' '));
             _backspaceButton.interactable = _text.Length > 0;
-            if (_clearButton != null)
-                _clearButton.interactable = _text.Length > 0;
+            _clearButton.interactable = _text.Length > 0;
             _submitButton.interactable = IsSubmitAllowed();
         }
 
@@ -400,7 +391,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
             _isClosed = true;
 
-            ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().UnregisterCanvas(GetComponent<Canvas>());
+            _uiPointers.UnregisterCanvas(GetComponent<Canvas>());
             if (_current == this)
                 _current = null;
             _onSubmit = null;
@@ -431,7 +422,7 @@ namespace Gothic.VR.Adapters.UI
                 return;
 
             var order = GetComponent<Canvas>().sortingOrder + 1;
-            var lines = ReflexProjectInstaller.DIContainer.Resolve<IVrUiPointers>().GetPointerLines(cam.transform.root);
+            var lines = _uiPointers.GetPointerLines(cam.transform.root);
             foreach (var line in lines)
             {
                 if (line.sortingOrder >= order)

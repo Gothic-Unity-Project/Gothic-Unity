@@ -14,11 +14,11 @@ using Mesh = UnityEngine.Mesh;
 namespace Gothic.Core.Services.Audio
 {
     /// <summary>
-    /// DeveloperConfig.EnableFootstepSounds: the ground's sound material for a step (*eventSFXGrnd "Run" -> RUN_WOOD)
-    /// like the engine (OpenGothic Npc::emitSoundGround: the material group of the polygon below). Our world mesh is
-    /// baked into chunks, but every vertex keeps its texture array index (uv0.z) - the index gives the texture, the
-    /// world's materials its group (Ghorri on the jetty: wood, not earth). Wading is water; a VOB below or a texture we
-    /// don't know falls back to stone under a ceiling, earth outside.
+    /// Footsteps (Gothic.ini [SOUND] footstepSounds): the ground's sound material for a step (*eventSFXGrnd "Run" ->
+    /// RUN_WOOD) like the engine (OpenGothic Npc::emitSoundGround: the material group of the polygon below). Our world
+    /// mesh is baked into chunks, but every vertex keeps its texture array index (uv0.z) - the index gives the texture,
+    /// the world's materials its group (Ghorri on the jetty: wood, not earth). Wading is water; a VOB below or a
+    /// texture we don't know falls back to stone under a ceiling, earth outside.
     /// </summary>
     public class GroundSoundService
     {
@@ -40,10 +40,38 @@ namespace Gothic.Core.Services.Audio
         private Dictionary<int, string> _transparentTextures;
         private readonly Dictionary<Mesh, (int[] Triangles, List<Vector4> Uvs)> _meshData = new();
         private string _worldName;
+        // Gothic.ini footstepSounds, read on first use and again when the menu changes it. Stays unset while Gothic.ini
+        // isn't loaded (the player scene runs before a game was picked): the default would stick otherwise.
+        private bool? _isEnabled;
 
         public GroundSoundService()
         {
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(Reset);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
+        }
+
+        /// <summary>
+        /// The player's footsteps option: the animations' ground sounds play (AnimationSystem) or are skipped.
+        /// </summary>
+        public bool IsEnabled
+        {
+            get
+            {
+                if (_isEnabled.HasValue)
+                    return _isEnabled.Value;
+
+                var isOn = _configService.IsGothicOptionOn(Constants.IniNames.FootstepSounds,
+                    Constants.IniNames.FootstepSoundsDefaultValue == 1);
+                if (_configService.Gothic != null)
+                    _isEnabled = isOn;
+                return isOn;
+            }
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == Constants.IniNames.FootstepSounds)
+                _isEnabled = null;
         }
 
         public string GetSoundName(string baseName, Vector3 feet)
@@ -74,7 +102,7 @@ namespace Gothic.Core.Services.Audio
         /// <summary>
         /// The texture of the triangle below (world chunks and VOBs both keep their texture array index in uv0.z): its
         /// world material group, or - G1's world has almost only UNDEF groups (2246 of 2263 materials), the engine then
-        /// plays RUN_UNDEF (stone) on grass too - DeveloperConfig.EnableGroundTextureGuess guesses it from the texture's
+        /// plays RUN_UNDEF (stone) on grass too - it is guessed from the texture's
         /// name (OWODFLGRASSMI: grass = earth, MOWOBARREL01: wood).
         /// </summary>
         private string GetTextureSoundSuffix(RaycastHit hit)

@@ -294,8 +294,7 @@ namespace Gothic.Core.Domain.Vobs
             if (!isRootVob)
                 EnsureOwnVobLoader(vob, go, parentVob);
 
-            // Static VOBs in caves/houses take the light of the floor below (StationaryLightsService,
-            // EnableVobWorldLight).
+            // Static VOBs in caves/houses take the light of the floor below (StationaryLightsService).
             if (vob.Type is not (VirtualObjectType.oCItem or VirtualObjectType.zCVobLight or
                 VirtualObjectType.zCMover or VirtualObjectType.zCPFXController))
                 _stationaryLightsService.ApplyWorldLight(go);
@@ -685,13 +684,14 @@ namespace Gothic.Core.Domain.Vobs
             if (mrm != null)
             {
                 return _meshService.CreateVob(item.Visual, mrm, parent: parent, rootGo: go, useColliderCache: true,
-                    useTextureArray: false);
+                    useTextureArray: false, colliderKind: item.GetColliderKind());
             }
 
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
             var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, parent: parent, rootGo: go, useColliderCache: true);
+            return _meshService.CreateVob(item.Visual, mmb, parent: parent, rootGo: go, useColliderCache: true,
+                colliderKind: item.GetColliderKind());
         }
 
         public GameObject CreateItemMesh(ItemInstance item, GameObject parentGo, Vector3 position)
@@ -706,7 +706,8 @@ namespace Gothic.Core.Domain.Vobs
             // shortbow (itrw_bow_l_01) has no mrm, but has mmb
             var mmb = _resourceCacheService.TryGetMorphMesh(item.Visual);
 
-            return _meshService.CreateVob(item.Visual, mmb, position, default, parentGo, useColliderCache: true);
+            return _meshService.CreateVob(item.Visual, mmb, position, default, parentGo, useColliderCache: true,
+                colliderKind: item.GetColliderKind());
         }
 
 

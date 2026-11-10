@@ -1,24 +1,21 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Inventory;
+using Gothic.Core.Domain.Meshes.Builder;
 using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
-using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
 using static Gothic.Core.Models.Vm.VmGothicEnums;
-using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
-using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Services.Npc
 {
@@ -26,15 +23,18 @@ namespace Gothic.Core.Services.Npc
     {
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmCacheService _vmCacheService;
-        [Inject] private readonly VobService _vobService;
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly UnityMonoService _unityMonoService;
 
-        // on_equip/on_unequip of script equips, run after the current instance initialization finished.
-        private readonly List<(NpcInstance npc, ItemInstance item, int function)> _deferredItemFunctions = new();
+        private readonly EquipDomain _equipDomain = new EquipDomain().Inject();
+        private readonly NpcArmorMeshBuilder _armorMeshBuilder = new NpcArmorMeshBuilder().Inject();
 
-        
+        /// <summary>
+        /// The NPC whose item function (on_equip/on_unequip) runs right now, null otherwise.
+        /// </summary>
+        public NpcInstance ItemFunctionOwner => _equipDomain.ItemFunctionOwner;
+
+
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {
             var itemData = _vmCacheService.TryGetItemData(itemId);
@@ -49,8 +49,8 @@ namespace Gothic.Core.Services.Npc
                            "(not in the inventory)", LogCat.Npc);
             }
 
-            // The engine applies protection[] + on_equip for script equips too (OpenGothic: Inventory::setSlot -> applyArmor).
-            // Without it, every NPC's armor (and the hero's starting armor) protected nothing.
+            // The engine applies protection[] + on_equip for script equips too (OpenGothic: Inventory::setSlot ->
+            // applyArmor). Without it, every NPC's armor (and the hero's starting armor) protected nothing.
             // A mod's EquipItem with a symbol that's no item: nothing to equip (a null entry broke every view).
             if (itemData == null)
             {
@@ -59,60 +59,20 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            EquipItemWithEffects(npc, itemData, deferItemFunctions: true);
+            _equipDomain.EquipItemWithEffects(npc, itemData, deferItemFunctions: true);
         }
 
-        /// <summary>
-        /// Equip like the engine does: free the slot first (armor, amulet, belt, rings),
-        /// add the item's protection[] values and call its on_equip (e.g. amulet attribute bonuses).
-        /// </summary>
-        /// <param name="deferItemFunctions">
-        /// TRUE for equips coming from Daedalus externals (EquipItem, Mdl_SetVisualBody). They run *inside* an instance
-        /// initialization - calling on_equip there nests a VM call into the running constructor (e.g. with GlobalHero not
-        /// set yet). A failing nested call aborted the whole constructor: PC_Rockefeller lost all talents and items.
-        /// The functions run next frame instead. Save/load: that's before saved attributes are restored, which overwrite them.
-        /// </param>
+        /// <inheritdoc cref="EquipDomain.EquipItemWithEffects"/>
         public void EquipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false)
         {
-            var props = npc.GetUserData().Props;
-
-            foreach (var conflicting in GetConflictingEquippedItems(props.EquippedItems, item).ToList())
-                UnequipItemWithEffects(npc, conflicting, deferItemFunctions, updateArmorVisual: false);
-
-            props.EquippedItems.Add(item);
-            ApplyItemProtection(npc, item, 1);
-            RunItemFunction(npc, item, item.OnEquip, deferItemFunctions);
-
-            if (IsHelmet(item))
-                RefreshHelmetVisual(npc);
-            else if (IsArmor(item))
-                UpdateArmorVisual(npc, item);
-
-            Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} equipped '{item.Name}'", LogCat.Npc);
+            _equipDomain.EquipItemWithEffects(npc, item, deferItemFunctions);
         }
 
-        /// <summary>
-        /// Counterpart of EquipItemWithEffects(). Returns false if the item wasn't equipped.
-        /// </summary>
+        /// <inheritdoc cref="EquipDomain.UnequipItemWithEffects"/>
         public bool UnequipItemWithEffects(NpcInstance npc, ItemInstance item, bool deferItemFunctions = false,
             bool updateArmorVisual = true)
         {
-            var props = npc.GetUserData().Props;
-            var equipped = props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
-            if (equipped == null)
-                return false;
-
-            props.EquippedItems.Remove(equipped);
-            ApplyItemProtection(npc, equipped, -1);
-            RunItemFunction(npc, equipped, equipped.OnUnEquip, deferItemFunctions);
-
-            if (IsHelmet(equipped))
-                RefreshHelmetVisual(npc);
-            else if (updateArmorVisual && IsArmor(equipped))
-                UpdateArmorVisual(npc, null);
-
-            Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)} unequipped '{equipped.Name}'", LogCat.Npc);
-            return true;
+            return _equipDomain.UnequipItemWithEffects(npc, item, deferItemFunctions, updateArmorVisual);
         }
 
         /// <summary>
@@ -133,7 +93,7 @@ namespace Gothic.Core.Services.Npc
             if (npc.GetUserData().Props.EquippedItems.Any(i => i.Index == armor.Index))
                 return;
 
-            EquipItemWithEffects(npc, armor);
+            _equipDomain.EquipItemWithEffects(npc, armor);
         }
 
         /// <summary>
@@ -141,9 +101,9 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void UnequipArmor(NpcInstance npc)
         {
-            var armor = npc.GetUserData().Props.EquippedItems.FirstOrDefault(IsTorsoArmor);
+            var armor = npc.GetUserData().Props.EquippedItems.FirstOrDefault(i => i.IsTorsoArmor());
             if (armor != null)
-                UnequipItemWithEffects(npc, armor);
+                _equipDomain.UnequipItemWithEffects(npc, armor);
         }
 
         /// <summary>
@@ -156,7 +116,7 @@ namespace Gothic.Core.Services.Npc
             foreach (var content in GetAllInventoryItems(npc))
             {
                 var item = _vmCacheService.TryGetItemData(content.Name);
-                if (!IsTorsoArmor(item))
+                if (!item.IsTorsoArmor())
                     continue;
 
                 var protection = 0;
@@ -173,129 +133,10 @@ namespace Gothic.Core.Services.Npc
             EquipArmorFromInventory(npc, best);
         }
 
-        private static bool IsArmor(ItemInstance item)
-        {
-            return item != null && ((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0;
-        }
-
-        /// <summary>
-        /// C_ITEM.wear = WEAR_HEAD (2): a helmet - its own slot next to the body armor (WEAR_TORSO = 1), e.g. MT's HELM,
-        /// PALHELM. The original engine attaches its visual to the head instead of swapping the body.
-        /// </summary>
-        public static bool IsHelmet(ItemInstance item)
-        {
-            return IsArmor(item) && (item.Wear & _wearHead) != 0;
-        }
-
-        public static bool IsTorsoArmor(ItemInstance item)
-        {
-            return IsArmor(item) && (item.Wear & _wearHead) == 0;
-        }
-
-        private const int _wearHead = 2;
-        private const string _helmetHolderName = "_EquippedHelmet";
-        private static readonly string[] _helmetSlotNames = { "ZS_HELMET", "BIP01 HEAD" };
-
-        /// <summary>
-        /// Shows the equipped helmet (if any) on the NPC's head. Idempotent - also used after (lazy) mesh builds and loads.
-        /// </summary>
-        public void RefreshHelmetVisual(NpcInstance npc)
-        {
-            var container = npc.GetUserData();
-            if (container?.Go == null || container.Vob == null || container.Vob.Player)
-                return;
-
-            var oldHolder = container.Go.FindChildRecursively(_helmetHolderName);
-            if (oldHolder != null)
-                Object.Destroy(oldHolder);
-
-            var helmet = container.Props.EquippedItems.FirstOrDefault(IsHelmet);
-            if (helmet == null || string.IsNullOrEmpty(helmet.Visual))
-                return;
-
-            GameObject slot = null;
-            foreach (var slotName in _helmetSlotNames)
-            {
-                slot = container.Go.FindChildRecursively(slotName);
-                if (slot != null)
-                    break;
-            }
-            if (slot == null)
-            {
-                Logger.LogWarning($"[ArmorVisual] No head slot on {npc.GetName(NpcNameSlot.Slot0)} for '{helmet.Visual}'.", LogCat.Npc);
-                return;
-            }
-
-            var holder = new GameObject(_helmetHolderName);
-            holder.transform.SetParent(slot.transform, false);
-            _vobService.CreateItemMesh(helmet.Index, holder);
-            Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} wears helmet '{helmet.Visual}' at {slot.name}", LogCat.Npc);
-        }
-
-        /// <summary>
-        /// The engine swaps the body mesh to the armor's visual_change (or back
-        /// to the naked body) whenever an armor is (un)equipped - Greg putting on Lobart's clothes, Pedro's novice robe,
-        /// Cavalorn's disguise... Not built yet (lazy loading): InitNpc picks up MdmName later.
-        /// Save/load: equipped items are saved; NpcService.RestoreEquipment re-derives MdmName from them.
-        /// The VR hero has no Gothic body - only protection/effects apply.
-        /// </summary>
-        public void UpdateArmorVisual(NpcInstance npc, ItemInstance armorOrNull)
-        {
-            if (IsHelmet(armorOrNull))
-                return;
-
-            var container = npc.GetUserData();
-            // The VR hero has no Gothic body - except the VR body (EnableVrHeroBody), which follows props.MdmName.
-            if (container == null || container.Vob == null || (container.Vob.Player && !_configService.Dev.EnableVrHeroBody))
-                return;
-
-            var props = container.Props;
-            if (string.IsNullOrEmpty(props.BodyData.Body))
-                return; // Mdl_SetVisualBody not called yet - it sets the visual itself.
-
-            var newMdm = !string.IsNullOrEmpty(armorOrNull?.VisualChange) ? armorOrNull.VisualChange : props.BodyData.Body;
-            props.BodyData.Armor = armorOrNull?.Index ?? -1;
-            if (newMdm.EqualsIgnoreCase(props.MdmName))
-                return;
-
-            props.MdmName = newMdm;
-
-            // The VR hero body rebuilds itself from MdmName. An NPC's built mesh is swapped with a later PR (meshes).
-            Logger.Log($"[ArmorVisual] {npc.GetName(NpcNameSlot.Slot0)} now wears '{newMdm}'", LogCat.Npc);
-        }
-
-        /// <summary>
-        /// An equipped weapon taken from an NPC (loot, NPC backpack): off the equipped list and its mesh off the body
-        /// (holster slot, or the hand for NPCs that went down mid-draw).
-        /// </summary>
+        /// <inheritdoc cref="EquipDomain.RemoveEquippedWeapon"/>
         public void RemoveEquippedWeapon(NpcContainer npc, string itemInstanceName)
         {
-            var item = _vmCacheService.TryGetItemData(itemInstanceName);
-            var equipped = item == null ? null : npc.Props.EquippedItems.FirstOrDefault(i => i.Index == item.Index);
-            if (equipped == null)
-                return;
-
-            npc.Props.EquippedItems.Remove(equipped);
-
-            var mainFlag = (ItemFlags)equipped.MainFlag;
-            var flags = (ItemFlags)equipped.Flags;
-            string holsterSlot;
-            if (mainFlag == ItemFlags.ItemKatNf)
-                holsterSlot = flags.HasFlag(ItemFlags.Item2HdAxe) || flags.HasFlag(ItemFlags.Item2HdSwd)
-                    ? "ZS_LONGSWORD" : "ZS_SWORD";
-            else if (mainFlag == ItemFlags.ItemKatFf)
-                holsterSlot = flags.HasFlag(ItemFlags.ItemCrossbow) ? "ZS_CROSSBOW" : "ZS_BOW";
-            else
-                return;
-
-            foreach (var slotName in new[] { holsterSlot, "ZS_RIGHTHAND" })
-            {
-                var slotGo = npc.Go.FindChildRecursively(slotName);
-                if (slotGo == null || slotGo.transform.childCount == 0)
-                    continue;
-                Object.Destroy(slotGo.transform.GetChild(0).gameObject);
-                return;
-            }
+            _equipDomain.RemoveEquippedWeapon(npc, _vmCacheService.TryGetItemData(itemInstanceName));
         }
 
         public bool IsEquipped(NpcInstance npc, string itemInstanceName)
@@ -304,122 +145,6 @@ namespace Gothic.Core.Services.Npc
             return item != null && npc.GetUserData().Props.EquippedItems.Any(i => i.Index == item.Index);
         }
 
-        /// <summary>
-        /// Items with a body slot: one armor, one amulet, one belt, two rings.
-        /// </summary>
-        public static bool IsWearable(ItemInstance item)
-        {
-            return item != null &&
-                   (((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0 ||
-                    ((ItemFlags)item.Flags & (ItemFlags.ItemAmulet | ItemFlags.ItemRing | ItemFlags.ItemBelt)) != 0);
-        }
-
-        private static IEnumerable<ItemInstance> GetConflictingEquippedItems(List<ItemInstance> equippedItems, ItemInstance item)
-        {
-            // Helmets (WEAR_HEAD) and body armor (WEAR_TORSO) are separate slots.
-            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatArmor) != 0)
-                return equippedItems.Where(i => IsArmor(i) && IsHelmet(i) == IsHelmet(item));
-
-            if (((ItemFlags)item.Flags & ItemFlags.ItemAmulet) != 0)
-                return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemAmulet) != 0);
-
-            if (((ItemFlags)item.Flags & ItemFlags.ItemBelt) != 0)
-                return equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemBelt) != 0);
-
-            // One melee weapon and one bow/crossbow (Gothic's slots) - several stayed equipped (the backpack showed [E]
-            // on each in turn).
-            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatNf) != 0)
-                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatNf) != 0);
-            if (((ItemFlags)item.MainFlag & ItemFlags.ItemKatFf) != 0)
-                return equippedItems.Where(i => ((ItemFlags)i.MainFlag & ItemFlags.ItemKatFf) != 0);
-
-            if (((ItemFlags)item.Flags & ItemFlags.ItemRing) != 0)
-            {
-                // Two ring slots: free the oldest one only when both are taken.
-                var rings = equippedItems.Where(i => ((ItemFlags)i.Flags & ItemFlags.ItemRing) != 0).ToList();
-                return rings.Count >= 2 ? rings.Take(1) : Enumerable.Empty<ItemInstance>();
-            }
-
-            return Enumerable.Empty<ItemInstance>();
-        }
-
-        /// <summary>
-        /// Dual write (vob + instance) like ExtNpcChangeAttribute, otherwise CopyFromInstanceData would restore old values.
-        /// </summary>
-        private static void ApplyItemProtection(NpcInstance npc, ItemInstance item, int sign)
-        {
-            // The Vob can be missing while the NPC's instance is still being initialized. The instance is the source then
-            // (NpcProxy.CopyFromInstanceData copies it over afterward).
-            var vob = npc.GetUserData()?.Vob;
-            for (var i = 0; i < System.Enum.GetNames(typeof(DamageType)).Length; i++)
-            {
-                var delta = item.GetProtection((DamageType)i);
-                if (delta == 0)
-                    continue;
-
-                var newValue = npc.GetProtection((DamageType)i) + sign * delta;
-                npc.SetProtection((DamageType)i, newValue);
-                vob?.SetProtection(i, newValue);
-            }
-        }
-
-        private void RunItemFunction(NpcInstance npc, ItemInstance item, int function, bool defer)
-        {
-            if (function <= 0)
-                return;
-
-            if (!defer)
-            {
-                CallItemFunction(npc, item, function);
-                return;
-            }
-
-            _deferredItemFunctions.Add((npc, item, function));
-            if (_deferredItemFunctions.Count == 1)
-                _unityMonoService.StartCoroutine(RunDeferredItemFunctions());
-        }
-
-        private IEnumerator RunDeferredItemFunctions()
-        {
-            yield return null;
-
-            var pending = _deferredItemFunctions.ToList();
-            _deferredItemFunctions.Clear();
-            foreach (var (npc, item, function) in pending)
-                CallItemFunction(npc, item, function);
-        }
-
-        /// <summary>
-        /// The NPC whose item function (on_equip/on_unequip) runs right now, null otherwise.
-        /// </summary>
-        public NpcInstance ItemFunctionOwner { get; private set; }
-
-        private void CallItemFunction(NpcInstance npc, ItemInstance item, int function)
-        {
-            if (function <= 0)
-                return;
-
-            var vm = _gameStateService.GothicVm;
-            var oldSelf = vm.GlobalSelf;
-            var oldOwner = ItemFunctionOwner;
-            vm.GlobalSelf = npc;
-            vm.GlobalItem = item;
-            ItemFunctionOwner = npc;
-            try
-            {
-                vm.Call(function);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogError($"[Equip] Item function {function} of '{item.Name}' failed: {e.Message}", LogCat.Npc);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                ItemFunctionOwner = oldOwner;
-            }
-        }
-        
         public void ExtCreateInvItems(NpcInstance npc, int itemIndex, int amount)
         {
             // FIXME - Does it make sense? It would mean we never add an item if we loaded a SaveGame...
@@ -437,7 +162,7 @@ namespace Gothic.Core.Services.Npc
             var itemInstance = _gameStateService.GothicVm.GetSymbolByIndex(itemIndex)!;
             var vob = npc.GetUserData()!.Vob;
 
-            // DeveloperConfig.EnableItemInitSymbolCheck: no item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
+            // No item (G2's ItemHoshi: ITWR_ADDON_LPBOOK is a prototype) -
             // skipped like the engine. The exception stopped the NPC's creation.
             var itemData = _vmCacheService.TryGetItemData(itemIndex);
             if (itemData == null)
@@ -482,7 +207,12 @@ namespace Gothic.Core.Services.Npc
 
             var itemData = _vmCacheService.TryGetItemData(itemIndex);
             if (itemData == null)
+            {
+                Logger.LogWarning($"[RemoveInvItems] {npc.GetName(NpcNameSlot.Slot0)}: '{itemInstance?.Name}' is no " +
+                                  "item - skipped.", LogCat.Npc);
                 return;
+            }
+
             var mainFlag = (VmGothicEnums.ItemFlags)itemData.MainFlag;
             var inventoryCat = mainFlag.ToInventoryCategory();
             
@@ -569,7 +299,12 @@ namespace Gothic.Core.Services.Npc
         {
             var symbol = _gameStateService.GothicVm.GetSymbolByIndex(itemId);
             if (symbol == null)
+            {
+                Logger.LogWarning($"[NpcHasItems] {npc?.GetName(NpcNameSlot.Slot0)}: no symbol with index {itemId}.",
+                    LogCat.Npc);
                 return 0;
+            }
+
             var itemInstanceName = symbol.Name;
 
             foreach (InvCats cat in System.Enum.GetValues(typeof(InvCats)))
@@ -607,6 +342,7 @@ namespace Gothic.Core.Services.Npc
             {
                 List<ContentItem> weaponItems;
                 try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
                 catch { return; }
 
                 var bestDamage = -1;
@@ -635,12 +371,10 @@ namespace Gothic.Core.Services.Npc
 
             // Check if the weapon mesh GO exists in the stow slot or the hand slot.
             // The mesh can be lost after combat cycles; if missing, respawn it.
-            var isTwoHanded = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdAxe) ||
-                              ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.Item2HdSwd);
-            var stowSlotName = isTwoHanded ? "ZS_LONGSWORD" : "ZS_SWORD";
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
 
             var stowGo = container.Go.FindChildRecursively(stowSlotName);
-            var handGo = container.Go.FindChildRecursively("ZS_RIGHTHAND");
+            var handGo = container.Go.FindChildRecursively(Constants.SlotRightHand);
 
             var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
                              (handGo != null && handGo.transform.childCount > 0);
@@ -654,12 +388,6 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtAiEquipBestRangedWeapon(NpcInstance npc)
         {
-            if (!_configService.Dev.EnableNpcRangedCombat)
-            {
-                ExtAiEquipBestMeleeWeapon(npc);
-                return;
-            }
-
             var container = npc.GetUserData();
             if (container == null)
                 return;
@@ -671,6 +399,7 @@ namespace Gothic.Core.Services.Npc
             {
                 List<ContentItem> weaponItems;
                 try { weaponItems = GetInventoryItems(npc, InvCats.InvWeapon); }
+                // No weapon slot - he never had a weapon (see GetAllInventoryItems), nothing to log.
                 catch { return; }
 
                 foreach (var contentItem in weaponItems)
@@ -694,10 +423,9 @@ namespace Gothic.Core.Services.Npc
             }
 
             // Ensure weapon mesh exists in the bow/crossbow stow slot.
-            var isCrossbow = ((ItemFlags)equipped.Flags).HasFlag(ItemFlags.ItemCrossbow);
-            var stowSlotName = isCrossbow ? "ZS_CROSSBOW" : "ZS_BOW";
+            var stowSlotName = NpcWeaponMeshBuilder.GetHolsterSlotName(equipped);
             var stowGo = container.Go.FindChildRecursively(stowSlotName);
-            var handGo = container.Go.FindChildRecursively("ZS_LEFTHAND");
+            var handGo = container.Go.FindChildRecursively(Constants.SlotLeftHand);
 
             var meshExists = (stowGo != null && stowGo.transform.childCount > 0) ||
                              (handGo != null && handGo.transform.childCount > 0);
@@ -752,19 +480,8 @@ namespace Gothic.Core.Services.Npc
             if (container.Go == null)
                 return;
 
-            var slotNames = new List<string> { Constants.SlotSword, Constants.SlotLongsword, Constants.SlotBow,
-                Constants.SlotCrossbow };
-            if (isWeaponDrawn)
-                slotNames.Add(DrawWeapon.GetHandSlotName(weaponState));
-            foreach (var slotName in slotNames)
-            {
-                var slot = container.Go.FindChildRecursively(slotName);
-                if (slot == null)
-                    continue;
-
-                for (var i = slot.transform.childCount - 1; i >= 0; i--)
-                    Object.Destroy(slot.transform.GetChild(i).gameObject);
-            }
+            _armorMeshBuilder.DestroyAllWeaponMeshes(container,
+                isWeaponDrawn ? DrawWeapon.GetHandSlotName(weaponState) : null);
         }
 
         /// <summary>

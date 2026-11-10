@@ -1,5 +1,9 @@
+using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
+using Gothic.VR.Adapters.Vob.VobItem;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -7,14 +11,44 @@ using ZenKit.Daedalus;
 namespace Gothic.VR.Services
 {
     /// <summary>
-    /// VRBow and VRCrossbow's access to arrows/bolts. The logic (ammo, flying projectiles, what happens when they land)
-    /// is shared with NPC archers in ProjectileService.
+    /// The hero's ranged weapons in VR: the component a held bow/crossbow gets, who may shoot a crossbow with one hand, and VRBow and VRCrossbow's access to
+    /// arrows/bolts. Which item is a bow or a crossbow is Core's ItemInstanceExtension.GetRangedWeaponState. The projectile logic (ammo,
+    /// flying projectiles, what happens when they land) is shared with NPC archers in ProjectileService.
     /// </summary>
     public class VRRangedService
     {
         [Inject] private readonly ProjectileService _projectileService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
 
-        public const float ProjectileSpeed = ProjectileService.ProjectileSpeed;
+        /// <summary>
+        /// The component a held ranged weapon shoots with (VRBow, VRCrossbow), added to itemGo. Null for any other
+        /// item. VRVobItem calls it once, on the first grab, and only switches the result with SetHeld.
+        /// </summary>
+        public IVrHoldable AddRangedWeapon(GameObject itemGo, ItemInstance item)
+        {
+            return item.GetRangedWeaponState() switch
+            {
+                VmGothicEnums.WeaponState.CBow => itemGo.AddComponent<VRCrossbow>(),
+                VmGothicEnums.WeaponState.Bow => itemGo.AddComponent<VRBow>(),
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Only a trained crossbowman shoots with one hand (sword in the other).
+        /// G1/mods: crossbow talent skill "master" or 60 %+; G2: crossbow hitchance 60 %+.
+        /// </summary>
+        public bool IsOneHandedCrossbow(NpcContainer hero)
+        {
+            if (hero == null)
+                return true;
+
+            var talentIndex = (int)NpcTalent.Crossbow;
+            var talent = hero.Vob.GetTalent(talentIndex);
+            var percent = _npcHelperService.GetTalentPercent(hero, talentIndex);
+            return (talent?.Skill ?? 0) >= FightConst.CrossbowMasterSkill ||
+                   percent >= FightConst.OneHandedCrossbowPercent;
+        }
 
         public ItemInstance GetMunition(ItemInstance weapon) => _projectileService.GetMunition(weapon);
 
@@ -34,10 +68,5 @@ namespace Gothic.VR.Services
         public void Shoot(NpcContainer shooter, ItemInstance weapon, ItemInstance munition, Vector3 position,
             Vector3 direction, float speed, float damageScale, GameObject visual = null) =>
             _projectileService.Shoot(shooter, weapon, munition, position, direction, speed, damageScale, visual);
-
-        public static Vector3 GetLongAxis(GameObject root, bool towardsWiderEnd, bool isAsymmetryAxis = false) =>
-            ProjectileService.GetLongAxis(root, towardsWiderEnd, isAsymmetryAxis);
-
-        public static Bounds GetLocalBounds(GameObject root) => ProjectileService.GetLocalBounds(root);
     }
 }

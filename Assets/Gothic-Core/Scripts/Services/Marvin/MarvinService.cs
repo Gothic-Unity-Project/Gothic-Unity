@@ -116,11 +116,7 @@ namespace Gothic.Core.Manager
                 SetMarvinMode(false);
         }
 
-        /// <summary>
-        /// VR: the Immersion option "Marvin" switches it (VRContextInteractionService), like the typed code and the
-        /// logo pokes.
-        /// </summary>
-        public void SetMarvinMode(bool isActive)
+        private void SetMarvinMode(bool isActive)
         {
             _isMarvinMode = isActive;
             Logger.Log($"[MarvinService] Marvin mode {(isActive ? "activated" : "deactivated")}", LogCat.Ui);

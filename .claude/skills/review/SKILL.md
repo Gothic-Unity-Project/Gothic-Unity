@@ -26,6 +26,16 @@ Committing doesn't make a review outdated, changing code does.
    when there are uncommitted changes.
 2. Save each report **unedited** (the agents are read-only, you write the files). Never shorten or drop findings.
 3. Compare with the previous review in the folder, by file and problem, not line number: resolved, new, still open.
-4. Show the human the verdicts, the counts and the comparison.
+4. Show the human the verdicts, the counts and the comparison. Show the findings as **one numbered table**
+   (`# | Agent | Severity | File | Finding | Status` with status new / still open / resolved), so the author can
+   answer by number.
 5. For every open finding, ask the author: fix it now, follow-up (issue link), or disagree (why). Their answers go
-   into `<sha>-response.md`, never into the reports. Fixing means back to building, then a new review.
+   into `<sha>-response.md`, never into the reports, as the same numbered table plus an `Answer` column.
+6. Every approved fix runs in a **sub-agent** (`general-purpose`), never in the main session. Pick the model by
+   complexity:
+   - `haiku` - mechanical: rename, style, missing log, comment/doc, one-line guard
+   - `sonnet` - a normal fix inside one class or service, clear from the finding
+   - `opus` - crosses layers or services, Daedalus/save-load semantics, DI wiring, or needs a design decision
+   Give the agent the finding number, the report text and the relevant files; tell it to follow `CLAUDE.md`, keep
+   the change to that finding and **commit once done** (style from the `commit-pr` skill, one commit per finding,
+   no push). Independent fixes may run in parallel unless they touch the same files.
