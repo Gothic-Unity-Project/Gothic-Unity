@@ -10,6 +10,7 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -555,7 +556,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 // Vob and instance both (NpcService.SetAttribute) - a vob-only write was reverted by the next
                 // SyncHeroInstanceToVob() (the "mana snaps back" bug). No "-1 MANA" per tick.
-                _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1, isAmountShown: false);
+                _npcService.SetAttribute(hero, NpcAttribute.Mana, currentMana - 1, cause: AttributeChangeCause.Charging);
             }
 
             var vm = _gameStateService.GothicVm;
@@ -586,7 +587,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var mana = hero.Instance.GetAttribute(NpcAttribute.Mana);
             if (hero.Vob.GetAttribute((int)NpcAttribute.Mana) == mana)
                 return;
-            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, isAmountShown: false);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, cause: AttributeChangeCause.Charging);
         }
 
         /// <summary>
@@ -599,7 +600,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var hero = _npcService.GetHeroContainer();
             var maxMana = hero.Vob.GetAttribute((int)NpcAttribute.ManaMax);
             var mana = Mathf.Min(maxMana, hero.Vob.GetAttribute((int)NpcAttribute.Mana) + _manaInvested);
-            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, isAmountShown: false);
+            _npcService.SetAttribute(hero, NpcAttribute.Mana, mana, cause: AttributeChangeCause.Charging);
             Logger.Log($"[VRRuneCaster] Spell refused - {_manaInvested} mana back", LogCat.VR);
             _manaInvested = 0;
         }

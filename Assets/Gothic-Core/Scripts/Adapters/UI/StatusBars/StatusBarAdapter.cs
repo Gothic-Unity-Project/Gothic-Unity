@@ -4,6 +4,7 @@ using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -171,9 +172,11 @@ namespace Gothic.Core.Adapters.UI.StatusBars
         /// <summary>
         /// "-12 HP" / "+5 MANA" next to the hero's health bar (option "hitNumbers", like NpcHitNumbers over NPCs).
         /// </summary>
-        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount)
+        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount,
+            AttributeChangeCause cause)
         {
-            if (attribute is not (NpcAttribute.HitPoints or NpcAttribute.Mana) || npc != GetOwner())
+            if (cause != AttributeChangeCause.Default ||
+                attribute is not (NpcAttribute.HitPoints or NpcAttribute.Mana) || npc != GetOwner())
                 return;
 
             ShowHeroHitNumber(amount, attribute == NpcAttribute.Mana ? FloatingHitNumber.ManaUnit : "HP");

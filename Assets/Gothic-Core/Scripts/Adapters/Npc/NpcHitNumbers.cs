@@ -3,6 +3,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
@@ -51,10 +52,11 @@ namespace Gothic.Core.Adapters.Npc
                 _isEnabled = IsOptionOn();
         }
 
-        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount)
+        private void OnNpcAttributeAmountChanged(NpcContainer npc, NpcAttribute attribute, int amount,
+            AttributeChangeCause cause)
         {
-            // Not for the hero - you don't see your own head. Not for culled NPCs.
-            if (!_isEnabled || attribute != NpcAttribute.HitPoints || npc?.Go == null || !npc.Go.activeInHierarchy ||
+            // Not for the hero - you don't see your own head. Not for culled NPCs. Not for bookkeeping writes.
+            if (!_isEnabled || cause != AttributeChangeCause.Default || attribute != NpcAttribute.HitPoints || npc?.Go == null || !npc.Go.activeInHierarchy ||
                 npc.PrefabProps == null || npc.PrefabProps.IsHero())
                 return;
 

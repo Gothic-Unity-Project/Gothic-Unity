@@ -7,6 +7,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
@@ -74,7 +75,7 @@ namespace Gothic.Core.Domain.Npc
         public void KnockOutNpc(NpcContainer npc, NpcContainer attacker)
         {
             // The hit already showed its number - no "+X HP" for going up to 1.
-            _npcService.SetAttribute(npc, NpcAttribute.HitPoints, 1, isAmountShown: false);
+            _npcService.SetAttribute(npc, NpcAttribute.HitPoints, 1, cause: AttributeChangeCause.Knockout);
 
             var vm = _gameStateService.GothicVm;
             var zsUnconscious = vm.GetSymbolByName(DaedalusConst.ZsUnconscious);
@@ -177,7 +178,7 @@ namespace Gothic.Core.Domain.Npc
         {
             hero.Props.BodyState = VmGothicEnums.BodyState.BsUnconscious;
             SetHasDefeatedHero(attacker);
-            _npcService.SetAttribute(hero, NpcAttribute.HitPoints, 1, isAmountShown: false);
+            _npcService.SetAttribute(hero, NpcAttribute.HitPoints, 1, cause: AttributeChangeCause.Knockout);
             _contextInteractionService.LockPlayer(PlayerLocks.Knockout, GetDownLockedControls());
 
             // Anyone still actively confronting the hero (e.g. mid ZS_ProclaimAndPunish, cut short by
