@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -34,6 +35,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly Dictionary<IXRInteractor, VrGrabArgs> _selectArgs = new();
         private readonly HashSet<IXRInteractor> _handHovers = new();
         private readonly List<Collider> _colliderBuffer = new();
+        private readonly List<Collider> _previousColliders = new();
 
         private XRBaseInteractable _xrInteractable;
         private VrInteractable _interactable;
@@ -181,9 +183,16 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (!_isSubscribed)
                 return;
 
+            _previousColliders.Clear();
+            _previousColliders.AddRange(_xrInteractable.colliders);
             CollectColliders();
+            var isUnchanged = _previousColliders.Count == _xrInteractable.colliders.Count &&
+                              _previousColliders.SequenceEqual(_xrInteractable.colliders);
+            _previousColliders.Clear();
 
-            if (!_xrInteractable.isActiveAndEnabled || _xrInteractable.isSelected || _xrInteractable.isHovered)
+            // Unchanged (most mobs on load): the manager's collider mapping is still right.
+            if (isUnchanged || !_xrInteractable.isActiveAndEnabled || _xrInteractable.isSelected ||
+                _xrInteractable.isHovered)
                 return;
 
             _xrInteractable.enabled = false;

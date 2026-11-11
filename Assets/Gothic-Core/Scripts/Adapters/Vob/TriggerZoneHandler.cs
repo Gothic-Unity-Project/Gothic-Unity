@@ -37,10 +37,11 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnDamage(NpcContainer attacker)
         {
-            if (!_trigger.ReactToOnDamage)
+            if (_trigger == null || !_trigger.ReactToOnDamage)
                 return;
 
-            var isPlayer = attacker?.Vob != null && attacker.Vob.Player;
+            // The hero by its prefab (GlobalHero), not the VOB's player flag.
+            var isPlayer = attacker?.PrefabProps != null && attacker.PrefabProps.IsHero();
             if (!_trigger.RespondToObject && !(isPlayer ? _trigger.RespondToPC : _trigger.RespondToNPC))
             {
                 Logger.Log($"[TriggerZone] '{_trigger.Name}' hit, but doesn't respond to this attacker", LogCat.Vob);

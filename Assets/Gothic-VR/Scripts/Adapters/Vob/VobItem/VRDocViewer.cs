@@ -21,7 +21,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // The hero's position on a map of the current world (U.TGA arrow, like the engine/OpenGothic).
         private const string _markerTexture = "U.TGA";
         private const float _markerSize = 20f;
-        private const string _canvasName = "_DocCanvas";
+        public const string CanvasName = "_DocCanvas";
         // Resources paths (VR context first): world space canvas and one page (background + text).
         private const string _canvasPrefabPath = "Prefabs/UI/DocViewerCanvas";
         private const string _pagePrefabPath = "Prefabs/UI/DocViewerPage";
@@ -55,7 +55,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             foreach (Transform child in transform)
             {
-                if (child.name == _canvasName)
+                if (child.name == CanvasName)
                     Destroy(child.gameObject);
             }
 
@@ -65,7 +65,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var twoPages = doc.Pages.Count >= 2;
 
             // World space canvas above the item (local position, rotation and scale come with the prefab).
-            var canvasGo = _resourceCacheService.TryGetPrefabObject(_canvasPrefabPath, _canvasName, gameObject,
+            var canvasGo = _resourceCacheService.TryGetPrefabObject(_canvasPrefabPath, CanvasName, gameObject,
                 worldPositionStays: false);
             if (canvasGo == null)
                 return;

@@ -19,6 +19,7 @@ using Gothic.VR.Services;
 using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
+using Gothic.VR.Adapters.Vob.VobItem;
 using Gothic.VR.Interaction.Models;
 using Gothic.Core.Extensions;
 using Reflex.Attributes;
@@ -208,7 +209,7 @@ namespace Gothic.VR.Adapters.Vob
                 Destroy(viewer);
             foreach (Transform child in transform)
             {
-                if (child.name == "_DocCanvas")
+                if (child.name == VRDocViewer.CanvasName)
                     Destroy(child.gameObject);
             }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Extensions;
@@ -82,10 +83,20 @@ namespace Gothic.Core.Domain.Inventory
 
         private List<ContentItem> GetItems()
         {
-            return _container.Contents.UnpackItems()
-                .Where(i => !string.IsNullOrWhiteSpace(i.Name))
-                .Select(i => new ContentItem(i.Name.Trim(), i.Amount))
-                .ToList();
+            try
+            {
+                return _container.Contents.UnpackItems()
+                    .Where(i => !string.IsNullOrWhiteSpace(i.Name))
+                    .Select(i => new ContentItem(i.Name.Trim(), i.Amount))
+                    .ToList();
+            }
+            catch (FormatException e)
+            {
+                // A mod's broken "contents" (ITFO_X:abc) - an empty loot instead of a half built backpack.
+                Logger.LogWarning($"[ContainerInventoryOwner] {_container.Name}: contents '{_container.Contents}' " +
+                                  $"can't be read ({e.Message}) - shown empty.", LogCat.Vob);
+                return new List<ContentItem>();
+            }
         }
 
         private void SetItems(List<ContentItem> items)

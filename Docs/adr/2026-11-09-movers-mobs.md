@@ -11,7 +11,7 @@ Most of the world's logic objects came to main in its own, newer form: triggers,
 ## Decisions
 
 1. **Main's triggers, code masters and mover saves stay, the branch's versions are not brought over.** They follow the engine and store their state in Gothic's own save fields. Not chosen: the branch's separate save file for them, main's save replaces it.
-2. **Triggers and movers that react to damage work when shot, like in the engine.** Arrows, bolts and spells set them off, who may do it follows the object's settings. The damage threshold is not checked, a projectile does not know its damage yet.
+2. **Triggers and movers that react to damage work when shot, like in the engine.** Arrows, bolts and spells set them off. A trigger zone follows its settings for who may do it (player, NPC, object); movers and trigger scripts react to any hit for now. The damage threshold is not checked, a projectile does not know its damage yet.
 3. **A gate's path counts from where the gate stands.** Like in the engine, not from the absolute recorded points. Gothic 2's Irdorath gates stand away from their path. Our saves keep the gate's original position, so loading a save gives the same result.
 4. **Containers without a lid open as a loot backpack next to them.** The orc mummies have nothing to swing open, so they work like looting a body. What you take is saved with the world.
 5. **A bookstand shows its page above it, facing the player.** It closes on the next touch or when walking away.

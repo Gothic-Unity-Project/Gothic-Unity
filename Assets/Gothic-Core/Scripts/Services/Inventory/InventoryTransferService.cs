@@ -3,13 +3,14 @@ using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Inventory;
 using Gothic.Core.Models.Vm;
+using ZenKit.Vobs;
 
 namespace Gothic.Core.Services.Inventory
 {
     /// <summary>
     /// Hands out the inventory owners the views (VR backpack, NPC loot, trade) show and change, and moves items
-    /// between them. Every owner raises GlobalEventDispatcher.NpcInventoryChanged on a change - the views refresh
-    /// from that.
+    /// between them. NPC owners raise GlobalEventDispatcher.NpcInventoryChanged on a change - the views refresh from
+    /// that; a view of a container's owner refreshes itself.
     /// </summary>
     public class InventoryTransferService
     {
@@ -30,6 +31,14 @@ namespace Gothic.Core.Services.Inventory
         public IInventoryOwner GetOwner(NpcContainer npc, string hiddenItem = null, bool isEquippedHidden = false)
         {
             return new NpcInventoryOwner(npc, hiddenItem, isEquippedHidden);
+        }
+
+        /// <summary>
+        /// A container's items (its "contents" string), e.g. a lidless orc mummy looted like a body.
+        /// </summary>
+        public IInventoryOwner GetOwner(IContainer container)
+        {
+            return new ContainerInventoryOwner(container);
         }
 
         /// <summary>

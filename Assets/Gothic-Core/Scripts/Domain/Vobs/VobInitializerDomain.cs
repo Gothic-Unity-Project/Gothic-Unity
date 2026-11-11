@@ -500,12 +500,11 @@ namespace Gothic.Core.Domain.Vobs
                         : _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobContainer:
-                    // A container without a lid (no .MDS, e.g. the orc mummies CHESTBIG_ORCMUMMY.ASC) is set up like
-                    // other mobs: highlight + click, the click opens a loot backpack (VRStaticContainerLoot).
-                    var containerVisual = vob.Visual?.Name;
-                    var hasLid = containerVisual.IsNullOrEmpty() || containerVisual.EndsWithIgnoreCase(".MDS");
+                    // A container without a lid (orc mummies) is set up like other mobs: highlight + use, the
+                    // platform shows its loot.
                     go = _resourceCacheService.TryGetPrefabObject(
-                        hasLid ? PrefabType.VobContainer : PrefabType.VobInteractable, name: name, parent: parent);
+                        vob.IsLidlessContainer() ? PrefabType.VobInteractable : PrefabType.VobContainer, name: name,
+                        parent: parent);
                     break;
                 case VirtualObjectType.oCMobLadder:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobLadder, name: name, parent: parent);

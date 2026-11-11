@@ -76,6 +76,17 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// An oCMobContainer without a lid to swing open: its visual isn't an .MDS (G1's orc mummies,
+        /// CHESTBIG_ORCMUMMY.ASC). It's used like other mobs and looted like a body.
+        /// </summary>
+        public static bool IsLidlessContainer([CanBeNull] this IVirtualObject vob)
+        {
+            var visualName = vob?.Visual?.Name;
+            return vob is IContainer && !string.IsNullOrEmpty(visualName) &&
+                   !visualName.EndsWith(".MDS", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Beds are oCMobDoors in Gothic's data - recognizable only by their visual (G1 BED_*, G2 also BEDHIGH_*).
         /// </summary>
         public static bool IsBed([CanBeNull] this IVirtualObject vob)

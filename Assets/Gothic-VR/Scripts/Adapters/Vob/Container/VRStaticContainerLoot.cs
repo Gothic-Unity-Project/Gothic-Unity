@@ -1,6 +1,6 @@
 using System.Collections;
-using Gothic.Core.Domain.Inventory;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Inventory;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Components;
 using UnityEngine;
@@ -21,13 +21,15 @@ namespace Gothic.VR.Adapters.Vob.Container
         private const float _timeoutSeconds = 20f;
 
         private IContainer _container;
+        private IInventoryOwner _owner;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
         private Coroutine _timeout;
 
-        public void Toggle(IContainer container)
+        public void Toggle(IContainer container, IInventoryOwner owner)
         {
             _container = container;
+            _owner = owner;
 
             if (_lootBackpack != null)
             {
@@ -64,7 +66,7 @@ namespace Gothic.VR.Adapters.Vob.Container
             if (_lootBackpack == null)
                 return;
 
-            _lootBackpack.SetContainerOwner(new ContainerInventoryOwner(_container));
+            _lootBackpack.SetContainerOwner(_owner);
 
             // Lying untouched for a while: gone. Held, it stays; let go, the time starts again.
             var backpackInteractable = VrInteractable.Find(_lootBackpack);

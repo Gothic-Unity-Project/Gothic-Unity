@@ -30,7 +30,7 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnDamage(NpcContainer attacker)
         {
-            if (!_triggerScript.ReactToOnDamage)
+            if (_triggerScript == null || !_triggerScript.ReactToOnDamage)
                 return;
 
             Logger.Log($"[TriggerScript] '{_triggerScript.Function}' hit by a projectile", LogCat.Vob);

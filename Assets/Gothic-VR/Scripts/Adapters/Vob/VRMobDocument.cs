@@ -9,7 +9,7 @@ namespace Gothic.VR.Adapters.Vob
     /// </summary>
     public class VRMobDocument : MonoBehaviour
     {
-        public const string AnchorName = "_MobDocument";
+        private const string _anchorName = "_MobDocument";
 
         private const float _closeDistance = 3f;
         private const float _belowEyes = 0.05f;
@@ -22,7 +22,7 @@ namespace Gothic.VR.Adapters.Vob
 
         public static VRMobDocument Create(GameObject mob)
         {
-            var anchor = new GameObject(AnchorName);
+            var anchor = new GameObject(_anchorName);
             anchor.transform.SetParent(mob.transform, true);
             var document = anchor.AddComponent<VRMobDocument>();
             anchor.AddComponent<VRDocViewer>();
@@ -30,7 +30,7 @@ namespace Gothic.VR.Adapters.Vob
             return document;
         }
 
-        public bool HasPages => transform.Find("_DocCanvas") != null;
+        public bool HasPages => transform.Find(VRDocViewer.CanvasName) != null;
 
         private void PlaceInFrontOfPlayer(GameObject mob)
         {
@@ -64,7 +64,16 @@ namespace Gothic.VR.Adapters.Vob
 
         private void Update()
         {
-            if (_head != null && Vector3.Distance(_head.position, transform.position) > _closeDistance)
+            // No camera when the page opened - take it once it's there, else walking away never closes the page.
+            if (_head == null)
+            {
+                var mainCamera = Camera.main;
+                if (mainCamera == null)
+                    return;
+                _head = mainCamera.transform;
+            }
+
+            if (Vector3.Distance(_head.position, transform.position) > _closeDistance)
                 Destroy(gameObject);
         }
     }

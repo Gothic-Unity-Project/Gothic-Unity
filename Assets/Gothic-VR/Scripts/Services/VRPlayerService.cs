@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
-using Gothic.VR.Adapters.Vob;
-using Gothic.VR.Adapters.Vob.Container;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
+using Gothic.VR.Adapters.Vob;
+using Gothic.VR.Adapters.Vob.Container;
 using Gothic.VR.Services.Context;
 using Gothic.Core;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Config;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
@@ -38,6 +39,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
         [Inject] private readonly DocService _docService;
+        [Inject] private readonly InventoryTransferService _inventoryTransferService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
 
@@ -476,12 +478,12 @@ namespace Gothic.VR.Services
         /// </summary>
         public void TryToggleStaticContainerLoot(VobLoader loader, IContainer container)
         {
-            if (loader.GetComponentInChildren<VRVobContainer>(true) != null)
+            if (!container.IsLidlessContainer())
                 return;
 
             if (!loader.TryGetComponent<VRStaticContainerLoot>(out var loot))
                 loot = loader.gameObject.AddComponent<VRStaticContainerLoot>();
-            loot.Toggle(container);
+            loot.Toggle(container, _inventoryTransferService.GetOwner(container));
         }
 
         /// <summary>
@@ -489,7 +491,7 @@ namespace Gothic.VR.Services
         /// </summary>
         private bool TryCloseMobDocument(VobLoader loader)
         {
-            var openDocument = loader.transform.Find(VRMobDocument.AnchorName);
+            var openDocument = loader.GetComponentInChildren<VRMobDocument>();
             if (openDocument == null)
                 return false;
 
