@@ -2,6 +2,7 @@ using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Meshes;
+using Gothic.VR.Adapters.UI;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -37,6 +38,10 @@ namespace Gothic.VR.Adapters.Player
             
             PlayAudio(wav);
             ShowChapterCanvas(chapter, text, texture);
+            // Drawn on top of walls and NPCs (4 m in front of the camera they cut through it). The cover's material is
+            // set again for every chapter - wrapped again here.
+            if (TryGetComponent<VRUiOnTop>(out var onTop))
+                onTop.Apply();
             
             StartCoroutine(DisableDelayed(time));
         }
