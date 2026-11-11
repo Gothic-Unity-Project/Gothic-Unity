@@ -448,6 +448,7 @@ GameObject:
   - component: {fileID: 5615940322375626677}
   - component: {fileID: 1602513700271543697}
   - component: {fileID: 4818237350172946215}
+  - component: {fileID: 1177669430075312184}
   m_Layer: 5
   m_Name: IntroduceChapter
   m_TagString: Untagged
@@ -614,3 +615,23 @@ MonoBehaviour:
   _moveSmoothTime: 0.3
   _rotationSpeed: 6
   _isFollowingPitch: 1
+  _angleThreshold: 15
+  _positionThreshold: 0.3
+--- !u!114 &1177669430075312184
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7339275886835513150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b02e7af663f2ba4083705e7617061ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.UI.VRUiOnTop
+  _backgroundMaterial: {fileID: 2100000, guid: 48439b88586731342a3aa9860552fb48, type: 2}
+  _textMaterial: {fileID: 2100000, guid: c4170a11c4f4d85439112ebdae034112, type: 2}
+  _meshMaterial: {fileID: 0}
+  _isAppliedAutomatically: 0
+  _maxVisibleDistance: 0
+  _canvasGroup: {fileID: 0}
