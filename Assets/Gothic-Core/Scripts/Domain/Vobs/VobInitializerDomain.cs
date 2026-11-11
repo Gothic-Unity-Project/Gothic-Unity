@@ -175,19 +175,21 @@ namespace Gothic.Core.Domain.Vobs
                 case VirtualObjectType.zCPFXController:
                     // DeveloperConfig.EnableParticleEffects: a running controller shows its effect (sparks over the
                     // pentagram, Xardas's tower). Controllers started by a trigger aren't handled yet.
-                    if (_configService.Dev.EnableParticleEffects && vob is IParticleEffectController pfxController &&
-                        pfxController.InitiallyRunning && !string.IsNullOrEmpty(GetPfxControllerEffect(pfxController)))
+                    var pfxController = vob as IParticleEffectController;
+                    var pfxEffect = pfxController != null ? GetPfxControllerEffect(pfxController) : null;
+                    if (_configService.Dev.EnableParticleEffects && pfxController is { InitiallyRunning: true } &&
+                        !string.IsNullOrEmpty(pfxEffect))
                     {
-                        go = _meshService.CreateVobPfx(GetPfxControllerEffect(pfxController),
-                            GetPfxPosition(vob, parent, isRelativeToParent), vob.Rotation.ToUnityQuaternion(),
-                            parent);
+                        go = _meshService.CreateVobPfx(pfxEffect, GetPfxPosition(vob, parent, isRelativeToParent),
+                            vob.Rotation.ToUnityQuaternion(), parent);
                         break;
                     }
 
-                    // Diagnostics: controllers started later by a trigger (not handled yet) - which effect, where.
-                    if (vob is IParticleEffectController waitingController)
-                        Logger.Log($"[PFX] Controller '{vob.Name}' ({GetPfxControllerEffect(waitingController)}) at " +
-                                   $"{vob.Position.ToUnityVector()} waits for a trigger - not shown", LogCat.Vob);
+                    // Diagnostics (editor only - compiled out with its arguments in builds): controllers started later
+                    // by a trigger (not handled yet) - which effect, where.
+                    if (pfxController != null)
+                        Logger.LogEditor($"[PFX] Controller '{vob.Name}' ({pfxEffect}) at " +
+                                         $"{vob.Position.ToUnityVector()} waits for a trigger - not shown", LogCat.Vob);
 
                     // A Particle controller makes no sense without a visual to show.
                     // Therefore, removing it now (as it's also not included in official G1 saves, and not visible within Spacer)
