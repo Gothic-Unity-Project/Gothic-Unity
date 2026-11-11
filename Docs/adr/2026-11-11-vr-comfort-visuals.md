@@ -1,6 +1,5 @@
 # ADR: VR comfort for the swing trail and earthquakes
 
-- Status: proposed
 - Date: 2026-11-11
 - Technical details: Docs/architecture.md
 
