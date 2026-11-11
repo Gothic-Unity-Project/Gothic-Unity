@@ -1,6 +1,5 @@
 # ADR: VR height offset
 
-- Status: accepted (PR #451)
 - Date: 2026-10-27
 
 ## Context

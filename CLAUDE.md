@@ -174,7 +174,7 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 
 - Branch from `main`, submit PRs with detailed descriptions of what changed and how to test manually.
 - Before coding a feature, design it with the `design` skill (plan, ADR draft, `architecture-reviewer` on the plan).
-- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`).
+- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`). No status line: a record on a branch is proposed, a record in main is accepted and is never edited again. A changed decision gets a new record with `- Replaces: [...]`.
 - Staging, commit style and PR template: see the `commit-pr` skill.
 - The project tracks issues and feature status on [GitHub Projects](https://github.com/Gothic-Unity-Project/Gothic-Unity/projects?query=is%3Aopen).
 - Team coordination happens on Discord; align with in-progress work before starting large features.

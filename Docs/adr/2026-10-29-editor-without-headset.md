@@ -1,6 +1,5 @@
 # ADR: The editor keeps playing while the headset shows nothing
 
-- Status: proposed
 - Date: 2026-10-29
 
 ## Context

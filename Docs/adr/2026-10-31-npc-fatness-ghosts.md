@@ -1,6 +1,5 @@
 # ADR: Fat NPCs and see-through ghosts
 
-- Status: proposed
 - Date: 2026-10-31
 
 ## Context
