@@ -294,6 +294,12 @@ namespace Gothic.Core
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> LedgeClimbRefused = new();
 
+        /// <summary>
+        /// FX_EarthQuake played (summoning, fire rain): position, radius (m), seconds. Gothic shakes the camera - VR
+        /// rumbles the controllers instead. Raised by ParticleService.
+        /// </summary>
+        public static readonly UnityEvent<Vector3, float, float> VisualFxEarthquake = new();
+
         // Fists (VR): a fist got faster than a punch needs - once per swing (VrFistDomain).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> FistSwung = new();

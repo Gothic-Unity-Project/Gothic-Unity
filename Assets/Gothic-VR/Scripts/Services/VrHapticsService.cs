@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Manager;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -30,8 +32,14 @@ namespace Gothic.VR.Services
 
         private readonly float[] _lastBodySlotTimes = { float.NegativeInfinity, float.NegativeInfinity };
 
+        // Earthquake (FX_EarthQuake): one Warning pulse (0.25 s) on both hands after the other while it lasts.
+        private const float _earthquakePulseSeconds = 0.25f;
+        private float _earthquakeUntil;
+        private Coroutine _earthquakeRumble;
+
         [Inject] private readonly IVrHaptics _vrHaptics;
         [Inject] private readonly VRWeaponService _vrWeaponService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
 
         public VrHapticsService()
         {
@@ -62,6 +70,9 @@ namespace Gothic.VR.Services
             // Ledge climbing
             GlobalEventDispatcher.LedgeTouched.AddListener(OnLedgeTouched);
             GlobalEventDispatcher.LedgeClimbRefused.AddListener(OnLedgeClimbRefused);
+
+            // Gothic's camera shake
+            GlobalEventDispatcher.VisualFxEarthquake.AddListener(OnVisualFxEarthquake);
         }
 
         public void Dispose()
@@ -88,6 +99,10 @@ namespace Gothic.VR.Services
 
             GlobalEventDispatcher.LedgeTouched.RemoveListener(OnLedgeTouched);
             GlobalEventDispatcher.LedgeClimbRefused.RemoveListener(OnLedgeClimbRefused);
+
+            GlobalEventDispatcher.VisualFxEarthquake.RemoveListener(OnVisualFxEarthquake);
+            if (_earthquakeRumble != null)
+                _unityMonoService.StopCoroutine(_earthquakeRumble);
         }
 
         // Attack can happen now
@@ -178,6 +193,32 @@ namespace Gothic.VR.Services
         {
             Vibrate(VrHandSide.Left, preset);
             Vibrate(VrHandSide.Right, preset);
+        }
+
+        /// <summary>
+        /// Gothic shakes the camera for FX_EarthQuake (summoning, fire rain) - in VR that's sickening, so both
+        /// controllers rumble while the hero is within its radius.
+        /// </summary>
+        private void OnVisualFxEarthquake(Vector3 position, float radius, float seconds)
+        {
+            var head = Camera.main;
+            if (head == null || Vector3.Distance(head.transform.position, position) > radius)
+                return;
+
+            _earthquakeUntil = Mathf.Max(_earthquakeUntil, Time.time + seconds);
+            _earthquakeRumble ??= _unityMonoService.StartCoroutine(RumbleEarthquake());
+            Logger.Log($"[Haptics] Earthquake rumble {seconds:F1} s", LogCat.VR);
+        }
+
+        private IEnumerator RumbleEarthquake()
+        {
+            var pulse = new WaitForSeconds(_earthquakePulseSeconds);
+            while (Time.time < _earthquakeUntil)
+            {
+                BothHandsVibration(VrHapticPreset.Warning);
+                yield return pulse;
+            }
+            _earthquakeRumble = null;
         }
 
         public void Vibrate(VrHandSide handSide, VrHapticPreset preset)
