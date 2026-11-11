@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Gothic.Core.Services.Vobs
@@ -8,7 +9,7 @@ namespace Gothic.Core.Services.Vobs
     /// </summary>
     public class MobRoutineService
     {
-        private readonly Dictionary<string, List<(int hour, int minute, int status)>> _routines = new();
+        private readonly Dictionary<string, List<(int hour, int minute, int status)>> _routines = new(StringComparer.OrdinalIgnoreCase);
 
         public MobRoutineService()
         {
