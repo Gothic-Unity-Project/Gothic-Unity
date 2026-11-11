@@ -32,6 +32,12 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private CharacterController _characterController => _vrPlayerService.VRContextInteractionService.Rig.CharacterController;
+        private Vector3 PlayerVelocity => _characterController != null ? _characterController.velocity : Vector3.zero;
+        private float PlayerSpeed => PlayerVelocity.magnitude;
+
+        // The rig's yaw at the last velocity sample (GetRigTurnVelocity), -1 = none yet.
+        private float _lastRigYaw;
+        private float _lastRigSampleTime = -1f;
 
         private const int _twoHandedFlags = (int)VmGothicEnums.ItemFlags.Item2HdAxe | (int)VmGothicEnums.ItemFlags.Item2HdSwd;
 
@@ -219,6 +225,7 @@ namespace Gothic.VR.Domain.Player
         /// </summary>
         private void ClearVelocityHistory()
         {
+            _lastRigSampleTime = -1f;
             _velocityHistory.Clear();
             _velocityCheckTimer = 0f;
         }
@@ -376,9 +383,12 @@ namespace Gothic.VR.Domain.Player
             if (_velocityCheckTimer < _velocityCheckDuration / _velocitySampleCount)
                 return;
 
-            // We need to subtract the current players movement. Otherwise a run will count as a swing.
-            // TODO - Maybe we should subtract the V3 velocity instead of magnitude to countermeasure player movement?
-            var currentVelocity = _weaponRigidbody.linearVelocity.magnitude - _characterController.velocity.magnitude;
+            // The weapon's speed relative to the player, so moving and turning don't count as a swing:
+            // - the player's velocity is subtracted as a vector (subtracting the speeds was wrong for any run that
+            //   isn't in the swing's direction);
+            // - a turn of the rig (smooth or snap turn) carries a held weapon around the player - that part
+            //   (yaw rate x lever arm) is subtracted too.
+            var currentVelocity = (_weaponRigidbody.linearVelocity - PlayerVelocity - GetRigTurnVelocity()).magnitude;
             _velocityHistory.Enqueue(currentVelocity);
 
             // Keep only the required number of samples
@@ -386,6 +396,30 @@ namespace Gothic.VR.Domain.Player
                 _velocityHistory.Dequeue();
 
             _velocityCheckTimer = 0f;
+        }
+
+        /// <summary>
+        /// The velocity a held weapon gets only from the rig turning around its up axis since the last sample.
+        /// </summary>
+        private Vector3 GetRigTurnVelocity()
+        {
+            if (_characterController == null)
+                return Vector3.zero;
+
+            var rig = _characterController.transform;
+            var yaw = rig.eulerAngles.y;
+            var now = Time.fixedTime;
+            var elapsed = now - _lastRigSampleTime;
+            var hasLastSample = _lastRigSampleTime >= 0f && elapsed > 0f;
+            var deltaYaw = hasLastSample ? Mathf.DeltaAngle(_lastRigYaw, yaw) : 0f;
+            _lastRigYaw = yaw;
+            _lastRigSampleTime = now;
+            if (!hasLastSample || Mathf.Approximately(deltaYaw, 0f))
+                return Vector3.zero;
+
+            var angularVelocity = Vector3.up * (deltaYaw * Mathf.Deg2Rad / elapsed);
+            var leverArm = _weaponRigidbody.position - rig.position;
+            return Vector3.Cross(angularVelocity, leverArm);
         }
 
         private float GetAverageVelocity()
@@ -470,7 +504,7 @@ namespace Gothic.VR.Domain.Player
                              $"{string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; " +
                              $"weapon body " +
                              $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, " +
-                             $"player {_characterController.velocity.magnitude:0.00})", LogCat.VR);
+                             $"player {PlayerSpeed:0.00})", LogCat.VR);
 
             // If no sound is set, ignore playing it and mark it as "played".
             _soundPlayed = _swingSwordSound == null;
