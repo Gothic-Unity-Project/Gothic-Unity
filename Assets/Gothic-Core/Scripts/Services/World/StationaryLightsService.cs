@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Domain.Meshes;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Extensions;
+using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -13,6 +15,8 @@ namespace Gothic.Core.Services.World
     public class StationaryLightsService
     {
         [Inject] private readonly ConfigService _configService;
+
+        private readonly WorldLightmapDomain _lightmapDomain = new WorldLightmapDomain().Inject();
 
         /// <summary>
         /// Same as MAX_TOTAL_STATIONARY_LIGHTS in StationaryLighting.hlsl (1023 = Unity's cap, mobile 512). The global
@@ -201,7 +205,78 @@ namespace Gothic.Core.Services.World
         /// <summary>
         /// The current world's light mapped polygons show Gothic's lightmaps (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
         /// </summary>
-        public bool HasWorldLightmaps { get; set; }
+        public bool HasWorldLightmaps { get; private set; }
+
+        private static readonly int _worldLightmapsShaderId = Shader.PropertyToID("_WorldLightmaps");
+        private static readonly int _worldLightmapBrightnessShaderId = Shader.PropertyToID("_WorldLightmapBrightness");
+        // The shader's 1x1 white array without lightmaps - kept for the game's lifetime.
+        private Texture2DArray _emptyLightmaps;
+        // The current world's lightmap pages - destroyed with the next world or the main menu.
+        private Texture2DArray _worldLightmaps;
+
+        public StationaryLightsService()
+        {
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearWorldLightmaps);
+            GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(ClearWorldLightmaps);
+        }
+
+        /// <summary>
+        /// The world's lightmaps (DeveloperConfig.EnableWorldLightmaps) go into one texture array that Lit-World
+        /// samples for the light mapped polygons. Returns their per-vertex uv data for WorldMeshBuilder, null without
+        /// lightmaps - the shader keeps a 1x1 white array then.
+        /// </summary>
+        [CanBeNull]
+        public WorldLightmapDomain.LightmapData PrepareWorldLightmaps(ZenKit.IMesh mesh)
+        {
+            ClearWorldLightmaps();
+            Shader.SetGlobalFloat(_worldLightmapBrightnessShaderId, GetLightmapBrightness());
+
+            if (!_configService.Dev.EnableWorldLightmaps)
+                return null;
+            var data = _lightmapDomain.PrepareLightmaps(mesh);
+            if (data == null)
+                return null;
+
+            var pages = data.Pages;
+            _worldLightmaps = new Texture2DArray(WorldLightmapDomain.PageSize, WorldLightmapDomain.PageSize,
+                pages.Count, UnityEngine.TextureFormat.RGBA32, true, false)
+            {
+                name = "WorldLightmaps",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            for (var slice = 0; slice < pages.Count; slice++)
+                _worldLightmaps.SetPixelData(pages[slice], 0, slice);
+            _worldLightmaps.Apply(true, true);
+
+            Shader.SetGlobalTexture(_worldLightmapsShaderId, _worldLightmaps);
+            HasWorldLightmaps = true;
+            Logger.Log($"[Lightmaps] {data.Count} lightmaps on {pages.Count} pages", LogCat.Mesh);
+            return data;
+        }
+
+        /// <summary>
+        /// Frees the world's lightmap array (new world, main menu, a failed load) - the shader gets the white one.
+        /// </summary>
+        private void ClearWorldLightmaps()
+        {
+            if (_emptyLightmaps == null)
+            {
+                _emptyLightmaps = new Texture2DArray(1, 1, 1, UnityEngine.TextureFormat.RGBA32, false)
+                {
+                    name = "EmptyLightmaps"
+                };
+                _emptyLightmaps.SetPixelData(new byte[] { 255, 255, 255, 255 }, 0, 0);
+                _emptyLightmaps.Apply(false, true);
+            }
+            if (_worldLightmaps != null)
+            {
+                UnityEngine.Object.Destroy(_worldLightmaps);
+                _worldLightmaps = null;
+            }
+            Shader.SetGlobalTexture(_worldLightmapsShaderId, _emptyLightmaps);
+            HasWorldLightmaps = false;
+        }
 
         private readonly HashSet<MeshRenderer> _worldChunkRenderers = new();
 
