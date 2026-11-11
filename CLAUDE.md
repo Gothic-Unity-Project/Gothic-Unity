@@ -128,7 +128,7 @@ Box colliders on combatants are deactivated outside combat for performance.
 
 ## Logging
 
-- Uber Logger wraps all `Debug.Log*()` calls and routes to three sinks: the Uber Console (filterable by category), Unity Console, and `Gothic-Unity.log` file (`FileLoggingHandler`).
+- Uber Logger wraps all `Debug.Log*()` calls and routes to three sinks: the Uber Console (filterable by category), Unity Console, and, in builds, one log file per session (`Logs/Gothic-Unity_<date>_<time>.log.txt` in the persistent data folder, newest 30 kept; `FileLoggingHandler`).
 - Log categories are defined in the `LogCat` enum: `AI`, `Animations`, `Dialog`, `DxMusic`, `NPC`, `PreCaching`, `ZenKit`, `ZSpy`, and others. Use `LogEditor()` variants for editor-only logs — they compile out in release builds (`#define ENABLE_UBERLOGGING`).
 - Access the Uber Console at `Gothic > Debug > Uber Console`.
 - Always create logs with this feature: `Logger.Log(message, LogCat)`/`Logger.LogWarning(message, LogCat)`/`Logger.LogError(message, LogCat)`
