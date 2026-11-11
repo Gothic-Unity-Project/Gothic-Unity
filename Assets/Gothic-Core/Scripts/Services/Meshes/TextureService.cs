@@ -41,6 +41,10 @@ namespace Gothic.Core.Services.Meshes
 
         [Inject] private readonly TextureCacheService _textureCacheService;
 
+        private static readonly int _cutoffId = Shader.PropertyToID("_Cutoff");
+        // VR: Gothic's full swing trail right in front of the eyes on every swing is too much - half of it.
+        private const float _weaponTrailOpacity = 0.5f;
+
 
         public void Init()
         {
@@ -97,10 +101,13 @@ namespace Gothic.Core.Services.Meshes
             
             // Misc
             WeaponTrailMaterial.mainTexture = _textureCacheService.TryGetTexture("ZWEAPONTRAIL.TGA");
-            // Set alpha to 135/255 ≈ 0.53
-            var color = WeaponTrailMaterial.color;
-            color.a = 135f / 255f;
-            WeaponTrailMaterial.color = color;
+            // Gothic's alpha 135/255 ≈ 0.53, scaled by _weaponTrailOpacity. Gothic/UI blends One/OneMinusSrcAlpha
+            // without premultiplying, so the color is scaled too, and it clips at _Cutoff (0.5, which only the old 0.53
+            // passed - a lower alpha alone made the trail vanish): scaled the same way, the same pixels stay.
+            var trailAlpha = 135f / 255f;
+            WeaponTrailMaterial.color = new Color(_weaponTrailOpacity, _weaponTrailOpacity, _weaponTrailOpacity,
+                trailAlpha * _weaponTrailOpacity);
+            WeaponTrailMaterial.SetFloat(_cutoffId, WeaponTrailMaterial.GetFloat(_cutoffId) * _weaponTrailOpacity);
         }
 
         public void SetTexture(string texture, Material material)
