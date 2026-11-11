@@ -1,6 +1,5 @@
 # ADR: The loading screen stays until the world is shown
 
-- Status: proposed
 - Date: 2026-11-02
 
 ## Context

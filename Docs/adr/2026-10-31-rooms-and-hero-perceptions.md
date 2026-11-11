@@ -1,6 +1,5 @@
 # ADR: Rooms and what NPCs notice about the hero
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: Docs/architecture.md (Daedalus VM, AI); ADR 2026-10-31-npc-perceptions.md
 

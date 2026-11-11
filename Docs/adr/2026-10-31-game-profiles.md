@@ -1,6 +1,5 @@
 # ADR: Game profiles - pick the game or mod at start
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: Docs/architecture.md (configuration); GameSettings.json, DeveloperConfig "Context" and "Mod"
 

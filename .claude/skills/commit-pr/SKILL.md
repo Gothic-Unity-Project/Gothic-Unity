@@ -61,7 +61,8 @@ Each new review also becomes a PR comment `<sha>-comment.md`: the "since" line, 
 new comment.
 
 A PR that decides something (new feature, setting, trade-off, a rule different from the original game) adds a
-decision record `Docs/adr/<date>-<topic>.md` in plain words (rules and template in `Docs/adr/README.md`).
+decision record `Docs/adr/<date>-<topic>.md` in plain words (rules and template in `Docs/adr/README.md`). Records
+already in main are never edited - a changed decision is a new record with `- Replaces: [...]`.
 
 Add the `pipeline-test-build` label when the PR needs a CI build (Windows64 / Quest / Pico).
 

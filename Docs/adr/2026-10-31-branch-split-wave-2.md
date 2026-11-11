@@ -1,6 +1,5 @@
 # ADR: Bringing the game-completion branch to main, wave 2
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: Docs/branch-split-assessment.md
 
