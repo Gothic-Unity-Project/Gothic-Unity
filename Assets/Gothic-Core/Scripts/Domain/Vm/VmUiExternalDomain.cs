@@ -39,6 +39,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly StoryService _storyService;
         [Inject] private readonly DocService _docService;
+        [Inject] private readonly NpcInventoryService _npcInventoryService;
 
         private readonly VmExternalSupport _support;
 
@@ -224,6 +225,17 @@ namespace Gothic.Core.Domain.Vm
                     _printScreenLogTimes.Clear();
                 _printScreenLogTimes[message] = Time.time;
                 Logger.Log($"[PrintScreen] {message}", LogCat.Dialog);
+            }
+
+            // An NPC's item function (on_equip/on_unequip) talks to the player only if it's the hero's. Mods check and
+            // print about `hero` in their item functions (Mroczne Tajemnice: "too little strength", "no helmet with
+            // this armor") - when NPCs put on their equipment (loading a save, new game) the player got all of them.
+            var itemFunctionOwner = _npcInventoryService.ItemFunctionOwner;
+            if (itemFunctionOwner != null && !_support.IsHero(itemFunctionOwner))
+            {
+                Logger.Log($"[PrintScreen] Not shown - from {itemFunctionOwner.GetName(NpcNameSlot.Slot0)}'s item " +
+                           $"function: {message}", LogCat.Dialog);
+                return;
             }
 
             GlobalEventDispatcher.PrintScreen.Invoke(new PrintScreenMessage(message, posX, posY, font, seconds));
