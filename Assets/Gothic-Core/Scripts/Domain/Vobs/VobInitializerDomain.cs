@@ -559,7 +559,7 @@ namespace Gothic.Core.Domain.Vobs
             var fireObjects = new List<GameObject>();
             for (var i = childCountBefore; i < slot.transform.childCount; i++)
                 fireObjects.Add(slot.transform.GetChild(i).gameObject);
-            var scheme = vob.Visual?.Name?.Split('_')[0];
+            var scheme = vob.GetVisualScheme();
             var isIndoor = _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, _fireIndoorRadius);
             _fireService.Register(go, scheme, isIndoor, fireObjects);
 
