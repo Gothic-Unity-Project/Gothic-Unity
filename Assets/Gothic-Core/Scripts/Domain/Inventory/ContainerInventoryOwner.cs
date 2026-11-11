@@ -18,11 +18,12 @@ namespace Gothic.Core.Domain.Inventory
     /// The items of an oCMobContainer (its "contents" string), e.g. a mummy you loot without a lid to open.
     /// Changes go straight into IContainer.Contents, so they are saved with the world (WORLD.SAV).
     /// </summary>
-    public class ContainerInventoryOwner : IInventoryOwner
+    internal class ContainerInventoryOwner : IInventoryOwner
     {
         [Inject] private readonly VmCacheService _vmCacheService;
 
         private readonly IContainer _container;
+        private bool _isBrokenContentsLogged;
 
         public ContainerInventoryOwner(IContainer container)
         {
@@ -65,8 +66,8 @@ namespace Gothic.Core.Domain.Inventory
             var existing = items.FirstOrDefault(i => i.Name.EqualsIgnoreCase(itemInstanceName));
             if (existing == null)
             {
-                Logger.LogWarning($"[ContainerInventoryOwner] {itemInstanceName} not in {_container.Name} - not removed.",
-                    LogCat.Vob);
+                Logger.LogWarning($"[ContainerInventoryOwner] {itemInstanceName} not in {_container.Name} - not " +
+                                  "removed.", LogCat.Vob);
                 return;
             }
 
@@ -90,11 +91,16 @@ namespace Gothic.Core.Domain.Inventory
                     .Select(i => new ContentItem(i.Name.Trim(), i.Amount))
                     .ToList();
             }
-            catch (FormatException e)
+            catch (Exception e) when (e is FormatException or OverflowException)
             {
-                // A mod's broken "contents" (ITFO_X:abc) - an empty loot instead of a half built backpack.
-                Logger.LogWarning($"[ContainerInventoryOwner] {_container.Name}: contents '{_container.Contents}' " +
-                                  $"can't be read ({e.Message}) - shown empty.", LogCat.Vob);
+                // A mod's broken "contents" (ITFO_X:abc, ITFO_X:99999999999) - an empty loot instead of a half built
+                // backpack. Logged once, the loot view reads it on every refresh.
+                if (!_isBrokenContentsLogged)
+                {
+                    _isBrokenContentsLogged = true;
+                    Logger.LogWarning($"[ContainerInventoryOwner] {_container.Name}: contents " +
+                                      $"'{_container.Contents}' can't be read ({e.Message}) - shown empty.", LogCat.Vob);
+                }
                 return new List<ContentItem>();
             }
         }

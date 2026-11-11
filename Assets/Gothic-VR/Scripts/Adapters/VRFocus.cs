@@ -85,9 +85,10 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// The grabbable collects its colliders in Awake - when the mob is instantiated, before its mesh is built. Mobs
-        /// whose mesh sits on a child bone (G2 Irdorath's touch plates: BIP01 TOUCHPLATE -> BIP01 PLATE) only had the
-        /// prefab's empty MeshCollider, nothing to hover or grab.
+        /// The grabbable collects its colliders in its Start (XriInteractableBridge). A mob whose mesh sits on a child
+        /// bone (G2 Irdorath's touch plates: BIP01 TOUCHPLATE -> BIP01 PLATE) and is finished after that only had the
+        /// prefab's empty MeshCollider, nothing to hover or grab. Unity doesn't order the Start calls - this collects
+        /// again once; the backend registers only if the colliders changed.
         /// </summary>
         private void RefreshGrabColliders()
         {
