@@ -1,6 +1,5 @@
 # ADR: Movers, triggers and mobs from the experimental branch
 
-- Status: proposed
 - Date: 2026-11-09
 - Technical details: Docs/architecture.md
 
