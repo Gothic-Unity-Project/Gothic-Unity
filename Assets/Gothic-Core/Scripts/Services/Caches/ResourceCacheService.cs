@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DirectMusic;
-using Gothic.Core.Domain.Meshes;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
-using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using JetBrains.Annotations;
 using Reflex.Attributes;
@@ -27,7 +25,6 @@ namespace Gothic.Core.Services.Caches
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
-        [Inject] private readonly ConfigService _configService;
         
         public readonly Vfs Vfs = new();
 
@@ -100,7 +97,7 @@ namespace Gothic.Core.Services.Caches
                 (s, version) =>
                 {
                     // We do not cache the world itself, but only the loading pointer. As Mesh could exhaust our memory consumption.
-                    var fireWorld = LoadWorld(s, version);
+                    var fireWorld = new ZenKit.World(Vfs, s, version);
 
                     // The roots' children (smoke under a fire's light) carry the fire world's absolute positions
                     // too - zeroing only the roots put every FIRETREE_MEDIUM
@@ -370,71 +367,7 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         public ZenKit.World TryGetWorld([NotNull] string key)
         {
-            return LoadWorld($"{GetPreparedKey(key)}.zen", null);
-        }
-
-        /// <summary>
-        /// Every world goes through ZenKit's two mod world bugs' workarounds (ZenWorldArchiveFixDomain): chunk lengths
-        /// are checked before loading a mod's world (a wrong one makes ZenKit hang, there's no exception to retry on -
-        /// Renovation 2026's DRAGONISLAND.ZEN froze PreCaching), a world that fails to load is retried with its
-        /// materials archive header fixed (266 materials: Mroczne Tajemnice's ANCIENTTEMPLE.ZEN, std::bad_alloc).
-        /// </summary>
-        private ZenKit.World LoadWorld(string name, GameVersion? version)
-        {
-            var chunkFixedData = TryFixChunkLengths(name);
-            try
-            {
-                return chunkFixedData != null
-                    ? new ZenKit.World(new Read(chunkFixedData), version)
-                    : new ZenKit.World(Vfs, name, version);
-            }
-            catch (Exception e)
-            {
-                var data = chunkFixedData ?? Vfs.Find(name)?.Buffer.Bytes;
-                if (data == null)
-                    throw;
-
-                var fixedData = ZenWorldArchiveFixDomain.TryFixMaterialCountHeader(data, out var reason);
-                if (fixedData == null)
-                {
-                    Logger.LogError($"[ResourceCacheService] World '{name}' failed to load ({e.Message}), header " +
-                                    $"fix not applicable: {reason}", LogCat.ZenKit);
-                    throw;
-                }
-
-                Logger.LogWarning($"[ResourceCacheService] World '{name}' failed to load ({e.Message}) - " +
-                                  $"retrying with its materials archive header fixed ({reason})", LogCat.ZenKit);
-                try
-                {
-                    return new ZenKit.World(new Read(fixedData), version);
-                }
-                catch (Exception retryException)
-                {
-                    Logger.LogError($"[ResourceCacheService] World '{name}' failed again with the fixed header: " +
-                                    retryException.Message, LogCat.ZenKit);
-                    throw;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Only for mods: it copies the whole world file, vanilla worlds are fine.
-        /// </summary>
-        [CanBeNull]
-        private byte[] TryFixChunkLengths(string name)
-        {
-            if (!_configService.IsModActive)
-                return null;
-
-            var node = Vfs.Find(name);
-            if (node == null)
-                return null;
-
-            var fixedData = ZenWorldArchiveFixDomain.TryFixMeshChunkLengths(node.Buffer.Bytes, out var reason);
-            if (fixedData != null)
-                Logger.LogWarning($"[ResourceCacheService] World '{name}' has wrong chunk lengths - fixed: {reason}",
-                    LogCat.ZenKit);
-            return fixedData;
+            return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen");
         }
 
         /// <summary>
@@ -466,7 +399,7 @@ namespace Gothic.Core.Services.Caches
             }
             else
             {
-                return LoadWorld($"{GetPreparedKey(key)}.zen", version);
+                return new ZenKit.World(Vfs, $"{GetPreparedKey(key)}.zen", version);
             }
         }
 
