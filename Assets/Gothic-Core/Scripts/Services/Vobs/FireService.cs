@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
@@ -14,7 +15,7 @@ namespace Gothic.Core.Services.Vobs
     /// Fireplaces and torches (oCMobFire) burn like in the engine: their fire tree follows the scripts' mob routine of
     /// their scheme (G1 STARTUP: Wld_SetMobRoutine(22,00,"FIREPLACE",1) / (05,00,"FIREPLACE",0) - lit at night, out
     /// by day). Fires indoors (light mapped: houses, mines) always burn. Touching one toggles it until the routine
-    /// switches again. Further than _cullDistance their effects are off.
+    /// switches again. Further than Constants.Fires.CullDistance their effects are off.
     /// One check for all fires per _checkSeconds - no per fire Update. Not saved: after a load the routine decides.
     /// </summary>
     public class FireService
@@ -24,7 +25,6 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly MobRoutineService _mobRoutineService;
 
         private const float _checkSeconds = 1f;
-        private const float _cullDistance = 60f;
 
         private readonly List<FireContainer> _fires = new();
         private Coroutine _checkRoutine;
@@ -132,7 +132,7 @@ namespace Gothic.Core.Services.Vobs
 
             var isNear = !cameraPosition.HasValue ||
                          (cameraPosition.Value - fire.Go.transform.position).sqrMagnitude <=
-                         _cullDistance * _cullDistance;
+                         Constants.Fires.CullDistance * Constants.Fires.CullDistance;
             var isActive = (fire.ManualLit ?? IsRoutineLit(fire, routineState)) && isNear;
             if (fire.IsActive == isActive)
                 return;

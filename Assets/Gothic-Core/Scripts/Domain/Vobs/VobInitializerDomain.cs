@@ -562,7 +562,8 @@ namespace Gothic.Core.Domain.Vobs
             for (var i = childCountBefore; i < slot.transform.childCount; i++)
                 fireObjects.Add(slot.transform.GetChild(i).gameObject);
             var scheme = vob.GetVisualScheme();
-            var isIndoor = _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, _fireIndoorRadius);
+            var isIndoor =
+                _stationaryLightsService.IsNearLightMappedPolygons(worldPosition, Constants.Fires.IndoorRadius);
             _fireService.Register(go, scheme, isIndoor, fireObjects);
 
             return go;
@@ -578,9 +579,6 @@ namespace Gothic.Core.Domain.Vobs
             foreach (var vob in vobs)
                 InitVob(vob, parent, worldPosition, false, isRelativeToParent: true);
         }
-
-        // A fire this close to light mapped polygons (houses, caves, mines) is indoors - it always burns.
-        private const float _fireIndoorRadius = 3f;
 
         private GameObject CreateLight(Light vob, GameObject parent, Vector3 worldPosition)
         {
