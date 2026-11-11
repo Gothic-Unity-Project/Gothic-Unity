@@ -159,19 +159,9 @@ namespace Gothic.Core.Services.Caches
         [CanBeNull]
         private Texture2D CreateArraySourceTexture(ITexture zkTexture, string key)
         {
-            var skippedMips = 0;
-            var width = zkTexture.Width;
-            var height = zkTexture.Height;
-
-            // If a texture's size is higher than MaxTextureSize, then divide by 2 until we shrink it enough.
-            var maxDim = Mathf.Max(width, height);
-            while (maxDim > MaxTextureSize)
-            {
-                skippedMips++;
-                maxDim /= 2;
-                width /= 2;
-                height /= 2;
-            }
+            // Halved until it fits MaxTextureSize - same layout as the array slice (GetTextureArrayIndex).
+            GetArrayLayout(zkTexture.Width, zkTexture.Height, zkTexture.MipmapCount, out var width, out var height,
+                out _, out var skippedMips, out _);
 
             var mipCount = zkTexture.MipmapCount;
             var levelCount = Mathf.Min(mipCount - skippedMips, MaxMipCount);
@@ -407,7 +397,7 @@ namespace Gothic.Core.Services.Caches
         /// How a texture lands in a texture array slice: halved until it fits MaxTextureSize; without the mips that
         /// takes (or without any mips) it is rebuilt with a full chain (CreateRebuiltArraySourceTexture).
         /// </summary>
-        public static void GetArrayLayout(int width, int height, int mipmapCount, out int arrayWidth,
+        private static void GetArrayLayout(int width, int height, int mipmapCount, out int arrayWidth,
             out int arrayHeight, out int arrayMipCount, out int skippedMips, out bool isRebuilt)
         {
             skippedMips = 0;
