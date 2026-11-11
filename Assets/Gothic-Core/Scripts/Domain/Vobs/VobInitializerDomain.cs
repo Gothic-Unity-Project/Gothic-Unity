@@ -53,8 +53,6 @@ namespace Gothic.Core.Domain.Vobs
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
-        // > 0 while a fire tree's VOBs are created (CreateFireVobs).
-        private int _fireTreeDepth;
 
 
         /// <summary>
@@ -66,8 +64,10 @@ namespace Gothic.Core.Domain.Vobs
         ///                       caching times. Same calculation! (ZenKit.IVirtualVob.Position + ZK.parentPos
         /// </summary>
         /// <param name="parentVob">The ZenKit parent of a child VOB of the world.</param>
+        /// <param name="isRelativeToParent">A fire tree's VOB (and its children): its position is relative to the
+        /// fire's slot, not in world space (the cache loader made it so).</param>
         public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
-            IVirtualObject parentVob = null)
+            IVirtualObject parentVob = null, bool isRelativeToParent = false)
         {
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
             GameObject go = null;
@@ -124,7 +124,7 @@ namespace Gothic.Core.Domain.Vobs
                         case VisualType.ParticleEffect:
                             if (_configService.Dev.EnableParticleEffects)
                             {
-                                go = CreatePfx(vob, parent);
+                                go = CreatePfx(vob, parent, isRelativeToParent);
                             }
 
                             break;
@@ -179,7 +179,8 @@ namespace Gothic.Core.Domain.Vobs
                         pfxController.InitiallyRunning && !string.IsNullOrEmpty(GetPfxControllerEffect(pfxController)))
                     {
                         go = _meshService.CreateVobPfx(GetPfxControllerEffect(pfxController),
-                            GetPfxPosition(vob, parent), vob.Rotation.ToUnityQuaternion(), parent);
+                            GetPfxPosition(vob, parent, isRelativeToParent), vob.Rotation.ToUnityQuaternion(),
+                            parent);
                         break;
                     }
 
@@ -251,7 +252,7 @@ namespace Gothic.Core.Domain.Vobs
                     // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
                     // move its pillars and gates. Root ones: VobService made their children roots already.
                     if (!isRootVob)
-                        InitChildren(vob, parent, worldPosition);
+                        InitChildren(vob, parent, worldPosition, isRelativeToParent);
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -279,7 +280,7 @@ namespace Gothic.Core.Domain.Vobs
             // A child VOB's position is in world space like a root's (Gothic stores it so) - it stayed at its parent's
             // origin: Mroczne Tajemnice's sacks on a cart lay 17 m away next to their parent sack, The Chronicles Of
             // Myrtana's intro ship had all its crates in one pile. A fire tree's VOBs are relative to its slot.
-            if (!isRootVob && _fireTreeDepth == 0)
+            if (!isRootVob && !isRelativeToParent)
             {
                 go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
                 // Its lights (a fire tree's, a child light) took their position and nearby renderers when they were
@@ -304,19 +305,20 @@ namespace Gothic.Core.Domain.Vobs
                 VirtualObjectType.oCTriggerScript
                 ? parent
                 : go;
-            InitChildren(vob, childParent, worldPosition);
+            InitChildren(vob, childParent, worldPosition, isRelativeToParent);
         }
 
         /// <summary>
         /// The VOB's children, except the logic VOBs VobService already created with the world (MarkCreatedEarly).
         /// </summary>
-        private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition)
+        private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition,
+            bool isRelativeToParent)
         {
             foreach (var childVob in vob.Children)
             {
                 if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
                     continue;
-                InitVob(childVob, childParent, worldPosition, false, vob);
+                InitVob(childVob, childParent, worldPosition, false, vob, isRelativeToParent);
             }
         }
 
@@ -569,24 +571,10 @@ namespace Gothic.Core.Domain.Vobs
         /// </summary>
         private void CreateFireVobs(List<IVirtualObject> vobs, GameObject parent, Vector3 worldPosition)
         {
-            // A fire tree's VOB positions are relative to the fire's slot (GetPfxPosition).
-            _fireTreeDepth++;
-            try
-            {
-                foreach (var vob in vobs)
-                {
-                    // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child
-                    // positioning.
-                    vob.Position = default;
-
-                    // Call normal mesh and Prefab loading logic
-                    InitVob(vob, parent, worldPosition, false);
-                }
-            }
-            finally
-            {
-                _fireTreeDepth--;
-            }
+            // A fire tree's VOB positions are relative to the fire's slot - the cache loader zeroed the roots and
+            // shifted their children (ResourceCacheService.TryGetWorld).
+            foreach (var vob in vobs)
+                InitVob(vob, parent, worldPosition, false, isRelativeToParent: true);
         }
 
         // A fire this close to light mapped polygons (houses, caves, mines) is indoors - it always burns.
@@ -1134,9 +1122,9 @@ namespace Gothic.Core.Domain.Vobs
             return controller.EffectName;
         }
 
-        private GameObject CreatePfx(IVirtualObject vob, GameObject parent)
+        private GameObject CreatePfx(IVirtualObject vob, GameObject parent, bool isRelativeToParent)
         {
-            return _meshService.CreateVobPfx(vob, GetPfxPosition(vob, parent),
+            return _meshService.CreateVobPfx(vob, GetPfxPosition(vob, parent, isRelativeToParent),
                 vob.Rotation.ToUnityQuaternion(), parent);
         }
 
@@ -1145,10 +1133,10 @@ namespace Gothic.Core.Domain.Vobs
         /// to the fire's slot - taken as world position, every fire, torch flame and smoke of the world burned at the
         /// world's origin (torches showed no fire at all).
         /// </summary>
-        private Vector3 GetPfxPosition(IVirtualObject vob, GameObject parent)
+        private Vector3 GetPfxPosition(IVirtualObject vob, GameObject parent, bool isRelativeToParent)
         {
             var position = vob.Position.ToUnityVector();
-            if (_fireTreeDepth > 0 && parent != null)
+            if (isRelativeToParent && parent != null)
                 position += parent.transform.position;
             return position;
         }

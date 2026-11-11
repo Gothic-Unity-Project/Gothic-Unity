@@ -112,6 +112,7 @@ namespace Gothic.Core.Services.Caches
                     }
 
                     // FIRE worlds aren't positioned at 0,0,0. We need to do it now, to have the correct parent-child positioning.
+                    // Only here, once per cached fire world - VobInitializerDomain places its VOBs relative to the slot.
                     fireWorld.RootObjects.ForEach(i => i.Position = default);
 
                     return fireWorld;
