@@ -79,6 +79,17 @@ namespace Gothic.Core.Const
             public const string GothicEmptyPath = "FontAsset/LiberationSans SDF empty";
         }
 
+        /// <summary>
+        /// Tuning values of fireplaces and torches (FireService, VobInitializerDomain.CreateFire).
+        /// </summary>
+        public static class Fires
+        {
+            // Further away from the camera than this (meters) a fire's effects are off.
+            public const float CullDistance = 60f;
+            // A fire this close (meters) to light mapped polygons (houses, caves, mines) is indoors - it always burns.
+            public const float IndoorRadius = 3f;
+        }
+
         // Unity shaders
         public static readonly Shader ShaderUnlit = Shader.Find("Universal Render Pipeline/Unlit");
         public static readonly Shader ShaderUnlitParticles = Shader.Find("Universal Render Pipeline/Particles/Unlit");

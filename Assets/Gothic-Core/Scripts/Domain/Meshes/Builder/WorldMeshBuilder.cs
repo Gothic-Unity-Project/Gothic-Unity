@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Gothic.Core.Adapters.UI.LoadingBars;
 using Gothic.Core.Domain.StaticCache;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Const;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
@@ -18,6 +19,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using ZenKit;
+using Logger = Gothic.Core.Logging.Logger;
 using Mesh = UnityEngine.Mesh;
 using Material = UnityEngine.Material;
 
@@ -44,7 +46,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new(VertexAttribute.Normal, VertexAttributeFormat.SNorm16, 4),
             new(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
-            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4)
+            new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
+            new(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4)
         };
 
         private static readonly VertexAttributeDescriptor[] _waterVertexLayout =
@@ -73,7 +76,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // Expanded (pre-deduplication, worst-case) vertex count, cached during the GetPolygon sweep in
             // GatherMaterialEntries so ExtractChunks can size its buffers without a second native sweep.
             public int ExpandedVertexCount;
+
+            // Has polygons of noCollDet materials (bushes, leaves) - its collider is built without them.
+            public bool HasNoCollisionPolygons;
         }
+
+        // Per material index: noCollDet - those polygons don't collide, like in the engine.
+        private bool[] _noCollisionMaterials;
+
+        private int _extractedPolygonCount;
+        private int _lightmappedPolygonCount;
 
         private struct ExtractionBuffers : IDisposable
         {
@@ -117,6 +129,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public async Task BuildAsync([CanBeNull] LoadingService loading)
         {
             RootGo.isStatic = true;
+            _stationaryLightsService.ClearWorldChunks();
 
             var chunks = CollectChunks(out var emptyChunkCount);
 
@@ -138,8 +151,14 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var lightMappedCells = new HashSet<long>();
             var floorCells = new Dictionary<long, int>();
             var materialSectors = _roomService.GetMaterialSectors(_mesh);
+            var lightmaps = _stationaryLightsService.PrepareWorldLightmaps(_mesh);
+            var lightmapCells = new Dictionary<long, float4>();
             var buffers = await Task.Run(() =>
-                ExtractChunks(chunks, materials, lightMappedCells, floorCells, materialSectors));
+                ExtractChunks(chunks, materials, lightMappedCells, floorCells, materialSectors, lightmaps,
+                    lightmapCells));
+            // Mostly light mapped (the Old Mine: 92%): VOBs far from any lightmap get the world's average light.
+            _stationaryLightsService.SetLightmapCells(lightmapCells,
+                _lightmappedPolygonCount > _extractedPolygonCount / 2);
             _stationaryLightsService.SetLightMappedCells(lightMappedCells);
             _roomService.SetFloorCells(floorCells);
             try
@@ -181,10 +200,58 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return chunks;
         }
 
+        /// <summary>
+        /// The chunk's polygons without noCollDet materials, fan triangulated like the render mesh.
+        /// </summary>
+        [CanBeNull]
+        private Mesh BuildChunkCollisionMesh(ChunkBuildData data)
+        {
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            var vertexByPosition = new Dictionary<int, int>();
+            foreach (var polygonId in data.Chunk.PolygonIds)
+            {
+                var polygon = _mesh.GetPolygon(polygonId);
+                if (_noCollisionMaterials[polygon.MaterialIndex])
+                    continue;
+
+                var positionIndices = polygon.PositionIndices;
+                int Corner(int fanIndex)
+                {
+                    var positionIndex = positionIndices[fanIndex];
+                    if (vertexByPosition.TryGetValue(positionIndex, out var vertex))
+                        return vertex;
+                    var position = _mesh.GetPosition(positionIndex);
+                    vertex = vertices.Count;
+                    vertices.Add(new Vector3(position.X, position.Y, position.Z) / 100f);
+                    vertexByPosition[positionIndex] = vertex;
+                    return vertex;
+                }
+
+                for (var p = 1; p < positionIndices.Count - 1; p++)
+                {
+                    triangles.Add(Corner(0));
+                    triangles.Add(Corner(p + 1));
+                    triangles.Add(Corner(p));
+                }
+            }
+
+            if (triangles.Count == 0)
+                return null;
+
+            var collisionMesh = new Mesh { name = "Collision" };
+            if (vertices.Count > ushort.MaxValue)
+                collisionMesh.indexFormat = IndexFormat.UInt32;
+            collisionMesh.SetVertices(vertices);
+            collisionMesh.SetTriangles(triangles, 0);
+            return collisionMesh;
+        }
+
         private MaterialEntry[] GatherMaterialEntries(List<ChunkBuildData> chunks)
         {
             var entries = new MaterialEntry[_mesh.MaterialCount];
             var gathered = new bool[_mesh.MaterialCount];
+            _noCollisionMaterials = new bool[_mesh.MaterialCount];
 
             foreach (var data in chunks)
             {
@@ -202,6 +269,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     gathered[materialIndex] = true;
 
                     var material = _mesh.GetMaterial(materialIndex);
+                    _noCollisionMaterials[materialIndex] = !material.IsCollidable();
 
                     var textureArrayIndex = -1;
                     var textureScale = Vector2.one;
@@ -234,8 +302,35 @@ namespace Gothic.Core.Domain.Meshes.Builder
             return entries;
         }
 
+        /// <summary>
+        /// The polygon's lightmap light at its center, summed into its cell - VOBs
+        /// in light mapped areas take it (StationaryLightsService.ApplyWorldLight).
+        /// </summary>
+        private void AddLightmapCell(IPolygon polygon, IReadOnlyList<int> positionIndices,
+            [CanBeNull] WorldLightmapDomain.LightmapData lightmaps, Dictionary<long, float4> lightmapCells)
+        {
+            var index = polygon.LightMapIndex;
+            if (lightmaps?.Pages == null || index >= lightmaps.Count)
+                return;
+
+            var center = float3.zero;
+            foreach (var positionIndex in positionIndices)
+            {
+                var position = _mesh.GetPosition(positionIndex);
+                center += new float3(position.X, position.Y, position.Z);
+            }
+            center /= positionIndices.Count;
+
+            if (!lightmaps.TrySample(index, center, out var light))
+                return;
+
+            var cell = StationaryLightsService.ToCell(new Vector3(center.x, center.y, center.z) / 100f);
+            lightmapCells[cell] = lightmapCells.TryGetValue(cell, out var sum) ? sum + light : light;
+        }
+
         private ExtractionBuffers ExtractChunks(List<ChunkBuildData> chunks, MaterialEntry[] materials,
-            HashSet<long> lightMappedCells, Dictionary<long, int> floorCells, int[] materialSectors)
+            HashSet<long> lightMappedCells, Dictionary<long, int> floorCells, int[] materialSectors,
+            [CanBeNull] WorldLightmapDomain.LightmapData lightmaps, Dictionary<long, float4> lightmapCells)
         {
             // Pass 1 - size the buffers from the expanded vertex counts cached by GatherMaterialEntries
             // (worst case, pre-deduplication). No second GetPolygon sweep needed here.
@@ -274,7 +369,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var worldVertexCursor = 0;
             var waterVertexCursor = 0;
             var indexCursor = 0;
-            var deduplication = new Dictionary<(int Position, int Feature, int Material), int>();
+            var deduplication = new Dictionary<(int Position, int Feature, int Material, int LightMap), int>();
 
             for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
             {
@@ -291,17 +386,23 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 {
                     var polygon = _mesh.GetPolygon(polygonId);
                     var positionIndices = polygon.PositionIndices;
+                    _extractedPolygonCount++;
+                    if (polygon.LightMapIndex >= 0)
+                        _lightmappedPolygonCount++;
                     var featureIndices = polygon.FeatureIndices;
                     var materialIndex = polygon.MaterialIndex;
                     var material = materials[materialIndex];
+                    if (_noCollisionMaterials[materialIndex])
+                        data.HasNoCollisionPolygons = true;
 
-                    // Gothic lit these (caves, houses) with lightmaps from static lights, which we don't render.
-                    // Their static lights are shown as runtime stationary lights instead (StationaryLightsService).
+                    // Gothic lit these (caves, houses) with lightmaps from its static lights: their cells get the
+                    // static lights as runtime lights (VOBs, NPCs) and the lightmap light (StationaryLightsService).
                     if (polygon.LightMapIndex >= 0 && positionIndices.Count > 0)
                     {
                         var corner = _mesh.GetPosition(positionIndices[0]);
                         lightMappedCells.Add(StationaryLightsService.ToCell(
                             new Vector3(corner.X, corner.Y, corner.Z) / 100f));
+                        AddLightmapCell(polygon, positionIndices, lightmaps, lightmapCells);
                     }
 
                     // Portal rooms (huts, houses): like OpenGothic, a room's polygons carry its sector in their
@@ -309,9 +410,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     if (materialIndex < materialSectors.Length && materialSectors[materialIndex] >= 0)
                         RoomService.MarkRoomFloor(_mesh, materialSectors[materialIndex], positionIndices, floorCells);
 
+                    var lightMapIndex = lightmaps != null && lightmaps.Contains(polygon.LightMapIndex)
+                        ? polygon.LightMapIndex
+                        : -1;
+
                     void AddCorner(int fanIndex)
                     {
-                        var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex);
+                        var key = (positionIndices[fanIndex], featureIndices[fanIndex], materialIndex, lightMapIndex);
                         if (!deduplication.TryGetValue(key, out var localIndex))
                         {
                             localIndex = vertexCount++;
@@ -340,6 +445,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
                             }
                             else
                             {
+                                var lightmapUv = float4.zero;
+                                if (lightMapIndex >= 0)
+                                {
+                                    lightmapUv = lightmaps.GetVertexUv(lightMapIndex,
+                                        new float3(position.X, position.Y, position.Z));
+                                }
+
                                 var light = (uint)feature.Light;
                                 buffers.Vertices[vertexStart + localIndex] = new WorldChunkVertex
                                 {
@@ -355,7 +467,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                                     // Gothic's baked vertex light, kept untouched: ARGB int -> RGBA byte order.
                                     Color = ((light >> 16) & 0xFF) | (((light >> 8) & 0xFF) << 8) |
                                             ((light & 0xFF) << 16) | (((light >> 24) & 0xFF) << 24),
-                                    Uv = uv
+                                    Uv = uv,
+                                    LightmapUv = lightmapUv
                                 };
                             }
                         }
@@ -499,9 +612,24 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 var meshFilter = chunkGo.AddComponent<MeshFilter>();
                 var meshRenderer = chunkGo.AddComponent<MeshRenderer>();
                 meshFilter.sharedMesh = mesh;
+                _stationaryLightsService.RegisterWorldChunk(meshRenderer);
 
                 PrepareMeshRenderer(meshRenderer, data.Type);
-                PrepareMeshCollider(chunkGo, mesh);
+                // Like the engine, noCollDet polygons (bushes, leaves on the level mesh) don't collide - they blocked
+                // the player before.
+                // Water chunks keep their full mesh as collider (water layer: swimming/water detection), so water is
+                // not excluded here - unlike VOB meshes.
+                if (data.HasNoCollisionPolygons &&
+                    data.Type != TextureCacheService.TextureArrayTypes.Water)
+                {
+                    var collisionMesh = BuildChunkCollisionMesh(data);
+                    if (collisionMesh != null)
+                        PrepareMeshCollider(chunkGo, collisionMesh);
+                }
+                else
+                {
+                    PrepareMeshCollider(chunkGo, mesh);
+                }
 
 #if UNITY_EDITOR
                 if (data.Type != TextureCacheService.TextureArrayTypes.Opaque)

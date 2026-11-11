@@ -120,7 +120,8 @@ time on every change.
 
 **Example:** `SaveGameService` orchestrates, the details live in `Domain/SaveGames/*`, the design in
 `Docs/save-game.md`. The NPC AI and fight classes are mapped in `Docs/npc-ai.md`, the VR melee ones in
-`Docs/vr-melee.md`, the VR ranged ones in `Docs/vr-ranged.md`.
+`Docs/vr-melee.md`, the VR ranged ones in `Docs/vr-ranged.md`, the lightmaps, lights and fires in
+`Docs/world-lighting.md`.
 
 ### 9. Leave it better, don't rewrite
 
@@ -163,6 +164,7 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 | change NPC AI or fights | see the map in `Docs/npc-ai.md` |
 | change VR melee (swings, fists, block, stab finish) | see the map in `Docs/vr-melee.md` |
 | change VR bows/crossbows (draw, shot, reload) | see the map in `Docs/vr-ranged.md` |
+| change world lights, lightmaps, fires, indoor sky | see the map in `Docs/world-lighting.md` |
 | add a rule about an NPC, item or VOB | a property on its model or an extension in `Extensions/` |
 | add a use case with state (loading, saving, dialogs) | a service in `Services/<Area>/`, registered in `ReflexProjectInstaller` |
 | move a big piece of logic out of a service | `Domain/<Area>/<Name>Domain.cs`, created by the service |

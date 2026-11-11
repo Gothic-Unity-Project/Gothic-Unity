@@ -689,8 +689,11 @@ namespace Gothic.Core.Services.Vobs
                     break;
             }
             
-            // Non-static lights aren't handled so far.
-            if (container.Vob.Type == VirtualObjectType.zCVobLight && !((ILight)container.Vob).LightStatic)
+            // Non-static (dynamic) lights shine at runtime like in the engine, switched off ones stay off. Before they
+            // were skipped: the light of a barbecue (BARBQ_SCAV) didn't reach the NPCs around it, Mroczne Tajemnice's
+            // abandoned mine (lit only by such AURA lights) was pitch black.
+            if (container.Vob.Type == VirtualObjectType.zCVobLight && !((ILight)container.Vob).LightStatic &&
+                !((ILight)container.Vob).On)
             {
                 return;
             }

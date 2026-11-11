@@ -477,5 +477,14 @@ namespace Gothic.Core.Extensions
                 or VirtualObjectType.zCTrigger or VirtualObjectType.zCMoverController
                 or VirtualObjectType.zCMessageFilter or VirtualObjectType.oCMobContainer;
         }
+
+        /// <summary>
+        /// Like the engine: polygons of materials with noCollDet don't collide (bushes, leaves). Water is not
+        /// handled here - the callers decide that.
+        /// </summary>
+        public static bool IsCollidable(this IMaterial material)
+        {
+            return !material.DisableCollision;
+        }
     }
 }

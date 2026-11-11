@@ -6,7 +6,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
     /// <summary>
     /// Interleaved vertex layout for opaque and transparent world chunks.
     /// Must match the VertexAttributeDescriptors inside WorldMeshBuilder:
-    /// Position (Float32x3), Normal (SNorm16x4), Color (UNorm8x4), TexCoord0 (Float32x4).
+    /// Position (Float32x3), Normal (SNorm16x4), Color (UNorm8x4), TexCoord0 (Float32x4), TexCoord1 (Float32x4).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct WorldChunkVertex
@@ -18,6 +18,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public short NormalW;
         public uint Color;
         public float4 Uv;
+        // Lightmap uv, lightmap array slice, -1 = light mapped polygon (Lit-World samples _WorldLightmaps), else 0.
+        public float4 LightmapUv;
     }
 
     /// <summary>

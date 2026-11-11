@@ -256,6 +256,10 @@ namespace Gothic.Core.Models.Config
         public GameTimeService.GameTimeInterval SunUpdateInterval = GameTimeService.GameTimeInterval.EveryGameMinute;
         public Color AmbientLightColor = new(0.1f, 0.1f, 0.1f, 1);
 
+        [Tooltip("Light mapped world polygons (caves, mines, houses) show Gothic's lightmaps like the engine - " +
+                 "without, they have only their dim/black vertex light. One more texture array (Quest memory).")]
+        public bool EnableWorldLightmaps = true;
+
 
         /**
          * ##########

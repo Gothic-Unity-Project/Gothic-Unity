@@ -34,6 +34,7 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly FireService _fireService;
 
         /// <summary>
         /// Doors use VR hinge physics and chests their lid physics - not the mob/trigger path.
@@ -59,6 +60,10 @@ namespace Gothic.Core.Services.Vobs
         {
             var vm = _gameStateService.GothicVm;
             if (loader.Container.Vob is not IInteractiveObject mob || vm == null)
+                return;
+
+            // Touching a fireplace/torch lights it or puts it out until its mob routine switches (FireService).
+            if (mob is IFire && _fireService.TryToggle(loader.gameObject))
                 return;
 
             var condFunc = mob.ConditionFunction ?? "";

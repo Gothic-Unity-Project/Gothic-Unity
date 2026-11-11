@@ -141,6 +141,8 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(StoryService));
             containerBuilder.AddSingleton(typeof(StationaryLightsService));
             containerBuilder.AddSingleton(typeof(WindService));
+            containerBuilder.AddSingleton(typeof(FireService));
+            containerBuilder.AddSingleton(typeof(MobRoutineService));
             containerBuilder.AddSingleton(typeof(PhysicsService));
             containerBuilder.AddSingleton(typeof(RoomService));
             containerBuilder.AddSingleton(typeof(LedgeService));

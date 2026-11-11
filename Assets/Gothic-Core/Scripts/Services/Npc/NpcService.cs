@@ -39,8 +39,6 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService : ILazyInitQueue
     {
-        public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
-
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly ConfigService _configService;
@@ -206,9 +204,6 @@ namespace Gothic.Core.Services.Npc
 
         public async Task CreateWorldNpcs(LoadingService loading)
         {
-            MobRoutines.ClearAndReleaseMemory();
-            MobRoutines = new();
-            
             // STARTUP_* runs only the first time a world is entered (new game or a world not inside the save yet).
             // Otherwise, the NPCs are restored from the save game / the state stored when we left the world.
             if (_saveGameService.IsWorldEnteredFirstTime)
