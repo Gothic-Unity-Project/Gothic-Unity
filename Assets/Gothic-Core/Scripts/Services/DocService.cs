@@ -34,6 +34,11 @@ namespace Gothic.Core.Services
         }
 
         /// <summary>
+        /// The next Doc_Show attaches to go (a mob's "[onStateFunc]_S1", e.g. a bookstand's page), null = not anymore.
+        /// </summary>
+        public void SetDocumentTarget(GameObject go) => _pendingItemGo = go;
+
+        /// <summary>
         /// Reads a document item: runs its on_state[0] (Doc_Create, Doc_Print*, Doc_Show) and Doc_Show attaches the
         /// document to itemGo. Returns false if the item has no use function or the call failed.
         /// </summary>

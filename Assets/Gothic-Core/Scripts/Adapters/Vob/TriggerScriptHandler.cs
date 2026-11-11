@@ -1,6 +1,7 @@
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vm;
 using Reflex.Attributes;
 using UnityEngine;
@@ -9,7 +10,7 @@ using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Vob
 {
-    public class TriggerScriptHandler : MonoBehaviour
+    public class TriggerScriptHandler : MonoBehaviour, IDamageable
     {
         [Inject] private readonly VmService _vmService;
 
@@ -18,6 +19,22 @@ namespace Gothic.Core.Adapters.Vob
         public void Init(ITriggerScript triggerScript)
         {
             _triggerScript = triggerScript;
+            if (_triggerScript.ReactToOnDamage)
+                DamageTargets.Register(transform);
+        }
+
+        private void OnDestroy() => DamageTargets.Unregister(transform);
+
+        /// <summary>
+        /// Hit by an arrow, bolt or spell (reactToOnDamage).
+        /// </summary>
+        public void OnDamage(NpcContainer attacker)
+        {
+            if (!_triggerScript.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[TriggerScript] '{_triggerScript.Function}' hit by a projectile", LogCat.Vob);
+            Trigger();
         }
 
         /// <summary>

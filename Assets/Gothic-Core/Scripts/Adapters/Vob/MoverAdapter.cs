@@ -3,6 +3,7 @@ using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
@@ -20,13 +21,16 @@ namespace Gothic.Core.Adapters.Vob
     /// or sends a trigger event if the target isn't a mover.
     /// Timing follows OpenGothic (common/world/triggers/movetrigger.cpp).
     /// </summary>
-    public class MoverAdapter : MonoBehaviour
+    public class MoverAdapter : MonoBehaviour, IDamageable
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
 
         // Below this distance (in cm, like Gothic) a segment counts as rotation-only (OpenGothic threshold).
         private const float _rotationOnlyThresholdCm = 0.01f;
+        // A VOB this close to its key (m squared, degrees) stands on it.
+        private const float _sameKeyPositionSqr = 0.0001f;
+        private const float _sameKeyDegrees = 1f;
 
         // OpenGothic: rotation speeds of slow movers are scaled up, otherwise e.g. temple doors take minutes.
         private const float _lowRotationSpeed = 0.006f;
@@ -79,6 +83,7 @@ namespace Gothic.Core.Adapters.Vob
         private void OnDestroy()
         {
             GlobalEventDispatcher.StoreWorldStateStart.RemoveListener(StoreMoveState);
+            DamageTargets.Unregister(transform);
         }
 
         // Moved to another parent: the parent mover is looked up again.
@@ -168,6 +173,8 @@ namespace Gothic.Core.Adapters.Vob
         {
             _mover = mover;
             _chainTarget = chainTarget;
+            if (_mover.ReactToOnDamage)
+                DamageTargets.Register(transform);
 
             var raw = mover.Keyframes;
             _keyframes = new (Vector3, Quaternion)[raw.Count];
@@ -178,6 +185,8 @@ namespace Gothic.Core.Adapters.Vob
                 var rot = new Quaternion(r.X, r.Y, r.Z, -r.W); // Gothic→Unity: negate W, same as AnimationService
                 _keyframes[i] = (pos, rot);
             }
+
+            MakeKeyframesRelativeToVob(mover);
 
             _segmentSeconds = new float[_keyframes.Length];
             for (var i = 0; i < _keyframes.Length; i++)
@@ -191,6 +200,56 @@ namespace Gothic.Core.Adapters.Vob
 
             Logger.Log($"[MoverAdapter] {mover.Name} init - {_keyframes.Length} keyframes, speed={mover.Speed}",
                 LogCat.Vob);
+        }
+
+        /// <summary>
+        /// The engine moves a mover by its keyframes relative to where the VOB stands (OpenGothic MoveTrigger: pos0 =
+        /// vob * inverse(keyframe[0]), shown at pos0 * keyframe[i]). G2 Irdorath's gates stand away from their keyframes.
+        /// Our saves keep the VOB's world file position (key 0). A Gothic save game stores where the mover stands - on a
+        /// key it reached, nothing to do.
+        /// </summary>
+        private void MakeKeyframesRelativeToVob(IMover mover)
+        {
+            if (_keyframes.Length == 0)
+                return;
+
+            var vobPosition = mover.Position.ToUnityVector();
+            var reachedKey = mover.ActKeyframe;
+            if (reachedKey > 0 && reachedKey < _keyframes.Length &&
+                (vobPosition - _keyframes[reachedKey].pos).sqrMagnitude < _sameKeyPositionSqr)
+                return;
+
+            var (keyPosition, keyRotation) = _keyframes[0];
+            var rotationOffset = mover.Rotation.ToUnityQuaternion() * Quaternion.Inverse(keyRotation);
+            var positionOffset = vobPosition - keyPosition;
+            var rotationAngle = Quaternion.Angle(rotationOffset, Quaternion.identity);
+            if (positionOffset.sqrMagnitude < _sameKeyPositionSqr && rotationAngle < _sameKeyDegrees)
+                return;
+
+            // The rotation conversions of keyframes and VOB differ slightly - only a real difference turns them.
+            if (rotationAngle < _sameKeyDegrees)
+                rotationOffset = Quaternion.identity;
+
+            for (var i = 0; i < _keyframes.Length; i++)
+            {
+                var (position, rotation) = _keyframes[i];
+                _keyframes[i] = (vobPosition + rotationOffset * (position - keyPosition), rotationOffset * rotation);
+            }
+
+            Logger.Log($"[MoverAdapter] {mover.Name} keyframes relative to the VOB - offset {positionOffset} " +
+                       $"({positionOffset.magnitude:F2} m), {rotationAngle:F1} deg", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Hit by an arrow, bolt or spell: a mover with reactToOnDamage acts like it was triggered.
+        /// </summary>
+        public void OnDamage(NpcContainer attacker)
+        {
+            if (_mover == null || !_mover.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[MoverAdapter] {_mover.Name} hit by a projectile", LogCat.Vob);
+            OnTrigger();
         }
 
         /// <summary>

@@ -1,6 +1,7 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
+using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Player;
@@ -9,11 +10,14 @@ using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.VR.Adapters.Vob;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -32,6 +36,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
@@ -50,6 +55,8 @@ namespace Gothic.VR.Adapters
         private Renderer _cachedObjectRenderer;
         private bool _isNpc;
         private VrInteractable _interactable;
+        // A grab toggles a lidless container once - two hands or a re-grab while held don't.
+        private bool _isContainerActivated;
 
         private void Awake()
         {
@@ -59,6 +66,7 @@ namespace Gothic.VR.Adapters
             _interactable.HoverEntered += OnHoverEnter;
             _interactable.HoverExited += OnHoverExit;
             _interactable.Grabbed += OnGrabbed;
+            _interactable.Released += OnReleased;
 
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
@@ -73,6 +81,23 @@ namespace Gothic.VR.Adapters
         private void Start()
         {
             _nameCanvas.SetActive(false);
+            RefreshGrabColliders();
+        }
+
+        /// <summary>
+        /// The grabbable collects its colliders in Awake - when the mob is instantiated, before its mesh is built. Mobs
+        /// whose mesh sits on a child bone (G2 Irdorath's touch plates: BIP01 TOUCHPLATE -> BIP01 PLATE) only had the
+        /// prefab's empty MeshCollider, nothing to hover or grab.
+        /// </summary>
+        private void RefreshGrabColliders()
+        {
+            if (_interactable == null || _isNpc || GetComponent<VRVobItem>() != null)
+                return;
+
+            var before = _interactable.Colliders.Count;
+            _interactable.SetupColliders(isChildLinked: true);
+            if (_interactable.Colliders.Count != before)
+                Logger.Log($"[VRFocus] '{name}' grab colliders {before} -> {_interactable.Colliders.Count}", LogCat.VR);
         }
 
         private void OnDestroy()
@@ -83,6 +108,7 @@ namespace Gothic.VR.Adapters
             _interactable.HoverEntered -= OnHoverEnter;
             _interactable.HoverExited -= OnHoverExit;
             _interactable.Grabbed -= OnGrabbed;
+            _interactable.Released -= OnReleased;
         }
 
         /// <summary>
@@ -94,8 +120,23 @@ namespace Gothic.VR.Adapters
             if (!args.IsHandOrDistance)
                 return;
 
-            if (GetComponentInParent<VobLoader>()?.Container?.Vob is ZenKit.Vobs.IInteractiveObject mob)
-                _heroPerceptionService.OnHeroUsesMob(mob);
+            var vobLoader = GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container?.Vob is not ZenKit.Vobs.IInteractiveObject mob)
+                return;
+
+            _heroPerceptionService.OnHeroUsesMob(mob);
+
+            // Using the mob itself (wheels, levers, shrines, beds, ...) is VRMobInteraction's - containers aren't.
+            if (_isContainerActivated || mob is not ZenKit.Vobs.IContainer container)
+                return;
+
+            _isContainerActivated = true;
+            _vrPlayerService.TryToggleStaticContainerLoot(vobLoader, container);
+        }
+
+        private void OnReleased(VrGrabArgs _)
+        {
+            _isContainerActivated = false;
         }
 
         private void OnHoverEnter(VrGrabArgs _)

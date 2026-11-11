@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
+using Gothic.VR.Adapters.Vob;
+using Gothic.VR.Adapters.Vob.Container;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
@@ -35,6 +37,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
+        [Inject] private readonly DocService _docService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
 
@@ -460,7 +463,57 @@ namespace Gothic.VR.Services
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
-            _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
+            if (TryCloseMobDocument(loader))
+                return;
+
+            _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader),
+                () => BeginMobDocument(loader));
+        }
+
+        /// <summary>
+        /// A container without a lid (mummy) is a plain mob: the click shows/hides a loot backpack like a corpse.
+        /// Chests with a lid (VRVobContainer) open physically.
+        /// </summary>
+        public void TryToggleStaticContainerLoot(VobLoader loader, IContainer container)
+        {
+            if (loader.GetComponentInChildren<VRVobContainer>(true) != null)
+                return;
+
+            if (!loader.TryGetComponent<VRStaticContainerLoot>(out var loot))
+                loot = loader.gameObject.AddComponent<VRStaticContainerLoot>();
+            loot.Toggle(container);
+        }
+
+        /// <summary>
+        /// An open page (bookstand) closes on the next touch.
+        /// </summary>
+        private bool TryCloseMobDocument(VobLoader loader)
+        {
+            var openDocument = loader.transform.Find(VRMobDocument.AnchorName);
+            if (openDocument == null)
+                return false;
+
+            UnityEngine.Object.Destroy(openDocument.gameObject);
+            Logger.Log($"[MobDialog] Closed the page of '{loader.name}'.", LogCat.Dialog);
+            return true;
+        }
+
+        /// <summary>
+        /// A page next to the mob for a Doc_Show of its "[onStateFunc]_S1" (bookstands). Removed again if the script
+        /// showed nothing.
+        /// </summary>
+        private Action BeginMobDocument(VobLoader loader)
+        {
+            var document = VRMobDocument.Create(loader.gameObject);
+            _docService.SetDocumentTarget(document.gameObject);
+            return () =>
+            {
+                _docService.SetDocumentTarget(null);
+                if (document.HasPages)
+                    Logger.Log($"[MobDialog] '{loader.name}' shows a page (Doc_Show).", LogCat.Dialog);
+                else
+                    UnityEngine.Object.Destroy(document.gameObject);
+            };
         }
 
         /// <summary>
@@ -474,6 +527,11 @@ namespace Gothic.VR.Services
             var hasBounds = false;
             foreach (var mobRenderer in loader.GetComponentsInChildren<Renderer>())
             {
+                // VOBs nested below the mob have their own loader. One of Mroczne Tajemnice's (a Gothic 1 mod) anvils has
+                // three more below it - the anchor landed hundreds of meters away ("hero farther than 5 m").
+                if (mobRenderer.GetComponentInParent<VobLoader>(true) != loader)
+                    continue;
+
                 if (!hasBounds)
                 {
                     bounds = mobRenderer.bounds;
