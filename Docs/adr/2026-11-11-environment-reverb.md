@@ -1,6 +1,5 @@
 # ADR: Echo in caves, mines and temples
 
-- Status: proposed
 - Date: 2026-11-11
 - Technical details: Docs/architecture.md
 
