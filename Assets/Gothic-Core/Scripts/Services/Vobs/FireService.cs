@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -22,15 +21,12 @@ namespace Gothic.Core.Services.Vobs
     {
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly MobRoutineService _mobRoutineService;
 
         private const float _checkSeconds = 1f;
         private const float _cullDistance = 60f;
 
         private readonly List<FireContainer> _fires = new();
-        // Resolved when the first fire needs it, like PlayerService does: injected, it closed a cycle (VobService ->
-        // VobInitializerDomain -> FireService -> NpcService -> PlayerService -> NpcInventoryService -> VobService).
-        private NpcService _npcService;
-        private NpcService NpcService => _npcService ??= ReflexProjectInstaller.DIContainer.Resolve<NpcService>();
         private Coroutine _checkRoutine;
 
         public FireService()
@@ -61,7 +57,7 @@ namespace Gothic.Core.Services.Vobs
             if (fire == null)
                 return false;
 
-            var routineState = NpcService.GetMobRoutineState(fire.Scheme, _gameTimeService.GetCurrentDateTime());
+            var routineState = _mobRoutineService.GetState(fire.Scheme, _gameTimeService.GetCurrentDateTime());
             fire.ManualLit = !(fire.ManualLit ?? IsRoutineLit(fire, routineState));
             fire.ManualRoutineState = routineState;
             Logger.Log($"[Fire] '{fire.Go.name}' {(fire.ManualLit.Value ? "lit" : "put out")} by the hero", LogCat.Vob);
@@ -130,7 +126,7 @@ namespace Gothic.Core.Services.Vobs
 
         private void Refresh(FireContainer fire, Vector3? cameraPosition)
         {
-            var routineState = NpcService.GetMobRoutineState(fire.Scheme, _gameTimeService.GetCurrentDateTime());
+            var routineState = _mobRoutineService.GetState(fire.Scheme, _gameTimeService.GetCurrentDateTime());
             if (fire.ManualLit.HasValue && routineState != fire.ManualRoutineState)
                 fire.ManualLit = null;
 

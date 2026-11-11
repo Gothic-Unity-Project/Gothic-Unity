@@ -39,36 +39,6 @@ namespace Gothic.Core.Services.Npc
     /// </summary>
     public class NpcService : ILazyInitQueue
     {
-        public Dictionary<string, List<(int hour, int minute, int status)>> MobRoutines = new();
-
-        /// <summary>
-        /// The state the scripts' mob routine of a scheme (Wld_SetMobRoutine) gives at the time: the last switch at or
-        /// before it, wrapping over midnight. -1 without a routine.
-        /// </summary>
-        public int GetMobRoutineState(string scheme, System.DateTime time)
-        {
-            if (string.IsNullOrEmpty(scheme) || !MobRoutines.TryGetValue(scheme, out var entries) || entries.Count == 0)
-                return -1;
-
-            var nowMinutes = time.Hour * 60 + time.Minute;
-            int? bestBefore = null, bestBeforeState = null, latest = null, latestState = null;
-            foreach (var (hour, minute, status) in entries)
-            {
-                var minutes = hour * 60 + minute;
-                if (minutes <= nowMinutes && (bestBefore == null || minutes >= bestBefore))
-                {
-                    bestBefore = minutes;
-                    bestBeforeState = status;
-                }
-                if (latest == null || minutes >= latest)
-                {
-                    latest = minutes;
-                    latestState = status;
-                }
-            }
-            return bestBeforeState ?? latestState ?? -1;
-        }
-
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly VmService _vmService;
         [Inject] private readonly ConfigService _configService;
@@ -234,9 +204,6 @@ namespace Gothic.Core.Services.Npc
 
         public async Task CreateWorldNpcs(LoadingService loading)
         {
-            MobRoutines.ClearAndReleaseMemory();
-            MobRoutines = new();
-            
             // STARTUP_* runs only the first time a world is entered (new game or a world not inside the save yet).
             // Otherwise, the NPCs are restored from the save game / the state stored when we left the world.
             if (_saveGameService.IsWorldEnteredFirstTime)

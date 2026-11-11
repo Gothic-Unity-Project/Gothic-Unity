@@ -43,6 +43,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly MobRoutineService _mobRoutineService;
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly RoomService _roomService;
         [Inject] private readonly SkyService _skyService;
@@ -317,9 +318,7 @@ namespace Gothic.Core.Domain.Vm
 
         public void Wld_SetMobRoutine(int hour, int minute, string name, int status)
         {
-            // FIXME - Do more with these MobRoutines.
-            _npcService.MobRoutines.TryAdd(name, new());
-            _npcService.MobRoutines[name].Add((hour, minute, status));
+            _mobRoutineService.Add(name, hour, minute, status);
         }
 
         public void Wld_AssignRoomToGuild(string room, int guild)
