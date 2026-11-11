@@ -1,6 +1,5 @@
 # ADR: NPC AI - fights, real projectiles, NavMesh paths and adapter ports
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: FightService, NpcAiService, NpcInventoryService, ProjectileService, NpcNavMeshService, NpcWaterService, GroundSoundService, ParticleService, VmExternalDomain, Domain/Npc/Actions (Core)
 

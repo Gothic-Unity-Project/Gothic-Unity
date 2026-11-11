@@ -1,6 +1,5 @@
 # ADR: NPC item functions don't print on the player's screen
 
-- Status: proposed
 - Date: 2026-11-11
 - Technical details: Docs/architecture.md
 

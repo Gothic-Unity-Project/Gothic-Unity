@@ -1,6 +1,5 @@
 # ADR: One log file per session
 
-- Status: proposed
 - Date: 2026-11-11
 - Technical details: CLAUDE.md (Logging)
 

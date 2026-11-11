@@ -1,6 +1,5 @@
 # ADR: The world around the player is built before the view opens
 
-- Status: proposed
 - Date: 2026-10-28
 
 ## Context

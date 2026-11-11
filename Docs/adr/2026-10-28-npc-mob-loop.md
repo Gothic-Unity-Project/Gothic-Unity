@@ -1,6 +1,5 @@
 # ADR: NPCs at a bench, stove or workbench stay there instead of starting over
 
-- Status: accepted (PR #463)
 - Date: 2026-10-28
 
 ## Context

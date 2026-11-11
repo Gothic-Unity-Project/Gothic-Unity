@@ -1,6 +1,5 @@
 # ADR: NPCs in crowded places without stutter
 
-- Status: proposed
 - Date: 2026-10-28
 
 ## Context
