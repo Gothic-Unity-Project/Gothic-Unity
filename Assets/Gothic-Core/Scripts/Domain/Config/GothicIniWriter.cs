@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Gothic.Core.Logging;
@@ -68,6 +69,13 @@ namespace Gothic.Core.Domain.Config
             bool isCreateSettingAllowed)
         {
             var lines = File.ReadAllLines(iniFilePath).ToList();
+            if (isCreateSettingAllowed)
+            {
+                WriteSettingInSection(lines, section, key, value);
+                File.WriteAllLines(iniFilePath, lines);
+                return;
+            }
+
             var sectionFound = false;
             var keyFound = false;
             
@@ -115,6 +123,61 @@ namespace Gothic.Core.Domain.Config
             
             // Write full file now
             File.WriteAllLines(iniFilePath, lines);
+        }
+
+        /// <summary>
+        /// A key that may be created goes to the end of its own section. Appending it to the end of the file put it
+        /// into the last section, where it wasn't found the next time: every change added another line (marvinPanel
+        /// 20 times), and the loader takes the last value of a key in the whole file. Duplicates in the own section
+        /// and stray copies in other VR sections (from that bug) are removed.
+        /// </summary>
+        private static void WriteSettingInSection(List<string> lines, string section, string key, string value)
+        {
+            var currentSection = string.Empty;
+            var insertAt = -1;
+            var isKeyWritten = false;
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i].Trim();
+                if (line.StartsWith("[") && line.EndsWith("]"))
+                {
+                    currentSection = line.Substring(1, line.Length - 2);
+                    continue;
+                }
+
+                var isOwnSection = currentSection.Equals(section, StringComparison.OrdinalIgnoreCase);
+                if (isOwnSection && line.Length > 0)
+                    insertAt = i + 1;
+
+                var separator = line.IndexOf('=');
+                if (separator <= 0 ||
+                    !line.Substring(0, separator).Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (isOwnSection && !isKeyWritten)
+                {
+                    lines[i] = $"{key}={value}";
+                    isKeyWritten = true;
+                }
+                else if (isOwnSection || currentSection.Contains("VR"))
+                {
+                    lines.RemoveAt(i);
+                    if (insertAt > i)
+                        insertAt--;
+                    i--;
+                }
+            }
+
+            if (isKeyWritten)
+                return;
+
+            if (insertAt < 0)
+            {
+                lines.Add($"[{section}]");
+                lines.Add($"{key}={value}");
+                return;
+            }
+            lines.Insert(insertAt, $"{key}={value}");
         }
     }
 }
