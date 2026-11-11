@@ -269,7 +269,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     gathered[materialIndex] = true;
 
                     var material = _mesh.GetMaterial(materialIndex);
-                    _noCollisionMaterials[materialIndex] = material.DisableCollision;
+                    _noCollisionMaterials[materialIndex] = !material.IsCollidable();
 
                     var textureArrayIndex = -1;
                     var textureScale = Vector2.one;
@@ -617,6 +617,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 PrepareMeshRenderer(meshRenderer, data.Type);
                 // Like the engine, noCollDet polygons (bushes, leaves on the level mesh) don't collide - they blocked
                 // the player before.
+                // Water chunks keep their full mesh as collider (water layer: swimming/water detection), so water is
+                // not excluded here - unlike VOB meshes.
                 if (data.HasNoCollisionPolygons &&
                     data.Type != TextureCacheService.TextureArrayTypes.Water)
                 {

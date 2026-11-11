@@ -782,7 +782,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
             var vertexByPosition = new Dictionary<int, int>();
             foreach (var subMesh in mrm.SubMeshes)
             {
-                if (subMesh.Material.DisableCollision || subMesh.Material.Group == MaterialGroup.Water)
+                if (!subMesh.Material.IsCollidable() || subMesh.Material.Group == MaterialGroup.Water)
                     continue;
 
                 var wedges = subMesh.Wedges;
