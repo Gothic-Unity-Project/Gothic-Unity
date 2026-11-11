@@ -69,6 +69,14 @@ namespace Gothic.Core.Domain.Vobs
         public void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
             IVirtualObject parentVob = null, bool isRelativeToParent = false)
         {
+            InitVob(vob, parent, parentWorldPosition, isRootVob, parentVob, isRelativeToParent, Pose.identity);
+        }
+
+        /// <param name="parentVobPose">The stored world pose (Gothic's) of the VOB the parent GO stands for - a child
+        /// VOB keeps its offset to it.</param>
+        private void InitVob(IVirtualObject vob, GameObject parent, Vector3 parentWorldPosition, bool isRootVob,
+            IVirtualObject parentVob, bool isRelativeToParent, Pose parentVobPose)
+        {
             var worldPosition = parentWorldPosition + vob.Position.ToUnityVector();
             GameObject go = null;
 
@@ -254,7 +262,7 @@ namespace Gothic.Core.Domain.Vobs
                     // Their children are created anyway: G2 Irdorath's cutscene cameras carry the trigger lists that
                     // move its pillars and gates. Root ones: VobService made their children roots already.
                     if (!isRootVob)
-                        InitChildren(vob, parent, worldPosition, isRelativeToParent);
+                        InitChildren(vob, parent, worldPosition, isRelativeToParent, parentVobPose);
                     return;
                 case VirtualObjectType.zCVobLevelCompo:
                     // Nothing to do.
@@ -279,16 +287,23 @@ namespace Gothic.Core.Domain.Vobs
             if (!go)
                 return;
 
+            var ownPose = new Pose(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+
             // A child VOB's position is in world space like a root's (Gothic stores it so) - it stayed at its parent's
             // origin: Mroczne Tajemnice's sacks on a cart lay 17 m away next to their parent sack, The Chronicles Of
             // Myrtana's intro ship had all its crates in one pile. A fire tree's VOBs are relative to its slot.
             if (!isRootVob && !isRelativeToParent)
             {
-                go.transform.SetPositionAndRotation(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
-                // Its lights (a fire tree's, a child light) took their position and nearby renderers when they were
-                // built - at the parent: a child fireplace lit its parent's surroundings.
-                foreach (var light in go.GetComponentsInChildren<StationaryLight>(true))
+                PlaceAtOffsetToParent(go, parent, parentVobPose, ownPose);
+
+                // Its lights took their position and nearby renderers when they were built - at the parent: a child
+                // fireplace lit its parent's surroundings. Only a light and a fire (its fire tree) carry lights yet,
+                // its own child VOBs are built after this.
+                if (vob.Type == VirtualObjectType.zCVobLight && go.TryGetComponent<StationaryLight>(out var light))
                     light.Refresh();
+                else if (vob.Type == VirtualObjectType.oCMobFire)
+                    foreach (var fireLight in go.GetComponentsInChildren<StationaryLight>(true))
+                        fireLight.Refresh();
             }
 
             // Trees and grass with Gothic's wind mode sway - WindService decides which.
@@ -302,26 +317,56 @@ namespace Gothic.Core.Domain.Vobs
                 VirtualObjectType.zCMover or VirtualObjectType.zCPFXController))
                 _stationaryLightsService.ApplyWorldLight(go);
 
-            // Trigger zones and scripts are scaled to their bounding box - their children are created next to them.
-            var childParent = vob.Type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
-                VirtualObjectType.oCTriggerScript
-                ? parent
-                : go;
-            InitChildren(vob, childParent, worldPosition, isRelativeToParent);
+            // Trigger zones, trigger scripts, touch damage, music zones and level changes are scaled to their bounding
+            // box - their children are created next to them, below the GO that stands for their parent (a root's
+            // loader stands at its own pose).
+            if (IsScaledToBoundingBox(vob.Type))
+                InitChildren(vob, parent, worldPosition, isRelativeToParent, isRootVob ? ownPose : parentVobPose);
+            else
+                InitChildren(vob, go, worldPosition, isRelativeToParent, ownPose);
         }
 
         /// <summary>
         /// The VOB's children, except the logic VOBs VobService already created with the world (MarkCreatedEarly).
         /// </summary>
+        /// <param name="childParentVobPose">The stored world pose of the VOB childParent stands for.</param>
         private void InitChildren(IVirtualObject vob, GameObject childParent, Vector3 worldPosition,
-            bool isRelativeToParent)
+            bool isRelativeToParent, Pose childParentVobPose)
         {
             foreach (var childVob in vob.Children)
             {
                 if (childVob.Id != 0 && _createdEarlyVobIds.Contains(childVob.Id))
                     continue;
-                InitVob(childVob, childParent, worldPosition, false, vob, isRelativeToParent);
+                InitVob(childVob, childParent, worldPosition, false, vob, isRelativeToParent, childParentVobPose);
             }
+        }
+
+        /// <summary>
+        /// Gothic stores a child VOB in world space and keeps its offset to the parent's stored pose (OpenGothic:
+        /// local = inverse(parent) * child). That offset is applied to where the parent GO is now: a mover is already
+        /// at its first key (MoverAdapter), a save game stored it and its children where it had moved to.
+        /// </summary>
+        private static void PlaceAtOffsetToParent(GameObject go, GameObject parent, Pose parentVobPose, Pose vobPose)
+        {
+            var inverseParentRotation = Quaternion.Inverse(parentVobPose.rotation);
+            var localPosition = inverseParentRotation * (vobPose.position - parentVobPose.position);
+            var localRotation = inverseParentRotation * vobPose.rotation;
+
+            // Position and rotation only - a GO between parent and go, or a parent's scale, doesn't change the offset.
+            var parentTransform = parent.transform;
+            go.transform.SetPositionAndRotation(parentTransform.position + parentTransform.rotation * localPosition,
+                parentTransform.rotation * localRotation);
+        }
+
+        /// <summary>
+        /// The GO is moved to the center of the VOB's bounding box and scaled to it.
+        /// </summary>
+        private static bool IsScaledToBoundingBox(VirtualObjectType type)
+        {
+            return type is VirtualObjectType.zCTrigger or VirtualObjectType.zCTriggerUntouch or
+                VirtualObjectType.oCTriggerScript or VirtualObjectType.oCTouchDamage or
+                VirtualObjectType.oCZoneMusic or VirtualObjectType.oCZoneMusicDefault or
+                VirtualObjectType.oCTriggerChangeLevel;
         }
 
         /// <summary>
