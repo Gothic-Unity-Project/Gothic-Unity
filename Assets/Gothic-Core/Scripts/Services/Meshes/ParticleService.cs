@@ -11,6 +11,7 @@ using Gothic.Core.Services.Npc;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Meshes
@@ -184,6 +185,8 @@ namespace Gothic.Core.Services.Meshes
             var seconds = fx.TryGetUserFloat(1, out var userSeconds)
                 ? userSeconds
                 : ZenGineConst.EarthquakeDefaultSeconds;
+            WarnIfUnparsable(fxName, fx, 0);
+            WarnIfUnparsable(fxName, fx, 1);
             if (!string.IsNullOrEmpty(fx.SfxId))
             {
                 var clip = _audioService.GetRandomSoundClip(fx.SfxId);
@@ -192,6 +195,15 @@ namespace Gothic.Core.Services.Meshes
             }
             Logger.Log($"[VisualFx] {fxName}: earthquake {radius:F0} m, {seconds:F1} s", LogCat.Mesh);
             GlobalEventDispatcher.VisualFxEarthquake.Invoke(position, radius, seconds);
+        }
+
+        // Empty user string = default is intended. Filled but not a number = script typo, tell the developer.
+        private static void WarnIfUnparsable(string fxName, EffectBaseInstance fx, int index)
+        {
+            var raw = fx.GetUserString(index);
+            if (!string.IsNullOrEmpty(raw) && !fx.TryGetUserFloat(index, out _))
+                Logger.LogWarning($"[VisualFx] {fxName}: userString[{index}] '{raw}' is not a number, using default.",
+                    LogCat.Mesh);
         }
 
         private static float GetPlaySeconds(GameObject root)
