@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -16,7 +17,7 @@ namespace Gothic.Core.Adapters.Vob
     /// <summary>
     /// Drives zCMover movement along its ZenKit keyframes (gates, drawbridges, lifts), segment by segment.
     /// Open() moves to the last keyframe, Close() back to the first one, Toggle() switches between both.
-    /// Triggered by mobs (wheels, levers) via VRPlayerService.HandleMobGrab and by the trigger system
+    /// Triggered by mobs (wheels, levers) via VRMobUseService.HandleMobGrab and by the trigger system
     /// (VobService.DispatchTrigger). When it arrives, it opens/closes its chained target mover(s) as well,
     /// or sends a trigger event if the target isn't a mover.
     /// Timing follows OpenGothic (common/world/triggers/movetrigger.cpp).
@@ -28,9 +29,6 @@ namespace Gothic.Core.Adapters.Vob
 
         // Below this distance (in cm, like Gothic) a segment counts as rotation-only (OpenGothic threshold).
         private const float _rotationOnlyThresholdCm = 0.01f;
-        // A VOB this close to its key (m squared, degrees) stands on it.
-        private const float _sameKeyPositionSqr = 0.0001f;
-        private const float _sameKeyDegrees = 1f;
 
         // OpenGothic: rotation speeds of slow movers are scaled up, otherwise e.g. temple doors take minutes.
         private const float _lowRotationSpeed = 0.006f;
@@ -202,38 +200,14 @@ namespace Gothic.Core.Adapters.Vob
         }
 
         /// <summary>
-        /// The engine moves a mover by its keyframes relative to where the VOB stands (OpenGothic MoveTrigger: pos0 =
-        /// vob * inverse(keyframe[0]), shown at pos0 * keyframe[i]). G2 Irdorath's gates stand away from their keyframes.
-        /// Our saves keep the VOB's world file position (key 0). A Gothic save game stores where the mover stands - on a
-        /// key it reached, nothing to do.
+        /// Keyframes count from where the VOB stands (G2 Irdorath's gates stand away from their keyframes).
         /// </summary>
         private void MakeKeyframesRelativeToVob(IMover mover)
         {
-            if (_keyframes.Length == 0)
+            if (!MoverKeyframeDomain.RelativeToVob(_keyframes, mover.Position.ToUnityVector(),
+                    mover.Rotation.ToUnityQuaternion(), mover.ActKeyframe, out var positionOffset,
+                    out var rotationAngle))
                 return;
-
-            var vobPosition = mover.Position.ToUnityVector();
-            var reachedKey = mover.ActKeyframe;
-            if (reachedKey > 0 && reachedKey < _keyframes.Length &&
-                (vobPosition - _keyframes[reachedKey].pos).sqrMagnitude < _sameKeyPositionSqr)
-                return;
-
-            var (keyPosition, keyRotation) = _keyframes[0];
-            var rotationOffset = mover.Rotation.ToUnityQuaternion() * Quaternion.Inverse(keyRotation);
-            var positionOffset = vobPosition - keyPosition;
-            var rotationAngle = Quaternion.Angle(rotationOffset, Quaternion.identity);
-            if (positionOffset.sqrMagnitude < _sameKeyPositionSqr && rotationAngle < _sameKeyDegrees)
-                return;
-
-            // The rotation conversions of keyframes and VOB differ slightly - only a real difference turns them.
-            if (rotationAngle < _sameKeyDegrees)
-                rotationOffset = Quaternion.identity;
-
-            for (var i = 0; i < _keyframes.Length; i++)
-            {
-                var (position, rotation) = _keyframes[i];
-                _keyframes[i] = (vobPosition + rotationOffset * (position - keyPosition), rotationOffset * rotation);
-            }
 
             Logger.Log($"[MoverAdapter] {mover.Name} keyframes relative to the VOB - offset {positionOffset} " +
                        $"({positionOffset.magnitude:F2} m), {rotationAngle:F1} deg", LogCat.Vob);
