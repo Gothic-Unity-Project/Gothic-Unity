@@ -1,6 +1,5 @@
 # ADR: NPC perceptions and AI states like the engine
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: Docs/architecture.md (Daedalus VM, AI); ADR 2026-10-31-branch-split-wave-2.md
 

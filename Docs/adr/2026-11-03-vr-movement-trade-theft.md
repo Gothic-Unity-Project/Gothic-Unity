@@ -1,7 +1,7 @@
 # ADR: VR movement, trade and theft
 
-- Status: proposed
 - Date: 2026-11-03
+- Replaces: decisions 1-3 of [2026-10-30-trading](2026-10-30-trading.md) (each item changes hands at once, the trade window, the dialog waits)
 - Technical details: VRHeroMovement, VRSwimDive, VRTradeCounter, VRTradeGoods, VRPickpocket (VR); NpcBodyBounds (Core adapter); HeroPerceptionService, TradeService, PickpocketService, PickpocketDialogDomain, TradePricing (Core); Gothic.ini option pickpocketPurse
 
 ## Context

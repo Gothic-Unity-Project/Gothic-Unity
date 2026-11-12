@@ -1,6 +1,5 @@
 # ADR: Choosing the VR controller buttons
 
-- Status: proposed
 - Date: 2026-10-31
 
 ## Context

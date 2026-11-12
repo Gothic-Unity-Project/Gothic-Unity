@@ -1,6 +1,5 @@
 # ADR: What the VR player sees while the hero is knocked out or dead
 
-- Status: proposed
 - Date: 2026-10-30, updated 2026-11-04 (together with the VR hero body)
 
 ## Context

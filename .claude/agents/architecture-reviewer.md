@@ -108,6 +108,8 @@ baselined violation). A rule of the doc or CLAUDE.md that itself causes friction
   finding per file, not one per literal.
 - A new non-trivial context without `Docs/<context>.md`; missing "why" on a Gothic/ZenKit quirk.
 - A change that decides something (feature, setting, trade-off) without a decision record in `Docs/adr/`.
+- A decision record that is already in main edited (records in main are never changed), or code that goes against
+  an accepted record without a new record that `Replaces:` it (`Docs/adr/README.md`).
 - Many new public members that could be private/internal; new public Core types used by one module only.
 
 **VR module** (`Docs/architecture.md` > "Inside Gothic-VR", rules 1-5)
