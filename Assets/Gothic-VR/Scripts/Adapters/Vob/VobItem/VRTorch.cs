@@ -1,9 +1,12 @@
 using System.Collections;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Vob;
 using Gothic.Core.Services.Meshes;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -17,8 +20,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 {
     /// <summary>
     /// A torch (ITEM_TORCH) is lit / put out with the trigger of the hand holding it (R in the simulator) - like the
-    /// engine swapping ItLsTorch for ItLsTorchBurning: fire on its tip, a light that moves with it (the world's one
-    /// slot for a moving light, shared with the Light spell), the lighting sound. It keeps burning when let go. Added by
+    /// engine swapping ItLsTorch for ItLsTorchBurning: fire and light where that item's visual has them (its range,
+    /// color and flicker), the light moving with it (the hero light - one at a time: the last torch or Light spell lit
+    /// wins, the others keep their fire but go dark), the lighting sound. It keeps burning when let go. Added by
     /// VRVobItem on the first grab. Not saved - torches are unlit after a load.
     /// </summary>
     public class VRTorch : MonoBehaviour
@@ -28,15 +32,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly StationaryLightsService _stationaryLightsService;
-
-        // The engine's torch fire; FIRE_SMALL if a mod lacks it.
-        private static readonly string[] _firePfxNames = { "TORCH", "FIRE_SMALL" };
-        private const string _lightSound = "TORCH_ENLIGHT";
-        private const float _lightRange = 7f;
-        private const float _lightIntensity = 1.6f;
-        private static readonly Color _lightColor = new(1f, 0.7f, 0.4f);
-        // Tip of a mesh without a MeshFilter (shouldn't happen): above the grip.
-        private const float _fallbackTipHeight = 0.4f;
+        [Inject] private readonly FireService _fireService;
 
         private GameObject _fire;
         private StationaryLight _light;
@@ -77,30 +73,32 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void Light()
         {
+            var visual = _fireService.TryGetBurningTorch();
+            if (visual == null)
+                return;
+
             var tip = new GameObject("_TorchFire");
             tip.transform.SetParent(transform, false);
-            tip.transform.localPosition = GetTipLocalPosition();
-
-            foreach (var pfxName in _firePfxNames)
-            {
-                if (_meshService.CreateVobPfx(pfxName, parent: tip) != null)
-                    break;
-            }
+            tip.transform.localPosition = GetFireLocalPosition(visual);
+            _meshService.CreateVobPfx(visual.FirePfxName, parent: tip);
             _fire = tip;
 
+            // Like a world light (VobInitializerDomain.CreateLight): Gothic's lights have no intensity, the color is
+            // the brightness.
             var lightGo = new GameObject("_TorchLight");
             lightGo.transform.SetParent(tip.transform, false);
             _light = lightGo.AddComponent<StationaryLight>();
             _light.Inject();
             _light.Type = LightType.Point;
-            _light.Color = _lightColor;
-            _light.Range = _lightRange;
-            _light.Intensity = _lightIntensity;
-            _light.Index = _stationaryLightsService.DynamicLightIndex;
+            _light.Color = visual.LightColor;
+            _light.Range = visual.LightRange;
+            _light.Intensity = 1f;
+            _light.Index = _stationaryLightsService.HeroLightIndex;
+            _stationaryLightsService.ClaimHeroLight(this);
             _light.Init();
-            StartCoroutine(DriveLight());
+            StartCoroutine(DriveLight(visual));
 
-            var clip = _audioService.GetRandomSoundClip(_lightSound);
+            var clip = _audioService.GetRandomSoundClip(Constants.SfxTorchLight);
             if (clip != null)
                 AudioSource.PlayClipAtPoint(clip, tip.transform.position);
             Logger.Log($"[VRTorch] {name} lit", LogCat.VR);
@@ -114,19 +112,29 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             Destroy(_fire);
             _fire = null;
             _light = null;
-            _stationaryLightsService?.ClearDynamicLight();
+            _stationaryLightsService?.ReleaseHeroLight(this);
             Logger.Log($"[VRTorch] {name} put out", LogCat.VR);
         }
 
         /// <summary>
-        /// The world shader's moving light slot follows the burning tip (like the Light spell in VRSpellFx).
+        /// The hero light follows the burning tip (like the Light spell in VRSpellFx) and flickers through the
+        /// visual's colors - one step per refresh, so the flicker is as fast as the refresh. Another torch or the
+        /// Light spell taking the hero light over turns this light off - the fire keeps burning.
         /// </summary>
-        private IEnumerator DriveLight()
+        private IEnumerator DriveLight(BurningTorchVisual visual)
         {
-            var linearColor = _lightColor.linear;
             while (_light != null)
             {
-                _stationaryLightsService.UpdateDynamicLight(_light.transform.position, _lightRange, linearColor);
+                var color = visual.GetLightColor(Time.time);
+                if (!_stationaryLightsService.UpdateHeroLight(this, _light.transform.position, visual.LightRange,
+                        color.linear))
+                {
+                    Logger.Log($"[VRTorch] {name} lost the hero light - its light is off", LogCat.VR);
+                    Destroy(_light.gameObject);
+                    _light = null;
+                    yield break;
+                }
+                _light.Color = color;
                 _light.Refresh();
                 // Immersion setting "Light refresh" (Low/Medium/High).
                 yield return new WaitForSeconds(_stationaryLightsService.MovingLightRefreshSeconds);
@@ -134,24 +142,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// The end of the torch farther from its pivot (the grip) along its longest axis.
+        /// The fire's place from the burning torch's visual - relative to the torch mesh's pivot (the grip), so it
+        /// takes the mesh's own transform (Gothic's cm axes and scale) into account.
         /// </summary>
-        private Vector3 GetTipLocalPosition()
+        private Vector3 GetFireLocalPosition(BurningTorchVisual visual)
         {
             var meshFilter = GetComponentInChildren<MeshFilter>();
-            if (meshFilter == null || meshFilter.sharedMesh == null)
-                return Vector3.up * _fallbackTipHeight;
-
-            var bounds = meshFilter.sharedMesh.bounds;
-            var size = bounds.size;
-            var axis = size.x >= size.y && size.x >= size.z ? Vector3.right :
-                size.y >= size.z ? Vector3.up : Vector3.forward;
-            var min = Vector3.Scale(bounds.min, axis);
-            var max = Vector3.Scale(bounds.max, axis);
-            var meshTip = max.sqrMagnitude >= min.sqrMagnitude
-                ? bounds.center + Vector3.Scale(bounds.extents, axis)
-                : bounds.center - Vector3.Scale(bounds.extents, axis);
-            return transform.InverseTransformPoint(meshFilter.transform.TransformPoint(meshTip));
+            var meshTransform = meshFilter != null ? meshFilter.transform : transform;
+            return transform.InverseTransformPoint(meshTransform.TransformPoint(visual.FireLocalPosition));
         }
     }
 }
