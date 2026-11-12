@@ -14,5 +14,5 @@ Two effects of the original game are made for a monitor. The weapon swing trail 
 
 ## Consequences
 
-- Flat mode shows the weaker trail too.
+- Flat mode keeps Gothic's trail. Core uses Gothic's value; the VR platform sets the half one (VRConstants) when it registers.
 - Rumble length and reach come from the effect's own data; effects without it rumble for 3 s within 10 m.

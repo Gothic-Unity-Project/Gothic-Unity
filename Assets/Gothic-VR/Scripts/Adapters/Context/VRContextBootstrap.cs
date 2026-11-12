@@ -2,6 +2,7 @@ using Gothic.Core.Adapters.Context;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Meshes;
 using Gothic.VR.Services.Context;
 using Reflex.Attributes;
 using ZenKit;
@@ -20,6 +21,7 @@ namespace Gothic.VR.Adapters.Context
         [Inject] private readonly ContextScreenshotService _contextScreenshotService;
         [Inject] private readonly ContextTradeService _contextTradeService;
         [Inject] private readonly ContextHeroBlockService _contextHeroBlockService;
+        [Inject] private readonly TextureService _textureService;
 
         protected override void RegisterControlModule(Controls controls)
         {
@@ -36,6 +38,9 @@ namespace Gothic.VR.Adapters.Context
             _contextScreenshotService.SetImpl(new VRContextScreenshotService());
             _contextTradeService.SetImpl(new VRContextTradeService().Inject());
             _contextHeroBlockService.SetImpl(new VRContextHeroBlockService().Inject());
+
+            // Before TextureService.Init() (BootstrapService.InitPhase2) builds the trail material.
+            _textureService.WeaponTrailOpacity = VRConstants.WeaponTrailOpacity;
         }
 
         protected override void RegisterGameVersionModule(GameVersion version)
