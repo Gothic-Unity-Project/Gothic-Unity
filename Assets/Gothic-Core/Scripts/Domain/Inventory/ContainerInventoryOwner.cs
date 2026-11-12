@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Extensions;
@@ -23,7 +22,6 @@ namespace Gothic.Core.Domain.Inventory
         [Inject] private readonly VmCacheService _vmCacheService;
 
         private readonly IContainer _container;
-        private bool _isBrokenContentsLogged;
 
         public ContainerInventoryOwner(IContainer container)
         {
@@ -82,33 +80,9 @@ namespace Gothic.Core.Domain.Inventory
 
         public bool CanTake(string itemInstanceName) => _vmCacheService.TryGetItemData(itemInstanceName) != null;
 
-        private List<ContentItem> GetItems()
-        {
-            try
-            {
-                return _container.Contents.UnpackItems()
-                    .Where(i => !string.IsNullOrWhiteSpace(i.Name))
-                    .Select(i => new ContentItem(i.Name.Trim(), i.Amount))
-                    .ToList();
-            }
-            catch (Exception e) when (e is FormatException or OverflowException)
-            {
-                // A mod's broken "contents" (ITFO_X:abc, ITFO_X:99999999999) - an empty loot instead of a half built
-                // backpack. Logged once, the loot view reads it on every refresh.
-                if (!_isBrokenContentsLogged)
-                {
-                    _isBrokenContentsLogged = true;
-                    Logger.LogWarning($"[ContainerInventoryOwner] {_container.Name}: contents " +
-                                      $"'{_container.Contents}' can't be read ({e.Message}) - shown empty.", LogCat.Vob);
-                }
-                return new List<ContentItem>();
-            }
-        }
+        private List<ContentItem> GetItems() => _container.UnpackContainerContents();
 
-        private void SetItems(List<ContentItem> items)
-        {
-            _container.Contents = items.PackItems(',');
-        }
+        private void SetItems(List<ContentItem> items) => _container.PackContainerContents(items);
 
         private VmGothicEnums.InvCats GetCategory(string itemInstanceName)
         {

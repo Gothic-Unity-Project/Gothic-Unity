@@ -134,7 +134,7 @@ namespace Gothic.VR.Interaction.Components
                 .Select(i => new ContentItem(i.Name, Math.Max(1, i.Amount)))
                 .Concat(_contentNotInSlots);
 
-            vobContainer.Contents = items.PackItems(',');
+            vobContainer.PackContainerContents(items);
         }
 
         public void Close()
@@ -262,7 +262,7 @@ namespace Gothic.VR.Interaction.Components
         private IEnumerator SpawnContent()
         {
             var vobContainer = GetComponentInParent<VobLoader>()?.Container?.VobAs<IContainer>();
-            var contentItems = (vobContainer?.Contents).UnpackItems();
+            var contentItems = vobContainer?.UnpackContainerContents() ?? new List<ContentItem>();
             if (contentItems.Count == 0)
                 yield break;
 
