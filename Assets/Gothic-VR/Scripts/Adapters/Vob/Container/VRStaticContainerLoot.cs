@@ -93,6 +93,9 @@ namespace Gothic.VR.Adapters.Vob.Container
         private void StartTimeout()
         {
             StopTimeout();
+            // Despawn force-releases a held backpack - that Released comes after Close(), no new timer.
+            if (_lootBackpack == null)
+                return;
             if (isActiveAndEnabled)
                 _timeout = StartCoroutine(CloseWhenUnused());
         }
