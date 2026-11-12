@@ -22,14 +22,18 @@ namespace Gothic.VR.Adapters.Vob.Container
 
         private IContainer _container;
         private IInventoryOwner _owner;
+        private Transform _head;
         private VRBackpack _lootBackpack;
         private GameObject _lootBackpackRoot;
         private Coroutine _timeout;
 
-        public void Toggle(IContainer container, IInventoryOwner owner)
+        /// <param name="head">The player's head - the backpack lies on the player's side. null: the VOB's
+        /// forward.</param>
+        public void Toggle(IContainer container, IInventoryOwner owner, Transform head)
         {
             _container = container;
             _owner = owner;
+            _head = head;
 
             if (_lootBackpack != null)
             {
@@ -51,10 +55,9 @@ namespace Gothic.VR.Adapters.Vob.Container
         {
             // On the hero's side of the VOB - its own forward can point into the wall.
             var toHero = transform.forward;
-            var cam = Camera.main;
-            if (cam != null)
+            if (_head != null)
             {
-                var flat = cam.transform.position - transform.position;
+                var flat = _head.position - transform.position;
                 flat.y = 0f;
                 if (flat.sqrMagnitude > 0.01f)
                     toHero = flat.normalized;

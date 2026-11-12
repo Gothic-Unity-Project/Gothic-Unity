@@ -9,32 +9,32 @@ namespace Gothic.VR.Adapters.Vob
     /// </summary>
     public class VRMobDocument : MonoBehaviour
     {
-        private const string _anchorName = "_MobDocument";
-
-        private const float _closeDistance = 3f;
-        private const float _belowEyes = 0.05f;
-        private const float _towardsPlayer = 0.4f;
+        [Tooltip("The page closes when the player's head is farther away (m).")]
+        [SerializeField] private float _closeDistance = 3f;
+        [Tooltip("The page's height below the player's eyes (m).")]
+        [SerializeField] private float _belowEyes = 0.05f;
+        [Tooltip("Distance from the mob's center towards the player (m).")]
+        [SerializeField] private float _towardsPlayer = 0.4f;
 
         // VRDocViewer lays its canvas flat for a document held in the hand (local rotation 90, 0, 0).
         private static readonly Quaternion _viewerCanvasRotation = Quaternion.Euler(90f, 0f, 0f);
 
         private Transform _head;
 
-        public static VRMobDocument Create(GameObject mob)
+        /// <summary>
+        /// Placed between the mob and the player's head. Without a head (no VR rig yet) above the mob, closed by the
+        /// next touch only.
+        /// </summary>
+        public void Init(GameObject mob, Transform head)
         {
-            var anchor = new GameObject(_anchorName);
-            anchor.transform.SetParent(mob.transform, true);
-            var document = anchor.AddComponent<VRMobDocument>();
-            anchor.AddComponent<VRDocViewer>();
-            document.PlaceInFrontOfPlayer(mob);
-            return document;
+            _head = head;
+            PlaceInFrontOfPlayer(mob);
         }
 
         public bool HasPages => transform.Find(VRDocViewer.CanvasName) != null;
 
         private void PlaceInFrontOfPlayer(GameObject mob)
         {
-            _head = Camera.main != null ? Camera.main.transform : null;
             var center = mob.transform.position;
             var renderers = mob.GetComponentsInChildren<Renderer>();
             if (renderers.Length > 0)
@@ -64,14 +64,8 @@ namespace Gothic.VR.Adapters.Vob
 
         private void Update()
         {
-            // No camera when the page opened - take it once it's there, else walking away never closes the page.
             if (_head == null)
-            {
-                var mainCamera = Camera.main;
-                if (mainCamera == null)
-                    return;
-                _head = mainCamera.transform;
-            }
+                return;
 
             if (Vector3.Distance(_head.position, transform.position) > _closeDistance)
                 Destroy(gameObject);

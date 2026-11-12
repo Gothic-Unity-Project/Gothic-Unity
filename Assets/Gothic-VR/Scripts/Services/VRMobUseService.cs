@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.Vob;
@@ -23,6 +24,15 @@ namespace Gothic.VR.Services
         [Inject] private readonly MobInteractionService _mobInteractionService;
         [Inject] private readonly DocService _docService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
+
+        private const string _mobDocumentPrefabPath = "Prefabs/UI/MobDocument";
+
+        /// <summary>
+        /// The player's head, null before the VR rig is set up.
+        /// </summary>
+        private Transform Head => _vrPlayerService.Rig?.Head;
 
         /// <summary>
         /// The hero grabbed a mob (wheel, lever, ...). The logic is platform neutral (MobInteractionService),
@@ -51,7 +61,7 @@ namespace Gothic.VR.Services
 
             if (!loader.TryGetComponent<VRStaticContainerLoot>(out var loot))
                 loot = loader.gameObject.AddComponent<VRStaticContainerLoot>();
-            loot.Toggle(container, _inventoryTransferService.GetOwner(container));
+            loot.Toggle(container, _inventoryTransferService.GetOwner(container), Head);
             return true;
         }
 
@@ -75,8 +85,15 @@ namespace Gothic.VR.Services
         /// </summary>
         private Action BeginMobDocument(VobLoader loader)
         {
-            var document = VRMobDocument.Create(loader.gameObject);
-            _docService.SetDocumentTarget(document.gameObject);
+            // worldPositionStays: a scaled mob doesn't scale the page.
+            var documentGo = _resourceCacheService.TryGetPrefabObject(_mobDocumentPrefabPath, "_MobDocument",
+                loader.gameObject);
+            if (documentGo == null)
+                return null;
+
+            var document = documentGo.GetComponent<VRMobDocument>();
+            document.Init(loader.gameObject, Head);
+            _docService.SetDocumentTarget(documentGo);
             return () =>
             {
                 _docService.SetDocumentTarget(null);
@@ -90,9 +107,9 @@ namespace Gothic.VR.Services
         /// <summary>
         /// Next to the mob on the player's left (= the mob's right, where NPC dialogs are), at eye height.
         /// </summary>
-        private static GameObject CreateMobDialogAnchor(VobLoader loader)
+        private GameObject CreateMobDialogAnchor(VobLoader loader)
         {
-            var cam = Camera.main != null ? Camera.main.transform : loader.transform;
+            var head = Head != null ? Head : loader.transform;
 
             var bounds = new Bounds(loader.transform.position, Vector3.one * 0.5f);
             var hasBounds = false;
@@ -114,9 +131,9 @@ namespace Gothic.VR.Services
                 }
             }
 
-            var right = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+            var right = Vector3.ProjectOnPlane(head.right, Vector3.up).normalized;
             var position = bounds.center - right * (Mathf.Max(bounds.extents.x, bounds.extents.z) + 0.4f);
-            position.y = cam.position.y - 0.2f;
+            position.y = head.position.y - 0.2f;
 
             var anchor = new GameObject("MobDialogAnchor");
             anchor.transform.position = position;
