@@ -6,6 +6,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.World;
 using Gothic.Core.Extensions;
@@ -22,7 +23,7 @@ namespace Gothic.Core.Manager
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly GameStateService _gameStateService;
-        [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly NpcMeshCullingService _npcMeshCullingService;
         [Inject] private readonly GameTimeService _gameTimeService;
 
         // #503: the last music situation, logged when it changes.
@@ -122,11 +123,13 @@ namespace Gothic.Core.Manager
 
         /// <summary>
         /// The engine's check (OpenGothic WorldObjects::isTargetedBy): an NPC has the hero as its target, a weapon drawn
-        /// and is in its attack state.
+        /// and is in its attack state. Only awake NPCs count, like the engine's near ones (AiNormal): a culled attacker
+        /// keeps ZS_ATTACK and its target until it wakes up again, and the fight music never ended after running away
+        /// (#503).
         /// </summary>
         private bool IsHeroAttacked(NpcContainer hero)
         {
-            foreach (var npc in _multiTypeCacheService.NpcCache)
+            foreach (var npc in _npcMeshCullingService.AwakeNpcs)
             {
                 if (npc == hero || npc.Vob == null || npc.Props?.TargetNpc == null || npc.Props.IsDead ||
                     npc.Props.TargetNpc.Index != hero.Instance.Index ||
