@@ -1,7 +1,6 @@
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
-using Gothic.Core.Logging;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Player;
@@ -10,13 +9,11 @@ using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
-using Gothic.VR.Adapters.Vob;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
-using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters
 {
@@ -76,24 +73,6 @@ namespace Gothic.VR.Adapters
         private void Start()
         {
             _nameCanvas.SetActive(false);
-            RefreshGrabColliders();
-        }
-
-        /// <summary>
-        /// The grabbable collects its colliders in its Start (XriInteractableBridge). A mob whose mesh sits on a child
-        /// bone (G2 Irdorath's touch plates: BIP01 TOUCHPLATE -> BIP01 PLATE) and is finished after that only had the
-        /// prefab's empty MeshCollider, nothing to hover or grab. Unity doesn't order the Start calls - this collects
-        /// again once; the backend registers only if the colliders changed.
-        /// </summary>
-        private void RefreshGrabColliders()
-        {
-            if (_interactable == null || _isNpc || GetComponent<VRVobItem>() != null)
-                return;
-
-            var before = _interactable.Colliders.Count;
-            _interactable.SetupColliders(isChildLinked: true);
-            if (_interactable.Colliders.Count != before)
-                Logger.Log($"[VRFocus] '{name}' grab colliders {before} -> {_interactable.Colliders.Count}", LogCat.VR);
         }
 
         private void OnDestroy()
