@@ -4847,6 +4847,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2907278319546885529}
   - component: {fileID: 7498987374374455603}
+  - component: {fileID: 272954364488394453}
   m_Layer: 0
   m_Name: Rain
   m_TagString: Untagged
@@ -4882,6 +4883,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1bb38236c12241d43a576fabd841f65e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Gothic.Core::Gothic.Core.Adapters.Audio.RainFollower
+--- !u!114 &272954364488394453
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2862573070440368112}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 886d33e5cbecc44448c09465599bc70d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.Core::Gothic.Core.Adapters.Audio.EnvironmentReverb
 --- !u!1 &5136525450600585921
 GameObject:
   m_ObjectHideFlags: 0

@@ -94,7 +94,20 @@ namespace Gothic.Core.Models.Audio
                     break;
                 }
             } while (true);
-            
+
+            // The pain screams are numbered instead (SVM_15_AARGH, SVM_15_AARGH_1 ... _4 -> svm_15_aargh_1/2/3.wav) -
+            // only the first one was ever heard.
+            if (sounds.Count == 1)
+            {
+                for (var number = 1; ; number++)
+                {
+                    var nextKey = $"{soundKey}_{number}";
+                    if (_gameStateService.SfxVm.GetSymbolByName(nextKey) == null)
+                        break;
+                    sounds.Add(_gameStateService.SfxVm.InitInstance<SoundEffectInstance>(nextKey));
+                }
+            }
+
             _soundEffects = sounds.ToArray();
         }
     }

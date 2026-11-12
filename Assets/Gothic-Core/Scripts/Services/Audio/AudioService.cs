@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Gothic.Core.Domain.Audio;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
@@ -12,6 +13,7 @@ using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Manager
 {
@@ -22,6 +24,10 @@ namespace Gothic.Core.Manager
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly GameTimeService _gameTimeService;
+
+        // #503: the last music situation, logged when it changes.
+        private MusicDomain.MusicTagsMode _lastMusicMode;
+        private MusicDomain.MusicTagsTime _lastMusicTime;
 
         public const string NoSoundName = "nosound.wav";
 
@@ -87,6 +93,15 @@ namespace Gothic.Core.Manager
                 modeTag = hero.Vob.FightMode == (int)VmGothicEnums.WeaponState.NoWeapon
                     ? MusicDomain.MusicTagsMode.Thrill
                     : MusicDomain.MusicTagsMode.Fight;
+
+            // #503: which situation the music follows - logged when it changes.
+            if (modeTag != _lastMusicMode || timeTag != _lastMusicTime)
+            {
+                Logger.Log($"[Music] {timeTag} {modeTag} (hero weapon state {hero.Vob.FightMode}, " +
+                           $"dead {hero.Props.IsDead})", LogCat.Audio);
+                _lastMusicMode = modeTag;
+                _lastMusicTime = timeTag;
+            }
 
             // Picks the zone too: a new zone and a new situation switch the theme once.
             _musicDomain.SetSituation(timeTag, modeTag);
