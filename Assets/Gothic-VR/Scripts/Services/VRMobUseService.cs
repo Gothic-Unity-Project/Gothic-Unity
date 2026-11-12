@@ -70,7 +70,16 @@ namespace Gothic.VR.Services
         /// </summary>
         private bool TryCloseMobDocument(VobLoader loader)
         {
-            var openDocument = loader.GetComponentInChildren<VRMobDocument>();
+            VRMobDocument openDocument = null;
+            foreach (var document in loader.GetComponentsInChildren<VRMobDocument>())
+            {
+                // A nested VOB (own loader) owns its page.
+                if (document.GetComponentInParent<VobLoader>(true) != loader)
+                    continue;
+
+                openDocument = document;
+                break;
+            }
             if (openDocument == null)
                 return false;
 
@@ -80,27 +89,29 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// A page next to the mob for a Doc_Show of its "[onStateFunc]_S1" (bookstands). Removed again if the script
-        /// showed nothing.
+        /// A page next to the mob for a Doc_Show of its "[onStateFunc]_S1" (bookstands). Only created if the script
+        /// shows something.
         /// </summary>
         private Action BeginMobDocument(VobLoader loader)
         {
-            // worldPositionStays: a scaled mob doesn't scale the page.
-            var documentGo = _resourceCacheService.TryGetPrefabObject(_mobDocumentPrefabPath, "_MobDocument",
-                loader.gameObject);
-            if (documentGo == null)
-                return null;
+            var isShown = false;
+            _docService.SetDocumentTarget(() =>
+            {
+                // worldPositionStays: a scaled mob doesn't scale the page.
+                var documentGo = _resourceCacheService.TryGetPrefabObject(_mobDocumentPrefabPath, "_MobDocument",
+                    loader.gameObject);
+                if (documentGo == null)
+                    return null;
 
-            var document = documentGo.GetComponent<VRMobDocument>();
-            document.Init(loader.gameObject, Head);
-            _docService.SetDocumentTarget(documentGo);
+                documentGo.GetComponent<VRMobDocument>().Init(loader, Head);
+                isShown = true;
+                return documentGo;
+            });
             return () =>
             {
                 _docService.SetDocumentTarget(null);
-                if (document.HasPages)
+                if (isShown)
                     Logger.Log($"[MobDialog] '{loader.name}' shows a page (Doc_Show).", LogCat.Dialog);
-                else
-                    UnityEngine.Object.Destroy(document.gameObject);
             };
         }
 

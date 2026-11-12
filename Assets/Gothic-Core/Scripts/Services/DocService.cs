@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Gothic.Core.Extensions;
@@ -27,6 +28,9 @@ namespace Gothic.Core.Services
         // The item GO the document belongs to - only while ShowItemDocument runs the item's on_state[0].
         private GameObject _pendingItemGo;
 
+        // Creates the GO a mob's document belongs to - only called if Doc_Show actually fires.
+        private Func<GameObject> _pendingTargetFactory;
+
         public DocService()
         {
             // Docs belong to the world they were created in - the viewers hold their own DocModel.
@@ -34,9 +38,10 @@ namespace Gothic.Core.Services
         }
 
         /// <summary>
-        /// The next Doc_Show attaches to go (a mob's "[onStateFunc]_S1", e.g. a bookstand's page), null = not anymore.
+        /// The next Doc_Show attaches to the GO the factory creates (a mob's "[onStateFunc]_S1", e.g. a bookstand's
+        /// page). The factory only runs if Doc_Show fires. null = not anymore.
         /// </summary>
-        public void SetDocumentTarget(GameObject go) => _pendingItemGo = go;
+        public void SetDocumentTarget(Func<GameObject> targetFactory) => _pendingTargetFactory = targetFactory;
 
         /// <summary>
         /// Reads a document item: runs its on_state[0] (Doc_Create, Doc_Print*, Doc_Show) and Doc_Show attaches the
@@ -136,12 +141,14 @@ namespace Gothic.Core.Services
                 Logger.LogWarning($"[DocService] Doc_Show: doc id={id} not found", LogCat.Npc);
                 return;
             }
-            Logger.Log($"[DocService] Doc_Show id={id}, pages={doc.Pages.Count}, itemGo={_pendingItemGo?.name}",
+            var targetGo = _pendingItemGo != null ? _pendingItemGo : _pendingTargetFactory?.Invoke();
+            Logger.Log($"[DocService] Doc_Show id={id}, pages={doc.Pages.Count}, itemGo={targetGo?.name}",
                 LogCat.Npc);
             // Shown docs are done - the viewer keeps the DocModel itself.
             _docs.Remove(id);
-            GlobalEventDispatcher.DocShow.Invoke(doc, _pendingItemGo);
+            GlobalEventDispatcher.DocShow.Invoke(doc, targetGo);
             _pendingItemGo = null;
+            _pendingTargetFactory = null;
         }
 
         public void SetLevel(int id, string level)

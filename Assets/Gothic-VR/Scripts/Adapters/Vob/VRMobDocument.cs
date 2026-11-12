@@ -1,4 +1,4 @@
-using Gothic.VR.Adapters.Vob.VobItem;
+using Gothic.Core.Adapters.Vob;
 using UnityEngine;
 
 namespace Gothic.VR.Adapters.Vob
@@ -25,25 +25,31 @@ namespace Gothic.VR.Adapters.Vob
         /// Placed between the mob and the player's head. Without a head (no VR rig yet) above the mob, closed by the
         /// next touch only.
         /// </summary>
-        public void Init(GameObject mob, Transform head)
+        public void Init(VobLoader mob, Transform head)
         {
             _head = head;
             PlaceInFrontOfPlayer(mob);
         }
 
-        public bool HasPages => transform.Find(VRDocViewer.CanvasName) != null;
-
-        private void PlaceInFrontOfPlayer(GameObject mob)
+        private void PlaceInFrontOfPlayer(VobLoader mob)
         {
             var center = mob.transform.position;
-            var renderers = mob.GetComponentsInChildren<Renderer>();
-            if (renderers.Length > 0)
+            var hasBounds = false;
+            var bounds = new Bounds();
+            foreach (var mobRenderer in mob.GetComponentsInChildren<Renderer>())
             {
-                var bounds = renderers[0].bounds;
-                foreach (var mobRenderer in renderers)
+                // VOBs nested below the mob have their own loader.
+                if (mobRenderer.GetComponentInParent<VobLoader>(true) != mob)
+                    continue;
+
+                if (!hasBounds)
+                    bounds = mobRenderer.bounds;
+                else
                     bounds.Encapsulate(mobRenderer.bounds);
-                center = bounds.center;
+                hasBounds = true;
             }
+            if (hasBounds)
+                center = bounds.center;
             if (_head == null)
             {
                 transform.position = center + Vector3.up;
