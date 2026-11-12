@@ -51,7 +51,7 @@ namespace Gothic.Core.Services.Meshes
         {
             // An NPC's body can be rebuilt at runtime (armor change) - its old renderers are gone or new ones exist.
             if (_cache.TryGetValue(go, out var cached) && !cached.IsCurrentlyDynamic && IsOutdated(go, cached))
-                _cache.Remove(go);
+                RemoveFromCache(go);
 
             if (!_cache.TryGetValue(go, out var entry))
             {
@@ -175,6 +175,11 @@ namespace Gothic.Core.Services.Meshes
             }
 
             DeactivateDynamicRenderers(entry);
+
+            foreach (var materials in entry.DynamicMaterials)
+                foreach (var material in materials)
+                    if (material != null)
+                        Object.Destroy(material);
 
             _cache.Remove(go);
         }
