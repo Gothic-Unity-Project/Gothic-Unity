@@ -69,6 +69,8 @@ namespace Gothic.Core.Services.World
 
         private HashSet<long> _lightMappedCells = new();
         private readonly Stack<int> _freeRuntimeSlots = new();
+        // Who drives the hero light now - the last ClaimHeroLight wins, only it may update or release the slot.
+        private object _heroLightOwner;
         private readonly HashSet<StationaryLight> _pooledLights = new();
         // Pooled lights in reach with their reach (distance to the camera minus range), sorted closest first.
         private readonly List<(float Reach, StationaryLight Light)> _pooledSorted = new();
@@ -197,10 +199,10 @@ namespace Gothic.Core.Services.World
         private Vector4[] _lightColors;
 
         /// <summary>
-        /// Index of the one reserved slot for a light that moves at runtime (the torch in the hand, the Light spell) -
-        /// slot 0, the pool hands out the others. -1 until InitStationaryLights() has run.
+        /// Index of the one reserved slot for the hero light - the light following the hero (the torch in their hand,
+        /// the Light spell above them). Slot 0, the pool hands out the others. -1 until InitStationaryLights() has run.
         /// </summary>
-        public int DynamicLightIndex { get; private set; } = -1;
+        public int HeroLightIndex { get; private set; } = -1;
 
         /// <summary>
         /// The current world's light mapped polygons show Gothic's lightmaps (WorldMeshBuilder) - its static lights are in them already, they only light VOBs and NPCs.
@@ -481,11 +483,12 @@ namespace Gothic.Core.Services.World
             _lightPositionsAndAttenuation = new Vector4[maxTotalLights];
             _lightColors = new Vector4[maxTotalLights];
 
-            // Slot 0 is the torch's/Light spell's (UpdateDynamicLight), every other slot hosts pooled lights (fires and
+            // Slot 0 is the hero light (torch in hand, Light spell), every other slot hosts pooled lights (fires and
             // static lights of light mapped areas), closest first.
-            DynamicLightIndex = 0;
+            HeroLightIndex = 0;
+            _heroLightOwner = null;
             _freeRuntimeSlots.Clear();
-            for (var i = maxTotalLights - 1; i > DynamicLightIndex; i--)
+            for (var i = maxTotalLights - 1; i > HeroLightIndex; i--)
                 _freeRuntimeSlots.Push(i);
             // Lights of the previous world are gone (OnDisable unregistered them) - start clean anyway.
             foreach (var light in _pooledLights)
@@ -502,31 +505,51 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// Moves the single reserved dynamic light slot and re-uploads the global shader arrays.
-        /// Call this sparingly (e.g. a few times a second while a light-spell-like effect is active),
-        /// not every frame - Shader.SetGlobalVectorArray re-uploads the whole array every time.
+        /// The owner (a burning torch, a Light spell) takes the hero light - there's one slot, so the previous owner's
+        /// light goes dark (its updates are ignored from now on, IsHeroLightOwner tells it).
         /// </summary>
-        public void UpdateDynamicLight(Vector3 worldPosition, float rangeMeters, Color linearColor)
+        public void ClaimHeroLight(object owner)
         {
-            if (DynamicLightIndex < 0 || _lightPositionsAndAttenuation == null)
-                return; // world not loaded yet
+            if (_heroLightOwner != null && !ReferenceEquals(_heroLightOwner, owner))
+                Logger.Log($"[StationaryLights] Hero light taken over by {owner} from {_heroLightOwner}", LogCat.Vob);
+            _heroLightOwner = owner;
+        }
 
-            _lightPositionsAndAttenuation[DynamicLightIndex] = new Vector4(
+        public bool IsHeroLightOwner(object owner) => owner != null && ReferenceEquals(_heroLightOwner, owner);
+
+        /// <summary>
+        /// Moves the hero light and re-uploads the global shader arrays - only for its owner, false otherwise.
+        /// Call this sparingly (e.g. a few times a second while a torch burns), not every frame -
+        /// Shader.SetGlobalVectorArray re-uploads the whole array every time.
+        /// </summary>
+        public bool UpdateHeroLight(object owner, Vector3 worldPosition, float rangeMeters, Color linearColor)
+        {
+            if (!IsHeroLightOwner(owner))
+                return false;
+            if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
+                return true; // world not loaded yet
+
+            _lightPositionsAndAttenuation[HeroLightIndex] = new Vector4(
                 worldPosition.x, worldPosition.y, worldPosition.z, 1f / (rangeMeters * rangeMeters));
-            _lightColors[DynamicLightIndex] = linearColor;
+            _lightColors[HeroLightIndex] = linearColor;
             UploadGlobalLightArrays();
+            return true;
         }
 
         /// <summary>
-        /// Zeroes the dynamic slot out so no stale position/color lingers once the effect ends.
+        /// The owner's light is gone - the slot is zeroed out so no stale position/color lingers. A former owner
+        /// can't switch off the light that took the slot over.
         /// </summary>
-        public void ClearDynamicLight()
+        public void ReleaseHeroLight(object owner)
         {
-            if (DynamicLightIndex < 0 || _lightPositionsAndAttenuation == null)
+            if (!IsHeroLightOwner(owner))
+                return;
+            _heroLightOwner = null;
+            if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
                 return;
 
-            _lightPositionsAndAttenuation[DynamicLightIndex] = Vector4.zero;
-            _lightColors[DynamicLightIndex] = Vector4.zero;
+            _lightPositionsAndAttenuation[HeroLightIndex] = Vector4.zero;
+            _lightColors[HeroLightIndex] = Vector4.zero;
             UploadGlobalLightArrays();
         }
 
@@ -582,7 +605,7 @@ namespace Gothic.Core.Services.World
         {
             if (light == null || _lightPositionsAndAttenuation == null)
                 return;
-            if (light.Index <= DynamicLightIndex || light.Index >= _lightPositionsAndAttenuation.Length)
+            if (light.Index <= HeroLightIndex || light.Index >= _lightPositionsAndAttenuation.Length)
             {
                 _isPoolDirty = true;
                 return;
@@ -685,7 +708,7 @@ namespace Gothic.Core.Services.World
         {
             var slot = light.Index;
             light.DetachSlot();
-            if (slot <= DynamicLightIndex || slot >= _lightPositionsAndAttenuation.Length)
+            if (slot <= HeroLightIndex || slot >= _lightPositionsAndAttenuation.Length)
                 return;
 
             _lightPositionsAndAttenuation[slot] = Vector4.zero;

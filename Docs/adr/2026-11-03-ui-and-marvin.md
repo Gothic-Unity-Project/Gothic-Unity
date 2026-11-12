@@ -1,6 +1,5 @@
 # ADR: UI and Marvin
 
-- Status: proposed
 - Date: 2026-11-03
 - Technical details: Docs/architecture.md (events, adapters)
 

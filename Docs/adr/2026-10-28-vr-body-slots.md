@@ -1,6 +1,5 @@
 # ADR: VR body slots - vibration and quick stash
 
-- Status: accepted (PR #457)
 - Date: 2026-10-28
 
 ## Context

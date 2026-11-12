@@ -1,6 +1,5 @@
 # ADR: A color vision option for color-blind players
 
-- Status: proposed
 - Date: 2026-10-30
 
 ## Context

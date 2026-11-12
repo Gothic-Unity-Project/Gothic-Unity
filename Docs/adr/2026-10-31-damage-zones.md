@@ -1,6 +1,5 @@
 # ADR: Damage zones
 
-- Status: proposed
 - Date: 2026-10-31
 
 ## Context

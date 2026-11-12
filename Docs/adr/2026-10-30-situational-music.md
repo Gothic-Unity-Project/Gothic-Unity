@@ -1,6 +1,5 @@
 # ADR: The music follows the time of day and the danger
 
-- Status: proposed
 - Date: 2026-10-30
 
 ## Context

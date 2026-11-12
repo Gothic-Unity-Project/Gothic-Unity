@@ -1,6 +1,5 @@
 # ADR: Hits, knockout, death and experience like the engine
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: Docs/architecture.md (Daedalus VM, combat); ADR 2026-10-31-npc-perceptions.md
 

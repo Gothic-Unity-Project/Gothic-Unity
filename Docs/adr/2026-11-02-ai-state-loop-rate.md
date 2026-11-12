@@ -1,6 +1,5 @@
 # ADR: How often an NPC's state loop runs
 
-- Status: proposed
 - Date: 2026-11-02
 - Technical details: no technical doc for the NPC AI yet
 

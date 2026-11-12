@@ -128,7 +128,7 @@ Box colliders on combatants are deactivated outside combat for performance.
 
 ## Logging
 
-- Uber Logger wraps all `Debug.Log*()` calls and routes to three sinks: the Uber Console (filterable by category), Unity Console, and `Gothic-Unity.log` file (`FileLoggingHandler`).
+- Uber Logger wraps all `Debug.Log*()` calls and routes to three sinks: the Uber Console (filterable by category), Unity Console, and, in builds, one log file per session (`Logs/Gothic-Unity_<date>_<time>.log.txt` in the persistent data folder, newest 30 kept; `FileLoggingHandler`).
 - Log categories are defined in the `LogCat` enum: `AI`, `Animations`, `Dialog`, `DxMusic`, `NPC`, `PreCaching`, `ZenKit`, `ZSpy`, and others. Use `LogEditor()` variants for editor-only logs — they compile out in release builds (`#define ENABLE_UBERLOGGING`).
 - Access the Uber Console at `Gothic > Debug > Uber Console`.
 - Always create logs with this feature: `Logger.Log(message, LogCat)`/`Logger.LogWarning(message, LogCat)`/`Logger.LogError(message, LogCat)`
@@ -174,7 +174,7 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 
 - Branch from `main`, submit PRs with detailed descriptions of what changed and how to test manually.
 - Before coding a feature, design it with the `design` skill (plan, ADR draft, `architecture-reviewer` on the plan).
-- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`).
+- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`). No status line: a record on a branch is proposed, a record in main is accepted and is never edited again. A changed decision gets a new record with `- Replaces: [...]`.
 - Staging, commit style and PR template: see the `commit-pr` skill.
 - The project tracks issues and feature status on [GitHub Projects](https://github.com/Gothic-Unity-Project/Gothic-Unity/projects?query=is%3Aopen).
 - Team coordination happens on Discord; align with in-progress work before starting large features.

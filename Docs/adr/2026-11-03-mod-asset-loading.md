@@ -1,6 +1,5 @@
 # ADR: Loading big worlds and mod data like the engine
 
-- Status: proposed
 - Date: 2026-11-03
 
 ## Context
