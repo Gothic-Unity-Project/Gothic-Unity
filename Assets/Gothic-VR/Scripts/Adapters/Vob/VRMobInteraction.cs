@@ -18,7 +18,7 @@ namespace Gothic.VR.Adapters.Vob
     /// </summary>
     public class VRMobInteraction : MonoBehaviour
     {
-        [Inject] private readonly VRPlayerService _vrPlayerService;
+        [Inject] private readonly VRMobUseService _vrMobUseService;
         [Inject] private readonly MobInteractionService _mobInteractionService;
 
         private bool _mobActivated;
@@ -52,13 +52,13 @@ namespace Gothic.VR.Adapters.Vob
 
             var vobLoader = GetComponentInParent<VobLoader>();
             var vob = vobLoader?.Container?.Vob;
-            // A lidless container (mummy) is a plain mob here too: the grab toggles its loot (VRPlayerService).
+            // A lidless container (mummy) is a plain mob here too: the grab toggles its loot (VRMobUseService).
             if (!_mobInteractionService.ShouldHandleGrab(vob) && !vob.IsLidlessContainer())
                 return;
 
             _mobActivated = true;
             Logger.Log($"[VRMobInteraction.OnGrabbed] mob={vobLoader.gameObject.name}", LogCat.Vob);
-            _vrPlayerService.HandleMobGrab(vobLoader);
+            _vrMobUseService.HandleMobGrab(vobLoader);
         }
 
         private void OnReleased(VrGrabArgs _)
