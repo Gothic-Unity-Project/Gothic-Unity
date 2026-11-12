@@ -9,6 +9,15 @@ namespace Gothic.Core.Extensions
     public static class ZenKitVmExtension
     {
         /// <summary>
+        /// Reads the effect's user string as invariant-culture float. False if it is missing or unparsable.
+        /// </summary>
+        public static bool TryGetUserFloat(this EffectBaseInstance fx, int index, out float value)
+        {
+            return float.TryParse(fx.GetUserString(index), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
+        /// <summary>
         /// Overrides the script function only if the scripts declare it with exactly the signature of the handler.
         /// With another signature (another Ikarus/LeGo version) the override would leave values on the VM stack or
         /// take foreign ones - then the script's own function stays.

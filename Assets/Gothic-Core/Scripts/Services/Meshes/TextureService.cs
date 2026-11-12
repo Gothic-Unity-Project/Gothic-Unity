@@ -38,8 +38,16 @@ namespace Gothic.Core.Services.Meshes
         public Material BackgroundMaterial;
         public Material WeaponTrailMaterial;
 
+        /// <summary>
+        /// Share of Gothic's swing trail visibility (1 = Gothic). A platform sets it before Init(), e.g. in its
+        /// RegisterControlModule().
+        /// </summary>
+        public float WeaponTrailOpacity { get; set; } = 1f;
+
 
         [Inject] private readonly TextureCacheService _textureCacheService;
+
+        private static readonly int _cutoffId = Shader.PropertyToID("_Cutoff");
 
 
         public void Init()
@@ -97,10 +105,13 @@ namespace Gothic.Core.Services.Meshes
             
             // Misc
             WeaponTrailMaterial.mainTexture = _textureCacheService.TryGetTexture("ZWEAPONTRAIL.TGA");
-            // Set alpha to 135/255 ≈ 0.53
-            var color = WeaponTrailMaterial.color;
-            color.a = 135f / 255f;
-            WeaponTrailMaterial.color = color;
+            // Gothic's alpha 135/255 ≈ 0.53, scaled by WeaponTrailOpacity. Gothic/UI blends One/OneMinusSrcAlpha
+            // without premultiplying, so the color is scaled too, and it clips at _Cutoff (0.5, which only the old 0.53
+            // passed - a lower alpha alone made the trail vanish): scaled the same way, the same pixels stay.
+            var trailAlpha = 135f / 255f;
+            var opacity = WeaponTrailOpacity;
+            WeaponTrailMaterial.color = new Color(opacity, opacity, opacity, trailAlpha * opacity);
+            WeaponTrailMaterial.SetFloat(_cutoffId, WeaponTrailMaterial.GetFloat(_cutoffId) * opacity);
         }
 
         public void SetTexture(string texture, Material material)

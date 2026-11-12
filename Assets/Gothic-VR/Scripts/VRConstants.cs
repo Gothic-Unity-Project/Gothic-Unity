@@ -167,6 +167,10 @@ namespace Gothic.VR
         // on-top UI (UiOnTop-Text: 3901). VRHandsOnTop and VrHeroHands.
         public const int HandsOnTopRenderQueue = 3950;
 
+        // Gothic's full swing trail right in front of the eyes on every swing is too much in VR - half of it
+        // (TextureService.WeaponTrailOpacity, 1 = Gothic).
+        public const float WeaponTrailOpacity = 0.5f;
+
         /// <summary>
         /// VR melee tunables: hero fists, blocking and the stab finish. Serialized prefab fields stay on the prefab.
         /// </summary>

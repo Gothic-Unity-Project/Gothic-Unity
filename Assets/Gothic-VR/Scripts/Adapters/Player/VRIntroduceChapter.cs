@@ -2,6 +2,7 @@ using System.Collections;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Meshes;
+using Gothic.VR.Adapters.UI;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -20,6 +21,8 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private Image _chapterImage;
         [SerializeField] private TMP_Text _chapterTitle;
         [SerializeField] private TMP_Text _chapterSubtitle;
+        [Tooltip("Draws the chapter canvas on top of walls and NPCs. Re-applied after the cover material is set.")]
+        [SerializeField] private VRUiOnTop _onTop;
 
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly AudioService _audioService;
@@ -37,7 +40,6 @@ namespace Gothic.VR.Adapters.Player
             
             PlayAudio(wav);
             ShowChapterCanvas(chapter, text, texture);
-            
             StartCoroutine(DisableDelayed(time));
         }
 
@@ -57,6 +59,10 @@ namespace Gothic.VR.Adapters.Player
 
             _chapterTitle.text = chapter;
             _chapterSubtitle.text = text;
+
+            // Drawn on top of walls and NPCs (4 m in front of the camera they cut through it). The cover's material is
+            // set again for every chapter - wrapped again here.
+            _onTop.Apply();
         }
 
         private IEnumerator DisableDelayed(int milliseconds)
