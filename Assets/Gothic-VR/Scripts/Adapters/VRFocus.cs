@@ -13,7 +13,6 @@ using Gothic.Core.Services;
 using Gothic.VR.Adapters.Vob;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
-using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -36,7 +35,6 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
 
         private static Camera _mainCamera;
@@ -55,8 +53,6 @@ namespace Gothic.VR.Adapters
         private Renderer _cachedObjectRenderer;
         private bool _isNpc;
         private VrInteractable _interactable;
-        // A grab toggles a lidless container once - two hands or a re-grab while held don't.
-        private bool _isContainerActivated;
 
         private void Awake()
         {
@@ -66,7 +62,6 @@ namespace Gothic.VR.Adapters
             _interactable.HoverEntered += OnHoverEnter;
             _interactable.HoverExited += OnHoverExit;
             _interactable.Grabbed += OnGrabbed;
-            _interactable.Released += OnReleased;
 
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
@@ -109,12 +104,12 @@ namespace Gothic.VR.Adapters
             _interactable.HoverEntered -= OnHoverEnter;
             _interactable.HoverExited -= OnHoverExit;
             _interactable.Grabbed -= OnGrabbed;
-            _interactable.Released -= OnReleased;
         }
 
         /// <summary>
         /// Like the engine using a mob: grabbing it (chest lid, door, bed, wheel, ...) tells the NPCs around
-        /// (PERC_ASSESSUSEMOB - owners react). VRFocus sits on every grabbable mob, VRMobInteraction not on chests/doors.
+        /// (PERC_ASSESSUSEMOB - owners react). VRFocus sits on every grabbable mob, VRMobInteraction not on
+        /// lidded chests/doors.
         /// </summary>
         private void OnGrabbed(VrGrabArgs args)
         {
@@ -125,19 +120,8 @@ namespace Gothic.VR.Adapters
             if (vobLoader?.Container?.Vob is not ZenKit.Vobs.IInteractiveObject mob)
                 return;
 
+            // Using the mob itself (wheels, levers, lidless containers, ...) is VRMobInteraction's.
             _heroPerceptionService.OnHeroUsesMob(mob);
-
-            // Using the mob itself (wheels, levers, shrines, beds, ...) is VRMobInteraction's - containers aren't.
-            if (_isContainerActivated || mob is not ZenKit.Vobs.IContainer container)
-                return;
-
-            _isContainerActivated = true;
-            _vrPlayerService.TryToggleStaticContainerLoot(vobLoader, container);
-        }
-
-        private void OnReleased(VrGrabArgs _)
-        {
-            _isContainerActivated = false;
         }
 
         private void OnHoverEnter(VrGrabArgs _)

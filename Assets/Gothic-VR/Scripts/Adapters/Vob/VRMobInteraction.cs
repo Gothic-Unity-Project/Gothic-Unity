@@ -1,4 +1,5 @@
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Interaction.Components;
@@ -11,7 +12,8 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Adapters.Vob
 {
     /// <summary>
-    /// Uses a mob (wheel, lever, shrine, bed, ...) when the hero grabs it. Sits next to the mob's VrInteractable.
+    /// Uses a mob (wheel, lever, shrine, bed, lidless container, ...) when the hero grabs it - the single entry point
+    /// for a VR grab on a mob. Sits next to the mob's VrInteractable. Two hands toggle once (until released).
     /// The logic itself is platform neutral (MobInteractionService).
     /// </summary>
     public class VRMobInteraction : MonoBehaviour
@@ -50,7 +52,8 @@ namespace Gothic.VR.Adapters.Vob
 
             var vobLoader = GetComponentInParent<VobLoader>();
             var vob = vobLoader?.Container?.Vob;
-            if (!_mobInteractionService.ShouldHandleGrab(vob))
+            // A lidless container (mummy) is a plain mob here too: the grab toggles its loot (VRPlayerService).
+            if (!_mobInteractionService.ShouldHandleGrab(vob) && !vob.IsLidlessContainer())
                 return;
 
             _mobActivated = true;
@@ -59,6 +62,12 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         private void OnReleased(VrGrabArgs _)
+        {
+            _mobActivated = false;
+        }
+
+        // Culled or disabled while held: no Released comes - the next grab must still work.
+        private void OnDisable()
         {
             _mobActivated = false;
         }

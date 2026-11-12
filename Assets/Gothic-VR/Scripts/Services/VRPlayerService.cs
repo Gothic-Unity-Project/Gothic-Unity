@@ -461,10 +461,13 @@ namespace Gothic.VR.Services
 
         /// <summary>
         /// The hero grabbed a mob (wheel, lever, ...). The logic is platform neutral (MobInteractionService),
-        /// only the dialog anchor next to the mob is VR specific.
+        /// only the dialog anchor next to the mob is VR specific. A lidless container only toggles its loot.
         /// </summary>
         public void HandleMobGrab(VobLoader loader)
         {
+            if (TryToggleStaticContainerLoot(loader))
+                return;
+
             if (TryCloseMobDocument(loader))
                 return;
 
@@ -476,14 +479,15 @@ namespace Gothic.VR.Services
         /// A container without a lid (mummy) is a plain mob: the click shows/hides a loot backpack like a corpse.
         /// Chests with a lid (VRVobContainer) open physically.
         /// </summary>
-        public void TryToggleStaticContainerLoot(VobLoader loader, IContainer container)
+        private bool TryToggleStaticContainerLoot(VobLoader loader)
         {
-            if (!container.IsLidlessContainer())
-                return;
+            if (loader.Container?.Vob is not IContainer container || !container.IsLidlessContainer())
+                return false;
 
             if (!loader.TryGetComponent<VRStaticContainerLoot>(out var loot))
                 loot = loader.gameObject.AddComponent<VRStaticContainerLoot>();
             loot.Toggle(container, _inventoryTransferService.GetOwner(container));
+            return true;
         }
 
         /// <summary>
