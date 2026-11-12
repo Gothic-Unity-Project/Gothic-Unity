@@ -38,6 +38,9 @@ namespace Gothic.Core.Const
 
         public static class Items
         {
+            // The engine swaps a lit torch (ITEM_TORCH) for this instance - its visual holds the fire and light.
+            public const string BurningTorchInstance = "ItLsTorchBurning";
+
             /// <summary>
             /// The engine knows the lock pick by its instance name - G1 ItKeLockpick, G2 ItKe_Lockpick (mods keep it).
             /// Keys are named by the lock itself (its Key).
@@ -251,6 +254,9 @@ namespace Gothic.Core.Const
         public const string SfxBowReload = "BowReload";
         public const string SfxCrossbowShoot = "CrossbowShoot";
         public const string SfxCrossbowReload = "CrossbowReload";
+
+        // Sound effect (SFX instance) of lighting a torch.
+        public const string SfxTorchLight = "TORCH_ENLIGHT";
 
         public const string SlotRightHand	= "ZS_RIGHTHAND";
         public const string SlotLeftHand	= "ZS_LEFTHAND";

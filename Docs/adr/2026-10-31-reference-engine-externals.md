@@ -1,6 +1,5 @@
 # ADR: Script commands from the reference engine
 
-- Status: proposed
 - Date: 2026-10-31
 
 ## Context

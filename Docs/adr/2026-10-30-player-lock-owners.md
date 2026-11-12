@@ -1,6 +1,5 @@
 # ADR: Every lock on the player has an owner
 
-- Status: proposed
 - Date: 2026-10-30
 
 ## Context

@@ -1,6 +1,5 @@
 # ADR: A comfort vignette and a text size option
 
-- Status: proposed
 - Date: 2026-10-30
 
 ## Context

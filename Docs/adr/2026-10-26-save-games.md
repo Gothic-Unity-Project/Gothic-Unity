@@ -1,6 +1,5 @@
 # ADR: Save games
 
-- Status: accepted (PR #447), tested in Gothic 1, Gothic 2 needs a tester
 - Date: 2026-10-26
 - Technical details: Docs/save-game.md
 
@@ -22,4 +21,5 @@ Saving and loading were switched off. A Gothic save holds the whole world: every
 
 - Only saves made by Gothic-Unity can be loaded for now. Original saves would need their inventories converted.
 - A few bugs in the save library had to be worked around until they are fixed there.
+- When merged (PR #447) it was tested in Gothic 1; Gothic 2 still needed a tester.
 - Not yet: quicksave and Gothic 2's save slots 16 to 20.

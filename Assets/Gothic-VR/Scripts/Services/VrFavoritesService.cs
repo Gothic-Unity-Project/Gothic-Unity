@@ -9,10 +9,12 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
+using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.Player;
 using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Models.FavoritesRing;
+using Newtonsoft.Json.Linq;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -27,11 +29,11 @@ namespace Gothic.VR.Services
     /// - The slots: the hero's equipped spells (runes/scrolls, ITEM_KAT_RUNE) in equip order, his equipped melee weapon
     ///   and bow/crossbow, his favorite items and the trade currency -
     ///   those in the backpack - plus the empty slot while something is missing.
-    /// - The favorite items: the hero's, as Daedalus symbol names. Not saved yet (a save section with main's
-    ///   save/load); a new hero (new game, loaded game) starts without.
+    /// - The favorite items: the hero's, as Daedalus symbol names. Saved in UNITYSAVE.json ("vr.favorites"); a new
+    ///   game starts without, a loaded game with the saved ones.
     /// - The put-in rules (VrFavoritesPutInDomain) and the open gesture (VrFavoritesGestureDomain).
     /// </summary>
-    public class VrFavoritesService
+    public class VrFavoritesService : ISaveStateSection
     {
         public const int MaxSpells = 8;
         public const int MaxWeapons = 2;
@@ -44,11 +46,12 @@ namespace Gothic.VR.Services
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly TradeService _tradeService;
         [Inject] private readonly VRSpellTransformService _vrSpellTransformService;
+        [Inject] private readonly SaveGameService _saveGameService;
 
         private readonly List<FavoriteSlot> _slots = new();
+        // The hero's favorite items. Emptied for a new game and replaced by a loaded game's (ISaveStateSection).
         private readonly List<string> _favoriteItems = new();
-        // The hero the favorite items belong to.
-        private NpcContainer _favoritesOwner;
+        private bool _isInitialized;
         // A readied ring spell per hand (left, right) - the ring's open gesture needs empty hands.
         private readonly bool[] _isReadied = new bool[2];
         private VrFavoritesPutInDomain _putInDomain;
@@ -60,22 +63,53 @@ namespace Gothic.VR.Services
         /// </summary>
         public string CurrencyName => _tradeService.CurrencyName;
 
+        public string Key => "vr.favorites";
+        public int Version => 1;
+
         /// <summary>
-        /// The hero's favorite items (Daedalus symbol names). They belong to the hero - another hero container (a new
-        /// or loaded game) starts without.
+        /// The hero's favorite items (Daedalus symbol names).
         /// </summary>
-        private List<string> FavoriteItems
+        private List<string> FavoriteItems => _favoriteItems;
+
+        /// <summary>
+        /// Called once the VR scope is built (ReflexVRSceneInstaller), i.e. before a save game can be loaded.
+        /// </summary>
+        public void Init()
         {
-            get
+            if (_isInitialized)
+                return;
+
+            _isInitialized = true;
+            _saveGameService.RegisterSection(this);
+        }
+
+        public JToken Capture()
+        {
+            return new JObject { ["Items"] = new JArray(_favoriteItems) };
+        }
+
+        public void Reset()
+        {
+            _favoriteItems.Clear();
+        }
+
+        /// <summary>
+        /// Items the hero doesn't carry anymore are dropped when the ring is built (BuildSlots).
+        /// </summary>
+        public void Restore(JToken data, int savedVersion)
+        {
+            _favoriteItems.Clear();
+            if (data?["Items"] is not JArray items)
+                return;
+
+            foreach (var item in items)
             {
-                var hero = _playerService.HeroContainer;
-                if (hero != _favoritesOwner)
-                {
-                    _favoriteItems.Clear();
-                    _favoritesOwner = hero;
-                }
-                return _favoriteItems;
+                var instanceName = item.Value<string>();
+                if (!string.IsNullOrEmpty(instanceName))
+                    _favoriteItems.Add(instanceName);
             }
+            Logger.Log($"[Favorites] {_favoriteItems.Count} favorite item(s) restored: " +
+                       $"{string.Join(", ", _favoriteItems)}", LogCat.VR);
         }
 
         public bool IsReadiedIn(VrHandSide side) => _isReadied[(int)side];

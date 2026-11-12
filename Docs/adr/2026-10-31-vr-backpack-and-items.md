@@ -1,6 +1,5 @@
 # ADR: VR backpack, equipping and items in the hands
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: VRBackpack, VRItemUser, VRBackpackEquipToggle, VRStackSplitter (Gothic-VR); IInventoryOwner, NpcInventoryService, DocService (Core); Gothic.ini `[GOTHIC_VR_IMMERSION]` (itemDetailsPopup, backpackVacuum, lootTakeAll); DeveloperConfig.NpcLootMode
 

@@ -1,6 +1,5 @@
 # ADR: World sounds are decoded in the background
 
-- Status: accepted (PR #461)
 - Date: 2026-10-28
 
 ## Context

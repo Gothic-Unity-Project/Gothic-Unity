@@ -1,12 +1,20 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Vob;
+using Gothic.Core.Services.Caches;
+using Gothic.Core.Services.Context;
 using Gothic.Core.Services.World;
+using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Vobs
@@ -23,11 +31,16 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly MobRoutineService _mobRoutineService;
+        [Inject] private readonly VmCacheService _vmCacheService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+        [Inject] private readonly ContextGameVersionService _contextGameVersionService;
 
         private const float _checkSeconds = 1f;
 
         private readonly List<FireContainer> _fires = new();
         private Coroutine _checkRoutine;
+        private BurningTorchVisual _burningTorch;
+        private bool _isBurningTorchLoaded;
 
         public FireService()
         {
@@ -64,6 +77,56 @@ namespace Gothic.Core.Services.Vobs
             Refresh(fire, GetCameraPosition());
             return true;
         }
+
+        /// <summary>
+        /// The fire and light of a torch in hand, read once from ItLsTorchBurning's visual like the engine does
+        /// (OpenGothic ItemTorchBurning). Null if the scripts or the .zen lack it - the engine can't burn a torch then.
+        /// </summary>
+        [CanBeNull]
+        public BurningTorchVisual TryGetBurningTorch()
+        {
+            if (_isBurningTorchLoaded)
+                return _burningTorch;
+            _isBurningTorchLoaded = true;
+
+            var visualName = _vmCacheService.TryGetItemData(Constants.Items.BurningTorchInstance)?.Visual;
+            if (string.IsNullOrEmpty(visualName) || !visualName.EndsWith(".zen", StringComparison.OrdinalIgnoreCase))
+            {
+                Logger.LogWarning($"[Fire] {Constants.Items.BurningTorchInstance} has no .zen visual " +
+                                  $"('{visualName}') - torches can't burn", LogCat.Vob);
+                return null;
+            }
+
+            // Cached like a fire tree: the roots are at 0,0,0 and their children relative to them (the mesh's pivot).
+            var torchWorld = _resourceCacheService.TryGetWorld(visualName, _contextGameVersionService.Version, true);
+            var vobs = torchWorld?.RootObjects.SelectMany(GetSelfAndChildren).ToList();
+            var fire = vobs?.FirstOrDefault(v => v.Visual?.Type == VisualType.ParticleEffect);
+            var light = vobs?.OfType<ILight>().FirstOrDefault();
+            if (fire == null || light == null)
+            {
+                Logger.LogWarning($"[Fire] {visualName} lacks its fire or light - torches can't burn", LogCat.Vob);
+                return null;
+            }
+
+            _burningTorch = new BurningTorchVisual
+            {
+                FirePfxName = fire.Visual!.Name,
+                FireLocalPosition = fire.Position.ToUnityVector(),
+                LightRange = light.Range * .01f,
+                LightColor = ToUnityColor(light.Color),
+                LightColors = light.ColorAnimationList.Select(ToUnityColor).ToArray(),
+                LightColorFps = light.ColorAnimationFps
+            };
+            Logger.Log($"[Fire] Burning torch from {visualName}: fire {_burningTorch.FirePfxName}, " +
+                       $"light {_burningTorch.LightRange}m {_burningTorch.LightColors.Length} colors", LogCat.Vob);
+            return _burningTorch;
+        }
+
+        private static IEnumerable<IVirtualObject> GetSelfAndChildren(IVirtualObject vob) =>
+            vob.Children.SelectMany(GetSelfAndChildren).Prepend(vob);
+
+        private static Color ToUnityColor(System.Drawing.Color color) =>
+            new(color.R / 255f, color.G / 255f, color.B / 255f);
 
         /// <summary>
         /// The fire of a grabbed object: a root fire's loader is the mesh's parent, a child fire's loader its mesh

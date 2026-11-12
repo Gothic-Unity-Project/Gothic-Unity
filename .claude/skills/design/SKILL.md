@@ -44,7 +44,10 @@ Then the steps in build order, and what is left out on purpose. Every step fits 
 Read `Docs/adr/README.md` first and follow it: "When" decides if a record is needed, "How" and "Template" decide
 its form. Existing records in `Docs/adr/` show the tone.
 
-- File `Docs/adr/<date>-<topic>.md` without a status.
+- File `Docs/adr/<date>-<topic>.md`, no status line (on the branch it's proposed, in main accepted).
+- Search `Docs/adr/` for records on the same topic first. A record in main is never edited: if the plan changes one
+  of its decisions, the new record says `- Replaces: [...]` (or `decisions n-m of [...]`), and that change is one of
+  the human's decisions in step 2. Not replaced = in force.
 - Context: the problem and how the original game handles it (from step 1 / `daedalus-scout`).
 - Decisions: the ones the human made in step 2, each with what wasn't chosen and why.
 - Plain words, no class names or code - those stay in the plan and the `Docs/<area>.md` the record links.
