@@ -25,8 +25,7 @@ namespace Gothic.Core.Adapters.Vob
         public void Init(ITrigger trigger)
         {
             _trigger = trigger;
-            if (_trigger.ReactToOnDamage)
-                DamageTargets.Register(transform);
+            DamageTargets.RegisterIf(_trigger.ReactToOnDamage, transform);
         }
 
         private void OnDestroy() => DamageTargets.Unregister(transform);

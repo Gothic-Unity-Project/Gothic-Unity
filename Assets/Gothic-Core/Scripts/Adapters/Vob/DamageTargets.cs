@@ -17,6 +17,15 @@ namespace Gothic.Core.Adapters.Vob
                 _targets.Add(target);
         }
 
+        /// <summary>
+        /// Registers the target only if the VOB reacts to hits (reactToOnDamage).
+        /// </summary>
+        public static void RegisterIf(bool reactToOnDamage, Transform target)
+        {
+            if (reactToOnDamage)
+                Register(target);
+        }
+
         public static void Unregister(Transform target)
         {
             _targets.Remove(target);

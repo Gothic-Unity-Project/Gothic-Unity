@@ -173,8 +173,7 @@ namespace Gothic.Core.Adapters.Vob
         {
             _mover = mover;
             _chainTarget = chainTarget;
-            if (_mover.ReactToOnDamage)
-                DamageTargets.Register(transform);
+            DamageTargets.RegisterIf(_mover.ReactToOnDamage, transform);
 
             var raw = mover.Keyframes;
             _keyframes = new (Vector3, Quaternion)[raw.Count];

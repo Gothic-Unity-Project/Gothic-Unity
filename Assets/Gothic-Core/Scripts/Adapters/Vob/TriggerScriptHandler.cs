@@ -19,8 +19,7 @@ namespace Gothic.Core.Adapters.Vob
         public void Init(ITriggerScript triggerScript)
         {
             _triggerScript = triggerScript;
-            if (_triggerScript.ReactToOnDamage)
-                DamageTargets.Register(transform);
+            DamageTargets.RegisterIf(_triggerScript.ReactToOnDamage, transform);
         }
 
         private void OnDestroy() => DamageTargets.Unregister(transform);
