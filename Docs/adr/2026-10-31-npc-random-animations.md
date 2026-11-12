@@ -1,6 +1,5 @@
 # ADR: Random animations within a state animation
 
-- Status: proposed
 - Date: 2026-10-31
 
 ## Context

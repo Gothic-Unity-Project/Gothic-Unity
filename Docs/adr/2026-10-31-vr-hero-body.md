@@ -1,6 +1,5 @@
 # ADR: The VR hero's own body
 
-- Status: proposed
 - Date: 2026-10-31
 - Technical details: VRHeroBody, VRHeroBodyAnimator (Gothic-VR/Scripts/Adapters/Player); DeveloperConfig "VR Hero Body"
 

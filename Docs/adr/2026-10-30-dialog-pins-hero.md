@@ -1,6 +1,5 @@
 # ADR: A dialog pins the hero where he stood until it ends
 
-- Status: proposed
 - Date: 2026-10-30
 
 ## Context

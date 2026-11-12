@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gothic.Core.Domain.Vobs;
+using Gothic.Core.Extensions;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -10,6 +11,7 @@ using Gothic.Core.Services.Npc;
 using MyBox;
 using Reflex.Attributes;
 using UnityEngine;
+using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Meshes
@@ -166,8 +168,9 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// Camera effects (FX_*): FX_EarthQuake (earthquake.eqk) plays its
-        /// sound (no camera shake in VR). Time and screen effects (time.slw, screenblend.scx) are skipped.
+        /// Camera effects (FX_*): FX_EarthQuake (earthquake.eqk) plays its sound and raises VisualFxEarthquake with
+        /// its radius (userString[0], cm) and seconds (userString[1]) - no camera shake in VR, the controllers rumble.
+        /// Time and screen effects (time.slw, screenblend.scx) are skipped.
         /// </summary>
         private void PlayGlobalFx(string fxName, Vector3 position)
         {
@@ -176,12 +179,31 @@ namespace Gothic.Core.Services.Meshes
                 !_earthquakeVisual.Equals(fx.VisNameS, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            if (string.IsNullOrEmpty(fx.SfxId))
-                return;
-            var clip = _audioService.GetRandomSoundClip(fx.SfxId);
-            if (clip != null)
-                AudioSource.PlayClipAtPoint(clip, position);
-            Logger.Log($"[VisualFx] {fxName}: earthquake sound", LogCat.Mesh);
+            var radius = fx.TryGetUserFloat(0, out var radiusCm)
+                ? radiusCm / 100f
+                : ZenGineConst.EarthquakeDefaultRadius;
+            var seconds = fx.TryGetUserFloat(1, out var userSeconds)
+                ? userSeconds
+                : ZenGineConst.EarthquakeDefaultSeconds;
+            WarnIfUnparsable(fxName, fx, 0);
+            WarnIfUnparsable(fxName, fx, 1);
+            if (!string.IsNullOrEmpty(fx.SfxId))
+            {
+                var clip = _audioService.GetRandomSoundClip(fx.SfxId);
+                if (clip != null)
+                    AudioSource.PlayClipAtPoint(clip, position);
+            }
+            Logger.Log($"[VisualFx] {fxName}: earthquake {radius:F0} m, {seconds:F1} s", LogCat.Mesh);
+            GlobalEventDispatcher.VisualFxEarthquake.Invoke(position, radius, seconds);
+        }
+
+        // Empty user string = default is intended. Filled but not a number = script typo, tell the developer.
+        private static void WarnIfUnparsable(string fxName, EffectBaseInstance fx, int index)
+        {
+            var raw = fx.GetUserString(index);
+            if (!string.IsNullOrEmpty(raw) && !fx.TryGetUserFloat(index, out _))
+                Logger.LogWarning($"[VisualFx] {fxName}: userString[{index}] '{raw}' is not a number, using default.",
+                    LogCat.Mesh);
         }
 
         private static float GetPlaySeconds(GameObject root)

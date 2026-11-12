@@ -155,6 +155,9 @@ namespace Gothic.VR.Adapters.Vob
             // One hand is enough for ranged weapons.
             SetRangedWeaponHeld(true);
 
+            // A torch is lit / put out with the trigger of the hand holding it.
+            TryPrepareTorch();
+
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
             {
@@ -291,6 +294,19 @@ namespace Gothic.VR.Adapters.Vob
             if (_interactable != null && _interactable.IsHeld)
                 _interactable.ForceRelease();
             _vobService.RemoveWorldItem(container);
+        }
+
+        /// <summary>
+        /// Torches (ITEM_TORCH) get lit / put out with the trigger (VRTorch). Added once, stays on the item.
+        /// </summary>
+        private void TryPrepareTorch()
+        {
+            if (GetComponent<VobItem.VRTorch>() != null)
+                return;
+
+            var item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (item != null && ((VmGothicEnums.ItemFlags)item.Flags & VmGothicEnums.ItemFlags.ItemTorch) != 0)
+                gameObject.AddComponent<VobItem.VRTorch>();
         }
 
         /// <summary>

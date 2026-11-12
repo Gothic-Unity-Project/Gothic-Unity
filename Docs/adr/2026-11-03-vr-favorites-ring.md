@@ -1,6 +1,5 @@
 # ADR: VR favorites ring - Gothic's spell selection with weapons and favorite items
 
-- Status: proposed
 - Date: 2026-11-03
 - Technical details: VrFavoritesService with VrFavoritesPutInDomain and VrFavoritesGestureDomain (contents, put-in rules, favorite items, gesture), VRFavoritesRing and VRFavoritesRingSlotViews (visuals, hands), VRFavoritesRingSpell, models in Models/FavoritesRing (VR); ItemInstanceExtension.GetEquipConflicts (applied in EquipDomain), PlayerService.DropItem/GetItemAmount, PlayerInventoryOwner, TradeService.CurrencyName (Core); no DeveloperConfig flags - two player preferences in Gothic.ini: `favoritesRing` (Immersion, 1 = on, menu "Favorites ring") and `favoritesRingZoom` (Accessibility, 0...1 of 0.5x...2x, menu "Favorites ring size")
 
