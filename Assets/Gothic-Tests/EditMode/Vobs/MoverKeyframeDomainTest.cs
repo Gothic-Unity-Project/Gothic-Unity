@@ -28,7 +28,7 @@ namespace Gothic.Tests.EditMode.Vobs
             var keyframes = CreateKeyframes();
 
             var changed = MoverKeyframeDomain.RelativeToVob(keyframes, new Vector3(10f, 0f, 20f), Quaternion.identity,
-                0, out _, out _);
+                0, 0f, out _, out _);
 
             Assert.IsFalse(changed);
             AssertKeyframes(CreateKeyframes(), keyframes);
@@ -40,7 +40,21 @@ namespace Gothic.Tests.EditMode.Vobs
             var keyframes = CreateKeyframes();
 
             var changed = MoverKeyframeDomain.RelativeToVob(keyframes, new Vector3(11f, 5f, 20f), _key1Rotation, 1,
-                out _, out _);
+                1f, out _, out _);
+
+            Assert.IsFalse(changed);
+            AssertKeyframes(CreateKeyframes(), keyframes);
+        }
+
+        [Test]
+        public void VobSavedBetweenKeys_KeepsKeyframes()
+        {
+            // A Gothic save of a moving mover: ActKeyframe is the segment start, ActKeyframeF how far it got.
+            var keyframes = CreateKeyframes();
+            var vobPosition = Vector3.Lerp(new Vector3(10f, 0f, 20f), new Vector3(11f, 5f, 20f), 0.4f);
+
+            var changed = MoverKeyframeDomain.RelativeToVob(keyframes, vobPosition,
+                Quaternion.Slerp(Quaternion.identity, _key1Rotation, 0.4f), 0, 0.4f, out _, out _);
 
             Assert.IsFalse(changed);
             AssertKeyframes(CreateKeyframes(), keyframes);
@@ -55,7 +69,7 @@ namespace Gothic.Tests.EditMode.Vobs
             var vobRotation = Quaternion.Euler(0f, 10f, 0f);
 
             var changed = MoverKeyframeDomain.RelativeToVob(keyframes, vobPosition, vobRotation, 0,
-                out var positionOffset, out var rotationAngle);
+                0f, out var positionOffset, out var rotationAngle);
 
             Assert.IsTrue(changed);
             Assert.AreEqual(0f, Vector3.Distance(new Vector3(3f, 1f, -2f), positionOffset), _tolerance);
@@ -75,7 +89,7 @@ namespace Gothic.Tests.EditMode.Vobs
             var vobPosition = new Vector3(13f, 1f, 18f);
 
             var changed = MoverKeyframeDomain.RelativeToVob(keyframes, vobPosition, Quaternion.Euler(0f, 0.5f, 0f), 0,
-                out _, out _);
+                0f, out _, out _);
 
             Assert.IsTrue(changed);
             AssertKeyframes(new[]
@@ -91,7 +105,8 @@ namespace Gothic.Tests.EditMode.Vobs
             Assert.AreEqual(expected.Length, actual.Length);
             for (var i = 0; i < expected.Length; i++)
             {
-                Assert.AreEqual(0f, Vector3.Distance(expected[i].pos, actual[i].pos), _tolerance, $"position of key {i}");
+                Assert.AreEqual(0f, Vector3.Distance(expected[i].pos, actual[i].pos), _tolerance,
+                    $"position of key {i}");
                 Assert.AreEqual(0f, Quaternion.Angle(expected[i].rot, actual[i].rot), 0.01f, $"rotation of key {i}");
             }
         }

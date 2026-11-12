@@ -205,8 +205,8 @@ namespace Gothic.Core.Adapters.Vob
         private void MakeKeyframesRelativeToVob(IMover mover)
         {
             if (!MoverKeyframeDomain.RelativeToVob(_keyframes, mover.Position.ToUnityVector(),
-                    mover.Rotation.ToUnityQuaternion(), mover.ActKeyframe, out var positionOffset,
-                    out var rotationAngle))
+                    mover.Rotation.ToUnityQuaternion(), mover.ActKeyframe, mover.ActKeyframeF,
+                    out var positionOffset, out var rotationAngle))
                 return;
 
             Logger.Log($"[MoverAdapter] {mover.Name} keyframes relative to the VOB - offset {positionOffset} " +
