@@ -497,9 +497,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             if (hero.ActiveLightGo != null)
             {
+                _stationaryLightsService.ReleaseHeroLight(hero.ActiveLightGo);
                 Object.Destroy(hero.ActiveLightGo);
                 hero.ActiveLightGo = null;
-                _stationaryLightsService.ClearDynamicLight();
                 Logger.Log("[VRSpellFx] Light spell OFF", LogCat.VR);
                 return;
             }
@@ -510,7 +510,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             // StationaryLight (not a plain Light) so the world's baked-lighting shader — which never
             // samples ordinary Unity/URP realtime lights, only its own static per-renderer index array
-            // — also picks this up via the one slot reserved for a runtime-moving light. The attached
+            // — also picks this up via the one slot reserved for the hero light. The attached
             // Light component (added by [RequireComponent]) still covers items/hands/NPCs normally.
             var stationaryLight = lightGo.AddComponent<StationaryLight>();
             stationaryLight.Inject();
@@ -518,7 +518,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             stationaryLight.Color = _lightColor;
             stationaryLight.Range = _lightRange;
             stationaryLight.Intensity = _lightIntensity;
-            stationaryLight.Index = _stationaryLightsService.DynamicLightIndex;
+            stationaryLight.Index = _stationaryLightsService.HeroLightIndex;
+            _stationaryLightsService.ClaimHeroLight(lightGo);
             stationaryLight.Init();
 
             _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo);
@@ -526,7 +527,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             hero.ActiveLightGo = lightGo;
             Logger.Log("[VRSpellFx] Light spell ON", LogCat.VR);
             _unityMonoService.StartCoroutine(AutoTurnOffLight(hero, lightGo));
-            _unityMonoService.StartCoroutine(DriveDynamicLight(lightGo, stationaryLight));
+            _unityMonoService.StartCoroutine(DriveHeroLight(lightGo, stationaryLight));
         }
 
         /// <summary>
@@ -534,19 +535,38 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// global shader arrays and re-gathers nearby renderers, so the world-lighting effect actually
         /// follows the player instead of staying fixed at the cast position. Not done every frame —
         /// each update re-uploads the whole global light array — a few times a second is plenty for a
-        /// walking-speed light.
+        /// walking-speed light. A torch lit later takes the hero light over - this light goes dark then.
         /// </summary>
-        private IEnumerator DriveDynamicLight(GameObject lightGo, StationaryLight stationaryLight)
+        private IEnumerator DriveHeroLight(GameObject lightGo, StationaryLight stationaryLight)
         {
             var linearColor = _lightColor.linear;
 
             while (lightGo != null)
             {
-                _stationaryLightsService.UpdateDynamicLight(lightGo.transform.position, _lightRange, linearColor);
+                if (!_stationaryLightsService.UpdateHeroLight(lightGo, lightGo.transform.position, _lightRange,
+                        linearColor))
+                {
+                    TurnOffLostHeroLight(stationaryLight);
+                    yield break;
+                }
                 stationaryLight.Refresh();
                 // Immersion setting "Light refresh" (Low/Medium/High).
                 yield return new WaitForSeconds(_stationaryLightsService.MovingLightRefreshSeconds);
             }
+        }
+
+        /// <summary>
+        /// A torch took the hero light over: this light stops lighting (world, VOBs, NPCs), its effect stays until
+        /// the spell ends.
+        /// </summary>
+        private static void TurnOffLostHeroLight(StationaryLight stationaryLight)
+        {
+            if (stationaryLight == null)
+                return;
+            stationaryLight.enabled = false;
+            if (stationaryLight.TryGetComponent<Light>(out var unityLight))
+                unityLight.enabled = false;
+            Logger.Log("[VRSpellFx] Light spell lost the hero light - its light is off", LogCat.VR);
         }
 
         /// <summary>
@@ -558,9 +578,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             yield return new WaitForSeconds(_lightDurationSeconds);
             if (hero.ActiveLightGo != lightGo) yield break;
 
+            _stationaryLightsService.ReleaseHeroLight(lightGo);
             Object.Destroy(lightGo);
             hero.ActiveLightGo = null;
-            _stationaryLightsService.ClearDynamicLight();
             Logger.Log("[VRSpellFx] Light spell expired", LogCat.VR);
         }
     }

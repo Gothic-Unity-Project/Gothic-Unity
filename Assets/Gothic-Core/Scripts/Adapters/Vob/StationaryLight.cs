@@ -129,8 +129,8 @@ namespace Gothic.Core.Adapters.Vob
 
         /// <summary>
         /// Shader slot: StationaryLightsService hands one out only while the light is loaded and among the lights
-        /// closest to the camera - -1 otherwise. A light moving at runtime (torch in the hand, Light spell) sets
-        /// StationaryLightsService.DynamicLightIndex before Init() and keeps it (no pool).
+        /// closest to the camera - -1 otherwise. The hero light (torch in the hand, Light spell) sets
+        /// StationaryLightsService.HeroLightIndex before Init() and keeps it (no pool).
         /// </summary>
         public int Index { get; set; } = -1;
 
