@@ -489,6 +489,7 @@ MonoBehaviour:
   _chapterImage: {fileID: 8619745002751076318}
   _chapterTitle: {fileID: 4211304585708544766}
   _chapterSubtitle: {fileID: 5147541483852718131}
+  _onTop: {fileID: 1177669430075312184}
 --- !u!82 &5615940322375626677
 AudioSource:
   m_ObjectHideFlags: 0
