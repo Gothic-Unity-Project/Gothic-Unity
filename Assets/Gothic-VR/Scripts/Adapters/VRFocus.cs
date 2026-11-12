@@ -87,15 +87,20 @@ namespace Gothic.VR.Adapters
 
         /// <summary>
         /// Like the engine using a mob: grabbing it (chest lid, door, bed, wheel, ...) tells the NPCs around
-        /// (PERC_ASSESSUSEMOB - owners react). VRFocus sits on every grabbable mob, VRMobInteraction not on chests/doors.
+        /// (PERC_ASSESSUSEMOB - owners react). VRFocus sits on every grabbable mob, VRMobInteraction not on
+        /// lidded chests/doors.
         /// </summary>
         private void OnGrabbed(VrGrabArgs args)
         {
             if (!args.IsHandOrDistance)
                 return;
 
-            if (GetComponentInParent<VobLoader>()?.Container?.Vob is ZenKit.Vobs.IInteractiveObject mob)
-                _heroPerceptionService.OnHeroUsesMob(mob);
+            var vobLoader = GetComponentInParent<VobLoader>();
+            if (vobLoader?.Container?.Vob is not ZenKit.Vobs.IInteractiveObject mob)
+                return;
+
+            // Using the mob itself (wheels, levers, lidless containers, ...) is VRMobInteraction's.
+            _heroPerceptionService.OnHeroUsesMob(mob);
         }
 
         private void OnHoverEnter(VrGrabArgs _)

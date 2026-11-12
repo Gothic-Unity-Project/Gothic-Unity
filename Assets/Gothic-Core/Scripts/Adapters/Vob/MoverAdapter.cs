@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
+using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
@@ -15,12 +17,12 @@ namespace Gothic.Core.Adapters.Vob
     /// <summary>
     /// Drives zCMover movement along its ZenKit keyframes (gates, drawbridges, lifts), segment by segment.
     /// Open() moves to the last keyframe, Close() back to the first one, Toggle() switches between both.
-    /// Triggered by mobs (wheels, levers) via VRPlayerService.HandleMobGrab and by the trigger system
+    /// Triggered by mobs (wheels, levers) via VRMobUseService.HandleMobGrab and by the trigger system
     /// (VobService.DispatchTrigger). When it arrives, it opens/closes its chained target mover(s) as well,
     /// or sends a trigger event if the target isn't a mover.
     /// Timing follows OpenGothic (common/world/triggers/movetrigger.cpp).
     /// </summary>
-    public class MoverAdapter : MonoBehaviour
+    public class MoverAdapter : MonoBehaviour, IDamageable
     {
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
@@ -79,6 +81,7 @@ namespace Gothic.Core.Adapters.Vob
         private void OnDestroy()
         {
             GlobalEventDispatcher.StoreWorldStateStart.RemoveListener(StoreMoveState);
+            DamageTargets.Unregister(transform);
         }
 
         // Moved to another parent: the parent mover is looked up again.
@@ -168,6 +171,7 @@ namespace Gothic.Core.Adapters.Vob
         {
             _mover = mover;
             _chainTarget = chainTarget;
+            DamageTargets.RegisterIf(_mover.ReactToOnDamage, transform);
 
             var raw = mover.Keyframes;
             _keyframes = new (Vector3, Quaternion)[raw.Count];
@@ -178,6 +182,8 @@ namespace Gothic.Core.Adapters.Vob
                 var rot = new Quaternion(r.X, r.Y, r.Z, -r.W); // Gothic→Unity: negate W, same as AnimationService
                 _keyframes[i] = (pos, rot);
             }
+
+            MakeKeyframesRelativeToVob(mover);
 
             _segmentSeconds = new float[_keyframes.Length];
             for (var i = 0; i < _keyframes.Length; i++)
@@ -191,6 +197,32 @@ namespace Gothic.Core.Adapters.Vob
 
             Logger.Log($"[MoverAdapter] {mover.Name} init - {_keyframes.Length} keyframes, speed={mover.Speed}",
                 LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Keyframes count from where the VOB stands (G2 Irdorath's gates stand away from their keyframes).
+        /// </summary>
+        private void MakeKeyframesRelativeToVob(IMover mover)
+        {
+            if (!MoverKeyframeDomain.RelativeToVob(_keyframes, mover.Position.ToUnityVector(),
+                    mover.Rotation.ToUnityQuaternion(), mover.ActKeyframe, mover.ActKeyframeF,
+                    out var positionOffset, out var rotationAngle))
+                return;
+
+            Logger.Log($"[MoverAdapter] {mover.Name} keyframes relative to the VOB - offset {positionOffset} " +
+                       $"({positionOffset.magnitude:F2} m), {rotationAngle:F1} deg", LogCat.Vob);
+        }
+
+        /// <summary>
+        /// Hit by an arrow, bolt or spell: a mover with reactToOnDamage acts like it was triggered.
+        /// </summary>
+        public void OnDamage(NpcContainer attacker)
+        {
+            if (_mover == null || !_mover.ReactToOnDamage)
+                return;
+
+            Logger.Log($"[MoverAdapter] {_mover.Name} hit by a projectile", LogCat.Vob);
+            OnTrigger();
         }
 
         /// <summary>

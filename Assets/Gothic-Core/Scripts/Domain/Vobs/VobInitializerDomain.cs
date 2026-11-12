@@ -500,7 +500,11 @@ namespace Gothic.Core.Domain.Vobs
                         : _resourceCacheService.TryGetPrefabObject(PrefabType.VobDoor, name: name, parent: parent);
                     break;
                 case VirtualObjectType.oCMobContainer:
-                    go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobContainer, name: name, parent: parent);
+                    // A container without a lid (orc mummies) is set up like other mobs: highlight + use, the
+                    // platform shows its loot.
+                    go = _resourceCacheService.TryGetPrefabObject(
+                        vob.IsLidlessContainer() ? PrefabType.VobInteractable : PrefabType.VobContainer, name: name,
+                        parent: parent);
                     break;
                 case VirtualObjectType.oCMobLadder:
                     go = _resourceCacheService.TryGetPrefabObject(PrefabType.VobLadder, name: name, parent: parent);

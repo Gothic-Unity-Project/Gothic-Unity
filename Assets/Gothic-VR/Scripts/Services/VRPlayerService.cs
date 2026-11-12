@@ -34,7 +34,6 @@ namespace Gothic.VR.Services
     {
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly PlayerService _playerService;
-        [Inject] private readonly MobInteractionService _mobInteractionService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
 
@@ -452,47 +451,6 @@ namespace Gothic.VR.Services
             var container = grabbable != null ? grabbable.GetComponentInParent<VobLoader>()?.Container : null;
             if (container != null)
                 _heldItems.Remove(container);
-        }
-
-        /// <summary>
-        /// The hero grabbed a mob (wheel, lever, ...). The logic is platform neutral (MobInteractionService),
-        /// only the dialog anchor next to the mob is VR specific.
-        /// </summary>
-        public void HandleMobGrab(VobLoader loader)
-        {
-            _mobInteractionService.HandleMobGrab(loader, () => CreateMobDialogAnchor(loader));
-        }
-
-        /// <summary>
-        /// Next to the mob on the player's left (= the mob's right, where NPC dialogs are), at eye height.
-        /// </summary>
-        private static GameObject CreateMobDialogAnchor(VobLoader loader)
-        {
-            var cam = Camera.main != null ? Camera.main.transform : loader.transform;
-
-            var bounds = new Bounds(loader.transform.position, Vector3.one * 0.5f);
-            var hasBounds = false;
-            foreach (var mobRenderer in loader.GetComponentsInChildren<Renderer>())
-            {
-                if (!hasBounds)
-                {
-                    bounds = mobRenderer.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    bounds.Encapsulate(mobRenderer.bounds);
-                }
-            }
-
-            var right = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
-            var position = bounds.center - right * (Mathf.Max(bounds.extents.x, bounds.extents.z) + 0.4f);
-            position.y = cam.position.y - 0.2f;
-
-            var anchor = new GameObject("MobDialogAnchor");
-            anchor.transform.position = position;
-            new GameObject("DialogMenuRootPos").transform.SetParent(anchor.transform, false);
-            return anchor;
         }
     }
 }

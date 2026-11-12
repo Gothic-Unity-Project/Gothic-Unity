@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -34,6 +35,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private readonly Dictionary<IXRInteractor, VrGrabArgs> _selectArgs = new();
         private readonly HashSet<IXRInteractor> _handHovers = new();
         private readonly List<Collider> _colliderBuffer = new();
+        private readonly List<Collider> _previousColliders = new();
+        // The colliders changed, but the interaction manager still maps the ones of the last registration.
+        private bool _isMappingStale;
 
         private XRBaseInteractable _xrInteractable;
         private VrInteractable _interactable;
@@ -181,13 +185,29 @@ namespace Gothic.VR.Interaction.Backends.Xri
             if (!_isSubscribed)
                 return;
 
+            _previousColliders.Clear();
+            _previousColliders.AddRange(_xrInteractable.colliders);
             CollectColliders();
+            if (_previousColliders.Count != _xrInteractable.colliders.Count ||
+                !_previousColliders.SequenceEqual(_xrInteractable.colliders))
+                _isMappingStale = true;
+            _previousColliders.Clear();
 
-            if (!_xrInteractable.isActiveAndEnabled || _xrInteractable.isSelected || _xrInteractable.isHovered)
+            // A disabled interactable registers the current colliders when it's enabled.
+            if (!_xrInteractable.isActiveAndEnabled)
+            {
+                _isMappingStale = false;
+                return;
+            }
+
+            // Unchanged since the last registration (most mobs on load): the manager's mapping is still right. Held
+            // or hovered: stays stale, the next call registers it again.
+            if (!_isMappingStale || _xrInteractable.isSelected || _xrInteractable.isHovered)
                 return;
 
             _xrInteractable.enabled = false;
             _xrInteractable.enabled = true;
+            _isMappingStale = false;
         }
 
         public void SetSocketSounds(AudioClip socketed, AudioClip unsocketed)

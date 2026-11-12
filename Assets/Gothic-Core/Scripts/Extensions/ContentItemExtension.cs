@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Vob;
+using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Extensions
 {
@@ -40,6 +44,35 @@ namespace Gothic.Core.Extensions
         public static string PackItems(this IEnumerable<ContentItem> items, char separator = ';')
         {
             return string.Join(separator, items.Select(i => $"{i.Name}:{i.Amount}"));
+        }
+
+        /// <summary>
+        /// Reads oCMobContainer.contents. A mod's broken text (ITFO_X:abc, ITFO_X:99999999999) gives an empty list
+        /// plus a warning instead of an exception.
+        /// </summary>
+        public static List<ContentItem> UnpackContainerContents(this IContainer container)
+        {
+            try
+            {
+                return (container?.Contents).UnpackItems()
+                    .Where(i => !string.IsNullOrWhiteSpace(i.Name))
+                    .Select(i => new ContentItem(i.Name.Trim(), i.Amount))
+                    .ToList();
+            }
+            catch (Exception e) when (e is FormatException or OverflowException)
+            {
+                Logger.LogWarning($"[ContentItemExtension] {container.Name}: contents '{container.Contents}' can't " +
+                                  $"be read ({e.Message}) - treated as empty.", LogCat.Vob);
+                return new List<ContentItem>();
+            }
+        }
+
+        /// <summary>
+        /// Writes oCMobContainer.contents, the one format for every writer (chest slots, loot).
+        /// </summary>
+        public static void PackContainerContents(this IContainer container, IEnumerable<ContentItem> items)
+        {
+            container.Contents = items.PackItems(',');
         }
     }
 }

@@ -168,10 +168,17 @@ namespace Gothic.Core.Services.Vobs
             }
 
             var endStateFunction = beginStateFunction?.Invoke();
-            _dialogService.PrepareMobDialog(createDialogAnchor());
-            _vmService.CallAsHero(functionName, LogCat.Dialog);
-            Logger.Log($"[MobDialog] Called '{functionName}' for '{loader.name}'.", LogCat.Dialog);
-            endStateFunction?.Invoke();
+            try
+            {
+                _dialogService.PrepareMobDialog(createDialogAnchor());
+                _vmService.CallAsHero(functionName, LogCat.Dialog);
+                Logger.Log($"[MobDialog] Called '{functionName}' for '{loader.name}'.", LogCat.Dialog);
+            }
+            finally
+            {
+                // E.g. DocService's target for the page: never left pointing at this mob.
+                endStateFunction?.Invoke();
+            }
 
             // Not every _S1 opens a dialog (e.g. a script only prints a message) - then the anchor isn't needed.
             _dialogService.ReleaseUnusedMobDialogAnchor();
