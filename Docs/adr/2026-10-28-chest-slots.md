@@ -1,6 +1,5 @@
 # ADR: Chest slots are built when a chest is opened for the first time
 
-- Status: proposed
 - Date: 2026-10-28
 
 ## Context
