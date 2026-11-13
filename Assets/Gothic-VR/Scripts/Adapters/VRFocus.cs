@@ -44,9 +44,13 @@ namespace Gothic.VR.Adapters
         /// <summary>
         /// The hover name (with the amount) is shown right now.
         /// </summary>
-        public bool IsNameShown => _isHovered && _nameCanvas != null && _nameCanvas.activeSelf;
+        public bool IsNameShown => IsHighlighted && _nameCanvas != null && _nameCanvas.activeSelf;
 
         private bool _isHovered;
+        // A thrown spell's target (VRSpellLock): highlighted while locked, even when no hand hovers it.
+        private bool _isLocked;
+        private float _hoverBrightness;
+        private bool IsHighlighted => _isHovered || _isLocked;
         private Renderer _cachedObjectRenderer;
         private bool _isNpc;
         private VrInteractable _interactable;
@@ -113,12 +117,67 @@ namespace Gothic.VR.Adapters
                     _playerService.FocusNpc = loader.Container;
             }
 
-            OnHoverEnter(_isNpc
-                ? Constants.ShaderPropertyFocusBrightnessNpcValue
-                : Constants.ShaderPropertyFocusBrightnessValue);
+            OnHoverEnter(GetDefaultBrightness());
         }
 
         public void OnHoverEnter(float shaderPropertyFocusBrightnessValue)
+        {
+            _hoverBrightness = shaderPropertyFocusBrightnessValue;
+            _isHovered = true;
+            ApplyHighlight();
+        }
+
+        private void OnHoverExit(VrGrabArgs _)
+        {
+            _isHovered = false;
+            ApplyHighlight();
+        }
+
+        /// <summary>
+        /// The NPC is (no longer) a thrown spell's locked target (VRSpellLock): brightness and name stay while locked,
+        /// whether a hand hovers it or not.
+        /// </summary>
+        public void SetLocked(bool isLocked)
+        {
+            _isLocked = isLocked;
+            ApplyHighlight();
+        }
+
+        /// <summary>
+        /// The one place deciding brightness and name: highlighted while hovered or locked.
+        /// </summary>
+        private void ApplyHighlight()
+        {
+            EnsureInitialized();
+
+            if (IsHighlighted)
+            {
+                if (_featureBrightenUp)
+                    _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
+                        _isHovered ? _hoverBrightness : GetDefaultBrightness());
+
+                if (_featureShowName)
+                    SetFocusName();
+                return;
+            }
+
+            if (_featureBrightenUp)
+            {
+                _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
+                    Constants.ShaderPropertyFocusBrightnessDefault);
+            }
+
+            _nameCanvas.SetActive(false);
+        }
+
+        private float GetDefaultBrightness()
+        {
+            return _isNpc
+                ? Constants.ShaderPropertyFocusBrightnessNpcValue
+                : Constants.ShaderPropertyFocusBrightnessValue;
+        }
+
+        private void EnsureInitialized()
         {
             // GameObjects are loaded while Loading.scene is active (different Camera), but not the General.scene.
             // We therefore need to set the camera at this time earliest.
@@ -133,32 +192,11 @@ namespace Gothic.VR.Adapters
 
             if (_cachedObjectRenderer == null)
                 _cachedObjectRenderer = GetComponentInChildren<Renderer>();
-
-            if (_featureBrightenUp)
-                _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
-                    shaderPropertyFocusBrightnessValue);
-
-            if (_featureShowName)
-                SetFocusName();
-
-            _isHovered = true;
-        }
-
-        private void OnHoverExit(VrGrabArgs _)
-        {
-            if (_featureBrightenUp)
-            {
-                _dynamicMaterialService.ResetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
-                    Constants.ShaderPropertyFocusBrightnessDefault);
-            }
-
-            _nameCanvas.SetActive(false);
-            _isHovered = false;
         }
 
         private void LateUpdate()
         {
-            if (!_isHovered)
+            if (!IsHighlighted)
                 return;
 
             // Calculate direction from parent object to camera
@@ -183,6 +221,7 @@ namespace Gothic.VR.Adapters
             _dynamicMaterialService.ResetAllDynamicValues(gameObject);
 
             _isHovered = false;
+            _isLocked = false;
         }
 
         private void SetFocusName()

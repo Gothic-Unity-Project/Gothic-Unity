@@ -140,9 +140,14 @@ namespace Gothic.VR.Services
             return hand != null ? hand.gameObject : null;
         }
 
-        // True during any active spell (telekinesis or combat targeting) - blocks NPC dialog.
-        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive;
+        // True during any active spell (telekinesis, combat targeting or a locked target) - blocks NPC dialog.
+        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive || IsSpellLockActive;
         public bool IsSpellTargetingActive { get; private set; }
+
+        /// <summary>
+        /// A thrown spell's target is locked (VRSpellLock) - the far reach is off again, but dialogs stay blocked.
+        /// </summary>
+        public bool IsSpellLockActive { get; set; }
 
         // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
         public bool IsTelekinesisActive { get; private set; }

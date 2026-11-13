@@ -6,7 +6,6 @@ using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
@@ -44,6 +43,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private float _speedFactor = 1f;
         private float _gravityScale;
         private bool _isHoming = true;
+        private float _range = -1f;
+
+        /// <summary>
+        /// How far the spell flies (m): its emTrjTargetRange, at least DefaultThrowRange. Fixed per rune - the lock-on
+        /// (VRSpellLock) reaches as far, so a locked spell always arrives. Read after Inject().
+        /// </summary>
+        public float Range
+        {
+            get
+            {
+                if (_range < 0f)
+                    _range = GetThrowRange(_mfxName);
+                return _range;
+            }
+        }
 
         /// <summary>
         /// castKey: GetCastKey's result for the spell (not null).
@@ -95,11 +109,26 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// no swing drops it from the hand. Only a real throw homes on NPCs and hit targets (and then ignores the
         /// gravity). Before it flew where the camera looked, slowly but straight, even without moving the hand.
         /// The simulator can't swing: where you look, at full speed.
+        /// lockedTarget (VRSpellLock): the spell starts toward it, doesn't fall and homes in; the swing only sets the
+        /// speed, at least MinLockedSwingFactor so a gentle release still arrives.
         /// </summary>
-        public Vector3 Aim(GameObject handGo, bool isWasd)
+        public Vector3 Aim(GameObject handGo, bool isWasd, NpcContainer lockedTarget)
         {
             Vector3 direction;
-            if (!isWasd)
+            if (lockedTarget?.Go != null)
+            {
+                var swingFactor = isWasd
+                    ? 1f
+                    : Mathf.Clamp(GetHandVelocity().magnitude / VRConstants.Magic.SpellThrowFullSwingSpeed, 0f,
+                        VRConstants.Magic.MaxSwingFactor);
+                direction = (lockedTarget.GetAimPoint() - handGo.transform.position).normalized;
+                _speedFactor = Mathf.Max(swingFactor, VRConstants.Magic.MinLockedSwingFactor);
+                _gravityScale = 0f;
+                _isHoming = true;
+                Logger.Log($"[VRSpellThrow] Locked throw at {lockedTarget.Instance.GetName(NpcNameSlot.Slot0)}: " +
+                           $"swing {swingFactor:F2}, speed factor {_speedFactor:F2}", LogCat.VR);
+            }
+            else if (!isWasd)
             {
                 var handVelocity = GetHandVelocity();
                 var swingFactor = Mathf.Clamp(handVelocity.magnitude / VRConstants.Magic.SpellThrowFullSwingSpeed, 0f,
@@ -127,14 +156,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// The spell flies from origin: level - its damage level, investLevel - its collision effect's level, damage -
-        /// the hit's damage. The effect in the hand (VRSpellFx) flies with it.
+        /// the hit's damage, lockedTarget - the lock-on's target (VRSpellLock) it homes on, null = the swing decides.
+        /// The effect in the hand (VRSpellFx) flies with it.
         /// </summary>
-        public void Throw(Vector3 origin, Vector3 direction, int level, int investLevel, int damage)
+        public void Throw(Vector3 origin, Vector3 direction, int level, int investLevel, int damage,
+            NpcContainer lockedTarget)
         {
             var hero = _npcService.GetHeroContainer();
             var mfxName = _mfxName;
             var speed = _castKey.EmTrjEaseVel / 100f * _speedFactor * VRConstants.Magic.SpellThrowSpeedMultiplier;
-            var range = GetThrowRange(mfxName);
+            var range = Range;
 
             var projectileGo = new GameObject($"SpellProjectile ({mfxName})");
             projectileGo.transform.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
@@ -167,7 +198,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             light.intensity = 2f;
             light.color = GetSpellLightColor(mfxName);
 
-            var homingTarget = _isHoming ? FindHomingTarget(hero, origin, direction, range) : null;
+            var homingTarget = lockedTarget?.Go != null
+                ? lockedTarget
+                : _isHoming ? FindHomingTarget(hero, origin, direction, range) : null;
             var projectile = projectileGo.AddComponent<Projectile>();
             projectile.Owner = hero;
             projectile.Velocity = direction * Mathf.Max(speed, VRConstants.Magic.DroppedSpellSpeed);
@@ -240,10 +273,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 if (npc == hero || npc?.Go == null || !npc.Go.activeInHierarchy)
                     continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                // Dead or knocked out - a magically frozen NPC is still a target.
+                if (npc.IsDown())
                     continue;
 
-                var toNpc = npc.Go.transform.position + Vector3.up * 0.4f - origin;
+                var toNpc = npc.GetAimPoint() - origin;
                 if (toNpc.magnitude > range)
                     continue;
 

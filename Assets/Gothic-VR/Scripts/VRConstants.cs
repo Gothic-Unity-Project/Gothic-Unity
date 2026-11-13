@@ -270,6 +270,20 @@ namespace Gothic.VR
             // Throw range (m) at least; the spell's own emTrjTargetRange (e.g. Fireball: 20) is raised to it.
             // Self-tuned for VR: the hand throws at long distances, vanilla ranges ended too early.
             public const float DefaultThrowRange = 30f;
+
+            // Lock-on (VRSpellLock): swing factor a locked throw has at least, so a gentle release still arrives.
+            // Self-tuned for VR: 0.6 of the full-swing speed reaches 30 m before the lock's target walks far.
+            public const float MinLockedSwingFactor = 0.6f;
+
+            // Lock-on: seconds between two sight checks to the locked target (one ray each).
+            public const float LockSightCheckSeconds = 0.2f;
+
+            // Lock-on: seconds the target may be out of sight before the lock breaks (a tree passing in between
+            // doesn't break it).
+            public const float LockLostSightSeconds = 1f;
+
+            // Lock-on: the lock breaks beyond the throw range times this, so it doesn't flicker at the edge.
+            public const float LockRangeHysteresis = 1.1f;
         }
 
         /// <summary>
