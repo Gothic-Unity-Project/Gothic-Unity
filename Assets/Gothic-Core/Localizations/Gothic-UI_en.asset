@@ -19,27 +19,19 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 62335082496
-    m_Localized: Backpack
+    m_Localized: Backpack - let items go here to stash them
     m_Metadata:
       m_Items: []
   - m_Id: 3119672320000
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
-    m_Localized: _
+    m_Localized: Holster - any item, e.g. a bow
     m_Metadata:
       m_Items: []
   - m_Id: 411567790612480
-    m_Localized: _
+    m_Localized: Holster - any item
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080
-    m_Localized: _
+    m_Localized: Holster - any item
     m_Metadata:
       m_Items: []
   - m_Id: 431600692486144
@@ -124,54 +116,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 792354008457216
     m_Localized: VR Controls
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Localized: Jump
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Localized: Crouch
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Localized: Pull/Dialog
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Localized: Menu Select
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Localized: Rotate/Teleport
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Localized: Walk
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234976538624
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Localized: Menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Localized: Pull/Dialog
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239070179328
-    m_Localized: Menu Select
     m_Metadata:
       m_Items: []
   - m_Id: 2500022788022272
@@ -536,6 +480,118 @@ MonoBehaviour:
   - m_Id: 193331266638438402
     m_Localized: How far the favorites ring is from you (right stick while it is
       open)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490881593344
+    m_Localized: Walk
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176256
+    m_Localized: 'Click: Sprint'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176257
+    m_Localized: Menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176258
+    m_Localized: 'Turn - pull back: teleport'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176259
+    m_Localized: Jump
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176260
+    m_Localized: 'Click: Jump'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176261
+    m_Localized: Sneak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176262
+    m_Localized: Use (torch, book, spell)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176263
+    m_Localized: Grab / talk to NPC
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176264
+    m_Localized: 'Both empty hands above your head + both triggers: favorites ring'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176265
+    m_Localized: VR Help
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176266
+    m_Localized: Swimming & diving
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176267
+    m_Localized: Hold + stroke
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176268
+    m_Localized: 'Chest-deep water: you swim. Hold the grips and pull your arms through
+      the water. A strong stroke down dives, stroke up to surface. The view darkens
+      when your air runs out. You can''t grab things while swimming.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176269
+    m_Localized: Trade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176270
+    m_Localized: Take / lay down items
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176271
+    m_Localized: Press OK / X
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176272
+    m_Localized: 'Choose trade in the dialog: a counter appears. Left: lay down what
+      you sell. Right: take what you buy. The middle shows the difference - OK pays
+      it with ore/gold from your inventory, X closes. Arrows scroll the rings.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176273
+    m_Localized: Magic
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176274
+    m_Localized: Hold rune / scroll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176275
+    m_Localized: 'Hold: charge, release: cast'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176276
+    m_Localized: 'Charged spells grow only with both hands together. Projectile spells:
+      the empty hand holds its trigger, swing and let go to throw. Choose spells
+      in the favorites ring: both empty hands above your head, hold both triggers.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176277
+    m_Localized: Bows & crossbows
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176278
+    m_Localized: 'Bow: grab string, pull, let go'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176279
+    m_Localized: 'Crossbow: fire'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176280
+    m_Localized: 'Bow: an arrow from your inventory is nocked by itself. The further
+      you pull, the stronger the shot. Crossbow: reload with the free hand - trigger
+      on the string at the front, pull it back until it locks.'
     m_Metadata:
       m_Items: []
   references:

@@ -190,27 +190,7 @@ MonoBehaviour:
     m_Localized: _
     m_Metadata:
       m_Items: []
-  - m_Id: 791234976538624
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
   - m_Id: 411567790612480
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
     m_Localized: _
     m_Metadata:
       m_Items: []
@@ -224,10 +204,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 431906666962944
     m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Localized: Menu
     m_Metadata:
       m_Items: []
   - m_Id: 431629377331200
@@ -297,38 +273,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 790913176952832
     m_Localized: "Emplacements du h\xE9ros VR"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239070179328
-    m_Localized: "S\xE9lection menu"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Localized: "S\xE9lection menu"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Localized: Attirer/Dialogue
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Localized: Attirer/Dialogue
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Localized: Marcher
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Localized: Sauter
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Localized: S'accroupir
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Localized: "Tourner/T\xE9l\xE9porter"
     m_Metadata:
       m_Items: []
   - m_Id: 62335082496

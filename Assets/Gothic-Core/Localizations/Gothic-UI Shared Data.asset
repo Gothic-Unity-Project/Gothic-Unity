@@ -95,68 +95,12 @@ MonoBehaviour:
     m_Key: vr.controls.slots.headline
     m_Metadata:
       m_Items: []
-  - m_Id: 791239070179328
-    m_Key: vr.controls.quest2.left.trigger
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Key: vr.controls.quest2.left.hand_trigger
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234976538624
-    m_Key: vr.controls.quest2.left.menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Key: vr.controls.quest2.left.thumbstick
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Key: vr.controls.quest2.left.x
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Key: vr.controls.quest2.left.y
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Key: vr.controls.quest2.right.a
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Key: vr.controls.quest2.right.b
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Key: vr.controls.quest2.right.trigger
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Key: vr.controls.quest2.right.hand_trigger
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Key: vr.controls.quest2.right.menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Key: vr.controls.quest2.right.thumbstick
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Key: vr.controls.slots.left_chest
-    m_Metadata:
-      m_Items: []
   - m_Id: 411567790612480
     m_Key: vr.controls.slots.left_hip
     m_Metadata:
       m_Items: []
   - m_Id: 62335082496
     m_Key: vr.controls.slots.left_shoulder
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
-    m_Key: vr.controls.slots.right_chest
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080
@@ -509,6 +453,110 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 193331266638438402
     m_Key: menuitem.favoritesRingZoom.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490881593344
+    m_Key: vr.controls.role.move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176256
+    m_Key: vr.controls.role.sprint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176257
+    m_Key: vr.controls.role.menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176258
+    m_Key: vr.controls.role.turn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176259
+    m_Key: vr.controls.role.jump
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176260
+    m_Key: vr.controls.role.jump_click
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176261
+    m_Key: vr.controls.role.crouch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176262
+    m_Key: vr.controls.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176263
+    m_Key: vr.controls.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176264
+    m_Key: vr.controls.footer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176265
+    m_Key: vr.help.headline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176266
+    m_Key: vr.help.swim.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176267
+    m_Key: vr.help.swim.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176268
+    m_Key: vr.help.swim.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176269
+    m_Key: vr.help.trade.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176270
+    m_Key: vr.help.trade.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176271
+    m_Key: vr.help.trade.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176272
+    m_Key: vr.help.trade.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176273
+    m_Key: vr.help.magic.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176274
+    m_Key: vr.help.magic.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176275
+    m_Key: vr.help.magic.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176276
+    m_Key: vr.help.magic.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176277
+    m_Key: vr.help.ranged.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176278
+    m_Key: vr.help.ranged.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176279
+    m_Key: vr.help.ranged.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176280
+    m_Key: vr.help.ranged.text
     m_Metadata:
       m_Items: []
   m_Metadata:

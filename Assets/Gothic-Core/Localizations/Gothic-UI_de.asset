@@ -19,27 +19,19 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 62335082496
-    m_Localized: Rucksack
+    m_Localized: "Rucksack - Gegenst\xE4nde hier loslassen zum Einpacken"
     m_Metadata:
       m_Items: []
   - m_Id: 3119672320000
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
-    m_Localized: _
+    m_Localized: Holster - beliebiger Gegenstand, z. B. ein Bogen
     m_Metadata:
       m_Items: []
   - m_Id: 411567790612480
-    m_Localized: _
+    m_Localized: Holster - beliebiger Gegenstand
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080
-    m_Localized: _
+    m_Localized: Holster - beliebiger Gegenstand
     m_Metadata:
       m_Items: []
   - m_Id: 431600692486144
@@ -120,54 +112,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 792354008457216
     m_Localized: VR Steuerung
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Localized: Springen
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Localized: Ducken
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Localized: Heranziehen/Dialog
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Localized: "Menu ausw\xE4hlen"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Localized: Drehen/Teleportieren
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Localized: Laufen
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234976538624
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Localized: Menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Localized: Heranziehen/Dialog
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239070179328
-    m_Localized: "Menu ausw\xE4hlen"
     m_Metadata:
       m_Items: []
   - m_Id: 431630484627456
@@ -523,6 +467,120 @@ MonoBehaviour:
   - m_Id: 193331266638438402
     m_Localized: Wie weit der Favoriten-Ring von dir entfernt ist (rechter Stick,
       solange er offen ist)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490881593344
+    m_Localized: Laufen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176256
+    m_Localized: 'Klick: Sprinten'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176257
+    m_Localized: "Men\xFC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176258
+    m_Localized: "Drehen - zur\xFCckziehen: Teleport"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176259
+    m_Localized: Springen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176260
+    m_Localized: 'Klick: Springen'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176261
+    m_Localized: Schleichen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176262
+    m_Localized: Benutzen (Fackel, Buch, Zauber)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176263
+    m_Localized: Greifen / NPC ansprechen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176264
+    m_Localized: "Beide leeren H\xE4nde \xFCber den Kopf + beide Trigger: Favoriten-Ring"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176265
+    m_Localized: VR Hilfe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176266
+    m_Localized: Schwimmen & Tauchen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176267
+    m_Localized: Halten + Armzug
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176268
+    m_Localized: "Ab Brusttiefe schwimmst du. Griffe halten und die Arme durchs Wasser
+      ziehen. Ein kr\xE4ftiger Zug nach unten taucht ab, nach oben tauchst du auf.
+      Geht die Luft aus, wird die Sicht dunkel. Beim Schwimmen kannst du nichts greifen."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176269
+    m_Localized: Handel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176270
+    m_Localized: "Gegenst\xE4nde nehmen / ablegen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176271
+    m_Localized: "OK / X dr\xFCcken"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176272
+    m_Localized: "Handel im Dialog w\xE4hlen: ein Tresen erscheint. Links ablegen,
+      was du verkaufst. Rechts nehmen, was du kaufst. Die Mitte zeigt die Differenz
+      - OK bezahlt mit Erz/Gold aus dem Inventar, X schlie\xDFt. Pfeile bl\xE4ttern
+      die Ringe."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176273
+    m_Localized: Magie
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176274
+    m_Localized: Rune / Spruchrolle halten
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176275
+    m_Localized: 'Halten: aufladen, loslassen: wirken'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176276
+    m_Localized: "Aufgeladene Zauber wachsen nur mit beiden H\xE4nden zusammen. Projektilzauber:
+      die leere Hand h\xE4lt ihren Trigger, ausholen und loslassen zum Werfen. Zauber
+      w\xE4hlst du im Favoriten-Ring: beide leeren H\xE4nde \xFCber den Kopf, beide
+      Trigger halten."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176277
+    m_Localized: "B\xF6gen & Armbr\xFCste"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176278
+    m_Localized: 'Bogen: Sehne greifen, ziehen, loslassen'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176279
+    m_Localized: "Armbrust: schie\xDFen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193347490894176280
+    m_Localized: "Bogen: ein Pfeil aus dem Inventar wird selbst eingelegt. Je weiter
+      du ziehst, desto st\xE4rker der Schuss. Armbrust: mit der freien Hand nachladen
+      - Trigger vorne an die Sehne, nach hinten ziehen bis sie einrastet."
     m_Metadata:
       m_Items: []
   references:

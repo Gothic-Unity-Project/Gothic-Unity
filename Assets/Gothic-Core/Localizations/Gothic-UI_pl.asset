@@ -98,68 +98,12 @@ MonoBehaviour:
     m_Localized: Sloty Bohatera VR
     m_Metadata:
       m_Items: []
-  - m_Id: 791239070179328
-    m_Localized: "Wyb\xF3r w menu"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Localized: "Przyci\u0105gnij/Dialog"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234976538624
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Localized: Chodzenie
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Localized: Menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Localized: Skok
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Localized: Kucnij
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Localized: "Wyb\xF3r w menu"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Localized: "Przyci\u0105gnij/Dialog"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Localized: Rotacja/Teleport
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
   - m_Id: 411567790612480
     m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 62335082496
     m_Localized: Ekwipunek
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
-    m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080

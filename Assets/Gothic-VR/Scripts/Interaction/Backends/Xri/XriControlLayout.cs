@@ -63,12 +63,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
                 path = GetButtonPath(hand, layout.CrouchButton);
             else if (mapName == _gothicMapName && actionName == _menuActionName)
             {
-                // The right controller's menu button is the system button on Quest and Pico, which apps never get:
-                // mirrored, the menu - and the setting to undo it - couldn't be opened. It stays on the left one.
-                if (layout.MenuButton == VrButton.Menu)
-                    return GetButtonPath(_leftHand, VrButton.Menu);
-
-                path = GetButtonPath(hand, layout.MenuButton);
+                // The layout decides the menu's hand (the right menu button is the system button): no mirroring.
+                var menuHand = layout.MenuSide == VrHandSide.Left ? _leftHand : _rightHand;
+                return GetButtonPath(menuHand, layout.MenuButton);
             }
 
             return layout.IsLeftHanded ? SwapHands(path) : path;
