@@ -317,6 +317,16 @@ namespace Gothic.VR
         /// The VR favorites ring (VRFavoritesRing, its slot views and spells, VrFavoritesGestureDomain): sizes in
         /// meters, times in seconds. Self-tuned for VR.
         /// </summary>
+        public static class DocReader
+        {
+            // World size of the open pages' longer side (m).
+            public const float PagesSize = 0.6f;
+            // How far the reading hand reaches into the pages from their lower outer corner (m).
+            public const float CornerInset = 0.06f;
+            // Distance of the pages behind the reading hand, seen from the eyes (m).
+            public const float BehindHand = 0.03f;
+        }
+
         public static class FavoritesRing
         {
             // Meters the hands must be above the eyes for the gesture.

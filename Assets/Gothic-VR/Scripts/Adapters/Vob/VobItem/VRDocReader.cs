@@ -23,13 +23,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
-        [Tooltip("World size of the pages' longer side (m).")]
-        [SerializeField] private float _pagesSize = 0.6f;
-        [Tooltip("How far the reading hand reaches into the pages from their lower outer corner (m).")]
-        [SerializeField] private float _cornerInset = 0.06f;
-        [Tooltip("Distance of the pages behind the reading hand, seen from the eyes (m).")]
-        [SerializeField] private float _behindHand = 0.03f;
-
         private VRVobItem _vobItem;
         private VrHandSide _readingHand;
         private Transform _canvas;
@@ -99,16 +92,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_canvas != null)
                 return _canvas;
 
-            // for + GetChild: Transform's enumerator allocates.
-            for (var i = 0; i < transform.childCount; i++)
-            {
-                var child = transform.GetChild(i);
-                if (child.name == VRDocViewer.CanvasName)
-                {
-                    _canvas = child;
-                    break;
-                }
-            }
+            if (TryGetComponent<VRDocViewer>(out var viewer) && viewer.Canvas != null &&
+                viewer.Canvas.gameObject.activeSelf)
+                _canvas = viewer.Canvas;
             return _canvas;
         }
 
@@ -195,12 +181,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// The pages' longer side is _pagesSize in the world, whatever the item's scale.
+        /// The pages' longer side is VRConstants.DocReader.PagesSize in the world, whatever the item's scale.
         /// </summary>
         private void UpdateScale(RectTransform canvas)
         {
             var size = canvas.rect.size;
-            var worldScale = _pagesSize / Mathf.Max(size.x, size.y, 1f);
+            var worldScale = VRConstants.DocReader.PagesSize / Mathf.Max(size.x, size.y, 1f);
             var parentScale = canvas.parent.lossyScale;
             canvas.localScale = new Vector3(worldScale / parentScale.x, worldScale / parentScale.y,
                 worldScale / parentScale.z);
@@ -221,15 +207,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var up = Vector3.Cross(forward, right);
 
             var size = canvas.rect.size;
-            var worldScale = _pagesSize / Mathf.Max(size.x, size.y, 1f);
+            var worldScale = VRConstants.DocReader.PagesSize / Mathf.Max(size.x, size.y, 1f);
             var width = size.x * worldScale;
             var height = size.y * worldScale;
             // Left hand: the pages reach to the right and up; right hand: to the left and up.
             var side = _readingHand == VrHandSide.Left ? 1f : -1f;
             position = hand +
-                       right * (side * (width / 2f - _cornerInset)) +
-                       up * (height / 2f - _cornerInset) +
-                       forward * _behindHand;
+                       right * (side * (width / 2f - VRConstants.DocReader.CornerInset)) +
+                       up * (height / 2f - VRConstants.DocReader.CornerInset) +
+                       forward * VRConstants.DocReader.BehindHand;
 
             // A world space canvas is read looking along its +Z.
             rotation = Quaternion.LookRotation(forward, up);
