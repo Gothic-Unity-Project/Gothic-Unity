@@ -355,6 +355,162 @@ MonoBehaviour:
     m_Key: backpack.takeAll
     m_Metadata:
       m_Items: []
+  - m_Id: 193331266604883968
+    m_Key: menuitem.itemDetailsPopup.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Key: menuitem.itemDetailsPopup.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Key: menuitem.backpackVacuum.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Key: menuitem.backpackVacuum.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Key: menuitem.lootTakeAll.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Key: menuitem.lootTakeAll.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Key: menuitem.heroBlock.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Key: menuitem.heroBlock.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Key: menuitem.footstepSounds.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Key: menuitem.footstepSounds.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Key: menuitem.hitNumbers.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Key: menuitem.hitNumbers.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Key: menuitem.hitNumbersSize.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Key: menuitem.hitNumbersSize.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Key: menuitem.healthNumbers.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Key: menuitem.healthNumbers.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Key: menuitem.dialogFreeMovement.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Key: menuitem.dialogFreeMovement.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Key: menuitem.lightRefresh.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Key: menuitem.lightRefresh.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Key: menuitem.lightRefresh.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Key: menuitem.heroHands.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Key: menuitem.heroHands.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Key: menuitem.stabFinish.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Key: menuitem.stabFinish.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Key: menuitem.crossbowReload.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Key: menuitem.crossbowReload.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Key: menuitem.scrollsSingleUse.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Key: menuitem.scrollsSingleUse.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Key: menuitem.throwableSpells.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Key: menuitem.throwableSpells.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Key: menuitem.twoHandSpellCharge.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Key: menuitem.twoHandSpellCharge.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Key: menuitem.favoritesRing.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Key: menuitem.favoritesRing.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Key: menuitem.pickpocketPurse.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Key: menuitem.pickpocketPurse.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Key: menuitem.favoritesRingZoom.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Key: menuitem.favoritesRingZoom.description
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

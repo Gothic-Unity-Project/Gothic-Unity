@@ -116,74 +116,60 @@ namespace Gothic.VR.Services.Context
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
                         VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
                         VRConstants.MoveVignetteDefaultValue)),
-                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP", "Item details",
-                        "Backpack in one hand, item in the other shows its text"),
+                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP"),
                     CreateToggleChoice(gameMenu, "ITEM_DETAILS_POPUP", VRConstants.IniNames.ItemDetailsPopup,
                         VRConstants.ItemDetailsPopupDefaultValue)),
-                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM", "Backpack vacuum",
-                        "The open backpack pulls in nearby items"),
+                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM"),
                     CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
                         VRConstants.BackpackVacuumDefaultValue)),
-                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
-                        "A loot backpack shows \"Take all\" below the pages"),
+                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
                         VRConstants.LootTakeAllDefaultValue)),
-                (CreateToggleLabel(gameMenu, "HERO_BLOCK", "Blocking",
-                        "Both hands on a melee weapon, both triggers held: parry"),
+                (CreateToggleLabel(gameMenu, "HERO_BLOCK"),
                     CreateToggleChoice(gameMenu, "HERO_BLOCK", VRConstants.IniNames.HeroBlock,
                         VRConstants.HeroBlockDefaultValue)),
                 // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
-                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "Footsteps", "Steps sound by the ground below"),
+                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS"),
                     CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
                         Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound)),
-                (CreateToggleLabel(gameMenu, "HIT_NUMBERS", "Hit numbers", "-X HP / +X MANA over NPC heads"),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS"),
                     CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers)),
-                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "Hit numbers size",
-                    "Size of the -X HP / +X MANA numbers"), CreateHitNumbersSizeSlider(gameMenu)),
-                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "HP numbers", "HP/MAX on health bars"),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE"), CreateHitNumbersSizeSlider(gameMenu)),
+                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS"),
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
-                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "Walk in dialogs",
-                    "Move around while talking - walking away ends the dialog"),
+                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT"),
                     CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
-                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "Light refresh",
-                    "How smoothly a torch's light follows your hand"), CreateLightRefreshChoice(gameMenu))
+                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH"), CreateLightRefreshChoice(gameMenu))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
-                rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "Hero's hands", "Your hands are the hero's fists"),
+                rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS"),
                     CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
                         VRConstants.HeroHandsDefaultValue)));
-            rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "Finishing",
-                    "Stab and hold the blade in to finish off (off: any hit)"),
+            rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH"),
                 CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
                     VRConstants.StabFinishDefaultValue)));
             // Off = a crossbow reloads by itself.
-            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "Crossbow",
-                    "Pull the string to reload (off: automatic)"),
+            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD"),
                 CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
                     VRConstants.CrossbowReloadDefaultValue)));
             // Off = scrolls are cast forever.
-            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "Single-use scrolls",
-                    "A cast uses the scroll up (Gothic)"),
+            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE"),
                 CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
             // Off = projectile spells are cast like all others.
-            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "Thrown spells",
-                    "Swing and let go to throw projectile spells"),
+            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS"),
                 CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
                     VRConstants.ThrowableSpellsDefaultValue)));
             // Off = one hand is enough to charge a spell.
-            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE", "Two-hand charge",
-                    "Charged spells grow only with both hands together"),
+            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE"),
                 CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
                     VRConstants.TwoHandSpellChargeDefaultValue)));
             // Off = the favorites ring (both hands up, both triggers) doesn't open.
-            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "Favorites ring",
-                    "Both hands up + both triggers: equipped spells and weapons"),
+            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING"),
                 CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
                     VRConstants.FavoritesRingDefaultValue)));
             // Off = G2's pickpocketing is only its dialog (G1's purse stays, it is the engine's steal window).
-            rows.Add((CreateToggleLabel(gameMenu, "PICKPOCKET_PURSE", "Pickpocket purse",
-                    "G2: sneaking, a purse to grab on whom you could pickpocket"),
+            rows.Add((CreateToggleLabel(gameMenu, "PICKPOCKET_PURSE"),
                 CreateToggleChoice(gameMenu, "PICKPOCKET_PURSE", VRConstants.IniNames.PickpocketPurse,
                     VRConstants.PickpocketPurseDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
@@ -254,17 +240,29 @@ namespace Gothic.VR.Services.Context
             }
         }
 
-        // Our own options without localization entries yet - plain English labels. AddOptionRows places them.
-        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id, string label,
-            string description)
+        /// <summary>
+        /// Label of one of our own on/off options (id like THROWABLE_SPELLS). Texts: menuitem.{camelCaseId}.label and
+        /// .description. AddOptionRows places them.
+        /// </summary>
+        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id)
         {
             var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
             var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}", subtitlesLabel);
+            var textKey = ToCamelCase(id);
 
-            item.SetText(0, label);
-            item.SetText(1, description);
+            item.SetText(0, _localizationService.GetText($"menuitem.{textKey}.label"));
+            item.SetText(1, _localizationService.GetText($"menuitem.{textKey}.description"));
 
             return item;
+        }
+
+        // THROWABLE_SPELLS -> throwableSpells
+        private static string ToCamelCase(string upperSnakeCase)
+        {
+            var parts = upperSnakeCase.ToLowerInvariant().Split('_');
+            for (var i = 1; i < parts.Length; i++)
+                parts[i] = char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1);
+            return string.Concat(parts);
         }
 
         private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
@@ -285,7 +283,7 @@ namespace Gothic.VR.Services.Context
         private MutableMenuItemInstance CreateLightRefreshChoice(AbstractMenuInstance gameMenu)
         {
             var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh);
-            item.SetText(0, "Low|Medium|High");
+            item.SetText(0, _localizationService.GetText("menuitem.lightRefresh.value"));
             return item;
         }
 
@@ -400,15 +398,14 @@ namespace Gothic.VR.Services.Context
             return heightOffsetSetting;
         }
 
-        // Plain English like the Immersion toggles: no localization entries yet.
         private AbstractMenuItemInstance CreateFavoritesRingZoomLabel(AbstractMenuInstance gameMenu)
         {
             var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
             var zoomLabel =
                 new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_ACCESSIBILITY_FAVORITES_RING_ZOOM", subtitlesLabel);
 
-            zoomLabel.SetText(0, "Favorites ring size");
-            zoomLabel.SetText(1, "How far the favorites ring is from you (right stick while it is open)");
+            zoomLabel.SetText(0, _localizationService.GetText("menuitem.favoritesRingZoom.label"));
+            zoomLabel.SetText(1, _localizationService.GetText("menuitem.favoritesRingZoom.description"));
 
             return zoomLabel;
         }

@@ -22,6 +22,511 @@ MonoBehaviour:
     m_Localized: Tout prendre
     m_Metadata:
       m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: "D\xE9tails de l'objet"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: "Sac \xE0 dos dans une main, objet dans l'autre : affiche son texte"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: Aspiration du sac
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: Le sac ouvert attire les objets proches
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: 'Butin : tout prendre'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: "Un sac de butin affiche \xAB Tout prendre \xBB sous les pages"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Parade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: "Deux mains sur une arme de m\xEAl\xE9e, deux g\xE2chettes enfonc\xE9es
+      : parer"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Pas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: Les pas sonnent selon le sol
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: "Chiffres de d\xE9g\xE2ts"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: -X PV / +X MANA au-dessus des PNJ
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: Taille des chiffres
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: Taille des chiffres -X PV / +X MANA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: Chiffres de PV
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: PV/MAX sur les barres de vie
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: Marcher en dialogue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: "Se d\xE9placer en parlant - s'\xE9loigner met fin au dialogue"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: "Rafra\xEEchissement lumi\xE8re"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: "Fluidit\xE9 du suivi de la main par la lumi\xE8re d'une torche"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: "Faible|Moyen|\xC9lev\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: "Mains du h\xE9ros"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: "Vos mains sont les poings du h\xE9ros"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: "Coup de gr\xE2ce"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: "Plantez et maintenez la lame pour achever (d\xE9sactiv\xE9 : tout
+      coup)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: "Arbal\xE8te"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: "Tendre la corde pour recharger (d\xE9sactiv\xE9 : automatique)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: "Parchemins \xE0 usage unique"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: Un sort consomme le parchemin (Gothic)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: "Sorts lanc\xE9s"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: "Balancez et l\xE2chez pour lancer les sorts \xE0 projectile"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Localized: "Charge \xE0 deux mains"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Localized: "Les sorts charg\xE9s ne grandissent qu'avec les deux mains ensemble"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: Anneau de favoris
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: "Deux mains lev\xE9es + deux g\xE2chettes : sorts et armes \xE9quip\xE9s"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Bourse de pickpocket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: "G2 : en se faufilant, une bourse \xE0 saisir sur qui vous pouvez
+      voler"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: Taille de l'anneau de favoris
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: "\xC0 quelle distance se trouve l'anneau de favoris (stick droit
+      quand il est ouvert)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431630484627456
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234976538624
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236171915264
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791235605684224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 410458179100672
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411327083700224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236801060864
+    m_Localized: Menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Localized: "Direction de d\xE9placement"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Localized: "cam\xE9ra|manette gauche|manette droite"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Localized: Type de rotation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Localized: progressive|par pas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Localized: "\xAB Taille du joueur \xBB = pas de mise \xE0 l'\xE9chelle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Localized: Mode assis
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Localized: assis|debout|taille du joueur
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Localized: "Lisse les petits tremblements de la cam\xE9ra spectateur (PCVR
+      uniquement)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Localized: Lissage spectateur
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Localized: "d\xE9sactiv\xE9|faible|moyen|\xE9lev\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Localized: Vitesse de la rotation progressive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Localized: Rotation progressive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Localized: Angle de rotation par clic
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Localized: Rotation par pas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Localized: "Accessibilit\xE9 VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Localized: "PARAM\xC8TRES D'ACCESSIBILIT\xC9 VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Localized: "Emplacements du h\xE9ros VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239070179328
+    m_Localized: "S\xE9lection menu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791240353636352
+    m_Localized: "S\xE9lection menu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791238533308416
+    m_Localized: Attirer/Dialogue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239724490752
+    m_Localized: Attirer/Dialogue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791233751801856
+    m_Localized: Marcher
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237371486208
+    m_Localized: Sauter
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237967077376
+    m_Localized: S'accroupir
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234347393024
+    m_Localized: "Tourner/T\xE9l\xE9porter"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 62335082496
+    m_Localized: "Sac \xE0 dos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Localized: Commandes VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Localized: Immersion VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Localized: "PARAM\xC8TRES D'IMMERSION VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Localized: Microphone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Localized: "Utilis\xE9 pour la reconnaissance vocale pendant les dialogues,
+      si activ\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Localized: "D\xE9sactiv\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666525962240
+    m_Localized: Mains physiques
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265408
+    m_Localized: "Les mains s'arr\xEAtent aux murs et objets et poussent les objets
+      libres"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265409
+    m_Localized: "d\xE9sactiv\xE9|activ\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Vent
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "Arbres et herbe ondulent au vent - co\xFBte des performances sur
+      Quest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignettage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: "Assombrit les bords de la vue quand le stick vous d\xE9place ou
+      vous fait tourner"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: "d\xE9sactiv\xE9|l\xE9ger|fort"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Taille du texte
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Taille des sous-titres et des choix de dialogue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: normal|grand|plus grand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: Vision des couleurs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adapte les couleurs au daltonisme
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: normale|faible rouge|faible vert|faible bleu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: "Lat\xE9ralit\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Gaucher : d\xE9placement et menu sur la manette droite, rotation,
+      t\xE9l\xE9port et saut sur la gauche"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: droitier|gaucher
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Bouton de saut
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: Le bouton qui fait sauter - s'accroupir utilise l'autre des deux
+      boutons
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: bouton du bas|bouton du haut|clic du stick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Bouton menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "Le bouton qui ouvre le menu, sur la main de d\xE9placement"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: bouton du haut|bouton du bas|bouton menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Escalade
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: "Rebords saisis : se hisser ou fondu encha\xEEn\xE9 (moins de mouvement)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: se hisser|fondu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Indices de rebord
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "Pr\xE8s d'un rebord la main se ferme et vibre ; la lueur \xE9claire
+      aussi le rebord"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: "d\xE9sactiv\xE9|lueur"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "D\xE9calage de hauteur"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Hauteur de cam\xE9ra par pas de 5 cm. Milieu = aucun d\xE9calage"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: 'Sauvegarde impossible : aucune partie en cours.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Sauvegarde impossible tant que vous \xEAtes mort."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: Sauvegarde impossible pendant un dialogue.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "\xC9chec du chargement : la sauvegarde est illisible."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "\xC9chec de la sauvegarde. La sauvegarde pr\xE9c\xE9dente est conserv\xE9e."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: passer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: "Chute du h\xE9ros"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: 'KO, mort ou endormi : la vue descend avec le corps ou fond (moins
+      de mouvement)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: avec le corps|fondu
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

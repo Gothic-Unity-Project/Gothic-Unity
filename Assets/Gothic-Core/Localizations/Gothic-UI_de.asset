@@ -83,15 +83,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 431632934100992
-    m_Localized: smooth|snap
+    m_Localized: "fl\xFCssig|stufenweise"
     m_Metadata:
       m_Items: []
   - m_Id: 431903147941888
-    m_Localized: Smooth Rotation
+    m_Localized: "Fl\xFCssige Drehung"
     m_Metadata:
       m_Items: []
   - m_Id: 431905500946432
-    m_Localized: Snap Rotation
+    m_Localized: Stufenweise Drehung
     m_Metadata:
       m_Items: []
   - m_Id: 431906042011648
@@ -103,7 +103,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 431907228999680
-    m_Localized: "Spectator Gl\xE4ttung"
+    m_Localized: "Zuschauer-Gl\xE4ttung"
     m_Metadata:
       m_Items: []
   - m_Id: 431907841368064
@@ -364,6 +364,165 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 193305458028961792
     m_Localized: Alles nehmen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: Gegenstandsdetails
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: Rucksack in einer Hand, Gegenstand in der anderen zeigt seinen Text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: Rucksack-Sog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: "Der offene Rucksack zieht Gegenst\xE4nde in der N\xE4he an"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: 'Beute: alles nehmen'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: Ein Beute-Rucksack zeigt "Alles nehmen" unter den Seiten
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Blocken
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: "Beide H\xE4nde an einer Nahkampfwaffe, beide Trigger halten: parieren"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Schritte
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: Schritte klingen nach dem Untergrund
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: Trefferzahlen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: "-X LP / +X MANA \xFCber den K\xF6pfen der NPCs"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: "Gr\xF6\xDFe der Trefferzahlen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: "Gr\xF6\xDFe der -X LP / +X MANA Zahlen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: LP-Zahlen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: LP/MAX auf den Lebensbalken
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: In Dialogen laufen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: Beim Sprechen herumlaufen - Weggehen beendet den Dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: Licht-Aktualisierung
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: "Wie fl\xFCssig das Licht einer Fackel deiner Hand folgt"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: Niedrig|Mittel|Hoch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: "H\xE4nde des Helden"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: "Deine H\xE4nde sind die F\xE4uste des Helden"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: Erledigen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: 'Zustechen und die Klinge halten, um zu erledigen (aus: jeder Treffer)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: Armbrust
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: 'Sehne spannen zum Nachladen (aus: automatisch)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: Einmal-Schriftrollen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: Ein Wirken verbraucht die Rolle (Gothic)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: Geworfene Zauber
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: Ausholen und loslassen, um Projektilzauber zu werfen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Localized: Zweihand-Aufladung
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Localized: "Aufgeladene Zauber wachsen nur mit beiden H\xE4nden zusammen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: Favoriten-Ring
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: "Beide H\xE4nde hoch + beide Trigger: ausger\xFCstete Zauber und
+      Waffen"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Taschendiebstahl-Beutel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: "G2: beim Schleichen ein Beutel zum Greifen bei jedem, den du bestehlen
+      k\xF6nntest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: "Gr\xF6\xDFe des Favoriten-Rings"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: Wie weit der Favoriten-Ring von dir entfernt ist (rechter Stick,
+      solange er offen ist)
     m_Metadata:
       m_Items: []
   references:

@@ -22,6 +22,506 @@ MonoBehaviour:
     m_Localized: Coger todo
     m_Metadata:
       m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: Detalles del objeto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: 'Mochila en una mano, objeto en la otra: muestra su texto'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: "Succi\xF3n de la mochila"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: La mochila abierta atrae los objetos cercanos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: "Bot\xEDn: coger todo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: "Una mochila de bot\xEDn muestra \"Coger todo\" bajo las p\xE1ginas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Bloqueo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: 'Ambas manos en un arma cuerpo a cuerpo, ambos gatillos pulsados:
+      parar'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Pasos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: "Los pasos suenan seg\xFAn el suelo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: "Cifras de da\xF1o"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: -X PS / +X MANA sobre la cabeza de los PNJ
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: "Tama\xF1o de cifras"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: "Tama\xF1o de las cifras -X PS / +X MANA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: Cifras de PS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: "PS/M\xC1X en las barras de salud"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: "Caminar en di\xE1logos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: "Mu\xE9vete mientras hablas: alejarse termina el di\xE1logo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: "Actualizaci\xF3n de luz"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: "Cu\xE1n suave sigue la luz de una antorcha a tu mano"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: Bajo|Medio|Alto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: "Manos del h\xE9roe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: "Tus manos son los pu\xF1os del h\xE9roe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: Rematar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: "Clava y mant\xE9n la hoja para rematar (desactivado: cualquier
+      golpe)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: Ballesta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: "Tira de la cuerda para recargar (desactivado: autom\xE1tico)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: Pergaminos de un uso
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: Un lanzamiento gasta el pergamino (Gothic)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: Hechizos lanzados
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: Balancea y suelta para lanzar hechizos de proyectil
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Localized: Carga a dos manos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Localized: Los hechizos cargados solo crecen con ambas manos juntas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: Anillo de favoritos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: 'Ambas manos arriba + ambos gatillos: hechizos y armas equipados'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Bolsa de carterista
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: 'G2: al sigilo, una bolsa que agarrar en quien puedes robar'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: "Tama\xF1o del anillo de favoritos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: "A qu\xE9 distancia est\xE1 el anillo de favoritos (stick derecho
+      mientras est\xE1 abierto)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431630484627456
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234976538624
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236171915264
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791235605684224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 410458179100672
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411327083700224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236801060864
+    m_Localized: "Men\xFA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Localized: "Direcci\xF3n de movimiento"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Localized: "c\xE1mara|mando izquierdo|mando derecho"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Localized: Tipo de giro
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Localized: suave|por pasos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Localized: "\xABAltura del jugador\xBB = sin escala"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Localized: Modo sentado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Localized: sentado|de pie|altura del jugador
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Localized: "Suaviza los peque\xF1os temblores de la c\xE1mara de espectador
+      (solo PCVR)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Localized: Suavizado espectador
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Localized: desactivado|bajo|medio|alto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Localized: Velocidad del giro suave
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Localized: Giro suave
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Localized: "\xC1ngulo de giro por clic"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Localized: Giro por pasos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Localized: Accesibilidad VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Localized: AJUSTES DE ACCESIBILIDAD VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Localized: "Ranuras del h\xE9roe VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239070179328
+    m_Localized: "Seleccionar men\xFA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791240353636352
+    m_Localized: "Seleccionar men\xFA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791238533308416
+    m_Localized: "Atraer/Di\xE1logo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239724490752
+    m_Localized: "Atraer/Di\xE1logo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791233751801856
+    m_Localized: Caminar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237371486208
+    m_Localized: Saltar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237967077376
+    m_Localized: Agacharse
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234347393024
+    m_Localized: Girar/Teletransportar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 62335082496
+    m_Localized: Mochila
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Localized: Controles VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Localized: "Inmersi\xF3n VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Localized: "AJUSTES DE INMERSI\xD3N VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Localized: "Micr\xF3fono"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Localized: "Se usa para voz a texto durante los di\xE1logos, si se selecciona"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Localized: Desactivado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666525962240
+    m_Localized: "Manos f\xEDsicas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265408
+    m_Localized: Las manos se detienen en paredes y objetos y empujan objetos sueltos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265409
+    m_Localized: desactivado|activado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Viento
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "\xC1rboles y hierba se mecen con el viento - cuesta rendimiento
+      en Quest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: "Vi\xF1eta"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Oscurece los bordes de la vista mientras el stick te mueve o gira
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: desactivado|suave|fuerte
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: "Tama\xF1o del texto"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: "Tama\xF1o de subt\xEDtulos y opciones de di\xE1logo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "normal|grande|m\xE1s grande"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: "Visi\xF3n del color"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adapta los colores al daltonismo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: "normal|d\xE9ficit rojo|d\xE9ficit verde|d\xE9ficit azul"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: Lateralidad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Zurdo: movimiento y men\xFA en el mando derecho; giro, teletransporte
+      y salto en el izquierdo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: diestro|zurdo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: "Bot\xF3n de salto"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: "El bot\xF3n que salta: agacharse usa el otro de los dos botones"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: "bot\xF3n inferior|bot\xF3n superior|clic del stick"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: "Bot\xF3n de men\xFA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "El bot\xF3n que abre el men\xFA, en la mano de movimiento"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: "bot\xF3n superior|bot\xF3n inferior|bot\xF3n de men\xFA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Escalada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Bordes agarrados: subir a pulso o fundido (menos movimiento)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: subir|fundido
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Pistas de bordes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "Cerca de un borde la mano se cierra y vibra; el brillo tambi\xE9n
+      ilumina el borde"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: desactivado|brillo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: Desfase de altura
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "Altura de c\xE1mara en pasos de 5 cm. Centro = sin desfase"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: 'No se puede guardar: no hay partida en curso.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "No se puede guardar mientras est\xE1s muerto."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "No se puede guardar durante un di\xE1logo."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Error al cargar: no se puede leer la partida guardada.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: Error al guardar. Se conserva la partida anterior.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: omitir
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: "Ca\xEDda del h\xE9roe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: 'Inconsciente, muerto o dormido: la vista baja con el cuerpo o se
+      funde (menos movimiento)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: con el cuerpo|fundido
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

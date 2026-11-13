@@ -19,11 +19,508 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 431630484627456
-    m_Localized: 
+    m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 193305458028961792
     m_Localized: Prendi tutto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: Dettagli oggetto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: 'Zaino in una mano, oggetto nell''altra: mostra il suo testo'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: Aspirazione zaino
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: Lo zaino aperto attira gli oggetti vicini
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: 'Bottino: prendi tutto'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: Uno zaino del bottino mostra "Prendi tutto" sotto le pagine
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Parata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: 'Entrambe le mani su un''arma da mischia, entrambi i grilletti premuti:
+      pari'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Passi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: I passi suonano in base al terreno
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: Numeri di danno
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: -X PV / +X MANA sopra la testa degli NPC
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: Dimensione numeri
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: Dimensione dei numeri -X PV / +X MANA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: Numeri PV
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: PV/MAX sulle barre della salute
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: Muoversi nei dialoghi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: Muoviti mentre parli - allontanarsi chiude il dialogo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: Aggiornamento luce
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: Quanto fluidamente la luce di una torcia segue la mano
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: Basso|Medio|Alto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: Mani dell'eroe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: Le tue mani sono i pugni dell'eroe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: Colpo di grazia
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: 'Colpisci e tieni la lama dentro per finire (disattivato: qualsiasi
+      colpo)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: Balestra
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: 'Tira la corda per ricaricare (disattivato: automatico)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: Pergamene monouso
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: Un lancio consuma la pergamena (Gothic)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: Incantesimi lanciati
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: Fai oscillare e lascia per lanciare gli incantesimi proiettile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Localized: Carica a due mani
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Localized: Gli incantesimi caricati crescono solo con entrambe le mani unite
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: Anello dei preferiti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: 'Entrambe le mani in alto + entrambi i grilletti: incantesimi e
+      armi equipaggiati'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Borsello da borseggio
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: 'G2: di soppiatto, una borsa da afferrare su chi puoi borseggiare'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: Dimensione anello preferiti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: "A che distanza si trova l'anello dei preferiti (stick destro mentre
+      \xE8 aperto)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234976538624
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236171915264
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791235605684224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 410458179100672
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411327083700224
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791236801060864
+    m_Localized: Menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Localized: Direzione movimento
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Localized: visuale|controller sinistro|controller destro
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Localized: Tipo di rotazione
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Localized: fluida|a scatti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Localized: "\xABAltezza giocatore\xBB = nessuna scala"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Localized: "Modalit\xE0 seduta"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Localized: seduto|in piedi|altezza giocatore
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Localized: Attenua i piccoli scatti della camera spettatore (solo PCVR)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Localized: "Fluidit\xE0 spettatore"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Localized: disattivato|basso|medio|alto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Localized: "Velocit\xE0 della rotazione fluida"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Localized: Rotazione fluida
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Localized: Ampiezza della rotazione per clic
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Localized: Rotazione a scatti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Localized: "Accessibilit\xE0 VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Localized: "IMPOSTAZIONI ACCESSIBILIT\xC0 VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Localized: Slot dell'eroe VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239070179328
+    m_Localized: Seleziona menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791240353636352
+    m_Localized: Seleziona menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791238533308416
+    m_Localized: Attira/Dialogo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791239724490752
+    m_Localized: Attira/Dialogo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791233751801856
+    m_Localized: Camminare
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237371486208
+    m_Localized: Saltare
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791237967077376
+    m_Localized: Accovacciarsi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 791234347393024
+    m_Localized: Ruota/Teletrasporto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 62335082496
+    m_Localized: Zaino
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Localized: Controlli VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Localized: Immersione VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Localized: IMPOSTAZIONI IMMERSIONE VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Localized: Microfono
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Localized: Usato per il riconoscimento vocale durante i dialoghi, se selezionato
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Localized: Disattivato
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666525962240
+    m_Localized: Mani fisiche
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265408
+    m_Localized: Le mani si fermano contro muri e oggetti e spingono gli oggetti
+      sciolti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265409
+    m_Localized: disattivato|attivato
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: Vento
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: Alberi ed erba ondeggiano al vento - pesa sulle prestazioni su Quest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: Vignettatura
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: Scurisce i bordi della visuale mentre lo stick ti muove o ti ruota
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: disattivato|leggero|forte
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Dimensione testo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: Dimensione di sottotitoli e scelte di dialogo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "normale|grande|pi\xF9 grande"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: Visione dei colori
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: Adatta i colori al daltonismo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: normale|debole rosso|debole verde|debole blu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: Mano dominante
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: 'Mancino: movimento e menu sul controller destro, rotazione, teletrasporto
+      e salto sul sinistro'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: destrorso|mancino
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: Tasto salto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: Il tasto che fa saltare - accovacciarsi usa l'altro dei due tasti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: tasto inferiore|tasto superiore|clic dello stick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: Tasto menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: Il tasto che apre il menu, sulla mano del movimento
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: tasto superiore|tasto inferiore|tasto menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: Arrampicata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: 'Sporgenze afferrate: ti tiri su o dissolvenza (meno movimento)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: tirarsi su|dissolvenza
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: Indicazioni sporgenze
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: Vicino a una sporgenza la mano si chiude e vibra; il bagliore illumina
+      anche la sporgenza
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: disattivato|bagliore
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: Scostamento altezza
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: Altezza camera a passi di 5 cm. Centro = nessuno scostamento
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: 'Salvataggio impossibile: nessuna partita in corso.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Non puoi salvare finch\xE9 sei morto."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: Non puoi salvare durante un dialogo.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: 'Caricamento non riuscito: impossibile leggere il salvataggio.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Salvataggio non riuscito. Il salvataggio precedente \xE8 stato
+      mantenuto."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: salta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: Caduta dell'eroe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: 'Svenuto, morto o addormentato: la visuale scende col corpo o sfuma
+      (meno movimento)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: col corpo|dissolvenza
     m_Metadata:
       m_Items: []
   references:

@@ -381,6 +381,163 @@ MonoBehaviour:
     m_Localized: Take all
     m_Metadata:
       m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: Item details
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: Backpack in one hand, item in the other shows its text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: Backpack vacuum
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: The open backpack pulls in nearby items
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: 'Loot: take all'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: A loot backpack shows "Take all" below the pages
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Blocking
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: 'Both hands on a melee weapon, both triggers held: parry'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Footsteps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: Steps sound by the ground below
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: Hit numbers
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: -X HP / +X MANA over NPC heads
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: Hit numbers size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: Size of the -X HP / +X MANA numbers
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: HP numbers
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: HP/MAX on health bars
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: Walk in dialogs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: Move around while talking - walking away ends the dialog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: Light refresh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: How smoothly a torch's light follows your hand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: Low|Medium|High
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: Hero's hands
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: Your hands are the hero's fists
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: Finishing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: 'Stab and hold the blade in to finish off (off: any hit)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: Crossbow
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: 'Pull the string to reload (off: automatic)'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: Single-use scrolls
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: A cast uses the scroll up (Gothic)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: Thrown spells
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: Swing and let go to throw projectile spells
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244126
+    m_Localized: Two-hand charge
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244127
+    m_Localized: Charged spells grow only with both hands together
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: Favorites ring
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: 'Both hands up + both triggers: equipped spells and weapons'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Pickpocket purse
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: 'G2: sneaking, a purse to grab on whom you could pickpocket'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: Favorites ring size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: How far the favorites ring is from you (right stick while it is
+      open)
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
