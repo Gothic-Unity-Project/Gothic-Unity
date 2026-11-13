@@ -116,60 +116,61 @@ namespace Gothic.VR.Services.Context
                     CreateOptionChoice(gameMenu, "MENUITEM_GOTHIC_OPT_VR_IMMERSION_MOVE_VIGNETTE", "moveVignette",
                         VRConstants.IniNames.MoveVignette, VRConstants.IniSectionImmersion,
                         VRConstants.MoveVignetteDefaultValue)),
-                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP"),
+                (CreateToggleLabel(gameMenu, "ITEM_DETAILS_POPUP", "itemDetailsPopup"),
                     CreateToggleChoice(gameMenu, "ITEM_DETAILS_POPUP", VRConstants.IniNames.ItemDetailsPopup,
                         VRConstants.ItemDetailsPopupDefaultValue)),
-                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM"),
+                (CreateToggleLabel(gameMenu, "BACKPACK_VACUUM", "backpackVacuum"),
                     CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
                         VRConstants.BackpackVacuumDefaultValue)),
-                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL"),
+                (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "lootTakeAll"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
                         VRConstants.LootTakeAllDefaultValue)),
-                (CreateToggleLabel(gameMenu, "HERO_BLOCK"),
+                (CreateToggleLabel(gameMenu, "HERO_BLOCK", "heroBlock"),
                     CreateToggleChoice(gameMenu, "HERO_BLOCK", VRConstants.IniNames.HeroBlock,
                         VRConstants.HeroBlockDefaultValue)),
                 // Core's option (footsteps play in Flat too), stored in Gothic's [SOUND] section.
-                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS"),
+                (CreateToggleLabel(gameMenu, "FOOTSTEP_SOUNDS", "footstepSounds"),
                     CreateToggleChoice(gameMenu, "FOOTSTEP_SOUNDS", Constants.IniNames.FootstepSounds,
                         Constants.IniNames.FootstepSoundsDefaultValue, Constants.IniNames.IniSectionSound)),
-                (CreateToggleLabel(gameMenu, "HIT_NUMBERS"),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS", "hitNumbers"),
                     CreateToggleChoice(gameMenu, "HIT_NUMBERS", Constants.IniNames.HitNumbers)),
-                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE"), CreateHitNumbersSizeSlider(gameMenu)),
-                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS"),
+                (CreateToggleLabel(gameMenu, "HIT_NUMBERS_SIZE", "hitNumbersSize"),
+                    CreateHitNumbersSizeSlider(gameMenu)),
+                (CreateToggleLabel(gameMenu, "HEALTH_NUMBERS", "healthNumbers"),
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
-                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT"),
+                (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "dialogFreeMovement"),
                     CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
-                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH"), CreateLightRefreshChoice(gameMenu))
+                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "lightRefresh"), CreateLightRefreshChoice(gameMenu))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
-                rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS"),
+                rows.Add((CreateToggleLabel(gameMenu, "HERO_HANDS", "heroHands"),
                     CreateToggleChoice(gameMenu, "HERO_HANDS", VRConstants.IniNames.HeroHands,
                         VRConstants.HeroHandsDefaultValue)));
-            rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH"),
+            rows.Add((CreateToggleLabel(gameMenu, "STAB_FINISH", "stabFinish"),
                 CreateToggleChoice(gameMenu, "STAB_FINISH", VRConstants.IniNames.StabFinish,
                     VRConstants.StabFinishDefaultValue)));
             // Off = a crossbow reloads by itself.
-            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD"),
+            rows.Add((CreateToggleLabel(gameMenu, "CROSSBOW_RELOAD", "crossbowReload"),
                 CreateToggleChoice(gameMenu, "CROSSBOW_RELOAD", VRConstants.IniNames.CrossbowReload,
                     VRConstants.CrossbowReloadDefaultValue)));
             // Off = scrolls are cast forever.
-            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE"),
+            rows.Add((CreateToggleLabel(gameMenu, "SCROLLS_SINGLE_USE", "scrollsSingleUse"),
                 CreateToggleChoice(gameMenu, "SCROLLS_SINGLE_USE", VRConstants.IniNames.ScrollsSingleUse, 1)));
             // Off = projectile spells are cast like all others.
-            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS"),
+            rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "throwableSpells"),
                 CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
                     VRConstants.ThrowableSpellsDefaultValue)));
             // Off = one hand is enough to charge a spell.
-            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE"),
+            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE", "twoHandSpellCharge"),
                 CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
                     VRConstants.TwoHandSpellChargeDefaultValue)));
             // Off = the favorites ring (both hands up, both triggers) doesn't open.
-            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING"),
+            rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "favoritesRing"),
                 CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
                     VRConstants.FavoritesRingDefaultValue)));
             // Off = G2's pickpocketing is only its dialog (G1's purse stays, it is the engine's steal window).
-            rows.Add((CreateToggleLabel(gameMenu, "PICKPOCKET_PURSE"),
+            rows.Add((CreateToggleLabel(gameMenu, "PICKPOCKET_PURSE", "pickpocketPurse"),
                 CreateToggleChoice(gameMenu, "PICKPOCKET_PURSE", VRConstants.IniNames.PickpocketPurse,
                     VRConstants.PickpocketPurseDefaultValue)));
             AddOptionRows(vrImmersionMenu, rows.ToArray());
@@ -241,28 +242,18 @@ namespace Gothic.VR.Services.Context
         }
 
         /// <summary>
-        /// Label of one of our own on/off options (id like THROWABLE_SPELLS). Texts: menuitem.{camelCaseId}.label and
+        /// Label of one of our own on/off options (id like THROWABLE_SPELLS). Texts: menuitem.{textKey}.label and
         /// .description. AddOptionRows places them.
         /// </summary>
-        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id)
+        private MutableMenuItemInstance CreateToggleLabel(AbstractMenuInstance gameMenu, string id, string textKey)
         {
             var subtitlesLabel = gameMenu.FindMenuItem("MENUITEM_GAME_SUB_TITLES", out _);
             var item = new MutableMenuItemInstance($"MENUITEM_GOTHIC_OPT_VR_IMMERSION_{id}", subtitlesLabel);
-            var textKey = ToCamelCase(id);
 
             item.SetText(0, _localizationService.GetText($"menuitem.{textKey}.label"));
             item.SetText(1, _localizationService.GetText($"menuitem.{textKey}.description"));
 
             return item;
-        }
-
-        // THROWABLE_SPELLS -> throwableSpells
-        private static string ToCamelCase(string upperSnakeCase)
-        {
-            var parts = upperSnakeCase.ToLowerInvariant().Split('_');
-            for (var i = 1; i < parts.Length; i++)
-                parts[i] = char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1);
-            return string.Concat(parts);
         }
 
         private MutableMenuItemInstance CreateToggleChoice(AbstractMenuInstance gameMenu, string id, string iniName,
