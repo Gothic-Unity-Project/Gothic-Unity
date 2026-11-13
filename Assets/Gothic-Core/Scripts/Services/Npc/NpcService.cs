@@ -646,19 +646,10 @@ namespace Gothic.Core.Services.Npc
 
         public void ExtNpcSetToFistMode(NpcInstance npc)
         {
-            var npcProperties = npc.GetUserData().Props;
-
             npc.GetUserData()!.Vob.FightMode = (int)VmGothicEnums.WeaponState.Fist;
 
             // if npc has item in hand remove it and set weapon to fist
-            // Some animations need to force remove items, some not.
-            if (npcProperties.UsedItemSlot.IsNullOrEmpty())
-                return;
-
-            var slotGo = npc.GetUserData().Go.FindChildRecursively(npcProperties.UsedItemSlot);
-            var item = slotGo!.transform.GetChild(0);
-
-            Object.Destroy(item.gameObject);
+            DestroyUsedItemMesh(npc.GetUserData());
         }
         
         /// <summary>
@@ -905,27 +896,56 @@ namespace Gothic.Core.Services.Npc
         
         /// <summary>
         /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
-        /// the item state resets.
+        /// the item state resets. Like the engine's clearState/AI_StandUp - an NPC interrupted while eating (aggro)
+        /// kept the apple, and the next AI_UseItemToState put a second one into its hand.
         /// </summary>
         public void RemoveUsedItemFromHand(NpcContainer npcContainer)
         {
             var props = npcContainer?.Props;
-            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+            if (props == null)
+                return;
+            if (string.IsNullOrEmpty(props.UsedItemSlot) && !props.HasItemEquipped && props.ItemAnimationState < 0)
                 return;
 
+            Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
+                       $"'{props.UsedItemSlot}' (state {props.ItemAnimationState})", LogCat.Npc);
+
+            DestroyUsedItemMesh(npcContainer);
+            props.ItemAnimationState = -1;
+
+            // CurrentItem is also the drawn weapon - only reset it when it is the used item.
+            if (props.HasItemEquipped)
+            {
+                props.HasItemEquipped = false;
+                props.CurrentItem = -1;
+            }
+        }
+
+        /// <summary>
+        /// Only the used item's mesh in its slot goes (an ItemRemove/ItemDestroy animation event); the item state
+        /// stays. Returns whether a mesh was destroyed.
+        /// </summary>
+        public bool DestroyUsedItemMesh(NpcContainer npcContainer)
+        {
+            var props = npcContainer?.Props;
+            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+                return false;
+
+            var destroyed = false;
             var slotGo = npcContainer.PrefabProps?.Bip01 != null
                 ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
                 : null;
             if (slotGo != null)
             {
                 for (var i = slotGo.transform.childCount - 1; i >= 0; i--)
+                {
                     Object.Destroy(slotGo.transform.GetChild(i).gameObject);
+                    destroyed = true;
+                }
             }
 
-            Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
-                       $"'{props.UsedItemSlot}'", LogCat.Npc);
             props.UsedItemSlot = string.Empty;
-            props.ItemAnimationState = -1;
+            return destroyed;
         }
 
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
@@ -935,9 +955,14 @@ namespace Gothic.Core.Services.Npc
                 throw new Exception("Slot 2 is set but not yet handled by InsertItem as AnimationEvent.");
             }
 
+            // The slot holds one used item, like the engine's state item - a new one replaces, never adds.
+            if (DestroyUsedItemMesh(npcContainer))
+                Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: an item was " +
+                                  $"still in the hand - replaced by the new one in '{slot1}'", LogCat.Npc);
+
             var slotGo = npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot1);
 
-             _vobService.CreateItemMesh(npcContainer.Props.CurrentItem, slotGo);
+            _vobService.CreateItemMesh(npcContainer.Props.CurrentItem, slotGo);
 
             npcContainer.Props.UsedItemSlot = slot1;
         }

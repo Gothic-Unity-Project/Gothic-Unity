@@ -883,7 +883,8 @@ namespace Gothic.Core.Adapters.Animations
                         break;
                     case EventType.ItemDestroy:
                     case EventType.ItemRemove:
-                        RemoveItem();
+                        // The slot is cleared too - a stale one could later delete a drawn weapon.
+                        _npcService.DestroyUsedItemMesh(NpcData);
                         break;
                     case EventType.TorchInventory:
                         // TODO - I assume this means: if torch is in inventory, then put it out. But not really sure. Need a NPC with real usage of it to predict right.
@@ -1091,20 +1092,6 @@ namespace Gothic.Core.Adapters.Animations
                 if (string.IsNullOrEmpty(morph.Node) || morph.Node.EqualsIgnoreCase(_headNodeName))
                     headMorph.StartEventFaceAnimation(morph.Animation);
             }
-        }
-
-        private void RemoveItem()
-        {
-            // Some animations need to force remove items, some not.
-            if (Properties.UsedItemSlot == "")
-            {
-                return;
-            }
-
-            var slotGo = PrefabProps.Bip01.FindChildRecursively(Properties.UsedItemSlot);
-            var item = slotGo!.GetChild(0);
-
-            Destroy(item.gameObject);
         }
 
         public void StopAllAnimations()
