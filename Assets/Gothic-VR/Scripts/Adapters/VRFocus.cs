@@ -11,6 +11,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
+using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace Gothic.VR.Adapters
         [Inject] private readonly DynamicMaterialService _dynamicMaterialService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
+        [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private static Camera _mainCamera;
 
@@ -52,12 +54,17 @@ namespace Gothic.VR.Adapters
         private float _hoverBrightness;
         private bool IsHighlighted => _isHovered || _isLocked;
         private Renderer _cachedObjectRenderer;
+        // The name's size at a hand's reach - a locked target's name grows with the distance (LateUpdate).
+        private Vector3 _nameCanvasScale;
+        private RectTransform _nameCanvasRect;
         private bool _isNpc;
         private VrInteractable _interactable;
 
         private void Awake()
         {
             _isNpc = GetComponent<VRNpc>() != null;
+            _nameCanvasScale = _nameCanvas.transform.localScale;
+            _nameCanvasRect = _nameCanvas.transform as RectTransform;
 
             _interactable = VrInteractable.Find(this);
             _interactable.HoverEntered += OnHoverEnter;
@@ -110,7 +117,8 @@ namespace Gothic.VR.Adapters
         private void OnHoverEnter(VrGrabArgs _)
         {
             // The hero's focus (PlayerService.FocusNpc) - e.g. Marvin's "kill" hits the NPC the hand pointed at.
-            if (_isNpc)
+            // A thrown spell's lock (VRSpellLock) owns the focus while it lasts: hovering others doesn't take it.
+            if (_isNpc && !_vrPlayerService.IsSpellLockActive)
             {
                 var loader = GetComponentInParent<NpcLoader>();
                 if (loader != null && loader.Container != null)
@@ -135,11 +143,13 @@ namespace Gothic.VR.Adapters
 
         /// <summary>
         /// The NPC is (no longer) a thrown spell's locked target (VRSpellLock): brightness and name stay while locked,
-        /// whether a hand hovers it or not.
+        /// whether a hand hovers it or not - brighter than a hover, the name readable at the spell's range.
         /// </summary>
         public void SetLocked(bool isLocked)
         {
             _isLocked = isLocked;
+            if (!isLocked)
+                _nameCanvas.transform.localScale = _nameCanvasScale;
             ApplyHighlight();
         }
 
@@ -154,7 +164,7 @@ namespace Gothic.VR.Adapters
             {
                 if (_featureBrightenUp)
                     _dynamicMaterialService.SetDynamicValue(gameObject, Constants.ShaderPropertyFocusBrightness,
-                        _isHovered ? _hoverBrightness : GetDefaultBrightness());
+                        _isLocked ? VRConstants.Magic.LockFocusBrightness : _hoverBrightness);
 
                 if (_featureShowName)
                     SetFocusName();
@@ -168,6 +178,7 @@ namespace Gothic.VR.Adapters
             }
 
             _nameCanvas.SetActive(false);
+            _nameCanvas.transform.localScale = _nameCanvasScale;
         }
 
         private float GetDefaultBrightness()
@@ -199,18 +210,28 @@ namespace Gothic.VR.Adapters
             if (!IsHighlighted)
                 return;
 
-            // Calculate direction from parent object to camera
-            var directionToCamera = (_mainCamera.transform.position - transform.position).normalized;
+            var cameraPosition = _mainCamera.transform.position;
+            var canvasTransform = _nameCanvas.transform;
+            var bounds = _cachedObjectRenderer.bounds;
 
-            // Position canvas at the top of bounds, shifted toward camera
-            _nameCanvas.transform.position = new Vector3(
-                _cachedObjectRenderer.bounds.center.x,
-                _cachedObjectRenderer.bounds.max.y,
-                _cachedObjectRenderer.bounds.center.z
-            );
+            // Position canvas at the top of bounds
+            var namePosition = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
 
-            // Rotate to face camera
-            _nameCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
+            // Locked from afar: the name keeps the size it has at LockNameFullSizeDistance and stays above the head.
+            if (_isLocked)
+            {
+                var sizeFactor = Mathf.Max(1f,
+                    Vector3.Distance(cameraPosition, namePosition) / VRConstants.Magic.LockNameFullSizeDistance);
+                canvasTransform.localScale = _nameCanvasScale * sizeFactor;
+                if (_nameCanvasRect != null)
+                    namePosition.y += _nameCanvasRect.rect.height * canvasTransform.lossyScale.y * 0.5f *
+                                      (1f - 1f / sizeFactor);
+            }
+
+            canvasTransform.position = namePosition;
+
+            // Rotate to face camera (direction from parent object to camera)
+            canvasTransform.rotation = Quaternion.LookRotation(-(cameraPosition - transform.position).normalized);
         }
 
         /// <summary>
@@ -222,6 +243,7 @@ namespace Gothic.VR.Adapters
 
             _isHovered = false;
             _isLocked = false;
+            _nameCanvas.transform.localScale = _nameCanvasScale;
         }
 
         private void SetFocusName()

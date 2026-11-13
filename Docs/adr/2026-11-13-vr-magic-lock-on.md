@@ -16,7 +16,7 @@ In throw mode the hand holding the rune has a free trigger: only the other hand 
 3. **The lock stays while the trigger is held, even when the hand points elsewhere.** It ends when the target dies or is knocked out, gets out of the spell's reach, or is out of sight for about a second (seen the way Gothic's NPCs see: leaves and bushes don't block). A magically frozen target stays locked. Not chosen: keeping the hand on the target, which is tiring and shaky at a distance.
 4. **The lock reaches as far as the spell flies.** A locked spell can always arrive.
 5. **A locked spell turns toward its target as fast as other homing spells.** A target that moves quickly can still dodge.
-6. **The locked NPC stays highlighted with its name, and the rune hand vibrates when the lock is made or lost.**
+6. **The locked NPC stays highlighted with its name, and the rune hand vibrates when the lock is made or lost.** It is the same highlight and name as pointing at an NPC, but brighter and with the name large enough to read at the spell's range, and it stays wherever the hands point until the lock ends.
 7. **Always on, no option.** It only does something when the rune trigger is pressed. Not chosen: another Immersion option, which adds a setting without need.
 8. **Only for thrown spells with a rune or scroll in the hand.** Favorites-ring spells have no rune hand, and the mouse and keyboard simulator already throws where you look.
 

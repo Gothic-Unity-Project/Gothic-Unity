@@ -284,6 +284,14 @@ namespace Gothic.VR
 
             // Lock-on: the lock breaks beyond the throw range times this, so it doesn't flicker at the edge.
             public const float LockRangeHysteresis = 1.1f;
+
+            // Lock-on: the locked NPC's focus brightness (VRFocus) - brighter than a hovered NPC
+            // (ShaderPropertyFocusBrightnessNpcValue), so it stands out at range and among hovered NPCs. Self-tuned.
+            public const float LockFocusBrightness = 4f;
+
+            // Lock-on: farther than this (m) the locked NPC's name grows with the distance, so it reads as large as
+            // at this distance - the hover name is sized for a hand's reach, the lock reaches DefaultThrowRange.
+            public const float LockNameFullSizeDistance = 4f;
         }
 
         /// <summary>

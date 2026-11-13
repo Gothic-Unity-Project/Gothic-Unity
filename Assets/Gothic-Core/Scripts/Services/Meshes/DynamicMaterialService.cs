@@ -65,8 +65,10 @@ namespace Gothic.Core.Services.Meshes
             // Finally set the new values.
             SetValue(entry, shaderProperty, shaderValue);
 
-            // And we add the property to the list of "changed" properties.
-            entry.AlteredShaderProperties.Add(shaderProperty);
+            // And we add the property to the list of "changed" properties - once: setting a value again (e.g. a
+            // highlight going from hovered to locked) must not need two resets to give the default materials back.
+            if (!entry.AlteredShaderProperties.Contains(shaderProperty))
+                entry.AlteredShaderProperties.Add(shaderProperty);
         }
 
         /// <summary>

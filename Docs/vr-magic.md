@@ -19,7 +19,7 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `VRChainLightning` (VR adapter) | G1's chain lightning while invested |
 | `VRSpellTransformService` (VR) / `VRSpellTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
 | `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), `IsSpellLockActive` (blocks dialogs like targeting), telekinesis range |
-| `VRFocus` (VR adapter) | an NPC's highlight and name while hovered or locked (`SetLocked`) |
+| `VRFocus` (VR adapter) | an NPC's highlight and name while hovered or locked (`SetLocked`: brighter, name readable at range) |
 | `VRWeaponService` (VR) | a readied rune is `WeaponState.Mage` for the NPCs (`SetRuneReadied`) |
 | `VmCacheService` (Core) | spell data, `spellFXInstanceNames` (`TryGetSpellMfxName`), VISUALFX keys, damage per level |
 | `HeroSpellStateDomain` (Core) | sleep/freeze on the hero; `IsCastBlocked` (knocked out, asleep, frozen) |
@@ -31,7 +31,8 @@ Constants: `DaedalusConst` (`SplSendCast`/`SplSendStop`/`SplNextLevel`, `ZsMagic
 `SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`, plus the throw and
 homing values `MaxSwingFactor`, `HandVelocityWindow`, `MinHomingSwingFactor`, `MinThrowDirectionSpeed`,
 `DroppedSpellSpeed`, `HomingConeDegrees`, `HomingDegreesPerSecond`, `DefaultThrowRange`, and the lock-on values
-`MinLockedSwingFactor`, `LockSightCheckSeconds`, `LockLostSightSeconds`, `LockRangeHysteresis`), the Immersion options "Single-use scrolls" (Gothic.ini
+`MinLockedSwingFactor`, `LockSightCheckSeconds`, `LockLostSightSeconds`, `LockRangeHysteresis`,
+`LockFocusBrightness`, `LockNameFullSizeDistance`), the Immersion options "Single-use scrolls" (Gothic.ini
 `scrollsSingleUse`), "Thrown spells" (`throwableSpells`) and "Two-hand charge" (`twoHandSpellCharge`), names in
 `VRConstants.IniNames`.
 
@@ -57,8 +58,10 @@ Lock-on (rune or scroll in a hand, not ring spells, not the simulator; decision 
 
 1. The rune hand holds its trigger: `VRSpellLock` extends that hand's distance grab to `VRSpellThrow.Range` and locks
    the first standing NPC it points at (`IsDown()` = dead or knocked out, a frozen NPC stays a target). The far reach
-   is dropped again; `VRFocus.SetLocked` keeps the highlight, `PlayerService.FocusNpc` is the target, `TMAG_INIT`
-   plays, `HeroSpellTargetLocked` makes `VrHapticsService` tick the rune hand.
+   is dropped again; `VRFocus.SetLocked` keeps the highlight and name until the lock ends, wherever the hands point:
+   brighter than a hover (`LockFocusBrightness`), the name growing beyond `LockNameFullSizeDistance` so it reads at
+   the spell's range. `PlayerService.FocusNpc` is the target (hovering other NPCs doesn't take it meanwhile),
+   `TMAG_INIT` plays, `HeroSpellTargetLocked` makes `VrHapticsService` tick the rune hand.
 2. While locked the caster copies `VRSpellLock.Target` into its spell target every frame, so `Spell_ProcessMana`
    gets it as `other`. Pointing elsewhere keeps the lock.
 3. It breaks by itself when the target is down or gone, farther than `Range * LockRangeHysteresis`, or out of sight
