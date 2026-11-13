@@ -72,8 +72,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             _readingHand = pressedHand;
-            if (_vobItem.ShowDocument())
-                Logger.Log($"[VRDocReader] {name} opened, reading hand={_readingHand}", LogCat.VR);
+            if (!_vobItem.ShowDocument())
+                return;
+
+            // The pages exist now - LateUpdate follows the cached canvas, nothing scans the children per frame.
+            FindCanvas();
+            Logger.Log($"[VRDocReader] {name} opened, reading hand={_readingHand}", LogCat.VR);
         }
 
         private bool TryGetPressedHand(bool isLeft, bool isRight, out VrHandSide hand)
@@ -95,8 +99,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_canvas != null)
                 return _canvas;
 
-            foreach (Transform child in transform)
+            // for + GetChild: Transform's enumerator allocates.
+            for (var i = 0; i < transform.childCount; i++)
             {
+                var child = transform.GetChild(i);
                 if (child.name == VRDocViewer.CanvasName)
                 {
                     _canvas = child;
@@ -108,7 +114,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void LateUpdate()
         {
-            var canvas = FindCanvas();
+            // Nothing to do while no pages are open and no mesh is hidden (item lying around, in a socket, ...).
+            if (_canvas == null && _hiddenRenderers.Count == 0)
+                return;
+
+            var canvas = _canvas;
             if (canvas == null)
             {
                 _capturedCanvas = null;
