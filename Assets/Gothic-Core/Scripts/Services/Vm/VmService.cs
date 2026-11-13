@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -152,30 +153,31 @@ namespace Gothic.Core.Services.Vm
         {
             var vm = _gameStateService.GothicVm;
             var text = amount == 1
-                ? FirstSymbolString(vm, "_STR_MESSAGE_ITEM_TAKEN", "PRINT_ItemErhalten")
-                : FirstSymbolString(vm, "_STR_MESSAGE_ITEMS_TAKEN", "PRINT_ItemsErhalten");
+                ? FirstSymbolString(vm, DaedalusConst.StrMessageItemTakenG1,
+                    DaedalusConst.StrMessageItemTakenG2)
+                : FirstSymbolString(vm, DaedalusConst.StrMessageItemsTakenG1,
+                    DaedalusConst.StrMessageItemsTakenG2);
             if (string.IsNullOrEmpty(text))
                 return false;
             if (!text.StartsWith(" "))
                 text = " " + text;
 
-            var posY = vm.GetSymbolInt("_YPOS_MESSAGE_TAKEN");
+            var posY = vm.GetSymbolInt(DaedalusConst.YPosMessageTakenG1);
             if (posY < 0)
-                posY = vm.GetSymbolInt("YPOS_ItemTaken");
+                posY = vm.GetSymbolInt(DaedalusConst.YPosMessageTakenG2);
             if (posY < 0)
                 posY = _itemsTakenDefaultPosY;
-            var seconds = vm.GetSymbolInt("_TIME_MESSAGE_TAKEN");
+            var seconds = vm.GetSymbolInt(DaedalusConst.TimeMessageTakenG1);
             if (seconds <= 0)
                 seconds = _itemsTakenDefaultSeconds;
 
             GlobalEventDispatcher.PrintScreen.Invoke(new PrintScreenMessage($"{amount}{text}",
-                PrintScreenMessage.Centered, posY, _itemsTakenFont, seconds));
+                PrintScreenMessage.Centered, posY, DaedalusConst.FontMessage, seconds));
             return true;
         }
 
         private const int _itemsTakenDefaultPosY = 40;
         private const int _itemsTakenDefaultSeconds = 4;
-        private const string _itemsTakenFont = "FONT_OLD_10_WHITE.TGA";
 
         private static string FirstSymbolString(DaedalusVm vm, params string[] symbolNames)
         {
