@@ -110,7 +110,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly LocalizationService _localizationService;
 
         private const string _equippedLabelName = "EquippedLabel";
-        private const float _equippedSlotWorldSize = 0.105f;
         private const string _takeAllTextKey = "backpack.takeAll";
         private const string _takeAllFallbackText = "Take all";
 
@@ -1008,15 +1007,9 @@ namespace Gothic.VR.Adapters.Player
             if (_textureService.EquippedSlotMaterial == null)
                 return;
 
-            var labelGo = Instantiate(_equippedLabelPrefab, socket, false);
+            var labelGo = Instantiate(_equippedLabelPrefab);
             labelGo.name = _equippedLabelName;
-            labelGo.GetComponent<MeshRenderer>().sharedMaterial = _textureService.EquippedSlotMaterial;
-            // Fills the inside of the slot ring (VR Socket Slot: ring radius 0.06 in the local XY plane, item in the
-            // middle). Transparent queue: the opaque item in the same plane stays in front.
-            labelGo.transform.localPosition = Vector3.zero;
-            labelGo.transform.localRotation = Quaternion.identity;
-            var parentScale = Mathf.Max(0.0001f, socket.lossyScale.x);
-            labelGo.transform.localScale = Vector3.one * (_equippedSlotWorldSize / parentScale);
+            labelGo.GetComponent<VREquippedSlotMarker>().Place(socket, _textureService.EquippedSlotMaterial);
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)

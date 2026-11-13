@@ -40,7 +40,6 @@ namespace Gothic.VR.Adapters
         private const float SocketHeight = 0.8f;
         private const float SocketSpacing = 0.22f;
         private const string _equippedLabelName = "EquippedLabel";
-        private const float _equippedSlotWorldSize = 0.105f;
 
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
@@ -531,15 +530,9 @@ namespace Gothic.VR.Adapters
             if (_textureService.EquippedSlotMaterial == null)
                 return;
 
-            var labelGo = Instantiate(_equippedLabelPrefab, socketRoot.transform, false);
+            var labelGo = Instantiate(_equippedLabelPrefab);
             labelGo.name = _equippedLabelName;
-            labelGo.GetComponent<MeshRenderer>().sharedMaterial = _textureService.EquippedSlotMaterial;
-            // Fills the inside of the slot ring (VR Socket Slot: ring radius 0.06 in the local XY plane, item in the
-            // middle). Transparent queue: the opaque item in the same plane stays in front.
-            labelGo.transform.localPosition = Vector3.zero;
-            labelGo.transform.localRotation = Quaternion.identity;
-            var parentScale = Mathf.Max(0.0001f, socketRoot.transform.lossyScale.x);
-            labelGo.transform.localScale = Vector3.one * (_equippedSlotWorldSize / parentScale);
+            labelGo.GetComponent<VREquippedSlotMarker>().Place(socketRoot.transform, _textureService.EquippedSlotMaterial);
         }
     }
 }
