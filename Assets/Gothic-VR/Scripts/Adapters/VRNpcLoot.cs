@@ -113,6 +113,15 @@ namespace Gothic.VR.Adapters
 
         public void Open(NpcContainer npc)
         {
+            // Vanilla: nothing to take (equipped items and armor don't count) - no inventory, only a "nothing to get".
+            if (!HasLoot(npc))
+            {
+                Logger.Log($"[VRNpcLoot] {npc.Instance.GetName(NpcNameSlot.Slot0)} has nothing to loot - not opened",
+                    LogCat.VR);
+                _npcInventoryService.PrintNothingToGet();
+                return;
+            }
+
             _npcContainer = npc;
             _lootOwner = _inventoryTransferService.GetOwner(npc);
             _isOpen = true;

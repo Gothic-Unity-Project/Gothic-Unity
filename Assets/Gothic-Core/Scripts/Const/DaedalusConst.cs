@@ -61,6 +61,7 @@ namespace Gothic.Core.Const
         public const string BMmReactToOthersDamage = "B_MM_REACTTOOTHERSDAMAGE";
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";
+        public const string PlayerPlunderIsEmpty = "player_plunder_is_empty";
 
         // Vanilla G1/G2 END entries of a dialog: nr = 999, description = DIALOG_ENDE.
         public const int DialogExitInfoNr = 999;
