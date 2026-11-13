@@ -4707,10 +4707,15 @@ MonoBehaviour:
   _linearDamping1HAnyHand2HTwoHanded: 0
   _angularDamping2HOneHanded: 0
   _angularDamping1HAnyHand2HTwoHanded: 0
-  _weaponVelocityThreshold: 2
+  _handleSpeed1H: 1.2
+  _tipSpeed1H: 3
+  _handleSpeed2H: 1
+  _tipSpeed2H: 2.5
+  _thrustSpeed: 2.5
+  _minTimeOver: 0.06
+  _minTipPath: 0.35
+  _pathWindow: 0.2
   _weaponVelocityDropPercentage: 0.5
-  _velocityCheckDuration: 0.5
-  _velocitySampleCount: 5
 --- !u!114 &6245187427461270548
 MonoBehaviour:
   m_ObjectHideFlags: 0

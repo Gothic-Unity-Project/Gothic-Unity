@@ -20,7 +20,8 @@ namespace Gothic.VR.Domain.Player
 {
     /// <summary>
     /// The "stabFinish" option (Immersion menu): the hero finishes off an
-    /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (speed along the blade).
+    /// unconscious NPC like a VR take on Gothic's t_1hSFinish - thrust the blade into the body (hand speed along the
+    /// blade, in tracking space: VrSwingSampler.IsThrust).
     /// The stab plays the engine's FIG_SwordFinal; the blade kept in the body for the hold time kills -
     /// FightFinishingMove, like an NPC's AI_FinishingMove. Slashes don't finish anyone off then. Pulling the blade
     /// out lets go.
@@ -35,46 +36,34 @@ namespace Gothic.VR.Domain.Player
         private NpcContainer _attacker;
         private NpcContainer _target;
         private VrInteractable _weapon;
-        private Rigidbody _rigidbody;
+        private VrSwingSampler _swing;
         private IVrGrabber _hand;
         private Vector3 _stabPosition;
         private float _stabTime;
         private int _holdPulses;
 
-        // The weapon's Rigidbody and mesh, looked up once per weapon (TryStab runs every physics step in a hitbox).
-        private VrInteractable _cachedWeapon;
-        private Rigidbody _cachedRigidbody;
-        private MeshFilter _cachedMeshFilter;
-
         public bool IsStuck => _target != null;
 
         /// <summary>
-        /// The blade entered an unconscious NPC. true = it was a stab (the blade sticks now).
+        /// The blade entered an unconscious NPC. true = it was a stab (the blade sticks now). swing is the held
+        /// weapon's sampler (hand speed and blade axis in tracking space).
         /// </summary>
-        public bool TryStab(NpcContainer attacker, NpcContainer target, VrInteractable weapon, Vector3 playerVelocity)
+        public bool TryStab(NpcContainer attacker, NpcContainer target, VrInteractable weapon, VrSwingSampler swing)
         {
-            if (IsStuck)
+            if (IsStuck || weapon == null || swing == null || !swing.IsReady)
                 return false;
 
             _vrPlayerService.TryGetHoldingHand(weapon, out var hand);
-            CacheWeapon(weapon);
-            var rigidbody = _cachedRigidbody;
-            var handPosition = GetHandPosition(hand);
             // IVrGrabber is a MonoBehaviour: Unity's null check (a destroyed hand), not the reference one.
-            if (hand as UnityEngine.Object == null || rigidbody == null || handPosition == null)
-                return false;
-
-            var tipDirection = GetTipDirection(weapon.transform, _cachedMeshFilter, handPosition.Value);
-            var velocity = rigidbody.linearVelocity - playerVelocity;
-            var alongBlade = Vector3.Dot(velocity, tipDirection);
             // Called every physics step while the blade is inside the hitbox - no log here.
-            if (alongBlade < Melee.StabThrustSpeed || alongBlade < velocity.magnitude * Melee.StabThrustAlignment)
+            if (hand as UnityEngine.Object == null || !swing.IsThrust(Melee.StabThrustSpeed))
                 return false;
 
+            var alongBlade = Vector3.Dot(swing.HandVelocity, swing.BladeAxis);
             _attacker = attacker;
             _target = target;
             _weapon = weapon;
-            _rigidbody = rigidbody;
+            _swing = swing;
             _hand = hand;
             _stabPosition = weapon.transform.position;
             _stabTime = Time.time;
@@ -95,10 +84,9 @@ namespace Gothic.VR.Domain.Player
             if (!IsStuck)
                 return;
 
-            var handPosition = GetHandPosition(_hand);
             var maxStuck = Melee.StabHoldSeconds + 1f;
-            if (_weapon == null || _rigidbody == null || _hand as UnityEngine.Object == null ||
-                _hand.Held != _weapon || handPosition == null || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
+            if (_weapon == null || _hand as UnityEngine.Object == null || _hand.Held != _weapon ||
+                !_swing.HasBlade || !_target.IsKnockedOut() || Time.time - _stabTime > maxStuck)
             {
                 Logger.Log("[VrStabFinish] Blade let go - no finish", LogCat.Fight);
                 Clear();
@@ -106,7 +94,7 @@ namespace Gothic.VR.Domain.Player
             }
 
             var weapon = _weapon.transform;
-            var axis = GetTipDirection(weapon, _cachedMeshFilter, handPosition.Value);
+            var axis = _swing.BladeAxis;
             var moved = weapon.position - _stabPosition;
             var alongBlade = Vector3.Dot(moved, axis);
             if (-alongBlade > Melee.StabMaxPullBackDistance ||
@@ -146,37 +134,8 @@ namespace Gothic.VR.Domain.Player
             _attacker = null;
             _target = null;
             _weapon = null;
-            _rigidbody = null;
+            _swing = null;
             _hand = null;
-        }
-
-        private void CacheWeapon(VrInteractable weapon)
-        {
-            if (weapon == _cachedWeapon)
-                return;
-
-            _cachedWeapon = weapon;
-            _cachedRigidbody = weapon != null ? weapon.GetComponent<Rigidbody>() : null;
-            _cachedMeshFilter = weapon != null ? weapon.GetComponentInChildren<MeshFilter>() : null;
-        }
-
-        private Vector3? GetHandPosition(IVrGrabber hand)
-        {
-            var handGo = hand as UnityEngine.Object != null ? _vrPlayerService.GetHandModelGo(hand.HandSide) : null;
-            return handGo != null ? handGo.transform.position : null;
-        }
-
-        /// <summary>
-        /// Gothic weapon meshes lie along their local X axis (WeaponAdapter: bounds.size.x is the length) - the tip is
-        /// the end away from the hand.
-        /// </summary>
-        private static Vector3 GetTipDirection(Transform weapon, MeshFilter meshFilter, Vector3 handPosition)
-        {
-            var axis = weapon.right;
-            var center = meshFilter != null && meshFilter.sharedMesh != null
-                ? meshFilter.transform.TransformPoint(meshFilter.sharedMesh.bounds.center)
-                : weapon.position;
-            return Vector3.Dot(center - handPosition, axis) >= 0f ? axis : -axis;
         }
 
         private void PlayStabSound(Vector3 position)
