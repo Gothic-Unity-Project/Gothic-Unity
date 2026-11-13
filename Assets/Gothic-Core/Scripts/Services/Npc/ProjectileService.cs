@@ -37,6 +37,9 @@ namespace Gothic.Core.Services.Npc
         public const float ProjectileSpeed = 30f;
         private const float _stuckInNpcSeconds = 20f;
         private const float _maxDistance = 120f;
+        // Tip of every munition mesh (arrow, bolt) in its own space: -X, like OpenGothic's BulletBody::matrix() turns
+        // all ammo. Guessing it from the mesh's shape turned the G1 bolt around (its head is wider than its vanes).
+        private static readonly Vector3 _ammoTipAxis = Vector3.left;
         // G1 / G2 names - only used when a weapon has no munition set.
 
 
@@ -90,8 +93,7 @@ namespace Gothic.Core.Services.Npc
             foreach (var meshCollider in meshRoot.GetComponentsInChildren<Collider>(true))
                 Object.Destroy(meshCollider);
 
-            var tipAxis = GetLongAxis(meshRoot, towardsWiderEnd: false);
-            meshRoot.transform.localRotation = Quaternion.FromToRotation(tipAxis, Vector3.forward);
+            meshRoot.transform.localRotation = Quaternion.FromToRotation(_ammoTipAxis, Vector3.forward);
             return visualRoot;
         }
 
@@ -389,7 +391,7 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Long axis of all meshes below root (in root space), its sign pointing to the end whose cross section is
-        /// wider (crossbow prod) or narrower (arrow/bolt tip).
+        /// wider (crossbow prod) or narrower.
         /// With isAsymmetryAxis, the axis among the two longest ones whose halves differ most is taken: a crossbow's
         /// prod can be wider than the crossbow is long, but only the barrel axis has a wide front and a narrow stock.
         /// </summary>
