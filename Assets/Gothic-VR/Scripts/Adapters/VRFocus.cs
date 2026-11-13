@@ -8,6 +8,7 @@ using Gothic.Core.Services.Npc;
 using Gothic.Core;
 using Gothic.Core.Extensions;
 using Gothic.Core.Manager;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Services;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
@@ -49,8 +50,11 @@ namespace Gothic.VR.Adapters
         public bool IsNameShown => IsHighlighted && _nameCanvas != null && _nameCanvas.activeSelf;
 
         private bool _isHovered;
-        // A thrown spell's target (VRSpellLock): highlighted while locked, even when no hand hovers it.
+        // A thrown spell's target (VRPlayerService.SpellLockTarget): highlighted while locked, even when no hand hovers
+        // it. Set on HeroSpellTargetLocked, dropped in LateUpdate once the service's target is another.
         private bool _isLocked;
+        // An NPC's own container, cached on the first lock event.
+        private NpcContainer _npcContainer;
         private float _hoverBrightness;
         private bool IsHighlighted => _isHovered || _isLocked;
         private Renderer _cachedObjectRenderer;
@@ -71,6 +75,9 @@ namespace Gothic.VR.Adapters
             _interactable.HoverExited += OnHoverExit;
             _interactable.Grabbed += OnGrabbed;
 
+            if (_isNpc)
+                GlobalEventDispatcher.HeroSpellTargetLocked.AddListener(OnHeroSpellTargetLocked);
+
             // DEBUG - Use this to enable brightening up all rendered objects if you want to check the attack window.
             {
                 // GlobalEventDispatcher.FightWindowInitial.AddListener(_ => OnHoverEnter(1f));
@@ -88,6 +95,9 @@ namespace Gothic.VR.Adapters
 
         private void OnDestroy()
         {
+            if (_isNpc)
+                GlobalEventDispatcher.HeroSpellTargetLocked.RemoveListener(OnHeroSpellTargetLocked);
+
             if (_interactable == null)
                 return;
 
@@ -117,7 +127,7 @@ namespace Gothic.VR.Adapters
         private void OnHoverEnter(VrGrabArgs _)
         {
             // The hero's focus (PlayerService.FocusNpc) - e.g. Marvin's "kill" hits the NPC the hand pointed at.
-            // A thrown spell's lock (VRSpellLock) owns the focus while it lasts: hovering others doesn't take it.
+            // A thrown spell's lock (VrSpellLockDomain) owns the focus while it lasts: hovering others doesn't take it.
             if (_isNpc && !_vrPlayerService.IsSpellLockActive)
             {
                 var loader = GetComponentInParent<NpcLoader>();
@@ -142,10 +152,28 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// The NPC is (no longer) a thrown spell's locked target (VRSpellLock): brightness and name stay while locked,
+        /// A thrown spell got locked (VrSpellLockDomain): highlight this NPC if it is the target.
+        /// </summary>
+        private void OnHeroSpellTargetLocked(int _)
+        {
+            if (!isActiveAndEnabled)
+                return;
+
+            if (_npcContainer == null)
+            {
+                var loader = GetComponentInParent<NpcLoader>();
+                _npcContainer = loader != null ? loader.Container : null;
+            }
+
+            if (_npcContainer != null && _npcContainer == _vrPlayerService.SpellLockTarget)
+                SetLocked(true);
+        }
+
+        /// <summary>
+        /// The NPC is (no longer) a thrown spell's locked target: brightness and name stay while locked,
         /// whether a hand hovers it or not - brighter than a hover, the name readable at the spell's range.
         /// </summary>
-        public void SetLocked(bool isLocked)
+        private void SetLocked(bool isLocked)
         {
             _isLocked = isLocked;
             if (!isLocked)
@@ -207,6 +235,10 @@ namespace Gothic.VR.Adapters
 
         private void LateUpdate()
         {
+            // The lock ended (VRPlayerService owns it): a reference check, only on the one locked NPC.
+            if (_isLocked && _vrPlayerService.SpellLockTarget != _npcContainer)
+                SetLocked(false);
+
             if (!IsHighlighted)
                 return;
 

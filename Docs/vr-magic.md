@@ -14,12 +14,12 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `VRRuneCaster` (VR adapter) | one readied rune/scroll: the trigger as cast key, the Daedalus protocol (`Spell_ProcessMana`, `Spell_ProcessMana_Release`, `Spell_Cast_<name>`), mana ticks, the cast's effect (`SpellHit`), scroll use-up, the charge state machine of throwable spells |
 | `VRSpellFx` (worker of the caster) | what a spell looks and sounds like: the effect in the hand, charging effects and light at the body, cast effects and light, collision effects, invest/cast sounds, the Light spell |
 | `VRSpellThrow` (worker of the caster) | throwable spells: hand velocity, the swing's direction/speed/gravity/homing, the flying `Projectile` and its hits |
-| `VRSpellLock` (worker of the caster) | lock-on for throwable spells held in a hand: the rune hand's trigger locks the NPC it points at, keeps it while held, breaks it (down, out of `VRSpellThrow.Range`, out of sight); the only owner of the throw's target |
+| `VrSpellLockDomain` (VR domain, worker of `VRPlayerService`) | lock-on for throwable spells held in a hand: the rune hand's trigger locks the NPC it points at, keeps it while held, breaks it (down, out of `VRSpellThrow.Range`, out of sight); ticked by the caster via `VRPlayerService.TickSpellLock` |
 | `VRTelekinesisSpell` (worker of the caster) | Telekinesis: trigger 1 extends the distance grab, trigger 2 pulls (no Daedalus, no mana) |
 | `VRChainLightning` (VR adapter) | G1's chain lightning while invested |
 | `VRSpellTransformService` (VR) / `VRSpellTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
-| `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), `IsSpellLockActive` (blocks dialogs like targeting), telekinesis range |
-| `VRFocus` (VR adapter) | an NPC's highlight and name while hovered or locked (`SetLocked`: brighter, name readable at range) |
+| `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), the lock-on's state (`SpellLockTarget`, the only owner of the throw's target; `IsSpellLockActive` blocks dialogs like targeting), telekinesis range |
+| `VRFocus` (VR adapter) | an NPC's highlight and name while hovered or locked (on `HeroSpellTargetLocked` if it is `SpellLockTarget`, until that changes: brighter, name readable at range) |
 | `VRWeaponService` (VR) | a readied rune is `WeaponState.Mage` for the NPCs (`SetRuneReadied`) |
 | `VmCacheService` (Core) | spell data, `spellFXInstanceNames` (`TryGetSpellMfxName`), VISUALFX keys, damage per level |
 | `HeroSpellStateDomain` (Core) | sleep/freeze on the hero; `IsCastBlocked` (knocked out, asleep, frozen) |
@@ -56,13 +56,14 @@ raises `SpellHit`/`SpellSpreadHit` like a cast.
 Lock-on (rune or scroll in a hand, not ring spells, not the simulator; decision record
 `Docs/adr/2026-11-13-vr-magic-lock-on.md`):
 
-1. The rune hand holds its trigger: `VRSpellLock` extends that hand's distance grab to `VRSpellThrow.Range` and locks
-   the first standing NPC it points at (`IsDown()` = dead or knocked out, a frozen NPC stays a target). The far reach
-   is dropped again; `VRFocus.SetLocked` keeps the highlight and name until the lock ends, wherever the hands point:
+1. The rune hand holds its trigger: `VrSpellLockDomain` extends that hand's distance grab to `VRSpellThrow.Range` and
+   locks the first standing NPC it points at (`IsDown()` = dead or knocked out, a frozen NPC stays a target). The far
+   reach is dropped again; `VRFocus` keeps the highlight and name until the lock ends, wherever the hands point:
    brighter than a hover (`LockFocusBrightness`), the name growing beyond `LockNameFullSizeDistance` so it reads at
    the spell's range. `PlayerService.FocusNpc` is the target (hovering other NPCs doesn't take it meanwhile),
-   `TMAG_INIT` plays, `HeroSpellTargetLocked` makes `VrHapticsService` tick the rune hand.
-2. While locked the caster copies `VRSpellLock.Target` into its spell target every frame, so `Spell_ProcessMana`
+   `TMAG_INIT` plays (the caster, when `TickSpellLock` returns true), `HeroSpellTargetLocked` makes `VrHapticsService`
+   tick the rune hand.
+2. While locked the caster copies `VRPlayerService.SpellLockTarget` into its spell target every frame, so `Spell_ProcessMana`
    gets it as `other`. Pointing elsewhere keeps the lock.
 3. It breaks by itself when the target is down or gone, farther than `Range * LockRangeHysteresis`, or out of sight
    for `LockLostSightSeconds` (`NpcHelperService.HasFreeSight`, Gothic's sight rule: leaves and bushes don't block;
@@ -79,7 +80,7 @@ Lock-on (rune or scroll in a hand, not ring spells, not the simulator; decision 
 | change when a spell charges, casts or stops | `VRRuneCaster` (`Update`, `UpdateHoldToCast`, `TryInvestMana`, `FinalizeCast`) |
 | change how a spell looks or sounds | `VRSpellFx` (VISUALFX keys, lights, sounds) |
 | change throwing (swing, homing, flight) | `VRSpellThrow` |
-| change the lock-on (acquire, break, feedback) | `VRSpellLock`, its highlight in `VRFocus`, its vibrations in `VrHapticsService` |
+| change the lock-on (acquire, break, feedback) | `VrSpellLockDomain`, its highlight in `VRFocus`, its vibrations in `VrHapticsService` |
 | change telekinesis | `VRTelekinesisSpell`, its grab in `VRPlayerService` |
 | change what a hit does (damage, AOE, reactions) | `FightService`, `VmCacheService.GetSpellDamagePerLevel` (Core, not VR) |
 | change when the hero can't cast | `HeroSpellStateDomain.IsCastBlocked` (Core) |

@@ -47,7 +47,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// How far the spell flies (m): its emTrjTargetRange, at least DefaultThrowRange. Fixed per rune - the lock-on
-        /// (VRSpellLock) reaches as far, so a locked spell always arrives. Read after Inject().
+        /// (VrSpellLockDomain) reaches as far, so a locked spell always arrives. Read after Inject().
         /// </summary>
         public float Range
         {
@@ -109,8 +109,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// no swing drops it from the hand. Only a real throw homes on NPCs and hit targets (and then ignores the
         /// gravity). Before it flew where the camera looked, slowly but straight, even without moving the hand.
         /// The simulator can't swing: where you look, at full speed.
-        /// lockedTarget (VRSpellLock): the spell starts toward it, doesn't fall and homes in; the swing only sets the
-        /// speed, at least MinLockedSwingFactor so a gentle release still arrives.
+        /// lockedTarget (VrSpellLockDomain): the spell starts toward it, doesn't fall and homes in; the swing only sets
+        /// the speed, at least MinLockedSwingFactor so a gentle release still arrives.
         /// </summary>
         public Vector3 Aim(GameObject handGo, bool isWasd, NpcContainer lockedTarget)
         {
@@ -156,8 +156,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// The spell flies from origin: level - its damage level, investLevel - its collision effect's level, damage -
-        /// the hit's damage, lockedTarget - the lock-on's target (VRSpellLock) it homes on, null = the swing decides.
-        /// The effect in the hand (VRSpellFx) flies with it.
+        /// the hit's damage, lockedTarget - the lock-on's target (VrSpellLockDomain) it homes on, null = the swing
+        /// decides. The effect in the hand (VRSpellFx) flies with it.
         /// </summary>
         public void Throw(Vector3 origin, Vector3 direction, int level, int investLevel, int damage,
             NpcContainer lockedTarget)

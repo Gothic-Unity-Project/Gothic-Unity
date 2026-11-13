@@ -12,16 +12,16 @@ using UnityEngine;
 using ZenKit.Daedalus;
 using Logger = Gothic.Core.Logging.Logger;
 
-namespace Gothic.VR.Adapters.Vob.VobItem
+namespace Gothic.VR.Domain.Player
 {
     /// <summary>
     /// Lock-on for thrown spells: the rune hand points at an NPC and holds its trigger - the NPC is locked and a spell
     /// released by the other hand flies to it (VRSpellThrow). Sticky while the trigger is held; breaks when the target
     /// is down, out of reach (the spell's Range) or out of sight (Gothic's sight rule) for LockLostSightSeconds.
-    /// Worker of VRRuneCaster (new VRSpellLock(...).Inject()), ticked only while a throwable rune is held in a hand.
-    /// Not for ring spells and the simulator. Map: Docs/vr-magic.md.
+    /// Worker of VRPlayerService (the lock's owner, read via VRPlayerService.SpellLockTarget), ticked by VRRuneCaster
+    /// only while a throwable rune is held in a hand. Not for ring spells and the simulator. Map: Docs/vr-magic.md.
     /// </summary>
-    public class VRSpellLock
+    public class VrSpellLockDomain
     {
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
@@ -29,38 +29,27 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly PlayerService _playerService;
 
-        private readonly float _range;
-        private readonly VRSpellFx _fx;
-
+        private float _range;
         private VrHandSide _runeHandSide;
         // The rune hand's distance grab reaches the spell's range while the trigger looks for a target.
         private bool _isSearching;
         // The lock broke by itself: the trigger has to be let go before it locks again.
         private bool _isWaitingForRelease;
-        private VRFocus _targetFocus;
         private Transform _heroRoot;
         private float _nextSightCheckTime;
         // Time the target went out of sight, -1 = in sight.
         private float _sightLostTime = -1f;
 
         /// <summary>
-        /// The locked NPC, null if none. The caster's only source for the throw's target.
+        /// The locked NPC, null if none.
         /// </summary>
         public NpcContainer Target { get; private set; }
 
         /// <summary>
-        /// range: how far the spell flies (VRSpellThrow.Range). fx: the caster's effects (lock sound).
+        /// Every frame while the rune is held and the other hand is free to throw. range: how far the spell flies
+        /// (VRSpellThrow.Range). true the frame the target got locked.
         /// </summary>
-        public VRSpellLock(float range, VRSpellFx fx)
-        {
-            _range = range;
-            _fx = fx;
-        }
-
-        /// <summary>
-        /// Every frame while the rune is held and the other hand is free to throw.
-        /// </summary>
-        public void Tick(VrHandSide runeHandSide)
+        public bool Tick(VrHandSide runeHandSide, float range)
         {
             if ((Target != null || _isSearching) && runeHandSide != _runeHandSide)
                 Clear();
@@ -69,21 +58,24 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             {
                 Clear();
                 _isWaitingForRelease = false;
-                return;
+                return false;
             }
 
             if (_isWaitingForRelease)
-                return;
+                return false;
 
             _runeHandSide = runeHandSide;
-            if (Target != null)
-                CheckLock();
-            else
-                Search();
+            _range = range;
+            if (Target == null)
+                return Search();
+
+            CheckLock();
+            return false;
         }
 
         /// <summary>
-        /// Unlocks quietly (trigger let go, rune let go or no free throwing hand): no vibration.
+        /// Unlocks quietly (trigger let go or no free throwing hand): no vibration. A lock lost by itself still waits
+        /// for the trigger to be let go.
         /// </summary>
         public void Clear()
         {
@@ -91,15 +83,25 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (Target == null)
                 return;
 
-            Logger.Log("[VRSpellLock] Unlocked", LogCat.VR);
+            Logger.Log("[VrSpellLockDomain] Unlocked", LogCat.VR);
             Unlock();
+        }
+
+        /// <summary>
+        /// The rune is gone: unlocks quietly and forgets the wait for the trigger's release - the next rune starts
+        /// fresh.
+        /// </summary>
+        public void End()
+        {
+            Clear();
+            _isWaitingForRelease = false;
         }
 
         /// <summary>
         /// Pressed, nothing locked yet: the first standing NPC the rune hand points at is locked - pressing a moment
         /// before pointing works too.
         /// </summary>
-        private void Search()
+        private bool Search()
         {
             if (!_isSearching)
             {
@@ -109,13 +111,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var candidate = _vrPlayerService.GetSpellTarget(_runeHandSide);
             if (candidate == null || candidate.Go == null || candidate.IsDown())
-                return;
+                return false;
 
             var hero = _npcService.GetHeroContainer();
             if (candidate == hero || hero?.Go == null)
-                return;
+                return false;
 
             Lock(candidate, hero.Go.transform);
+            return true;
         }
 
         private void Lock(NpcContainer target, Transform heroRoot)
@@ -125,19 +128,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _sightLostTime = -1f;
             _nextSightCheckTime = Time.time + VRConstants.Magic.LockSightCheckSeconds;
 
-            // Highlight first: dropping the far reach ends the hand's hover on the target right after.
-            _targetFocus = target.Go.GetComponentInChildren<VRFocus>();
-            if (_targetFocus != null)
-                _targetFocus.SetLocked(true);
-
-            StopSearching();
-            _vrPlayerService.IsSpellLockActive = true;
             // Gothic's focus is the spell's target.
             _playerService.FocusNpc = target;
 
-            _fx.PlayOneShot("TMAG_INIT");
+            // Highlight (VRFocus) first: dropping the far reach ends the hand's hover on the target right after.
             GlobalEventDispatcher.HeroSpellTargetLocked.Invoke((int)_runeHandSide);
-            Logger.Log($"[VRSpellLock] Locked {target.Instance.GetName(NpcNameSlot.Slot0)} with the " +
+            StopSearching();
+
+            Logger.Log($"[VrSpellLockDomain] Locked {target.Instance.GetName(NpcNameSlot.Slot0)} with the " +
                        $"{_runeHandSide} hand (range {_range:F0} m)", LogCat.VR);
         }
 
@@ -184,21 +182,18 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         private void LoseLock(string reason)
         {
-            Logger.Log($"[VRSpellLock] Lock on {Target.Instance.GetName(NpcNameSlot.Slot0)} lost - {reason}",
+            Logger.Log($"[VrSpellLockDomain] Lock on {Target.Instance.GetName(NpcNameSlot.Slot0)} lost - {reason}",
                 LogCat.VR);
             Unlock();
             _isWaitingForRelease = true;
             GlobalEventDispatcher.HeroSpellTargetLockLost.Invoke((int)_runeHandSide);
         }
 
+        // VRFocus sees SpellLockTarget gone and drops the highlight.
         private void Unlock()
         {
-            if (_targetFocus != null)
-                _targetFocus.SetLocked(false);
-            _targetFocus = null;
             _heroRoot = null;
             Target = null;
-            _vrPlayerService.IsSpellLockActive = false;
         }
 
         private void StopSearching()

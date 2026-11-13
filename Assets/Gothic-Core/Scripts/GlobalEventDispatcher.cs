@@ -308,12 +308,12 @@ namespace Gothic.Core
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> FistPunchLanded = new();
 
-        // VR magic: the rune hand locked an NPC as the target of thrown spells (VRSpellLock).
+        // VR magic: the rune hand locked an NPC as the target of thrown spells (VrSpellLockDomain).
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> HeroSpellTargetLocked = new();
 
-        // VR magic: the lock broke by itself - target down, out of range or out of sight (VRSpellLock). Not raised
-        // when the player lets go of the trigger.
+        // VR magic: the lock broke by itself - target down, out of range or out of sight (VrSpellLockDomain). Not
+        // raised when the player lets go of the trigger.
         // 1. HandSide -> int of Gothic.VR.Interaction.Models.VrHandSide (0 = Left, 1 = Right)
         public static readonly UnityEvent<int> HeroSpellTargetLockLost = new();
 

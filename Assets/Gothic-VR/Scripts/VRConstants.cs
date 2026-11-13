@@ -271,7 +271,7 @@ namespace Gothic.VR
             // Self-tuned for VR: the hand throws at long distances, vanilla ranges ended too early.
             public const float DefaultThrowRange = 30f;
 
-            // Lock-on (VRSpellLock): swing factor a locked throw has at least, so a gentle release still arrives.
+            // Lock-on (VrSpellLockDomain): swing factor a locked throw has at least, so a gentle release still arrives.
             // Self-tuned for VR: 0.6 of the full-swing speed reaches 30 m before the lock's target walks far.
             public const float MinLockedSwingFactor = 0.6f;
 

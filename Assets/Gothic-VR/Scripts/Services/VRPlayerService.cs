@@ -14,6 +14,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -145,9 +146,39 @@ namespace Gothic.VR.Services
         public bool IsSpellTargetingActive { get; private set; }
 
         /// <summary>
-        /// A thrown spell's target is locked (VRSpellLock) - the far reach is off again, but dialogs stay blocked.
+        /// A thrown spell's target is locked - the far reach is off again, but dialogs stay blocked.
         /// </summary>
-        public bool IsSpellLockActive { get; set; }
+        public bool IsSpellLockActive => SpellLockTarget != null;
+
+        /// <summary>
+        /// The NPC a thrown spell is locked on (VrSpellLockDomain), null if none - the one place holding the lock:
+        /// VRRuneCaster's throw target, VRFocus' highlight.
+        /// </summary>
+        public NpcContainer SpellLockTarget => _spellLock?.Target;
+
+        // Created on the first throwable rune held (its services live in the VR scene scope).
+        private VrSpellLockDomain _spellLock;
+
+        /// <summary>
+        /// Every frame while a throwable rune is held and the other hand is free to throw: the rune hand's trigger
+        /// locks the NPC it points at, keeps it while held and breaks it (down, out of range or sight).
+        /// range: how far the spell flies (VRSpellThrow.Range). true the frame the target got locked.
+        /// </summary>
+        public bool TickSpellLock(VrHandSide runeHandSide, float range)
+        {
+            _spellLock ??= new VrSpellLockDomain().Inject();
+            return _spellLock.Tick(runeHandSide, range);
+        }
+
+        /// <summary>
+        /// Unlocks quietly (no free throwing hand). A lock lost by itself still waits for the trigger's release.
+        /// </summary>
+        public void ClearSpellLock() => _spellLock?.Clear();
+
+        /// <summary>
+        /// The rune is gone: unlocks quietly, the next rune starts fresh.
+        /// </summary>
+        public void EndSpellLock() => _spellLock?.End();
 
         // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
         public bool IsTelekinesisActive { get; private set; }
